@@ -31,38 +31,44 @@ export const useDashboardData = (apiBase) => {
         fetchingDataRef.current = true;
         
         try {
-            const [portfolioData, positionsData, analyticsData, botsData] = await Promise.all([
-                fetchJsonWithRetry(`${apiBase}/api/crypto/portfolio`),
-                fetchJsonWithRetry(`${apiBase}/api/crypto/positions`),
-                fetchJsonWithRetry(`${apiBase}/api/crypto/performance-analytics`),
-                fetchJsonWithRetry(`${apiBase}/api/crypto/bot/active-bots`),
+            // Fetch data with error handling for each request
+            const results = await Promise.allSettled([
+                fetchJsonWithRetry(`${apiBase}/api/crypto/portfolio`).catch(e => null),
+                fetchJsonWithRetry(`${apiBase}/api/crypto/positions`).catch(e => null),
+                fetchJsonWithRetry(`${apiBase}/api/crypto/performance-analytics`).catch(e => null),
+                fetchJsonWithRetry(`${apiBase}/api/crypto/bot/active-bots`).catch(e => null),
             ]);
             
+            const [portfolioResult, positionsResult, analyticsResult, botsResult] = results;
+            
             // Update portfolio
-            if (portfolioData) {
-                setPortfolio(portfolioData);
+            if (portfolioResult.status === 'fulfilled' && portfolioResult.value) {
+                setPortfolio(portfolioResult.value);
             }
             
-            // Update positions
-            if (positionsData) {
-                const open = positionsData.filter(p => p.status === 'open') || [];
-                const closed = positionsData.filter(p => p.status === 'closed') || [];
-                setOpenPositions(open);
-                setClosedPositions(closed);
-                setAllTrades(positionsData);
+            // Update positions - validate it's an array
+            if (positionsResult.status === 'fulfilled' && positionsResult.value) {
+                const positionsData = positionsResult.value;
+                if (Array.isArray(positionsData)) {
+                    const open = positionsData.filter(p => p?.status === 'open') || [];
+                    const closed = positionsData.filter(p => p?.status === 'closed') || [];
+                    setOpenPositions(open);
+                    setClosedPositions(closed);
+                    setAllTrades(positionsData);
+                }
             }
             
             // Update analytics
-            if (analyticsData) {
-                setPerformanceAnalytics(analyticsData);
+            if (analyticsResult.status === 'fulfilled' && analyticsResult.value) {
+                setPerformanceAnalytics(analyticsResult.value);
             }
             
             // Update bots
-            if (botsData?.bots) {
-                setActiveBots(botsData.bots);
+            if (botsResult.status === 'fulfilled' && botsResult.value?.bots) {
+                setActiveBots(botsResult.value.bots);
             }
         } catch (error) {
-            console.error("❌ Error fetching dashboard data:", error);
+            // Silent fail - don't spam console
         } finally {
             fetchingDataRef.current = false;
         }

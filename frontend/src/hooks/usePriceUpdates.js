@@ -23,7 +23,7 @@ export const usePriceUpdates = (apiBase, wsConnected) => {
         try {
             const data = await fetchJsonWithRetry(
                 `${apiBase}/api/crypto/price/${symbol}?currency=usdt`
-            );
+            ).catch(() => null);
             
             if (data && typeof data.price === 'number') {
                 updatePrices({ [symbol]: data.price });
@@ -36,7 +36,7 @@ export const usePriceUpdates = (apiBase, wsConnected) => {
                 return data.price;
             }
         } catch (error) {
-            console.error(`Error fetching price for ${symbol}:`, error);
+            // Silent fail
         }
         return null;
     }, [apiBase, updatePrices, setCurrentPrice, currentSymbol]);
