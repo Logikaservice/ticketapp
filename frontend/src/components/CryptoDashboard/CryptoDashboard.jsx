@@ -1333,6 +1333,7 @@ setBotParameters(data.bot_parameters);
                         availableSymbols={availableSymbols}
                         onSelectSymbol={setCurrentSymbol}
                         apiBase={apiBase}
+                        tradeSizeUsdt={botParameters?.trade_size_usdt || 100}
                     />
                 </div>
             </div>

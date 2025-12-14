@@ -682,6 +682,9 @@ router.get('/dashboard', async (req, res) => {
             return trade;
         });
 
+        // ✅ FIX: Recupera bot_parameters per includerli nella risposta
+        const botParams = await getBotParameters('global').catch(() => DEFAULT_PARAMS);
+        
         res.json({
             portfolio: {
                 balance_usd: portfolio.balance_usd,
@@ -703,6 +706,8 @@ router.get('/dashboard', async (req, res) => {
             open_positions: openPositionsWithSentiment, // Include open positions with bot sentiment
             closed_positions: closedPositions, // ✅ FIX: Include closed positions per P&L
             rsi: latestRSI,
+            // ✅ FIX: Aggiungi bot_parameters alla risposta
+            bot_parameters: botParams || DEFAULT_PARAMS,
             // ✅ KELLY CRITERION: Performance statistics
             // ✅ FIX: Se non esiste record con id=1, crealo
             performance_stats: await (async () => {
