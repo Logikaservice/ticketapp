@@ -6300,13 +6300,15 @@ router.put('/bot/parameters', async (req, res) => {
         // ✅ FIX: Serializza correttamente per PostgreSQL TEXT
         const parametersJson = JSON.stringify(finalParams);
 
-        // ✅ DEBUG: Verifica che min_volume_24h sia nel JSON
+        // ✅ DEBUG CRITICO: Verifica che trade_size_usdt sia nel JSON
         const parsedCheck = JSON.parse(parametersJson);
         console.log('🔍 [BOT-PARAMS] Verifica JSON prima del salvataggio:', {
+            trade_size_usdt_IN_JSON: 'trade_size_usdt' in parsedCheck,
+            trade_size_usdt_VALUE: parsedCheck.trade_size_usdt,
+            trade_size_usdt_IN_VALIDPARAMS: 'trade_size_usdt' in validParams,
+            validParams_trade_size_usdt: validParams.trade_size_usdt,
             hasMinVolume24h: 'min_volume_24h' in parsedCheck,
             min_volume_24h_value: parsedCheck.min_volume_24h,
-            min_volume_24h_in_validParams: 'min_volume_24h' in validParams,
-            validParams_min_volume_24h: validParams.min_volume_24h,
             jsonLength: parametersJson.length
         });
 
@@ -6365,10 +6367,18 @@ router.put('/bot/parameters', async (req, res) => {
             });
 
             // ✅ DEBUG CRITICO: Verifica che trade_size_usdt sia stato salvato correttamente
+            console.log('🔍 [BOT-PARAMS] Verifica post-salvataggio trade_size_usdt:');
+            console.log('   Valore validato (validParams):', validParams.trade_size_usdt);
+            console.log('   Valore salvato nel DB:', savedParams.trade_size_usdt);
+            console.log('   Valori corrispondono?', savedParams.trade_size_usdt === validParams.trade_size_usdt);
+            
             if (savedParams.trade_size_usdt !== validParams.trade_size_usdt) {
                 console.error('❌ [BOT-PARAMS] ERRORE CRITICO: trade_size_usdt non salvato correttamente!');
                 console.error('   Valore atteso:', validParams.trade_size_usdt);
                 console.error('   Valore salvato:', savedParams.trade_size_usdt);
+                console.error('   Differenza:', Math.abs(savedParams.trade_size_usdt - validParams.trade_size_usdt));
+            } else {
+                console.log('✅ [BOT-PARAMS] trade_size_usdt salvato correttamente!');
             }
             
             // ✅ DEBUG CRITICO: Se min_volume_24h non corrisponde, logga errore
