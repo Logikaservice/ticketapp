@@ -169,7 +169,7 @@ router.get('/history', async (req, res) => {
     try {
         // Get interval and symbol from query parameters
         const interval = req.query.interval || '15m'; // Support: 1m, 15m, 1h, 1d, etc.
-        const symbol = req.query.symbol || 'bitcoin'; // Default to bitcoin for backward compatibility
+        const symbol = req.query.symbol || 'bitcoin_usdt'; // Default to bitcoin_usdt (duplicati rimossi)
 
         // Check if we have OHLC klines data first (preferred)
         const klinesCountRows = await dbAll(`SELECT COUNT(*) as count FROM klines WHERE symbol = $1 AND interval = $2`, [symbol, interval]);
@@ -1258,7 +1258,7 @@ const DEFAULT_PARAMS = {
 };
 
 // Helper to get bot strategy parameters from database (supports multi-symbol)
-const getBotParameters = async (symbol = 'bitcoin') => {
+const getBotParameters = async (symbol = 'bitcoin_usdt') => {
     try {
         // ✅ FIX CRITICO: Leggi PRIMA i parametri globali (base), poi quelli specifici del simbolo (sovrascrivono)
         // Questo assicura che tutti i parametri (incluso min_volume_24h) siano sempre disponibili
@@ -10115,55 +10115,38 @@ router.get('/scanner', async (req, res) => {
         const scannerParams = await getBotParameters('global').catch(() => ({}));
         // List of symbols to scan (same as available)
         // List of symbols to scan (ALL available symbols)
+        // ✅ RIMOSSI simboli duplicati senza suffisso (eliminati dal database)
         const symbolsToScan = [
             // Bitcoin
-            { symbol: 'bitcoin', pair: 'BTCEUR', display: 'BTC/EUR' },
             { symbol: 'bitcoin_usdt', pair: 'BTCUSDT', display: 'BTC/USDT' },
             // Ethereum
-            { symbol: 'ethereum', pair: 'ETHEUR', display: 'ETH/EUR' },
             { symbol: 'ethereum_usdt', pair: 'ETHUSDT', display: 'ETH/USDT' },
             // Solana
-            { symbol: 'solana', pair: 'SOLUSDT', display: 'SOL/USDT' },
-            { symbol: 'solana_eur', pair: 'SOLEUR', display: 'SOL/EUR' },
+            { symbol: 'solana_eur', pair: 'SOLUSDT', display: 'SOL/USDT' },
             // Cardano
-            { symbol: 'cardano', pair: 'ADAEUR', display: 'ADA/EUR' },
             { symbol: 'cardano_usdt', pair: 'ADAUSDT', display: 'ADA/USDT' },
             // Polkadot
-            { symbol: 'polkadot', pair: 'DOTEUR', display: 'DOT/EUR' },
             { symbol: 'polkadot_usdt', pair: 'DOTUSDT', display: 'DOT/USDT' },
             // Chainlink
-            { symbol: 'chainlink', pair: 'LINKEUR', display: 'LINK/EUR' },
             { symbol: 'chainlink_usdt', pair: 'LINKUSDT', display: 'LINK/USDT' },
-            // Litecoin
-            { symbol: 'litecoin', pair: 'LTCEUR', display: 'LTC/EUR' },
-            { symbol: 'litecoin_usdt', pair: 'LTCUSDT', display: 'LTC/USDT' },
             // Ripple
-            { symbol: 'ripple', pair: 'XRPUSDT', display: 'XRP/USDT' },
-            { symbol: 'ripple_eur', pair: 'XRPEUR', display: 'XRP/EUR' },
+            { symbol: 'ripple_eur', pair: 'XRPUSDT', display: 'XRP/USDT' },
             // Binance Coin
-            { symbol: 'binance_coin', pair: 'BNBUSDT', display: 'BNB/USDT' },
-            { symbol: 'binance_coin_eur', pair: 'BNBEUR', display: 'BNB/EUR' },
+            { symbol: 'binance_coin_eur', pair: 'BNBUSDT', display: 'BNB/USDT' },
             // Polygon (POL)
-            { symbol: 'pol_polygon', pair: 'POLUSDT', display: 'POL/USDT' },
-            { symbol: 'pol_polygon_eur', pair: 'POLEUR', display: 'POL/EUR' },
+            { symbol: 'pol_polygon_eur', pair: 'POLUSDT', display: 'POL/USDT' },
             // Avalanche
-            { symbol: 'avalanche', pair: 'AVAXUSDT', display: 'AVAX/USDT' },
-            { symbol: 'avalanche_eur', pair: 'AVAXEUR', display: 'AVAX/EUR' },
+            { symbol: 'avalanche_eur', pair: 'AVAXUSDT', display: 'AVAX/USDT' },
             // Uniswap
-            { symbol: 'uniswap', pair: 'UNIUSDT', display: 'UNI/USDT' },
-            // ❌ { symbol: 'uniswap_eur', pair: 'UNIEUR', display: 'UNI/EUR' }, // Non disponibile su Binance
+            { symbol: 'uniswap_eur', pair: 'UNIUSDT', display: 'UNI/USDT' },
             // Dogecoin
-            { symbol: 'dogecoin', pair: 'DOGEUSDT', display: 'DOGE/USDT' },
-            { symbol: 'dogecoin_eur', pair: 'DOGEEUR', display: 'DOGE/EUR' },
+            { symbol: 'dogecoin_eur', pair: 'DOGEUSDT', display: 'DOGE/USDT' },
             // Shiba Inu
-            { symbol: 'shiba', pair: 'SHIBUSDT', display: 'SHIB/USDT' },
-            { symbol: 'shiba_eur', pair: 'SHIBEUR', display: 'SHIB/EUR' },
+            { symbol: 'shiba_eur', pair: 'SHIBUSDT', display: 'SHIB/USDT' },
             // Near Protocol
-            { symbol: 'near', pair: 'NEARUSDT', display: 'NEAR/USDT' },
-            // ❌ { symbol: 'near_eur', pair: 'NEAREUR', display: 'NEAR/EUR' }, // Non disponibile su Binance
+            { symbol: 'near_eur', pair: 'NEARUSDT', display: 'NEAR/USDT' },
             // Cosmos
-            { symbol: 'atom', pair: 'ATOMUSDT', display: 'ATOM/USDT' },
-            // ❌ { symbol: 'atom_eur', pair: 'ATOMEUR', display: 'ATOM/EUR' }, // Non disponibile su Binance
+            { symbol: 'atom_eur', pair: 'ATOMUSDT', display: 'ATOM/USDT' },
             // Aave
             { symbol: 'aave', pair: 'AAVEUSDT', display: 'AAVE/USDT' },
             // ❌ { symbol: 'aave_eur', pair: 'AAVEEUR', display: 'AAVE/EUR' }, // Non disponibile su Binance
@@ -10174,19 +10157,16 @@ router.get('/scanner', async (req, res) => {
             { symbol: 'fil', pair: 'FILUSDT', display: 'FIL/USDT' },
             // ❌ { symbol: 'fil_eur', pair: 'FILEUR', display: 'FIL/EUR' }, // Non disponibile su Binance
             // Tron
-            { symbol: 'trx', pair: 'TRXUSDT', display: 'TRX/USDT' },
-            { symbol: 'trx_eur', pair: 'TRXEUR', display: 'TRX/EUR' },
+            { symbol: 'trx_eur', pair: 'TRXUSDT', display: 'TRX/USDT' },
             // Stellar
-            { symbol: 'xlm', pair: 'XLMUSDT', display: 'XLM/USDT' },
-            { symbol: 'xlm_eur', pair: 'XLMEUR', display: 'XLM/EUR' },
+            { symbol: 'xlm_eur', pair: 'XLMUSDT', display: 'XLM/USDT' },
             // EOS - ❌ Delisted from Binance
             // ❌ { symbol: 'eos', pair: 'EOSUSDT', display: 'EOS/USDT' }, // Delisted from Binance
             // ❌ { symbol: 'eos_eur', pair: 'EOSEUR', display: 'EOS/EUR' }, // Non disponibile su Binance
             // Arbitrum
-            { symbol: 'arb', pair: 'ARBUSDT', display: 'ARB/USDT' },
-            // ❌ { symbol: 'arb_eur', pair: 'ARBEUR', display: 'ARB/EUR' }, // Non disponibile su Binance
+            { symbol: 'arb_eur', pair: 'ARBUSDT', display: 'ARB/USDT' },
             // Optimism
-            { symbol: 'op', pair: 'OPUSDT', display: 'OP/USDT' },
+            { symbol: 'op_eur', pair: 'OPUSDT', display: 'OP/USDT' },
             // ❌ { symbol: 'op_eur', pair: 'OPEUR', display: 'OP/EUR' }, // Non disponibile su Binance
             // Polygon (MATIC) - Deprecato, usa POL
             // ❌ { symbol: 'matic', pair: 'MATICUSDT', display: 'MATIC/USDT' }, // Deprecato, usa POL
@@ -10198,13 +10178,11 @@ router.get('/scanner', async (req, res) => {
             { symbol: 'mana', pair: 'MANAUSDT', display: 'MANA/USDT' },
             { symbol: 'axs', pair: 'AXSUSDT', display: 'AXS/USDT' },
             // Layer 1 Altcoins (solo USDT disponibile)
-            { symbol: 'sui', pair: 'SUIUSDT', display: 'SUI/USDT' },
+            { symbol: 'sui_eur', pair: 'SUIUSDT', display: 'SUI/USDT' },
             { symbol: 'apt', pair: 'APTUSDT', display: 'APT/USDT' },
             { symbol: 'sei', pair: 'SEIUSDT', display: 'SEI/USDT' },
             { symbol: 'ton', pair: 'TONUSDT', display: 'TON/USDT' },
             { symbol: 'inj', pair: 'INJUSDT', display: 'INJ/USDT' },
-            { symbol: 'algo', pair: 'ALGOUSDT', display: 'ALGO/USDT' },
-            { symbol: 'vet', pair: 'VETUSDT', display: 'VET/USDT' },
             { symbol: 'icp', pair: 'ICPUSDT', display: 'ICP/USDT' },
             // DeFi (solo USDT disponibile)
             { symbol: 'mkr', pair: 'MKRUSDT', display: 'MKR/USDT' },
@@ -10217,9 +10195,9 @@ router.get('/scanner', async (req, res) => {
             // Gaming & NFT (solo USDT disponibile)
             { symbol: 'imx', pair: 'IMXUSDT', display: 'IMX/USDT' },
             { symbol: 'gala', pair: 'GALAUSDT', display: 'GALA/USDT' },
-            { symbol: 'enj', pair: 'ENJUSDT', display: 'ENJ/USDT' },
+            { symbol: 'enj_eur', pair: 'ENJUSDT', display: 'ENJ/USDT' },
             // Meme Coins (solo USDT disponibile)
-            { symbol: 'pepe', pair: 'PEPEUSDT', display: 'PEPE/USDT' },
+            { symbol: 'pepe_eur', pair: 'PEPEUSDT', display: 'PEPE/USDT' },
             { symbol: 'floki', pair: 'FLOKIUSDT', display: 'FLOKI/USDT' },
             { symbol: 'bonk', pair: 'BONKUSDT', display: 'BONK/USDT' },
             // Other
