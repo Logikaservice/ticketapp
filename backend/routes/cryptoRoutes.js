@@ -6005,13 +6005,37 @@ router.get('/bot/parameters', async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     
     try {
-        const params = await getBotParameters();
+        // ✅ FIX: getBotParameters() senza parametri usa default 'bitcoin_usdt'
+        // Ma per il frontend vogliamo i parametri GLOBALI, non quelli di un simbolo specifico
+        // Quindi leggiamo direttamente dal database i parametri globali
+        const globalBot = await dbGet(
+            "SELECT parameters FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global' LIMIT 1"
+        );
+        
+        let params;
+        if (globalBot && globalBot.parameters) {
+            const globalParams = typeof globalBot.parameters === 'string' 
+                ? JSON.parse(globalBot.parameters) 
+                : globalBot.parameters;
+            // Merge con DEFAULT_PARAMS per avere tutti i parametri
+            params = { ...DEFAULT_PARAMS, ...globalParams };
+            console.log('📥 [BOT-PARAMS-GET] Parametri globali caricati:', {
+                trade_size_usdt: params.trade_size_usdt,
+                max_positions: params.max_positions,
+                totalParams: Object.keys(params).length
+            });
+        } else {
+            // Se non ci sono parametri globali, usa defaults
+            params = DEFAULT_PARAMS;
+            console.log('⚠️  [BOT-PARAMS-GET] Nessun parametro globale trovato, uso defaults');
+        }
+        
         res.json({
             success: true,
             parameters: params
         });
     } catch (error) {
-        console.error('Error getting bot parameters:', error);
+        console.error('❌ [BOT-PARAMS-GET] Error getting bot parameters:', error);
         res.status(500).json({ error: error.message });
     }
 });
