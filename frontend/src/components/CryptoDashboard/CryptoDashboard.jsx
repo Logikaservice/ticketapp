@@ -917,19 +917,19 @@ setBotParameters(data.bot_parameters);
             const entryPrice = parseFloat(pos.entry_price) || 0;
             
             // Prezzo corrente per questa posizione SHORT
-            let currentPrice = allSymbolPrices[pos.symbol];
-            // Se non c'è in allSymbolPrices ma è il simbolo corrente, usa currentPrice
-            if (!currentPrice && pos.symbol === currentSymbol && currentPrice > 0) {
-                currentPrice = currentPrice;
+            let currentPriceForShort = allSymbolPrices[pos.symbol];
+            // Se non c'è in allSymbolPrices ma è il simbolo corrente, usa currentPrice del componente
+            if (!currentPriceForShort && pos.symbol === currentSymbol && currentPrice > 0) {
+                currentPriceForShort = currentPrice;
             }
             // Fallback: usa prezzo dal database
-            if (!currentPrice || currentPrice === 0) {
-                currentPrice = parseFloat(pos.current_price) || entryPrice;
+            if (!currentPriceForShort || currentPriceForShort === 0) {
+                currentPriceForShort = parseFloat(pos.current_price) || entryPrice;
             }
             
             // P&L SHORT = (entry_price - current_price) * volume
-            if (entryPrice > 0 && currentPrice > 0 && remainingVolume > 0) {
-                const shortPnL = (entryPrice - currentPrice) * remainingVolume;
+            if (entryPrice > 0 && currentPriceForShort > 0 && remainingVolume > 0) {
+                const shortPnL = (entryPrice - currentPriceForShort) * remainingVolume;
                 totalShortPnL += shortPnL;
             }
         }
