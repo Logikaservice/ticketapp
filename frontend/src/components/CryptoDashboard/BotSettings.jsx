@@ -239,6 +239,17 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                 const parsed = parseFloat(normalizedValue);
                 setParameters(prev => {
                     const newParams = { ...prev, [key]: isNaN(parsed) ? prev[key] : parsed };
+                    // ✅ DEBUG: Log per trade_size_usdt
+                    if (key === 'trade_size_usdt') {
+                        console.log('🔍 [BOT-SETTINGS] trade_size_usdt cambiato:', {
+                            inputValue: value,
+                            normalizedValue,
+                            parsed,
+                            isNaN: isNaN(parsed),
+                            finalValue: newParams.trade_size_usdt,
+                            prevValue: prev.trade_size_usdt
+                        });
+                    }
                     if (key === 'min_volume_24h') {
                         console.log('🔍 [BOT-SETTINGS] min_volume_24h dopo parseFloat:', {
                             normalizedValue,
