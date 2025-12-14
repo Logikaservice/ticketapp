@@ -23,7 +23,7 @@ const HYBRID_STRATEGY_CONFIG = {
 const CORRELATION_GROUPS = {
     'BTC_MAJOR': ['bitcoin', 'bitcoin_usdt', 'ethereum', 'ethereum_usdt', 'solana', 'solana_eur', 'cardano', 'cardano_usdt', 'polkadot', 'polkadot_usdt'],
     'DEFI': ['chainlink', 'chainlink_usdt', 'uniswap', 'uniswap_eur', 'avalanche', 'avalanche_eur', 'aave', 'crv', 'ldo', 'mkr', 'comp', 'snx'],
-    'LAYER1_ALT': ['near', 'near_eur', 'atom', 'atom_eur', 'sui', 'sui_eur', 'apt', 'sei', 'ton', 'inj', 'algo', 'vet', 'icp'],
+    'LAYER1_ALT': ['near', 'near_eur', 'atom', 'atom_eur', 'sui', 'sui_eur', 'apt', 'sei', 'ton', 'inj', 'icp'],
     'PAYMENTS': ['trx', 'trx_eur', 'xlm', 'xlm_eur'],
     'LAYER2': ['arb', 'arb_eur', 'op', 'op_eur', 'matic', 'matic_eur'],
     'GAMING': ['sand', 'mana', 'axs', 'imx', 'gala', 'enj', 'enj_eur'],
@@ -31,7 +31,7 @@ const CORRELATION_GROUPS = {
     'MEME': ['dogecoin', 'dogecoin_eur', 'shiba', 'shiba_eur', 'pepe', 'pepe_eur', 'floki', 'bonk'],
     'AI_DATA': ['fet', 'render', 'grt'],
     'STABLECOINS': ['usdc'],
-    'INDEPENDENT': ['ripple', 'ripple_eur', 'litecoin', 'litecoin_usdt', 'binance_coin', 'binance_coin_eur', 'pol_polygon', 'pol_polygon_eur']
+    'INDEPENDENT': ['ripple', 'ripple_eur', 'binance_coin', 'binance_coin_eur', 'pol_polygon', 'pol_polygon_eur']
 };
 
 function getCorrelationGroup(symbol) {

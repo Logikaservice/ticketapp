@@ -68,8 +68,6 @@ const SYMBOL_TO_PAIR = {
     'polkadot_usdt': 'DOTUSDT',
     'chainlink': 'LINKEUR',
     'chainlink_usdt': 'LINKUSDT',
-    'litecoin': 'LTCEUR',
-    'litecoin_usdt': 'LTCUSDT',
     'ripple': 'XRPUSDT',
     'ripple_eur': 'XRPEUR',
     'binance_coin': 'BNBEUR',
@@ -80,7 +78,7 @@ const SYMBOL_TO_PAIR = {
 const CORRELATION_GROUPS = {
     'BTC_MAJOR': ['bitcoin', 'bitcoin_usdt', 'ethereum', 'ethereum_usdt', 'solana', 'solana_eur'],
     'DEFI': ['chainlink', 'chainlink_usdt'],
-    'INDEPENDENT': ['ripple', 'ripple_eur', 'litecoin', 'litecoin_usdt', 'binance_coin', 'binance_coin_eur'],
+    'INDEPENDENT': ['ripple', 'ripple_eur', 'binance_coin', 'binance_coin_eur'],
 };
 
 // ✅ LIMITI AUMENTATI per più posizioni contemporanee

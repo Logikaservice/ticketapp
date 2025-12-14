@@ -1318,7 +1318,6 @@ const SYMBOL_TO_PAIR = {
     'apt': 'APTUSDT',
     'ton': 'TONUSDT',
     'icp': 'ICPUSDT',
-    'algo': 'ALGOUSDT',
 
     // DeFi Blue Chips
     'aave': 'AAVEUSDT',
@@ -1337,7 +1336,6 @@ const SYMBOL_TO_PAIR = {
     'pol_polygon_eur': 'POLUSDT',
 
     // Payments & Old School
-    'litecoin_usdt': 'LTCUSDT',
     'trx_eur': 'TRXUSDT',
     'xlm_eur': 'XLMUSDT',
 
@@ -1368,7 +1366,6 @@ const SYMBOL_TO_PAIR = {
     // Others
     'sei': 'SEIUSDT',
     'inj': 'INJUSDT',
-    'vet': 'VETUSDT',
     'usdc': 'USDCUSDT'
 };
 
@@ -1377,7 +1374,7 @@ const SYMBOL_TO_PAIR = {
 const CORRELATION_GROUPS = {
     'BTC_MAJOR': ['bitcoin_usdt', 'ethereum_usdt', 'solana_eur', 'cardano_usdt', 'polkadot_usdt'],
     'DEFI': ['chainlink_usdt', 'uniswap_eur', 'avalanche_eur', 'aave', 'crv', 'ldo', 'mkr', 'comp', 'snx'],
-    'LAYER1_ALT': ['near_eur', 'atom_eur', 'sui_eur', 'apt', 'sei', 'ton', 'inj', 'algo', 'vet', 'icp'],
+    'LAYER1_ALT': ['near_eur', 'atom_eur', 'sui_eur', 'apt', 'sei', 'ton', 'inj', 'icp'],
     'PAYMENTS': ['trx_eur', 'xlm_eur'],
     'LAYER2': ['arb_eur', 'op_eur', 'matic_eur'],
     'GAMING': ['sand', 'mana', 'axs', 'imx', 'gala', 'enj_eur'],
@@ -1385,7 +1382,7 @@ const CORRELATION_GROUPS = {
     'MEME': ['dogecoin_eur', 'shiba_eur', 'pepe_eur', 'floki', 'bonk'],
     'AI_DATA': ['fet', 'render', 'grt'],
     'STABLECOINS': ['usdc'],
-    'INDEPENDENT': ['ripple_eur', 'litecoin_usdt', 'binance_coin_eur', 'pol_polygon_eur']
+    'INDEPENDENT': ['ripple_eur', 'binance_coin_eur', 'pol_polygon_eur']
 };
 
 // Config Strategia Ibrida
@@ -1413,7 +1410,6 @@ const SYMBOL_TO_COINGECKO = {
     'cardano_usdt': 'cardano',
     'polkadot_usdt': 'polkadot',
     'chainlink_usdt': 'chainlink',
-    'litecoin_usdt': 'litecoin',
     'ripple_eur': 'ripple',
     'binance_coin_eur': 'binancecoin',
     'pol_polygon_eur': 'polygon-ecosystem-token',
@@ -1434,8 +1430,6 @@ const SYMBOL_TO_COINGECKO = {
     'sei': 'sei-network',
     'ton': 'the-open-network',
     'inj': 'injective-protocol',
-    'algo': 'algorand',
-    'vet': 'vechain',
     'icp': 'internet-computer',
     'mkr': 'maker',
     'comp': 'compound-governance-token',

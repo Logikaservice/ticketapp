@@ -63,8 +63,6 @@ const SYMBOL_TO_PAIR_OLD = {
     'sei': 'SEIUSDT',
     'ton': 'TONUSDT',
     'inj': 'INJUSDT',
-    'algo': 'ALGOUSDT',
-    'vet': 'VETUSDT',
     'icp': 'ICPUSDT',
     'mkr': 'MKRUSDT',
     'comp': 'COMPUSDT',
@@ -152,15 +150,15 @@ console.log('const SYMBOL_TO_PAIR = {');
 // Raggruppa per categoria
 const categories = {
     'Top Cryptocurrencies': ['bitcoin_usdt', 'ethereum_usdt', 'solana', 'ripple_eur', 'binance_coin'],
-    'Layer 1 Alternatives': ['cardano', 'polkadot', 'avalanche_eur', 'near_eur', 'atom_eur', 'sui_eur', 'apt', 'ton', 'icp', 'algo'],
+    'Layer 1 Alternatives': ['cardano', 'polkadot', 'avalanche_eur', 'near_eur', 'atom_eur', 'sui_eur', 'apt', 'ton', 'icp'],
     'DeFi Blue Chips': ['aave', 'uniswap_eur', 'chainlink_usdt', 'crv', 'ldo', 'mkr', 'comp', 'snx'],
     'Layer 2 / Scaling': ['arb_eur', 'op_eur', 'matic_eur', 'pol_polygon'],
-    'Payments & Old School': ['litecoin_usdt', 'trx_eur', 'xlm_eur'],
+    'Payments & Old School': ['trx_eur', 'xlm_eur'],
     'AI/Data Sector': ['fet', 'render', 'grt'],
     'Gaming/Metaverse': ['sand', 'mana', 'axs', 'gala', 'imx', 'enj_eur'],
     'Meme Coins': ['pepe_eur', 'dogecoin_eur', 'shiba_eur', 'floki', 'bonk'],
     'Storage/Infrastructure': ['fil', 'ar'],
-    'Others': ['sei', 'inj', 'vet', 'usdc']
+    'Others': ['sei', 'inj', 'usdc']
 };
 
 Object.entries(categories).forEach(([category, symbols]) => {

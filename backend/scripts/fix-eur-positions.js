@@ -27,7 +27,6 @@ async function fixEURPositions() {
             'cardano': 'ADAUSDT',
             'polkadot': 'DOTUSDT',
             'chainlink': 'LINKUSDT',
-            'litecoin': 'LTCUSDT',
             'ripple': 'XRPUSDT',
             'binance_coin': 'BNBUSDT'
         };
@@ -58,7 +57,6 @@ async function fixEURPositions() {
                 'cardano': 0.20,     // ADA non può essere sotto $0.20
                 'polkadot': 3,       // DOT non può essere sotto $3
                 'chainlink': 5,      // LINK non può essere sotto $5
-                'litecoin': 40,      // LTC non può essere sotto $40
                 'binance_coin': 200  // BNB non può essere sotto $200
             };
 

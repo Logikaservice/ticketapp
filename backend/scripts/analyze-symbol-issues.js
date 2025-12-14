@@ -17,8 +17,6 @@ const SYMBOL_TO_PAIR = {
     'polkadot_usdt': 'DOTUSDT',
     'chainlink': 'LINKUSDT',
     'chainlink_usdt': 'LINKUSDT',
-    'litecoin': 'LTCUSDT',
-    'litecoin_usdt': 'LTCUSDT',
     'ripple': 'XRPUSDT',
     'ripple_eur': 'XRPUSDT',
     'binance_coin': 'BNBUSDT',
@@ -61,8 +59,6 @@ const SYMBOL_TO_PAIR = {
     'sei': 'SEIUSDT',
     'ton': 'TONUSDT',
     'inj': 'INJUSDT',
-    'algo': 'ALGOUSDT',
-    'vet': 'VETUSDT',
     'icp': 'ICPUSDT',
     'mkr': 'MKRUSDT',
     'comp': 'COMPUSDT',
@@ -99,8 +95,6 @@ const symbolVariants = {
     'dotusdt': 'polkadot',
     'link': 'chainlink',
     'linkusdt': 'chainlink',
-    'ltc': 'litecoin',
-    'ltcusdt': 'litecoin',
     'shib': 'shiba',
     'shibusdt': 'shiba',
     'doge': 'dogecoin',
@@ -128,11 +122,7 @@ const symbolVariants = {
     'apt': 'apt',
     'aptusdt': 'apt',
     'inj': 'inj',
-    'injusdt': 'inj',
-    'algo': 'algo',
-    'algousdt': 'algo',
-    'vet': 'vet',
-    'vetusdt': 'vet'
+    'injusdt': 'inj'
 };
 
 function normalizeSymbol(symbol) {
@@ -204,8 +194,6 @@ const testSymbols = [
     'NEAR', 'NEARUSDT', 'near_eur', 'near',
     'APT', 'APTUSDT', 'apt',
     'INJ', 'INJUSDT', 'inj',
-    'ALGO', 'ALGOUSDT', 'algo',
-    'VET', 'VETUSDT', 'vet',
     'LINK', 'LINKUSDT', 'link', 'chainlink',
     'BNB', 'BNBUSDT', 'bnb', 'binance_coin',
     'DOGE', 'DOGEUSDT', 'doge', 'dogecoin',

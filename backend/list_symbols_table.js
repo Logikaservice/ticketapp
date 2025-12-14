@@ -24,9 +24,6 @@ const BASE_CURRENCY_MAP = {
     'chainlink': 'LINK',
     'chainlink_usdt': 'LINK',
     'chainlink_eur': 'LINK',
-    'litecoin': 'LTC',
-    'litecoin_usdt': 'LTC',
-    'litecoin_eur': 'LTC',
     'ripple': 'XRP',
     'ripple_eur': 'XRP',
     'binance_coin': 'BNB',
@@ -93,8 +90,6 @@ const BASE_CURRENCY_MAP = {
     'internetcomputer': 'ICP',
     'aptos': 'APT',
     'injective': 'INJ',
-    'algorand': 'ALGO',
-    'vechain': 'VET',
     'arweave': 'AR',
     'floki': 'FLOKI',
     'bonk': 'BONK',
@@ -143,7 +138,6 @@ function getBaseCurrency(symbol) {
         'fetchai': 'FET',
         'immutablex': 'IMX',
         'synthetix': 'SNX',
-        'vechain': 'VET',
         'arweave': 'AR'
     };
     
