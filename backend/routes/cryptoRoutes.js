@@ -1678,7 +1678,7 @@ const getSymbolPrice = async (symbol) => {
         'avalanche': 'AVAXUSDT', 'avax': 'AVAXUSDT', 'avaxusdt': 'AVAXUSDT',
         'binance_coin': 'BNBUSDT', 'bnb': 'BNBUSDT', 'bnbusdt': 'BNBUSDT',
         'chainlink': 'LINKUSDT', 'link': 'LINKUSDT', 'linkusdt': 'LINKUSDT',
-        'litecoin': 'LTCUSDT', 'ltc': 'LTCUSDT', 'ltcusdt': 'LTCUSDT',
+        // ✅ RIMOSSO: 'litecoin' eliminato dal database
         // Polygon migrated from MATICUSDT to POLUSDT on Binance
         'matic': 'POLUSDT', 'polygon': 'POLUSDT', 'maticusdt': 'POLUSDT', 'polusdt': 'POLUSDT',
         'ton': 'TONUSDT', 'toncoin': 'TONUSDT', 'tonusdt': 'TONUSDT',
@@ -1715,7 +1715,7 @@ const getSymbolPrice = async (symbol) => {
     }
 
     // ✅ FIX CRITICO: Valida che il tradingPair non sia BTCUSDT per simboli non-BTC
-    if (tradingPair === 'BTCUSDT' && normalizedSymbol !== 'bitcoin' && !normalizedSymbol.includes('btc')) {
+    if (tradingPair === 'BTCUSDT' && normalizedSymbol !== 'bitcoin_usdt' && !normalizedSymbol.includes('btc')) {
         // Ultimo tentativo euristico: se finisce con USDT usalo
         if (normalizedSymbol.endsWith('usdt')) {
             tradingPair = normalizedSymbol.toUpperCase();
@@ -3955,57 +3955,68 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
 
                 let normalizedSymbol = symbolBase;
 
+                // ✅ FIX: symbolVariants convertiti ai simboli corretti con suffisso (duplicati rimossi)
                 const symbolVariants = {
-                    'xrp': 'ripple',
-                    'xrpusdt': 'ripple',
-                    'bnb': 'binance_coin',
-                    'bnbusdt': 'binance_coin',
-                    'btc': 'bitcoin',
-                    'btcusdt': 'bitcoin',
-                    'eth': 'ethereum',
-                    'ethusdt': 'ethereum',
-                    'sol': 'solana',
-                    'solusdt': 'solana',
-                    'ada': 'cardano',
-                    'adausdt': 'cardano',
-                    'dot': 'polkadot',
-                    'dotusdt': 'polkadot',
-                    'link': 'chainlink',
-                    'linkusdt': 'chainlink',
-                    'ltc': 'litecoin',
-                    'ltcusdt': 'litecoin',
-                    'shib': 'shiba',
-                    'shibusdt': 'shiba',
-                    'doge': 'dogecoin',
-                    'dogeusdt': 'dogecoin',
+                    'xrp': 'ripple_eur',
+                    'xrpusdt': 'ripple_eur',
+                    'bnb': 'binance_coin_eur',
+                    'bnbusdt': 'binance_coin_eur',
+                    'binancecoin': 'binance_coin_eur',
+                    'binance_coin': 'binance_coin_eur',
+                    'btc': 'bitcoin_usdt',
+                    'btcusdt': 'bitcoin_usdt',
+                    'eth': 'ethereum_usdt',
+                    'ethusdt': 'ethereum_usdt',
+                    'sol': 'solana_eur',
+                    'solusdt': 'solana_eur',
+                    'ada': 'cardano_usdt',
+                    'adausdt': 'cardano_usdt',
+                    'dot': 'polkadot_usdt',
+                    'dotusdt': 'polkadot_usdt',
+                    'link': 'chainlink_usdt',
+                    'linkusdt': 'chainlink_usdt',
+                    'shib': 'shiba_eur',
+                    'shibusdt': 'shiba_eur',
+                    'doge': 'dogecoin_eur',
+                    'dogeusdt': 'dogecoin_eur',
                     'floki': 'floki',
                     'fet': 'fet',
                     'ton': 'ton',
                     'tonusdt': 'ton',
                     // ✅ FIX: Simboli che richiedono conversione (non sono nella mappa con il nome base)
-                    'avax': 'avalanche', // AVAX → avalanche
-                    'avaxusdt': 'avalanche',
-                    'uni': 'uniswap', // UNI → uniswap
-                    'uniusdt': 'uniswap',
-                    'pol': 'pol_polygon', // POL → pol_polygon
-                    'polusdt': 'pol_polygon',
+                    'avax': 'avalanche_eur', // AVAX → avalanche_eur
+                    'avaxusdt': 'avalanche_eur',
+                    'uni': 'uniswap_eur', // UNI → uniswap_eur
+                    'uniusdt': 'uniswap_eur',
+                    'pol': 'pol_polygon_eur', // POL → pol_polygon_eur
+                    'polusdt': 'pol_polygon_eur',
                     // ✅ Varianti comuni che potrebbero essere nel database
                     'icp': 'icp', // ICP è già corretto
                     'icpusdt': 'icp',
-                    'atom': 'atom', // ATOM è già corretto
-                    'atomusdt': 'atom',
-                    'sui': 'sui', // SUI è già corretto
-                    'suiusdt': 'sui',
-                    'near': 'near', // NEAR è già corretto
-                    'nearusdt': 'near',
+                    'atom': 'atom_eur', // ATOM → atom_eur
+                    'atomusdt': 'atom_eur',
+                    'sui': 'sui_eur', // SUI → sui_eur
+                    'suiusdt': 'sui_eur',
+                    'near': 'near_eur', // NEAR → near_eur
+                    'nearusdt': 'near_eur',
                     'apt': 'apt',
                     'aptusdt': 'apt',
                     'inj': 'inj',
                     'injusdt': 'inj',
-                    'algo': 'algo',
-                    'algousdt': 'algo',
-                    'vet': 'vet',
-                    'vetusdt': 'vet'
+                    'trx': 'trx_eur', // TRX → trx_eur
+                    'trxusdt': 'trx_eur',
+                    'xlm': 'xlm_eur', // XLM → xlm_eur
+                    'xlmusdt': 'xlm_eur',
+                    'arb': 'arb_eur', // ARB → arb_eur
+                    'arbusdt': 'arb_eur',
+                    'op': 'op_eur', // OP → op_eur
+                    'opusdt': 'op_eur',
+                    'matic': 'matic_eur', // MATIC → matic_eur
+                    'maticusdt': 'matic_eur',
+                    'enj': 'enj_eur', // ENJ → enj_eur
+                    'enjusdt': 'enj_eur',
+                    'pepe': 'pepe_eur', // PEPE → pepe_eur
+                    'pepeusdt': 'pepe_eur'
                 };
 
                 if (symbolVariants[normalizedSymbol]) {
@@ -4935,7 +4946,7 @@ router.post('/positions/close/:ticketId', async (req, res) => {
         if (!finalPrice) {
             try {
                 // ✅ FIX: Usa getSymbolPrice che gestisce automaticamente conversione USDT→EUR
-                const targetSymbol = symbol || 'bitcoin';
+                const targetSymbol = symbol || 'bitcoin_usdt';
                 finalPrice = await getSymbolPrice(targetSymbol);
 
                 if (!finalPrice || isNaN(finalPrice) || finalPrice <= 0) {
@@ -5203,7 +5214,7 @@ router.get('/symbols-table', async (req, res) => {
             'cardano': 'ADA', 'cardano_usdt': 'ADA', 'cardano_eur': 'ADA',
             'polkadot': 'DOT', 'polkadot_usdt': 'DOT', 'polkadot_eur': 'DOT',
             'chainlink': 'LINK', 'chainlink_usdt': 'LINK', 'chainlink_eur': 'LINK',
-            'litecoin': 'LTC', 'litecoin_usdt': 'LTC', 'litecoin_eur': 'LTC',
+            // ✅ RIMOSSO: 'litecoin' eliminato dal database (mantenuto solo per compatibilità display)
             'ripple': 'XRP', 'ripple_eur': 'XRP',
             'binance_coin': 'BNB', 'binance_coin_eur': 'BNB',
             'solana': 'SOL', 'solana_eur': 'SOL',
@@ -5804,7 +5815,7 @@ router.post('/bot/toggle', async (req, res) => {
             return res.status(400).json({ error: 'strategy_name is required' });
         }
 
-        const targetSymbol = symbol || 'bitcoin'; // Default to bitcoin for backward compatibility
+        const targetSymbol = symbol || 'bitcoin_usdt'; // Default to bitcoin_usdt (duplicati rimossi)
 
         // Verify symbol is valid (check if trading pair exists)
         const tradingPair = SYMBOL_TO_PAIR[targetSymbol];
@@ -7160,7 +7171,7 @@ const BOT_ANALYSIS_CACHE_TTL = 3000; // 3 secondi
 router.get('/bot-analysis', async (req, res) => {
     // ✅ FIX CRITICO: Wrapper esterno per catturare TUTTI gli errori, anche quelli di inizializzazione
     const startTime = Date.now();
-    const symbol = req.query?.symbol || 'bitcoin';
+    const symbol = req.query?.symbol || 'bitcoin_usdt';
 
     // ✅ Log all'inizio per verificare che la funzione viene chiamata
     console.log(`🔍 [BOT-ANALYSIS] Richiesta ricevuta per simbolo: ${symbol}`);
@@ -7180,7 +7191,7 @@ router.get('/bot-analysis', async (req, res) => {
         }
 
         // Get symbol from query parameter, default to bitcoin
-        let symbol = req.query.symbol || 'bitcoin';
+        let symbol = req.query.symbol || 'bitcoin_usdt';
 
         // ✅ FIX: Rimuovi eventuali suffissi tipo ":1" dal simbolo (es. "atom:1" -> "atom")
         symbol = symbol.split(':')[0].split('?')[0];
@@ -7207,64 +7218,77 @@ router.get('/bot-analysis', async (req, res) => {
         // Mappa completa per normalizzazione
         const SYMBOL_NORMALIZATION_MAP = {
             // Formati con _usdt
-            'bitcoin_usdt': 'bitcoin',
-            'btc_usdt': 'bitcoin',
-            'btc': 'bitcoin',
-            'ethereum_usdt': 'ethereum',
-            'eth_usdt': 'ethereum',
-            'eth': 'ethereum',
-            'solana_usdt': 'solana',
-            'sol_usdt': 'solana',
-            'sol': 'solana',
-            'cardano_usdt': 'cardano',
-            'ada_usdt': 'cardano',
-            'ada': 'cardano',
-            'ripple_usdt': 'ripple',
-            'xrp_usdt': 'ripple',
-            'xrp': 'ripple',
-            'polkadot_usdt': 'polkadot',
-            'dot_usdt': 'polkadot',
-            'dot': 'polkadot',
-            'dogecoin_usdt': 'dogecoin',
-            'doge_usdt': 'dogecoin',
-            'doge': 'dogecoin',
-            'shiba_inu_usdt': 'shiba_inu',
-            'shib_usdt': 'shiba_inu',
-            'shib': 'shiba_inu',
-            'binance_coin_usdt': 'binance_coin',
-            'bnb_usdt': 'binance_coin',
-            'bnb': 'binance_coin',
-            'binancecoin': 'binance_coin',
-            'chainlink_usdt': 'chainlink',
-            'link_usdt': 'chainlink',
-            'link': 'chainlink',
-            'litecoin_usdt': 'litecoin',
-            'ltc_usdt': 'litecoin',
-            'ltc': 'litecoin',
+            // ✅ FIX: Convertiti ai simboli corretti con suffisso (duplicati rimossi)
+            'bitcoin_usdt': 'bitcoin_usdt',
+            'btc_usdt': 'bitcoin_usdt',
+            'btc': 'bitcoin_usdt',
+            'bitcoin': 'bitcoin_usdt',
+            'ethereum_usdt': 'ethereum_usdt',
+            'eth_usdt': 'ethereum_usdt',
+            'eth': 'ethereum_usdt',
+            'ethereum': 'ethereum_usdt',
+            'solana_eur': 'solana_eur',
+            'sol_eur': 'solana_eur',
+            'sol': 'solana_eur',
+            'solana': 'solana_eur',
+            'cardano_usdt': 'cardano_usdt',
+            'ada_usdt': 'cardano_usdt',
+            'ada': 'cardano_usdt',
+            'cardano': 'cardano_usdt',
+            'ripple_eur': 'ripple_eur',
+            'xrp_eur': 'ripple_eur',
+            'xrp': 'ripple_eur',
+            'ripple': 'ripple_eur',
+            'polkadot_usdt': 'polkadot_usdt',
+            'dot_usdt': 'polkadot_usdt',
+            'dot': 'polkadot_usdt',
+            'polkadot': 'polkadot_usdt',
+            'dogecoin_eur': 'dogecoin_eur',
+            'doge_eur': 'dogecoin_eur',
+            'doge': 'dogecoin_eur',
+            'dogecoin': 'dogecoin_eur',
+            'shiba_eur': 'shiba_eur',
+            'shib_eur': 'shiba_eur',
+            'shib': 'shiba_eur',
+            'shiba': 'shiba_eur',
+            'shiba_inu': 'shiba_eur',
+            'binance_coin_eur': 'binance_coin_eur',
+            'bnb_eur': 'binance_coin_eur',
+            'bnb': 'binance_coin_eur',
+            'binance_coin': 'binance_coin_eur',
+            'binancecoin': 'binance_coin_eur',
+            'binance_coin_usdt': 'binance_coin_eur',
+            'chainlink_usdt': 'chainlink_usdt',
+            'link_usdt': 'chainlink_usdt',
+            'link': 'chainlink_usdt',
+            'chainlink': 'chainlink_usdt',
             // Altri simboli popolari
-            'polygon_usdt': 'polygon',
-            'matic_usdt': 'polygon',
-            'matic': 'polygon',
-            'avalanche_usdt': 'avalanche',
-            'avax_usdt': 'avalanche',
-            'avax': 'avalanche',
-            'stellar_usdt': 'stellar',
-            'xlm_usdt': 'stellar',
-            'xlm': 'stellar',
+            'pol_polygon_eur': 'pol_polygon_eur',
+            'polygon': 'pol_polygon_eur',
+            'matic_eur': 'matic_eur',
+            'matic': 'matic_eur',
+            'avalanche_eur': 'avalanche_eur',
+            'avax_eur': 'avalanche_eur',
+            'avax': 'avalanche_eur',
+            'avalanche': 'avalanche_eur',
+            'xlm_eur': 'xlm_eur',
+            'xlm': 'xlm_eur',
+            'stellar': 'xlm_eur',
             'monero_usdt': 'monero',
             'xmr_usdt': 'monero',
             'xmr': 'monero',
-            'tron_usdt': 'tron',
-            'trx_usdt': 'tron',
-            'trx': 'tron',
-            'cosmos_usdt': 'cosmos',
-            'atom_usdt': 'cosmos',
-            'atom': 'cosmos',
-            'uniswap_usdt': 'uniswap',
-            'uni_usdt': 'uniswap',
-            'uni': 'uniswap',
-            'near_usdt': 'near',
-            'near': 'near',
+            'trx_eur': 'trx_eur',
+            'trx': 'trx_eur',
+            'tron': 'trx_eur',
+            'atom_eur': 'atom_eur',
+            'atom': 'atom_eur',
+            'cosmos': 'atom_eur',
+            'uniswap_eur': 'uniswap_eur',
+            'uni_eur': 'uniswap_eur',
+            'uni': 'uniswap_eur',
+            'uniswap': 'uniswap_eur',
+            'near_eur': 'near_eur',
+            'near': 'near_eur',
             'the_sandbox_usdt': 'the_sandbox',
             'sand_usdt': 'the_sandbox',
             'sand': 'the_sandbox',
@@ -7282,12 +7306,7 @@ router.get('/bot-analysis', async (req, res) => {
             'optimism_usdt': 'optimism',
             'op_usdt': 'optimism',
             'op': 'optimism',
-            'algorand_usdt': 'algorand',
-            'algo_usdt': 'algorand',
-            'algo': 'algorand',
-            'vechain_usdt': 'vechain',
-            'vet_usdt': 'vechain',
-            'vet': 'vechain',
+            // ✅ RIMOSSO: 'algo' e 'vet' eliminati dal database
             'filecoin_usdt': 'filecoin',
             'fil_usdt': 'filecoin',
             'fil': 'filecoin',
@@ -7297,26 +7316,39 @@ router.get('/bot-analysis', async (req, res) => {
             'fantom_usdt': 'fantom',
             'ftm_usdt': 'fantom',
             'ftm': 'fantom',
-            // Formati base (già normalizzati)
-            'bitcoin': 'bitcoin',
-            'ethereum': 'ethereum',
-            'solana': 'solana',
-            'cardano': 'cardano',
-            'ripple': 'ripple',
-            'polkadot': 'polkadot',
-            'dogecoin': 'dogecoin',
-            'shiba_inu': 'shiba_inu',
-            'binance_coin': 'binance_coin',
-            'chainlink': 'chainlink',
-            'litecoin': 'litecoin',
-            'polygon': 'polygon',
-            'avalanche': 'avalanche',
-            'stellar': 'stellar',
+            // ✅ FIX: Formati base convertiti ai simboli corretti con suffisso (duplicati rimossi)
+            'bitcoin': 'bitcoin_usdt',
+            'bitcoin_usdt': 'bitcoin_usdt',
+            'ethereum': 'ethereum_usdt',
+            'ethereum_usdt': 'ethereum_usdt',
+            'solana': 'solana_eur',
+            'solana_eur': 'solana_eur',
+            'cardano': 'cardano_usdt',
+            'cardano_usdt': 'cardano_usdt',
+            'ripple': 'ripple_eur',
+            'ripple_eur': 'ripple_eur',
+            'polkadot': 'polkadot_usdt',
+            'polkadot_usdt': 'polkadot_usdt',
+            'dogecoin': 'dogecoin_eur',
+            'dogecoin_eur': 'dogecoin_eur',
+            'shiba': 'shiba_eur',
+            'shiba_eur': 'shiba_eur',
+            'shiba_inu': 'shiba_eur',
+            'binance_coin': 'binance_coin_eur',
+            'binance_coin_eur': 'binance_coin_eur',
+            'chainlink': 'chainlink_usdt',
+            'chainlink_usdt': 'chainlink_usdt',
+            'polygon': 'pol_polygon_eur',
+            'avalanche': 'avalanche_eur',
+            'avalanche_eur': 'avalanche_eur',
+            'stellar': 'xlm_eur',
             'monero': 'monero',
-            'tron': 'tron',
-            'cosmos': 'cosmos',
-            'uniswap': 'uniswap',
-            'near': 'near',
+            'tron': 'trx_eur',
+            'cosmos': 'atom_eur',
+            'uniswap': 'uniswap_eur',
+            'uniswap_eur': 'uniswap_eur',
+            'near': 'near_eur',
+            'near_eur': 'near_eur',
             'the_sandbox': 'the_sandbox',
             'decentraland': 'decentraland',
             'axie_infinity': 'axie_infinity',
