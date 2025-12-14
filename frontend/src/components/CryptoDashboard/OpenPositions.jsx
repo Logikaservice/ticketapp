@@ -455,7 +455,7 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                                         {formatVolume(volume || 0)}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: '600', color: '#fbbf24' }}>
-                                        ${(tradeSizeUsdt || 100).toFixed(2)}
+                                        ${((entryPrice || 0) * (volume || 0)).toFixed(2)}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#9ca3af' }}>
                                         {entryPrice > 0 ? (

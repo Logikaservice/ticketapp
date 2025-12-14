@@ -171,23 +171,31 @@ class SeriousRiskManager {
             let currentExposure = 0;
             let totalEquityFromPositions = 0;
 
+            // ✅ FIX: Usa trade_size_usdt per calcolare esposizione invece di entry_price * volume
+            // Questo garantisce che le limitazioni usino il valore configurato, non il valore reale investito
+            const configuredTradeSize = params.trade_size_usdt ?? params.trade_size_eur ?? null;
+            const tradeSizeForExposure = configuredTradeSize && configuredTradeSize >= 10 ? configuredTradeSize : null;
+
             for (const pos of openPositions) {
                 const volume = parseFloat(pos.volume) || 0;
                 const entryPrice = parseFloat(pos.entry_price) || 0;
                 const currentPrice = parseFloat(pos.current_price) || entryPrice; // Usa current_price se disponibile
                 
                 if (pos.type === 'buy') {
-                    // LONG: valore attuale delle crypto possedute
-                    const positionValue = volume * currentPrice;
-                    currentExposure += positionValue;
+                    // LONG: usa trade_size_usdt se configurato per esposizione, altrimenti entry_price * volume
+                    // Per equity usa valore reale (currentPrice * volume)
+                    const exposureValue = tradeSizeForExposure || (volume * entryPrice);
+                    currentExposure += exposureValue;
+                    const positionValue = volume * currentPrice; // Per equity usa valore attuale
                     totalEquityFromPositions += positionValue;
                 } else {
-                    // SHORT: debito fisso all'entry price (quanto dobbiamo restituire)
-                    const shortLiability = volume * entryPrice;
-                    currentExposure += shortLiability;
+                    // SHORT: usa trade_size_usdt se configurato per esposizione, altrimenti entry_price * volume
+                    const exposureValue = tradeSizeForExposure || (volume * entryPrice);
+                    currentExposure += exposureValue;
                     // Per SHORT, il cash è stato aumentato all'apertura, ma dobbiamo restituire entry_price * volume
                     // Quindi il valore netto è: cash_aumentato - debito = 0 all'apertura
                     // Ma il debito rimane fisso, quindi sottraiamo dal total equity
+                    const shortLiability = volume * entryPrice; // Per equity usa valore reale
                     totalEquityFromPositions -= shortLiability;
                 }
             }
