@@ -6412,9 +6412,20 @@ router.put('/bot/parameters', async (req, res) => {
             
             console.log('🔍 [BOT-PARAMS] Dopo parse dal DB:');
             console.log('   trade_size_usdt:', savedParams.trade_size_usdt, '(type:', typeof savedParams.trade_size_usdt, ')');
+            console.log('   test_trade_size:', savedParams.test_trade_size, '(type:', typeof savedParams.test_trade_size, ')');
             console.log('   max_positions:', savedParams.max_positions, '(type:', typeof savedParams.max_positions, ')');
             console.log('   "trade_size_usdt" in savedParams:', 'trade_size_usdt' in savedParams);
+            console.log('   "test_trade_size" in savedParams:', 'test_trade_size' in savedParams);
             console.log('   "max_positions" in savedParams:', 'max_positions' in savedParams);
+            
+            // ✅ TEST: Confronta test_trade_size con trade_size_usdt
+            if (savedParams.test_trade_size && savedParams.test_trade_size !== 999) {
+                console.log('✅ [BOT-PARAMS-TEST] test_trade_size salvato correttamente:', savedParams.test_trade_size);
+                if (!savedParams.trade_size_usdt || savedParams.trade_size_usdt === null || savedParams.trade_size_usdt === undefined) {
+                    console.error('❌ [BOT-PARAMS-TEST] PROBLEMA: test_trade_size funziona ma trade_size_usdt NO!');
+                    console.error('   Questo significa che trade_size_usdt viene rimosso da qualche logica dopo il salvataggio!');
+                }
+            }
             
             console.log('✅ [BOT-PARAMS] Verifica salvataggio:', {
                 savedHasTrailingProfit: 'trailing_profit_protection_enabled' in savedParams,
