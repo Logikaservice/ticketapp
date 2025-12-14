@@ -967,6 +967,155 @@ router.post('/reset', async (req, res) => {
 });
 
 // POST /api/crypto/cleanup-positions (Chiudi posizioni in eccesso oltre MAX_TOTAL_POSITIONS)
+// ✅ Helper function per cleanup automatico (può essere chiamata direttamente)
+const performCleanupPositions = async (targetMax) => {
+    try {
+        if (!targetMax) {
+            try {
+                const botParamsRow = await dbGet(
+                    "SELECT parameters FROM bot_settings WHERE strategy_name = $1 AND symbol = $2 LIMIT 1",
+                    ['RSI_Strategy', 'global']
+                );
+                if (botParamsRow && botParamsRow.parameters) {
+                    const parsed = typeof botParamsRow.parameters === 'string' ? JSON.parse(botParamsRow.parameters) : botParamsRow.parameters;
+                    const dbMax = parseInt(parsed.max_positions);
+                    if (!isNaN(dbMax) && dbMax > 0) targetMax = dbMax;
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+        if (!targetMax) targetMax = 10;
+
+        const allOpenPositions = await dbAll(
+            "SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at DESC"
+        );
+
+        const currentCount = allOpenPositions.length;
+
+        if (currentCount <= targetMax) {
+            return {
+                success: true,
+                message: `Nessuna pulizia necessaria. Posizioni aperte: ${currentCount}/${targetMax}`,
+                current_count: currentCount,
+                target_max: targetMax,
+                closed_count: 0
+            };
+        }
+
+        const positionsToClose = currentCount - targetMax;
+        const SmartExit = require('../services/SmartExit');
+        const positionScores = [];
+
+        for (const pos of allOpenPositions) {
+            try {
+                const currentPrice = await getSymbolPrice(pos.symbol);
+                if (currentPrice === null || currentPrice === undefined) {
+                    continue;
+                }
+                const klines = await dbAll(
+                    "SELECT * FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 50",
+                    [pos.symbol]
+                );
+
+                const priceHistory = klines.reverse().map(k => ({
+                    open: k.open_price,
+                    high: k.high_price,
+                    low: k.low_price,
+                    close: k.close_price,
+                    timestamp: k.open_time
+                }));
+
+                const shouldClose = await SmartExit.shouldClosePosition(pos, priceHistory);
+                let score = 0;
+                const pnlPct = parseFloat(pos.profit_loss_pct) || 0;
+
+                if (pnlPct < 0) {
+                    score -= 100 + Math.abs(pnlPct) * 10;
+                }
+                if (shouldClose.reason && shouldClose.reason.includes('opposto')) {
+                    score -= 50;
+                }
+                if (shouldClose.reason && shouldClose.reason.includes('statico')) {
+                    score -= 30;
+                }
+                const openedAt = new Date(pos.opened_at);
+                const hoursOpen = (Date.now() - openedAt.getTime()) / (1000 * 60 * 60);
+                if (hoursOpen > 24 && pnlPct < 1.0) {
+                    score -= 20;
+                }
+                if (pnlPct > 2.0) {
+                    score += pnlPct * 10;
+                }
+                if (shouldClose.reason && shouldClose.reason.includes('MANTENERE')) {
+                    score += 30;
+                }
+
+                positionScores.push({
+                    position: pos,
+                    score: score,
+                    pnlPct: pnlPct,
+                    shouldClose: shouldClose,
+                    hoursOpen: hoursOpen
+                });
+            } catch (err) {
+                positionScores.push({
+                    position: pos,
+                    score: 0,
+                    pnlPct: parseFloat(pos.profit_loss_pct) || 0,
+                    shouldClose: null,
+                    hoursOpen: 0
+                });
+            }
+        }
+
+        positionScores.sort((a, b) => a.score - b.score);
+        const positionsToCloseList = positionScores.slice(0, positionsToClose);
+
+        let closedCount = 0;
+        const closedPositions = [];
+
+        for (const { position: pos, score, pnlPct, shouldClose } of positionsToCloseList) {
+            try {
+                const currentPrice = await getSymbolPrice(pos.symbol);
+                if (currentPrice === null || currentPrice === undefined) {
+                    continue;
+                }
+
+                if (currentPrice > 0) {
+                    const reason = shouldClose?.reason || 'cleanup (troppe posizioni)';
+                    await closePosition(pos.ticket_id, currentPrice, `cleanup (score: ${score.toFixed(2)}, P&L: ${pnlPct.toFixed(2)}%, ${reason})`);
+                    closedCount++;
+                    closedPositions.push({
+                        ticket_id: pos.ticket_id,
+                        symbol: pos.symbol,
+                        score: score,
+                        pnl_pct: pnlPct,
+                        reason: reason
+                    });
+                }
+            } catch (closeErr) {
+                console.error(`⚠️ Error closing position ${pos.ticket_id} during cleanup:`, closeErr.message);
+            }
+        }
+
+        console.log(`🧹 [AUTO-CLEANUP] Chiuse ${closedCount} posizioni in eccesso. Da ${currentCount} a ${currentCount - closedCount} posizioni.`);
+
+        return {
+            success: true,
+            message: `Chiuse ${closedCount} posizioni in eccesso usando logica intelligente. Da ${currentCount} a ${currentCount - closedCount} posizioni.`,
+            current_count: currentCount,
+            target_max: targetMax,
+            closed_count: closedCount,
+            closed_positions: closedPositions,
+            logic_used: 'SmartExit + P&L + Time-based scoring'
+        };
+    } catch (err) {
+        console.error('Error in performCleanupPositions:', err);
+        throw err;
+    }
+};
+
 // ✅ LOGICA INTELLIGENTE: Usa SmartExit per decidere quali posizioni chiudere
 router.post('/cleanup-positions', async (req, res) => {
     try {
@@ -3126,6 +3275,16 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     const maxPositionsLimit = Math.max(1, parseInt(params.max_positions || 10));
                     if (allOpenPos.length >= maxPositionsLimit) {
                         console.log(`🛑 [MAX-POSITIONS] Limite posizioni raggiunto: ${allOpenPos.length}/${maxPositionsLimit}. Non apro nuove posizioni.`);
+                        // ✅ FIX: Se ci sono troppe posizioni, chiudi automaticamente quelle in eccesso
+                        if (allOpenPos.length > maxPositionsLimit) {
+                            console.log(`🧹 [AUTO-CLEANUP] Rilevate ${allOpenPos.length} posizioni, limite è ${maxPositionsLimit}. Chiudo automaticamente le posizioni in eccesso...`);
+                            try {
+                                const cleanupResult = await performCleanupPositions(maxPositionsLimit);
+                                console.log(`✅ [AUTO-CLEANUP] ${cleanupResult.message || 'Cleanup completato'}`);
+                            } catch (cleanupErr) {
+                                console.error(`⚠️ [AUTO-CLEANUP] Errore durante cleanup automatico:`, cleanupErr.message);
+                            }
+                        }
                         return;
                     }
                     let currentExposureValue = 0;
@@ -3367,6 +3526,16 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         const maxPositionsLimit = Math.max(1, parseInt(params.max_positions || 10));
                         if (allOpenPos.length >= maxPositionsLimit) {
                             console.log(`🛑 [MAX-POSITIONS] Limite posizioni raggiunto: ${allOpenPos.length}/${maxPositionsLimit}. Non apro nuove posizioni.`);
+                            // ✅ FIX: Se ci sono troppe posizioni, chiudi automaticamente quelle in eccesso
+                            if (allOpenPos.length > maxPositionsLimit) {
+                                console.log(`🧹 [AUTO-CLEANUP] Rilevate ${allOpenPos.length} posizioni, limite è ${maxPositionsLimit}. Chiudo automaticamente le posizioni in eccesso...`);
+                                try {
+                                    const cleanupResult = await performCleanupPositions(maxPositionsLimit);
+                                    console.log(`✅ [AUTO-CLEANUP] ${cleanupResult.message || 'Cleanup completato'}`);
+                                } catch (cleanupErr) {
+                                    console.error(`⚠️ [AUTO-CLEANUP] Errore durante cleanup automatico:`, cleanupErr.message);
+                                }
+                            }
                             return;
                         }
                         let currentExposureValue = 0;
@@ -4385,7 +4554,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                         const tradingPair = SYMBOL_TO_PAIR[updatedPos.symbol] || 'BTCEUR';
                         const isUSDT = tradingPair.endsWith('USDT');
 
-                        if (isUSDT && currentPrice > 200000 && updatedPos.symbol !== 'bitcoin') {
+                        if (isUSDT && currentPrice > 200000 && updatedPos.symbol !== 'bitcoin_usdt' && updatedPos.symbol !== 'bitcoin') {
                             console.warn(`⚠️ [AUTO-CLOSE] currentPrice ${currentPrice} seems too high for ${updatedPos.symbol}, might need conversion`);
                             // Se sembra troppo alto, potrebbe essere in USDT - ma getSymbolPrice dovrebbe averlo già convertito
                             // Logga solo per debug
@@ -6452,7 +6621,7 @@ router.get('/statistics', async (req, res) => {
         // ✅ FIX: Usa prezzo Bitcoin solo come fallback per backward compatibility
         let currentPrice = 0;
         try {
-            currentPrice = await getSymbolPrice('bitcoin');
+            currentPrice = await getSymbolPrice('bitcoin_usdt');
         } catch (e) {
             console.warn('Could not fetch Bitcoin price for statistics:', e.message);
         }
@@ -8308,7 +8477,7 @@ router.get('/bot-analysis', async (req, res) => {
         let marketRegimeBlock = false;
         let marketRegimeReason = '';
         try {
-            const btcPrice = await getSymbolPrice('bitcoin');
+            const btcPrice = await getSymbolPrice('bitcoin_usdt');
             if (btcPrice > 0) {
                 const btcHistory = await dbAll(
                     "SELECT price FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp DESC LIMIT 100"
