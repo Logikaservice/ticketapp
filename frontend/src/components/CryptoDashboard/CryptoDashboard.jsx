@@ -860,32 +860,85 @@ setBotParameters(data.bot_parameters);
     // Quindi dobbiamo calcolare il cash reale sottraendo/aggiungendo l'investito
     
     // Calcola il valore investito totale (entry_price * volume per ogni posizione)
-    let totalInvestedInPositions = 0;
+    let totalInvestedInLong = 0;  // Cash usato per LONG
+    let totalReceivedFromShort = 0;  // Cash ricevuto da SHORT
+    
     validOpenPositions.forEach(pos => {
         if (pos.status === 'open') {
             const volume = parseFloat(pos.volume) || 0;
+            const volumeClosed = parseFloat(pos.volume_closed) || 0;
+            const remainingVolume = volume - volumeClosed;
             const entryPrice = parseFloat(pos.entry_price) || 0;
-            const invested = volume * entryPrice;
+            const invested = remainingVolume * entryPrice;
             
             if (pos.type === 'buy') {
                 // LONG: cash è stato diminuito quando si è aperta la posizione
-                totalInvestedInPositions += invested;
+                totalInvestedInLong += invested;
             } else {
                 // SHORT: cash è stato aumentato quando si è aperta la posizione (vendita)
-                totalInvestedInPositions -= invested;
+                totalReceivedFromShort += invested;
             }
         }
     });
     
     // Cash reale = balance_usd - investito in LONG + ricevuto da SHORT
-    // Per SHORT, abbiamo ricevuto cash, quindi lo aggiungiamo
-    const realCash = validatedBalance - totalInvestedInPositions;
+    const realCash = validatedBalance - totalInvestedInLong + totalReceivedFromShort;
     
-    // Total Balance = Cash Reale + Valore Attuale delle Posizioni
-    // Per LONG: valore attuale = currentPrice * volume
-    // Per SHORT: valore = cash ricevuto - debito da restituire + P&L
-    // Ma semplificando: Total Balance = Cash Reale + Valore Netto Posizioni
-    const totalBalance = realCash + totalLongValue - totalShortLiability;
+    // ✅ FIX CRITICO: Calcolo corretto Total Balance
+    // Logica semplificata:
+    // - Per LONG: Cash reale = balance - investito, Valore = currentPrice * volume
+    // - Per SHORT: Cash reale = balance + ricevuto, Debito = entry_price * volume, P&L = (entry_price - current_price) * volume
+    // - Valore netto SHORT = ricevuto - debito + P&L = P&L (perché ricevuto = debito)
+    //
+    // Total Balance = Cash Reale + Valore LONG + Valore Netto SHORT
+    // = (balance - investito LONG + ricevuto SHORT) + totalLongValue + P&L SHORT
+    // = balance + (totalLongValue - investito LONG) + (ricevuto SHORT + P&L SHORT - debito SHORT)
+    // = balance + P&L LONG + P&L SHORT
+    //
+    // Ma totalLongValue è già il valore attuale (include P&L LONG)
+    // E per SHORT: ricevuto = debito, quindi valore netto = P&L SHORT
+    //
+    // Quindi: Total Balance = realCash + totalLongValue - totalShortLiability + P&L SHORT
+    // Ma P&L SHORT = (entry_price - current_price) * volume
+    // E totalShortLiability = entry_price * volume
+    // Quindi: Total Balance = realCash + totalLongValue - totalShortLiability + (entry_price - current_price) * volume
+    // = realCash + totalLongValue - current_price * volume (per SHORT)
+    //
+    // Semplificando: Total Balance = realCash + totalLongValue - totalShortLiability + totalShortPnL
+    // Dove totalShortPnL è calcolato dopo
+    
+    // Calcola P&L SHORT esplicitamente
+    let totalShortPnL = 0;
+    validOpenPositions.forEach(pos => {
+        if (pos.status === 'open' && pos.type === 'sell') {
+            const volume = parseFloat(pos.volume) || 0;
+            const volumeClosed = parseFloat(pos.volume_closed) || 0;
+            const remainingVolume = volume - volumeClosed;
+            const entryPrice = parseFloat(pos.entry_price) || 0;
+            
+            // Prezzo corrente per questa posizione SHORT
+            let currentPrice = allSymbolPrices[pos.symbol];
+            if (!currentPrice && pos.symbol === currentSymbol && currentPrice > 0) {
+                currentPrice = currentPrice;
+            }
+            if (!currentPrice || currentPrice === 0) {
+                currentPrice = parseFloat(pos.current_price) || entryPrice;
+            }
+            
+            // P&L SHORT = (entry_price - current_price) * volume
+            if (entryPrice > 0 && currentPrice > 0 && remainingVolume > 0) {
+                const shortPnL = (entryPrice - currentPrice) * remainingVolume;
+                totalShortPnL += shortPnL;
+            }
+        }
+    });
+    
+    // ✅ FORMULA CORRETTA:
+    // Total Balance = Cash Reale + Valore LONG + Valore Netto SHORT
+    // = realCash + totalLongValue + (ricevuto SHORT - debito SHORT + P&L SHORT)
+    // = realCash + totalLongValue + P&L SHORT (perché ricevuto = debito)
+    // = realCash + totalLongValue + totalShortPnL
+    const totalBalance = realCash + totalLongValue + totalShortPnL;
 
     // ✅ FIX CRITICO: Usa direttamente profit_loss calcolato dal backend
     // ✅ FIX: Validazione STRICTA - solo posizioni con status === 'open' e dati validi
