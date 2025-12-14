@@ -3956,13 +3956,61 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                 let normalizedSymbol = symbolBase;
 
                 // ✅ FIX: symbolVariants convertiti ai simboli corretti con suffisso (duplicati rimossi)
+                // Gestisce sia simboli con underscore che senza
                 const symbolVariants = {
+                    // Simboli con underscore (prima prova questi)
+                    'bitcoin_usdt': 'bitcoin_usdt',
+                    'bitcoin': 'bitcoin_usdt',
+                    'ethereum_usdt': 'ethereum_usdt',
+                    'ethereum': 'ethereum_usdt',
+                    'solana_eur': 'solana_eur',
+                    'solana': 'solana_eur',
+                    'cardano_usdt': 'cardano_usdt',
+                    'cardano': 'cardano_usdt',
+                    'ripple_eur': 'ripple_eur',
+                    'ripple': 'ripple_eur',
+                    'binance_coin_eur': 'binance_coin_eur',
+                    'binance_coin': 'binance_coin_eur',
+                    'polkadot_usdt': 'polkadot_usdt',
+                    'polkadot': 'polkadot_usdt',
+                    'chainlink_usdt': 'chainlink_usdt',
+                    'chainlink': 'chainlink_usdt',
+                    'avalanche_eur': 'avalanche_eur',
+                    'avalanche': 'avalanche_eur',
+                    'uniswap_eur': 'uniswap_eur',
+                    'uniswap': 'uniswap_eur',
+                    'dogecoin_eur': 'dogecoin_eur',
+                    'dogecoin': 'dogecoin_eur',
+                    'shiba_eur': 'shiba_eur',
+                    'shiba': 'shiba_eur',
+                    'near_eur': 'near_eur',
+                    'near': 'near_eur',
+                    'atom_eur': 'atom_eur',
+                    'atom': 'atom_eur',
+                    'trx_eur': 'trx_eur',
+                    'trx': 'trx_eur',
+                    'xlm_eur': 'xlm_eur',
+                    'xlm': 'xlm_eur',
+                    'arb_eur': 'arb_eur',
+                    'arb': 'arb_eur',
+                    'op_eur': 'op_eur',
+                    'op': 'op_eur',
+                    'matic_eur': 'matic_eur',
+                    'matic': 'matic_eur',
+                    'sui_eur': 'sui_eur',
+                    'sui': 'sui_eur',
+                    'enj_eur': 'enj_eur',
+                    'enj': 'enj_eur',
+                    'pepe_eur': 'pepe_eur',
+                    'pepe': 'pepe_eur',
+                    'pol_polygon_eur': 'pol_polygon_eur',
+                    'pol_polygon': 'pol_polygon_eur',
+                    // Varianti senza underscore (dopo normalizzazione)
                     'xrp': 'ripple_eur',
                     'xrpusdt': 'ripple_eur',
                     'bnb': 'binance_coin_eur',
                     'bnbusdt': 'binance_coin_eur',
                     'binancecoin': 'binance_coin_eur',
-                    'binance_coin': 'binance_coin_eur',
                     'btc': 'bitcoin_usdt',
                     'btcusdt': 'bitcoin_usdt',
                     'eth': 'ethereum_usdt',
@@ -3983,44 +4031,29 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                     'fet': 'fet',
                     'ton': 'ton',
                     'tonusdt': 'ton',
-                    // ✅ FIX: Simboli che richiedono conversione (non sono nella mappa con il nome base)
-                    'avax': 'avalanche_eur', // AVAX → avalanche_eur
+                    'avax': 'avalanche_eur',
                     'avaxusdt': 'avalanche_eur',
-                    'uni': 'uniswap_eur', // UNI → uniswap_eur
+                    'uni': 'uniswap_eur',
                     'uniusdt': 'uniswap_eur',
-                    'pol': 'pol_polygon_eur', // POL → pol_polygon_eur
+                    'pol': 'pol_polygon_eur',
                     'polusdt': 'pol_polygon_eur',
-                    // ✅ Varianti comuni che potrebbero essere nel database
-                    'icp': 'icp', // ICP è già corretto
+                    'icp': 'icp',
                     'icpusdt': 'icp',
-                    'atom': 'atom_eur', // ATOM → atom_eur
-                    'atomusdt': 'atom_eur',
-                    'sui': 'sui_eur', // SUI → sui_eur
-                    'suiusdt': 'sui_eur',
-                    'near': 'near_eur', // NEAR → near_eur
-                    'nearusdt': 'near_eur',
                     'apt': 'apt',
                     'aptusdt': 'apt',
                     'inj': 'inj',
-                    'injusdt': 'inj',
-                    'trx': 'trx_eur', // TRX → trx_eur
-                    'trxusdt': 'trx_eur',
-                    'xlm': 'xlm_eur', // XLM → xlm_eur
-                    'xlmusdt': 'xlm_eur',
-                    'arb': 'arb_eur', // ARB → arb_eur
-                    'arbusdt': 'arb_eur',
-                    'op': 'op_eur', // OP → op_eur
-                    'opusdt': 'op_eur',
-                    'matic': 'matic_eur', // MATIC → matic_eur
-                    'maticusdt': 'matic_eur',
-                    'enj': 'enj_eur', // ENJ → enj_eur
-                    'enjusdt': 'enj_eur',
-                    'pepe': 'pepe_eur', // PEPE → pepe_eur
-                    'pepeusdt': 'pepe_eur'
+                    'injusdt': 'inj'
                 };
 
+                // Prova prima con simbolo completo (con underscore se presente)
                 if (symbolVariants[normalizedSymbol]) {
                     normalizedSymbol = symbolVariants[normalizedSymbol];
+                } else {
+                    // Se non trovato, rimuovi underscore e riprova
+                    const withoutUnderscore = normalizedSymbol.replace(/_/g, '');
+                    if (symbolVariants[withoutUnderscore]) {
+                        normalizedSymbol = symbolVariants[withoutUnderscore];
+                    }
                 }
 
                 // ✅ FIX: Se il simbolo normalizzato non è nel mapping, prova varianti più complete
