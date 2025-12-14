@@ -81,8 +81,21 @@ async function removeSymbolSpecificTradeParams() {
                     continue;
                 }
 
+                // ✅ DEBUG: Mostra cosa stiamo rimuovendo
+                const removed = [];
+                if (symbolParams.trade_size_usdt) removed.push(`trade_size_usdt=$${symbolParams.trade_size_usdt}`);
+                if (symbolParams.trade_size_eur) removed.push(`trade_size_eur=$${symbolParams.trade_size_eur}`);
+                if (symbolParams.max_positions) removed.push(`max_positions=${symbolParams.max_positions}`);
+
                 // Crea una copia dei parametri senza trade_size_usdt, trade_size_eur, max_positions
                 const { trade_size_usdt, trade_size_eur, max_positions, ...cleanedParams } = symbolParams;
+
+                // ✅ DEBUG: Verifica che i parametri siano stati rimossi
+                if (cleanedParams.trade_size_usdt || cleanedParams.trade_size_eur || cleanedParams.max_positions) {
+                    console.error(`⚠️  ${row.symbol}: ERRORE - I parametri non sono stati rimossi correttamente!`);
+                    skipped++;
+                    continue;
+                }
 
                 // Aggiorna il database
                 const parametersJson = JSON.stringify(cleanedParams);
@@ -94,11 +107,6 @@ async function removeSymbolSpecificTradeParams() {
                 const rowsAffected = result.rowCount || 0;
                 if (rowsAffected > 0) {
                     updated++;
-                    const removed = [];
-                    if (trade_size_usdt) removed.push(`trade_size_usdt=$${trade_size_usdt}`);
-                    if (trade_size_eur) removed.push(`trade_size_eur=$${trade_size_eur}`);
-                    if (max_positions) removed.push(`max_positions=${max_positions}`);
-                    
                     removedParams.push({
                         symbol: row.symbol,
                         removed: removed.join(', ')
@@ -107,7 +115,7 @@ async function removeSymbolSpecificTradeParams() {
                     console.log(`✅ ${row.symbol}: Rimossi ${removed.join(', ')}`);
                 } else {
                     skipped++;
-                    console.log(`⚠️  ${row.symbol}: Nessuna riga aggiornata (possibile errore)`);
+                    console.log(`⚠️  ${row.symbol}: Nessuna riga aggiornata (possibile errore o simbolo non trovato)`);
                 }
             } catch (err) {
                 console.error(`❌ Errore processando ${row.symbol}:`, err.message);
