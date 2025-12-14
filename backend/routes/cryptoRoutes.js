@@ -3543,22 +3543,23 @@ const runBotCycle = async () => {
         const allScannedSymbols = new Set(activeBots.map(b => b.symbol));
 
         // ✅ SIMBOLI AD ALTO VOLUME - Filtrati per liquidità e spread bassi
+        // ✅ RIMOSSI simboli duplicati senza suffisso (eliminati dal database)
         // Rimossi: SHIBA, DOGE (volume basso, spread >2%, manipolabili)
         // Aggiunti: AVAX, MATIC, DOT (volume >€10M, spread <0.3%)
         const commonSymbols = [
-            'bitcoin',      // BTC - Volume: €500M+, Spread: 0.02-0.05%
-            'ethereum',     // ETH - Volume: €200M+, Spread: 0.03-0.06%
-            'binance_coin', // BNB - Volume: €50M+,  Spread: 0.05-0.10%
-            'solana',       // SOL - Volume: €30M+,  Spread: 0.08-0.15%
-            'cardano',      // ADA - Volume: €20M+,  Spread: 0.10-0.20%
-            'ripple',       // XRP - Volume: €25M+,  Spread: 0.12-0.18%
-            'polkadot',     // DOT - Volume: €10M+,  Spread: 0.18-0.28%
-            'chainlink',    // LINK - Volume: €10M+, Spread: 0.18-0.28%
-            'litecoin',     // LTC - Volume: €15M+,  Spread: 0.15-0.25%
-            'avalanche',    // AVAX - Volume: €15M+, Spread: 0.15-0.25%
-            'matic',        // MATIC - Volume: €12M+, Spread: 0.15-0.25%
+            'bitcoin_usdt',      // BTC - Volume: €500M+, Spread: 0.02-0.05%
+            'ethereum_usdt',     // ETH - Volume: €200M+, Spread: 0.03-0.06%
+            'binance_coin_eur', // BNB - Volume: €50M+,  Spread: 0.05-0.10%
+            'solana_eur',       // SOL - Volume: €30M+,  Spread: 0.08-0.15%
+            'cardano_usdt',      // ADA - Volume: €20M+,  Spread: 0.10-0.20%
+            'ripple_eur',       // XRP - Volume: €25M+,  Spread: 0.12-0.18%
+            'polkadot_usdt',     // DOT - Volume: €10M+,  Spread: 0.18-0.28%
+            'chainlink_usdt',    // LINK - Volume: €10M+, Spread: 0.18-0.28%
+            'avalanche_eur',    // AVAX - Volume: €15M+, Spread: 0.15-0.25%
+            'matic_eur',        // MATIC - Volume: €12M+, Spread: 0.15-0.25%
             // ❌ RIMOSSI: 'dogecoin', 'shiba' (volume <€5M, spread >2%)
             // ❌ RIMOSSI: 'mana', 'eos' (volume basso, liquidità insufficiente)
+            // ❌ RIMOSSI: simboli duplicati senza suffisso
         ];
 
         // Aggiungi simboli comuni che non sono già nella lista attiva
@@ -5743,49 +5744,34 @@ router.get('/bot/status', async (req, res) => {
 router.get('/symbols/available', async (req, res) => {
     try {
         // Common crypto symbols that can be traded - Aggiunti più simboli e coppie
+        // ✅ RIMOSSI simboli duplicati senza suffisso (eliminati dal database)
         const availableSymbols = [
             // Bitcoin
-            { symbol: 'bitcoin', name: 'Bitcoin', pair: 'BTCEUR', display: 'BTC/EUR' },
             { symbol: 'bitcoin_usdt', name: 'Bitcoin', pair: 'BTCUSDT', display: 'BTC/USDT' },
             // Solana
-            { symbol: 'solana', name: 'Solana', pair: 'SOLUSDT', display: 'SOL/USDT' },
-            { symbol: 'solana_eur', name: 'Solana', pair: 'SOLEUR', display: 'SOL/EUR' },
+            { symbol: 'solana_eur', name: 'Solana', pair: 'SOLUSDT', display: 'SOL/USDT' },
             // Ethereum
-            { symbol: 'ethereum', name: 'Ethereum', pair: 'ETHEUR', display: 'ETH/EUR' },
             { symbol: 'ethereum_usdt', name: 'Ethereum', pair: 'ETHUSDT', display: 'ETH/USDT' },
             // Cardano
-            { symbol: 'cardano', name: 'Cardano', pair: 'ADAEUR', display: 'ADA/EUR' },
             { symbol: 'cardano_usdt', name: 'Cardano', pair: 'ADAUSDT', display: 'ADA/USDT' },
             // Polkadot
-            { symbol: 'polkadot', name: 'Polkadot', pair: 'DOTEUR', display: 'DOT/EUR' },
             { symbol: 'polkadot_usdt', name: 'Polkadot', pair: 'DOTUSDT', display: 'DOT/USDT' },
             // Chainlink
-            { symbol: 'chainlink', name: 'Chainlink', pair: 'LINKEUR', display: 'LINK/EUR' },
             { symbol: 'chainlink_usdt', name: 'Chainlink', pair: 'LINKUSDT', display: 'LINK/USDT' },
-            // Litecoin
-            { symbol: 'litecoin', name: 'Litecoin', pair: 'LTCEUR', display: 'LTC/EUR' },
-            { symbol: 'litecoin_usdt', name: 'Litecoin', pair: 'LTCUSDT', display: 'LTC/USDT' },
             // Ripple
-            { symbol: 'ripple', name: 'Ripple', pair: 'XRPUSDT', display: 'XRP/USDT' },
-            { symbol: 'ripple_eur', name: 'Ripple', pair: 'XRPEUR', display: 'XRP/EUR' },
+            { symbol: 'ripple_eur', name: 'Ripple', pair: 'XRPUSDT', display: 'XRP/USDT' },
             // Binance Coin
-            { symbol: 'binance_coin', name: 'Binance Coin', pair: 'BNBUSDT', display: 'BNB/USDT' },
-            { symbol: 'binance_coin_eur', name: 'Binance Coin', pair: 'BNBEUR', display: 'BNB/EUR' },
+            { symbol: 'binance_coin_eur', name: 'Binance Coin', pair: 'BNBUSDT', display: 'BNB/USDT' },
             // Polygon (POL) - Replaces MATIC
-            { symbol: 'pol_polygon', name: 'Polygon', pair: 'POLUSDT', display: 'POL/USDT' },
-            { symbol: 'pol_polygon_eur', name: 'Polygon', pair: 'POLEUR', display: 'POL/EUR' },
+            { symbol: 'pol_polygon_eur', name: 'Polygon', pair: 'POLUSDT', display: 'POL/USDT' },
             // Avalanche
-            { symbol: 'avalanche', name: 'Avalanche', pair: 'AVAXUSDT', display: 'AVAX/USDT' },
-            { symbol: 'avalanche_eur', name: 'Avalanche', pair: 'AVAXEUR', display: 'AVAX/EUR' },
+            { symbol: 'avalanche_eur', name: 'Avalanche', pair: 'AVAXUSDT', display: 'AVAX/USDT' },
             // Uniswap
-            { symbol: 'uniswap', name: 'Uniswap', pair: 'UNIUSDT', display: 'UNI/USDT' },
-            { symbol: 'uniswap_eur', name: 'Uniswap', pair: 'UNIEUR', display: 'UNI/EUR' },
+            { symbol: 'uniswap_eur', name: 'Uniswap', pair: 'UNIUSDT', display: 'UNI/USDT' },
             // Dogecoin
-            { symbol: 'dogecoin', name: 'Dogecoin', pair: 'DOGEUSDT', display: 'DOGE/USDT' },
-            { symbol: 'dogecoin_eur', name: 'Dogecoin', pair: 'DOGEEUR', display: 'DOGE/EUR' },
+            { symbol: 'dogecoin_eur', name: 'Dogecoin', pair: 'DOGEUSDT', display: 'DOGE/USDT' },
             // Shiba Inu
-            { symbol: 'shiba', name: 'Shiba Inu', pair: 'SHIBUSDT', display: 'SHIB/USDT' },
-            { symbol: 'shiba_eur', name: 'Shiba Inu', pair: 'SHIBEUR', display: 'SHIB/EUR' }
+            { symbol: 'shiba_eur', name: 'Shiba Inu', pair: 'SHIBUSDT', display: 'SHIB/USDT' }
         ];
 
         // Get active bots to show which symbols have bots running
