@@ -810,7 +810,7 @@ setBotParameters(data.bot_parameters);
             window.removeEventListener('crypto-prices-update', handlePriceUpdate);
             clearInterval(backupInterval);
         };
-    }, [portfolio.holdings, openPositions, apiBase, currentSymbol, currentPrice, wsConnected]);
+    }, [portfolio.holdings, openPositions, apiBase, currentSymbol, wsConnected]); // ✅ PERFORMANCE: Rimosso currentPrice dalle deps
 
     // Calculate total balance (USDT + All Crypto values - Short Liabilities)
     // ✅ FIX: Total Balance = Capitale Disponibile (cash) = balance_usd
@@ -819,18 +819,20 @@ setBotParameters(data.bot_parameters);
     // ✅ FIX: Use ONLY open positions effectively ignoring 'portfolio.holdings' which might be corrupted
     const holdings = portfolio.holdings || {}; // Restore this for fallback logic
 
-    // ✅ FIX CRITICO: Filtra STRICTO solo posizioni aperte PRIMA di usarle (evita ReferenceError)
-    const validOpenPositions = (openPositions || []).filter(pos => {
-        // Validazione STRICTA: deve essere esattamente 'open'
-        if (!pos || pos.status !== 'open') {
-            return false;
-        }
-        // Validazione: deve avere ticket_id valido
-        if (!pos.ticket_id) {
-            return false;
-        }
-        return true;
-    });
+    // ✅ PERFORMANCE: Memoizza validazione posizioni aperte
+    const validOpenPositions = useMemo(() => {
+        return (openPositions || []).filter(pos => {
+            // Validazione STRICTA: deve essere esattamente 'open'
+            if (!pos || pos.status !== 'open') {
+                return false;
+            }
+            // Validazione: deve avere ticket_id valido
+            if (!pos.ticket_id) {
+                return false;
+            }
+            return true;
+        });
+    }, [openPositions]);
 
     // ✅ FIX CRITICO: Dichiarare tutte le costanti PRIMA del loro utilizzo
     const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni USDT max (soglia di sicurezza)
@@ -880,6 +882,7 @@ setBotParameters(data.bot_parameters);
             // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT
 
             // ✅ FIX CRITICO: Valida che il prezzo sia ragionevole
+            const entryPrice = parseFloat(pos.entry_price) || 0;
             if (price > MAX_REASONABLE_PRICE) {
                 console.error(`🚨 [BALANCE] Prezzo anomale per ${pos.symbol}: $${price.toLocaleString()}. Usando entry_price come fallback.`);
                 // Usa entry_price come fallback se il prezzo è anomale
