@@ -1359,7 +1359,8 @@ const SYMBOL_TO_PAIR = {
     // Others
     'sei': 'SEIUSDT',
     'inj': 'INJUSDT',
-    'usdc': 'USDCUSDT'
+    'usdc': 'USDCUSDT',
+    'flow': 'FLOWUSDT', 'flowusdt': 'FLOWUSDT'
 };
 
 // ✅ CORRELATION GROUPS - Strategia Ibrida per Diversificazione Intelligente (SENZA DUPLICATI)

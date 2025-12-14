@@ -83,6 +83,7 @@ const SYMBOL_TO_PAIR = {
     'cosmos': 'ATOMUSDT', 'atom': 'ATOMUSDT', 'atomusdt': 'ATOMUSDT',
     'optimism': 'OPUSDT', 'op': 'OPUSDT', 'opusdt': 'OPUSDT',
     'icp': 'ICPUSDT', 'icpusdt': 'ICPUSDT', // Internet Computer
+    'flow': 'FLOWUSDT', 'flowusdt': 'FLOWUSDT', // Flow blockchain
 };
 
 // Gruppi di correlazione per diversificazione
