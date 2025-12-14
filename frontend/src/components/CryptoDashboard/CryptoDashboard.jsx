@@ -711,10 +711,11 @@ setBotParameters(data.bot_parameters);
         // Aggiorna prezzi quando cambiano holdings o posizioni aperte
         fetchAllPrices();
 
-        // ✅ REAL-TIME CRITICO: Aggiorna prezzi per TUTTI i simboli delle posizioni ogni 500ms (INDIPENDENTE dal grafico)
+        // ✅ FIX PERFORMANCE: Ridotta frequenza aggiornamento prezzi per evitare sovraccarico browser
+        // Da 500ms a 3000ms = riduzione da 20 req/sec a 0.33 req/sec (6x meno richieste)
         const priceUpdateInterval = setInterval(() => {
             fetchAllPrices();
-        }, 500); // ✅ REAL-TIME: Aggiorna ogni 500ms per aggiornamenti in tempo reale
+        }, 3000); // ✅ OTTIMIZZATO: Aggiorna ogni 3 secondi (sufficiente per trading non HFT)
 
         return () => clearInterval(priceUpdateInterval);
     }, [portfolio.holdings, openPositions, apiBase, currentSymbol, currentPrice]);
