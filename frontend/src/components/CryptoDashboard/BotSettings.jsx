@@ -64,23 +64,21 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                     });
                     // ✅ FIX: I parametri dal backend sono già completi (merge fatto nel backend)
                     // Non serve fare merge qui, usiamo direttamente i parametri dal backend
-                if (data.parameters && typeof data.parameters === 'object') {
-                    setParameters(data.parameters);
-                    console.log('✅ [BOT-SETTINGS] Parametri caricati dal backend:', {
-                        totalParams: Object.keys(data.parameters).length,
-                        hasTrailingProfit: 'trailing_profit_protection_enabled' in data.parameters,
-                        trailingProfitValue: data.parameters.trailing_profit_protection_enabled,
-                        sampleValues: {
+                    if (data.parameters && typeof data.parameters === 'object') {
+                        setParameters(data.parameters);
+                        console.log('✅ [BOT-SETTINGS] Parametri impostati nel frontend:', {
                             trade_size_usdt: data.parameters.trade_size_usdt,
-                            stop_loss_pct: data.parameters.stop_loss_pct,
-                            take_profit_pct: data.parameters.take_profit_pct
-                        }
-                    });
-                } else {
-                    console.error('❌ [BOT-SETTINGS] Parametri non validi dal backend:', data);
-                    setError('Formato parametri non valido');
+                            max_positions: data.parameters.max_positions
+                        });
+                    } else {
+                        console.error('❌ [BOT-SETTINGS] Parametri non validi dal backend:', data);
+                        setError('Formato parametri non valido');
+                    }
+                } catch (jsonErr) {
+                    console.error('❌ [BOT-SETTINGS] Errore parsing JSON durante caricamento:', jsonErr);
+                    setError('Errore nella risposta del server (non JSON valido)');
                 }
-            } else {
+            } else if (res.ok && !isJson) {
                 const errorData = await res.json().catch(() => ({}));
                 console.error('❌ [BOT-SETTINGS] Errore caricamento:', errorData);
                 setError(errorData.error || 'Errore nel caricamento dei parametri');
