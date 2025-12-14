@@ -6057,26 +6057,29 @@ router.get('/bot/parameters', async (req, res) => {
         }
         
         // ✅ FIX CRITICO: Assicurati che trade_size_usdt e max_positions siano sempre presenti e validi
-        // Controlla esplicitamente per null, undefined, 0, NaN, e stringa vuota
-        if (params.trade_size_usdt === null || params.trade_size_usdt === undefined || 
-            params.trade_size_usdt === '' || isNaN(params.trade_size_usdt) || params.trade_size_usdt === 0) {
-            // Se trade_size_usdt non è valido, prova trade_size_eur
-            if (params.trade_size_eur && params.trade_size_eur !== null && 
-                params.trade_size_eur !== undefined && params.trade_size_eur !== '' && 
-                !isNaN(params.trade_size_eur) && params.trade_size_eur !== 0) {
-                params.trade_size_usdt = params.trade_size_eur;
-                console.log('📥 [BOT-PARAMS-GET] trade_size_usdt non valido, uso trade_size_eur:', params.trade_size_usdt);
-            } else {
-                // Altrimenti usa default
-                params.trade_size_usdt = DEFAULT_PARAMS.trade_size_usdt;
-                console.warn('⚠️  [BOT-PARAMS-GET] trade_size_usdt/eur non valido, uso default:', params.trade_size_usdt);
-            }
+        // Controlla esplicitamente per null, undefined, NaN, e valori fuori range
+        const tradeSizeValue = params.trade_size_usdt || params.trade_size_eur;
+        if (tradeSizeValue === null || tradeSizeValue === undefined || 
+            tradeSizeValue === '' || isNaN(Number(tradeSizeValue)) || 
+            Number(tradeSizeValue) < 10 || Number(tradeSizeValue) > 1000) {
+            // Valore non valido, usa default
+            params.trade_size_usdt = DEFAULT_PARAMS.trade_size_usdt;
+            console.warn('⚠️  [BOT-PARAMS-GET] trade_size_usdt/eur non valido o fuori range, uso default:', params.trade_size_usdt);
+        } else {
+            // Valore valido, assicurati che sia in trade_size_usdt
+            params.trade_size_usdt = Number(tradeSizeValue);
+            console.log('✅ [BOT-PARAMS-GET] trade_size_usdt valido:', params.trade_size_usdt);
         }
         
-        if (params.max_positions === null || params.max_positions === undefined || 
-            params.max_positions === '' || isNaN(params.max_positions) || params.max_positions === 0) {
+        const maxPosValue = params.max_positions;
+        if (maxPosValue === null || maxPosValue === undefined || 
+            maxPosValue === '' || isNaN(Number(maxPosValue)) || 
+            Number(maxPosValue) < 1 || Number(maxPosValue) > 20) {
             params.max_positions = DEFAULT_PARAMS.max_positions;
-            console.warn('⚠️  [BOT-PARAMS-GET] max_positions non valido, uso default:', params.max_positions);
+            console.warn('⚠️  [BOT-PARAMS-GET] max_positions non valido o fuori range, uso default:', params.max_positions);
+        } else {
+            params.max_positions = Number(maxPosValue);
+            console.log('✅ [BOT-PARAMS-GET] max_positions valido:', params.max_positions);
         }
         
         // ✅ DEBUG: Verifica finale
