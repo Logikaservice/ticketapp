@@ -135,3 +135,4 @@ if (totalFound === 0) {
     console.log('   Alcuni potrebbero essere necessari per la normalizzazione.');
     console.log('   Verifica manualmente se sono problematici.\n');
 }
+

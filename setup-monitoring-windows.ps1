@@ -78,3 +78,4 @@ Write-Host "  ✅ Aggregatore klines attivo" -ForegroundColor White
 Write-Host ""
 Write-Host "In caso di problemi, riceverai notifiche nel log." -ForegroundColor White
 Write-Host ""
+

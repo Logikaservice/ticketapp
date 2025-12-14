@@ -166,3 +166,4 @@ async function checkHistoricalTrades() {
 
 // Esegui verifica
 checkHistoricalTrades().catch(console.error);
+

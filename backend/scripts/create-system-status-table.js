@@ -56,3 +56,4 @@ createSystemStatusTable()
         console.error('❌ Errore:', err);
         process.exit(1);
     });
+

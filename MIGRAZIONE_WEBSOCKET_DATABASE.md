@@ -173,3 +173,4 @@ Con queste modifiche:
 - **Validazione**: Filtra prezzi anomali (> $100k o < $0.000001)
 
 
+

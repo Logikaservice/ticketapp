@@ -279,3 +279,4 @@ Per problemi o domande sul sistema di backup:
 **Ultima Modifica**: Dicembre 2025  
 **Autore**: Sistema Automatico di Backup  
 **Versione**: 1.0.0
+
