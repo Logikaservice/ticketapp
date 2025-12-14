@@ -1294,16 +1294,16 @@ const getBotParameters = async (symbol = 'bitcoin_usdt') => {
 // Aggiornato: 2025-12-14 - Rimossi 23 duplicati
 const SYMBOL_TO_PAIR = {
     // Top Cryptocurrencies
-    'bitcoin_usdt': 'BTCUSDT',
-    'ethereum_usdt': 'ETHUSDT',
-    'solana_eur': 'SOLUSDT',
-    'ripple_eur': 'XRPUSDT',
-    'binance_coin_eur': 'BNBUSDT',
+    'bitcoin': 'BTCUSDT', 'btc': 'BTCUSDT', 'bitcoin_usdt': 'BTCUSDT', 'btcusdt': 'BTCUSDT',
+    'ethereum': 'ETHUSDT', 'eth': 'ETHUSDT', 'ethereum_usdt': 'ETHUSDT', 'ethusdt': 'ETHUSDT',
+    'solana': 'SOLUSDT', 'sol': 'SOLUSDT', 'solana_eur': 'SOLUSDT', 'solana_usdt': 'SOLUSDT', 'solusdt': 'SOLUSDT',
+    'ripple': 'XRPUSDT', 'xrp': 'XRPUSDT', 'ripple_eur': 'XRPUSDT', 'ripple_usdt': 'XRPUSDT', 'xrpusdt': 'XRPUSDT',
+    'binance_coin': 'BNBUSDT', 'bnb': 'BNBUSDT', 'binance_coin_eur': 'BNBUSDT', 'bnbusdt': 'BNBUSDT',
 
     // Layer 1 Alternatives
-    'cardano_usdt': 'ADAUSDT',
-    'polkadot_usdt': 'DOTUSDT',
-    'avalanche_eur': 'AVAXUSDT',
+    'cardano': 'ADAUSDT', 'ada': 'ADAUSDT', 'cardano_usdt': 'ADAUSDT', 'adausdt': 'ADAUSDT',
+    'polkadot': 'DOTUSDT', 'dot': 'DOTUSDT', 'polkadot_usdt': 'DOTUSDT', 'dotusdt': 'DOTUSDT',
+    'avalanche': 'AVAXUSDT', 'avax': 'AVAXUSDT', 'avalanche_eur': 'AVAXUSDT', 'avaxusdt': 'AVAXUSDT',
     'near_eur': 'NEARUSDT',
     'atom_eur': 'ATOMUSDT',
     'sui_eur': 'SUIUSDT',
@@ -1312,9 +1312,9 @@ const SYMBOL_TO_PAIR = {
     'icp': 'ICPUSDT',
 
     // DeFi Blue Chips
-    'aave': 'AAVEUSDT',
-    'uniswap_eur': 'UNIUSDT',
-    'chainlink_usdt': 'LINKUSDT',
+    'aave': 'AAVEUSDT', 'aaveusdt': 'AAVEUSDT',
+    'uniswap': 'UNIUSDT', 'uni': 'UNIUSDT', 'uniswap_eur': 'UNIUSDT', 'uniusdt': 'UNIUSDT',
+    'chainlink': 'LINKUSDT', 'link': 'LINKUSDT', 'chainlink_usdt': 'LINKUSDT', 'linkusdt': 'LINKUSDT',
     'crv': 'CRVUSDT',
     'ldo': 'LDOUSDT',
     'mkr': 'MKRUSDT',
@@ -1322,10 +1322,10 @@ const SYMBOL_TO_PAIR = {
     'snx': 'SNXUSDT',
 
     // Layer 2 / Scaling
-    'arb_eur': 'ARBUSDT',
-    'op_eur': 'OPUSDT',
-    'matic_eur': 'MATICUSDT',
-    'pol_polygon_eur': 'POLUSDT',
+    'arb': 'ARBUSDT', 'arb_eur': 'ARBUSDT', 'arbitrum': 'ARBUSDT', 'arbusdt': 'ARBUSDT',
+    'op': 'OPUSDT', 'op_eur': 'OPUSDT', 'optimism': 'OPUSDT', 'opusdt': 'OPUSDT',
+    'matic': 'POLUSDT', 'matic_eur': 'POLUSDT', 'polygon': 'POLUSDT', 'maticusdt': 'POLUSDT', 
+    'pol': 'POLUSDT', 'pol_polygon': 'POLUSDT', 'pol_polygon_eur': 'POLUSDT', 'polpolygon': 'POLUSDT', 'polusdt': 'POLUSDT',
 
     // Payments & Old School
     'trx_eur': 'TRXUSDT',
@@ -1337,19 +1337,20 @@ const SYMBOL_TO_PAIR = {
     'grt': 'GRTUSDT',
 
     // Gaming/Metaverse
-    'sand': 'SANDUSDT',
-    'mana': 'MANAUSDT',
-    'axs': 'AXSUSDT',
-    'gala': 'GALAUSDT',
-    'imx': 'IMXUSDT',
-    'enj_eur': 'ENJUSDT',
+    'sand': 'SANDUSDT', 'the_sandbox': 'SANDUSDT', 'thesandbox': 'SANDUSDT', 'sandusdt': 'SANDUSDT',
+    'mana': 'MANAUSDT', 'decentraland': 'MANAUSDT', 'manausdt': 'MANAUSDT',
+    'axs': 'AXSUSDT', 'axie_infinity': 'AXSUSDT', 'axieinfinity': 'AXSUSDT', 'axsusdt': 'AXSUSDT',
+    'gala': 'GALAUSDT', 'galausdt': 'GALAUSDT',
+    'imx': 'IMXUSDT', 'imxusdt': 'IMXUSDT',
+    'enj': 'ENJUSDT', 'enj_eur': 'ENJUSDT', 'enjusdt': 'ENJUSDT',
+    'theta': 'THETAUSDT', 'theta_network': 'THETAUSDT', 'thetanetwork': 'THETAUSDT', 'thetausdt': 'THETAUSDT',
 
     // Meme Coins
-    'pepe_eur': 'PEPEUSDT',
-    'dogecoin_eur': 'DOGEUSDT',
-    'shiba_eur': 'SHIBUSDT',
-    'floki': 'FLOKIUSDT',
-    'bonk': 'BONKUSDT',
+    'pepe': 'PEPEUSDT', 'pepe_eur': 'PEPEUSDT', 'pepeusdt': 'PEPEUSDT',
+    'dogecoin': 'DOGEUSDT', 'doge': 'DOGEUSDT', 'dogecoin_eur': 'DOGEUSDT', 'dogeusdt': 'DOGEUSDT',
+    'shiba_inu': 'SHIBUSDT', 'shib': 'SHIBUSDT', 'shiba_eur': 'SHIBUSDT', 'shibusdt': 'SHIBUSDT',
+    'floki': 'FLOKIUSDT', 'flokiusdt': 'FLOKIUSDT',
+    'bonk': 'BONKUSDT', 'bonkusdt': 'BONKUSDT',
 
     // Storage/Infrastructure
     'fil': 'FILUSDT',
