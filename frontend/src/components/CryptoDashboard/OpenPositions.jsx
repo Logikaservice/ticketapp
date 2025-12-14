@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, TrendingUp, TrendingDown, AlertCircle, BarChart2, ChevronsDown, ExternalLink } from 'lucide-react';
 import { formatPrice, formatPriceWithSymbol, formatVolume, formatSymbol, formatPnL } from '../../utils/priceFormatter';
 
-const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices = {}, onClosePosition, onUpdatePnL, availableSymbols = [], onSelectSymbol, apiBase }) => {
+// ✅ PERFORMANCE: React.memo previene re-render inutili quando props non cambiano
+const OpenPositions = React.memo(({ positions, currentPrice, currentSymbol, allSymbolPrices = {}, onClosePosition, onUpdatePnL, availableSymbols = [], onSelectSymbol, apiBase }) => {
     const [isUpdating, setIsUpdating] = useState(false);
     const [openMenuFor, setOpenMenuFor] = useState(null);
     const menuRefs = useRef({});
@@ -628,6 +629,9 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
             </div>
         </div>
     );
-};
+});
+
+// ✅ PERFORMANCE: displayName per debug React DevTools
+OpenPositions.displayName = 'OpenPositions';
 
 export default OpenPositions;

@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { RefreshCw, TrendingUp, TrendingDown, AlertCircle, Play, Activity, BarChart2, ChevronDown, ChevronUp, Lock, ChevronsDown, ExternalLink } from 'lucide-react';
 import './CryptoLayout.css';
 
-const MarketScanner = ({ apiBase, onSelectSymbol, currentSymbol = null }) => {
+// ✅ PERFORMANCE: React.memo previene re-render inutili
+const MarketScanner = React.memo(({ apiBase, onSelectSymbol, currentSymbol = null }) => {
     const [scanResults, setScanResults] = useState([]);
     const [loading, setLoading] = useState(false);
     const [lastScan, setLastScan] = useState(null);
@@ -583,6 +584,9 @@ const MarketScanner = ({ apiBase, onSelectSymbol, currentSymbol = null }) => {
             }
         </div>
     );
-};
+});
+
+// ✅ PERFORMANCE: displayName per debug React DevTools
+MarketScanner.displayName = 'MarketScanner';
 
 export default MarketScanner;

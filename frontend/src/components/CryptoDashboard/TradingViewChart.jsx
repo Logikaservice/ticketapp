@@ -4,7 +4,8 @@ import { formatPriceWithSymbol, formatSymbol } from '../../utils/priceFormatter'
 import { Maximize2, Minimize2 } from 'lucide-react';
 import './TradingViewChart.css';
 
-const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [], currentPrice = 0, priceHistory = [], closedTrades = [], currentSymbol = null, availableSymbols = [] }) => {
+// ✅ PERFORMANCE: React.memo previene re-render del chart TradingView (molto pesante!)
+const TradingViewChart = React.memo(({ symbol = 'BTCUSDT', trades = [], openPositions = [], currentPrice = 0, priceHistory = [], closedTrades = [], currentSymbol = null, availableSymbols = [] }) => {
     const containerRef = useRef(null);
     const widgetRef = useRef(null);
     const [markers, setMarkers] = useState([]);
@@ -367,7 +368,10 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
             ) : null}
         </div>
     );
-};
+});
+
+// ✅ PERFORMANCE: displayName per debug React DevTools
+TradingViewChart.displayName = 'TradingViewChart';
 
 export default TradingViewChart;
 
