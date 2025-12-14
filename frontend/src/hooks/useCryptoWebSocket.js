@@ -99,6 +99,15 @@ export const useCryptoWebSocket = (onPositionOpened, onPositionClosed) => {
             }
         });
 
+        // ✅ NEW: Real-time price updates via WebSocket
+        socket.on('crypto:prices-update', (data) => {
+            // Emit custom event that components can listen to
+            const event = new CustomEvent('crypto-prices-update', { 
+                detail: data 
+            });
+            window.dispatchEvent(event);
+        });
+
         // Cleanup on unmount
         return () => {
             if (socket) {

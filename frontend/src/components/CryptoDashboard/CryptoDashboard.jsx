@@ -708,16 +708,35 @@ setBotParameters(data.bot_parameters);
             });
         };
 
-        // Aggiorna prezzi quando cambiano holdings o posizioni aperte
+        // ✅ WEBSOCKET: Aggiorna prezzi quando cambiano holdings o posizioni aperte
         fetchAllPrices();
 
-        // ✅ FIX PERFORMANCE: Ridotta frequenza aggiornamento prezzi per evitare sovraccarico browser
-        // Da 500ms a 3000ms = riduzione da 20 req/sec a 0.33 req/sec (6x meno richieste)
-        const priceUpdateInterval = setInterval(() => {
-            fetchAllPrices();
-        }, 3000); // ✅ OTTIMIZZATO: Aggiorna ogni 3 secondi (sufficiente per trading non HFT)
+        // ✅ WEBSOCKET REAL-TIME: Ascolta eventi prezzi via WebSocket (NO più polling HTTP!)
+        const handlePriceUpdate = (event) => {
+            const { prices } = event.detail;
+            
+            // Aggiorna prezzi ricevuti via WebSocket
+            const updatedPrices = { ...pricesRef.current };
+            for (const [symbol, data] of Object.entries(prices)) {
+                updatedPrices[symbol] = data.price;
+            }
+            pricesRef.current = updatedPrices;
+            setPrices(updatedPrices);
+        };
 
-        return () => clearInterval(priceUpdateInterval);
+        window.addEventListener('crypto-prices-update', handlePriceUpdate);
+
+        // ✅ FALLBACK: Polling HTTP solo se WebSocket disconnesso (ogni 5 secondi come backup)
+        const backupInterval = setInterval(() => {
+            if (!wsConnected) {
+                fetchAllPrices();
+            }
+        }, 5000); // Solo se WebSocket è disconnesso
+
+        return () => {
+            window.removeEventListener('crypto-prices-update', handlePriceUpdate);
+            clearInterval(backupInterval);
+        };
     }, [portfolio.holdings, openPositions, apiBase, currentSymbol, currentPrice]);
 
     // Calculate total balance (USDT + All Crypto values - Short Liabilities)

@@ -822,6 +822,17 @@ try {
   console.error('❌ [INIT] Stack:', botError.stack);
 }
 
+// 📡 Start Price WebSocket Service (real-time price broadcasting)
+console.log('📡 [INIT] Starting Price WebSocket Service...');
+try {
+  const priceWebSocketService = require('./services/PriceWebSocketService');
+  priceWebSocketService.setSocketIO(io);
+  priceWebSocketService.start();
+  console.log('✅ [INIT] Price WebSocket Service started successfully');
+} catch (wsError) {
+  console.error('❌ [INIT] Error starting Price WebSocket Service:', wsError.message);
+}
+
 // Rotte temporanee per debug (senza autenticazione) - DEVE ESSERE PRIMA
 app.use('/api/temp', tempLoginRoutes);
 
