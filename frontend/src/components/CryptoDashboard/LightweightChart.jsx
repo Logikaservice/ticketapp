@@ -3,7 +3,8 @@ import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
 import { formatPriceWithSymbol } from '../../utils/priceFormatter';
 import './LightweightChart.css';
 
-const LightweightChart = ({ symbol = 'BTCUSDT', trades = [], currentPrice = 0, priceHistory = [], openPositions = [], onIntervalChange, currentInterval = '15m' }) => {
+// ✅ PERFORMANCE: React.memo previene re-render inutili
+const LightweightChart = React.memo(({ symbol = 'BTCUSDT', trades = [], currentPrice = 0, priceHistory = [], openPositions = [], onIntervalChange, currentInterval = '15m' }) => {
     const [selectedInterval, setSelectedInterval] = useState(currentInterval);
     
     // Aggiorna quando cambia l'intervallo esterno
@@ -400,8 +401,8 @@ const LightweightChart = ({ symbol = 'BTCUSDT', trades = [], currentPrice = 0, p
         // Aggiorna immediatamente
         updatePositions();
 
-        // Aggiorna periodicamente (ogni 500ms) per seguire lo scroll
-        const interval = setInterval(updatePositions, 500);
+        // ✅ PERFORMANCE FIX: Ridotto a 2s per ridurre lag
+        const interval = setInterval(updatePositions, 2000);
 
         return () => clearInterval(interval);
     }, [animatedLines.length, calculateXPosition]);
@@ -455,8 +456,8 @@ const LightweightChart = ({ symbol = 'BTCUSDT', trades = [], currentPrice = 0, p
         // Aggiorna subito
         updateCandle();
 
-        // ✅ FIX: Aggiorna ogni 200ms per movimento molto fluido e visibile
-        const interval = setInterval(updateCandle, 200);
+        // ✅ PERFORMANCE FIX: Ridotto a 1s per ridurre lag
+        const interval = setInterval(updateCandle, 1000);
 
         return () => clearInterval(interval);
     }, [currentPrice, priceHistory]);
@@ -728,7 +729,7 @@ const LightweightChart = ({ symbol = 'BTCUSDT', trades = [], currentPrice = 0, p
 
         </div>
     );
-};
+});
 
 export default LightweightChart;
 

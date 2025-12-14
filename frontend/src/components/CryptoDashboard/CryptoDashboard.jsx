@@ -587,21 +587,21 @@ setBotParameters(data.bot_parameters);
         fetchData();
         fetchPrice();
 
-        // ✅ Update price frequently (aumentato per evitare ERR_INSUFFICIENT_RESOURCES)
+        // ✅ PERFORMANCE FIX: Ridotto polling per migliorare prestazioni
         const priceInterval = setInterval(() => {
             fetchPrice();
-        }, 5000); // ✅ Aumentato da 2000ms a 5000ms per ridurre carico
+        }, 10000); // ✅ Aumentato a 10s (il WebSocket gestisce gli update real-time)
 
-        // ✅ Update data (positions, trades) - reduced frequency
+        // ✅ PERFORMANCE FIX: Ridotto polling per migliorare prestazioni
         const dataInterval = setInterval(() => {
             fetchData();
             fetchActiveBots(); // Also update active bots
-        }, 5000); // ✅ Aumentato da 3000ms a 5000ms per ridurre carico
+        }, 15000); // ✅ Aumentato a 15s per ridurre carico
 
-        // ✅ Update history (candles) - less frequent
+        // ✅ PERFORMANCE FIX: Ridotto polling per migliorare prestazioni
         const historyInterval = setInterval(() => {
             fetchHistory();
-        }, 10000); // ✅ Aumentato da 5000ms a 10000ms per ridurre carico
+        }, 30000); // ✅ Aumentato a 30s per ridurre carico
 
         return () => {
             clearInterval(priceInterval);
@@ -799,12 +799,12 @@ setBotParameters(data.bot_parameters);
 
         window.addEventListener('crypto-prices-update', handlePriceUpdate);
 
-        // ✅ FALLBACK: Polling HTTP solo se WebSocket disconnesso (ogni 5 secondi come backup)
+        // ✅ PERFORMANCE FIX: Rallentato backup polling a 20s
         const backupInterval = setInterval(() => {
             if (!wsConnected) {
                 fetchAllPrices();
             }
-        }, 5000); // Solo se WebSocket è disconnesso
+        }, 20000); // Solo se WebSocket è disconnesso
 
         return () => {
             window.removeEventListener('crypto-prices-update', handlePriceUpdate);

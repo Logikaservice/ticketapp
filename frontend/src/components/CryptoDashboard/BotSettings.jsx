@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Save, X } from 'lucide-react';
 import './BotSettings.css';
 
-const BotSettings = ({ isOpen, onClose, apiBase, getAuthHeader = () => ({}) }) => {
+// ✅ PERFORMANCE: React.memo previene re-render inutili
+const BotSettings = React.memo(({ isOpen, onClose, apiBase, getAuthHeader = () => ({}) }) => {
     const [parameters, setParameters] = useState({
         rsi_period: 14,
         rsi_oversold: 30,
@@ -741,7 +742,7 @@ const BotSettings = ({ isOpen, onClose, apiBase, getAuthHeader = () => ({}) }) =
             </div>
         </div>
     );
-};
+});
 
 export default BotSettings;
 

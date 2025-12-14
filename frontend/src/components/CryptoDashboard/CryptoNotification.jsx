@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { TrendingUp, TrendingDown, X } from 'lucide-react';
 import './CryptoNotification.css';
 
-const CryptoNotification = ({ notification, onClose }) => {
+// ✅ PERFORMANCE: React.memo previene re-render inutili
+const CryptoNotification = React.memo(({ notification, onClose }) => {
     const [isVisible, setIsVisible] = useState(true);
 
     useEffect(() => {
@@ -52,7 +53,7 @@ const CryptoNotification = ({ notification, onClose }) => {
             </button>
         </div>
     );
-};
+});
 
 export default CryptoNotification;
 

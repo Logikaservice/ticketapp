@@ -28,14 +28,16 @@ const OpenPositions = React.memo(({ positions, currentPrice, currentSymbol, allS
 
     // Update P&L periodically (real-time updates)
     useEffect(() => {
-        const interval = setInterval(() => {
-            if (onUpdatePnL) {
-                setIsUpdating(true);
-                onUpdatePnL().finally(() => setIsUpdating(false));
-            }
-        }, 500); // ✅ REAL-TIME: Update every 500ms for instant feedback
+        // ✅ PERFORMANCE FIX: Disabilitato auto-update per ridurre lag
+        // L'utente può fare refresh manuale o aspettare il polling principale
+        // const interval = setInterval(() => {
+        //     if (onUpdatePnL) {
+        //         setIsUpdating(true);
+        //         onUpdatePnL().finally(() => setIsUpdating(false));
+        //     }
+        // }, 5000); // Rallentato a 5s per ridurre lag
 
-        return () => clearInterval(interval);
+        // return () => clearInterval(interval);
     }, [onUpdatePnL]);
 
     // Chiudi menu quando si clicca fuori

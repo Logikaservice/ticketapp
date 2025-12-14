@@ -26,7 +26,8 @@ const BotAnalysisPanel = ({ isCollapsed: initialCollapsed = false }) => {
         };
 
         fetchAnalysis();
-        const interval = setInterval(fetchAnalysis, 3000); // Aggiorna ogni 3 secondi
+        // ✅ PERFORMANCE FIX: Ridotto a 10s per ridurre lag
+        const interval = setInterval(fetchAnalysis, 10000);
 
         return () => clearInterval(interval);
     }, [apiBase]);

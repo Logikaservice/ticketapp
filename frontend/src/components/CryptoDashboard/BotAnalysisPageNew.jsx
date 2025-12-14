@@ -164,7 +164,8 @@ const BotAnalysisPageNew = () => {
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 5000); // Aggiorna ogni 5 secondi (ridotto carico)
+        // ✅ PERFORMANCE FIX: Ridotto a 15s per ridurre lag
+        const interval = setInterval(fetchData, 15000);
 
         return () => clearInterval(interval);
     }, [fetchData]);
