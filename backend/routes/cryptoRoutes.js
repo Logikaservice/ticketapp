@@ -1811,7 +1811,7 @@ const getSymbolPrice = async (symbol) => {
         console.log(`🔄 [PRICE-UPDATE] Aggiornando prezzo ${symbol} da Binance (cache scaduta)`);
     }
 
-    const coingeckoId = SYMBOL_TO_COINGECKO[symbol] || 'bitcoin';
+    const coingeckoId = SYMBOL_TO_COINGECKO[symbol] || 'bitcoin_usdt';
 
     try {
         const { getPriceByPair } = require('../services/PriceService');
@@ -3533,7 +3533,7 @@ const runBotCycle = async () => {
             // Update price for bitcoin at least (for backward compatibility)
             const currentPrice = await getSymbolPrice('bitcoin');
             if (currentPrice > 0) {
-                await dbRun("INSERT INTO price_history (symbol, price) VALUES ($1, $2)", ['bitcoin', currentPrice]);
+                await dbRun("INSERT INTO price_history (symbol, price) VALUES ($1, $2)", ['bitcoin_usdt', currentPrice]);
             }
             return;
         }
