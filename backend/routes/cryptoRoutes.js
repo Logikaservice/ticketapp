@@ -1637,15 +1637,16 @@ router.get('/health-status', async (req, res) => {
                 status,
                 message: status.overall === 'healthy' ? 'Sistema operativo' : 'Problemi rilevati'
             });
-        } catch (error) {
-            console.error('❌ [API] Errore health-status:', error);
-            res.status(500).json({
-                success: false,
-                error: 'Errore verifica stato sistema',
-                message: error.message
-            });
-        }
-    });
+        } // ✅ FIX: Chiusura blocco if (!res.headersSent)
+    } catch (error) {
+        console.error('❌ [API] Errore health-status:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Errore verifica stato sistema',
+            message: error.message
+        });
+    }
+});
 
 const getSymbolPrice = async (symbol) => {
     // ✅ FIX: "global" è un simbolo speciale per impostazioni, non per trading
