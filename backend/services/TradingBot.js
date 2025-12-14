@@ -165,17 +165,25 @@ async function getSymbolPrice(symbol, retries = API_CONFIG.MAX_RETRIES) {
     try {
         // Try direct lookup first
         let pair = SYMBOL_TO_PAIR[symbol];
+        let mappingMethod = 'direct';
         
         // If not found, try normalized symbol
         if (!pair) {
             const normalized = normalizeSymbol(symbol);
             pair = SYMBOL_TO_PAIR[normalized];
+            mappingMethod = 'normalized';
             
             // If still not found, log warning and use BTC as last resort
             if (!pair) {
                 console.warn(`⚠️ [BOT] Symbol mapping not found for '${symbol}' (normalized: '${normalized}'), using BTCUSDT as fallback`);
                 pair = 'BTCUSDT';
+                mappingMethod = 'fallback';
             }
+        }
+        
+        // Log del mapping usato (solo se non è direct per non spammare i log)
+        if (mappingMethod !== 'direct') {
+            console.log(`🔍 [PRICE] ${symbol} → ${pair} (method: ${mappingMethod})`);
         }
         
         const https = require('https');
@@ -455,6 +463,17 @@ async function runBotCycleForSymbol(symbol, botSettings) {
             console.error(`⚠️ [BOT] Could not fetch price for ${symbol}, skipping`);
             return;
         }
+        
+        // ✅ VALIDAZIONE PREZZO: Verifica che il prezzo sia ragionevole
+        // Se è > $100k probabilmente è BTC/ETH e non il simbolo corretto
+        if (currentPrice > 100000) {
+            console.error(`🚨 [BOT] Prezzo SOSPETTO per ${symbol}: $${currentPrice} (troppo alto, probabilmente wrong mapping)`);
+            console.error(`   Simbolo: "${symbol}" - Verifica che sia mappato correttamente in SYMBOL_TO_PAIR`);
+            return;
+        }
+        
+        // Log dettagliato per debugging
+        console.log(`💰 [BOT] ${symbol} - Current Price: $${currentPrice.toFixed(8)}`)
 
         // 2. Check cooldown
         if (!checkCooldown(symbol)) {
@@ -599,6 +618,13 @@ async function runBotCycleForSymbol(symbol, botSettings) {
 
         // 14. Calculate position size
         const volume = tradeSize / currentPrice;
+        
+        // ✅ LOG DETTAGLIATO per verificare i calcoli
+        console.log(`📊 [BOT] ${symbol} - Volume Calculation:`);
+        console.log(`   Trade Size:     $${tradeSize.toFixed(2)}`);
+        console.log(`   Current Price:  $${currentPrice.toFixed(8)}`);
+        console.log(`   Calculated Vol: ${volume.toFixed(8)} ${symbol.toUpperCase()}`);
+        console.log(`   Verificare che: $${tradeSize.toFixed(2)} / $${currentPrice.toFixed(8)} = ${volume.toFixed(8)}`);
 
         // 15. Calculate Stop Loss and Take Profit
         // ✅ MIGLIORATO: Stop loss più stretto se ci sono warning professionali su segnali forti
