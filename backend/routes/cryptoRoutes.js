@@ -6035,35 +6035,58 @@ router.get('/bot/parameters', async (req, res) => {
                 : globalBot.parameters;
             // Merge con DEFAULT_PARAMS per avere tutti i parametri
             params = { ...DEFAULT_PARAMS, ...globalParams };
-            console.log('📥 [BOT-PARAMS-GET] Parametri globali caricati:', {
+            
+            console.log('📥 [BOT-PARAMS-GET] Parametri globali dal DB (prima fix):', {
                 trade_size_usdt: params.trade_size_usdt,
+                trade_size_usdt_type: typeof params.trade_size_usdt,
                 trade_size_eur: params.trade_size_eur,
                 max_positions: params.max_positions,
+                max_positions_type: typeof params.max_positions,
                 totalParams: Object.keys(params).length,
                 hasTradeSizeUsdt: 'trade_size_usdt' in params,
                 hasTradeSizeEur: 'trade_size_eur' in params,
-                hasMaxPositions: 'max_positions' in params,
-                // ✅ DEBUG: Mostra anche i primi 10 parametri per debug
-                sampleParams: Object.keys(params).slice(0, 10)
+                hasMaxPositions: 'max_positions' in params
             });
         } else {
             // Se non ci sono parametri globali, usa defaults
-            params = DEFAULT_PARAMS;
+            params = { ...DEFAULT_PARAMS };
             console.log('⚠️  [BOT-PARAMS-GET] Nessun parametro globale trovato, uso defaults:', {
                 trade_size_usdt: params.trade_size_usdt,
                 max_positions: params.max_positions
             });
         }
         
-        // ✅ FIX CRITICO: Assicurati che trade_size_usdt e max_positions siano sempre presenti
-        if (!params.trade_size_usdt && !params.trade_size_eur) {
-            console.warn('⚠️  [BOT-PARAMS-GET] trade_size_usdt/eur non trovato, uso default:', DEFAULT_PARAMS.trade_size_usdt);
-            params.trade_size_usdt = DEFAULT_PARAMS.trade_size_usdt;
+        // ✅ FIX CRITICO: Assicurati che trade_size_usdt e max_positions siano sempre presenti e validi
+        // Controlla esplicitamente per null, undefined, 0, NaN, e stringa vuota
+        if (params.trade_size_usdt === null || params.trade_size_usdt === undefined || 
+            params.trade_size_usdt === '' || isNaN(params.trade_size_usdt) || params.trade_size_usdt === 0) {
+            // Se trade_size_usdt non è valido, prova trade_size_eur
+            if (params.trade_size_eur && params.trade_size_eur !== null && 
+                params.trade_size_eur !== undefined && params.trade_size_eur !== '' && 
+                !isNaN(params.trade_size_eur) && params.trade_size_eur !== 0) {
+                params.trade_size_usdt = params.trade_size_eur;
+                console.log('📥 [BOT-PARAMS-GET] trade_size_usdt non valido, uso trade_size_eur:', params.trade_size_usdt);
+            } else {
+                // Altrimenti usa default
+                params.trade_size_usdt = DEFAULT_PARAMS.trade_size_usdt;
+                console.warn('⚠️  [BOT-PARAMS-GET] trade_size_usdt/eur non valido, uso default:', params.trade_size_usdt);
+            }
         }
-        if (!params.max_positions) {
-            console.warn('⚠️  [BOT-PARAMS-GET] max_positions non trovato, uso default:', DEFAULT_PARAMS.max_positions);
+        
+        if (params.max_positions === null || params.max_positions === undefined || 
+            params.max_positions === '' || isNaN(params.max_positions) || params.max_positions === 0) {
             params.max_positions = DEFAULT_PARAMS.max_positions;
+            console.warn('⚠️  [BOT-PARAMS-GET] max_positions non valido, uso default:', params.max_positions);
         }
+        
+        // ✅ DEBUG: Verifica finale
+        console.log('📥 [BOT-PARAMS-GET] Parametri finali restituiti al frontend:', {
+            trade_size_usdt: params.trade_size_usdt,
+            trade_size_usdt_type: typeof params.trade_size_usdt,
+            max_positions: params.max_positions,
+            max_positions_type: typeof params.max_positions,
+            totalParams: Object.keys(params).length
+        });
         
         res.json({
             success: true,
