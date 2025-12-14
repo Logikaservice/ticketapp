@@ -6034,10 +6034,22 @@ router.get('/bot/parameters', async (req, res) => {
             const globalParams = typeof globalBot.parameters === 'string' 
                 ? JSON.parse(globalBot.parameters) 
                 : globalBot.parameters;
-            // Merge con DEFAULT_PARAMS per avere tutti i parametri
+            
+            console.log('📥 [BOT-PARAMS-GET] Parametri RAW dal database:', {
+                trade_size_usdt: globalParams.trade_size_usdt,
+                trade_size_usdt_type: typeof globalParams.trade_size_usdt,
+                trade_size_eur: globalParams.trade_size_eur,
+                max_positions: globalParams.max_positions,
+                hasTradeSizeUsdt: 'trade_size_usdt' in globalParams,
+                hasTradeSizeEur: 'trade_size_eur' in globalParams,
+                hasMaxPositions: 'max_positions' in globalParams
+            });
+            
+            // ✅ FIX: Merge con DEFAULT_PARAMS per avere tutti i parametri
+            // Ma i valori dal database hanno priorità
             params = { ...DEFAULT_PARAMS, ...globalParams };
             
-            console.log('📥 [BOT-PARAMS-GET] Parametri globali dal DB (prima fix):', {
+            console.log('📥 [BOT-PARAMS-GET] Dopo merge con DEFAULT_PARAMS:', {
                 trade_size_usdt: params.trade_size_usdt,
                 trade_size_usdt_type: typeof params.trade_size_usdt,
                 trade_size_eur: params.trade_size_eur,
@@ -6309,7 +6321,7 @@ router.put('/bot/parameters', async (req, res) => {
 
         // ✅ FIX CRITICO: Merge con parametri esistenti per non perdere parametri non inviati
         // validParams contiene solo i parametri validati, ma dobbiamo mantenere anche gli altri parametri esistenti
-        let finalParams = validParams;
+        let finalParams = { ...validParams }; // ✅ FIX: Inizia da validParams (contiene i valori validati)
         if (existing && existing.parameters) {
             const existingGlobalParams = typeof existing.parameters === 'string'
                 ? JSON.parse(existing.parameters)
@@ -6317,27 +6329,44 @@ router.put('/bot/parameters', async (req, res) => {
             
             console.log('🔄 [BOT-PARAMS] Prima del merge:');
             console.log('   existingGlobalParams.trade_size_usdt:', existingGlobalParams.trade_size_usdt);
+            console.log('   existingGlobalParams.test_trade_size:', existingGlobalParams.test_trade_size);
             console.log('   validParams.trade_size_usdt:', validParams.trade_size_usdt);
+            console.log('   validParams.test_trade_size:', validParams.test_trade_size);
             
-            // Merge: prima i parametri esistenti, poi validParams (sovrascrive)
-            finalParams = { ...existingGlobalParams, ...validParams };
+            // ✅ FIX CRITICO: Merge correttamente - prima existingGlobalParams, poi validParams
+            // Ma RIMUOVI i campi undefined/null da existingGlobalParams prima del merge
+            // per evitare che sovrascrivano i valori validati
+            const cleanedExisting = {};
+            for (const key in existingGlobalParams) {
+                if (existingGlobalParams[key] !== undefined && existingGlobalParams[key] !== null) {
+                    cleanedExisting[key] = existingGlobalParams[key];
+                }
+            }
+            
+            // Merge: prima cleanedExisting (parametri esistenti validi), poi validParams (sovrascrive con valori validati)
+            finalParams = { ...cleanedExisting, ...validParams };
             
             console.log('🔄 [BOT-PARAMS] Dopo il merge:');
             console.log('   finalParams.trade_size_usdt:', finalParams.trade_size_usdt);
+            console.log('   finalParams.test_trade_size:', finalParams.test_trade_size);
             console.log('   finalParams ha trade_size_usdt?', 'trade_size_usdt' in finalParams);
+            console.log('   finalParams ha test_trade_size?', 'test_trade_size' in finalParams);
             
             console.log('🔄 [BOT-PARAMS] Merge con parametri esistenti:', {
                 existingParamsCount: Object.keys(existingGlobalParams).length,
+                cleanedExistingCount: Object.keys(cleanedExisting).length,
                 validParamsCount: Object.keys(validParams).length,
                 finalParamsCount: Object.keys(finalParams).length,
                 trade_size_usdt_before_merge: existingGlobalParams.trade_size_usdt,
                 trade_size_usdt_in_validParams: validParams.trade_size_usdt,
                 trade_size_usdt_after_merge: finalParams.trade_size_usdt,
+                test_trade_size_after_merge: finalParams.test_trade_size,
                 min_volume_24h_after_merge: finalParams.min_volume_24h
             });
         } else {
             console.log('🔄 [BOT-PARAMS] Nessun record esistente, uso solo validParams');
             console.log('   finalParams.trade_size_usdt:', finalParams.trade_size_usdt);
+            console.log('   finalParams.test_trade_size:', finalParams.test_trade_size);
         }
 
         // ✅ FIX: Serializza correttamente per PostgreSQL TEXT
