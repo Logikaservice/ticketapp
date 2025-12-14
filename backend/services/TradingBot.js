@@ -409,12 +409,12 @@ async function openPosition(symbol, type, volume, entryPrice, strategy, stopLoss
             INSERT INTO open_positions (
                 ticket_id, symbol, type, volume, entry_price, current_price,
                 stop_loss, take_profit, status, opened_at, strategy,
-                signal_details, volume_closed, profit_loss, profit_loss_pct
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                signal_details, volume_closed, profit_loss, profit_loss_pct, trade_size_usdt
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             ticketId, symbol, type, volume, entryPrice, entryPrice,
             stopLoss, takeProfit, 'open', now, strategy,
-            JSON.stringify(signalDetails), 0, 0, 0
+            JSON.stringify(signalDetails), 0, 0, 0, tradeSize
         ]);
 
         console.log(`✅ [BOT] Opened ${type.toUpperCase()} position for ${symbol} @ $${entryPrice.toFixed(2)}`);

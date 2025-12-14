@@ -103,8 +103,8 @@ const openPosition = async (symbol, type, volume, entryPrice, stopLoss = null, t
         // 5. Crea posizione
         await dbRun(
             `INSERT INTO open_positions 
-            (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status, opened_at, signal_details)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open', NOW(), $10)`,
+            (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status, opened_at, signal_details, trade_size_usdt)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open', NOW(), $10, $11)`,
             [
                 ticketId, 
                 symbol, 
@@ -115,7 +115,8 @@ const openPosition = async (symbol, type, volume, entryPrice, stopLoss = null, t
                 stopLoss || null, 
                 takeProfit || null, 
                 strategy,
-                JSON.stringify({ manual: true, reason: 'Test dinamiche reazione bot' })
+                JSON.stringify({ manual: true, reason: 'Test dinamiche reazione bot' }),
+                volume * entryPrice // trade_size_usdt
             ]
         );
 

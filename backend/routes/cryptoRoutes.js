@@ -3683,10 +3683,10 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
             `INSERT INTO open_positions 
             (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status,
              trailing_stop_enabled, trailing_stop_distance_pct, highest_price,
-             take_profit_1, take_profit_2, signal_details)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open', $10, $11, $12, $13, $14, $15)`,
+             take_profit_1, take_profit_2, signal_details, trade_size_usdt)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open', $10, $11, $12, $13, $14, $15, $16)`,
             [ticketId, symbol, type, volume, entryPrice, entryPrice, stopLoss, takeProfit, strategy || 'Bot',
-                trailingStopEnabled, trailingStopDistance, entryPrice, takeProfit1, takeProfit2, signalDetails]
+                trailingStopEnabled, trailingStopDistance, entryPrice, takeProfit1, takeProfit2, signalDetails, volume * entryPrice]
         );
 
         await dbRun(
@@ -4941,9 +4941,9 @@ router.post('/positions/open', async (req, res) => {
 
         await dbRun(
             `INSERT INTO open_positions 
-            (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open')`,
-            [ticketId, symbol, type, volume, entry_price, entry_price, stop_loss || null, take_profit || null, strategy || 'Manual']
+            (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status, trade_size_usdt)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open', $10)`,
+            [ticketId, symbol, type, volume, entry_price, entry_price, stop_loss || null, take_profit || null, strategy || 'Manual', volume * entry_price]
         );
 
         // Record initial trade
