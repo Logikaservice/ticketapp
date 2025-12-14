@@ -1602,6 +1602,8 @@ setTimeout(() => {
 router.get('/health-status', async (req, res) => {
     try {
         const status = HealthCheckService.getLastStatus();
+        // ✅ FIX: Assicurati di restituire sempre JSON
+        if (!res.headersSent) {
 
         if (!status) {
             // Prima verifica non ancora eseguita
@@ -6289,8 +6291,15 @@ router.put('/bot/parameters', async (req, res) => {
             message: 'Parametri aggiornati con successo per tutti i simboli!'
         });
     } catch (error) {
-        console.error('Error updating bot parameters:', error);
-        res.status(500).json({ error: error.message });
+        console.error('❌ [BOT-PARAMS] Error updating bot parameters:', error);
+        console.error('❌ [BOT-PARAMS] Stack trace:', error.stack);
+        // ✅ FIX CRITICO: Assicurati di restituire sempre JSON, mai HTML
+        if (!res.headersSent) {
+            res.status(500).json({ 
+                error: error.message || 'Errore interno del server',
+                details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            });
+        }
     }
 });
 
