@@ -103,17 +103,37 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                 body: JSON.stringify({ parameters })
             });
 
-            if (res.ok) {
-                const responseData = await res.json();
-                console.log('✅ [BOT-SETTINGS] Parametri salvati con successo:', responseData);
-                setSuccess(true);
-                
-                // ✅ RICARICA i parametri dal server per verificare che siano stati salvati correttamente
-                setTimeout(async () => {
-                    await loadParameters();
-                    setSuccess(false);
-                    // Non chiudiamo subito, lasciamo vedere il successo
-                }, 1000);
+            // ✅ FIX CRITICO: Verifica content-type PRIMA di fare res.json()
+            const contentType = res.headers.get('content-type') || '';
+            const isJson = contentType.includes('application/json');
+            
+            if (res.ok && isJson) {
+                try {
+                    const responseData = await res.json();
+                    console.log('✅ [BOT-SETTINGS] Parametri salvati con successo:', responseData);
+                    
+                    // ✅ VERIFICA: Controlla se la risposta contiene effettivamente i parametri
+                    if (responseData.success && responseData.parameters) {
+                        setSuccess(true);
+                        
+                        // ✅ RICARICA i parametri dal server per verificare che siano stati salvati correttamente
+                        setTimeout(async () => {
+                            await loadParameters();
+                            setSuccess(false);
+                        }, 1000);
+                    } else {
+                        console.warn('⚠️ [BOT-SETTINGS] Risposta success ma senza parametri:', responseData);
+                        setError('Salvataggio completato ma risposta incompleta');
+                    }
+                } catch (jsonErr) {
+                    console.error('❌ [BOT-SETTINGS] Errore parsing JSON risposta:', jsonErr);
+                    setError('Errore nella risposta del server');
+                }
+            } else if (res.ok && !isJson) {
+                // ✅ FIX: Se status è OK ma content-type non è JSON, c'è un problema
+                const text = await res.text();
+                console.error('❌ [BOT-SETTINGS] Server ha restituito non-JSON con status OK:', text.substring(0, 200));
+                setError('Errore: risposta del server non valida (non JSON)');
             } else {
                 // ✅ FIX: Gestisci risposte HTML (errori del server)
                 const contentType = res.headers.get('content-type');

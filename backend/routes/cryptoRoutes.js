@@ -6210,17 +6210,26 @@ router.put('/bot/parameters', async (req, res) => {
         });
 
         if (existing) {
+            console.log('💾 [BOT-PARAMS] Eseguendo UPDATE per record esistente (ID:', existing.id, ')');
             const result = await dbRun(
                 "UPDATE bot_settings SET parameters = $1::text WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global'",
                 [parametersJson]
             );
-            console.log('✅ [BOT-PARAMS] UPDATE eseguito, righe modificate:', result.changes);
+            // ✅ FIX: PostgreSQL restituisce rowCount invece di changes
+            const rowsAffected = result.rowCount || result.changes || 0;
+            console.log('✅ [BOT-PARAMS] UPDATE eseguito, righe modificate:', rowsAffected);
+            if (rowsAffected === 0) {
+                console.error('⚠️ [BOT-PARAMS] ATTENZIONE: UPDATE non ha modificato nessuna riga!');
+            }
         } else {
+            console.log('💾 [BOT-PARAMS] Eseguendo INSERT per nuovo record');
             const result = await dbRun(
                 "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES ('RSI_Strategy', 'global', 1, $1::text)",
                 [parametersJson]
             );
-            console.log('✅ [BOT-PARAMS] INSERT eseguito, ID:', result.lastID);
+            // ✅ FIX: PostgreSQL potrebbe non avere lastID, usa rowCount
+            const insertedId = result.lastID || result.insertId || result.id || 'N/A';
+            console.log('✅ [BOT-PARAMS] INSERT eseguito, ID:', insertedId);
         }
 
         // ✅ Verifica che sia stato salvato correttamente
