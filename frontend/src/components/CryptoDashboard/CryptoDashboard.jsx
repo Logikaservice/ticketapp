@@ -855,10 +855,37 @@ setBotParameters(data.bot_parameters);
 
     // Balance debug validated values logging removed
 
-    // ✅ FIX: Total Balance = Cash + Valore Posizioni (Equity Totale)
-    // Se hai $500 cash + $600 in BTC → mostra $1100 (patrimonio totale)
-    // Quando chiudi posizioni, il balance non fa salti strani
-    const totalBalance = validatedBalance + totalLongValue - totalShortLiability;
+    // ✅ FIX CRITICO: Total Balance = Cash + Valore Posizioni (Equity Totale)
+    // IMPORTANTE: Il balance_usd NON viene aggiornato quando si apre una posizione
+    // Quindi dobbiamo calcolare il cash reale sottraendo/aggiungendo l'investito
+    
+    // Calcola il valore investito totale (entry_price * volume per ogni posizione)
+    let totalInvestedInPositions = 0;
+    validOpenPositions.forEach(pos => {
+        if (pos.status === 'open') {
+            const volume = parseFloat(pos.volume) || 0;
+            const entryPrice = parseFloat(pos.entry_price) || 0;
+            const invested = volume * entryPrice;
+            
+            if (pos.type === 'buy') {
+                // LONG: cash è stato diminuito quando si è aperta la posizione
+                totalInvestedInPositions += invested;
+            } else {
+                // SHORT: cash è stato aumentato quando si è aperta la posizione (vendita)
+                totalInvestedInPositions -= invested;
+            }
+        }
+    });
+    
+    // Cash reale = balance_usd - investito in LONG + ricevuto da SHORT
+    // Per SHORT, abbiamo ricevuto cash, quindi lo aggiungiamo
+    const realCash = validatedBalance - totalInvestedInPositions;
+    
+    // Total Balance = Cash Reale + Valore Attuale delle Posizioni
+    // Per LONG: valore attuale = currentPrice * volume
+    // Per SHORT: valore = cash ricevuto - debito da restituire + P&L
+    // Ma semplificando: Total Balance = Cash Reale + Valore Netto Posizioni
+    const totalBalance = realCash + totalLongValue - totalShortLiability;
 
     // ✅ FIX CRITICO: Usa direttamente profit_loss calcolato dal backend
     // ✅ FIX: Validazione STRICTA - solo posizioni con status === 'open' e dati validi
