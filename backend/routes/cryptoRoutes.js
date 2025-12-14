@@ -1251,9 +1251,25 @@ const getBotParameters = async (symbol = 'bitcoin_usdt') => {
         }
 
         // 2. Poi merge con parametri specifici del simbolo (sovrascrivono i globali)
+        // ✅ FIX CRITICO: I parametri specifici del simbolo NON devono sovrascrivere trade_size_usdt e max_positions
+        // Questi devono SEMPRE venire dai parametri globali per uniformità
         if (symbolBot && symbolBot.parameters) {
             const symbolParams = typeof symbolBot.parameters === 'string' ? JSON.parse(symbolBot.parameters) : symbolBot.parameters;
-            mergedParams = { ...mergedParams, ...symbolParams };
+            
+            // ✅ Rimuovi trade_size_usdt e max_positions dai parametri specifici se presenti
+            // Questi devono sempre venire dai globali
+            const { trade_size_usdt, trade_size_eur, max_positions, ...symbolParamsFiltered } = symbolParams;
+            
+            if (trade_size_usdt || trade_size_eur || max_positions) {
+                console.log(`⚠️  [BOT-PARAMS] ${symbol} ha parametri specifici per trade_size/max_positions che vengono ignorati (uso globali)`);
+            }
+            
+            mergedParams = { ...mergedParams, ...symbolParamsFiltered };
+        }
+        
+        // ✅ DEBUG: Log del trade_size usato
+        if (symbol !== 'global') {
+            console.log(`📊 [BOT-PARAMS] Parametri per ${symbol}: trade_size_usdt=$${mergedParams.trade_size_usdt || mergedParams.trade_size_eur || 'N/A'}, max_positions=${mergedParams.max_positions || 'N/A'}`);
         }
 
         // Debug log solo per trailing_profit_protection_enabled
@@ -6021,13 +6037,32 @@ router.get('/bot/parameters', async (req, res) => {
             params = { ...DEFAULT_PARAMS, ...globalParams };
             console.log('📥 [BOT-PARAMS-GET] Parametri globali caricati:', {
                 trade_size_usdt: params.trade_size_usdt,
+                trade_size_eur: params.trade_size_eur,
                 max_positions: params.max_positions,
-                totalParams: Object.keys(params).length
+                totalParams: Object.keys(params).length,
+                hasTradeSizeUsdt: 'trade_size_usdt' in params,
+                hasTradeSizeEur: 'trade_size_eur' in params,
+                hasMaxPositions: 'max_positions' in params,
+                // ✅ DEBUG: Mostra anche i primi 10 parametri per debug
+                sampleParams: Object.keys(params).slice(0, 10)
             });
         } else {
             // Se non ci sono parametri globali, usa defaults
             params = DEFAULT_PARAMS;
-            console.log('⚠️  [BOT-PARAMS-GET] Nessun parametro globale trovato, uso defaults');
+            console.log('⚠️  [BOT-PARAMS-GET] Nessun parametro globale trovato, uso defaults:', {
+                trade_size_usdt: params.trade_size_usdt,
+                max_positions: params.max_positions
+            });
+        }
+        
+        // ✅ FIX CRITICO: Assicurati che trade_size_usdt e max_positions siano sempre presenti
+        if (!params.trade_size_usdt && !params.trade_size_eur) {
+            console.warn('⚠️  [BOT-PARAMS-GET] trade_size_usdt/eur non trovato, uso default:', DEFAULT_PARAMS.trade_size_usdt);
+            params.trade_size_usdt = DEFAULT_PARAMS.trade_size_usdt;
+        }
+        if (!params.max_positions) {
+            console.warn('⚠️  [BOT-PARAMS-GET] max_positions non trovato, uso default:', DEFAULT_PARAMS.max_positions);
+            params.max_positions = DEFAULT_PARAMS.max_positions;
         }
         
         res.json({
