@@ -6002,9 +6002,18 @@ router.get('/bot/parameters', async (req, res) => {
 // PUT /api/crypto/bot/parameters - Update bot strategy parameters (COMPLETO E PERSONALIZZABILE)
 router.put('/bot/parameters', async (req, res) => {
     try {
+        // ✅ FIX CRITICO: Log della richiesta in arrivo
+        console.log('📥 [BOT-PARAMS] Richiesta ricevuta:', {
+            hasBody: !!req.body,
+            hasParameters: !!req.body?.parameters,
+            contentType: req.headers['content-type'],
+            bodyKeys: req.body ? Object.keys(req.body) : []
+        });
+
         const { parameters } = req.body;
 
         if (!parameters) {
+            console.error('❌ [BOT-PARAMS] Parametri mancanti nella richiesta');
             return res.status(400).json({ error: 'parameters object is required' });
         }
 
@@ -6293,12 +6302,24 @@ router.put('/bot/parameters', async (req, res) => {
             console.log('ℹ️  [BOT-PARAMS] Nessun simbolo specifico da aggiornare (solo global)');
         }
 
-        res.json({
+        // ✅ FIX: Assicurati che la risposta sia sempre JSON valida
+        const responseData = {
             success: true,
             parameters: validParams,
             symbolsUpdated: allSymbols ? allSymbols.length : 0,
             message: 'Parametri aggiornati con successo per tutti i simboli!'
+        };
+        
+        console.log('📤 [BOT-PARAMS] Invio risposta JSON:', {
+            success: responseData.success,
+            paramsCount: Object.keys(responseData.parameters).length,
+            trade_size_usdt: responseData.parameters.trade_size_usdt,
+            max_positions: responseData.parameters.max_positions
         });
+        
+        // ✅ FIX CRITICO: Imposta esplicitamente content-type JSON
+        res.setHeader('Content-Type', 'application/json');
+        res.json(responseData);
     } catch (error) {
         console.error('❌ [BOT-PARAMS] Error updating bot parameters:', error);
         console.error('❌ [BOT-PARAMS] Stack trace:', error.stack);
