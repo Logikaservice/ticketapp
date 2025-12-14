@@ -226,50 +226,27 @@ router.get('/history', async (req, res) => {
 
             try {
                 // Load klines from Binance with specified interval
-                const https = require('https');
+                // Uses binanceClient which respects BINANCE_MODE (testnet/live)
+                const { getBinanceClient } = require('../utils/binanceConfig');
                 const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';
-                const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=${interval}&limit=${binanceLimit}`;
-
-                // ✅ FIX: Aggiungi timeout di 10 secondi per evitare 504 Gateway Timeout
-                const TIMEOUT_MS = 10000; // 10 secondi
-
-                const binanceData = await new Promise((resolve, reject) => {
-                    const request = https.get(binanceUrl, (res) => {
-                        // Verifica status code
-                        if (res.statusCode !== 200) {
-                            reject(new Error(`Binance API returned status ${res.statusCode}`));
-                            return;
-                        }
-
-                        let data = '';
-                        res.on('data', chunk => data += chunk);
-                        res.on('end', () => {
-                            try {
-                                const parsed = JSON.parse(data);
-                                // Verifica se Binance ha restituito un errore
-                                if (parsed.code && parsed.msg) {
-                                    reject(new Error(`Binance API error: ${parsed.msg}`));
-                                    return;
-                                }
-                                resolve(parsed);
-                            } catch (e) {
-                                reject(new Error(`Failed to parse Binance response: ${e.message}`));
-                            }
-                        });
-                    });
-
-                    // ✅ FIX: Timeout per evitare richieste che si bloccano
-                    request.setTimeout(TIMEOUT_MS, () => {
-                        request.destroy();
-                        reject(new Error(`Binance API request timeout after ${TIMEOUT_MS}ms`));
-                    });
-
-                    request.on('error', (err) => {
-                        reject(new Error(`Binance API error: ${err.message}`));
-                    });
-
-                    request.end();
-                });
+                const client = getBinanceClient();
+                
+                const binanceData = await client.getKlines(tradingPair, interval, binanceLimit);
+                
+                // Convert to array format expected by existing code
+                const klinesArray = binanceData.map(k => [
+                    k.openTime,
+                    k.open.toString(),
+                    k.high.toString(),
+                    k.low.toString(),
+                    k.close.toString(),
+                    k.volume.toString(),
+                    k.closeTime,
+                    k.quoteAssetVolume?.toString() || '0',
+                    k.numberOfTrades || 0,
+                    k.takerBuyBaseAssetVolume?.toString() || '0',
+                    k.takerBuyQuoteAssetVolume?.toString() || '0'
+                ]);
 
                 // Save klines to database
                 let savedKlines = 0;
@@ -2073,8 +2050,16 @@ const get24hVolume = async (symbol) => {
             return 0;
         }
 
-        const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${tradingPair}`;
-        const data = await httpsGet(url);
+        // Use binanceClient which respects BINANCE_MODE (testnet/live)
+        const { getBinanceClient } = require('../utils/binanceConfig');
+        const client = getBinanceClient();
+        const ticker = await client.get24hTicker(tradingPair);
+        const data = {
+            quoteVolume: ticker.quoteVolume,
+            volume: ticker.volume,
+            priceChange: ticker.priceChange,
+            priceChangePercent: ticker.priceChangePercent
+        };
 
         if (!data || !data.quoteVolume) {
             console.warn(`⚠️ [VOLUME] Invalid response for ${symbol}`);
@@ -5268,6 +5253,84 @@ router.get('/binance/symbols', async (req, res) => {
     }
 });
 
+// GET /api/crypto/binance/min-notional - Get minimum notional values for common symbols
+router.get('/binance/min-notional', async (req, res) => {
+    try {
+        if (!isBinanceAvailable()) {
+            // In demo mode, return default values
+            return res.json({
+                success: true,
+                mode: 'demo',
+                minNotionals: {
+                    'BTCUSDT': 5,
+                    'ETHUSDT': 5,
+                    'BNBUSDT': 5,
+                    'SOLUSDT': 5,
+                    'ADAUSDT': 5,
+                    'XRPUSDT': 5,
+                    'DOGEUSDT': 5,
+                    'DOTUSDT': 5,
+                    'LINKUSDT': 5,
+                    'LTCUSDT': 5
+                },
+                recommendedMin: 10,
+                safeMin: 20,
+                note: 'Valori di default (modalità DEMO). Connetti a Binance per valori reali.'
+            });
+        }
+
+        const client = getBinanceClient();
+        
+        // Simboli principali da verificare
+        const mainSymbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT', 'DOGEUSDT', 'DOTUSDT', 'LINKUSDT', 'LTCUSDT', 'BTCEUR', 'ETHEUR', 'SOLEUR'];
+        
+        const minNotionals = {};
+        let maxMinNotional = 0;
+        let minMinNotional = Infinity;
+
+        for (const symbol of mainSymbols) {
+            try {
+                const filters = await client.getSymbolFilters(symbol);
+                const minNotional = filters.minNotional || 0;
+                minNotionals[symbol] = minNotional;
+                
+                if (minNotional > maxMinNotional) maxMinNotional = minNotional;
+                if (minNotional < minMinNotional && minNotional > 0) minMinNotional = minNotional;
+            } catch (err) {
+                // Symbol might not exist, skip
+                console.warn(`⚠️ Symbol ${symbol} not found or error:`, err.message);
+            }
+        }
+
+        // Calcola valori consigliati
+        const recommendedMin = Math.max(10, Math.ceil(maxMinNotional * 2)); // 2x il max per sicurezza
+        const safeMin = Math.max(20, Math.ceil(maxMinNotional * 3)); // 3x per sicurezza extra
+
+        res.json({
+            success: true,
+            mode: getMode(),
+            minNotionals,
+            recommendedMin,
+            safeMin,
+            maxMinNotional: maxMinNotional > 0 ? maxMinNotional : 5,
+            minMinNotional: minMinNotional < Infinity ? minMinNotional : 5,
+            note: 'Valori minimi reali da Binance. Usa almeno "recommendedMin" per sicurezza.'
+        });
+    } catch (error) {
+        console.error('❌ Errore getMinNotional:', error);
+        // Return safe defaults on error
+        res.json({
+            success: true,
+            mode: getMode(),
+            minNotionals: {},
+            recommendedMin: 10,
+            safeMin: 20,
+            error: error.message,
+            note: 'Errore nel recupero. Usa almeno $10-20 per sicurezza.'
+        });
+    }
+});
+
 // GET /api/crypto/symbols-table - Genera e serve tabella HTML simboli
 router.get('/symbols-table', async (req, res) => {
     try {
@@ -7092,27 +7155,23 @@ const runBacktest = async (params, startDate, endDate, initialBalance = 10000) =
             console.log(`📊 Backtest: Loaded ${historicalPrices.length} prices from database`);
         } else {
             // Load from Binance if DB doesn't have enough data
+            // Uses binanceClient which respects BINANCE_MODE (testnet/live)
             console.log('📊 Backtest: Loading historical data from Binance...');
-            const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=BTCEUR&interval=15m&startTime=${new Date(startDate).getTime()}&endTime=${new Date(endDate).getTime()}&limit=1000`;
-
+            const { getBinanceClient } = require('../utils/binanceConfig');
+            const client = getBinanceClient();
+            
             try {
-                const binanceData = await new Promise((resolve, reject) => {
-                    https.get(binanceUrl, (res) => {
-                        let data = '';
-                        res.on('data', chunk => data += chunk);
-                        res.on('end', () => {
-                            try {
-                                resolve(JSON.parse(data));
-                            } catch (e) {
-                                reject(e);
-                            }
-                        });
-                    }).on('error', reject);
-                });
+                const binanceData = await client.getKlines(
+                    'BTCEUR',
+                    '15m',
+                    1000,
+                    new Date(startDate).getTime(),
+                    new Date(endDate).getTime()
+                );
 
                 historicalPrices = binanceData.map(kline => ({
-                    price: parseFloat(kline[4]), // Close price
-                    timestamp: new Date(kline[0])
+                    price: kline.close, // Close price
+                    timestamp: new Date(kline.openTime)
                 }));
                 console.log(`📊 Backtest: Loaded ${historicalPrices.length} prices from Binance`);
             } catch (err) {
@@ -8034,6 +8093,10 @@ router.get('/bot-analysis', async (req, res) => {
                 const wasDatabaseEmpty = !historyForSignal || historyForSignal.length === 0;
                 const limit = wasDatabaseEmpty ? 1000 : 100; // Max 1000 se vuoto, 100 se solo stale
 
+                // Use binanceClient which respects BINANCE_MODE (testnet/live)
+                const { getBinanceClient } = require('../utils/binanceConfig');
+                const client = getBinanceClient();
+                
                 let allKlines = [];
                 if (wasDatabaseEmpty) {
                     // ✅ FIX: Scarica a blocchi per database vuoto (30 giorni = ~2880 candele a 15m)
@@ -8042,13 +8105,28 @@ router.get('/bot-analysis', async (req, res) => {
                     const endTime = Date.now();
 
                     while (currentStartTime < endTime && allKlines.length < limit) {
-                        const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&startTime=${currentStartTime}&limit=${Math.min(1000, limit - allKlines.length)}`;
-                        const klines = await httpsGet(binanceUrl);
+                        const batchLimit = Math.min(1000, limit - allKlines.length);
+                        const klines = await client.getKlines(tradingPair, '15m', batchLimit, currentStartTime, endTime);
 
                         if (!Array.isArray(klines) || klines.length === 0) break;
 
-                        allKlines.push(...klines);
-                        currentStartTime = klines[klines.length - 1][0] + 1;
+                        // Convert to array format expected by existing code
+                        const klinesArray = klines.map(k => [
+                            k.openTime,
+                            k.open.toString(),
+                            k.high.toString(),
+                            k.low.toString(),
+                            k.close.toString(),
+                            k.volume.toString(),
+                            k.closeTime,
+                            k.quoteAssetVolume?.toString() || '0',
+                            k.numberOfTrades || 0,
+                            k.takerBuyBaseAssetVolume?.toString() || '0',
+                            k.takerBuyQuoteAssetVolume?.toString() || '0'
+                        ]);
+                        
+                        allKlines.push(...klinesArray);
+                        currentStartTime = klines[klines.length - 1].openTime + 1;
 
                         // Pausa per non sovraccaricare API
                         if (allKlines.length < limit) {
@@ -8057,10 +8135,22 @@ router.get('/bot-analysis', async (req, res) => {
                     }
                 } else {
                     // Database non vuoto, scarica solo le ultime 100 candele
-                    const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&limit=${limit}`;
-                    const klines = await httpsGet(binanceUrl);
+                    const klines = await client.getKlines(tradingPair, '15m', limit);
                     if (Array.isArray(klines)) {
-                        allKlines = klines;
+                        // Convert to array format expected by existing code
+                        allKlines = klines.map(k => [
+                            k.openTime,
+                            k.open.toString(),
+                            k.high.toString(),
+                            k.low.toString(),
+                            k.close.toString(),
+                            k.volume.toString(),
+                            k.closeTime,
+                            k.quoteAssetVolume?.toString() || '0',
+                            k.numberOfTrades || 0,
+                            k.takerBuyBaseAssetVolume?.toString() || '0',
+                            k.takerBuyQuoteAssetVolume?.toString() || '0'
+                        ]);
                     }
                 }
 
@@ -10414,9 +10504,24 @@ const performUnifiedDeepAnalysis = async (symbol, currentPrice, explicitPair = n
         if ((deepAnalysisHistory.length < 20 || isStale) && !isBinanceBannedDeep) {
             try {
                 const tradingPair = explicitPair || SYMBOL_TO_PAIR[symbol] || symbol.toUpperCase().replace('_', '');
-                // Timeout 2.5s per non rallentare troppo lo scanner
-                const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&limit=100`;
-                const klines = await httpsGet(binanceUrl, 2500);
+                // Uses binanceClient which respects BINANCE_MODE (testnet/live)
+                const { getBinanceClient } = require('../utils/binanceConfig');
+                const client = getBinanceClient();
+                const klinesData = await client.getKlines(tradingPair, '15m', 100);
+                // Convert to array format expected by existing code
+                const klines = klinesData.map(k => [
+                    k.openTime,
+                    k.open.toString(),
+                    k.high.toString(),
+                    k.low.toString(),
+                    k.close.toString(),
+                    k.volume.toString(),
+                    k.closeTime,
+                    k.quoteAssetVolume?.toString() || '0',
+                    k.numberOfTrades || 0,
+                    k.takerBuyBaseAssetVolume?.toString() || '0',
+                    k.takerBuyQuoteAssetVolume?.toString() || '0'
+                ]);
 
                 if (Array.isArray(klines) && klines.length > 0) {
                     deepAnalysisHistory = klines.map(k => ({
@@ -10610,10 +10715,15 @@ router.get('/scanner', async (req, res) => {
 
         // ✅ OTTIMIZZAZIONE: Scarica TUTTI i prezzi in una sola chiamata per evitare rate limits
         // ⚠️ MA NON caricare se IP è bannato (usa getSymbolPrice che gestisce WebSocket/cache)
+        // NOTE: Per ora manteniamo httpsGet per bulk fetch (non c'è metodo equivalente in binanceClient)
+        // TODO: Aggiungere metodo getAllPrices() a binanceClient per supporto testnet/live
         const allPricesMap = new Map();
         if (!isBinanceBannedScanner) {
             try {
                 // console.log('🔍 [SCANNER] Fetching ALL live prices from Binance...');
+                // ⚠️ NOTE: Bulk fetch usa ancora URL hardcoded (mainnet) per performance
+                // In testnet questo potrebbe non essere disponibile, ma è solo per ottimizzazione
+                // Il fallback usa getSymbolPrice che rispetta BINANCE_MODE
                 const allPrices = await httpsGet('https://api.binance.com/api/v3/ticker/price', 5000); // 5s timeout
                 if (Array.isArray(allPrices)) {
                     allPrices.forEach(p => {
@@ -10676,11 +10786,13 @@ router.get('/scanner', async (req, res) => {
                         }
                     } else {
                         // Fallback fetch singolo (solo se non bannati)
+                        // Uses binanceClient which respects BINANCE_MODE (testnet/live)
                         try {
-                            const priceUrl = `https://api.binance.com/api/v3/ticker/price?symbol=${s.pair}`;
-                            const priceData = await httpsGet(priceUrl, 1500).catch(() => null);
-                            if (priceData && priceData.price) {
-                                currentPrice = parseFloat(priceData.price);
+                            const { getBinanceClient } = require('../utils/binanceConfig');
+                            const client = getBinanceClient();
+                            const priceResult = await client.getPrice(s.pair).catch(() => null);
+                            if (priceResult && priceResult.price) {
+                                currentPrice = priceResult.price;
                                 priceFound = isValidPrice(currentPrice);
 
                                 // ✅ Se prezzo non valido, usa getSymbolPrice

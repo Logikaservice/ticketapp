@@ -32,12 +32,41 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
+    const [binanceMinNotional, setBinanceMinNotional] = useState({
+        recommendedMin: 10,
+        safeMin: 20,
+        maxMinNotional: 5,
+        loading: true
+    });
 
     useEffect(() => {
         if (isOpen) {
             loadParameters();
+            loadBinanceMinNotional();
         }
     }, [isOpen]);
+
+    const loadBinanceMinNotional = async () => {
+        try {
+            setBinanceMinNotional(prev => ({ ...prev, loading: true }));
+            const res = await fetch(`${apiBase}/api/crypto/binance/min-notional`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success) {
+                    setBinanceMinNotional({
+                        recommendedMin: data.recommendedMin || 10,
+                        safeMin: data.safeMin || 20,
+                        maxMinNotional: data.maxMinNotional || 5,
+                        loading: false,
+                        mode: data.mode
+                    });
+                }
+            }
+        } catch (err) {
+            console.warn('⚠️ Errore caricamento minNotional Binance:', err);
+            setBinanceMinNotional(prev => ({ ...prev, loading: false }));
+        }
+    };
 
     const loadParameters = async () => {
         setLoading(true);
@@ -401,20 +430,57 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                             <div className="parameter-group">
                                 <label htmlFor="trade_size_usdt">
                                     Dimensione Trade ($)
-                                    <span className="parameter-hint">(10-1000)</span>
+                                    <span className="parameter-hint">
+                                        ({binanceMinNotional.loading ? '10-1000' : `${binanceMinNotional.recommendedMin}-1000`})
+                                    </span>
                                 </label>
                                 <input
                                     id="trade_size_usdt"
                                     type="number"
-                                    min="10"
+                                    min={binanceMinNotional.recommendedMin || 10}
                                     max="1000"
                                     step="5"
                                     value={parameters.trade_size_usdt || ''}
                                     onChange={(e) => handleChange('trade_size_usdt', e.target.value)}
                                     placeholder="100"
+                                    style={{
+                                        borderColor: parameters.trade_size_usdt && parameters.trade_size_usdt < (binanceMinNotional.recommendedMin || 10) 
+                                            ? '#ef4444' 
+                                            : parameters.trade_size_usdt && parameters.trade_size_usdt >= (binanceMinNotional.safeMin || 20)
+                                            ? '#10b981'
+                                            : undefined
+                                    }}
                                 />
                                 <div className="parameter-desc">
-                                    Importo in USDT investito per ogni operazione. Gestione del rischio: non investire più del 5-10% del capitale per trade.
+                                    <div style={{ marginBottom: '8px' }}>
+                                        Importo in USDT investito per ogni operazione. Gestione del rischio: non investire più del 5-10% del capitale per trade.
+                                    </div>
+                                    {!binanceMinNotional.loading && (
+                                        <div style={{ 
+                                            padding: '8px', 
+                                            backgroundColor: '#f3f4f6', 
+                                            borderRadius: '6px',
+                                            fontSize: '13px',
+                                            marginTop: '8px'
+                                        }}>
+                                            <strong>📊 Requisiti Binance:</strong>
+                                            <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
+                                                <li>Minimo consigliato: <strong>${binanceMinNotional.recommendedMin} USDT</strong> (2x il max requisito Binance)</li>
+                                                <li>Valore sicuro: <strong>${binanceMinNotional.safeMin} USDT</strong> (3x per sicurezza extra)</li>
+                                                <li>Max requisito Binance: ${binanceMinNotional.maxMinNotional} USDT</li>
+                                            </ul>
+                                            {parameters.trade_size_usdt && parameters.trade_size_usdt < (binanceMinNotional.recommendedMin || 10) && (
+                                                <div style={{ color: '#ef4444', fontWeight: 'bold', marginTop: '4px' }}>
+                                                    ⚠️ Valore troppo basso! Usa almeno ${binanceMinNotional.recommendedMin} USDT per evitare errori Binance.
+                                                </div>
+                                            )}
+                                            {parameters.trade_size_usdt && parameters.trade_size_usdt >= (binanceMinNotional.safeMin || 20) && (
+                                                <div style={{ color: '#10b981', fontWeight: 'bold', marginTop: '4px' }}>
+                                                    ✅ Valore sicuro! Compatibile con tutti i simboli Binance.
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

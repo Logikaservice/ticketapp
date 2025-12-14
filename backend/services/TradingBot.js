@@ -55,24 +55,32 @@ const BOT_CONFIG = {
 };
 
 // Mappa simboli a coppie Binance
-// ✅ RIMOSSI simboli duplicati senza suffisso (eliminati dal database)
 const SYMBOL_TO_PAIR = {
+    'bitcoin': 'BTCEUR',
     'bitcoin_usdt': 'BTCUSDT',
+    'ethereum': 'ETHEUR',
     'ethereum_usdt': 'ETHUSDT',
-    'solana_eur': 'SOLUSDT',
+    'solana': 'SOLUSDT',
+    'solana_eur': 'SOLEUR',
+    'cardano': 'ADAUSDT',
     'cardano_usdt': 'ADAUSDT',
+    'polkadot': 'DOTUSDT',
     'polkadot_usdt': 'DOTUSDT',
+    'chainlink': 'LINKEUR',
     'chainlink_usdt': 'LINKUSDT',
-    'ripple_eur': 'XRPUSDT',
-    'binance_coin_eur': 'BNBUSDT',
+    'litecoin': 'LTCEUR',
+    'litecoin_usdt': 'LTCUSDT',
+    'ripple': 'XRPUSDT',
+    'ripple_eur': 'XRPEUR',
+    'binance_coin': 'BNBEUR',
+    'binance_coin_eur': 'BNBEUR',
 };
 
 // Gruppi di correlazione per diversificazione
-// ✅ RIMOSSI simboli duplicati senza suffisso (eliminati dal database)
 const CORRELATION_GROUPS = {
-    'BTC_MAJOR': ['bitcoin_usdt', 'ethereum_usdt', 'solana_eur'],
-    'DEFI': ['chainlink_usdt'],
-    'INDEPENDENT': ['ripple_eur', 'binance_coin_eur'],
+    'BTC_MAJOR': ['bitcoin', 'bitcoin_usdt', 'ethereum', 'ethereum_usdt', 'solana', 'solana_eur'],
+    'DEFI': ['chainlink', 'chainlink_usdt'],
+    'INDEPENDENT': ['ripple', 'ripple_eur', 'litecoin', 'litecoin_usdt', 'binance_coin', 'binance_coin_eur'],
 };
 
 // ✅ LIMITI AUMENTATI per più posizioni contemporanee
@@ -92,41 +100,23 @@ const lastTradeTime = new Map();
 
 // Constants for API configuration
 const API_CONFIG = {
-    BINANCE_BASE_URL: 'https://api.binance.com/api/v3',
     REQUEST_TIMEOUT_MS: 10000,
     MAX_RETRIES: 3,
     RETRY_DELAY_MS: 1000
 };
 
+const { getBinanceClient } = require('../utils/binanceConfig');
+
 /**
  * Get current price for a symbol from Binance with timeout and retry logic
+ * Uses binanceClient which respects BINANCE_MODE (testnet/live)
  */
 async function getSymbolPrice(symbol, retries = API_CONFIG.MAX_RETRIES) {
     try {
         const pair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';
-        const https = require('https');
-        const url = `${API_CONFIG.BINANCE_BASE_URL}/ticker/price?symbol=${pair}`;
-
-        const data = await new Promise((resolve, reject) => {
-            const req = https.get(url, (res) => {
-                let body = '';
-                res.on('data', chunk => body += chunk);
-                res.on('end', () => {
-                    try {
-                        resolve(JSON.parse(body));
-                    } catch (e) {
-                        reject(new Error(`Failed to parse response: ${e.message}`));
-                    }
-                });
-            }).on('error', reject);
-
-            req.setTimeout(API_CONFIG.REQUEST_TIMEOUT_MS, () => {
-                req.destroy();
-                reject(new Error('Request timeout'));
-            });
-        });
-
-        return parseFloat(data.price) || 0;
+        const client = getBinanceClient();
+        const result = await client.getPrice(pair);
+        return result.price || 0;
     } catch (error) {
         if (retries > 0) {
             await new Promise(resolve => setTimeout(resolve, API_CONFIG.RETRY_DELAY_MS));
@@ -139,33 +129,14 @@ async function getSymbolPrice(symbol, retries = API_CONFIG.MAX_RETRIES) {
 
 /**
  * Get 24h volume for a symbol with timeout and retry logic
+ * Uses binanceClient which respects BINANCE_MODE (testnet/live)
  */
 async function get24hVolume(symbol, retries = API_CONFIG.MAX_RETRIES) {
     try {
         const pair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';
-        const https = require('https');
-        const url = `${API_CONFIG.BINANCE_BASE_URL}/ticker/24hr?symbol=${pair}`;
-
-        const data = await new Promise((resolve, reject) => {
-            const req = https.get(url, (res) => {
-                let body = '';
-                res.on('data', chunk => body += chunk);
-                res.on('end', () => {
-                    try {
-                        resolve(JSON.parse(body));
-                    } catch (e) {
-                        reject(new Error(`Failed to parse response: ${e.message}`));
-                    }
-                });
-            }).on('error', reject);
-
-            req.setTimeout(API_CONFIG.REQUEST_TIMEOUT_MS, () => {
-                req.destroy();
-                reject(new Error('Request timeout'));
-            });
-        });
-
-        return parseFloat(data.quoteVolume) || 0;
+        const client = getBinanceClient();
+        const volume = await client.get24hVolume(pair);
+        return volume || 0;
     } catch (error) {
         if (retries > 0) {
             await new Promise(resolve => setTimeout(resolve, API_CONFIG.RETRY_DELAY_MS));
