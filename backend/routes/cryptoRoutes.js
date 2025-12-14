@@ -1344,10 +1344,7 @@ const SYMBOL_TO_PAIR = {
     'imx': 'IMXUSDT',
     'enj_eur': 'ENJUSDT',
 
-    // Meme Coins
-    'pepe_eur': 'PEPEUSDT',
-    'dogecoin_eur': 'DOGEUSDT',
-    'shiba_eur': 'SHIBUSDT',
+    // Meme Coins (REMOVED: SHIB, DOGE, PEPE - low volume, high spread)
     'floki': 'FLOKIUSDT',
     'bonk': 'BONKUSDT',
 
@@ -1371,7 +1368,7 @@ const CORRELATION_GROUPS = {
     'LAYER2': ['arb_eur', 'op_eur', 'matic_eur'],
     'GAMING': ['sand', 'mana', 'axs', 'imx', 'gala', 'enj_eur'],
     'STORAGE': ['fil', 'ar'],
-    'MEME': ['dogecoin_eur', 'shiba_eur', 'pepe_eur', 'floki', 'bonk'],
+    'MEME': ['floki', 'bonk'],
     'AI_DATA': ['fet', 'render', 'grt'],
     'STABLECOINS': ['usdc'],
     'INDEPENDENT': ['ripple_eur', 'binance_coin_eur', 'pol_polygon_eur']
@@ -1407,8 +1404,6 @@ const SYMBOL_TO_COINGECKO = {
     'pol_polygon_eur': 'polygon-ecosystem-token',
     'avalanche_eur': 'avalanche-2',
     'uniswap_eur': 'uniswap',
-    'dogecoin_eur': 'dogecoin',
-    'shiba_eur': 'shiba-inu',
     'near_eur': 'near-protocol',
     'atom_eur': 'cosmos',
     'trx_eur': 'tron',
@@ -1432,7 +1427,6 @@ const SYMBOL_TO_COINGECKO = {
     'imx': 'immutable-x',
     'gala': 'gala',
     'enj_eur': 'enjincoin',
-    'pepe_eur': 'pepe',
     'floki': 'floki',
     'bonk': 'bonk',
     'ar': 'arweave',
@@ -1668,8 +1662,6 @@ const getSymbolPrice = async (symbol) => {
         'cardano': 'ADAUSDT', 'ada': 'ADAUSDT', 'adausdt': 'ADAUSDT',
         'ripple': 'XRPUSDT', 'xrp': 'XRPUSDT', 'xrpusdt': 'XRPUSDT',
         'polkadot': 'DOTUSDT', 'dot': 'DOTUSDT', 'dotusdt': 'DOTUSDT',
-        'dogecoin': 'DOGEUSDT', 'doge': 'DOGEUSDT', 'dogeusdt': 'DOGEUSDT',
-        'shiba_inu': 'SHIBUSDT', 'shib': 'SHIBUSDT', 'shibusdt': 'SHIBUSDT',
         'avalanche': 'AVAXUSDT', 'avax': 'AVAXUSDT', 'avaxusdt': 'AVAXUSDT',
         'binance_coin': 'BNBUSDT', 'bnb': 'BNBUSDT', 'bnbusdt': 'BNBUSDT',
         'chainlink': 'LINKUSDT', 'link': 'LINKUSDT', 'linkusdt': 'LINKUSDT',
@@ -3966,10 +3958,6 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                     'avalanche': 'avalanche_eur',
                     'uniswap_eur': 'uniswap_eur',
                     'uniswap': 'uniswap_eur',
-                    'dogecoin_eur': 'dogecoin_eur',
-                    'dogecoin': 'dogecoin_eur',
-                    'shiba_eur': 'shiba_eur',
-                    'shiba': 'shiba_eur',
                     'near_eur': 'near_eur',
                     'near': 'near_eur',
                     'atom_eur': 'atom_eur',
@@ -3988,8 +3976,6 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                     'sui': 'sui_eur',
                     'enj_eur': 'enj_eur',
                     'enj': 'enj_eur',
-                    'pepe_eur': 'pepe_eur',
-                    'pepe': 'pepe_eur',
                     'pol_polygon_eur': 'pol_polygon_eur',
                     'pol_polygon': 'pol_polygon_eur',
                     // Varianti senza underscore (dopo normalizzazione)
@@ -4010,10 +3996,6 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                     'dotusdt': 'polkadot_usdt',
                     'link': 'chainlink_usdt',
                     'linkusdt': 'chainlink_usdt',
-                    'shib': 'shiba_eur',
-                    'shibusdt': 'shiba_eur',
-                    'doge': 'dogecoin_eur',
-                    'dogeusdt': 'dogecoin_eur',
                     'floki': 'floki',
                     'fet': 'fet',
                     'ton': 'ton',
@@ -5240,8 +5222,6 @@ router.get('/symbols-table', async (req, res) => {
             'solana': 'SOL', 'solana_eur': 'SOL',
             'avax_usdt': 'AVAX', 'avalanche': 'AVAX', 'avalanche_eur': 'AVAX', 'avax_eur': 'AVAX',
             'matic': 'MATIC', 'matic_eur': 'MATIC',
-            'dogecoin': 'DOGE', 'dogecoin_eur': 'DOGE',
-            'shiba': 'SHIB', 'shiba_eur': 'SHIB',
             'tron': 'TRX', 'tron_eur': 'TRX',
             'stellar': 'XLM', 'stellar_eur': 'XLM',
             'cosmos': 'ATOM', 'cosmos_eur': 'ATOM', 'atom_eur': 'ATOM',
@@ -5249,7 +5229,6 @@ router.get('/symbols-table', async (req, res) => {
             'sui': 'SUI', 'sui_eur': 'SUI',
             'arbitrum': 'ARB', 'arbitrum_eur': 'ARB', 'arb_eur': 'ARB',
             'optimism': 'OP', 'optimism_eur': 'OP', 'op_eur': 'OP',
-            'pepe': 'PEPE', 'pepe_eur': 'PEPE',
             'gala': 'GALA', 'gala_eur': 'GALA',
             'uniswap': 'UNI', 'uniswap_eur': 'UNI',
             'sand': 'SAND', 'mana': 'MANA', 'aave': 'AAVE', 'maker': 'MKR',
@@ -5271,8 +5250,7 @@ router.get('/symbols-table', async (req, res) => {
                 'avax': 'AVAX', 'avalanche': 'AVAX', 'binancecoin': 'BNB', 'binance_coin': 'BNB',
                 'internetcomputer': 'ICP', 'toncoin': 'TON', 'usdcoin': 'USDC',
                 'polpolygon': 'POL', 'pol_polygon': 'POL', 'polygon': 'MATIC', 'matic': 'MATIC',
-                'shibainu': 'SHIB', 'shiba': 'SHIB', 'dogecoin': 'DOGE', 'ripple': 'XRP',
-                'tron': 'TRX', 'stellar': 'XLM', 'cosmos': 'ATOM', 'arbitrum': 'ARB',
+                'ripple': 'XRP', 'tron': 'TRX', 'stellar': 'XLM', 'cosmos': 'ATOM', 'arbitrum': 'ARB',
                 'optimism': 'OP', 'fetchai': 'FET', 'immutablex': 'IMX', 'synthetix': 'SNX',
                 'vechain': 'VET', 'arweave': 'AR'
             };
@@ -7561,15 +7539,6 @@ router.get('/bot-analysis', async (req, res) => {
             'dot_usdt': 'polkadot_usdt',
             'dot': 'polkadot_usdt',
             'polkadot': 'polkadot_usdt',
-            'dogecoin_eur': 'dogecoin_eur',
-            'doge_eur': 'dogecoin_eur',
-            'doge': 'dogecoin_eur',
-            'dogecoin': 'dogecoin_eur',
-            'shiba_eur': 'shiba_eur',
-            'shib_eur': 'shiba_eur',
-            'shib': 'shiba_eur',
-            'shiba': 'shiba_eur',
-            'shiba_inu': 'shiba_eur',
             'binance_coin_eur': 'binance_coin_eur',
             'bnb_eur': 'binance_coin_eur',
             'bnb': 'binance_coin_eur',
@@ -7647,11 +7616,6 @@ router.get('/bot-analysis', async (req, res) => {
             'ripple_eur': 'ripple_eur',
             'polkadot': 'polkadot_usdt',
             'polkadot_usdt': 'polkadot_usdt',
-            'dogecoin': 'dogecoin_eur',
-            'dogecoin_eur': 'dogecoin_eur',
-            'shiba': 'shiba_eur',
-            'shiba_eur': 'shiba_eur',
-            'shiba_inu': 'shiba_eur',
             'binance_coin': 'binance_coin_eur',
             'binance_coin_eur': 'binance_coin_eur',
             'chainlink': 'chainlink_usdt',
@@ -7713,8 +7677,6 @@ router.get('/bot-analysis', async (req, res) => {
             'imx_usdt': 'immutable_x',
             'enj': 'enjin',
             'enj_usdt': 'enjin',
-            'pepe': 'pepe',
-            'pepe_usdt': 'pepe',
             'floki': 'floki',
             'floki_usdt': 'floki',
             'bonk': 'bonk',
@@ -10450,10 +10412,6 @@ router.get('/scanner', async (req, res) => {
             { symbol: 'avalanche_eur', pair: 'AVAXUSDT', display: 'AVAX/USDT' },
             // Uniswap
             { symbol: 'uniswap_eur', pair: 'UNIUSDT', display: 'UNI/USDT' },
-            // Dogecoin
-            { symbol: 'dogecoin_eur', pair: 'DOGEUSDT', display: 'DOGE/USDT' },
-            // Shiba Inu
-            { symbol: 'shiba_eur', pair: 'SHIBUSDT', display: 'SHIB/USDT' },
             // Near Protocol
             { symbol: 'near_eur', pair: 'NEARUSDT', display: 'NEAR/USDT' },
             // Cosmos
@@ -10507,8 +10465,7 @@ router.get('/scanner', async (req, res) => {
             { symbol: 'imx', pair: 'IMXUSDT', display: 'IMX/USDT' },
             { symbol: 'gala', pair: 'GALAUSDT', display: 'GALA/USDT' },
             { symbol: 'enj_eur', pair: 'ENJUSDT', display: 'ENJ/USDT' },
-            // Meme Coins (solo USDT disponibile)
-            { symbol: 'pepe_eur', pair: 'PEPEUSDT', display: 'PEPE/USDT' },
+            // Meme Coins (solo USDT disponibile) - REMOVED: SHIB, DOGE, PEPE (low volume, high spread)
             { symbol: 'floki', pair: 'FLOKIUSDT', display: 'FLOKI/USDT' },
             { symbol: 'bonk', pair: 'BONKUSDT', display: 'BONK/USDT' },
             // Other

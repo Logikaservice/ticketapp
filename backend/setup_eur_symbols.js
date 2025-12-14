@@ -24,8 +24,6 @@ const EUR_SYMBOL_MAP = {
     'avax_eur': 'AVAXEUR',
     'avalanche_eur': 'AVAXEUR',
     'matic_eur': 'MATICEUR',
-    'dogecoin_eur': 'DOGEEUR',
-    'shiba_eur': 'SHIBEUR',
     'tron_eur': 'TRXEUR',
     'stellar_eur': 'XLMEUR',
     'cosmos_eur': 'ATOMEUR',
@@ -33,7 +31,6 @@ const EUR_SYMBOL_MAP = {
     'sui_eur': 'SUIEUR',
     'arbitrum_eur': 'ARBEUR',
     'optimism_eur': 'OPEUR',
-    'pepe_eur': 'PEPEEUR',
     'gala_eur': 'GALAEUR',
     'uniswap_eur': 'UNIEUR'
 };
