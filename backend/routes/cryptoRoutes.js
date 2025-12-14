@@ -6509,6 +6509,16 @@ router.put('/bot/parameters', async (req, res) => {
                         }
                     }
                     
+                    // ✅ FIX: NON sovrascrivere i parametri globali quando aggiorni i simboli specifici!
+                    // Questo era il problema: stava usando parametersJson che contiene i parametri globali
+                    // e li stava scrivendo anche per i simboli specifici, ma poi quando leggeva i globali
+                    // poteva trovare valori sovrascritti
+                    if (row.symbol === 'global') {
+                        console.error('❌ [BOT-PARAMS] ERRORE: Tentativo di aggiornare global con parametri simbolo specifico!');
+                        skipped++;
+                        continue;
+                    }
+                    
                     await dbRun(
                         "UPDATE bot_settings SET parameters = $1::text WHERE strategy_name = 'RSI_Strategy' AND symbol = $2",
                         [parametersJson, row.symbol]
