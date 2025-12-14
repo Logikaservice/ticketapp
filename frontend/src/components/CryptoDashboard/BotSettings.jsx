@@ -44,10 +44,26 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
         setError(null);
         try {
             const res = await fetch(`${apiBase}/api/crypto/bot/parameters`);
-            if (res.ok) {
-                const data = await res.json();
-                // ✅ FIX: I parametri dal backend sono già completi (merge fatto nel backend)
-                // Non serve fare merge qui, usiamo direttamente i parametri dal backend
+            
+            // ✅ FIX: Verifica content-type PRIMA di fare res.json()
+            const contentType = res.headers.get('content-type') || '';
+            const isJson = contentType.includes('application/json');
+            
+            if (res.ok && isJson) {
+                try {
+                    const data = await res.json();
+                    console.log('✅ [BOT-SETTINGS] Parametri caricati dal backend:', {
+                        totalParams: Object.keys(data.parameters || {}).length,
+                        hasTrailingProfit: 'trailing_profit_protection_enabled' in (data.parameters || {}),
+                        trailingProfitValue: data.parameters?.trailing_profit_protection_enabled,
+                        sampleValues: {
+                            trade_size_usdt: data.parameters?.trade_size_usdt,
+                            max_positions: data.parameters?.max_positions,
+                            stop_loss_pct: data.parameters?.stop_loss_pct
+                        }
+                    });
+                    // ✅ FIX: I parametri dal backend sono già completi (merge fatto nel backend)
+                    // Non serve fare merge qui, usiamo direttamente i parametri dal backend
                 if (data.parameters && typeof data.parameters === 'object') {
                     setParameters(data.parameters);
                     console.log('✅ [BOT-SETTINGS] Parametri caricati dal backend:', {
