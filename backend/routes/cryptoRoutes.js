@@ -281,11 +281,11 @@ router.get('/history', async (req, res) => {
                             const highPrice = parseFloat(kline[2]);
                             const lowPrice = parseFloat(kline[3]);
                             const closePrice = parseFloat(kline[4]);
-                            
+
                             // ✅ FIX: Valida prezzi prima di salvare (evita valori anomali)
                             const MAX_PRICE = 100000;
                             const MIN_PRICE = 0.000001;
-                            
+
                             if (openPrice > MAX_PRICE || openPrice < MIN_PRICE ||
                                 highPrice > MAX_PRICE || highPrice < MIN_PRICE ||
                                 lowPrice > MAX_PRICE || lowPrice < MIN_PRICE ||
@@ -296,7 +296,7 @@ router.get('/history', async (req, res) => {
                                 }
                                 continue; // Salta questa kline
                             }
-                            
+
                             // ✅ FIX: Valida che high >= low e high >= close >= low
                             if (highPrice < lowPrice || closePrice > highPrice || closePrice < lowPrice) {
                                 skippedAnomalous++;
@@ -305,7 +305,7 @@ router.get('/history', async (req, res) => {
                                 }
                                 continue; // Salta questa kline
                             }
-                            
+
                             await dbRun(
                                 `INSERT INTO klines 
                                 (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time, quote_asset_volume, number_of_trades, taker_buy_base_asset_volume, taker_buy_quote_asset_volume)
@@ -344,7 +344,7 @@ router.get('/history', async (req, res) => {
                         }
                     }
                 }
-                
+
                 if (skippedAnomalous > 0) {
                     console.warn(`⚠️ [KLINES] Saltate ${skippedAnomalous} klines anomale per ${symbol}`);
                 }
@@ -830,7 +830,7 @@ router.get('/price/:symbol', async (req, res) => {
     try {
         // ✅ FIX: Usa Promise.race con timeout per evitare 502 da timeout Nginx
         const PRICE_FETCH_TIMEOUT = 8000; // 8 secondi (Nginx timeout è tipicamente 60s, ma meglio essere sicuri)
-        
+
         const priceFetch = async () => {
             try {
                 // Use helper function to get price (handles normalization, caching, api selection)
@@ -846,7 +846,7 @@ router.get('/price/:symbol', async (req, res) => {
         });
 
         price = await Promise.race([priceFetch(), timeoutPromise]);
-        
+
         if (price && price > 0) {
             source = 'Binance';
         } else {
@@ -1298,131 +1298,94 @@ const getBotParameters = async (symbol = 'bitcoin') => {
     return DEFAULT_PARAMS;
 };
 
-// Symbol to Trading Pair mapping
+// ✅ Symbol to Trading Pair mapping (SENZA DUPLICATI - 51 simboli unici)
+// Aggiornato: 2025-12-14 - Rimossi 23 duplicati
 const SYMBOL_TO_PAIR = {
-    // ✅ FIX: Usa SOLO coppie USDT per evitare mismatch EUR/USDT
-    'bitcoin': 'BTCUSDT',        // Era BTCEUR
+    // Top Cryptocurrencies
     'bitcoin_usdt': 'BTCUSDT',
-    'solana': 'SOLUSDT',
-    'solana_eur': 'SOLUSDT',     // Era SOLEUR
-    'ethereum': 'ETHUSDT',       // Era ETHEUR
     'ethereum_usdt': 'ETHUSDT',
-    'cardano': 'ADAUSDT',        // Era ADAEUR - FIX PRINCIPALE
-    'cardano_usdt': 'ADAUSDT',
-    'polkadot': 'DOTUSDT',       // Era DOTEUR
-    'polkadot_usdt': 'DOTUSDT',
-    'chainlink': 'LINKEUR',       // ✅ FIX: chainlink = LINK/EUR
-    'chainlink_usdt': 'LINKUSDT', // chainlink_usdt = LINK/USDT
-    'litecoin': 'LTCUSDT',       // Era LTCEUR
-    'litecoin_usdt': 'LTCUSDT',
-    'ripple': 'XRPUSDT',
-    'ripple_eur': 'XRPUSDT',     // Era XRPEUR
-    'binance_coin': 'BNBUSDT',
-    'binance_coin_eur': 'BNBUSDT', // Era BNBEUR
-    'pol_polygon': 'POLUSDT',
-    'pol_polygon_eur': 'POLUSDT',  // Era POLEUR
-    'avalanche': 'AVAXUSDT',
-    'avalanche_eur': 'AVAXUSDT', // Era AVAXEUR
-    'uniswap': 'UNIUSDT',
-    'uniswap_eur': 'UNIUSDT',    // Era UNIEUR
-    'dogecoin': 'DOGEUSDT',
-    'dogecoin_eur': 'DOGEUSDT',  // Era DOGEEUR
-    'shiba': 'SHIBUSDT',
-    'shiba_eur': 'SHIBUSDT',     // Era SHIBEUR
+    'solana_eur': 'SOLUSDT',
+    'ripple_eur': 'XRPUSDT',
+    'binance_coin_eur': 'BNBUSDT',
+
     // Layer 1 Alternatives
-    'near': 'NEARUSDT',
-    'near_eur': 'NEARUSDT',      // Era NEAREUR
-    'atom': 'ATOMUSDT',
-    'atom_eur': 'ATOMUSDT',      // Era ATOMEUR
+    'cardano_usdt': 'ADAUSDT',
+    'polkadot_usdt': 'DOTUSDT',
+    'avalanche_eur': 'AVAXUSDT',
+    'near_eur': 'NEARUSDT',
+    'atom_eur': 'ATOMUSDT',
+    'sui_eur': 'SUIUSDT',
+    'apt': 'APTUSDT',
+    'ton': 'TONUSDT',
+    'icp': 'ICPUSDT',
+    'algo': 'ALGOUSDT',
+
     // DeFi Blue Chips
     'aave': 'AAVEUSDT',
-    // ❌ 'aave_eur': 'AAVEEUR', // Non disponibile su Binance
-    // Gaming/Metaverse
-    'sand': 'SANDUSDT',
-    // ❌ 'sand_eur': 'SANDEUR', // Non disponibile su Binance
-    // Storage
-    'fil': 'FILUSDT',
-    // ❌ 'fil_eur': 'FILEUR', // Non disponibile su Binance
-    // Layer 1 / Payments
-    'trx': 'TRXUSDT',
-    'trx_eur': 'TRXUSDT',        // Era TRXEUR
-    'xlm': 'XLMUSDT',
-    'xlm_eur': 'XLMUSDT',        // Era XLMEUR
-    // ❌ 'eos': 'EOSUSDT', // Delisted from Binance
-    // ❌ 'eos_eur': 'EOSEUR', // Not available on Binance
-    // Layer 2 / Scaling
-    'arb': 'ARBUSDT',
-    'arb_eur': 'ARBUSDT',        // Era ARBEUR
-    'op': 'OPUSDT',
-    'op_eur': 'OPUSDT',          // Era OPEUR
-    'matic': 'MATICUSDT',
-    'matic_eur': 'MATICUSDT',    // Era MATICEUR
-    // DeFi Blue Chips (solo USDT disponibile)
+    'uniswap_eur': 'UNIUSDT',
+    'chainlink_usdt': 'LINKUSDT',
     'crv': 'CRVUSDT',
-    // ❌ 'crv_eur': 'CRVEUR', // Non disponibile su Binance
     'ldo': 'LDOUSDT',
-    // ❌ 'ldo_eur': 'LDOEUR', // Non disponibile su Binance
-    // Gaming/Metaverse (solo USDT disponibile)
-    'mana': 'MANAUSDT',
-    // ❌ 'mana_eur': 'MANAEUR', // Non disponibile su Binance
-    'axs': 'AXSUSDT',
-    // ❌ 'axs_eur': 'AXSEUR', // Non disponibile su Binance
+    'mkr': 'MKRUSDT',
+    'comp': 'COMPUSDT',
+    'snx': 'SNXUSDT',
 
-    // ✅ NEW ADDITIONS - Verified on Binance (Dec 2025)
-    // Stablecoins
-    'usdc': 'USDCUSDT', // Volume: €1343M/day
+    // Layer 2 / Scaling
+    'arb_eur': 'ARBUSDT',
+    'op_eur': 'OPUSDT',
+    'matic_eur': 'MATICUSDT',
+    'pol_polygon_eur': 'POLUSDT',
 
-    // New Listings (High Volume)
-    'sui': 'SUIUSDT', // Volume: €81M/day
-    'sui_eur': 'SUIUSDT',        // Era SUIEUR
-    'apt': 'APTUSDT', // Aptos - Volume: €18.88M/day
-    'sei': 'SEIUSDT', // Volume: €8.92M/day
-    'ton': 'TONUSDT', // Telegram Open Network - Volume: €7.60M/day
-    'inj': 'INJUSDT', // Injective - Volume: €4.20M/day
-    'algo': 'ALGOUSDT', // Algorand - Volume: €3.38M/day
-    'vet': 'VETUSDT', // VeChain - Volume: €3.13M/day
-    'icp': 'ICPUSDT', // Internet Computer - Volume: €14.43M/day
-
-    // DeFi Blue Chips
-    'mkr': 'MKRUSDT', // Maker - Volume: €0.44M/day
-    'comp': 'COMPUSDT', // Compound - Volume: €3.94M/day
-    'snx': 'SNXUSDT', // Synthetix - Volume: €2.58M/day
+    // Payments & Old School
+    'litecoin_usdt': 'LTCUSDT',
+    'trx_eur': 'TRXUSDT',
+    'xlm_eur': 'XLMUSDT',
 
     // AI/Data Sector
-    'fet': 'FETUSDT', // Fetch.ai - Volume: €13.15M/day
-    'render': 'RENDERUSDT', // Render Network - Volume: €3.73M/day
-    'grt': 'GRTUSDT', // The Graph - Volume: €2.44M/day
+    'fet': 'FETUSDT',
+    'render': 'RENDERUSDT',
+    'grt': 'GRTUSDT',
 
     // Gaming/Metaverse
-    'imx': 'IMXUSDT', // Immutable X - Volume: €1.38M/day
-    'gala': 'GALAUSDT', // Gala Games - Volume: €3.46M/day
-    'enj': 'ENJUSDT', // Enjin Coin - Volume: €0.45M/day
-    'enj_eur': 'ENJUSDT',        // Era ENJEUR
+    'sand': 'SANDUSDT',
+    'mana': 'MANAUSDT',
+    'axs': 'AXSUSDT',
+    'gala': 'GALAUSDT',
+    'imx': 'IMXUSDT',
+    'enj_eur': 'ENJUSDT',
 
-    // Meme Coins (High Volume)
-    'pepe': 'PEPEUSDT', // Volume: €32.29M/day
-    'pepe_eur': 'PEPEUSDT',      // Era PEPEEUR
-    'floki': 'FLOKIUSDT', // Volume: €5.71M/day
-    'bonk': 'BONKUSDT', // Volume: €8.79M/day
+    // Meme Coins
+    'pepe_eur': 'PEPEUSDT',
+    'dogecoin_eur': 'DOGEUSDT',
+    'shiba_eur': 'SHIBUSDT',
+    'floki': 'FLOKIUSDT',
+    'bonk': 'BONKUSDT',
 
     // Storage/Infrastructure
-    'ar': 'ARUSDT' // Arweave - Volume: €3.52M/day
+    'fil': 'FILUSDT',
+    'ar': 'ARUSDT',
+
+    // Others
+    'sei': 'SEIUSDT',
+    'inj': 'INJUSDT',
+    'vet': 'VETUSDT',
+    'usdc': 'USDCUSDT'
 };
 
-// ✅ CORRELATION GROUPS - Strategia Ibrida per Diversificazione Intelligente
+// ✅ CORRELATION GROUPS - Strategia Ibrida per Diversificazione Intelligente (SENZA DUPLICATI)
 // Raggruppa crypto correlate per evitare posizioni ridondanti durante crash
 const CORRELATION_GROUPS = {
-    'BTC_MAJOR': ['bitcoin', 'bitcoin_usdt', 'ethereum', 'ethereum_usdt', 'solana', 'solana_eur', 'cardano', 'cardano_usdt', 'polkadot', 'polkadot_usdt'],
-    'DEFI': ['chainlink', 'chainlink_usdt', 'uniswap', 'uniswap_eur', 'avalanche', 'avalanche_eur', 'aave', 'crv', 'ldo', 'mkr', 'comp', 'snx'],
-    'LAYER1_ALT': ['near', 'near_eur', 'atom', 'atom_eur', 'sui', 'sui_eur', 'apt', 'sei', 'ton', 'inj', 'algo', 'vet', 'icp'],
-    'PAYMENTS': ['trx', 'trx_eur', 'xlm', 'xlm_eur'], // ❌ Removed 'eos', 'eos_eur' - Delisted from Binance
-    'LAYER2': ['arb', 'arb_eur', 'op', 'op_eur', 'matic', 'matic_eur'],
-    'GAMING': ['sand', 'mana', 'axs', 'imx', 'gala', 'enj', 'enj_eur'],
+    'BTC_MAJOR': ['bitcoin_usdt', 'ethereum_usdt', 'solana_eur', 'cardano_usdt', 'polkadot_usdt'],
+    'DEFI': ['chainlink_usdt', 'uniswap_eur', 'avalanche_eur', 'aave', 'crv', 'ldo', 'mkr', 'comp', 'snx'],
+    'LAYER1_ALT': ['near_eur', 'atom_eur', 'sui_eur', 'apt', 'sei', 'ton', 'inj', 'algo', 'vet', 'icp'],
+    'PAYMENTS': ['trx_eur', 'xlm_eur'],
+    'LAYER2': ['arb_eur', 'op_eur', 'matic_eur'],
+    'GAMING': ['sand', 'mana', 'axs', 'imx', 'gala', 'enj_eur'],
     'STORAGE': ['fil', 'ar'],
-    'MEME': ['dogecoin', 'dogecoin_eur', 'shiba', 'shiba_eur', 'pepe', 'pepe_eur', 'floki', 'bonk'],
+    'MEME': ['dogecoin_eur', 'shiba_eur', 'pepe_eur', 'floki', 'bonk'],
     'AI_DATA': ['fet', 'render', 'grt'],
     'STABLECOINS': ['usdc'],
-    'INDEPENDENT': ['ripple', 'ripple_eur', 'litecoin', 'litecoin_usdt', 'binance_coin', 'binance_coin_eur', 'pol_polygon', 'pol_polygon_eur']
+    'INDEPENDENT': ['ripple_eur', 'litecoin_usdt', 'binance_coin_eur', 'pol_polygon_eur']
 };
 
 // Config Strategia Ibrida
@@ -1442,40 +1405,30 @@ const HYBRID_STRATEGY_CONFIG = {
     }
 };
 
-// Symbol to CoinGecko ID mapping
+// Symbol to CoinGecko ID mapping (SENZA DUPLICATI)
 const SYMBOL_TO_COINGECKO = {
-    'bitcoin': 'bitcoin',
     'bitcoin_usdt': 'bitcoin',
-    'solana': 'solana',
-    'solana_eur': 'solana',
-    'ethereum': 'ethereum',
     'ethereum_usdt': 'ethereum',
-    'cardano': 'cardano',
+    'solana_eur': 'solana',
     'cardano_usdt': 'cardano',
-    'polkadot': 'polkadot',
     'polkadot_usdt': 'polkadot',
-    'chainlink': 'chainlink',
     'chainlink_usdt': 'chainlink',
-    'litecoin': 'litecoin',
     'litecoin_usdt': 'litecoin',
-    'ripple': 'ripple',
     'ripple_eur': 'ripple',
-    'binance_coin': 'binancecoin',
     'binance_coin_eur': 'binancecoin',
-    'pol_polygon': 'polygon-ecosystem-token', // Replaces MATIC
-    'pol_polygon_eur': 'polygon-ecosystem-token', // Replaces MATIC
-    'avalanche': 'avalanche-2',
+    'pol_polygon_eur': 'polygon-ecosystem-token',
     'avalanche_eur': 'avalanche-2',
-    'uniswap': 'uniswap',
     'uniswap_eur': 'uniswap',
-    'dogecoin': 'dogecoin',
     'dogecoin_eur': 'dogecoin',
-    'shiba': 'shiba-inu',
     'shiba_eur': 'shiba-inu',
-
-    // ✅ NEW ADDITIONS - CoinGecko IDs
+    'near_eur': 'near-protocol',
+    'atom_eur': 'cosmos',
+    'trx_eur': 'tron',
+    'xlm_eur': 'stellar',
+    'arb_eur': 'arbitrum',
+    'op_eur': 'optimism',
+    'matic_eur': 'matic-network',
     'usdc': 'usd-coin',
-    'sui': 'sui',
     'sui_eur': 'sui',
     'apt': 'aptos',
     'sei': 'sei-network',
@@ -1492,13 +1445,18 @@ const SYMBOL_TO_COINGECKO = {
     'grt': 'the-graph',
     'imx': 'immutable-x',
     'gala': 'gala',
-    'enj': 'enjincoin',
     'enj_eur': 'enjincoin',
-    'pepe': 'pepe',
     'pepe_eur': 'pepe',
     'floki': 'floki',
     'bonk': 'bonk',
-    'ar': 'arweave'
+    'ar': 'arweave',
+    'aave': 'aave',
+    'crv': 'curve-dao-token',
+    'ldo': 'lido-dao',
+    'sand': 'the-sandbox',
+    'mana': 'decentraland',
+    'axs': 'axie-infinity',
+    'fil': 'filecoin'
 };
 
 // Helper to get price for a symbol
@@ -1531,7 +1489,7 @@ const initWebSocketService = () => {
             (symbol, price) => {
                 // ✅ FIX CRITICO: Aggiorna cache E salva nel database per persistenza
                 priceCache.set(symbol, { price, timestamp: Date.now() });
-                
+
                 // ✅ NUOVO: Salva anche nel database per persistenza (fallback quando IP è bannato)
                 // Usa setImmediate per non bloccare il callback WebSocket
                 // ✅ FIX: Salva solo se prezzo è cambiato rispetto all'ultimo salvato (evita duplicati)
@@ -1546,17 +1504,17 @@ const initWebSocketService = () => {
                                     "SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1",
                                     [symbol]
                                 );
-                                
+
                                 // Salva solo se prezzo è cambiato (> 0.1% di differenza) o non c'è prezzo precedente
                                 const shouldSave = !lastPrice || Math.abs(price - parseFloat(lastPrice.price)) / parseFloat(lastPrice.price) > 0.001;
-                                
+
                                 if (shouldSave) {
                                     await dbRun(
                                         `INSERT INTO price_history (symbol, price, timestamp) 
                                          VALUES ($1, $2, CURRENT_TIMESTAMP)`,
                                         [symbol, price]
                                     );
-                                    
+
                                     // ✅ DEBUG: Log solo occasionalmente per vedere che sta salvando
                                     if (Math.random() < 0.01) {
                                         console.log(`💾 [WEBSOCKET-PRICE] Prezzo salvato nel DB: ${symbol} = $${price.toFixed(6)}`);
@@ -1581,7 +1539,7 @@ const initWebSocketService = () => {
                         }
                     }
                 });
-                
+
                 // Log solo occasionalmente
                 if (Math.random() < 0.05) {
                     console.log(`📡 [WEBSOCKET] Prezzo aggiornato ${symbol}: $${price.toFixed(2)} USDT`);
@@ -1591,7 +1549,7 @@ const initWebSocketService = () => {
             (symbol, volume24h) => {
                 // Callback: aggiorna cache volume quando arriva da WebSocket
                 volumeCache.set(symbol, { volume: volume24h, timestamp: Date.now() });
-                
+
                 // ✅ FIX CRITICO: Salva anche nel database per persistenza (fallback quando IP è bannato)
                 // Usa setImmediate per non bloccare il callback WebSocket
                 setImmediate(async () => {
@@ -1610,7 +1568,7 @@ const initWebSocketService = () => {
                         }
                     }
                 });
-                
+
                 // Log solo occasionalmente per non spammare
                 if (Math.random() < 0.05) {
                     console.log(`📡 [WEBSOCKET] Volume 24h aggiornato ${symbol}: $${volume24h.toLocaleString('it-IT')} USDT`);
@@ -1649,18 +1607,18 @@ setTimeout(() => {
     try {
         // Marca che backend è attivo
         process.env.BACKEND_RUNNING = 'true';
-        
+
         // Avvia monitoring ogni 5 minuti
         HealthCheckService.start(5, async (status) => {
             // Callback per problemi critici
             console.error('🚨 [HEALTH-CHECK] ALERT: Sistema non sano');
             console.error(`   Problemi: ${status.criticalIssues.join(', ')}`);
-            
+
             // TODO: Puoi aggiungere notifiche (email, Telegram, etc)
         });
-        
+
         console.log('✅ [HEALTH-CHECK] Monitoring attivato - verifica ogni 5 minuti');
-        
+
         // Avvia servizio backup automatico ogni 24 ore
         BackupService.start(24);
         console.log('✅ [BACKUP] Servizio backup attivato - backup ogni 24 ore');
@@ -1673,7 +1631,7 @@ setTimeout(() => {
 router.get('/health-status', async (req, res) => {
     try {
         const status = HealthCheckService.getLastStatus();
-        
+
         if (!status) {
             // Prima verifica non ancora eseguita
             const newStatus = await HealthCheckService.performCheck();
@@ -1704,7 +1662,7 @@ const getSymbolPrice = async (symbol) => {
     if (!symbol || symbol.toLowerCase() === 'global') {
         return null;
     }
-    
+
     // ✅ FIX CRITICO: Normalizza il simbolo prima di cercare nel mapping
     // Rimuovi slash, underscore multipli e suffissi USDT/EUR per ottenere il simbolo base
     let normalizedSymbol = symbol.toLowerCase()
@@ -1794,18 +1752,18 @@ const getSymbolPrice = async (symbol) => {
     const BAN_CHECK_INTERVAL = 86400000; // Controlla se ban è scaduto ogni 24 ore
     const last418Error = rateLimitErrors.get('BINANCE_IP_BANNED') || 0;
     const timeSinceBan = Date.now() - last418Error;
-    
+
     if (last418Error > 0 && timeSinceBan < BINANCE_BAN_COOLDOWN) {
         // IP bannato - ma prova a verificare se il ban è scaduto ogni 24 ore
         const lastBanCheck = rateLimitErrors.get('BINANCE_BAN_LAST_CHECK') || 0;
         const shouldTestBan = (Date.now() - lastBanCheck) > BAN_CHECK_INTERVAL;
-        
+
         if (!shouldTestBan) {
             // ✅ FIX CRITICO: Quando IP è bannato, usa PRIMA il database (più affidabile), poi cache
             // Il database contiene prezzi salvati dal WebSocket, quindi è sempre aggiornato
             try {
                 const lastPrice = await dbGet(
-                    "SELECT price FROM price_history WHERE symbol = $1 AND price > 0 AND price < 100000 AND price > 0.000001 ORDER BY timestamp DESC LIMIT 1", 
+                    "SELECT price FROM price_history WHERE symbol = $1 AND price > 0 AND price < 100000 AND price > 0.000001 ORDER BY timestamp DESC LIMIT 1",
                     [normalizedSymbol]
                 );
                 if (lastPrice && lastPrice.price) {
@@ -1820,7 +1778,7 @@ const getSymbolPrice = async (symbol) => {
             } catch (e) {
                 // Ignora errori DB
             }
-            
+
             // Fallback: cache (se database vuoto)
             if (cached) {
                 if (Math.random() < 0.1) { // Log solo 10% per non spammare
@@ -1828,7 +1786,7 @@ const getSymbolPrice = async (symbol) => {
                 }
                 return cached.price;
             }
-            
+
             console.warn(`⚠️ [BINANCE-BAN] Nessun prezzo disponibile per ${symbol} (IP bannato, cache e DB vuoti)`);
             return null;
         } else {
@@ -1864,7 +1822,7 @@ const getSymbolPrice = async (symbol) => {
     try {
         const { getPriceByPair } = require('../services/PriceService');
         const price = await getPriceByPair(tradingPair);
-        
+
         // ✅ FIX CRITICO: Valida prezzo prima di salvare in cache
         const MAX_REASONABLE_PRICE = 100000; // $100k max
         const MIN_REASONABLE_PRICE = 0.000001; // $0.000001 min
@@ -1873,7 +1831,7 @@ const getSymbolPrice = async (symbol) => {
             // Non salvare in cache, ma prova fallback
             return null;
         }
-        
+
         if (Math.random() < 0.05) {
             console.log(`✅ [PRICE] Got price from Binance for ${symbol} (${tradingPair}): $${price.toFixed(6)}`);
         }
@@ -1909,33 +1867,33 @@ const getSymbolPrice = async (symbol) => {
             }
             return null;
         }
-        
+
         // ✅ RATE LIMITING: Rileva errori 429 e attiva cooldown
         if (e.message && e.message.includes('429')) {
             rateLimitErrors.set(tradingPair, Date.now());
-            console.error(`🚫 [RATE-LIMIT] HTTP 429 per ${symbol} (${tradingPair}) - Cooldown di ${RATE_LIMIT_COOLDOWN/1000}s attivato`);
+            console.error(`🚫 [RATE-LIMIT] HTTP 429 per ${symbol} (${tradingPair}) - Cooldown di ${RATE_LIMIT_COOLDOWN / 1000}s attivato`);
             // Usa cache anche se scaduta
             if (cached) {
                 console.log(`⏸️  [RATE-LIMIT] Usando cache scaduta per ${symbol} a causa di 429`);
                 return cached.price;
             }
         }
-        
+
         console.error(`❌ [PRICE] Binance fetch failed for ${symbol} (${tradingPair}):`, e.message);
         try {
-                // ✅ CAMBIATO: CoinGecko ora restituisce USDT direttamente
-                const geckoData = await httpsGet(`https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd&precision=18`);
-                if (geckoData && geckoData[coingeckoId] && geckoData[coingeckoId].usd !== undefined) {
-                    let price = parseFloat(geckoData[coingeckoId].usd);
+            // ✅ CAMBIATO: CoinGecko ora restituisce USDT direttamente
+            const geckoData = await httpsGet(`https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd&precision=18`);
+            if (geckoData && geckoData[coingeckoId] && geckoData[coingeckoId].usd !== undefined) {
+                let price = parseFloat(geckoData[coingeckoId].usd);
 
-                    // ✅ FIX: Verifica che il prezzo sia valido (anche se molto basso, es. 0.000007)
-                    const MAX_REASONABLE_PRICE = 100000; // $100k max
-                    const MIN_REASONABLE_PRICE = 0.000001; // $0.000001 min
-                    if (price > 0 && !isNaN(price) && isFinite(price) && price <= MAX_REASONABLE_PRICE && price >= MIN_REASONABLE_PRICE) {
-                        console.log(`💱 [PRICE] ${symbol} from CoinGecko: $${price.toFixed(8)} USDT`);
-                        // ✅ Salva in cache anche per CoinGecko
-                        priceCache.set(symbol, { price, timestamp: Date.now() });
-                        return price;
+                // ✅ FIX: Verifica che il prezzo sia valido (anche se molto basso, es. 0.000007)
+                const MAX_REASONABLE_PRICE = 100000; // $100k max
+                const MIN_REASONABLE_PRICE = 0.000001; // $0.000001 min
+                if (price > 0 && !isNaN(price) && isFinite(price) && price <= MAX_REASONABLE_PRICE && price >= MIN_REASONABLE_PRICE) {
+                    console.log(`💱 [PRICE] ${symbol} from CoinGecko: $${price.toFixed(8)} USDT`);
+                    // ✅ Salva in cache anche per CoinGecko
+                    priceCache.set(symbol, { price, timestamp: Date.now() });
+                    return price;
                 } else {
                     console.warn(`⚠️ [PRICE] ${symbol} prezzo da CoinGecko non valido: ${price}`);
                 }
@@ -2056,7 +2014,7 @@ const get24hVolume = async (symbol) => {
             }
             return cached.volume;
         }
-        
+
         // ✅ DEBUG: Verifica se WebSocket è connesso e ha volumi
         if (wsService && wsService.isWebSocketConnected()) {
             if (Math.random() < 0.1) {
@@ -2083,7 +2041,7 @@ const get24hVolume = async (symbol) => {
                 if (dbVolume && dbVolume.volume_24h) {
                     const volumeAge = Date.now() - new Date(dbVolume.updated_at).getTime();
                     const MAX_VOLUME_AGE = 7 * 24 * 60 * 60 * 1000; // 7 giorni
-                    
+
                     if (volumeAge < MAX_VOLUME_AGE) {
                         // Volume nel DB è recente (< 7 giorni) - usalo
                         const volume = parseFloat(dbVolume.volume_24h);
@@ -2102,7 +2060,7 @@ const get24hVolume = async (symbol) => {
             } catch (dbError) {
                 // Ignora errori DB
             }
-            
+
             // ✅ FALLBACK: Se database vuoto o vecchio, usa cache anche se scaduta
             if (cached) {
                 if (Math.random() < 0.1) { // Log solo 10% per non spammare
@@ -2110,7 +2068,7 @@ const get24hVolume = async (symbol) => {
                 }
                 return cached.volume;
             }
-            
+
             // Nessun volume disponibile - ritorna 0
             if (Math.random() < 0.1) {
                 console.warn(`⚠️ [VOLUME-BAN] IP bannato - nessun volume disponibile (cache/DB) per ${symbol}, ritorno 0`);
@@ -2138,11 +2096,11 @@ const get24hVolume = async (symbol) => {
 
         // Volume in quote currency (USDT)
         const volumeQuote = parseFloat(data.quoteVolume || data.q || 0);
-        
+
         if (volumeQuote > 0) {
             // ✅ Salva in cache
             volumeCache.set(symbol, { volume: volumeQuote, timestamp: Date.now() });
-            
+
             // ✅ Salva anche nel database come fallback per quando IP è bannato
             try {
                 await dbRun(
@@ -2155,14 +2113,14 @@ const get24hVolume = async (symbol) => {
             } catch (dbError) {
                 // Ignora errori DB (non critico)
             }
-            
+
             if (Math.random() < 0.1) {
                 console.log(`✅ [VOLUME-REST] Volume recuperato da REST API per ${symbol}: $${volumeQuote.toLocaleString('it-IT')} USDT`);
             }
         } else {
             console.warn(`⚠️ [VOLUME-REST] Volume 0 o invalido da REST API per ${symbol}, data.quoteVolume=${data.quoteVolume}, data.q=${data.q}`);
         }
-        
+
         return volumeQuote;
     } catch (err) {
         // ✅ Rileva ban IP (HTTP 418) e aggiorna flag
@@ -2175,15 +2133,15 @@ const get24hVolume = async (symbol) => {
                 return cached.volume;
             }
         }
-        
+
         console.error(`❌ [VOLUME] Error fetching 24h volume for ${symbol}:`, err.message);
-        
+
         // ✅ Usa cache anche se scaduta se disponibile
         const cached = volumeCache.get(symbol);
         if (cached) {
             return cached.volume;
         }
-        
+
         // ✅ FIX CRITICO: Fallback finale - prova sempre a recuperare dal database
         try {
             const dbVolume = await dbGet(
@@ -2205,7 +2163,7 @@ const get24hVolume = async (symbol) => {
         } catch (dbError) {
             // Ignora errori DB (non critico)
         }
-        
+
         return 0;
     }
 };
@@ -2524,7 +2482,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     console.error(`⚠️ [${symbol.toUpperCase()}] Invalid currentPrice (${currentPrice}), skipping kline update`);
                     return;
                 }
-                
+
                 // Aggiorna candela esistente: aggiorna high, low, close
                 const newHigh = Math.max(existingKline.high_price, currentPrice);
                 const newLow = Math.min(existingKline.low_price, currentPrice);
@@ -2544,7 +2502,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     console.error(`⚠️ [${symbol.toUpperCase()}] Invalid currentPrice (${currentPrice}), skipping kline insert`);
                     return;
                 }
-                
+
                 // Crea nuova candela
                 await dbRun(
                     `INSERT INTO klines 
@@ -2578,7 +2536,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         console.error(`⚠️ [${symbol.toUpperCase()}] Invalid currentPrice (${currentPrice}) for interval ${interval}, skipping`);
                         continue;
                     }
-                    
+
                     if (existingKline) {
                         const newHigh = Math.max(existingKline.high_price, currentPrice);
                         const newLow = Math.min(existingKline.low_price, currentPrice);
@@ -2649,28 +2607,28 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         // Questo garantisce che il bot non faccia analisi su dati incompleti o corrotti
         try {
             const dataIntegrity = await dataIntegrityService.verifyAndRegenerate(symbol);
-            
+
             if (!dataIntegrity.valid) {
                 console.error(`❌ BOT [${symbol.toUpperCase()}]: Dati storici non validi o incompleti.`);
                 console.error(`   Klines: ${dataIntegrity.klinesCount} | Price History: ${dataIntegrity.priceHistoryCount} | Gap: ${dataIntegrity.gaps}`);
                 if (dataIntegrity.issues && dataIntegrity.issues.length > 0) {
                     dataIntegrity.issues.forEach(issue => console.error(`   - ${issue}`));
                 }
-                
+
                 if (dataIntegrity.regenerated) {
                     console.log(`🔄 BOT [${symbol.toUpperCase()}]: Dati rigenerati. Riprova nel prossimo ciclo.`);
                 } else {
                     console.error(`❌ BOT [${symbol.toUpperCase()}]: Impossibile rigenerare dati. Salto questo ciclo.`);
                 }
-                
+
                 // ✅ BLOCCA analisi e aperture se dati non validi
                 return; // STOP - Non fare analisi su dati incompleti
             }
-            
+
             if (dataIntegrity.regenerated) {
                 console.log(`✅ BOT [${symbol.toUpperCase()}]: Dati rigenerati con successo. Procedo con analisi.`);
             }
-            
+
         } catch (error) {
             console.error(`❌ BOT [${symbol.toUpperCase()}]: Errore verifica integrità dati: ${error.message}`);
             // ✅ In caso di errore, continua comunque (non bloccare tutto il bot)
@@ -2709,7 +2667,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 "SELECT price, timestamp FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 50",
                 [symbol]
             );
-            
+
             // ✅ FIX CRITICO: Verifica che anche price_history abbia dati sufficienti
             if (!priceHistoryData || priceHistoryData.length < 20) {
                 console.error(`❌ BOT [${symbol.toUpperCase()}]: DATI INSUFFICIENTI - Klines: ${klinesData?.length || 0}, Price History: ${priceHistoryData?.length || 0}. BLOCCATO apertura posizioni.`);
@@ -2870,7 +2828,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     const peakCapital = await dbGet("SELECT MAX(balance_usd) as peak FROM portfolio");
                     const historicalPeak = parseFloat(peakCapital?.peak || 0);
                     const peakDifference = historicalPeak > 0 ? (historicalPeak - cashBalance) / historicalPeak : 0;
-                    
+
                     // Se differenza > 50%, probabilmente è stato fatto un reset → usa balance attuale come initial
                     if (peakDifference > 0.5 && cashBalance > 0) {
                         initialBalance = cashBalance;
@@ -2976,7 +2934,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 // - Drawdown rispetto a capitale iniziale arbitrario
                 // - Portfolio in perdita rispetto a $1000 hardcoded
                 // - P&L medio posizioni aperte
-                
+
                 console.log(`✅ [PORTFOLIO-CHECK] Total Equity: $${totalEquity.toFixed(2)} | Disponibilità (80%): $${(totalEquity * 0.80).toFixed(2)} | Portfolio Drawdown Protection DISABILITATA`);
                 // ✅ NON impostare portfolioDrawdownBlock = true (sempre false)
 
@@ -6193,8 +6151,8 @@ router.put('/bot/parameters', async (req, res) => {
         // validParams contiene solo i parametri validati, ma dobbiamo mantenere anche gli altri parametri esistenti
         let finalParams = validParams;
         if (existing && existing.parameters) {
-            const existingGlobalParams = typeof existing.parameters === 'string' 
-                ? JSON.parse(existing.parameters) 
+            const existingGlobalParams = typeof existing.parameters === 'string'
+                ? JSON.parse(existing.parameters)
                 : existing.parameters;
             // Merge: prima i parametri esistenti, poi validParams (sovrascrive)
             finalParams = { ...existingGlobalParams, ...validParams };
@@ -6208,7 +6166,7 @@ router.put('/bot/parameters', async (req, res) => {
 
         // ✅ FIX: Serializza correttamente per PostgreSQL TEXT
         const parametersJson = JSON.stringify(finalParams);
-        
+
         // ✅ DEBUG: Verifica che min_volume_24h sia nel JSON
         const parsedCheck = JSON.parse(parametersJson);
         console.log('🔍 [BOT-PARAMS] Verifica JSON prima del salvataggio:', {
@@ -6263,7 +6221,7 @@ router.put('/bot/parameters', async (req, res) => {
                 expectedMinVolume24h: validParams.min_volume_24h,
                 minVolume24hMatch: savedParams.min_volume_24h === validParams.min_volume_24h
             });
-            
+
             // ✅ DEBUG CRITICO: Se min_volume_24h non corrisponde, logga errore
             if (savedParams.min_volume_24h !== validParams.min_volume_24h) {
                 console.error('❌ [BOT-PARAMS] ERRORE CRITICO: min_volume_24h non salvato correttamente!');
@@ -6351,7 +6309,7 @@ router.post('/bot/remove-max-daily-loss-pct', async (req, res) => {
                 // Verifica se contiene max_daily_loss_pct
                 if ('max_daily_loss_pct' in params) {
                     const oldValue = params.max_daily_loss_pct;
-                    
+
                     // Rimuovi il parametro
                     delete params.max_daily_loss_pct;
 
@@ -6387,9 +6345,9 @@ router.post('/bot/remove-max-daily-loss-pct', async (req, res) => {
         });
     } catch (error) {
         console.error('❌ [REMOVE-MAX-DAILY-LOSS] Errore:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
-            error: error.message 
+            error: error.message
         });
     }
 });
@@ -7223,17 +7181,17 @@ router.get('/bot-analysis', async (req, res) => {
     // ✅ FIX CRITICO: Wrapper esterno per catturare TUTTI gli errori, anche quelli di inizializzazione
     const startTime = Date.now();
     const symbol = req.query?.symbol || 'bitcoin';
-    
+
     // ✅ Log all'inizio per verificare che la funzione viene chiamata
     console.log(`🔍 [BOT-ANALYSIS] Richiesta ricevuta per simbolo: ${symbol}`);
-    
+
     // ✅ FIX: Wrapper unico per catturare TUTTI gli errori
     try {
         // Quick dependency checks (no verbose logging)
         if (!httpsGet || !dbGet || !dbAll || !signalGenerator || !riskManager || !getBotParameters) {
             console.error('❌ [BOT-ANALYSIS] Dipendenze mancanti');
             // ✅ FIX: Restituisci status 200 invece di 500 per evitare errori frontend
-            return res.status(200).json({ 
+            return res.status(200).json({
                 error: 'Dipendenze mancanti',
                 symbol: req.query?.symbol || 'unknown',
                 signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Errore sistema'] },
@@ -7243,7 +7201,7 @@ router.get('/bot-analysis', async (req, res) => {
 
         // Get symbol from query parameter, default to bitcoin
         let symbol = req.query.symbol || 'bitcoin';
-        
+
         // ✅ FIX: Rimuovi eventuali suffissi tipo ":1" dal simbolo (es. "atom:1" -> "atom")
         symbol = symbol.split(':')[0].split('?')[0];
 
@@ -7455,12 +7413,12 @@ router.get('/bot-analysis', async (req, res) => {
         let currentPrice = 0;
         try {
             currentPrice = await getSymbolPrice(symbol);
-            
+
             // ✅ FIX: Valida che il prezzo sia ragionevole (evita prezzi anomali tipo $90k per AAVE)
             // Prezzi anomali suggeriscono un problema di normalizzazione simboli o errore API
             const MAX_REASONABLE_PRICE = 100000; // $100k è il prezzo massimo ragionevole per qualsiasi crypto
             const MIN_REASONABLE_PRICE = 0.000001; // $0.000001 è il prezzo minimo ragionevole
-            
+
             if (currentPrice > MAX_REASONABLE_PRICE || currentPrice < MIN_REASONABLE_PRICE) {
                 console.error(`⚠️ [BOT-ANALYSIS] Prezzo anomalo per ${symbol} (normalized: ${dbSymbol}): $${currentPrice}. Provo fallback DB.`);
                 currentPrice = 0; // Reset per forzare fallback
@@ -7469,7 +7427,7 @@ router.get('/bot-analysis', async (req, res) => {
             console.error(`❌ [BOT-ANALYSIS] Errore recupero prezzo per ${symbol}:`, err.message);
             currentPrice = 0; // Reset per fallback
         }
-        
+
         // ✅ FALLBACK MIGLIORATO: Se prezzo non disponibile o anomalo, prova multiple sorgenti
         if (!currentPrice || currentPrice === 0) {
             // 1. Prova price_history (più recente)
@@ -7545,7 +7503,7 @@ router.get('/bot-analysis', async (req, res) => {
         // ✅ FIX: Se non ci sono klines o sono troppo poche, prova price_history come fallback
         let historyForSignal = [];
         let hasEnoughHistory = false;
-        
+
         // ✅ SANITIZE: rimuovi righe con prezzi non numerici o nulli
         if (priceHistoryData && priceHistoryData.length > 0) {
             priceHistoryData = priceHistoryData.filter(row => {
@@ -7694,29 +7652,29 @@ router.get('/bot-analysis', async (req, res) => {
             // Data stale o insufficiente - download da Binance (solo se non bannati)
             try {
                 const tradingPair = SYMBOL_TO_PAIR[symbol] || symbol.toUpperCase().replace('_', '');
-                
+
                 // ✅ FIX: Se il database è completamente vuoto, scarica più dati (almeno 30 giorni)
                 // Altrimenti scarica solo le ultime 100 candele per aggiornare
                 // ✅ FIX CRITICO: Calcola isDatabaseEmpty PRIMA di modificare historyForSignal
                 const wasDatabaseEmpty = !historyForSignal || historyForSignal.length === 0;
                 const limit = wasDatabaseEmpty ? 1000 : 100; // Max 1000 se vuoto, 100 se solo stale
-                
+
                 let allKlines = [];
                 if (wasDatabaseEmpty) {
                     // ✅ FIX: Scarica a blocchi per database vuoto (30 giorni = ~2880 candele a 15m)
                     const daysToDownload = 30;
                     let currentStartTime = Date.now() - (daysToDownload * 24 * 60 * 60 * 1000);
                     const endTime = Date.now();
-                    
+
                     while (currentStartTime < endTime && allKlines.length < limit) {
                         const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&startTime=${currentStartTime}&limit=${Math.min(1000, limit - allKlines.length)}`;
                         const klines = await httpsGet(binanceUrl);
-                        
+
                         if (!Array.isArray(klines) || klines.length === 0) break;
-                        
+
                         allKlines.push(...klines);
                         currentStartTime = klines[klines.length - 1][0] + 1;
-                        
+
                         // Pausa per non sovraccaricare API
                         if (allKlines.length < limit) {
                             await new Promise(resolve => setTimeout(resolve, 300));
@@ -7730,7 +7688,7 @@ router.get('/bot-analysis', async (req, res) => {
                         allKlines = klines;
                     }
                 }
-                
+
                 const klines = allKlines;
                 if (Array.isArray(klines) && klines.length > 0) {
                     historyForSignal = klines.map(k => ({
@@ -7749,7 +7707,7 @@ router.get('/bot-analysis', async (req, res) => {
                         const klinesToSave = wasDatabaseEmpty ? klines : klines.slice(-20);
                         const MAX_PRICE = 100000;
                         const MIN_PRICE = 0.000001;
-                        
+
                         const savePromises = klinesToSave
                             .filter(k => {
                                 // ✅ FIX: Filtra klines anomale prima di salvare
@@ -7757,7 +7715,7 @@ router.get('/bot-analysis', async (req, res) => {
                                 const high = parseFloat(k[2]);
                                 const low = parseFloat(k[3]);
                                 const close = parseFloat(k[4]);
-                                
+
                                 // Valida range prezzi
                                 if (open > MAX_PRICE || open < MIN_PRICE ||
                                     high > MAX_PRICE || high < MIN_PRICE ||
@@ -7765,26 +7723,26 @@ router.get('/bot-analysis', async (req, res) => {
                                     close > MAX_PRICE || close < MIN_PRICE) {
                                     return false; // Salta questa kline
                                 }
-                                
+
                                 // Valida che high >= low e close è nel range
                                 if (high < low || close > high || close < low) {
                                     return false; // Salta questa kline
                                 }
-                                
+
                                 return true; // Kline valida
                             })
                             .map(k => {
-                            const openTime = parseInt(k[0]);
-                            const open = parseFloat(k[1]);
-                            const high = parseFloat(k[2]);
-                            const low = parseFloat(k[3]);
-                            const close = parseFloat(k[4]);
-                            const volume = parseFloat(k[5]);
-                            const closeTime = parseInt(k[6]);
+                                const openTime = parseInt(k[0]);
+                                const open = parseFloat(k[1]);
+                                const high = parseFloat(k[2]);
+                                const low = parseFloat(k[3]);
+                                const close = parseFloat(k[4]);
+                                const volume = parseFloat(k[5]);
+                                const closeTime = parseInt(k[6]);
 
-                            // ✅ POSTGRESQL: Usa ON CONFLICT DO UPDATE invece di INSERT OR REPLACE
-                            return dbRun(
-                                `INSERT INTO klines 
+                                // ✅ POSTGRESQL: Usa ON CONFLICT DO UPDATE invece di INSERT OR REPLACE
+                                return dbRun(
+                                    `INSERT INTO klines 
                                 (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
                                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                                 ON CONFLICT (symbol, interval, open_time) 
@@ -7795,9 +7753,9 @@ router.get('/bot-analysis', async (req, res) => {
                                     close_price = EXCLUDED.close_price,
                                     volume = EXCLUDED.volume,
                                     close_time = EXCLUDED.close_time`,
-                                [dbSymbol, '15m', openTime, open, high, low, close, volume, closeTime] // ✅ FIX: Usa simbolo normalizzato per salvataggio DB
-                            );
-                        });
+                                    [dbSymbol, '15m', openTime, open, high, low, close, volume, closeTime] // ✅ FIX: Usa simbolo normalizzato per salvataggio DB
+                                );
+                            });
 
                         // Non bloccare la risposta, salva in background
                         Promise.all(savePromises)
@@ -8189,7 +8147,7 @@ router.get('/bot-analysis', async (req, res) => {
                     const peakCapital = await dbGet("SELECT MAX(balance_usd) as peak FROM portfolio");
                     const historicalPeak = parseFloat(peakCapital?.peak || 0);
                     const peakDifference = historicalPeak > 0 ? (historicalPeak - cashBalance) / historicalPeak : 0;
-                    
+
                     // Se differenza > 50%, probabilmente è stato fatto un reset → usa balance attuale come initial
                     if (peakDifference > 0.5 && cashBalance > 0) {
                         initialBalance = cashBalance;
@@ -8293,7 +8251,7 @@ router.get('/bot-analysis', async (req, res) => {
                 // - Drawdown rispetto a capitale iniziale arbitrario
                 // - Portfolio in perdita rispetto a $1000 hardcoded
                 // - P&L medio posizioni aperte
-                
+
                 console.log(`✅ [BOT-ANALYSIS PORTFOLIO] Total Equity: $${totalEquity.toFixed(2)} | Disponibilità (80%): $${(totalEquity * 0.80).toFixed(2)} | Portfolio Drawdown Protection DISABILITATA`);
                 // ✅ NON impostare portfolioDrawdownBlock = true (sempre false)
             }
@@ -8371,12 +8329,12 @@ router.get('/bot-analysis', async (req, res) => {
         // Calculate max position size
         // ✅ FIX: Se trade_size_usdt è configurato, usa quello SEMPRE (non limitare da availableExposure)
         const configuredTradeSize = params.trade_size_usdt || params.trade_size_eur || null;
-        const maxAvailableForNewPosition = configuredTradeSize 
+        const maxAvailableForNewPosition = configuredTradeSize
             ? configuredTradeSize  // Se configurato, usa sempre quello
             : Math.min(
                 params.trade_size_eur || 100,
                 riskCheck.maxPositionSize
-              ); // Altrimenti usa il minimo tra trade_size e maxPositionSize
+            ); // Altrimenti usa il minimo tra trade_size e maxPositionSize
 
         const canOpenCheck = await riskManager.canOpenPosition(maxAvailableForNewPosition);
 
@@ -8552,7 +8510,7 @@ router.get('/bot-analysis', async (req, res) => {
                     // ✅ RIMOSSO: Non filtrare i blockers in base al segnale attivo
                     // Mostra sempre i blockers LONG se esistono, anche se il segnale è SHORT o NEUTRAL
                     // Questo permette all'utente di vedere sempre tutti i motivi per cui il bot non apre
-                    
+
                     const blocks = [];
                     // Check if requirements are met
                     const meetsRequirements = longAdjustedStrength >= LONG_MIN_STRENGTH &&
@@ -8695,7 +8653,7 @@ router.get('/bot-analysis', async (req, res) => {
                     // ✅ RIMOSSO: Non filtrare i blockers in base al segnale attivo
                     // Mostra sempre i blockers SHORT se esistono, anche se il segnale è LONG o NEUTRAL
                     // Questo permette all'utente di vedere sempre tutti i motivi per cui il bot non apre
-                    
+
                     const blocks = [];
                     // Check if requirements are met
                     const meetsRequirements = shortAdjustedStrength >= SHORT_MIN_STRENGTH &&
@@ -9515,7 +9473,7 @@ router.get('/bot-analysis', async (req, res) => {
                     // ✅ RIMOSSO: Non filtrare i blockers in base al segnale attivo
                     // Mostra sempre i blockers LONG se esistono, anche se il segnale è SHORT o NEUTRAL
                     // Questo permette all'utente di vedere sempre tutti i motivi per cui il bot non apre
-                    
+
                     const blocks = [];
                     // Check if requirements are met
                     const meetsRequirements = longAdjustedStrength >= LONG_MIN_STRENGTH &&
@@ -9658,7 +9616,7 @@ router.get('/bot-analysis', async (req, res) => {
                     // ✅ RIMOSSO: Non filtrare i blockers in base al segnale attivo
                     // Mostra sempre i blockers SHORT se esistono, anche se il segnale è LONG o NEUTRAL
                     // Questo permette all'utente di vedere sempre tutti i motivi per cui il bot non apre
-                    
+
                     const blocks = [];
                     // Check if requirements are met
                     const meetsRequirements = shortAdjustedStrength >= SHORT_MIN_STRENGTH &&
@@ -9843,7 +9801,7 @@ router.get('/bot-analysis', async (req, res) => {
             }
 
         });
-        
+
         // ✅ SALVA NELLA CACHE - Per evitare ricalcoli pesanti
         // Non aspettare il salvataggio, rispondi subito al frontend
         const responseData = {
@@ -9922,18 +9880,18 @@ router.get('/bot-analysis', async (req, res) => {
             });
             console.log(`💾 [BOT-ANALYSIS-CACHE] Salvato in cache ${symbol}`);
         });
-        
+
         // Log tempo di risposta totale
         const responseTime = Date.now() - startTime;
         if (responseTime > 1000) {
             console.log(`⚠️ [BOT-ANALYSIS] Slow response: ${responseTime}ms for ${symbol}`);
         }
-        
+
         // ✅ FIX: Invia risposta di successo
         if (!res.headersSent) {
             res.json(responseData);
         }
-        
+
     } catch (error) {
         // ✅ CATCH UNICO: Cattura TUTTI gli errori
         console.error(`❌ [BOT-ANALYSIS] Error for ${symbol}:`, error.message);
@@ -10341,7 +10299,7 @@ router.get('/scanner', async (req, res) => {
                 if (allPricesMap.has(s.pair)) {
                     currentPrice = allPricesMap.get(s.pair);
                     priceFound = isValidPrice(currentPrice);
-                    
+
                     // ✅ Se prezzo non valido, scarta e usa fallback
                     if (!priceFound) {
                         console.warn(`⚠️ [SCANNER] Prezzo anomalo da bulk fetch per ${s.pair}: $${currentPrice}, uso fallback`);
@@ -10354,7 +10312,7 @@ router.get('/scanner', async (req, res) => {
                             // Usa getSymbolPrice che gestisce WebSocket/cache/database
                             currentPrice = await getSymbolPrice(s.symbol);
                             priceFound = isValidPrice(currentPrice);
-                            
+
                             // ✅ Se prezzo non valido, salta questo simbolo
                             if (!priceFound) {
                                 console.warn(`⚠️ [SCANNER] Prezzo non valido da getSymbolPrice per ${s.symbol}: $${currentPrice}, salto simbolo`);
@@ -10371,7 +10329,7 @@ router.get('/scanner', async (req, res) => {
                             if (priceData && priceData.price) {
                                 currentPrice = parseFloat(priceData.price);
                                 priceFound = isValidPrice(currentPrice);
-                                
+
                                 // ✅ Se prezzo non valido, usa getSymbolPrice
                                 if (!priceFound) {
                                     console.warn(`⚠️ [SCANNER] Prezzo anomalo da REST API per ${s.pair}: $${currentPrice}, uso getSymbolPrice`);
@@ -10393,7 +10351,7 @@ router.get('/scanner', async (req, res) => {
                                     if (lastPriceDb && lastPriceDb.price) {
                                         currentPrice = parseFloat(lastPriceDb.price);
                                         priceFound = isValidPrice(currentPrice);
-                                        
+
                                         // ✅ Se prezzo DB è anomalo, salta
                                         if (!priceFound) {
                                             console.warn(`⚠️ [SCANNER] Prezzo anomalo da DB per ${s.symbol}: $${currentPrice}, salto simbolo`);
@@ -10427,7 +10385,7 @@ router.get('/scanner', async (req, res) => {
                 let hasInsufficientData = false;
                 try {
                     unifiedResult = await performUnifiedDeepAnalysis(s.symbol, currentPrice, s.pair);
-                    
+
                     // ✅ FIX: Identifica se i dati sono insufficienti
                     if (!unifiedResult || !unifiedResult.signal) {
                         hasInsufficientData = true;
@@ -10444,14 +10402,14 @@ router.get('/scanner', async (req, res) => {
                 if (unifiedResult && unifiedResult.signal) {
                     signal = unifiedResult.signal;
                     rsiDeepAnalysis = unifiedResult.rsi;
-                    
+
                     // ✅ FIX CRITICO: Controlla anche se signal.reasons contiene messaggi di dati insufficienti
                     if (signal.reasons && Array.isArray(signal.reasons)) {
-                        const hasInsufficientDataMessage = signal.reasons.some(r => 
-                            typeof r === 'string' && 
-                            (r.includes('Dati non disponibili') || 
-                             r.includes('Dati insufficienti') || 
-                             r.includes('Dati storici insufficienti'))
+                        const hasInsufficientDataMessage = signal.reasons.some(r =>
+                            typeof r === 'string' &&
+                            (r.includes('Dati non disponibili') ||
+                                r.includes('Dati insufficienti') ||
+                                r.includes('Dati storici insufficienti'))
                         );
                         if (hasInsufficientDataMessage) {
                             hasInsufficientData = true;
