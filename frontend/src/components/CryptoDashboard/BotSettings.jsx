@@ -115,13 +115,26 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                     // Non chiudiamo subito, lasciamo vedere il successo
                 }, 1000);
             } else {
-                const data = await res.json();
-                console.error('❌ [BOT-SETTINGS] Errore salvataggio:', data);
-                setError(data.error || 'Errore nel salvataggio');
+                // ✅ FIX: Gestisci risposte HTML (errori del server)
+                const contentType = res.headers.get('content-type');
+                if (contentType && contentType.includes('text/html')) {
+                    const text = await res.text();
+                    console.error('❌ [BOT-SETTINGS] Server ha restituito HTML invece di JSON:', text.substring(0, 200));
+                    setError('Errore del server: risposta non valida');
+                } else {
+                    try {
+                        const data = await res.json();
+                        console.error('❌ [BOT-SETTINGS] Errore salvataggio:', data);
+                        setError(data.error || 'Errore nel salvataggio');
+                    } catch (jsonErr) {
+                        console.error('❌ [BOT-SETTINGS] Errore parsing JSON:', jsonErr);
+                        setError(`Errore HTTP ${res.status}: ${res.statusText}`);
+                    }
+                }
             }
         } catch (err) {
             console.error('❌ [BOT-SETTINGS] Errore di connessione:', err);
-            setError('Errore di connessione');
+            setError(`Errore di connessione: ${err.message}`);
         } finally {
             setSaving(false);
         }
