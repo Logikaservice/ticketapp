@@ -55,23 +55,16 @@ const BOT_CONFIG = {
 };
 
 // Mappa simboli a coppie Binance
+// ✅ RIMOSSI simboli duplicati senza suffisso (eliminati dal database)
 const SYMBOL_TO_PAIR = {
-    'bitcoin': 'BTCEUR',
     'bitcoin_usdt': 'BTCUSDT',
-    'ethereum': 'ETHEUR',
     'ethereum_usdt': 'ETHUSDT',
-    'solana': 'SOLUSDT',
-    'solana_eur': 'SOLEUR',
-    'cardano': 'ADAUSDT',
+    'solana_eur': 'SOLUSDT',
     'cardano_usdt': 'ADAUSDT',
-    'polkadot': 'DOTUSDT',
     'polkadot_usdt': 'DOTUSDT',
-    'chainlink': 'LINKEUR',
     'chainlink_usdt': 'LINKUSDT',
-    'ripple': 'XRPUSDT',
-    'ripple_eur': 'XRPEUR',
-    'binance_coin': 'BNBEUR',
-    'binance_coin_eur': 'BNBEUR',
+    'ripple_eur': 'XRPUSDT',
+    'binance_coin_eur': 'BNBUSDT',
 };
 
 // Gruppi di correlazione per diversificazione
