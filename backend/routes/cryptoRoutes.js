@@ -3176,7 +3176,14 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                     // ✅ FIX: Rimuovo controllo longPositions.length === 0 - permetto multiple posizioni
                     if (canOpen.allowed) {
-                        console.log(`✅ [BOT-OPEN-LONG] Opening position for ${symbol} - Price: $${currentPrice.toFixed(2)} USDT, Size: $${positionSizeToUse.toFixed(2)} USDT`);
+                        // ✅ DEBUG CRITICO: Log dettagliato del trade_size usato
+                        console.log(`✅ [BOT-OPEN-LONG] Opening position for ${symbol}:`);
+                        console.log(`   📊 Parametri usati:`);
+                        console.log(`      - trade_size_usdt configurato: $${params.trade_size_usdt || params.trade_size_eur || 'NON CONFIGURATO'}`);
+                        console.log(`      - strictTradeSize: $${strictTradeSize || 'N/A'}`);
+                        console.log(`      - positionSizeToUse: $${positionSizeToUse.toFixed(2)}`);
+                        console.log(`      - riskCheck.maxPositionSize: $${riskCheck.maxPositionSize.toFixed(2)}`);
+                        console.log(`   💰 Prezzo: $${currentPrice.toFixed(2)} USDT | Size: $${positionSizeToUse.toFixed(2)} USDT`);
                         // Apri LONG position
                         const amount = positionSizeToUse / currentPrice;
                         const stopLoss = currentPrice * (1 - params.stop_loss_pct / 100);
@@ -3426,7 +3433,14 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                         // ✅ FIX: Rimuovo controllo shortPositions.length === 0 - permetto multiple posizioni
                         if (canOpen.allowed) {
-                            console.log(`✅ [BOT-OPEN-SHORT] Opening position for ${symbol} - Price: $${currentPrice.toFixed(2)} USDT, Size: $${positionSizeToUse.toFixed(2)} USDT`);
+                            // ✅ DEBUG CRITICO: Log dettagliato del trade_size usato
+                            console.log(`✅ [BOT-OPEN-SHORT] Opening position for ${symbol}:`);
+                            console.log(`   📊 Parametri usati:`);
+                            console.log(`      - trade_size_usdt configurato: $${params.trade_size_usdt || params.trade_size_eur || 'NON CONFIGURATO'}`);
+                            console.log(`      - strictTradeSize: $${strictTradeSize || 'N/A'}`);
+                            console.log(`      - positionSizeToUse: $${positionSizeToUse.toFixed(2)}`);
+                            console.log(`      - riskCheck.maxPositionSize: $${riskCheck.maxPositionSize.toFixed(2)}`);
+                            console.log(`   💰 Prezzo: $${currentPrice.toFixed(2)} USDT | Size: $${positionSizeToUse.toFixed(2)} USDT`);
                             // Apri SHORT position
                             const amount = positionSizeToUse / currentPrice;
                             const stopLoss = currentPrice * (1 + params.stop_loss_pct / 100); // Per SHORT, SL è sopra
@@ -5987,6 +6001,9 @@ router.post('/bot/toggle-all', async (req, res) => {
 
 // GET /api/crypto/bot/parameters - Get bot strategy parameters
 router.get('/bot/parameters', async (req, res) => {
+    // ✅ FIX CRITICO: Assicurati che la risposta sia sempre JSON
+    res.setHeader('Content-Type', 'application/json');
+    
     try {
         const params = await getBotParameters();
         res.json({
@@ -6296,18 +6313,35 @@ router.put('/bot/parameters', async (req, res) => {
 
         // ✅ FIX CRITICO: Aggiorna TUTTI i simboli attivi con i nuovi parametri globali
         // Questo risolve il problema dove getBotParameters trova parametri vecchi per simbolo specifico
+        // ⚠️  IMPORTANTE: Sovrascrive completamente i parametri specifici del simbolo con i globali
+        // Se vuoi mantenere parametri specifici, devi fare merge invece di sovrascrivere
         console.log('🔄 [BOT-PARAMS] Aggiornamento parametri per tutti i simboli attivi...');
 
         const allSymbols = await dbAll(
-            "SELECT symbol FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND is_active = 1 AND symbol != 'global'"
+            "SELECT symbol, parameters FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND is_active = 1 AND symbol != 'global'"
         );
 
         if (allSymbols && allSymbols.length > 0) {
             console.log(`📊 [BOT-PARAMS] Trovati ${allSymbols.length} simboli attivi da aggiornare`);
 
             let updated = 0;
+            let skipped = 0;
             for (const row of allSymbols) {
                 try {
+                    // ✅ FIX: Verifica se il simbolo ha parametri specifici che differiscono
+                    if (row.parameters) {
+                        const symbolParams = typeof row.parameters === 'string' 
+                            ? JSON.parse(row.parameters) 
+                            : row.parameters;
+                        const symbolTradeSize = symbolParams.trade_size_usdt || symbolParams.trade_size_eur;
+                        const globalTradeSize = validParams.trade_size_usdt || validParams.trade_size_eur;
+                        
+                        if (symbolTradeSize && symbolTradeSize !== globalTradeSize) {
+                            console.log(`⚠️  [BOT-PARAMS] ${row.symbol} ha trade_size diverso: $${symbolTradeSize} vs globale $${globalTradeSize}`);
+                            console.log(`   Sovrascrivo con parametri globali per uniformità`);
+                        }
+                    }
+                    
                     await dbRun(
                         "UPDATE bot_settings SET parameters = $1::text WHERE strategy_name = 'RSI_Strategy' AND symbol = $2",
                         [parametersJson, row.symbol]
@@ -6315,10 +6349,14 @@ router.put('/bot/parameters', async (req, res) => {
                     updated++;
                 } catch (updateErr) {
                     console.error(`❌ [BOT-PARAMS] Errore aggiornamento ${row.symbol}:`, updateErr.message);
+                    skipped++;
                 }
             }
 
             console.log(`✅ [BOT-PARAMS] Aggiornati ${updated}/${allSymbols.length} simboli con i nuovi parametri`);
+            if (skipped > 0) {
+                console.log(`⚠️  [BOT-PARAMS] ${skipped} simboli saltati a causa di errori`);
+            }
         } else {
             console.log('ℹ️  [BOT-PARAMS] Nessun simbolo specifico da aggiornare (solo global)');
         }
