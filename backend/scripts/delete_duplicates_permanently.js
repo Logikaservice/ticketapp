@@ -104,26 +104,126 @@ async function deleteDuplicatesPermanently() {
             console.log(`   ${row.symbol.padEnd(20)} - ${status}`);
         });
 
-        // STEP 2: Verifica se ci sono riferimenti in altre tabelle
-        console.log('\n\n🔍 STEP 2: Verifica riferimenti in altre tabelle...\n');
+        // STEP 2: Verifica e chiudi posizioni aperte
+        console.log('\n\n🔍 STEP 2: Verifica e chiusura posizioni aperte...\n');
         
-        // Verifica posizioni aperte
-        const openPositions = await client.query(
-            `SELECT COUNT(*) as count, symbol 
+        // Recupera tutte le posizioni aperte per questi simboli
+        const openPositionsList = await client.query(
+            `SELECT ticket_id, symbol, type, volume, entry_price, current_price, opened_at
              FROM open_positions 
              WHERE symbol = ANY($1::text[])
              AND status = 'open'
-             GROUP BY symbol`,
+             ORDER BY symbol, opened_at`,
             [SYMBOLS_TO_DELETE]
         );
 
-        if (openPositions.rows.length > 0) {
-            console.log('⚠️  ATTENZIONE: Ci sono posizioni aperte per questi simboli!');
-            openPositions.rows.forEach(row => {
-                console.log(`   - ${row.symbol}: ${row.count} posizioni aperte`);
+        if (openPositionsList.rows.length > 0) {
+            console.log(`⚠️  Trovate ${openPositionsList.rows.length} posizioni aperte per questi simboli:`);
+            openPositionsList.rows.forEach(pos => {
+                console.log(`   - ${pos.symbol.padEnd(20)} | ${pos.type.toUpperCase().padEnd(4)} | Volume: ${parseFloat(pos.volume).toFixed(8)} | Entry: $${parseFloat(pos.entry_price).toFixed(6)}`);
             });
-            console.log('\n❌ Impossibile eliminare: chiudi prima le posizioni aperte!');
-            return;
+            
+            console.log('\n🔧 Chiusura automatica posizioni aperte...\n');
+            
+            // Funzione semplificata per ottenere prezzo simbolo (usa prezzo corrente se disponibile, altrimenti entry_price)
+            const getCurrentPrice = async (symbol) => {
+                try {
+                    // Prova a usare il prezzo corrente dalla posizione se disponibile
+                    const pos = openPositionsList.rows.find(p => p.symbol === symbol);
+                    if (pos && pos.current_price && parseFloat(pos.current_price) > 0) {
+                        return parseFloat(pos.current_price);
+                    }
+                    
+                    // Fallback: usa entry_price (chiudiamo al prezzo di entrata, P&L = 0)
+                    if (pos && pos.entry_price) {
+                        return parseFloat(pos.entry_price);
+                    }
+                    
+                    // Ultimo fallback: usa un prezzo di default (non dovrebbe mai arrivare qui)
+                    console.warn(`⚠️  Impossibile determinare prezzo per ${symbol}, uso entry_price`);
+                    return parseFloat(pos?.entry_price || 1);
+                } catch (err) {
+                    console.warn(`⚠️  Errore recupero prezzo per ${symbol}: ${err.message}`);
+                    const pos = openPositionsList.rows.find(p => p.symbol === symbol);
+                    return parseFloat(pos?.entry_price || 1);
+                }
+            };
+            
+            let closedCount = 0;
+            let closedErrors = 0;
+            
+            for (const pos of openPositionsList.rows) {
+                try {
+                    const closePrice = await getCurrentPrice(pos.symbol);
+                    const entryPrice = parseFloat(pos.entry_price);
+                    const volume = parseFloat(pos.volume);
+                    
+                    // Calcola P&L
+                    let profitLoss = 0;
+                    if (pos.type === 'buy') {
+                        profitLoss = (closePrice - entryPrice) * volume;
+                    } else {
+                        profitLoss = (entryPrice - closePrice) * volume;
+                    }
+                    
+                    const profitLossPct = entryPrice > 0 ? ((closePrice - entryPrice) / entryPrice) * 100 : 0;
+                    const adjustedPct = pos.type === 'sell' ? -profitLossPct : profitLossPct;
+                    
+                    // Aggiorna portfolio
+                    const portfolioResult = await client.query('SELECT * FROM portfolio LIMIT 1');
+                    const portfolio = portfolioResult.rows[0];
+                    let balance = parseFloat(portfolio.balance_usd) || 0;
+                    let holdings = JSON.parse(portfolio.holdings || '{}');
+                    
+                    if (pos.type === 'buy') {
+                        balance += closePrice * volume;
+                        holdings[pos.symbol] = (holdings[pos.symbol] || 0) - volume;
+                        if (holdings[pos.symbol] < 0) holdings[pos.symbol] = 0;
+                    } else {
+                        balance -= closePrice * volume;
+                        holdings[pos.symbol] = (holdings[pos.symbol] || 0) + volume;
+                    }
+                    
+                    // Aggiorna portfolio nel database
+                    await client.query(
+                        'UPDATE portfolio SET balance_usd = $1, holdings = $2',
+                        [balance, JSON.stringify(holdings)]
+                    );
+                    
+                    // Chiudi posizione nel database
+                    await client.query(
+                        `UPDATE open_positions 
+                         SET status = 'closed', 
+                             closed_at = CURRENT_TIMESTAMP, 
+                             current_price = $1, 
+                             profit_loss = $2, 
+                             profit_loss_pct = $3 
+                         WHERE ticket_id = $4`,
+                        [closePrice, profitLoss, adjustedPct, pos.ticket_id]
+                    );
+                    
+                    closedCount++;
+                    console.log(`   ✅ Chiusa: ${pos.symbol.padEnd(20)} | P&L: $${profitLoss.toFixed(2)} (${adjustedPct >= 0 ? '+' : ''}${adjustedPct.toFixed(2)}%)`);
+                } catch (err) {
+                    closedErrors++;
+                    console.log(`   ❌ Errore chiusura ${pos.symbol} (${pos.ticket_id}): ${err.message}`);
+                }
+            }
+            
+            console.log(`\n📊 Risultato chiusura posizioni:`);
+            console.log(`   ✅ Chiuse: ${closedCount}/${openPositionsList.rows.length}`);
+            if (closedErrors > 0) {
+                console.log(`   ❌ Errori: ${closedErrors}`);
+            }
+            
+            if (closedErrors > 0) {
+                console.log('\n⚠️  Alcune posizioni non sono state chiuse. Verifica manualmente prima di procedere.');
+                return;
+            }
+            
+            console.log('\n✅ Tutte le posizioni aperte sono state chiuse con successo!\n');
+        } else {
+            console.log('✅ Nessuna posizione aperta trovata per questi simboli\n');
         }
 
         // Verifica trades storici
