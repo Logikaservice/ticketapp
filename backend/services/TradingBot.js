@@ -23,7 +23,6 @@
 
 const { dbAll, dbGet, dbRun } = require('../crypto_db');
 const signalGenerator = require('../services/BidirectionalSignalGenerator');
-const riskManager = require('../services/RiskManager');
 
 // ===================================
 // CONFIGURATION
@@ -493,40 +492,21 @@ async function runBotCycleForSymbol(symbol, botSettings) {
         }
         console.log(`✅ [BOT] ${symbol} - Hybrid Strategy OK`);
 
-        // 13. Check Risk Manager
+        // 13. Trade Size Configuration
         // ✅ FIX: Leggi trade_size_usdt dal database (settingsParams) invece di usare sempre il default
         const configuredTradeSize = settingsParams.trade_size_usdt || settingsParams.trade_size_eur || BOT_CONFIG.DEFAULT_TRADE_SIZE_USDT;
         
-        // Prima calcola maxPositionSize dal RiskManager per vedere il limite
-        const riskCheck = await riskManager.calculateMaxRisk();
-        if (!riskCheck.canTrade) {
-            console.log(`⏸️ [BOT] ${symbol} - Risk Manager blocked: ${riskCheck.reason}`);
-            console.log(`   Details: Exposure=${riskCheck.currentExposure}%, Daily Loss=${riskCheck.dailyLoss}%, Available=$${riskCheck.availableExposure || 0}`);
-            return;
-        }
-        
-        // ✅ FIX CRITICO: Se trade_size_usdt è configurato, usa SEMPRE quello (non limitare da maxPositionSize)
-        // Il RiskManager ora usa sempre 100% di esposizione, quindi non dovrebbe limitare
-        // Ma per sicurezza, se è configurato, usalo sempre
+        // ✅ Usa sempre il trade_size configurato (se >= $10) o il default
         let tradeSize;
         if (configuredTradeSize && configuredTradeSize >= 10) {
-            // Se trade_size è configurato, usa quello SEMPRE (non limitare)
             tradeSize = configuredTradeSize;
-            console.log(`🔍 [BOT] ${symbol} - Usando trade_size_usdt configurato: $${tradeSize} (maxPositionSize: $${riskCheck.maxPositionSize})`);
+            console.log(`🔍 [BOT] ${symbol} - Usando trade_size_usdt configurato: $${tradeSize}`);
         } else {
-            // Se non configurato, usa il limite del RiskManager
-            tradeSize = Math.min(configuredTradeSize || BOT_CONFIG.DEFAULT_TRADE_SIZE_USDT, riskCheck.maxPositionSize);
-            console.log(`🔍 [BOT] ${symbol} - Usando limite RiskManager: $${tradeSize} (maxPositionSize: $${riskCheck.maxPositionSize})`);
+            tradeSize = BOT_CONFIG.DEFAULT_TRADE_SIZE_USDT;
+            console.log(`🔍 [BOT] ${symbol} - Usando trade_size default: $${tradeSize}`);
         }
         
-        // Verifica che il trade size finale sia valido
-        const finalRiskCheck = await riskManager.canOpenPosition(tradeSize);
-        if (!finalRiskCheck.allowed) {
-            console.log(`⏸️ [BOT] ${symbol} - Risk Manager blocked: ${finalRiskCheck.reason}`);
-            console.log(`   Details: Exposure=${riskCheck.currentExposure}%, Daily Loss=${riskCheck.dailyLoss}%, Available=$${riskCheck.availableExposure || 0}`);
-            return;
-        }
-        console.log(`✅ [BOT] ${symbol} - Risk Manager OK (Available: $${riskCheck.availableExposure || 0}, Using trade size: $${tradeSize})`);
+        console.log(`✅ [BOT] ${symbol} - Trade size: $${tradeSize}`);
 
         // 14. Calculate position size
         const volume = tradeSize / currentPrice;
