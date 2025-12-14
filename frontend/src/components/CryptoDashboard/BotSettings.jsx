@@ -383,8 +383,9 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                                     min="10"
                                     max="1000"
                                     step="5"
-                                    value={parameters.trade_size_usdt}
+                                    value={parameters.trade_size_usdt || ''}
                                     onChange={(e) => handleChange('trade_size_usdt', e.target.value)}
+                                    placeholder="100"
                                 />
                                 <div className="parameter-desc">
                                     Importo in USDT investito per ogni operazione. Gestione del rischio: non investire più del 5-10% del capitale per trade.

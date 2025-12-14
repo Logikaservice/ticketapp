@@ -6149,9 +6149,26 @@ router.put('/bot/parameters', async (req, res) => {
             take_profit_pct: (sanitizedInput.take_profit_pct !== undefined && sanitizedInput.take_profit_pct !== null && sanitizedInput.take_profit_pct !== '')
                 ? Math.max(0.1, Math.min(20, parseFloat(sanitizedInput.take_profit_pct) || existingParams.take_profit_pct || DEFAULT_PARAMS.take_profit_pct))
                 : (existingParams.take_profit_pct || DEFAULT_PARAMS.take_profit_pct),
-            trade_size_usdt: sanitizedInput.trade_size_usdt !== undefined && sanitizedInput.trade_size_usdt !== null && sanitizedInput.trade_size_usdt !== ''
-                ? Math.max(10, Math.min(1000, parseFloat(sanitizedInput.trade_size_usdt || sanitizedInput.trade_size_eur) || existingParams.trade_size_usdt || DEFAULT_PARAMS.trade_size_usdt))
-                : (existingParams.trade_size_usdt || DEFAULT_PARAMS.trade_size_usdt),
+            // ✅ FIX CRITICO: Gestisci correttamente trade_size_usdt anche quando è stringa vuota o 0
+            trade_size_usdt: (() => {
+                const inputValue = sanitizedInput.trade_size_usdt || sanitizedInput.trade_size_eur;
+                // Se il valore è undefined, null, o stringa vuota, usa il valore esistente o default
+                if (inputValue === undefined || inputValue === null || inputValue === '') {
+                    const fallback = existingParams.trade_size_usdt || existingParams.trade_size_eur || DEFAULT_PARAMS.trade_size_usdt;
+                    console.log('📊 [BOT-PARAMS] trade_size_usdt non fornito, uso esistente/default:', fallback);
+                    return fallback;
+                }
+                // Converti a numero e valida
+                const parsed = parseFloat(inputValue);
+                if (isNaN(parsed)) {
+                    const fallback = existingParams.trade_size_usdt || existingParams.trade_size_eur || DEFAULT_PARAMS.trade_size_usdt;
+                    console.warn('⚠️  [BOT-PARAMS] trade_size_usdt non valido (NaN), uso esistente/default:', fallback);
+                    return fallback;
+                }
+                const validated = Math.max(10, Math.min(1000, parsed));
+                console.log('✅ [BOT-PARAMS] trade_size_usdt validato:', validated, '(input:', inputValue, ')');
+                return validated;
+            })(),
 
             // Trailing Stop
             trailing_stop_enabled: sanitizedInput.trailing_stop_enabled !== undefined
