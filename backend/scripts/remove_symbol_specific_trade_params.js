@@ -59,10 +59,17 @@ async function removeSymbolSpecificTradeParams() {
         let removedParams = [];
 
         // 3. Per ogni simbolo, rimuovi trade_size_usdt, trade_size_eur, max_positions
+        console.log('🔍 Analisi dettagliata dei primi 5 simboli per debug...\n');
+        let debugCount = 0;
+        
         for (const row of allSymbols) {
             try {
                 if (!row.parameters) {
                     // Nessun parametro specifico, salta
+                    if (debugCount < 5) {
+                        console.log(`   ${row.symbol}: Nessun parametro specifico`);
+                        debugCount++;
+                    }
                     skipped++;
                     continue;
                 }
@@ -70,6 +77,16 @@ async function removeSymbolSpecificTradeParams() {
                 const symbolParams = typeof row.parameters === 'string' 
                     ? JSON.parse(row.parameters) 
                     : row.parameters;
+
+                // ✅ DEBUG: Mostra i primi 5 simboli con dettagli
+                if (debugCount < 5) {
+                    console.log(`   ${row.symbol}:`);
+                    console.log(`      - trade_size_usdt: ${symbolParams.trade_size_usdt || 'NON PRESENTE'}`);
+                    console.log(`      - trade_size_eur: ${symbolParams.trade_size_eur || 'NON PRESENTE'}`);
+                    console.log(`      - max_positions: ${symbolParams.max_positions || 'NON PRESENTE'}`);
+                    console.log(`      - Altri parametri: ${Object.keys(symbolParams).filter(k => !['trade_size_usdt', 'trade_size_eur', 'max_positions'].includes(k)).join(', ') || 'nessuno'}`);
+                    debugCount++;
+                }
 
                 // Verifica se ha i parametri da rimuovere
                 const hasTradeSize = symbolParams.trade_size_usdt || symbolParams.trade_size_eur;
@@ -175,8 +192,9 @@ async function removeSymbolSpecificTradeParams() {
         console.error(err.stack);
         process.exit(1);
     } finally {
-        // Chiudi connessione database
-        await cryptoDb.close();
+        // ✅ Il pool PostgreSQL si chiude automaticamente quando il processo termina
+        // Non è necessario chiamare close() esplicitamente
+        process.exit(0);
     }
 }
 
