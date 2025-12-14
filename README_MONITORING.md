@@ -268,3 +268,4 @@ Con questo sistema:
 - ✅ **ZERO blocchi non rilevati**
 
 Il sistema ti avvisa PRIMA che i problemi diventino critici.
+

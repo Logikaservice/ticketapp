@@ -323,3 +323,4 @@ async function deleteDuplicatesPermanently() {
 
 // Esegui eliminazione
 deleteDuplicatesPermanently().catch(console.error);
+

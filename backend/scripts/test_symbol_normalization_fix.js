@@ -133,3 +133,4 @@ if (failed === 0) {
     console.log('\n⚠️  ATTENZIONE: Alcuni test sono falliti.');
     console.log('   Verifica la normalizzazione dei simboli.\n');
 }
+

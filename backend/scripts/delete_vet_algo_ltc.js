@@ -329,3 +329,4 @@ async function deleteVetAlgoLtc() {
 
 // Esegui eliminazione
 deleteVetAlgoLtc().catch(console.error);
+

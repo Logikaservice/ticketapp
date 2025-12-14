@@ -77,3 +77,4 @@ console.log('   ⚠️  Se ci sono posizioni nel database con simboli duplicati:
 console.log('      - Verranno normalizzate automaticamente');
 console.log('      - getSymbolPrice() gestirà la conversione\n');
 console.log('   ✅ Il sistema è pronto per l\'uso!\n');
+
