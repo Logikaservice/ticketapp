@@ -6001,6 +6001,10 @@ router.get('/bot/parameters', async (req, res) => {
 
 // PUT /api/crypto/bot/parameters - Update bot strategy parameters (COMPLETO E PERSONALIZZABILE)
 router.put('/bot/parameters', async (req, res) => {
+    // ✅ FIX CRITICO: Assicurati che la risposta sia sempre JSON
+    // Imposta content-type PRIMA di qualsiasi operazione
+    res.setHeader('Content-Type', 'application/json');
+    
     try {
         // ✅ FIX CRITICO: Log della richiesta in arrivo
         console.log('📥 [BOT-PARAMS] Richiesta ricevuta:', {
@@ -6263,14 +6267,31 @@ router.put('/bot/parameters', async (req, res) => {
                 minVolume24hMatch: savedParams.min_volume_24h === validParams.min_volume_24h
             });
 
+            // ✅ DEBUG CRITICO: Verifica che trade_size_usdt sia stato salvato correttamente
+            if (savedParams.trade_size_usdt !== validParams.trade_size_usdt) {
+                console.error('❌ [BOT-PARAMS] ERRORE CRITICO: trade_size_usdt non salvato correttamente!');
+                console.error('   Valore atteso:', validParams.trade_size_usdt);
+                console.error('   Valore salvato:', savedParams.trade_size_usdt);
+            }
+            
             // ✅ DEBUG CRITICO: Se min_volume_24h non corrisponde, logga errore
             if (savedParams.min_volume_24h !== validParams.min_volume_24h) {
                 console.error('❌ [BOT-PARAMS] ERRORE CRITICO: min_volume_24h non salvato correttamente!');
                 console.error('   Valore atteso:', validParams.min_volume_24h);
                 console.error('   Valore salvato:', savedParams.min_volume_24h);
             }
+            
+            // ✅ Verifica generale: confronta tutti i parametri importanti
+            const criticalParams = ['trade_size_usdt', 'max_positions', 'stop_loss_pct', 'take_profit_pct'];
+            for (const param of criticalParams) {
+                if (savedParams[param] !== validParams[param]) {
+                    console.error(`❌ [BOT-PARAMS] ERRORE: ${param} non corrisponde!`);
+                    console.error(`   Atteso: ${validParams[param]}, Salvato: ${savedParams[param]}`);
+                }
+            }
         } else {
             console.error('❌ [BOT-PARAMS] ERRORE: Parametri non salvati correttamente!');
+            console.error('   Verification query restituito:', verification);
         }
 
         // ✅ FIX CRITICO: Aggiorna TUTTI i simboli attivi con i nuovi parametri globali
