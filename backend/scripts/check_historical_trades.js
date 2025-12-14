@@ -75,8 +75,19 @@ async function checkHistoricalTrades() {
         const tradesCount = trades.rows.length;
         console.log(`📊 Trovati ${tradesCount} trades storici per simboli duplicati\n`);
 
+        // Verifica anche il totale di tutti i trades nel database
+        const allTradesResult = await client.query('SELECT COUNT(*) as count FROM trades');
+        const allTradesCount = parseInt(allTradesResult.rows[0]?.count || 0);
+        console.log(`📊 TOTALE trades nel database: ${allTradesCount}\n`);
+
         if (tradesCount === 0) {
-            console.log('✅ Nessun trade storico trovato per questi simboli.\n');
+            if (allTradesCount === 0) {
+                console.log('✅ Nessun trade storico trovato nel database.');
+                console.log('   Il reset ha cancellato tutti i trades (come previsto).\n');
+            } else {
+                console.log('✅ Nessun trade storico trovato per i simboli duplicati.');
+                console.log(`   Ci sono ${allTradesCount} trades nel database, ma non per simboli duplicati.\n`);
+            }
             return;
         }
 
