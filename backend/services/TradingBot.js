@@ -64,24 +64,42 @@ const SYMBOL_TO_PAIR = {
     'polkadot': 'DOTUSDT', 'dot': 'DOTUSDT', 'polkadot_usdt': 'DOTUSDT', 'dotusdt': 'DOTUSDT',
     'dogecoin': 'DOGEUSDT', 'doge': 'DOGEUSDT', 'dogeusdt': 'DOGEUSDT',
     'shiba_inu': 'SHIBUSDT', 'shib': 'SHIBUSDT', 'shibusdt': 'SHIBUSDT',
-    'avalanche': 'AVAXUSDT', 'avax': 'AVAXUSDT', 'avaxusdt': 'AVAXUSDT',
+    'avalanche': 'AVAXUSDT', 'avax': 'AVAXUSDT', 'avalanche_eur': 'AVAXUSDT', 'avax_usdt': 'AVAXUSDT', 'avaxusdt': 'AVAXUSDT',
     'binance_coin': 'BNBUSDT', 'bnb': 'BNBUSDT', 'binance_coin_eur': 'BNBUSDT', 'bnbusdt': 'BNBUSDT',
     'chainlink': 'LINKUSDT', 'link': 'LINKUSDT', 'chainlink_usdt': 'LINKUSDT', 'linkusdt': 'LINKUSDT',
     
-    // DeFi & Gaming tokens
-    'polygon': 'POLUSDT', 'matic': 'POLUSDT', 'pol': 'POLUSDT', 'maticusdt': 'POLUSDT', 'polusdt': 'POLUSDT',
+    // DeFi tokens
+    'polygon': 'POLUSDT', 'matic': 'POLUSDT', 'pol': 'POLUSDT', 'pol_polygon_eur': 'POLUSDT', 'maticusdt': 'POLUSDT', 'polusdt': 'POLUSDT',
+    'uniswap': 'UNIUSDT', 'uni': 'UNIUSDT', 'uniswap_eur': 'UNIUSDT', 'uniusdt': 'UNIUSDT',
+    'aave': 'AAVEUSDT', 'aaveusdt': 'AAVEUSDT',
+    'curve': 'CRVUSDT', 'crv': 'CRVUSDT', 'crvusdt': 'CRVUSDT',
+    
+    // Gaming & Metaverse
     'the_sandbox': 'SANDUSDT', 'sand': 'SANDUSDT', 'sandusdt': 'SANDUSDT', 'thesandbox': 'SANDUSDT',
     'axie_infinity': 'AXSUSDT', 'axs': 'AXSUSDT', 'axsusdt': 'AXSUSDT', 'axieinfinity': 'AXSUSDT',
-    'theta_network': 'THETAUSDT', 'theta': 'THETAUSDT', 'thetausdt': 'THETAUSDT', 'thetanetwork': 'THETAUSDT',
     'decentraland': 'MANAUSDT', 'mana': 'MANAUSDT', 'manausdt': 'MANAUSDT',
-    'uniswap': 'UNIUSDT', 'uni': 'UNIUSDT', 'uniusdt': 'UNIUSDT',
+    'gala': 'GALAUSDT', 'galausdt': 'GALAUSDT',
+    'immutable': 'IMXUSDT', 'imx': 'IMXUSDT', 'imxusdt': 'IMXUSDT',
+    'enjin': 'ENJUSDT', 'enj': 'ENJUSDT', 'enjusdt': 'ENJUSDT',
+    'render': 'RENDERUSDT', 'renderusdt': 'RENDERUSDT', 'rndr': 'RENDERUSDT',
+    
+    // Layer 1 & Infrastructure
+    'theta_network': 'THETAUSDT', 'theta': 'THETAUSDT', 'thetausdt': 'THETAUSDT', 'thetanetwork': 'THETAUSDT',
+    'near': 'NEARUSDT', 'nearusdt': 'NEARUSDT',
+    'optimism': 'OPUSDT', 'op': 'OPUSDT', 'opusdt': 'OPUSDT',
+    'sei': 'SEIUSDT', 'seiusdt': 'SEIUSDT',
+    'filecoin': 'FILUSDT', 'fil': 'FILUSDT', 'filusdt': 'FILUSDT',
+    
+    // Meme coins
+    'bonk': 'BONKUSDT', 'bonkusdt': 'BONKUSDT',
+    'floki': 'FLOKIUSDT', 'flokiusdt': 'FLOKIUSDT',
     
     // Other major tokens
     'ton': 'TONUSDT', 'toncoin': 'TONUSDT', 'tonusdt': 'TONUSDT',
     'tron': 'TRXUSDT', 'trx': 'TRXUSDT', 'trxusdt': 'TRXUSDT',
     'stellar': 'XLMUSDT', 'xlm': 'XLMUSDT', 'xlmusdt': 'XLMUSDT',
+    'ripple_xrp': 'XRPUSDT', 'xrp_eur': 'XRPUSDT',
     'cosmos': 'ATOMUSDT', 'atom': 'ATOMUSDT', 'atomusdt': 'ATOMUSDT',
-    'optimism': 'OPUSDT', 'op': 'OPUSDT', 'opusdt': 'OPUSDT',
     'icp': 'ICPUSDT', 'icpusdt': 'ICPUSDT', // Internet Computer
     'flow': 'FLOWUSDT', 'flowusdt': 'FLOWUSDT', // Flow blockchain
 };
