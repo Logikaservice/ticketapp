@@ -28,8 +28,8 @@ import TimesheetManager from './components/TimesheetManager';
 import VivaldiManager from './components/VivaldiManager';
 import PackVisionWithAuth from './components/PackVisionWithAuth';
 import PackVision from './components/PackVision';
-// ✅ REFACTORED: Nuovo dashboard ottimizzato (-90% codice, +200% performance)
-import CryptoDashboard from './components/CryptoDashboard/CryptoDashboardRefactored';
+// ⚠️ ROLLBACK: Torno al dashboard originale (refactored aveva problemi CSS)
+import CryptoDashboard from './components/CryptoDashboard/CryptoDashboard';
 import BotAnalysisPageNew from './components/CryptoDashboard/BotAnalysisPageNew';
 import { buildApiUrl } from './utils/apiConfig';
 
