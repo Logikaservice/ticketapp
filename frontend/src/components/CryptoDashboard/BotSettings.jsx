@@ -79,9 +79,19 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                     setError('Errore nella risposta del server (non JSON valido)');
                 }
             } else if (res.ok && !isJson) {
-                const errorData = await res.json().catch(() => ({}));
-                console.error('❌ [BOT-SETTINGS] Errore caricamento:', errorData);
-                setError(errorData.error || 'Errore nel caricamento dei parametri');
+                // ✅ FIX: Se status è OK ma content-type non è JSON, c'è un problema
+                const text = await res.text();
+                console.error('❌ [BOT-SETTINGS] Server ha restituito non-JSON con status OK durante caricamento:', text.substring(0, 200));
+                setError('Errore: risposta del server non valida (non JSON)');
+            } else {
+                // ✅ FIX: Gestisci risposte non-JSON o errori HTTP
+                try {
+                    const errorData = await res.json();
+                    console.error('❌ [BOT-SETTINGS] Errore caricamento:', errorData);
+                    setError(errorData.error || 'Errore nel caricamento dei parametri');
+                } catch (jsonErr) {
+                    setError(`Errore HTTP ${res.status}: ${res.statusText}`);
+                }
             }
         } catch (err) {
             console.error('❌ [BOT-SETTINGS] Errore di connessione:', err);
