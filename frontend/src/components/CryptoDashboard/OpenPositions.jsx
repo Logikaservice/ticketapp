@@ -458,7 +458,7 @@ const OpenPositions = React.memo(({ positions, currentPrice, currentSymbol, allS
                                         {formatVolume(volume || 0)}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: '600', color: '#fbbf24' }}>
-                                        ${(pos.trade_size_usdt || ((entryPrice || 0) * (volume || 0))).toFixed(2)}
+                                        ${(pos.trade_size_usdt || 0).toFixed(2)}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#9ca3af' }}>
                                         {entryPrice > 0 ? (

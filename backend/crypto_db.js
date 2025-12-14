@@ -240,6 +240,13 @@ async function initDb() {
             END $$;
         `);
 
+        // ✅ MIGRATION: Popola trade_size_usdt per posizioni esistenti che non ce l'hanno
+        await client.query(`
+            UPDATE open_positions 
+            SET trade_size_usdt = volume * entry_price 
+            WHERE trade_size_usdt IS NULL OR trade_size_usdt = 0
+        `);
+
         // Indici open_positions
         await client.query(`
             CREATE INDEX IF NOT EXISTS idx_open_positions_status ON open_positions(status)
