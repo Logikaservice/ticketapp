@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
 import { formatPriceWithSymbol } from '../../utils/priceFormatter';
 import './LightweightChart.css';
@@ -27,6 +27,7 @@ const LightweightChart = ({ symbol = 'BTCUSDT', trades = [], currentPrice = 0, p
     const savePositionTimeoutRef = useRef(null); // Timeout per debounce salvataggio posizione
     const lastCandleDataRef = useRef(null); // Memorizza l'ultima candela per aggiornarla con prezzo live
     const isUserScrolledRef = useRef(false); // Flag per sapere se l'utente ha scrollato manualmente
+    const [animatedLines, setAnimatedLines] = useState([]); // Linee verticali animate per nuove posizioni
 
     // Initialize chart
     useEffect(() => {
@@ -288,82 +289,122 @@ const LightweightChart = ({ symbol = 'BTCUSDT', trades = [], currentPrice = 0, p
         }
     }, [priceHistory]);
 
-    // Add markers for trades - SOLO QUELLI CON POSIZIONI APERTE
+    // Rimuovi i marker a freccia - sostituiti con linee verticali animate
     useEffect(() => {
         if (!candlestickSeriesRef.current) return;
-
-        // Clear previous markers
+        // Rimuovi tutti i marker
+        candlestickSeriesRef.current.setMarkers([]);
         markersRef.current = [];
+    }, [trades, openPositions]);
 
-        // Usa direttamente le posizioni aperte invece di filtrare i trades
-        // Crea marker direttamente dalle posizioni per maggiore precisione
-        const positionsForMarkers = (openPositions || []).filter(pos => pos.status === 'open');
+    // Funzione helper per calcolare la posizione X
+    const calculateXPosition = React.useCallback((timestamp) => {
+        if (!chartRef.current || !priceHistory.length) return 0;
         
-        if (positionsForMarkers.length === 0) {
-            candlestickSeriesRef.current.setMarkers([]);
+        try {
+            const timeScale = chartRef.current.timeScale();
+            const visibleRange = timeScale.getVisibleRange();
+            
+            if (!visibleRange || !visibleRange.from || !visibleRange.to) return 0;
+            
+            const tradeTime = new Date(timestamp).getTime() / 1000;
+            const timeRange = visibleRange.to - visibleRange.from;
+            const normalizedPosition = (tradeTime - visibleRange.from) / timeRange;
+            
+            // Ottieni la larghezza del container
+            const containerWidth = chartContainerRef.current?.clientWidth || 800;
+            return normalizedPosition * containerWidth;
+        } catch (e) {
+            return 0;
+        }
+    }, [priceHistory.length]);
+
+    // Crea linee verticali animate per le nuove posizioni
+    useEffect(() => {
+        if (!chartRef.current || !priceHistory.length) return;
+
+        // Usa direttamente le posizioni aperte
+        const positionsForLines = (openPositions || []).filter(pos => pos.status === 'open');
+        
+        if (positionsForLines.length === 0) {
+            setAnimatedLines([]);
             return;
         }
-        
+
         // Trova i trades corrispondenti per ottenere il timestamp
-        // Usa sempre opened_at dalle posizioni quando disponibile (più accurato)
-        const openTrades = positionsForMarkers.map(pos => {
-            // Preferisci opened_at dalla posizione (più accurato)
+        const openTrades = positionsForLines.map(pos => {
             const timestamp = pos.opened_at || pos.timestamp;
-            
-            // Se non c'è opened_at, cerca nel trade corrispondente
             const matchingTrade = trades.find(t => String(t.ticket_id) === String(pos.ticket_id));
             const finalTimestamp = timestamp || matchingTrade?.timestamp;
             
-            if (!finalTimestamp) {
-                console.warn('⚠️ Marker: Nessun timestamp trovato per posizione', pos.ticket_id);
-                return null;
-            }
+            if (!finalTimestamp) return null;
             
             return {
                 ...pos,
                 timestamp: finalTimestamp,
                 type: pos.type,
-                entry_price: parseFloat(pos.entry_price) || 0
+                entry_price: parseFloat(pos.entry_price) || 0,
+                ticket_id: pos.ticket_id
             };
         }).filter(t => t !== null && t.timestamp);
 
-        // Ordina per timestamp
-        const sortedTrades = [...openTrades].sort((a, b) => 
-            new Date(a.timestamp) - new Date(b.timestamp)
-        );
-
-        // Crea un map per tracciare i numeri identificativi
-        const tradeIdMap = new Map();
-        let nextId = 1;
-
-        // Assegna numeri identificativi sequenziali
-        sortedTrades.forEach((trade) => {
-            const uniqueKey = trade.ticket_id ? `ticket-${trade.ticket_id}` : `trade-${trade.timestamp}`;
-            if (!tradeIdMap.has(uniqueKey)) {
-                tradeIdMap.set(uniqueKey, nextId++);
-            }
-        });
-
-        // Crea marker usando entry_price e opened_at dalle posizioni
-        const markers = sortedTrades.map((trade, index) => {
-            const tradeTime = new Date(trade.timestamp).getTime() / 1000;
-            const uniqueKey = trade.ticket_id ? `ticket-${trade.ticket_id}` : `trade-${trade.timestamp}`;
-            const markerId = tradeIdMap.get(uniqueKey) || (index + 1);
-
+        // Crea linee con vari formati (altezza, spessore, colore)
+        const lines = openTrades.map((trade, index) => {
+            const xPosition = calculateXPosition(trade.timestamp);
+            const isBuy = trade.type === 'buy' || trade.type === 'long';
+            
+            // Vari formati: altezza random (40-80% del grafico), spessore (2-5px), opacità
+            // Usa ticket_id come seed per consistenza
+            const seed = trade.ticket_id ? parseInt(String(trade.ticket_id).slice(-3)) : index;
+            const random1 = (seed * 9301 + 49297) % 233280 / 233280;
+            const random2 = ((seed * 9301 + 49297) * 9301 + 49297) % 233280 / 233280;
+            const random3 = (((seed * 9301 + 49297) * 9301 + 49297) * 9301 + 49297) % 233280 / 233280;
+            
+            const height = 40 + random1 * 40; // 40-80%
+            const width = 2 + random2 * 3; // 2-5px
+            const opacity = 0.6 + random3 * 0.4; // 0.6-1.0
+            const animationDuration = 3 + random1 * 2; // 3-5 secondi
+            const animationDelay = random2 * 1; // Delay random fino a 1 secondo
+            
             return {
-                time: tradeTime,
-                position: trade.type === 'buy' ? 'belowBar' : 'aboveBar',
-                color: trade.type === 'buy' ? '#4ade80' : '#f87171',
-                shape: trade.type === 'buy' ? 'arrowUp' : 'arrowDown',
-                text: `${markerId}`,
-                size: 2,
-                id: `marker-${trade.ticket_id || trade.timestamp}-${trade.type}-${index}`,
+                id: `line-${trade.ticket_id || trade.timestamp}-${index}`,
+                x: xPosition,
+                height: `${height}%`,
+                width: `${width}px`,
+                color: isBuy ? '#4ade80' : '#f87171',
+                opacity: opacity,
+                animationDuration: `${animationDuration}s`,
+                animationDelay: `${animationDelay}s`,
+                ticketId: trade.ticket_id,
+                timestamp: trade.timestamp
             };
         });
 
-        markersRef.current = markers;
-        candlestickSeriesRef.current.setMarkers(markers);
-    }, [trades, openPositions]);
+        setAnimatedLines(lines);
+    }, [trades, openPositions, priceHistory, calculateXPosition]);
+
+    // Aggiorna posizioni X quando cambia il range visibile
+    useEffect(() => {
+        if (!chartRef.current || animatedLines.length === 0) return;
+
+        const updatePositions = () => {
+            setAnimatedLines(prevLines => {
+                return prevLines.map(line => {
+                    if (!line.timestamp) return line;
+                    const newX = calculateXPosition(line.timestamp);
+                    return { ...line, x: newX };
+                });
+            });
+        };
+
+        // Aggiorna immediatamente
+        updatePositions();
+
+        // Aggiorna periodicamente (ogni 500ms) per seguire lo scroll
+        const interval = setInterval(updatePositions, 500);
+
+        return () => clearInterval(interval);
+    }, [animatedLines.length, calculateXPosition]);
 
     // Update last candle with live price (real-time candlestick update) - FORZATO OGNI 200ms per movimento fluido
     useEffect(() => {
@@ -532,7 +573,29 @@ const LightweightChart = ({ symbol = 'BTCUSDT', trades = [], currentPrice = 0, p
             
             <div className="chart-main-wrapper">
                 {/* Chart Container - Always render to allow initialization */}
-                <div ref={chartContainerRef} className="lightweight-chart-wrapper">
+                <div ref={chartContainerRef} className="lightweight-chart-wrapper" style={{ position: 'relative' }}>
+                    {/* Overlay con linee verticali animate */}
+                    {animatedLines.length > 0 && (
+                        <div className="animated-lines-overlay">
+                            {animatedLines
+                                .filter(line => line.x >= -50 && line.x <= (chartContainerRef.current?.clientWidth || 800) + 50)
+                                .map(line => (
+                                <div
+                                    key={line.id}
+                                    className="animated-vertical-line"
+                                    style={{
+                                        left: `${line.x}px`,
+                                        height: line.height,
+                                        width: line.width,
+                                        backgroundColor: line.color,
+                                        opacity: line.opacity,
+                                        animationDuration: line.animationDuration,
+                                        animationDelay: line.animationDelay,
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    )}
                     {priceHistory.length === 0 && (
                         <div className="chart-loading-overlay">
                             <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
