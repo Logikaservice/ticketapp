@@ -918,9 +918,11 @@ setBotParameters(data.bot_parameters);
             
             // Prezzo corrente per questa posizione SHORT
             let currentPrice = allSymbolPrices[pos.symbol];
+            // Se non c'è in allSymbolPrices ma è il simbolo corrente, usa currentPrice
             if (!currentPrice && pos.symbol === currentSymbol && currentPrice > 0) {
                 currentPrice = currentPrice;
             }
+            // Fallback: usa prezzo dal database
             if (!currentPrice || currentPrice === 0) {
                 currentPrice = parseFloat(pos.current_price) || entryPrice;
             }
