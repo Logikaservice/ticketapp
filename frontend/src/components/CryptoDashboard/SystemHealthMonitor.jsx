@@ -193,7 +193,7 @@ const SystemHealthMonitor = React.memo(({ compact = false }) => {
             </div>
         </div>
     );
-};
+});
 
 // Componente per singolo servizio
 const ServiceStatus = ({ icon, name, status }) => {
@@ -287,6 +287,6 @@ const ServiceStatusCompact = ({ name, status }) => {
             </div>
         </div>
     );
-});
+};
 
 export default SystemHealthMonitor;
