@@ -1249,10 +1249,7 @@ app.get('/clients', async (req, res) => {
 // DEVE essere montato PRIMA di qualsiasi app.use('/api', authenticateToken, ...)
 app.use('/api/public-email', emailNotificationsRoutes);
 
-// Endpoint di test per verificare che il server risponda
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// ✅ Endpoint /api/health è già definito sopra (linea 846) - RIMOSSO DUPLICATO
 
 // Rotte protette con autenticazione JWT
 app.use('/api/users', authenticateToken, usersRoutes);
