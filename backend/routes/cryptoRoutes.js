@@ -2944,11 +2944,11 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         let marketRegimeBlock = false;
         let marketRegimeReason = '';
         try {
-            const btcPrice = await getSymbolPrice('bitcoin');
+            const btcPrice = await getSymbolPrice('bitcoin_usdt');
             if (btcPrice > 0) {
                 // Ottieni prezzo BTC 24h fa (approssimativo: usa price_history)
                 const btcHistory = await dbAll(
-                    "SELECT price FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp DESC LIMIT 100"
+                    "SELECT price FROM price_history WHERE symbol = 'bitcoin_usdt' ORDER BY timestamp DESC LIMIT 100"
                 );
                 if (btcHistory.length >= 50) {
                     const btcPrice24hAgo = parseFloat(btcHistory[49].price);
