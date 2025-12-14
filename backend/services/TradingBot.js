@@ -113,12 +113,11 @@ const CORRELATION_GROUPS = {
     'INDEPENDENT': ['ripple', 'ripple_eur', 'xrp', 'binance_coin', 'binance_coin_eur', 'bnb', 'dogecoin', 'doge', 'theta', 'theta_network'],
 };
 
-// ✅ LIMITI AUMENTATI per più posizioni contemporanee
-// MA solo quando il bot è SICURO al 100% (strength e confirmations alte)
+// ✅ LIMITI DEFAULT - Verranno sovrascritti dai valori nel database (bot_settings)
 const HYBRID_STRATEGY_CONFIG = {
-    MAX_TOTAL_POSITIONS: 8,        // Da 5 a 8 posizioni totali
-    MAX_POSITIONS_PER_GROUP: 4,    // Da 2 a 4 per gruppo di correlazione
-    MAX_POSITIONS_PER_SYMBOL: 2,   // Da 1 a 2 per simbolo (LONG + SHORT)
+    MAX_TOTAL_POSITIONS: 10,       // Default, legge da bot_settings.max_positions
+    MAX_POSITIONS_PER_GROUP: 6,    // Default, legge da bot_settings.max_positions_per_group
+    MAX_POSITIONS_PER_SYMBOL: 2,   // Default, legge da bot_settings.max_positions_per_symbol
 };
 
 // Cooldown tracker
@@ -286,17 +285,23 @@ function getCorrelationGroup(symbol) {
 
 /**
  * Check if can open position (Hybrid Strategy)
+ * @param {object} limits - Optional custom limits from database
  */
-async function canOpenPositionHybridStrategy(symbol, openPositions, newSignal = null, signalType = null) {
+async function canOpenPositionHybridStrategy(symbol, openPositions, newSignal = null, signalType = null, limits = null) {
     const group = getCorrelationGroup(symbol);
+    
+    // ✅ USA LIMITI DAL DATABASE se forniti, altrimenti usa i default
+    const maxTotal = limits?.max_positions || HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS;
+    const maxPerGroup = limits?.max_positions_per_group || HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_GROUP;
+    const maxPerSymbol = limits?.max_positions_per_symbol || HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_SYMBOL;
 
     // Count total open positions
     const totalPositions = openPositions.filter(p => p.status === 'open').length;
 
-    if (totalPositions >= HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS) {
+    if (totalPositions >= maxTotal) {
         return {
             allowed: false,
-            reason: `Max ${HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS} total positions reached`
+            reason: `Max ${maxTotal} total positions reached (configured in settings)`
         };
     }
 
@@ -307,10 +312,10 @@ async function canOpenPositionHybridStrategy(symbol, openPositions, newSignal = 
             groupSymbols.includes(p.symbol) && p.status === 'open'
         ).length;
 
-        if (groupPositions >= HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_GROUP) {
+        if (groupPositions >= maxPerGroup) {
             return {
                 allowed: false,
-                reason: `Max ${HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_GROUP} positions per group (${group})`
+                reason: `Max ${maxPerGroup} positions per group (${group}) - configured in settings`
             };
         }
     }
@@ -320,10 +325,10 @@ async function canOpenPositionHybridStrategy(symbol, openPositions, newSignal = 
         p.symbol === symbol && p.status === 'open'
     ).length;
 
-    if (symbolPositions >= HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_SYMBOL) {
+    if (symbolPositions >= maxPerSymbol) {
         return {
             allowed: false,
-            reason: `Max ${HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_SYMBOL} position per symbol`
+            reason: `Max ${maxPerSymbol} position per symbol - configured in settings`
         };
     }
 
@@ -591,9 +596,17 @@ async function runBotCycleForSymbol(symbol, botSettings) {
         // 11. Get all open positions
         const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
 
-        // 12. Check Hybrid Strategy
+        // 12. Check Hybrid Strategy with DYNAMIC LIMITS from database
+        const customLimits = {
+            max_positions: settingsParams.max_positions || HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS,
+            max_positions_per_group: settingsParams.max_positions_per_group || HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_GROUP,
+            max_positions_per_symbol: settingsParams.max_positions_per_symbol || HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_SYMBOL
+        };
+        
         console.log(`🔍 [BOT] ${symbol} - Hybrid Strategy Check: ${openPositions.length} open positions`);
-        const hybridCheck = await canOpenPositionHybridStrategy(symbol, openPositions, signal, signal.direction);
+        console.log(`   Limits: Max Total=${customLimits.max_positions}, Per Group=${customLimits.max_positions_per_group}, Per Symbol=${customLimits.max_positions_per_symbol}`);
+        
+        const hybridCheck = await canOpenPositionHybridStrategy(symbol, openPositions, signal, signal.direction, customLimits);
         if (!hybridCheck.allowed) {
             console.log(`⏸️ [BOT] ${symbol} - Hybrid Strategy blocked: ${hybridCheck.reason}`);
             return;

@@ -27,6 +27,8 @@ const BotSettings = React.memo(({ isOpen, onClose, apiBase, getAuthHeader = () =
         min_volume_24h: 500000,
         // Risk Management
         max_positions: 10,
+        max_positions_per_group: 6,
+        max_positions_per_symbol: 2,
         // Timeframe
         analysis_timeframe: '15m'
     });
@@ -224,7 +226,7 @@ const BotSettings = React.memo(({ isOpen, onClose, apiBase, getAuthHeader = () =
             setParameters(prev => ({ ...prev, [key]: value === true || value === 'true' || value === 1 }));
         } else if (key === 'analysis_timeframe') {
             setParameters(prev => ({ ...prev, [key]: value }));
-        } else if (key === 'min_confirmations_long' || key === 'min_confirmations_short' || key === 'max_positions' || key === 'min_signal_strength') {
+        } else if (key === 'min_confirmations_long' || key === 'min_confirmations_short' || key === 'max_positions' || key === 'max_positions_per_group' || key === 'max_positions_per_symbol' || key === 'min_signal_strength') {
             // ✅ FIX: Se il valore è vuoto, mantieni il valore esistente invece di 0
             if (value === '' || value === null || value === undefined) {
                 setParameters(prev => ({ ...prev, [key]: prev[key] }));
@@ -692,6 +694,46 @@ const BotSettings = React.memo(({ isOpen, onClose, apiBase, getAuthHeader = () =
                                 />
                                 <div className="parameter-desc">
                                     Numero massimo di posizioni che possono essere aperte simultaneamente. Limita l'esposizione e favorisce la diversificazione.
+                                </div>
+                            </div>
+
+                            {/* Max Positions Per Group */}
+                            <div className="parameter-group">
+                                <label htmlFor="max_positions_per_group">
+                                    Max Posizioni per Gruppo
+                                    <span className="parameter-hint">(1-10)</span>
+                                </label>
+                                <input
+                                    id="max_positions_per_group"
+                                    type="number"
+                                    min="1"
+                                    max="10"
+                                    step="1"
+                                    value={parameters.max_positions_per_group || 6}
+                                    onChange={(e) => handleChange('max_positions_per_group', e.target.value)}
+                                />
+                                <div className="parameter-desc">
+                                    Max posizioni nello stesso gruppo di correlazione (BTC_MAJOR, GAMING, DEFI, ecc). Evita sovraesposizione su crypto correlate.
+                                </div>
+                            </div>
+
+                            {/* Max Positions Per Symbol */}
+                            <div className="parameter-group">
+                                <label htmlFor="max_positions_per_symbol">
+                                    Max Posizioni per Simbolo
+                                    <span className="parameter-hint">(1-4)</span>
+                                </label>
+                                <input
+                                    id="max_positions_per_symbol"
+                                    type="number"
+                                    min="1"
+                                    max="4"
+                                    step="1"
+                                    value={parameters.max_positions_per_symbol || 2}
+                                    onChange={(e) => handleChange('max_positions_per_symbol', e.target.value)}
+                                />
+                                <div className="parameter-desc">
+                                    Max posizioni sullo stesso simbolo (es. max 2 posizioni su BTC: 1 LONG + 1 SHORT). Di solito lasciare 2.
                                 </div>
                             </div>
 
