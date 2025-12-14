@@ -469,7 +469,7 @@ router.get('/history', async (req, res) => {
             }
         } else {
             // Fallback to price_history points (backward compatibility)
-            const historyRows = await dbAll("SELECT price, timestamp FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp ASC LIMIT 500");
+            const historyRows = await dbAll("SELECT price, timestamp FROM price_history WHERE symbol = 'bitcoin_usdt' ORDER BY timestamp ASC LIMIT 500");
 
             // Convert to format expected by frontend
             const history = (historyRows || []).map(row => ({
@@ -527,14 +527,14 @@ router.get('/dashboard', async (req, res) => {
         let avgBuyPrice = 0;
         let totalCost = 0;
         let totalAmount = 0;
-        const currentHoldings = JSON.parse(portfolio.holdings || '{}')['bitcoin'] || 0;
+        const currentHoldings = JSON.parse(portfolio.holdings || '{}')['bitcoin_usdt'] || 0;
 
         if (currentHoldings > 0) {
             // Simple FIFO/Weighted Average logic from recent trades
             // We scan trades backwards to find the cost basis of current holdings
             let remainingHoldings = currentHoldings;
             for (const trade of trades) {
-                if (trade.type === 'buy' && trade.symbol === 'bitcoin') {
+                if (trade.type === 'buy' && (trade.symbol === 'bitcoin_usdt' || trade.symbol === 'bitcoin')) {
                     const amount = Math.min(trade.amount, remainingHoldings);
                     totalCost += amount * trade.price;
                     totalAmount += amount;
@@ -1912,7 +1912,7 @@ const getSymbolPrice = async (symbol) => {
 // Load history from DB on startup
 const loadPriceHistory = async () => {
     try {
-        const rows = await dbAll("SELECT price FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp DESC LIMIT 300");
+        const rows = await dbAll("SELECT price FROM price_history WHERE symbol = 'bitcoin_usdt' ORDER BY timestamp DESC LIMIT 300");
         if (rows && rows.length > 0) {
             // Reverse because SQL gives DESC (newest first), but we need chronological order for RSI
             priceHistory = rows.map(r => r.price).reverse();
@@ -2567,7 +2567,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         const rsi = calculateRSI(priceHistory, params.rsi_period);
 
         // Update latest RSI for dashboard (only for bitcoin for backward compatibility)
-        if (symbol === 'bitcoin') {
+        if (symbol === 'bitcoin_usdt' || symbol === 'bitcoin') {
             latestRSI = rsi;
         }
 
@@ -3531,7 +3531,7 @@ const runBotCycle = async () => {
         if (activeBots.length === 0) {
             // No active bots, but we still want to update prices for monitoring
             // Update price for bitcoin at least (for backward compatibility)
-            const currentPrice = await getSymbolPrice('bitcoin');
+            const currentPrice = await getSymbolPrice('bitcoin_usdt');
             if (currentPrice > 0) {
                 await dbRun("INSERT INTO price_history (symbol, price) VALUES ($1, $2)", ['bitcoin_usdt', currentPrice]);
             }
@@ -4137,7 +4137,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                 }
 
                 // Valida che currentPrice sia ragionevole
-                if (currentPrice > MAX_REASONABLE_USDT_PRICE && pos.symbol !== 'bitcoin') {
+                if (currentPrice > MAX_REASONABLE_USDT_PRICE && pos.symbol !== 'bitcoin_usdt' && pos.symbol !== 'bitcoin') {
                     console.error(`🚨 [UPDATE P&L] currentPrice ${currentPrice} seems too high for ${pos.symbol}, might be an error!`);
                     // Usa il prezzo dal database come fallback
                     currentPrice = parseFloat(pos.current_price) || 0;
