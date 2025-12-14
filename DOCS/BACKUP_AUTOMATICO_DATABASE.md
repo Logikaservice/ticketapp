@@ -280,3 +280,4 @@ Per problemi o domande sul sistema di backup:
 **Autore**: Sistema Automatico di Backup  
 **Versione**: 1.0.0
 
+
