@@ -12153,6 +12153,30 @@ router.get('/debug-positions', async (req, res) => {
     }
 });
 
+// ✅ FIX WRONG VOLUMES - Temporary endpoint to fix existing positions with incorrect volumes
+router.post('/fix-wrong-volumes', async (req, res) => {
+    try {
+        console.log('🔧 [API] Starting fix wrong volumes...');
+        const { fixWrongVolumes } = require('./fix-volumes-endpoint');
+        const results = await fixWrongVolumes();
+        
+        console.log(`✅ [API] Fix completed: ${results.fixed} fixed, ${results.skipped} skipped, ${results.errors} errors`);
+        
+        res.json({
+            success: true,
+            message: 'Volume fix completed',
+            results: results
+        });
+    } catch (error) {
+        console.error('❌ [API] Error fixing volumes:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
+
 
 module.exports = router;
 module.exports.setSocketIO = setSocketIO;
