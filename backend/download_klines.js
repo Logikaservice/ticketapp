@@ -45,13 +45,17 @@ const SYMBOL_MAP = {
     'solana': 'SOLUSDT',
     'cardano': 'ADAUSDT',
     'polkadot': 'DOTUSDT',
+    'polkadot_usdt': 'DOTUSDT',
     'chainlink': 'LINKUSDT',
     'litecoin': 'LTCUSDT',
     'ripple': 'XRPUSDT',
+    'xrp': 'XRPUSDT',
     'binance_coin': 'BNBUSDT',
     'sand': 'SANDUSDT',
+    'the_sandbox': 'SANDUSDT',
     'mana': 'MANAUSDT',
     'axs': 'AXSUSDT',
+    'axie_infinity': 'AXSUSDT',
     'gala': 'GALAUSDT',
     'enj': 'ENJUSDT',
     'bonk': 'BONKUSDT',
@@ -63,6 +67,9 @@ const SYMBOL_MAP = {
     'uniswap': 'UNIUSDT',
     'uni': 'UNIUSDT',
     'aave': 'AAVEUSDT',
+    'pol_polygon': 'MATICUSDT',
+    'polygon': 'MATICUSDT',
+    'matic': 'MATICUSDT',
     'global': null  // "global" non è un simbolo valido su Binance
 };
 

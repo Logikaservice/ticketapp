@@ -1297,15 +1297,15 @@ const SYMBOL_TO_PAIR = {
     'bitcoin': 'BTCUSDT', 'btc': 'BTCUSDT', 'bitcoin_usdt': 'BTCUSDT', 'btcusdt': 'BTCUSDT',
     'ethereum': 'ETHUSDT', 'eth': 'ETHUSDT', 'ethereum_usdt': 'ETHUSDT', 'ethusdt': 'ETHUSDT',
     'solana': 'SOLUSDT', 'sol': 'SOLUSDT', 'solana_eur': 'SOLUSDT', 'solana_usdt': 'SOLUSDT', 'solusdt': 'SOLUSDT',
-    'ripple': 'XRPUSDT', 'xrp': 'XRPUSDT', 'ripple_eur': 'XRPUSDT', 'ripple_usdt': 'XRPUSDT', 'xrpusdt': 'XRPUSDT',
+    'ripple': 'XRPUSDT', 'xrp': 'XRPUSDT', 'ripple_eur': 'XRPEUR', 'xrp_eur': 'XRPEUR', 'ripple_usdt': 'XRPUSDT', 'xrpusdt': 'XRPUSDT',
     'binance_coin': 'BNBUSDT', 'bnb': 'BNBUSDT', 'binance_coin_eur': 'BNBUSDT', 'bnbusdt': 'BNBUSDT',
 
     // Layer 1 Alternatives
     'cardano': 'ADAUSDT', 'ada': 'ADAUSDT', 'cardano_usdt': 'ADAUSDT', 'adausdt': 'ADAUSDT',
     'polkadot': 'DOTUSDT', 'dot': 'DOTUSDT', 'polkadot_usdt': 'DOTUSDT', 'dotusdt': 'DOTUSDT',
-    'avalanche': 'AVAXUSDT', 'avax': 'AVAXUSDT', 'avalanche_eur': 'AVAXUSDT', 'avaxusdt': 'AVAXUSDT',
-    'near_eur': 'NEARUSDT',
-    'atom_eur': 'ATOMUSDT',
+    'avalanche': 'AVAXUSDT', 'avax': 'AVAXUSDT', 'avalanche_eur': 'AVAXEUR', 'avax_usdt': 'AVAXUSDT', 'avaxusdt': 'AVAXUSDT',
+    'near': 'NEARUSDT', 'near_eur': 'NEAREUR', 'nearusdt': 'NEARUSDT',
+    'atom_eur': 'ATOMEUR', 'cosmos': 'ATOMUSDT', 'atom': 'ATOMUSDT',
     'sui_eur': 'SUIUSDT',
     'apt': 'APTUSDT',
     'ton': 'TONUSDT',
@@ -1313,7 +1313,7 @@ const SYMBOL_TO_PAIR = {
 
     // DeFi Blue Chips
     'aave': 'AAVEUSDT', 'aaveusdt': 'AAVEUSDT',
-    'uniswap': 'UNIUSDT', 'uni': 'UNIUSDT', 'uniswap_eur': 'UNIUSDT', 'uniusdt': 'UNIUSDT',
+    'uniswap': 'UNIUSDT', 'uni': 'UNIUSDT', 'uniswap_eur': 'UNIEUR', 'uniusdt': 'UNIUSDT',
     'chainlink': 'LINKUSDT', 'link': 'LINKUSDT', 'chainlink_usdt': 'LINKUSDT', 'linkusdt': 'LINKUSDT',
     'crv': 'CRVUSDT',
     'ldo': 'LDOUSDT',
@@ -1325,7 +1325,7 @@ const SYMBOL_TO_PAIR = {
     'arb': 'ARBUSDT', 'arb_eur': 'ARBUSDT', 'arbitrum': 'ARBUSDT', 'arbusdt': 'ARBUSDT',
     'op': 'OPUSDT', 'op_eur': 'OPUSDT', 'optimism': 'OPUSDT', 'opusdt': 'OPUSDT',
     'matic': 'POLUSDT', 'matic_eur': 'POLUSDT', 'polygon': 'POLUSDT', 'maticusdt': 'POLUSDT', 
-    'pol': 'POLUSDT', 'pol_polygon': 'POLUSDT', 'pol_polygon_eur': 'POLUSDT', 'polpolygon': 'POLUSDT', 'polusdt': 'POLUSDT',
+    'pol': 'POLUSDT', 'pol_polygon': 'POLUSDT', 'pol_polygon_eur': 'POLEUR', 'polpolygon': 'POLUSDT', 'polusdt': 'POLUSDT',
 
     // Payments & Old School
     'trx_eur': 'TRXUSDT',
@@ -1668,29 +1668,34 @@ const getSymbolPrice = async (symbol) => {
         'ethereum': 'ETHUSDT', 'eth': 'ETHUSDT', 'ethusdt': 'ETHUSDT',
         'solana': 'SOLUSDT', 'sol': 'SOLUSDT', 'solusdt': 'SOLUSDT',
         'cardano': 'ADAUSDT', 'ada': 'ADAUSDT', 'adausdt': 'ADAUSDT',
-        'ripple': 'XRPUSDT', 'xrp': 'XRPUSDT', 'xrpusdt': 'XRPUSDT',
-        'polkadot': 'DOTUSDT', 'dot': 'DOTUSDT', 'dotusdt': 'DOTUSDT',
+        'ripple': 'XRPUSDT', 'xrp': 'XRPUSDT', 'xrpusdt': 'XRPUSDT', 'xrpeur': 'XRPEUR',
+        'polkadot': 'DOTUSDT', 'dot': 'DOTUSDT', 'dotusdt': 'DOTUSDT', 'polkadotusdt': 'DOTUSDT',
         'dogecoin': 'DOGEUSDT', 'doge': 'DOGEUSDT', 'dogeusdt': 'DOGEUSDT',
         'shiba_inu': 'SHIBUSDT', 'shib': 'SHIBUSDT', 'shibusdt': 'SHIBUSDT',
-        'avalanche': 'AVAXUSDT', 'avax': 'AVAXUSDT', 'avaxusdt': 'AVAXUSDT',
+        'avalanche': 'AVAXUSDT', 'avax': 'AVAXUSDT', 'avaxusdt': 'AVAXUSDT', 'avalancheeur': 'AVAXEUR',
         'binance_coin': 'BNBUSDT', 'bnb': 'BNBUSDT', 'bnbusdt': 'BNBUSDT',
         'chainlink': 'LINKUSDT', 'link': 'LINKUSDT', 'linkusdt': 'LINKUSDT',
         // ✅ RIMOSSO: 'litecoin' eliminato dal database
         // Polygon migrated from MATICUSDT to POLUSDT on Binance
-        'matic': 'POLUSDT', 'polygon': 'POLUSDT', 'maticusdt': 'POLUSDT', 'polusdt': 'POLUSDT',
+        'matic': 'POLUSDT', 'polygon': 'POLUSDT', 'maticusdt': 'POLUSDT', 'polusdt': 'POLUSDT', 'polpolygoneur': 'POLEUR',
         'ton': 'TONUSDT', 'toncoin': 'TONUSDT', 'tonusdt': 'TONUSDT',
         'tron': 'TRXUSDT', 'trx': 'TRXUSDT', 'trxusdt': 'TRXUSDT',
         'stellar': 'XLMUSDT', 'xlm': 'XLMUSDT', 'xlmusdt': 'XLMUSDT',
         // Monero not available on Binance; keep mapping but expect null price
         'monero': 'XMRUSDT', 'xmr': 'XMRUSDT', 'xmrusdt': 'XMRUSDT',
         'cosmos': 'ATOMUSDT', 'atom': 'ATOMUSDT', 'atomusdt': 'ATOMUSDT',
-        'uniswap': 'UNIUSDT', 'uni': 'UNIUSDT', 'uniusdt': 'UNIUSDT',
+        'uniswap': 'UNIUSDT', 'uni': 'UNIUSDT', 'uniusdt': 'UNIUSDT', 'uniswapeur': 'UNIEUR',
         // Additional symbols to ensure price resolution
         'optimism': 'OPUSDT', 'op': 'OPUSDT', 'opusdt': 'OPUSDT',
         'the_sandbox': 'SANDUSDT', 'sand': 'SANDUSDT', 'sandusdt': 'SANDUSDT', 'thesandbox': 'SANDUSDT',
         'decentraland': 'MANAUSDT', 'mana': 'MANAUSDT', 'manausdt': 'MANAUSDT',
         'axie_infinity': 'AXSUSDT', 'axs': 'AXSUSDT', 'axsusdt': 'AXSUSDT', 'axieinfinity': 'AXSUSDT',
-        'icp': 'ICPUSDT', 'icpusdt': 'ICPUSDT' // Internet Computer
+        'icp': 'ICPUSDT', 'icpusdt': 'ICPUSDT', // Internet Computer
+        'bonk': 'BONKUSDT', 'bonkusdt': 'BONKUSDT',
+        'floki': 'FLOKIUSDT', 'flokiusdt': 'FLOKIUSDT',
+        'gala': 'GALAUSDT', 'galausdt': 'GALAUSDT',
+        'near': 'NEARUSDT', 'nearusdt': 'NEARUSDT',
+        'render': 'RENDERUSDT', 'renderusdt': 'RENDERUSDT'
     };
 
     // ✅ Controlla cache prima di chiamare Binance
