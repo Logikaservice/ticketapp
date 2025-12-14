@@ -101,16 +101,18 @@ const CryptoDashboardInner = () => {
     }, [portfolio.balance_usd]);
     
     return (
-        <div className="crypto-dashboard-container">
+        <div className="crypto-dashboard">
             {/* Header */}
-            <DashboardHeader
-                balance={totalBalance}
-                botStatus={botStatus}
-                healthStatus={healthStatus}
-                onToggleBotSettings={() => setShowBotSettings(!showBotSettings)}
-                onToggleGeneralSettings={() => setShowGeneralSettings(!showGeneralSettings)}
-                onToggleHealthMonitor={() => setShowHealthMonitor(!showHealthMonitor)}
-            />
+            <div className="crypto-header">
+                <DashboardHeader
+                    balance={totalBalance}
+                    botStatus={botStatus}
+                    healthStatus={healthStatus}
+                    onToggleBotSettings={() => setShowBotSettings(!showBotSettings)}
+                    onToggleGeneralSettings={() => setShowGeneralSettings(!showGeneralSettings)}
+                    onToggleHealthMonitor={() => setShowHealthMonitor(!showHealthMonitor)}
+                />
+            </div>
             
             {/* Portfolio Summary Cards */}
             <PortfolioSummary
@@ -121,9 +123,9 @@ const CryptoDashboardInner = () => {
             />
             
             {/* Main Content - Grid Layout */}
-            <div className="dashboard-grid">
+            <div className="crypto-grid">
                 {/* Left Column: Positions + Market Scanner */}
-                <div className="dashboard-left">
+                <div className="crypto-card">
                     <OpenPositions
                         positions={openPositions}
                         currentPrice={currentPrice}
@@ -147,7 +149,7 @@ const CryptoDashboardInner = () => {
                 </div>
                 
                 {/* Right Column: Chart + Statistics */}
-                <div className="dashboard-right">
+                <div className="crypto-card" style={{ gridColumn: 'span 2' }}>
                     <TradingViewChart
                         symbol={currentSymbol}
                         trades={allTrades}
@@ -189,7 +191,7 @@ const CryptoDashboardInner = () => {
             )}
             
             {/* Notifications */}
-            <div className="notifications-container">
+            <div className="crypto-notifications-container">
                 {notifications.map((notif) => (
                     <CryptoNotification
                         key={notif.id}

@@ -57,65 +57,66 @@ const PortfolioSummary = React.memo(({
     }, [openPositions, closedPositions, performanceAnalytics, prices]);
     
     return (
-        <div className="portfolio-summary">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '20px' }}>
             {/* Daily P&L Card */}
-            <div className={`summary-card ${metrics.dailyPnL >= 0 ? 'positive' : 'negative'}`}>
-                <div className="card-icon">
-                    {metrics.dailyPnL >= 0 ? <TrendingUp /> : <TrendingDown />}
+            <div className="balance-card" style={{ 
+                marginBottom: 0, 
+                borderLeft: `4px solid ${metrics.dailyPnL >= 0 ? '#10b981' : '#ef4444'}` 
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="balance-label">Daily P&L</div>
+                    {metrics.dailyPnL >= 0 ? <TrendingUp size={20} style={{ color: '#10b981' }} /> : <TrendingDown size={20} style={{ color: '#ef4444' }} />}
                 </div>
-                <div className="card-content">
-                    <div className="card-label">Daily P&L</div>
-                    <div className="card-value">
-                        {formatPnL(metrics.dailyPnL)}
-                    </div>
+                <div className="balance-amount" style={{ fontSize: '1.5rem', color: metrics.dailyPnL >= 0 ? '#10b981' : '#ef4444' }}>
+                    {formatPnL(metrics.dailyPnL)}
                 </div>
             </div>
             
             {/* Open Positions Card */}
-            <div className="summary-card">
-                <div className="card-icon">
-                    <Activity />
+            <div className="balance-card" style={{ marginBottom: 0, borderLeft: '4px solid #3b82f6' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="balance-label">Open Positions</div>
+                    <Activity size={20} style={{ color: '#3b82f6' }} />
                 </div>
-                <div className="card-content">
-                    <div className="card-label">Open Positions</div>
-                    <div className="card-value">{metrics.totalOpen}</div>
-                </div>
+                <div className="balance-amount" style={{ fontSize: '1.5rem' }}>{metrics.totalOpen}</div>
             </div>
             
             {/* Invested Volume Card */}
-            <div className="summary-card">
-                <div className="card-icon">
-                    <DollarSign />
+            <div className="balance-card" style={{ marginBottom: 0, borderLeft: '4px solid #f59e0b' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="balance-label">Invested</div>
+                    <DollarSign size={20} style={{ color: '#f59e0b' }} />
                 </div>
-                <div className="card-content">
-                    <div className="card-label">Invested</div>
-                    <div className="card-value">
-                        {formatPriceWithSymbol(metrics.investedVolume, 'USDT')}
-                    </div>
+                <div className="balance-amount" style={{ fontSize: '1.2rem' }}>
+                    {formatPriceWithSymbol(metrics.investedVolume, 'USDT')}
                 </div>
             </div>
             
             {/* Unrealized P&L Card */}
-            <div className={`summary-card ${metrics.unrealizedPnL >= 0 ? 'positive' : 'negative'}`}>
-                <div className="card-icon">
-                    {metrics.unrealizedPnL >= 0 ? <TrendingUp /> : <TrendingDown />}
+            <div className="balance-card" style={{ 
+                marginBottom: 0, 
+                borderLeft: `4px solid ${metrics.unrealizedPnL >= 0 ? '#10b981' : '#ef4444'}` 
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="balance-label">Unrealized P&L</div>
+                    {metrics.unrealizedPnL >= 0 ? <TrendingUp size={20} style={{ color: '#10b981' }} /> : <TrendingDown size={20} style={{ color: '#ef4444' }} />}
                 </div>
-                <div className="card-content">
-                    <div className="card-label">Unrealized P&L</div>
-                    <div className="card-value">
-                        {formatPnL(metrics.unrealizedPnL)}
-                    </div>
+                <div className="balance-amount" style={{ fontSize: '1.2rem', color: metrics.unrealizedPnL >= 0 ? '#10b981' : '#ef4444' }}>
+                    {formatPnL(metrics.unrealizedPnL)}
                 </div>
             </div>
             
             {/* Win Rate Card */}
-            <div className={`summary-card ${metrics.winRate >= 50 ? 'positive' : 'negative'}`}>
-                <div className="card-icon">
-                    <TrendingUp />
+            <div className="balance-card" style={{ 
+                marginBottom: 0, 
+                borderLeft: `4px solid ${metrics.winRate >= 50 ? '#10b981' : '#ef4444'}` 
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="balance-label">Win Rate</div>
+                    <TrendingUp size={20} style={{ color: metrics.winRate >= 50 ? '#10b981' : '#ef4444' }} />
                 </div>
-                <div className="card-content">
-                    <div className="card-label">Win Rate</div>
-                    <div className="card-value">{metrics.winRate.toFixed(1)}%</div>
+                <div className="balance-amount" style={{ fontSize: '1.5rem', color: metrics.winRate >= 50 ? '#10b981' : '#ef4444' }}>
+                    {metrics.winRate.toFixed(1)}%
                 </div>
             </div>
         </div>
