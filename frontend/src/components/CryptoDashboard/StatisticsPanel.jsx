@@ -3,14 +3,19 @@ import { TrendingUp, TrendingDown, BarChart3, Target, Activity, DollarSign, Perc
 import { formatPriceWithSymbol } from '../../utils/priceFormatter';
 import './StatisticsPanel.css';
 
-const StatisticsPanel = ({ apiBase }) => {
+const StatisticsPanel = ({ apiBase, getAuthHeader = () => ({}) }) => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     const fetchStatistics = async () => {
         try {
-            const res = await fetch(`${apiBase}/api/crypto/statistics`);
+            const res = await fetch(`${apiBase}/api/crypto/statistics`, {
+                headers: {
+                    ...getAuthHeader(),
+                    'Content-Type': 'application/json'
+                }
+            });
             if (res.ok) {
                 const data = await res.json();
                 if (data && data.statistics) {

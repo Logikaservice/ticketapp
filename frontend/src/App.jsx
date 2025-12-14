@@ -2997,7 +2997,7 @@ export default function TicketApp() {
                       </div>
                     )}
                     <div className="animate-slideInRight">
-                      <CryptoDashboard />
+                      <CryptoDashboard getAuthHeader={getAuthHeader} />
                     </div>
                   </>
                 );

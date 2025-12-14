@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Save, X } from 'lucide-react';
 import './BotSettings.css';
 
-const BotSettings = ({ isOpen, onClose, apiBase }) => {
+const BotSettings = ({ isOpen, onClose, apiBase, getAuthHeader = () => ({}) }) => {
     const [parameters, setParameters] = useState({
         rsi_period: 14,
         rsi_oversold: 30,
@@ -43,7 +43,12 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${apiBase}/api/crypto/bot/parameters`);
+            const res = await fetch(`${apiBase}/api/crypto/bot/parameters`, {
+                headers: {
+                    ...getAuthHeader(),
+                    'Content-Type': 'application/json'
+                }
+            });
             
             // ✅ FIX: Verifica content-type PRIMA di fare res.json()
             const contentType = res.headers.get('content-type') || '';
@@ -138,7 +143,10 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
 
             const res = await fetch(`${apiBase}/api/crypto/bot/parameters`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    ...getAuthHeader(),
+                    'Content-Type': 'application/json' 
+                },
                 body: JSON.stringify({ parameters })
             });
 

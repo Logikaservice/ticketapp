@@ -15,7 +15,7 @@ import { fetchWithRetry, fetchJsonWithRetry } from '../../utils/apiWithRetry';
 import './CryptoLayout.css';
 import './CryptoStandalone.css';
 
-const CryptoDashboard = () => {
+const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
     // Check if we're in chart-only mode (fullscreen chart in new window)
     const urlParams = new URLSearchParams(window.location.search);
     const isChartOnly = urlParams.get('page') === 'chart-only';
@@ -97,7 +97,12 @@ const CryptoDashboard = () => {
     // Fetch health status periodically
     const fetchHealthStatus = async () => {
         try {
-            const response = await fetch(`${apiBase}/system-health`);
+            const response = await fetch(`${apiBase}/system-health`, {
+                headers: {
+                    ...getAuthHeader(),
+                    'Content-Type': 'application/json'
+                }
+            });
             const data = await response.json();
             if (data.success) {
                 setHealthStatus(data.status);
@@ -121,7 +126,10 @@ const CryptoDashboard = () => {
                     `${apiBase}/api/crypto/fix-closed-positions-pnl`,
                     {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
+                        headers: { 
+                            ...getAuthHeader(),
+                            'Content-Type': 'application/json' 
+                        }
                     },
                     {
                         maxRetries: 2,
@@ -138,7 +146,10 @@ const CryptoDashboard = () => {
                 `${apiBase}/api/crypto/dashboard`,
                 {
                     method: 'GET',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json' 
+                    }
                 },
                 {
                     maxRetries: 3,
@@ -151,10 +162,11 @@ const CryptoDashboard = () => {
                 const data = await res.json();
                 // Dashboard data received logging removed
                 setPortfolio({ ...data.portfolio, rsi: data.rsi });
-                setTrades(data.recent_trades || []);
-                setAllTrades(data.all_trades || []); // Store full history for chart
-                setOpenPositions(data.open_positions || []); // Store open positions
-                setClosedPositions(data.closed_positions || []); // ✅ FIX: Store closed positions per P&L
+                // ✅ FIX: Validate arrays to prevent "filter is not a function" errors
+                setTrades(Array.isArray(data.recent_trades) ? data.recent_trades : []);
+                setAllTrades(Array.isArray(data.all_trades) ? data.all_trades : []); // Store full history for chart
+                setOpenPositions(Array.isArray(data.open_positions) ? data.open_positions : []); // Store open positions
+                setClosedPositions(Array.isArray(data.closed_positions) ? data.closed_positions : []); // ✅ FIX: Store closed positions per P&L
                 // ✅ FIX: Controlla se c'è ALMENO un bot attivo (non solo per currentSymbol)
                 const anyActiveBot = data.active_bots?.find(b => b.strategy_name === 'RSI_Strategy' && b.is_active === 1);
                 const bot = data.active_bots?.find(b => b.strategy_name === 'RSI_Strategy' && b.symbol === currentSymbol);
@@ -188,7 +200,12 @@ setBotParameters(data.bot_parameters);
             try {
                 const analyticsResult = await fetchJsonWithRetry(
                     `${apiBase}/api/crypto/performance-analytics`,
-                    {},
+                    {
+                        headers: {
+                            ...getAuthHeader(),
+                            'Content-Type': 'application/json'
+                        }
+                    },
                     {
                         maxRetries: 2,
                         silent502: true // Non loggare 502 per analytics
@@ -214,7 +231,12 @@ setBotParameters(data.bot_parameters);
         try {
             const result = await fetchJsonWithRetry(
                 `${apiBase}/api/crypto/symbols/available`,
-                {},
+                {
+                    headers: {
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json'
+                    }
+                },
                 {
                     maxRetries: 2,
                     silent502: true
@@ -233,7 +255,12 @@ setBotParameters(data.bot_parameters);
         try {
             const result = await fetchJsonWithRetry(
                 `${apiBase}/api/crypto/bot/active`,
-                {},
+                {
+                    headers: {
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json'
+                    }
+                },
                 {
                     maxRetries: 2,
                     silent502: true
@@ -253,18 +280,32 @@ setBotParameters(data.bot_parameters);
             // Non serve passare un simbolo specifico - il backend gestisce tutti i simboli
             await fetchWithRetry(
                 `${apiBase}/api/crypto/positions/update-pnl`,
-                { method: 'POST' },
+                { 
+                    method: 'POST',
+                    headers: {
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json'
+                    }
+                },
                 { maxRetries: 2, silent502: true }
             );
             
             // ✅ FIX: Refresh positions after update - recupera tutte le posizioni aperte
             const positionsResult = await fetchJsonWithRetry(
                 `${apiBase}/api/crypto/positions?status=open`,
-                {},
+                {
+                    headers: {
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json'
+                    }
+                },
                 { maxRetries: 2, silent502: true }
             );
             if (positionsResult.ok && positionsResult.data) {
-                const updatedPositions = positionsResult.data.positions || [];
+                // ✅ FIX: Validate array to prevent "filter is not a function" errors
+                const updatedPositions = Array.isArray(positionsResult.data.positions) 
+                    ? positionsResult.data.positions 
+                    : [];
                 setOpenPositions(updatedPositions);
                 
                 // ✅ REAL-TIME FIX: Aggiorna i prezzi per TUTTI i simboli delle posizioni aperte
@@ -278,7 +319,12 @@ setBotParameters(data.bot_parameters);
                         try {
                             const priceResult = await fetchJsonWithRetry(
                                 `${apiBase}/api/crypto/price/${symbol}?currency=usdt&_t=${Date.now()}`,
-                                {},
+                                {
+                                    headers: {
+                                        ...getAuthHeader(),
+                                        'Content-Type': 'application/json'
+                                    }
+                                },
                                 { maxRetries: 1, silent502: true, timeout: 5000 }
                             );
                             if (priceResult.ok && priceResult.data) {
@@ -348,7 +394,10 @@ setBotParameters(data.bot_parameters);
                 `${apiBase}/api/crypto/positions/close/${ticketId}`,
                 {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json' 
+                    },
                     body: JSON.stringify({
                         close_price: priceToUse,
                         symbol: symbolToUse
@@ -395,7 +444,10 @@ setBotParameters(data.bot_parameters);
                 `${apiBase}/api/crypto/reset`,
                 {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json' 
+                    },
                     body: JSON.stringify({ initial_balance: initialBalance })
                 },
                 {
@@ -422,7 +474,10 @@ setBotParameters(data.bot_parameters);
                 `${apiBase}/api/crypto/add-funds`,
                 {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json' 
+                    },
                     body: JSON.stringify({ amount: parseFloat(amount) })
                 },
                 {
@@ -460,7 +515,12 @@ setBotParameters(data.bot_parameters);
             // Fetch real price for current symbol from Binance (same source as bot)
             const result = await fetchJsonWithRetry(
                 `${apiBase}/api/crypto/price/${currentSymbol}?currency=usdt`,
-                {},
+                {
+                    headers: {
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json'
+                    }
+                },
                 {
                     maxRetries: 1, // ✅ Ridotto da 2 a 1 per evitare accumulo richieste
                     silent502: true,
@@ -494,7 +554,12 @@ setBotParameters(data.bot_parameters);
             fetchingHistoryRef.current = true;
             const result = await fetchJsonWithRetry(
                 `${apiBase}/api/crypto/history?interval=${interval}&symbol=${currentSymbol}`,
-                {},
+                {
+                    headers: {
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json'
+                    }
+                },
                 {
                     maxRetries: 1, // ✅ Ridotto da 2 a 1 per evitare accumulo richieste
                     silent502: true,
@@ -592,7 +657,10 @@ setBotParameters(data.bot_parameters);
                 `${apiBase}/api/crypto/bot/toggle`,
                 {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json' 
+                    },
                     body: JSON.stringify({
                         strategy_name: 'RSI_Strategy',
                         symbol: targetSymbol,
@@ -670,7 +738,12 @@ setBotParameters(data.bot_parameters);
                         // ✅ Aggiungi timestamp per evitare cache
                         const result = await fetchJsonWithRetry(
                             `${apiBase}/api/crypto/price/${symbol}?currency=usdt&_t=${Date.now()}`,
-                            {},
+                            {
+                                headers: {
+                                    ...getAuthHeader(),
+                                    'Content-Type': 'application/json'
+                                }
+                            },
                             {
                                 maxRetries: 1,
                                 silent502: true,
@@ -1360,6 +1433,7 @@ setBotParameters(data.bot_parameters);
             {/* MARKET SCANNER */}
             <MarketScanner
                 apiBase={apiBase}
+                getAuthHeader={getAuthHeader}
                 currentSymbol={currentSymbol}
                 onSelectSymbol={(symbol) => {
                     setCurrentSymbol(symbol);
@@ -1466,7 +1540,7 @@ setBotParameters(data.bot_parameters);
 
             {/* ADVANCED STATISTICS PANEL - Moved here per user request */}
             <div style={{ marginTop: '20px' }}>
-                <StatisticsPanel apiBase={apiBase} />
+                <StatisticsPanel apiBase={apiBase} getAuthHeader={getAuthHeader} />
             </div>
 
             {/* 📊 PERFORMANCE ANALYTICS - Day/Week/Month/Year */}
@@ -1554,6 +1628,7 @@ setBotParameters(data.bot_parameters);
                 isOpen={showBotSettings}
                 onClose={() => setShowBotSettings(false)}
                 apiBase={apiBase}
+                getAuthHeader={getAuthHeader}
             />
 
             {/* General Settings Modal */}
