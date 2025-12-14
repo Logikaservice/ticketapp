@@ -6346,17 +6346,21 @@ router.put('/bot/parameters', async (req, res) => {
         // ✅ DEBUG CRITICO: Verifica ESATTAMENTE cosa viene scritto nel database
         console.log('🔍 [BOT-PARAMS] ========== VERIFICA PRE-SALVATAGGIO ==========');
         console.log('🔍 [BOT-PARAMS] finalParams.trade_size_usdt:', finalParams.trade_size_usdt, '(type:', typeof finalParams.trade_size_usdt, ')');
+        console.log('🔍 [BOT-PARAMS] finalParams.test_trade_size:', finalParams.test_trade_size, '(type:', typeof finalParams.test_trade_size, ')');
         console.log('🔍 [BOT-PARAMS] finalParams.max_positions:', finalParams.max_positions, '(type:', typeof finalParams.max_positions, ')');
         console.log('🔍 [BOT-PARAMS] parametersJson (primi 500 caratteri):', parametersJson.substring(0, 500));
         console.log('🔍 [BOT-PARAMS] parametersJson contiene "trade_size_usdt"?', parametersJson.includes('trade_size_usdt'));
+        console.log('🔍 [BOT-PARAMS] parametersJson contiene "test_trade_size"?', parametersJson.includes('test_trade_size'));
         console.log('🔍 [BOT-PARAMS] parametersJson contiene "max_positions"?', parametersJson.includes('max_positions'));
         
         // ✅ DEBUG: Parse e verifica
         const parsedCheck = JSON.parse(parametersJson);
         console.log('🔍 [BOT-PARAMS] Dopo parse JSON:');
         console.log('   trade_size_usdt:', parsedCheck.trade_size_usdt, '(type:', typeof parsedCheck.trade_size_usdt, ')');
+        console.log('   test_trade_size:', parsedCheck.test_trade_size, '(type:', typeof parsedCheck.test_trade_size, ')');
         console.log('   max_positions:', parsedCheck.max_positions, '(type:', typeof parsedCheck.max_positions, ')');
         console.log('   "trade_size_usdt" in parsedCheck:', 'trade_size_usdt' in parsedCheck);
+        console.log('   "test_trade_size" in parsedCheck:', 'test_trade_size' in parsedCheck);
         console.log('   "max_positions" in parsedCheck:', 'max_positions' in parsedCheck);
 
         console.log('💾 [BOT-PARAMS] Salvataggio parametri:', {
@@ -6391,12 +6395,27 @@ router.put('/bot/parameters', async (req, res) => {
             console.log('✅ [BOT-PARAMS] INSERT eseguito, ID:', insertedId);
         }
 
-        // ✅ Verifica che sia stato salvato correttamente
+        // ✅ Verifica che sia stato salvato correttamente - LEGGI DIRETTAMENTE DAL DATABASE
+        console.log('🔍 [BOT-PARAMS] ========== VERIFICA POST-SALVATAGGIO ==========');
+        console.log('🔍 [BOT-PARAMS] Query verifica: SELECT parameters FROM bot_settings WHERE strategy_name = \'RSI_Strategy\' AND symbol = \'global\' LIMIT 1');
+        
         const verification = await dbGet(
             "SELECT parameters FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global' LIMIT 1"
         );
+        
         if (verification && verification.parameters) {
+            console.log('🔍 [BOT-PARAMS] Raw parameters dal DB (primi 500 caratteri):', verification.parameters.substring(0, 500));
+            console.log('🔍 [BOT-PARAMS] Raw parameters type:', typeof verification.parameters);
+            console.log('🔍 [BOT-PARAMS] Raw parameters length:', verification.parameters.length);
+            
             const savedParams = typeof verification.parameters === 'string' ? JSON.parse(verification.parameters) : verification.parameters;
+            
+            console.log('🔍 [BOT-PARAMS] Dopo parse dal DB:');
+            console.log('   trade_size_usdt:', savedParams.trade_size_usdt, '(type:', typeof savedParams.trade_size_usdt, ')');
+            console.log('   max_positions:', savedParams.max_positions, '(type:', typeof savedParams.max_positions, ')');
+            console.log('   "trade_size_usdt" in savedParams:', 'trade_size_usdt' in savedParams);
+            console.log('   "max_positions" in savedParams:', 'max_positions' in savedParams);
+            
             console.log('✅ [BOT-PARAMS] Verifica salvataggio:', {
                 savedHasTrailingProfit: 'trailing_profit_protection_enabled' in savedParams,
                 savedTrailingProfitValue: savedParams.trailing_profit_protection_enabled,
