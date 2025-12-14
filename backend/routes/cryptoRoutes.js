@@ -6045,8 +6045,9 @@ router.get('/bot/parameters', async (req, res) => {
                 hasMaxPositions: 'max_positions' in globalParams
             });
             
-            // ✅ FIX: Merge con DEFAULT_PARAMS per avere tutti i parametri
-            // Ma i valori dal database hanno priorità
+            // ✅ FIX CRITICO: Merge con DEFAULT_PARAMS per avere tutti i parametri
+            // Ma i valori dal database hanno priorità - quindi globalParams viene DOPO DEFAULT_PARAMS
+            // Questo significa che se globalParams ha trade_size_usdt, sovrascrive il default
             params = { ...DEFAULT_PARAMS, ...globalParams };
             
             console.log('📥 [BOT-PARAMS-GET] Dopo merge con DEFAULT_PARAMS:', {
@@ -6058,8 +6059,22 @@ router.get('/bot/parameters', async (req, res) => {
                 totalParams: Object.keys(params).length,
                 hasTradeSizeUsdt: 'trade_size_usdt' in params,
                 hasTradeSizeEur: 'trade_size_eur' in params,
-                hasMaxPositions: 'max_positions' in params
+                hasMaxPositions: 'max_positions' in params,
+                // ✅ DEBUG: Verifica se il merge ha funzionato
+                defaultTradeSize: DEFAULT_PARAMS.trade_size_usdt,
+                dbTradeSize: globalParams.trade_size_usdt,
+                finalTradeSize: params.trade_size_usdt
             });
+            
+            // ✅ FIX: Se globalParams ha trade_size_usdt ma dopo il merge è undefined, c'è un problema
+            if (globalParams.trade_size_usdt !== undefined && globalParams.trade_size_usdt !== null && params.trade_size_usdt === undefined) {
+                console.error('❌ [BOT-PARAMS-GET] ERRORE: trade_size_usdt perso durante il merge!');
+                console.error('   globalParams.trade_size_usdt:', globalParams.trade_size_usdt);
+                console.error('   params.trade_size_usdt dopo merge:', params.trade_size_usdt);
+                // ✅ FIX: Ripristina il valore dal database
+                params.trade_size_usdt = globalParams.trade_size_usdt;
+                console.log('✅ [BOT-PARAMS-GET] Ripristinato trade_size_usdt dal database:', params.trade_size_usdt);
+            }
         } else {
             // Se non ci sono parametri globali, usa defaults
             params = { ...DEFAULT_PARAMS };
