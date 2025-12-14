@@ -1256,18 +1256,18 @@ const getBotParameters = async (symbol = 'bitcoin_usdt') => {
         // Questi devono SEMPRE venire dai parametri globali per uniformità
         if (symbolBot && symbolBot.parameters) {
             const symbolParams = typeof symbolBot.parameters === 'string' ? JSON.parse(symbolBot.parameters) : symbolBot.parameters;
-            
+
             // ✅ Rimuovi trade_size_usdt e max_positions dai parametri specifici se presenti
             // Questi devono sempre venire dai globali
             const { trade_size_usdt, trade_size_eur, max_positions, ...symbolParamsFiltered } = symbolParams;
-            
+
             if (trade_size_usdt || trade_size_eur || max_positions) {
                 console.log(`⚠️  [BOT-PARAMS] ${symbol} ha parametri specifici per trade_size/max_positions che vengono ignorati (uso globali)`);
             }
-            
+
             mergedParams = { ...mergedParams, ...symbolParamsFiltered };
         }
-        
+
         // ✅ DEBUG: Log del trade_size usato
         if (symbol !== 'global') {
             console.log(`📊 [BOT-PARAMS] Parametri per ${symbol}: trade_size_usdt=$${mergedParams.trade_size_usdt || mergedParams.trade_size_eur || 'N/A'}, max_positions=${mergedParams.max_positions || 'N/A'}`);
@@ -1622,30 +1622,30 @@ router.get('/health-status', async (req, res) => {
         // ✅ FIX: Assicurati di restituire sempre JSON
         if (!res.headersSent) {
 
-        if (!status) {
-            // Prima verifica non ancora eseguita
-            const newStatus = await HealthCheckService.performCheck();
-            return res.json({
+            if (!status) {
+                // Prima verifica non ancora eseguita
+                const newStatus = await HealthCheckService.performCheck();
+                return res.json({
+                    success: true,
+                    status: newStatus,
+                    message: 'Prima verifica eseguita'
+                });
+            }
+
+            res.json({
                 success: true,
-                status: newStatus,
-                message: 'Prima verifica eseguita'
+                status,
+                message: status.overall === 'healthy' ? 'Sistema operativo' : 'Problemi rilevati'
+            });
+        } catch (error) {
+            console.error('❌ [API] Errore health-status:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Errore verifica stato sistema',
+                message: error.message
             });
         }
-
-        res.json({
-            success: true,
-            status,
-            message: status.overall === 'healthy' ? 'Sistema operativo' : 'Problemi rilevati'
-        });
-    } catch (error) {
-        console.error('❌ [API] Errore health-status:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Errore verifica stato sistema',
-            message: error.message
-        });
-    }
-});
+    });
 
 const getSymbolPrice = async (symbol) => {
     // ✅ FIX: "global" è un simbolo speciale per impostazioni, non per trading
@@ -6020,7 +6020,7 @@ router.post('/bot/toggle-all', async (req, res) => {
 router.get('/bot/parameters', async (req, res) => {
     // ✅ FIX CRITICO: Assicurati che la risposta sia sempre JSON
     res.setHeader('Content-Type', 'application/json');
-    
+
     try {
         // ✅ FIX: getBotParameters() senza parametri usa default 'bitcoin_usdt'
         // Ma per il frontend vogliamo i parametri GLOBALI, non quelli di un simbolo specifico
@@ -6028,13 +6028,13 @@ router.get('/bot/parameters', async (req, res) => {
         const globalBot = await dbGet(
             "SELECT parameters FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global' LIMIT 1"
         );
-        
+
         let params;
         if (globalBot && globalBot.parameters) {
-            const globalParams = typeof globalBot.parameters === 'string' 
-                ? JSON.parse(globalBot.parameters) 
+            const globalParams = typeof globalBot.parameters === 'string'
+                ? JSON.parse(globalBot.parameters)
                 : globalBot.parameters;
-            
+
             console.log('📥 [BOT-PARAMS-GET] Parametri RAW dal database:', {
                 trade_size_usdt: globalParams.trade_size_usdt,
                 trade_size_usdt_type: typeof globalParams.trade_size_usdt,
@@ -6044,12 +6044,12 @@ router.get('/bot/parameters', async (req, res) => {
                 hasTradeSizeEur: 'trade_size_eur' in globalParams,
                 hasMaxPositions: 'max_positions' in globalParams
             });
-            
+
             // ✅ FIX CRITICO: Merge con DEFAULT_PARAMS per avere tutti i parametri
             // Ma i valori dal database hanno priorità - quindi globalParams viene DOPO DEFAULT_PARAMS
             // Questo significa che se globalParams ha trade_size_usdt, sovrascrive il default
             params = { ...DEFAULT_PARAMS, ...globalParams };
-            
+
             console.log('📥 [BOT-PARAMS-GET] Dopo merge con DEFAULT_PARAMS:', {
                 trade_size_usdt: params.trade_size_usdt,
                 trade_size_usdt_type: typeof params.trade_size_usdt,
@@ -6065,7 +6065,7 @@ router.get('/bot/parameters', async (req, res) => {
                 dbTradeSize: globalParams.trade_size_usdt,
                 finalTradeSize: params.trade_size_usdt
             });
-            
+
             // ✅ FIX: Se globalParams ha trade_size_usdt ma dopo il merge è undefined, c'è un problema
             if (globalParams.trade_size_usdt !== undefined && globalParams.trade_size_usdt !== null && params.trade_size_usdt === undefined) {
                 console.error('❌ [BOT-PARAMS-GET] ERRORE: trade_size_usdt perso durante il merge!');
@@ -6083,12 +6083,12 @@ router.get('/bot/parameters', async (req, res) => {
                 max_positions: params.max_positions
             });
         }
-        
+
         // ✅ FIX CRITICO: Assicurati che trade_size_usdt e max_positions siano sempre presenti e validi
         // Controlla esplicitamente per null, undefined, NaN, e valori fuori range
         const tradeSizeValue = params.trade_size_usdt || params.trade_size_eur;
-        if (tradeSizeValue === null || tradeSizeValue === undefined || 
-            tradeSizeValue === '' || isNaN(Number(tradeSizeValue)) || 
+        if (tradeSizeValue === null || tradeSizeValue === undefined ||
+            tradeSizeValue === '' || isNaN(Number(tradeSizeValue)) ||
             Number(tradeSizeValue) < 10 || Number(tradeSizeValue) > 1000) {
             // Valore non valido, usa default
             params.trade_size_usdt = DEFAULT_PARAMS.trade_size_usdt;
@@ -6098,10 +6098,10 @@ router.get('/bot/parameters', async (req, res) => {
             params.trade_size_usdt = Number(tradeSizeValue);
             console.log('✅ [BOT-PARAMS-GET] trade_size_usdt valido:', params.trade_size_usdt);
         }
-        
+
         const maxPosValue = params.max_positions;
-        if (maxPosValue === null || maxPosValue === undefined || 
-            maxPosValue === '' || isNaN(Number(maxPosValue)) || 
+        if (maxPosValue === null || maxPosValue === undefined ||
+            maxPosValue === '' || isNaN(Number(maxPosValue)) ||
             Number(maxPosValue) < 1 || Number(maxPosValue) > 20) {
             params.max_positions = DEFAULT_PARAMS.max_positions;
             console.warn('⚠️  [BOT-PARAMS-GET] max_positions non valido o fuori range, uso default:', params.max_positions);
@@ -6109,16 +6109,29 @@ router.get('/bot/parameters', async (req, res) => {
             params.max_positions = Number(maxPosValue);
             console.log('✅ [BOT-PARAMS-GET] max_positions valido:', params.max_positions);
         }
-        
+
+        // ✅ FIX FINALE: Assicurati che trade_size_usdt sia SEMPRE presente nella risposta
+        // Anche se il database non lo contiene, usa il valore da DEFAULT_PARAMS
+        if (!params.trade_size_usdt && !params.trade_size_eur) {
+            console.warn('⚠️ [BOT-PARAMS-GET] trade_size_usdt/eur mancante, aggiungo da DEFAULT_PARAMS');
+            params.trade_size_usdt = DEFAULT_PARAMS.trade_size_usdt;
+        } else if (!params.trade_size_usdt && params.trade_size_eur) {
+            // Se c'è solo trade_size_eur, copialo in trade_size_usdt
+            params.trade_size_usdt = params.trade_size_eur;
+            console.log('✅ [BOT-PARAMS-GET] Copiato trade_size_eur in trade_size_usdt:', params.trade_size_usdt);
+        }
+
         // ✅ DEBUG: Verifica finale
         console.log('📥 [BOT-PARAMS-GET] Parametri finali restituiti al frontend:', {
             trade_size_usdt: params.trade_size_usdt,
             trade_size_usdt_type: typeof params.trade_size_usdt,
             max_positions: params.max_positions,
             max_positions_type: typeof params.max_positions,
-            totalParams: Object.keys(params).length
+            totalParams: Object.keys(params).length,
+            // ✅ DEBUG: Verifica che sia presente nell'oggetto
+            hasTradeSizeUsdt: 'trade_size_usdt' in params
         });
-        
+
         res.json({
             success: true,
             parameters: params
@@ -6134,7 +6147,7 @@ router.put('/bot/parameters', async (req, res) => {
     // ✅ FIX CRITICO: Assicurati che la risposta sia sempre JSON
     // Imposta content-type PRIMA di qualsiasi operazione
     res.setHeader('Content-Type', 'application/json');
-    
+
     try {
         // ✅ FIX CRITICO: Log della richiesta in arrivo
         console.log('📥 [BOT-PARAMS] Richiesta ricevuta:', {
@@ -6341,13 +6354,13 @@ router.put('/bot/parameters', async (req, res) => {
             const existingGlobalParams = typeof existing.parameters === 'string'
                 ? JSON.parse(existing.parameters)
                 : existing.parameters;
-            
+
             console.log('🔄 [BOT-PARAMS] Prima del merge:');
             console.log('   existingGlobalParams.trade_size_usdt:', existingGlobalParams.trade_size_usdt);
             console.log('   existingGlobalParams.test_trade_size:', existingGlobalParams.test_trade_size);
             console.log('   validParams.trade_size_usdt:', validParams.trade_size_usdt);
             console.log('   validParams.test_trade_size:', validParams.test_trade_size);
-            
+
             // ✅ FIX CRITICO: Merge correttamente - prima existingGlobalParams, poi validParams
             // Ma RIMUOVI i campi undefined/null da existingGlobalParams prima del merge
             // per evitare che sovrascrivano i valori validati
@@ -6357,16 +6370,16 @@ router.put('/bot/parameters', async (req, res) => {
                     cleanedExisting[key] = existingGlobalParams[key];
                 }
             }
-            
+
             // Merge: prima cleanedExisting (parametri esistenti validi), poi validParams (sovrascrive con valori validati)
             finalParams = { ...cleanedExisting, ...validParams };
-            
+
             console.log('🔄 [BOT-PARAMS] Dopo il merge:');
             console.log('   finalParams.trade_size_usdt:', finalParams.trade_size_usdt);
             console.log('   finalParams.test_trade_size:', finalParams.test_trade_size);
             console.log('   finalParams ha trade_size_usdt?', 'trade_size_usdt' in finalParams);
             console.log('   finalParams ha test_trade_size?', 'test_trade_size' in finalParams);
-            
+
             console.log('🔄 [BOT-PARAMS] Merge con parametri esistenti:', {
                 existingParamsCount: Object.keys(existingGlobalParams).length,
                 cleanedExistingCount: Object.keys(cleanedExisting).length,
@@ -6396,7 +6409,7 @@ router.put('/bot/parameters', async (req, res) => {
         console.log('🔍 [BOT-PARAMS] parametersJson contiene "trade_size_usdt"?', parametersJson.includes('trade_size_usdt'));
         console.log('🔍 [BOT-PARAMS] parametersJson contiene "test_trade_size"?', parametersJson.includes('test_trade_size'));
         console.log('🔍 [BOT-PARAMS] parametersJson contiene "max_positions"?', parametersJson.includes('max_positions'));
-        
+
         // ✅ DEBUG: Parse e verifica
         const parsedCheck = JSON.parse(parametersJson);
         console.log('🔍 [BOT-PARAMS] Dopo parse JSON:');
@@ -6442,18 +6455,18 @@ router.put('/bot/parameters', async (req, res) => {
         // ✅ Verifica che sia stato salvato correttamente - LEGGI DIRETTAMENTE DAL DATABASE
         console.log('🔍 [BOT-PARAMS] ========== VERIFICA POST-SALVATAGGIO ==========');
         console.log('🔍 [BOT-PARAMS] Query verifica: SELECT parameters FROM bot_settings WHERE strategy_name = \'RSI_Strategy\' AND symbol = \'global\' LIMIT 1');
-        
+
         const verification = await dbGet(
             "SELECT parameters FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global' LIMIT 1"
         );
-        
+
         if (verification && verification.parameters) {
             console.log('🔍 [BOT-PARAMS] Raw parameters dal DB (primi 500 caratteri):', verification.parameters.substring(0, 500));
             console.log('🔍 [BOT-PARAMS] Raw parameters type:', typeof verification.parameters);
             console.log('🔍 [BOT-PARAMS] Raw parameters length:', verification.parameters.length);
-            
+
             const savedParams = typeof verification.parameters === 'string' ? JSON.parse(verification.parameters) : verification.parameters;
-            
+
             console.log('🔍 [BOT-PARAMS] Dopo parse dal DB:');
             console.log('   trade_size_usdt:', savedParams.trade_size_usdt, '(type:', typeof savedParams.trade_size_usdt, ')');
             console.log('   test_trade_size:', savedParams.test_trade_size, '(type:', typeof savedParams.test_trade_size, ')');
@@ -6461,7 +6474,7 @@ router.put('/bot/parameters', async (req, res) => {
             console.log('   "trade_size_usdt" in savedParams:', 'trade_size_usdt' in savedParams);
             console.log('   "test_trade_size" in savedParams:', 'test_trade_size' in savedParams);
             console.log('   "max_positions" in savedParams:', 'max_positions' in savedParams);
-            
+
             // ✅ TEST: Confronta test_trade_size con trade_size_usdt
             if (savedParams.test_trade_size && savedParams.test_trade_size !== 999) {
                 console.log('✅ [BOT-PARAMS-TEST] test_trade_size salvato correttamente:', savedParams.test_trade_size);
@@ -6470,7 +6483,7 @@ router.put('/bot/parameters', async (req, res) => {
                     console.error('   Questo significa che trade_size_usdt viene rimosso da qualche logica dopo il salvataggio!');
                 }
             }
-            
+
             console.log('✅ [BOT-PARAMS] Verifica salvataggio:', {
                 savedHasTrailingProfit: 'trailing_profit_protection_enabled' in savedParams,
                 savedTrailingProfitValue: savedParams.trailing_profit_protection_enabled,
@@ -6492,7 +6505,7 @@ router.put('/bot/parameters', async (req, res) => {
             console.log('   Valore validato (validParams):', validParams.trade_size_usdt);
             console.log('   Valore salvato nel DB:', savedParams.trade_size_usdt);
             console.log('   Valori corrispondono?', savedParams.trade_size_usdt === validParams.trade_size_usdt);
-            
+
             if (savedParams.trade_size_usdt !== validParams.trade_size_usdt) {
                 console.error('❌ [BOT-PARAMS] ERRORE CRITICO: trade_size_usdt non salvato correttamente!');
                 console.error('   Valore atteso:', validParams.trade_size_usdt);
@@ -6501,14 +6514,14 @@ router.put('/bot/parameters', async (req, res) => {
             } else {
                 console.log('✅ [BOT-PARAMS] trade_size_usdt salvato correttamente!');
             }
-            
+
             // ✅ DEBUG CRITICO: Se min_volume_24h non corrisponde, logga errore
             if (savedParams.min_volume_24h !== validParams.min_volume_24h) {
                 console.error('❌ [BOT-PARAMS] ERRORE CRITICO: min_volume_24h non salvato correttamente!');
                 console.error('   Valore atteso:', validParams.min_volume_24h);
                 console.error('   Valore salvato:', savedParams.min_volume_24h);
             }
-            
+
             // ✅ Verifica generale: confronta tutti i parametri importanti
             const criticalParams = ['trade_size_usdt', 'max_positions', 'stop_loss_pct', 'take_profit_pct'];
             for (const param of criticalParams) {
@@ -6541,18 +6554,18 @@ router.put('/bot/parameters', async (req, res) => {
                 try {
                     // ✅ FIX: Verifica se il simbolo ha parametri specifici che differiscono
                     if (row.parameters) {
-                        const symbolParams = typeof row.parameters === 'string' 
-                            ? JSON.parse(row.parameters) 
+                        const symbolParams = typeof row.parameters === 'string'
+                            ? JSON.parse(row.parameters)
                             : row.parameters;
                         const symbolTradeSize = symbolParams.trade_size_usdt || symbolParams.trade_size_eur;
                         const globalTradeSize = validParams.trade_size_usdt || validParams.trade_size_eur;
-                        
+
                         if (symbolTradeSize && symbolTradeSize !== globalTradeSize) {
                             console.log(`⚠️  [BOT-PARAMS] ${row.symbol} ha trade_size diverso: $${symbolTradeSize} vs globale $${globalTradeSize}`);
                             console.log(`   Sovrascrivo con parametri globali per uniformità`);
                         }
                     }
-                    
+
                     // ✅ FIX: NON sovrascrivere i parametri globali quando aggiorni i simboli specifici!
                     // Questo era il problema: stava usando parametersJson che contiene i parametri globali
                     // e li stava scrivendo anche per i simboli specifici, ma poi quando leggeva i globali
@@ -6562,7 +6575,7 @@ router.put('/bot/parameters', async (req, res) => {
                         skipped++;
                         continue;
                     }
-                    
+
                     await dbRun(
                         "UPDATE bot_settings SET parameters = $1::text WHERE strategy_name = 'RSI_Strategy' AND symbol = $2",
                         [parametersJson, row.symbol]
@@ -6589,14 +6602,14 @@ router.put('/bot/parameters', async (req, res) => {
             symbolsUpdated: allSymbols ? allSymbols.length : 0,
             message: 'Parametri aggiornati con successo per tutti i simboli!'
         };
-        
+
         console.log('📤 [BOT-PARAMS] Invio risposta JSON:', {
             success: responseData.success,
             paramsCount: Object.keys(responseData.parameters).length,
             trade_size_usdt: responseData.parameters.trade_size_usdt,
             max_positions: responseData.parameters.max_positions
         });
-        
+
         // ✅ FIX CRITICO: Imposta esplicitamente content-type JSON
         res.setHeader('Content-Type', 'application/json');
         res.json(responseData);
@@ -6605,7 +6618,7 @@ router.put('/bot/parameters', async (req, res) => {
         console.error('❌ [BOT-PARAMS] Stack trace:', error.stack);
         // ✅ FIX CRITICO: Assicurati di restituire sempre JSON, mai HTML
         if (!res.headersSent) {
-            res.status(500).json({ 
+            res.status(500).json({
                 error: error.message || 'Errore interno del server',
                 details: process.env.NODE_ENV === 'development' ? error.stack : undefined
             });
