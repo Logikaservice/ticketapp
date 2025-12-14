@@ -68,10 +68,11 @@ const SYMBOL_TO_PAIR = {
 };
 
 // Gruppi di correlazione per diversificazione
+// ✅ RIMOSSI simboli duplicati senza suffisso (eliminati dal database)
 const CORRELATION_GROUPS = {
-    'BTC_MAJOR': ['bitcoin', 'bitcoin_usdt', 'ethereum', 'ethereum_usdt', 'solana', 'solana_eur'],
-    'DEFI': ['chainlink', 'chainlink_usdt'],
-    'INDEPENDENT': ['ripple', 'ripple_eur', 'binance_coin', 'binance_coin_eur'],
+    'BTC_MAJOR': ['bitcoin_usdt', 'ethereum_usdt', 'solana_eur'],
+    'DEFI': ['chainlink_usdt'],
+    'INDEPENDENT': ['ripple_eur', 'binance_coin_eur'],
 };
 
 // ✅ LIMITI AUMENTATI per più posizioni contemporanee
