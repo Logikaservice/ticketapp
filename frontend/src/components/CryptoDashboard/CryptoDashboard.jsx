@@ -810,7 +810,7 @@ setBotParameters(data.bot_parameters);
             window.removeEventListener('crypto-prices-update', handlePriceUpdate);
             clearInterval(backupInterval);
         };
-    }, [portfolio.holdings, openPositions, apiBase, currentSymbol, wsConnected]); // ✅ PERFORMANCE: Rimosso currentPrice dalle deps
+    }, [portfolio.holdings, openPositions, apiBase, currentSymbol, currentPrice, wsConnected]);
 
     // Calculate total balance (USDT + All Crypto values - Short Liabilities)
     // ✅ FIX: Total Balance = Capitale Disponibile (cash) = balance_usd
@@ -1020,14 +1020,13 @@ setBotParameters(data.bot_parameters);
         pnlPercent = investedValue > 0 ? (pnlValue / investedValue) * 100 : 0;
     }
 
-    // ✅ DEBUG: Calcolo alternativo per verificare correttezza
-    // Formula alternativa: Initial Balance + Realized P&L + Unrealized P&L
-    // (dove Unrealized P&L è già incluso in totalLongValue - totalShortLiability)
-    // Nota: Questo è solo per debug, il calcolo principale è quello sopra
-    const realizedPnL = closedPositions?.reduce((sum, pos) => {
-        const pnl = parseFloat(pos.profit_loss) || 0;
-        return sum + pnl;
-    }, 0) || 0;
+    // ✅ PERFORMANCE: Memoizza calcolo realized P&L
+    const realizedPnL = useMemo(() => {
+        return closedPositions?.reduce((sum, pos) => {
+            const pnl = parseFloat(pos.profit_loss) || 0;
+            return sum + pnl;
+        }, 0) || 0;
+    }, [closedPositions]);
 
     const unrealizedPnL = pnlValue; // Ora pnlValue è già calcolato sopra
 
@@ -1035,7 +1034,7 @@ setBotParameters(data.bot_parameters);
 
     // TradingView Chart doesn't need chartData preparation anymore
 
-    // ✅ FIX: Memorizza array filtrati per evitare ricreazioni ad ogni render
+    // ✅ PERFORMANCE: Memorizza array filtrati per evitare ricreazioni ad ogni render
     const filteredOpenPositions = useMemo(() => {
         return (openPositions || []).filter(p => p.symbol === currentSymbol);
     }, [openPositions, currentSymbol]);
@@ -1050,6 +1049,11 @@ setBotParameters(data.bot_parameters);
             ticket_id: trade.ticket_id || null
         }));
     }, [allTrades, currentSymbol]);
+
+    // ✅ PERFORMANCE: Limita closedPositions a max 50 per evitare lag nel render
+    const limitedClosedPositions = useMemo(() => {
+        return (closedPositions || []).slice(-50); // Solo ultime 50 posizioni
+    }, [closedPositions]);
 
     // If chart-only mode, show only the chart in fullscreen
     if (isChartOnly) {
@@ -1455,26 +1459,32 @@ setBotParameters(data.bot_parameters);
                     Closed Positions History
                 </div>
                 <div className="trades-list">
-                    {closedPositions.length === 0 ? (
+                    {limitedClosedPositions.length === 0 ? (
                         <div style={{ color: '#555', textAlign: 'center', padding: '20px' }}>Nessuna posizione chiusa ancora</div>
                     ) : (
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                            <thead>
-                                <tr style={{ color: '#6b7280', borderBottom: '1px solid #374151' }}>
-                                    <th style={{ padding: '10px', textAlign: 'left' }}>Time</th>
-                                    <th style={{ padding: '10px', textAlign: 'left' }}>Symbol</th>
-                                    <th style={{ padding: '10px', textAlign: 'left' }}>Type</th>
-                                    <th style={{ padding: '10px', textAlign: 'right' }}>Price</th>
-                                    <th style={{ padding: '10px', textAlign: 'right' }}>Amount</th>
-                                    <th style={{ padding: '10px', textAlign: 'right' }}>Total</th>
-                                    <th style={{ padding: '10px', textAlign: 'right' }}>P&L</th>
-                                    <th style={{ padding: '10px', textAlign: 'left' }}>Durata</th>
-                                    <th style={{ padding: '10px', textAlign: 'left' }}>Motivo Chiusura</th>
-                                    <th style={{ padding: '10px', textAlign: 'center' }}>Details</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {closedPositions.map((pos, i) => {
+                        <>
+                            {closedPositions.length > 50 && (
+                                <div style={{ color: '#9ca3af', textAlign: 'center', padding: '10px', fontSize: '0.85rem' }}>
+                                    Mostrando ultime 50 di {closedPositions.length} posizioni chiuse
+                                </div>
+                            )}
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                                <thead>
+                                    <tr style={{ color: '#6b7280', borderBottom: '1px solid #374151' }}>
+                                        <th style={{ padding: '10px', textAlign: 'left' }}>Time</th>
+                                        <th style={{ padding: '10px', textAlign: 'left' }}>Symbol</th>
+                                        <th style={{ padding: '10px', textAlign: 'left' }}>Type</th>
+                                        <th style={{ padding: '10px', textAlign: 'right' }}>Price</th>
+                                        <th style={{ padding: '10px', textAlign: 'right' }}>Amount</th>
+                                        <th style={{ padding: '10px', textAlign: 'right' }}>Total</th>
+                                        <th style={{ padding: '10px', textAlign: 'right' }}>P&L</th>
+                                        <th style={{ padding: '10px', textAlign: 'left' }}>Durata</th>
+                                        <th style={{ padding: '10px', textAlign: 'left' }}>Motivo Chiusura</th>
+                                        <th style={{ padding: '10px', textAlign: 'center' }}>Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {limitedClosedPositions.map((pos, i) => {
                                     const profit = parseFloat(pos.profit_loss || 0);
                                     const profitPct = parseFloat(pos.profit_loss_pct || 0);
                                     const isWin = profit >= 0;
@@ -1533,9 +1543,10 @@ setBotParameters(data.bot_parameters);
                                             </td>
                                         </tr>
                                     );
-                                })}
-                            </tbody>
-                        </table>
+                                    })}
+                                </tbody>
+                            </table>
+                        </>
                     )}
                 </div>
             </div>
