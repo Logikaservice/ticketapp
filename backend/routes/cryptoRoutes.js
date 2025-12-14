@@ -18,7 +18,6 @@ console.log('✅ Using PostgreSQL crypto database');
 const https = require('https');
 
 // Import new services
-const riskManager = require('../services/RiskManager');
 const signalGenerator = require('../services/BidirectionalSignalGenerator');
 const { sendCryptoEmail } = require('../services/CryptoEmailNotifications');
 const dataIntegrityService = require('../services/DataIntegrityService');
@@ -950,8 +949,7 @@ router.post('/reset', async (req, res) => {
         await dbRun("INSERT INTO performance_stats (total_trades, winning_trades, losing_trades, total_profit, total_loss, avg_win, avg_loss, win_rate) VALUES (0, 0, 0, 0, 0, 0, 0, 0)");
         console.log(`🗑️ Resettate statistiche Kelly Criterion`);
 
-        // 6. Invalida cache Risk Manager
-        riskManager.invalidateCache();
+        // 6. Cache invalidata (RiskManager rimosso)
 
         res.json({
             success: true,
@@ -2626,16 +2624,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             // ma logga l'errore per debugging
         }
 
-        // 6. RISK CHECK - Protezione PRIMA di tutto
-        const riskCheck = await riskManager.calculateMaxRisk();
-
-        if (!riskCheck.canTrade) {
-            console.log(`🛑 RISK MANAGER: Trading blocked - ${riskCheck.reason}`);
-            console.log(`   Daily Loss: ${(riskCheck.dailyLoss * 100).toFixed(2)}% | Exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Drawdown: ${(riskCheck.drawdown * 100).toFixed(2)}%`);
-            return; // STOP - Non tradare se rischio troppo alto
-        }
-
-        // Risk manager OK logging removed
+        // 6. Risk check rimosso (RiskManager eliminato)
 
         // ✅ REFACTORING: Usa candele reali (15m) invece di price_history per segnali affidabili
         // 7. Carica ultime 100 candele complete 15m per analisi trend reali
