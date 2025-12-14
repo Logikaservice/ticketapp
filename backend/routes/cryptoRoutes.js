@@ -6105,16 +6105,20 @@ router.put('/bot/parameters', async (req, res) => {
         // ✅ NUOVO: Recupera parametri esistenti per merge (mantiene valori non specificati)
         const existingParams = await getBotParameters('bitcoin');
 
+        console.log('💾 [BOT-PARAMS] ========== INIZIO SALVATAGGIO ==========');
+        console.log('💾 [BOT-PARAMS] Ricevuti dal frontend (RAW):', JSON.stringify(parameters, null, 2));
         console.log('💾 [BOT-PARAMS] Ricevuti dal frontend:', {
             receivedCount: Object.keys(parameters).length,
             receivedKeys: Object.keys(parameters),
+            trade_size_usdt_RAW: parameters.trade_size_usdt,
+            trade_size_usdt_TYPE: typeof parameters.trade_size_usdt,
+            trade_size_usdt_STRING: String(parameters.trade_size_usdt),
+            trade_size_eur_RAW: parameters.trade_size_eur,
             sampleReceived: {
                 trade_size_usdt: parameters.trade_size_usdt,
                 stop_loss_pct: parameters.stop_loss_pct,
                 trailing_profit_protection_enabled: parameters.trailing_profit_protection_enabled,
-                min_volume_24h: parameters.min_volume_24h, // ✅ DEBUG: Aggiunto min_volume_24h
-                min_volume_24h_type: typeof parameters.min_volume_24h, // ✅ DEBUG: Tipo del valore
-                min_volume_24h_raw: JSON.stringify(parameters.min_volume_24h) // ✅ DEBUG: Valore raw
+                min_volume_24h: parameters.min_volume_24h
             }
         });
 
