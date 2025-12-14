@@ -3463,11 +3463,9 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                                 // trailing_stop_enabled e trailing_stop_distance_pct vengono da options (configurati dall'utente)
                             });
                             console.log(`✅ BOT SHORT: Opened position #${shortPositions.length + 1} @ $${currentPrice.toFixed(2)} USDT | Size: $${positionSizeToUse.toFixed(2)} USDT | Signal: ${signal.reasons.join(', ')}`);
-                            riskManager.invalidateCache(); // Invalida cache dopo operazione
                         } else if (!canOpen.allowed) {
-                            console.log(`⚠️ BOT SHORT: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: $${riskCheck.availableExposure.toFixed(2)} USDT`);
-                            console.log(`   📊 [SHORT-DEBUG] Risk check failed for ${symbol}: ${canOpen.reason}`);
-                            console.log(`   📊 [SHORT-DEBUG] Final position size: $${positionSizeToUse.toFixed(2)} USDT | Trade size: $${params.trade_size_usdt || params.trade_size_eur || 0} USDT | Max position size: $${riskCheck.maxPositionSize.toFixed(2)} USDT`);
+                            console.log(`⚠️ BOT SHORT: Cannot open - ${canOpen.reason}`);
+                            console.log(`   📊 [SHORT-DEBUG] Final position size: $${positionSizeToUse.toFixed(2)} USDT | Trade size: $${params.trade_size_usdt || params.trade_size_eur || 0} USDT`);
                         }
                     }
                 }
@@ -8821,12 +8819,12 @@ router.get('/bot-analysis', async (req, res) => {
                 }
             },
             risk: {
-                canTrade: riskCheck.canTrade,
-                reason: riskCheck.reason || 'OK',
-                dailyLoss: riskCheck.dailyLoss * 100,
-                currentExposure: riskCheck.currentExposure * 100,
-                availableExposure: riskCheck.availableExposure,
-                maxPositionSize: riskCheck.maxPositionSize,
+                canTrade: true,
+                reason: 'OK (RiskManager rimosso)',
+                dailyLoss: 0,
+                currentExposure: 0,
+                availableExposure: 0,
+                maxPositionSize: maxAvailableForNewPosition,
                 maxAvailableForNewPosition
             },
             positions: {
@@ -8914,7 +8912,7 @@ router.get('/bot-analysis', async (req, res) => {
                     // Risk Manager rimosso - nessun blocco globale
 
                     // ✅ FIX CRITICO: Risk Manager block per questa specifica posizione
-                    // Questo è diverso da riskCheck.canTrade - controlla se può aprire questa specifica posizione
+                    // RiskManager rimosso - verifica solo canOpenCheck
                     if (!canOpenCheck.allowed) {
                         blocks.push({
                             type: 'Risk Manager',
@@ -9858,7 +9856,7 @@ router.get('/bot-analysis', async (req, res) => {
                     // Risk Manager rimosso - nessun blocco globale
 
                     // ✅ FIX CRITICO: Risk Manager block per questa specifica posizione
-                    // Questo è diverso da riskCheck.canTrade - controlla se può aprire questa specifica posizione
+                    // RiskManager rimosso - verifica solo canOpenCheck
                     if (!canOpenCheck.allowed) {
                         blocks.push({
                             type: 'Risk Manager',
@@ -10155,12 +10153,12 @@ router.get('/bot-analysis', async (req, res) => {
                 }
             },
             risk: {
-                canTrade: riskCheck.canTrade,
-                reason: riskCheck.reason || 'OK',
-                dailyLoss: riskCheck.dailyLoss * 100,
-                currentExposure: riskCheck.currentExposure * 100,
-                availableExposure: riskCheck.availableExposure,
-                maxPositionSize: riskCheck.maxPositionSize,
+                canTrade: true,
+                reason: 'OK (RiskManager rimosso)',
+                dailyLoss: 0,
+                currentExposure: 0,
+                availableExposure: 0,
+                maxPositionSize: maxAvailableForNewPosition,
                 maxAvailableForNewPosition
             },
             positions: {
