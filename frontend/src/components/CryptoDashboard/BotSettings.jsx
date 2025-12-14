@@ -52,6 +52,11 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
             if (res.ok && isJson) {
                 try {
                     const data = await res.json();
+                    console.log('✅ [BOT-SETTINGS] ========== RISPOSTA BACKEND ==========');
+                    console.log('✅ [BOT-SETTINGS] Risposta completa:', data);
+                    console.log('✅ [BOT-SETTINGS] data.parameters:', data.parameters);
+                    console.log('✅ [BOT-SETTINGS] data.parameters.trade_size_usdt:', data.parameters?.trade_size_usdt, '(type:', typeof data.parameters?.trade_size_usdt, ')');
+                    console.log('✅ [BOT-SETTINGS] data.parameters.max_positions:', data.parameters?.max_positions, '(type:', typeof data.parameters?.max_positions, ')');
                     console.log('✅ [BOT-SETTINGS] Parametri caricati dal backend:', {
                         totalParams: Object.keys(data.parameters || {}).length,
                         hasTrailingProfit: 'trailing_profit_protection_enabled' in (data.parameters || {}),
@@ -60,15 +65,25 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                             trade_size_usdt: data.parameters?.trade_size_usdt,
                             max_positions: data.parameters?.max_positions,
                             stop_loss_pct: data.parameters?.stop_loss_pct
-                        }
+                        },
+                        // ✅ DEBUG: Mostra tutte le chiavi per vedere cosa c'è
+                        allKeys: Object.keys(data.parameters || {})
                     });
                     // ✅ FIX: I parametri dal backend sono già completi (merge fatto nel backend)
                     // Non serve fare merge qui, usiamo direttamente i parametri dal backend
                     if (data.parameters && typeof data.parameters === 'object') {
+                        console.log('✅ [BOT-SETTINGS] Impostazione parametri nello stato...');
+                        console.log('   Prima di setParameters - trade_size_usdt:', data.parameters.trade_size_usdt);
                         setParameters(data.parameters);
+                        // ✅ DEBUG: Verifica immediatamente dopo setParameters (anche se React potrebbe non aver ancora aggiornato)
                         console.log('✅ [BOT-SETTINGS] Parametri impostati nel frontend:', {
                             trade_size_usdt: data.parameters.trade_size_usdt,
-                            max_positions: data.parameters.max_positions
+                            trade_size_usdt_type: typeof data.parameters.trade_size_usdt,
+                            max_positions: data.parameters.max_positions,
+                            max_positions_type: typeof data.parameters.max_positions,
+                            // ✅ DEBUG: Verifica se i valori sono presenti nell'oggetto
+                            hasTradeSizeUsdt: 'trade_size_usdt' in data.parameters,
+                            hasMaxPositions: 'max_positions' in data.parameters
                         });
                     } else {
                         console.error('❌ [BOT-SETTINGS] Parametri non validi dal backend:', data);
