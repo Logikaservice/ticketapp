@@ -75,8 +75,7 @@ class HealthCheckService {
             websocket: await this.checkWebSocket(),
             aggregator: await this.checkAggregator(),
             backup: await this.checkBackup(),
-            // ✅ NUOVI CONTROLLI DATI
-            dataKlines: await this.checkKlinesCount(),
+            // ✅ CONTROLLI DATI (Klines unificato in aggregator)
             dataPriceHistory: await this.checkPriceHistoryCount(),
             dataGaps: await this.checkDataGaps(),
             dataAnomalousPrices: await this.checkAnomalousPrices(),
@@ -88,13 +87,18 @@ class HealthCheckService {
         if (!status.backend.healthy) criticalIssues.push('Backend offline');
         if (!status.database.healthy) criticalIssues.push('Database inaccessibile');
         if (!status.websocket.healthy) criticalIssues.push('WebSocket inattivo');
-        if (!status.aggregator.healthy) criticalIssues.push('Aggregatore non funziona');
+        if (!status.aggregator.healthy) {
+            // ✅ Messaggio unificato per aggregatore + klines
+            if (!status.aggregator.working) {
+                criticalIssues.push('Aggregatore non funziona');
+            }
+            if (status.aggregator.symbolsWithIssues > 0) {
+                criticalIssues.push(`Klines insufficienti: ${status.aggregator.symbolsWithIssues} simboli`);
+            }
+        }
         if (!status.backup.healthy) criticalIssues.push('Backup database non recente');
         
-        // ✅ NUOVI CONTROLLI DATI - Aggiungi ai problemi critici
-        if (!status.dataKlines.healthy) {
-            criticalIssues.push(`Klines insufficienti: ${status.dataKlines.symbolsWithIssues?.length || 0} simboli`);
-        }
+        // ✅ CONTROLLI DATI
         if (!status.dataPriceHistory.healthy) {
             criticalIssues.push(`Price history insufficiente: ${status.dataPriceHistory.symbolsWithIssues?.length || 0} simboli`);
         }
@@ -231,53 +235,141 @@ class HealthCheckService {
     }
 
     /**
-     * Verifica aggregatore crea klines
-     * Usa KlinesVerificationService per verifica completa
+     * ✅ UNIFICATO: Verifica aggregatore + quantità klines
+     * Controlla sia il servizio (tempo reale) che i dati storici (quantità)
      */
     async checkAggregator() {
         try {
-            const KlinesVerificationService = require('./KlinesVerificationService');
-            const verification = await KlinesVerificationService.verifyKlinesCompleteness();
+            const SYMBOL_TO_PAIR = require('../routes/cryptoRoutes').SYMBOL_TO_PAIR || {};
+            const MIN_KLINES_REQUIRED = 50;
+            const KLINE_INTERVAL = '15m';
+            const oneHourAgo = Date.now() - (60 * 60 * 1000);
 
-            return {
-                healthy: verification.healthy,
-                working: verification.healthy,
-                message: verification.message,
-                details: verification.details
-            };
-        } catch (error) {
-            // Fallback a verifica semplice se il servizio completo fallisce
+            // 1. Verifica servizio aggregatore (tempo reale - ultima ora)
+            let serviceWorking = false;
+            let klinesLastHour = 0;
             try {
                 const recentKlines = await dbGet(
                     `SELECT COUNT(*) as count 
                      FROM klines 
-                     WHERE interval = '15m' 
-                       AND open_time > $1`,
-                    [Date.now() - (60 * 60 * 1000)]
+                     WHERE interval = $1 
+                       AND open_time > $2`,
+                    [KLINE_INTERVAL, oneHourAgo]
+                );
+                klinesLastHour = parseInt(recentKlines?.count || 0);
+                const expected = 4; // ~4 klines per ora (15m interval)
+                serviceWorking = klinesLastHour >= expected - 1;
+            } catch (error) {
+                // Ignora errori verifica servizio
+            }
+
+            // 2. Verifica quantità klines per simbolo (dati storici)
+            const symbols = Object.keys(SYMBOL_TO_PAIR);
+            const symbolsWithIssues = [];
+            let totalKlines = 0;
+            let symbolsOK = 0;
+
+            // ✅ OTTIMIZZAZIONE: Query unica per tutti i simboli invece di loop
+            try {
+                const allKlinesCount = await dbAll(
+                    `SELECT symbol, COUNT(*) as count 
+                     FROM klines 
+                     WHERE interval = $1 
+                     GROUP BY symbol`,
+                    [KLINE_INTERVAL]
                 );
 
-                const count = parseInt(recentKlines?.count || 0);
-                const expected = 4;
-                const isWorking = count >= expected - 1;
+                // Crea mappa per accesso rapido
+                const klinesMap = {};
+                allKlinesCount.forEach(row => {
+                    klinesMap[row.symbol] = parseInt(row.count || 0);
+                });
 
-                return {
-                    healthy: isWorking,
-                    working: isWorking,
-                    klinesLastHour: count,
-                    expected,
-                    message: isWorking 
-                        ? `Aggregatore funziona (${count} klines ultima ora)`
-                        : `Aggregatore non crea klines (${count}/${expected} ultima ora)`,
-                    fallback: true
-                };
-            } catch (fallbackError) {
-                return {
-                    healthy: false,
-                    working: false,
-                    error: error.message,
-                    message: 'Errore verifica aggregatore'
-                };
+                // Verifica ogni simbolo
+                for (const symbol of symbols) {
+                    const count = klinesMap[symbol] || 0;
+                    totalKlines += count;
+
+                    if (count < MIN_KLINES_REQUIRED) {
+                        symbolsWithIssues.push({
+                            symbol,
+                            count,
+                            required: MIN_KLINES_REQUIRED,
+                            missing: MIN_KLINES_REQUIRED - count
+                        });
+                    } else {
+                        symbolsOK++;
+                    }
+                }
+            } catch (error) {
+                // Fallback: verifica simbolo per simbolo se query aggregata fallisce
+                for (const symbol of symbols) {
+                    try {
+                        const result = await dbGet(
+                            `SELECT COUNT(*) as count FROM klines WHERE symbol = $1 AND interval = $2`,
+                            [symbol, KLINE_INTERVAL]
+                        );
+                        const count = parseInt(result?.count || 0);
+                        totalKlines += count;
+
+                        if (count < MIN_KLINES_REQUIRED) {
+                            symbolsWithIssues.push({
+                                symbol,
+                                count,
+                                required: MIN_KLINES_REQUIRED,
+                                missing: MIN_KLINES_REQUIRED - count
+                            });
+                        } else {
+                            symbolsOK++;
+                        }
+                    } catch (err) {
+                        symbolsWithIssues.push({
+                            symbol,
+                            error: err.message
+                        });
+                    }
+                }
             }
+
+            // 3. Determina stato complessivo
+            const hasDataIssues = symbolsWithIssues.length > 0;
+            const isHealthy = serviceWorking && !hasDataIssues;
+            const avgKlines = symbols.length > 0 ? Math.floor(totalKlines / symbols.length) : 0;
+
+            // 4. Costruisci messaggio dettagliato
+            let message = '';
+            if (isHealthy) {
+                message = `Servizio attivo (${klinesLastHour} klines/ora) - Dati OK (${symbolsOK}/${symbols.length} simboli, media: ${avgKlines} klines)`;
+            } else {
+                const parts = [];
+                if (!serviceWorking) {
+                    parts.push(`Servizio inattivo (${klinesLastHour} klines/ora)`);
+                }
+                if (hasDataIssues) {
+                    parts.push(`${symbolsWithIssues.length} simboli con < ${MIN_KLINES_REQUIRED} klines`);
+                }
+                message = parts.join(' - ');
+            }
+
+            return {
+                healthy: isHealthy,
+                working: serviceWorking,
+                klinesLastHour,
+                minRequired: MIN_KLINES_REQUIRED,
+                symbolsChecked: symbols.length,
+                symbolsOK,
+                symbolsWithIssues: symbolsWithIssues.length,
+                avgKlinesPerSymbol: avgKlines,
+                details: symbolsWithIssues.slice(0, 10), // Primi 10 per non appesantire
+                message
+            };
+        } catch (error) {
+            return {
+                healthy: false,
+                working: false,
+                error: error.message,
+                message: 'Errore verifica aggregatore e klines'
+            };
         }
     }
 
@@ -298,70 +390,6 @@ class HealthCheckService {
         }
     }
 
-    /**
-     * ✅ CONTROLLO 1: Verifica che tutti i simboli abbiano almeno 50 klines
-     */
-    async checkKlinesCount() {
-        try {
-            const SYMBOL_TO_PAIR = require('../routes/cryptoRoutes').SYMBOL_TO_PAIR || {};
-            const MIN_KLINES_REQUIRED = 50;
-            const KLINE_INTERVAL = '15m';
-
-            const symbols = Object.keys(SYMBOL_TO_PAIR);
-            const symbolsWithIssues = [];
-            let totalKlines = 0;
-            let symbolsOK = 0;
-
-            for (const symbol of symbols) {
-                try {
-                    const result = await dbGet(
-                        `SELECT COUNT(*) as count FROM klines WHERE symbol = $1 AND interval = $2`,
-                        [symbol, KLINE_INTERVAL]
-                    );
-                    const count = parseInt(result?.count || 0);
-                    totalKlines += count;
-
-                    if (count < MIN_KLINES_REQUIRED) {
-                        symbolsWithIssues.push({
-                            symbol,
-                            count,
-                            required: MIN_KLINES_REQUIRED,
-                            missing: MIN_KLINES_REQUIRED - count
-                        });
-                    } else {
-                        symbolsOK++;
-                    }
-                } catch (error) {
-                    symbolsWithIssues.push({
-                        symbol,
-                        error: error.message
-                    });
-                }
-            }
-
-            const isHealthy = symbolsWithIssues.length === 0;
-            const avgKlines = symbols.length > 0 ? Math.floor(totalKlines / symbols.length) : 0;
-
-            return {
-                healthy: isHealthy,
-                minRequired: MIN_KLINES_REQUIRED,
-                symbolsChecked: symbols.length,
-                symbolsOK,
-                symbolsWithIssues: symbolsWithIssues.length,
-                avgKlinesPerSymbol: avgKlines,
-                details: symbolsWithIssues.slice(0, 10), // Primi 10 per non appesantire
-                message: isHealthy
-                    ? `Tutti i simboli hanno almeno ${MIN_KLINES_REQUIRED} klines (media: ${avgKlines})`
-                    : `${symbolsWithIssues.length} simboli con klines insufficienti (< ${MIN_KLINES_REQUIRED})`
-            };
-        } catch (error) {
-            return {
-                healthy: false,
-                error: error.message,
-                message: 'Errore verifica conteggio klines'
-            };
-        }
-    }
 
     /**
      * ✅ CONTROLLO 2: Verifica che tutti i simboli abbiano almeno 50 price_history
@@ -638,10 +666,7 @@ class HealthCheckService {
         console.log(`   • WebSocket: ${status.websocket.healthy ? '✅' : '❌'} ${status.websocket.message}`);
         console.log(`   • Aggregatore: ${status.aggregator.healthy ? '✅' : '❌'} ${status.aggregator.message}`);
         console.log(`   • Backup: ${status.backup.healthy ? '✅' : '⚠️ '} ${status.backup.message}`);
-        // ✅ NUOVI CONTROLLI DATI
-        if (status.dataKlines) {
-            console.log(`   • Klines Count: ${status.dataKlines.healthy ? '✅' : '❌'} ${status.dataKlines.message}`);
-        }
+        // ✅ CONTROLLI DATI (Klines unificato in aggregator)
         if (status.dataPriceHistory) {
             console.log(`   • Price History Count: ${status.dataPriceHistory.healthy ? '✅' : '❌'} ${status.dataPriceHistory.message}`);
         }

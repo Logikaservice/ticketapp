@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, CheckCircle, XCircle, Activity, Database, Radio, Layers, HardDrive, BarChart2, TrendingUp } from 'lucide-react';
+import { AlertTriangle, CheckCircle, XCircle, Activity, Database, Radio, Layers, HardDrive, TrendingUp } from 'lucide-react';
 
 // Usa stessa logica di CryptoDashboard per determinare API URL
 const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
@@ -142,12 +142,7 @@ const SystemHealthMonitor = React.memo(({ compact = false }) => {
                     name="Database Backup"
                     status={healthStatus?.backup}
                 />
-                {/* ✅ NUOVI CONTROLLI DATI */}
-                <ServiceStatus
-                    icon={<BarChart2 className="w-5 h-5" />}
-                    name="Klines Count (min 50)"
-                    status={healthStatus?.dataKlines}
-                />
+                {/* ✅ CONTROLLI DATI (Klines unificato in aggregator) */}
                 <ServiceStatus
                     icon={<TrendingUp className="w-5 h-5" />}
                     name="Price History Count (min 50)"
@@ -273,8 +268,7 @@ const SystemHealthDetails = ({ status, onClose }) => {
                 <ServiceStatusCompact name="WebSocket" status={status?.websocket} />
                 <ServiceStatusCompact name="Aggregatore" status={status?.aggregator} />
                 <ServiceStatusCompact name="Backup DB" status={status?.backup} />
-                {/* ✅ NUOVI CONTROLLI DATI */}
-                <ServiceStatusCompact name="Klines Count" status={status?.dataKlines} />
+                {/* ✅ CONTROLLI DATI (Klines unificato in aggregator) */}
                 <ServiceStatusCompact name="Price History" status={status?.dataPriceHistory} />
                 <ServiceStatusCompact name="Gap Temporali" status={status?.dataGaps} />
                 <ServiceStatusCompact name="Prezzi Anomali" status={status?.dataAnomalousPrices} />
