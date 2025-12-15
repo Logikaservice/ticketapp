@@ -563,8 +563,19 @@ router.get('/debug/db', async (req, res) => {
 });
 
 // GET /api/crypto/debug/execute - Esegui comando predefinito (per accesso rapido al database)
+// ✅ Accesso pubblico per AI (con token segreto opzionale)
 router.get('/debug/execute', async (req, res) => {
     try {
+        // ✅ Verifica token segreto opzionale (per sicurezza)
+        const aiToken = process.env.AI_DB_ACCESS_TOKEN;
+        if (aiToken && req.query.token !== aiToken) {
+            // Se il token è configurato ma non fornito, richiedilo
+            // Altrimenti permette accesso senza token (per sviluppo)
+            if (aiToken) {
+                return res.status(401).json({ error: 'Token richiesto per accesso AI' });
+            }
+        }
+        
         const { command } = req.query;
         
         const commands = {
@@ -642,8 +653,19 @@ router.get('/debug/execute', async (req, res) => {
 });
 
 // POST /api/crypto/debug/update - Modifica valori nel database (solo per Total Balance per ora)
+// ✅ Accesso pubblico per AI (con token segreto opzionale)
 router.post('/debug/update', async (req, res) => {
     try {
+        // ✅ Verifica token segreto opzionale (per sicurezza)
+        const aiToken = process.env.AI_DB_ACCESS_TOKEN;
+        if (aiToken && req.body.token !== aiToken && req.query.token !== aiToken) {
+            // Se il token è configurato ma non fornito, richiedilo
+            // Altrimenti permette accesso senza token (per sviluppo)
+            if (aiToken) {
+                return res.status(401).json({ error: 'Token richiesto per accesso AI' });
+            }
+        }
+        
         const { field, value } = req.body;
         
         // ✅ SICUREZZA: Solo campi permessi
