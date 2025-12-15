@@ -575,9 +575,9 @@ router.get('/debug/execute', async (req, res) => {
                 return res.status(401).json({ error: 'Token richiesto per accesso AI' });
             }
         }
-        
+
         const { command } = req.query;
-        
+
         const commands = {
             'total-balance': async () => {
                 const result = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'");
@@ -636,14 +636,14 @@ router.get('/debug/execute', async (req, res) => {
                 };
             }
         };
-        
+
         if (!command || !commands[command]) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 error: 'Command not found',
                 availableCommands: Object.keys(commands)
             });
         }
-        
+
         const result = await commands[command]();
         res.json({ success: true, command, data: result, timestamp: new Date().toISOString() });
     } catch (err) {
@@ -665,37 +665,37 @@ router.post('/debug/update', async (req, res) => {
                 return res.status(401).json({ error: 'Token richiesto per accesso AI' });
             }
         }
-        
+
         const { field, value } = req.body;
-        
+
         // ✅ SICUREZZA: Solo campi permessi
         const allowedFields = {
             'total_balance': 'general_settings'
         };
-        
+
         if (!field || !allowedFields[field]) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 error: 'Field not allowed or missing',
                 allowedFields: Object.keys(allowedFields)
             });
         }
-        
+
         const table = allowedFields[field];
         const oldValue = await dbGet(`SELECT setting_value FROM ${table} WHERE setting_key = $1`, [field]);
-        
+
         await dbRun(
             `INSERT INTO ${table} (setting_key, setting_value, updated_at)
              VALUES ($1, $2, NOW())
              ON CONFLICT (setting_key) DO UPDATE SET setting_value = $2, updated_at = NOW()`,
             [field, value.toString()]
         );
-        
+
         const newValue = await dbGet(`SELECT setting_value FROM ${table} WHERE setting_key = $1`, [field]);
-        
+
         console.log(`✅ [DEBUG-UPDATE] ${field}: ${oldValue?.setting_value || 'null'} → ${newValue?.setting_value}`);
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             field,
             oldValue: oldValue?.setting_value || null,
             newValue: newValue?.setting_value,
@@ -715,12 +715,12 @@ router.get('/general-settings', async (req, res) => {
         settings.forEach(s => {
             settingsObj[s.setting_key] = s.setting_value;
         });
-        
+
         // ✅ DEBUG: Log per verificare cosa viene restituito
         if (settingsObj.total_balance) {
             console.log(`📊 [GENERAL-SETTINGS] GET - Total Balance: $${parseFloat(settingsObj.total_balance || 0).toFixed(2)} (raw: "${settingsObj.total_balance}")`);
         }
-        
+
         res.json(settingsObj);
     } catch (err) {
         console.error('❌ Error getting general settings:', err.message);
@@ -732,24 +732,24 @@ router.get('/general-settings', async (req, res) => {
 router.put('/general-settings', async (req, res) => {
     try {
         const { totalBalance } = req.body;
-        
+
         if (totalBalance !== undefined) {
             const valueToSave = totalBalance.toString();
             console.log(`💾 [GENERAL-SETTINGS] PUT - Ricevuto totalBalance: ${totalBalance} (tipo: ${typeof totalBalance}), salvo come: "${valueToSave}"`);
-            
+
             await dbRun(
                 `INSERT INTO general_settings (setting_key, setting_value, updated_at)
                  VALUES ('total_balance', $1, NOW())
                  ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1, updated_at = NOW()`,
                 [valueToSave]
             );
-            
+
             // ✅ Verifica che sia stato salvato correttamente
             const verify = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'");
             const savedValue = parseFloat(verify?.setting_value || 0);
             console.log(`✅ [GENERAL-SETTINGS] Total Balance salvato: $${savedValue.toFixed(2)} (verificato nel DB)`);
         }
-        
+
         res.json({ success: true });
     } catch (err) {
         console.error('❌ Error updating general settings:', err.message);
@@ -2421,6 +2421,93 @@ const detectEarlyEntrySignal = (prices, params = {}) => {
             ready: williamsR !== null && williamsR > -30 && rsi !== null && rsi > 65
         }
     };
+};
+
+/**
+ * Genera analisi SWOT (Strengths, Weaknesses, Opportunities, Threats)
+ * basata su dati tecnici e di mercato
+ */
+const generateSWOT = (signal, trend1h, trend4h, volume24h, rsi, marketRegime, symbol) => {
+    const swot = {
+        strengths: [],
+        weaknesses: [],
+        opportunities: [],
+        threats: []
+    };
+
+    if (!signal) return swot;
+
+    const strength = signal.strength || 0;
+    const direction = signal.direction || 'NEUTRAL';
+
+    // --- STRENGTHS (Punti di Forza) ---
+    if (strength >= 75) {
+        swot.strengths.push(`Forza del segnale molto alta (${strength}/100)`);
+    } else if (strength >= 60) {
+        swot.strengths.push(`Forza del segnale buona (${strength}/100)`);
+    }
+
+    if (trend1h === trend4h && trend1h !== 'neutral') {
+        const trendDir = trend1h === 'bullish' ? 'rialzista' : 'ribassista';
+        swot.strengths.push(`Trend allineato ${trendDir} su 1h e 4h`);
+    }
+
+    if (volume24h > 50000000) { // > 50M
+        swot.strengths.push("Alta liquidità (Volume > 50M)");
+    } else if (volume24h > 10000000) { // > 10M
+        swot.strengths.push("Buona liquidità (Volume > 10M)");
+    }
+
+    // --- WEAKNESSES (Debolezze) ---
+    if (strength < 50) {
+        swot.weaknesses.push(`Segnale debole (${strength}/100)`);
+    }
+
+    if (trend1h !== trend4h && trend1h !== 'neutral' && trend4h !== 'neutral') {
+        swot.weaknesses.push("Conflitto di trend tra breve (1h) e medio (4h) termine");
+    }
+
+    if (volume24h < 500000) {
+        swot.weaknesses.push("Volume basso (< 500k), rischio spread e slippage");
+    }
+
+    // --- OPPORTUNITIES (Opportunità) ---
+    if (direction === 'LONG' && rsi !== null) {
+        if (rsi < 40 && rsi > 30) {
+            swot.opportunities.push("RSI in zona favorevole per ingresso (Pullback)");
+        } else if (rsi <= 30) {
+            swot.opportunities.push("RSI Ipervenduto: potenziale rimbalzo imminente");
+        }
+    } else if (direction === 'SHORT' && rsi !== null) {
+        if (rsi > 60 && rsi < 70) {
+            swot.opportunities.push("RSI in zona favorevole per short (Rally fading)");
+        } else if (rsi >= 70) {
+            swot.opportunities.push("RSI Ipercomprato: potenziale correzione imminente");
+        }
+    }
+
+    if (trend4h === 'bullish' && trend1h === 'bearish') {
+        swot.opportunities.push("Ritracciamento (1h) in un trend primario rialzista (4h) - 'Dip Buying'");
+    }
+
+    // --- THREATS (Minacce) ---
+    if ((direction === 'LONG' && rsi > 70) || (direction === 'SHORT' && rsi < 30)) {
+        swot.threats.push("Indicatori estesi (RSI estremo) - rischio inversione");
+    }
+
+    if (marketRegime === 'bearish' && direction === 'LONG') {
+        swot.threats.push("Trend generale BTC Ribassista - rischio trascinamento");
+    } else if (marketRegime === 'bullish' && direction === 'SHORT') {
+        swot.threats.push("Trend generale BTC Rialzista - rischio squeeze");
+    }
+
+    // Defaults
+    if (swot.strengths.length === 0) swot.strengths.push("Nessun punto di forza particolare rilevato");
+    if (swot.weaknesses.length === 0) swot.weaknesses.push("Nessuna debolezza critica rilevata");
+    if (swot.opportunities.length === 0) swot.opportunities.push("Attendere setup più chiaro");
+    if (swot.threats.length === 0) swot.threats.push("Monitorare volatilità");
+
+    return swot;
 };
 
 /**
@@ -9352,18 +9439,38 @@ router.get('/bot-analysis', async (req, res) => {
             ? signal.shortSignal.strengthContributions
             : [];
 
+        // ✅ Calcola SWOT Analysis
+        // Usa trend1h, trend4h, volume24h, rsi, signal
+        const btcTrend = trend4h === 'bullish' ? 'bullish' : (trend4h === 'bearish' ? 'bearish' : 'neutral'); // Semplificazione per market regime
+        const swotAnalysis = generateSWOT(
+            { direction: signal.direction, strength: signal.strength },
+            trend1h,
+            trend4h,
+            volume24h,
+            rsi,
+            btcTrend, // Assumiamo trend di BTC simile al trend 4h generale se non abbiamo BTC specifico qui, ma meglio:
+            symbol // Passa symbol per eventuali check specifici
+        );
+
         res.json({
-            currentPrice,
-            rsi: rsi || 0,
+            meta: {
+                timestamp: new Date().toISOString(),
+                symbol: symbol,
+                display_symbol: s.display || symbol.toUpperCase().replace('_', '/'),
+                data_quality: historyForSignal.length >= 100 ? 'high' : (historyForSignal.length >= 50 ? 'medium' : 'low')
+            },
+            currentPrice: Number(currentPrice), // Ensure number
+            rsi: Number(rsi) || 0,
+            swot_analysis: swotAnalysis, // ✅ NEW: SWOT Object
             signal: {
                 direction: signal.direction,
-                strength: signal.strength || 0,
-                confirmations: signal.confirmations || 0,
+                strength: Number(signal.strength) || 0,
+                confirmations: Number(signal.confirmations) || 0,
                 reasons: signal.reasons || [],
                 indicators: signal.indicators || {},
                 // ✅ STRATEGY v2.0: Aggiunti Williams %R e TSI
-                williamsR: signal.williamsR !== undefined ? signal.williamsR : null,
-                tsi: signal.tsi !== undefined ? signal.tsi : null
+                williamsR: signal.williamsR !== undefined ? Number(signal.williamsR) : null,
+                tsi: signal.tsi !== undefined ? Number(signal.tsi) : null
             },
             requirements: {
                 long: {
@@ -11376,20 +11483,32 @@ router.get('/scanner', async (req, res) => {
 
                 // ✅ IMPORTANTE: Restituisci SEMPRE il risultato, anche se NEUTRAL con strength 0
                 // Questo permette di vedere TUTTI i simboli nel Market Scanner per debug
+                // ✅ Calcola SWOT Summary per Scanner
+                const swotScanner = generateSWOT(
+                    { direction: displayDirection, strength: displayStrength },
+                    trend1h,
+                    trend4h,
+                    volume24h,
+                    rsiDeepAnalysis || rsiSimple,
+                    'neutral', // Non abbiamo market regime globale qui ottimizzato, assumiamo neutral
+                    s.symbol
+                );
+
                 return {
                     symbol: s.symbol,
                     display: s.display,
-                    price: currentPrice, // Prezzo corrente aggiornato in tempo reale
-                    volume24h: volume24h || 0, // Volume 24h in USDT
-                    direction: displayDirection, // Usa direzione migliorata per display
-                    strength: displayStrength, // MTF-adjusted strength (0-100) - Mantengo per sort
-                    strength_long: longStrength, // ✅ Valore puro LONG (come in Deep Analysis)
-                    strength_short: shortStrength, // ✅ Valore puro SHORT (come in Deep Analysis)
-                    confirmations: signal?.confirmations || 0,
+                    price: Number(currentPrice), // Ensure number
+                    volume24h: Number(volume24h) || 0, // Ensure number
+                    direction: displayDirection,
+                    strength: Number(displayStrength), // Ensure number
+                    strength_long: Number(longStrength),
+                    strength_short: Number(shortStrength),
+                    confirmations: Number(signal?.confirmations) || 0,
                     reasons: signal?.reasons || ['Nessun segnale'],
-                    rsi: rsiDeepAnalysis !== null ? rsiDeepAnalysis : rsiSimple, // ✅ USA RSI DEEP, fallback a RSI Simple
-                    rsi_deep_analysis: rsiDeepAnalysis !== null ? rsiDeepAnalysis : rsiSimple, // ✅ Stesso valore
-                    hasInsufficientData: hasInsufficientData // ✅ Flag per indicare dati insufficienti
+                    rsi: rsiDeepAnalysis !== null ? Number(rsiDeepAnalysis) : Number(rsiSimple),
+                    rsi_deep_analysis: rsiDeepAnalysis !== null ? Number(rsiDeepAnalysis) : Number(rsiSimple),
+                    hasInsufficientData: hasInsufficientData,
+                    swot: swotScanner // ✅ NEW: Dettagli SWOT nello scanner
                 };
             } catch (err) {
                 console.error(`[SCANNER] Errore completo per ${s.symbol}:`, err.message);
