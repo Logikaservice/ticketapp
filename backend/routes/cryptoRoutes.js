@@ -641,6 +641,50 @@ router.get('/debug/execute', async (req, res) => {
     }
 });
 
+// POST /api/crypto/debug/update - Modifica valori nel database (solo per Total Balance per ora)
+router.post('/debug/update', async (req, res) => {
+    try {
+        const { field, value } = req.body;
+        
+        // ✅ SICUREZZA: Solo campi permessi
+        const allowedFields = {
+            'total_balance': 'general_settings'
+        };
+        
+        if (!field || !allowedFields[field]) {
+            return res.status(400).json({ 
+                error: 'Field not allowed or missing',
+                allowedFields: Object.keys(allowedFields)
+            });
+        }
+        
+        const table = allowedFields[field];
+        const oldValue = await dbGet(`SELECT setting_value FROM ${table} WHERE setting_key = $1`, [field]);
+        
+        await dbRun(
+            `INSERT INTO ${table} (setting_key, setting_value, updated_at)
+             VALUES ($1, $2, NOW())
+             ON CONFLICT (setting_key) DO UPDATE SET setting_value = $2, updated_at = NOW()`,
+            [field, value.toString()]
+        );
+        
+        const newValue = await dbGet(`SELECT setting_value FROM ${table} WHERE setting_key = $1`, [field]);
+        
+        console.log(`✅ [DEBUG-UPDATE] ${field}: ${oldValue?.setting_value || 'null'} → ${newValue?.setting_value}`);
+        
+        res.json({ 
+            success: true, 
+            field,
+            oldValue: oldValue?.setting_value || null,
+            newValue: newValue?.setting_value,
+            timestamp: new Date().toISOString()
+        });
+    } catch (err) {
+        console.error('❌ Error in /debug/update:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /api/crypto/general-settings - Get general settings (Total Balance, etc.)
 router.get('/general-settings', async (req, res) => {
     try {
