@@ -1863,8 +1863,8 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                 )
             }
 
-            {/* Real-time Notifications */}
-            <div className="crypto-notifications-container">
+            {/* Real-time Notifications - DISABLED */}
+            {/* <div className="crypto-notifications-container">
                 {notifications.map(notification => (
                     <CryptoNotification
                         key={notification.id}
@@ -1872,7 +1872,7 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                         onClose={() => removeNotification(notification.id)}
                     />
                 ))}
-            </div>
+            </div> */}
 
             {/* Position Details Modal */}
             {showDetailsModal && selectedPositionDetails && (
