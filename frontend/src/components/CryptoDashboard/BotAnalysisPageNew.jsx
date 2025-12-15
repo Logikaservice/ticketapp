@@ -337,25 +337,25 @@ const BotAnalysisPageNew = () => {
                         {/* ✅ STRATEGY v2.0: Williams %R */}
                         <div className="info-card">
                             <div className="info-label">Williams %R (14 periodi)</div>
-                            <div className={`info-value ${williamsR !== null && williamsR < -70 ? 'oversold' : williamsR !== null && williamsR > -30 ? 'overbought' : ''}`}>
-                                {williamsR !== null ? williamsR.toFixed(2) : 'N/A'}
+                            <div className={`info-value ${williamsR != null && williamsR < -70 ? 'oversold' : williamsR != null && williamsR > -30 ? 'overbought' : ''}`}>
+                                {williamsR?.toFixed(2) ?? 'N/A'}
                             </div>
                             <div className="info-hint">
-                                {williamsR !== null && williamsR < -70 ? 'Oversold (early buy signal) ⚡' :
-                                    williamsR !== null && williamsR > -30 ? 'Overbought (early sell signal) ⚡' :
-                                        williamsR !== null ? 'Neutral' : 'Calcolo...'}
+                                {williamsR != null && williamsR < -70 ? 'Oversold (early buy signal) ⚡' :
+                                    williamsR != null && williamsR > -30 ? 'Overbought (early sell signal) ⚡' :
+                                        williamsR != null ? 'Neutral' : 'Calcolo...'}
                             </div>
                         </div>
                         {/* ✅ STRATEGY v2.0: TSI */}
                         <div className="info-card">
                             <div className="info-label">TSI - True Strength Index</div>
-                            <div className={`info-value ${tsi !== null && tsi < -20 ? 'oversold' : tsi !== null && tsi > 20 ? 'overbought' : ''}`}>
-                                {tsi !== null ? tsi.toFixed(2) : 'N/A'}
+                            <div className={`info-value ${tsi != null && tsi < -20 ? 'oversold' : tsi != null && tsi > 20 ? 'overbought' : ''}`}>
+                                {tsi?.toFixed(2) ?? 'N/A'}
                             </div>
                             <div className="info-hint">
-                                {tsi !== null && tsi < -20 ? 'Bearish momentum slowing ⚡' :
-                                    tsi !== null && tsi > 20 ? 'Bullish momentum slowing ⚡' :
-                                        tsi !== null ? 'Neutral momentum' : 'Calcolo...'}
+                                {tsi != null && tsi < -20 ? 'Bearish momentum slowing ⚡' :
+                                    tsi != null && tsi > 20 ? 'Bullish momentum slowing ⚡' :
+                                        tsi != null ? 'Neutral momentum' : 'Calcolo...'}
                             </div>
                         </div>
                     </div>
