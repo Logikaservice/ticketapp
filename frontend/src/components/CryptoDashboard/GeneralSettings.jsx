@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { Settings, Mail, Volume2, VolumeX, Wallet, Bell, Moon, Sun, RefreshCw, X, BarChart2 } from 'lucide-react';
+import { Settings, Mail, Volume2, VolumeX, Wallet, Moon, Sun, RefreshCw, X, BarChart2 } from 'lucide-react';
 import cryptoSounds from '../../utils/cryptoSounds';
 import './GeneralSettings.css';
 
@@ -14,7 +14,6 @@ const GeneralSettings = ({
         emailNotifications: true,
         soundEnabled: true,
         soundVolume: 30,
-        marketScannerAlerts: true,
         showTradeHistory: true, // Mostra ultimi 10 trade sul grafico
         darkMode: false,
         autoRefreshInterval: 10 // seconds
@@ -213,57 +212,6 @@ const GeneralSettings = ({
                                 </div>
                             </>
                         )}
-                    </div>
-
-                    {/* Market Scanner Alerts */}
-                    <div style={{ marginBottom: '20px' }}>
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            marginBottom: '8px'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Bell size={18} style={{ color: '#f59e0b' }} />
-                                <span style={{ color: '#fff', fontWeight: '500' }}>
-                                    Avvisi Market Scanner
-                                </span>
-                            </div>
-                            <label style={{ position: 'relative', display: 'inline-block', width: '50px', height: '24px' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={settings.marketScannerAlerts}
-                                    onChange={(e) => updateSetting('marketScannerAlerts', e.target.checked)}
-                                    style={{ opacity: 0, width: 0, height: 0 }}
-                                />
-                                <span style={{
-                                    position: 'absolute',
-                                    cursor: 'pointer',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    bottom: 0,
-                                    background: settings.marketScannerAlerts ? '#f59e0b' : '#374151',
-                                    borderRadius: '24px',
-                                    transition: '0.3s'
-                                }}>
-                                    <span style={{
-                                        position: 'absolute',
-                                        content: '',
-                                        height: '18px',
-                                        width: '18px',
-                                        left: settings.marketScannerAlerts ? '28px' : '3px',
-                                        bottom: '3px',
-                                        background: 'white',
-                                        borderRadius: '50%',
-                                        transition: '0.3s'
-                                    }}></span>
-                                </span>
-                            </label>
-                        </div>
-                        <p style={{ margin: 0, fontSize: '0.8rem', color: '#9ca3af', paddingLeft: '26px' }}>
-                            Mostra badge quando rileva opportunità di trading
-                        </p>
                     </div>
 
                     {/* Divider */}
