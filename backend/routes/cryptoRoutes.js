@@ -2471,9 +2471,8 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         // ✅ FIX CRITICO: Verifica che il simbolo sia valido PRIMA di processare
         // Questo previene la creazione di klines per simboli non validi
         if (!isValidSymbol(symbol)) {
-            if (Math.random() < 0.01) { // Log solo 1% per non spammare
-                console.warn(`🚫 [BOT-CYCLE] Simbolo non valido ignorato: ${symbol} (non in SYMBOL_TO_PAIR)`);
-            }
+            // Log sempre per simboli non validi (per debug)
+            console.warn(`🚫 [BOT-CYCLE] Simbolo non valido BLOCCATO: ${symbol} (non in SYMBOL_TO_PAIR) - NESSUNA kline verrà creata`);
             return; // Non processare simboli non validi
         }
 
@@ -3668,9 +3667,8 @@ const runBotCycle = async () => {
         for (const symbol of commonSymbols) {
             // ✅ FIX CRITICO: Verifica che il simbolo sia valido PRIMA di processare
             if (!isValidSymbol(symbol)) {
-                if (Math.random() < 0.01) {
-                    console.warn(`🚫 [BOT-CYCLE-COMMON] Simbolo non valido ignorato: ${symbol}`);
-                }
+                // Log sempre per simboli non validi (per debug)
+                console.warn(`🚫 [BOT-CYCLE-COMMON] Simbolo non valido BLOCCATO: ${symbol} (non in SYMBOL_TO_PAIR) - NESSUNA kline verrà creata`);
                 continue; // Salta simboli non validi
             }
             
