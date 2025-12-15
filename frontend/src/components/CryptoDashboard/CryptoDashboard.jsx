@@ -908,35 +908,23 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
             }
 
             if (pos.type === 'buy' && pos.status === 'open') {
-                // ✅ FIX CRITICO: Se il prezzo corrente non è disponibile, usa entry_price + P&L
-                // Questo assicura che il Total Balance includa sempre il P&L anche se i prezzi non sono aggiornati
-                let longValue;
+                // ✅ FIX CRITICO: Usa SEMPRE entry_price + P&L per garantire che il P&L sia incluso
+                // Il prezzo corrente potrebbe non essere aggiornato o non riflettere il P&L corretto
+                const entryPrice = parseFloat(pos.entry_price) || 0;
+                const profitLoss = parseFloat(pos.profit_loss) || 0;
+                const investedValue = remainingVolume * entryPrice;
+                const longValue = investedValue + profitLoss; // Valore investito + P&L
                 
-                if (price > 0) {
-                    // Prezzo corrente disponibile: usa quello
-                    longValue = remainingVolume * price;
-                } else {
-                    // Prezzo corrente non disponibile: usa entry_price + P&L calcolato dal backend
-                    const entryPrice = parseFloat(pos.entry_price) || 0;
-                    const profitLoss = parseFloat(pos.profit_loss) || 0;
-                    const investedValue = remainingVolume * entryPrice;
-                    longValue = investedValue + profitLoss; // Valore investito + P&L
-                    
-                    // ✅ DEBUG: Log quando usiamo fallback
-                    if (Math.random() < 0.1) { // Log solo 10% delle volte per non spammare
-                        console.warn(`⚠️ [BALANCE-DEBUG] Prezzo mancante per LONG ${pos.symbol} (${pos.ticket_id}), uso entry_price + P&L:`, {
-                            symbol: pos.symbol,
-                            entryPrice,
-                            investedValue,
-                            profitLoss,
-                            longValue,
-                            allSymbolPrices: allSymbolPrices[pos.symbol],
-                            currentSymbol: currentSymbol,
-                            currentPrice: currentPrice,
-                            dbPrice: parseFloat(pos.current_price) || 0
-                        });
-                    }
-                }
+                // ✅ DEBUG: Log dettagliato per ogni posizione
+                console.log(`[BALANCE-DEBUG] LONG ${pos.symbol} (${pos.ticket_id}):`, {
+                    entryPrice: entryPrice.toFixed(6),
+                    remainingVolume: remainingVolume.toFixed(8),
+                    investedValue: investedValue.toFixed(2),
+                    profitLoss: profitLoss.toFixed(2),
+                    longValue: longValue.toFixed(2),
+                    currentPriceFromDB: parseFloat(pos.current_price) || 0,
+                    priceFromCache: price
+                });
 
                 // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT
                 if (longValue > MAX_REASONABLE_BALANCE) {
@@ -963,39 +951,23 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                 }
 
                 if (entryPrice > 0) {
-                    let shortLiability;
+                    // ✅ FIX CRITICO: Usa SEMPRE entry_price - P&L per garantire che il P&L sia incluso
+                    // Per SHORT: P&L positivo = prezzo sceso = debito diminuisce
+                    // P&L negativo = prezzo salito = debito aumenta
+                    const profitLoss = parseFloat(pos.profit_loss) || 0;
+                    const baseDebt = remainingVolume * entryPrice;
+                    const shortLiability = baseDebt - profitLoss; // Sottrai P&L perché se positivo riduce il debito
                     
-                    if (price > 0) {
-                        // Prezzo corrente disponibile: usa quello (include già P&L)
-                        // Se prezzo scende → shortLiability diminuisce (guadagno)
-                        // Se prezzo sale → shortLiability aumenta (perdita)
-                        shortLiability = remainingVolume * price;
-                    } else {
-                        // Prezzo corrente non disponibile: usa entry_price - P&L
-                        // P&L SHORT = (entry_price - current_price) * volume
-                        // Se P&L positivo (prezzo sceso) → shortLiability = entry_price * volume - P&L
-                        // Se P&L negativo (prezzo salito) → shortLiability = entry_price * volume + |P&L|
-                        const profitLoss = parseFloat(pos.profit_loss) || 0;
-                        const baseDebt = remainingVolume * entryPrice;
-                        // Per SHORT: P&L positivo = prezzo sceso = debito diminuisce
-                        // P&L negativo = prezzo salito = debito aumenta
-                        shortLiability = baseDebt - profitLoss; // Sottrai P&L perché se positivo riduce il debito
-                        
-                        // ✅ DEBUG: Log quando usiamo fallback
-                        if (Math.random() < 0.1) { // Log solo 10% delle volte
-                            console.warn(`⚠️ [BALANCE-DEBUG] Prezzo mancante per SHORT ${pos.symbol} (${pos.ticket_id}), uso entry_price - P&L:`, {
-                                symbol: pos.symbol,
-                                entryPrice,
-                                baseDebt,
-                                profitLoss,
-                                shortLiability,
-                                allSymbolPrices: allSymbolPrices[pos.symbol],
-                                currentSymbol: currentSymbol,
-                                currentPrice: currentPrice,
-                                dbPrice: parseFloat(pos.current_price) || 0
-                            });
-                        }
-                    }
+                    // ✅ DEBUG: Log dettagliato per ogni posizione
+                    console.log(`[BALANCE-DEBUG] SHORT ${pos.symbol} (${pos.ticket_id}):`, {
+                        entryPrice: entryPrice.toFixed(6),
+                        remainingVolume: remainingVolume.toFixed(8),
+                        baseDebt: baseDebt.toFixed(2),
+                        profitLoss: profitLoss.toFixed(2),
+                        shortLiability: shortLiability.toFixed(2),
+                        currentPriceFromDB: parseFloat(pos.current_price) || 0,
+                        priceFromCache: price
+                    });
                     
                     // ✅ FIX: Valida che il valore calcolato sia ragionevole
                     if (shortLiability > MAX_REASONABLE_BALANCE || shortLiability < 0) {
