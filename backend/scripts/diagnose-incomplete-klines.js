@@ -22,7 +22,7 @@ const SYMBOL_TO_PAIR = {
     'binance_coin': 'BNBEUR', 'bnb': 'BNBUSDT', 'binance_coin_eur': 'BNBEUR', 'bnbusdt': 'BNBUSDT',
     'chainlink': 'LINKEUR', 'link': 'LINKUSDT', 'chainlink_usdt': 'LINKUSDT', 'linkusdt': 'LINKUSDT',
     'polygon': 'POLEUR', 'matic': 'MATICEUR', 'pol': 'POLUSDT', 'pol_polygon': 'POLUSDT', 'pol_polygon_eur': 'POLEUR', 'maticusdt': 'POLUSDT', 'polusdt': 'POLUSDT',
-    'uniswap': 'UNIEUR', 'uni': 'UNIUSDT', 'uniswap_eur': 'UNIEUR', 'uniusdt': 'UNIUSDT',
+    'uniswap': 'UNIUSDT', 'uni': 'UNIUSDT', 'uniusdt': 'UNIUSDT',
     'aave': 'AAVEUSDT', 'aaveusdt': 'AAVEUSDT',
     'curve': 'CRVUSDT', 'crv': 'CRVUSDT', 'crvusdt': 'CRVUSDT',
     'the_sandbox': 'SANDUSDT', 'sand': 'SANDUSDT', 'sandusdt': 'SANDUSDT', 'thesandbox': 'SANDUSDT',
