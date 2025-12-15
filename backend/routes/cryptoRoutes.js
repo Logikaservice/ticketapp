@@ -500,6 +500,30 @@ router.get('/history', async (req, res) => {
 
 // ✅ POSTGRESQL ONLY: dbGet e dbRun sono già definiti sopra
 
+
+// ✅ TEMPORARY: Public endpoint to check balance (Requested by User for verification)
+router.get('/public-balance-check', async (req, res) => {
+    try {
+        const portfolio = await dbGet("SELECT * FROM portfolio WHERE id = 1");
+        if (portfolio) {
+            res.json({
+                success: true,
+                message: "Real Database Balance",
+                data: {
+                    balance_usd: parseFloat(portfolio.balance_usd),
+                    balance_eur: parseFloat(portfolio.balance_eur),
+                    total_equity: parseFloat(portfolio.total_equity),
+                    updated_at: portfolio.updated_at
+                }
+            });
+        } else {
+            res.status(404).json({ error: 'Portfolio not found' });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /api/crypto/debug/db - Quick database check (for debugging)
 router.get('/debug/db', async (req, res) => {
     try {
