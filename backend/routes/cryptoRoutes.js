@@ -2468,6 +2468,15 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             return; // Non processare "global"
         }
 
+        // ✅ FIX CRITICO: Verifica che il simbolo sia valido PRIMA di processare
+        // Questo previene la creazione di klines per simboli non validi
+        if (!isValidSymbol(symbol)) {
+            if (Math.random() < 0.01) { // Log solo 1% per non spammare
+                console.warn(`🚫 [BOT-CYCLE] Simbolo non valido ignorato: ${symbol} (non in SYMBOL_TO_PAIR)`);
+            }
+            return; // Non processare simboli non validi
+        }
+
         // ✅ FIX: Bot attivo di default se non c'è entry nel database
         const isBotActive = botSettings ? (Number(botSettings.is_active) === 1) : true;
 
