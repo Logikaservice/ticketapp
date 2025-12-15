@@ -136,19 +136,49 @@ class KlinesAggregatorService {
                 let validSymbols;
                 if (isValidSymbol) {
                     console.log(`   • Filtro ${symbols.length} simboli con isValidSymbol...`);
-                    validSymbols = symbols.filter(({ symbol }) => isValidSymbol(symbol));
+                    const invalidSymbols = [];
+                    validSymbols = symbols.filter(({ symbol }) => {
+                        const isValid = isValidSymbol(symbol);
+                        if (!isValid && invalidSymbols.length < 10) {
+                            invalidSymbols.push(symbol);
+                        }
+                        return isValid;
+                    });
                     console.log(`   • ${validSymbols.length} simboli validi (${symbols.length - validSymbols.length} filtrati)`);
+                    if (invalidSymbols.length > 0) {
+                        console.log(`   • Esempi simboli filtrati: ${invalidSymbols.slice(0, 5).join(', ')}`);
+                    }
                 } else {
                     console.warn('⚠️  [KLINES-AGGREGATOR] isValidSymbol non disponibile - uso TUTTI i simboli (rischio simboli non validi)');
                     validSymbols = symbols;
                 }
                 
-                let aggregated = 0;
-                for (const { symbol } of validSymbols) {
-                    const success = await this.aggregateKlineForSymbol(symbol);
-                    if (success) aggregated++;
+                if (validSymbols.length === 0) {
+                    console.warn('⚠️  [KLINES-AGGREGATOR] NESSUN simbolo valido dopo filtro - verifica formato simboli nel database');
+                    return;
                 }
-                console.log(`✅ [KLINES-AGGREGATOR] Aggregazione completata: ${aggregated}/${validSymbols.length} simboli`);
+                
+                let aggregated = 0;
+                let failed = 0;
+                for (const { symbol } of validSymbols) {
+                    try {
+                        const success = await this.aggregateKlineForSymbol(symbol);
+                        if (success) {
+                            aggregated++;
+                        } else {
+                            failed++;
+                            if (failed <= 3) {
+                                console.log(`   ⚠️  [KLINES-AGG] Fallito aggregazione per ${symbol} (nessun dato nell'intervallo o simbolo non valido)`);
+                            }
+                        }
+                    } catch (error) {
+                        failed++;
+                        if (failed <= 3) {
+                            console.error(`   ❌ [KLINES-AGG] Errore aggregazione ${symbol}:`, error.message);
+                        }
+                    }
+                }
+                console.log(`✅ [KLINES-AGGREGATOR] Aggregazione completata: ${aggregated}/${validSymbols.length} simboli (${failed} falliti)`);
                 return;
             }
 
@@ -266,8 +296,10 @@ class KlinesAggregatorService {
             }
             
             if (!isValid) {
-                // ✅ DEBUG: Log sempre per simboli non validi (per debug)
-                console.warn(`🚫 [KLINES-AGG] Simbolo non valido BLOCCATO: ${kline.symbol} (non in SYMBOL_TO_PAIR) - NESSUNA kline verrà creata`);
+                // ✅ DEBUG: Log solo occasionalmente per non spammare
+                if (Math.random() < 0.1) {
+                    console.warn(`🚫 [KLINES-AGG] Simbolo non valido BLOCCATO: ${kline.symbol} (non in SYMBOL_TO_PAIR) - NESSUNA kline verrà creata`);
+                }
                 return false;
             }
             
