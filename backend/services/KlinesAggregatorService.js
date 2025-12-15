@@ -202,6 +202,28 @@ class KlinesAggregatorService {
                 return false;
             }
 
+            // ✅ FIX CRITICO: Verifica che il simbolo sia valido PRIMA di inserire
+            // Carica SYMBOL_TO_PAIR da cryptoRoutes
+            let isValid = false;
+            try {
+                const cryptoRoutes = require('../routes/cryptoRoutes');
+                if (cryptoRoutes.isValidSymbol && typeof cryptoRoutes.isValidSymbol === 'function') {
+                    isValid = cryptoRoutes.isValidSymbol(kline.symbol);
+                } else {
+                    // Fallback: verifica direttamente nella mappa
+                    const SYMBOL_TO_PAIR = cryptoRoutes.SYMBOL_TO_PAIR || {};
+                    isValid = SYMBOL_TO_PAIR.hasOwnProperty(kline.symbol?.toLowerCase()?.trim());
+                }
+            } catch (error) {
+                console.warn(`⚠️  [KLINES-AGG] Errore verifica simbolo ${kline.symbol}:`, error.message);
+                isValid = false;
+            }
+            
+            if (!isValid) {
+                console.warn(`🚫 [KLINES-AGG] Simbolo non valido ignorato: ${kline.symbol} (non in SYMBOL_TO_PAIR)`);
+                return false;
+            }
+            
             // Salva nel database
             await dbRun(
                 `INSERT INTO klines (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time)

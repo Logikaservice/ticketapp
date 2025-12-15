@@ -549,6 +549,12 @@ class DataIntegrityService {
                 throw new Error('Nessuna kline scaricata da Binance');
             }
             
+            // ✅ FIX CRITICO: Verifica che il simbolo sia valido PRIMA di inserire
+            if (!SYMBOL_TO_PAIR || !SYMBOL_TO_PAIR[symbol]) {
+                log.warn(`${symbol}: Simbolo non valido (non in SYMBOL_TO_PAIR) - skip inserimento klines`);
+                return 0;
+            }
+            
             // Salva nel database (upsert)
             let saved = 0;
             for (const kline of allKlines) {
@@ -607,6 +613,12 @@ class DataIntegrityService {
             
             if (klines.length === 0) {
                 return;
+            }
+            
+            // ✅ FIX CRITICO: Verifica che il simbolo sia valido PRIMA di inserire
+            if (!SYMBOL_TO_PAIR || !SYMBOL_TO_PAIR[symbol]) {
+                log.warn(`${symbol}: Simbolo non valido (non in SYMBOL_TO_PAIR) - skip sync price_history`);
+                return 0;
             }
             
             // Inserisci/aggiorna price_history con prezzi da klines

@@ -1365,6 +1365,23 @@ const SYMBOL_TO_PAIR = {
     'flow': 'FLOWUSDT', 'flowusdt': 'FLOWUSDT'
 };
 
+// ✅ HELPER: Verifica se un simbolo è valido (presente nella mappa)
+const isValidSymbol = (symbol) => {
+    if (!symbol) return false;
+    const normalized = symbol.toLowerCase().trim();
+    return SYMBOL_TO_PAIR.hasOwnProperty(normalized);
+};
+
+// ✅ HELPER: Ottieni lista simboli validi
+const getValidSymbols = () => {
+    return Object.keys(SYMBOL_TO_PAIR);
+};
+
+// ✅ HELPER: Filtra array di simboli mantenendo solo quelli validi
+const filterValidSymbols = (symbols) => {
+    return symbols.filter(s => isValidSymbol(s));
+};
+
 // ✅ CORRELATION GROUPS - Strategia Ibrida per Diversificazione Intelligente (SENZA DUPLICATI)
 // Raggruppa crypto correlate per evitare posizioni ridondanti durante crash
 const CORRELATION_GROUPS = {
@@ -1473,24 +1490,11 @@ const BackupService = require('../services/BackupService');
 let wsService = null;
 
 // Carica lista simboli validi per filtrare price_history
-let VALID_SYMBOLS_SET = new Set();
-try {
-    const fs = require('fs');
-    const path = require('path');
-    const tradingBotPath = path.join(__dirname, '../services/TradingBot.js');
-    const content = fs.readFileSync(tradingBotPath, 'utf8');
-    const symbolToPairMatch = content.match(/const SYMBOL_TO_PAIR = \{([\s\S]*?)\};/);
-    if (symbolToPairMatch) {
-        const symbolMatches = symbolToPairMatch[1].match(/'([^']+)':/g);
-        if (symbolMatches) {
-            VALID_SYMBOLS_SET = new Set(symbolMatches.map(match => match.match(/'([^']+)':/)[1]));
-            VALID_SYMBOLS_SET.delete('uniswap_eur'); // Rimuovi uniswap_eur (non disponibile)
-            console.log(`✅ [WEBSOCKET] Caricati ${VALID_SYMBOLS_SET.size} simboli validi per filtrare price_history`);
-        }
-    }
-} catch (error) {
-    console.error('⚠️  [WEBSOCKET] Errore caricamento simboli validi:', error.message);
-}
+// ✅ FIX: VALID_SYMBOLS_SET ora usa la mappa da cryptoRoutes.js (fonte di verità)
+// Mantenuto per backward compatibility, ma ora usa isValidSymbol() come helper principale
+let VALID_SYMBOLS_SET = new Set(Object.keys(SYMBOL_TO_PAIR));
+VALID_SYMBOLS_SET.delete('uniswap_eur'); // Rimuovi uniswap_eur (non disponibile su Binance)
+console.log(`✅ [WEBSOCKET] Caricati ${VALID_SYMBOLS_SET.size} simboli validi da SYMBOL_TO_PAIR`);
 
 // Inizializza WebSocket service con callback per aggiornare cache
 const initWebSocketService = () => {
@@ -1508,7 +1512,8 @@ const initWebSocketService = () => {
                 setImmediate(async () => {
                     try {
                         // Filtra solo simboli validi
-                        if (VALID_SYMBOLS_SET.size > 0 && !VALID_SYMBOLS_SET.has(symbol)) {
+                        // ✅ FIX: Usa helper centralizzato invece di VALID_SYMBOLS_SET
+                        if (!isValidSymbol(symbol)) {
                             // Simbolo non valido - non salvare in price_history
                             // ✅ DEBUG: Log solo occasionalmente per vedere quali simboli vengono filtrati
                             if (Math.random() < 0.01) {
@@ -1570,7 +1575,8 @@ const initWebSocketService = () => {
             // ✅ NUOVO: Callback per volumi 24h
             (symbol, volume24h) => {
                 // ✅ FIX: Filtra solo simboli validi per evitare inserimenti non validi
-                if (VALID_SYMBOLS_SET.size > 0 && !VALID_SYMBOLS_SET.has(symbol)) {
+                // ✅ FIX: Usa helper centralizzato invece di VALID_SYMBOLS_SET
+                if (!isValidSymbol(symbol)) {
                     // Simbolo non valido - non salvare in symbol_volumes_24h
                     // ✅ DEBUG: Log solo occasionalmente per vedere quali simboli vengono filtrati
                     if (Math.random() < 0.01) {
@@ -2143,7 +2149,8 @@ const get24hVolume = async (symbol) => {
 
         if (volumeQuote > 0) {
             // ✅ FIX: Filtra solo simboli validi
-            if (VALID_SYMBOLS_SET.size > 0 && !VALID_SYMBOLS_SET.has(symbol)) {
+            // ✅ FIX: Usa helper centralizzato invece di VALID_SYMBOLS_SET
+            if (!isValidSymbol(symbol)) {
                 // Simbolo non valido - non salvare in symbol_volumes_24h
                 return volumeQuote;
             }
@@ -2459,9 +2466,11 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
         // ✅ REFACTORING: Manteniamo price_history per backward compatibility (dashboard, RSI legacy)
         // ma non lo usiamo più per i segnali del bot
-        // ✅ FIX: Inserisci solo se simbolo è valido
-        if (VALID_SYMBOLS_SET.size === 0 || VALID_SYMBOLS_SET.has(symbol)) {
+        // ✅ FIX CRITICO: Inserisci solo se simbolo è valido (usa helper centralizzato)
+        if (isValidSymbol(symbol)) {
             await dbRun("INSERT INTO price_history (symbol, price) VALUES ($1, $2)", [symbol, currentPrice]);
+        } else {
+            console.warn(`🚫 [PRICE-HISTORY] Simbolo non valido ignorato: ${symbol} (non in SYMBOL_TO_PAIR)`);
         }
 
         // Carica price_history per RSI legacy (backward compatibility)
