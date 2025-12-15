@@ -13,7 +13,9 @@
 
 const { dbGet, dbAll, dbRun } = require('../crypto_db');
 const https = require('https');
-const SYMBOL_TO_PAIR = require('../routes/cryptoRoutes').SYMBOL_TO_PAIR || {};
+// ✅ FIX: Carica SYMBOL_TO_PAIR da TradingBot.js (fonte di verità) invece di cryptoRoutes.js
+const TradingBot = require('./TradingBot');
+const SYMBOL_TO_PAIR = TradingBot.SYMBOL_TO_PAIR || {};
 
 // Helper per HTTPS requests (simile a PriceService)
 function httpsGet(url, timeout = 10000) {
