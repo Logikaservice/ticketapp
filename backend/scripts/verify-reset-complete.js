@@ -165,8 +165,13 @@ async function verifyResetComplete() {
         console.log('📋 RIEPILOGO FINALE');
         console.log('='.repeat(60));
         
+        // Ricalcola holdingsCount per il riepilogo
+        const portfolioForSummary = await dbGet("SELECT * FROM portfolio WHERE id = 1");
+        const holdingsForSummary = portfolioForSummary ? JSON.parse(portfolioForSummary.holdings || '{}') : {};
+        const holdingsCountForSummary = Object.keys(holdingsForSummary).filter(k => holdingsForSummary[k] > 0).length;
+        
         const issues = [];
-        if (holdingsCount > 0) issues.push(`Holdings non azzerate (${holdingsCount} simboli)`);
+        if (holdingsCountForSummary > 0) issues.push(`Holdings non azzerate (${holdingsCountForSummary} simboli)`);
         if (openPositions.length > 0) issues.push(`${openPositions.length} posizioni aperte`);
         if (closedCount > 0) issues.push(`${closedCount} posizioni chiuse`);
         if (tradesCount > 0) issues.push(`${tradesCount} trade history`);
