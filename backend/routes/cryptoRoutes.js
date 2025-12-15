@@ -1539,6 +1539,15 @@ const initWebSocketService = () => {
                                     [symbol]
                                 );
 
+                                // ✅ FIX CRITICO: Verifica che il simbolo sia valido prima di salvare
+                                if (!isValidSymbol(symbol)) {
+                                    // Simbolo non valido - non salvare in price_history
+                                    if (Math.random() < 0.01) {
+                                        console.warn(`🚫 [WEBSOCKET-PRICE-FILTER] Simbolo non valido filtrato: ${symbol} (non in SYMBOL_TO_PAIR)`);
+                                    }
+                                    return;
+                                }
+
                                 // Salva solo se prezzo è cambiato (> 0.1% di differenza) o non c'è prezzo precedente
                                 const shouldSave = !lastPrice || Math.abs(price - parseFloat(lastPrice.price)) / parseFloat(lastPrice.price) > 0.001;
 
