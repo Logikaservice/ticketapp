@@ -13,9 +13,40 @@
 
 const { dbGet, dbAll, dbRun } = require('../crypto_db');
 const https = require('https');
-// ✅ FIX: Carica SYMBOL_TO_PAIR da TradingBot.js (fonte di verità) invece di cryptoRoutes.js
-const TradingBot = require('./TradingBot');
-const SYMBOL_TO_PAIR = TradingBot.SYMBOL_TO_PAIR || {};
+const fs = require('fs');
+const path = require('path');
+
+// ✅ FIX: Carica SYMBOL_TO_PAIR da TradingBot.js (fonte di verità) leggendo direttamente il file
+// Usa lo stesso approccio di KlinesAggregatorService per evitare problemi di circular dependency
+let SYMBOL_TO_PAIR = {};
+try {
+    const TradingBot = require('./TradingBot');
+    if (TradingBot.SYMBOL_TO_PAIR && Object.keys(TradingBot.SYMBOL_TO_PAIR).length > 0) {
+        SYMBOL_TO_PAIR = TradingBot.SYMBOL_TO_PAIR;
+        console.log(`✅ [DATA-INTEGRITY] Caricati ${Object.keys(SYMBOL_TO_PAIR).length} simboli da TradingBot.js`);
+    } else {
+        // Fallback: leggi direttamente dal file (come KlinesAggregatorService)
+        const tradingBotPath = path.join(__dirname, 'TradingBot.js');
+        const content = fs.readFileSync(tradingBotPath, 'utf8');
+        const symbolToPairMatch = content.match(/const SYMBOL_TO_PAIR = \{([\s\S]*?)\};/);
+        if (symbolToPairMatch) {
+            const symbolMatches = symbolToPairMatch[1].match(/'([^']+)':/g);
+            if (symbolMatches) {
+                symbolMatches.forEach(match => {
+                    const symbol = match.match(/'([^']+)':/)[1];
+                    // Estrai il trading pair (semplificato - cerca il valore dopo i due punti)
+                    const pairMatch = content.match(new RegExp(`'${symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}':\\s*'([^']+)'`));
+                    if (pairMatch) {
+                        SYMBOL_TO_PAIR[symbol] = pairMatch[1];
+                    }
+                });
+                console.log(`✅ [DATA-INTEGRITY] Caricati ${Object.keys(SYMBOL_TO_PAIR).length} simboli da TradingBot.js (fallback file reading)`);
+            }
+        }
+    }
+} catch (error) {
+    console.error('⚠️  [DATA-INTEGRITY] Errore caricamento SYMBOL_TO_PAIR:', error.message);
+}
 
 // Helper per HTTPS requests (simile a PriceService)
 function httpsGet(url, timeout = 10000) {
