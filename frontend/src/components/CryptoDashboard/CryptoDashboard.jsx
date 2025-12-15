@@ -1014,47 +1014,44 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
         return sum + invested;
     }, 0);
     
-    // ✅ TOTAL BALANCE (EQUITY) = Cash + Valore Posizioni Aperte
-    // - Cash (validatedBalance): denaro disponibile dopo investimenti
-    // - totalLongValue: valore attuale posizioni LONG (entry_price * volume + P&L)
-    // - totalShortLiability: debito SHORT (entry_price * volume - P&L, quanto devi restituire ORA)
-    // 
-    // ✅ FIX ALTERNATIVO: Se il cash è incoerente, calcola Total Balance come:
-    // Total Balance = Capitale Iniziale + P&L Totale Posizioni Aperte
-    // Questo evita problemi con cash che potrebbe essere sbagliato per perdite da posizioni chiuse
-    const totalBalanceFromCash = validatedBalance + totalLongValue - totalShortLiability;
+    // ✅ TOTAL BALANCE (EQUITY) = Capitale Iniziale + P&L Totale Posizioni Aperte
+    // Questo metodo è più stabile perché non dipende dal cash che può essere incoerente
+    // per perdite da posizioni chiuse o altre operazioni.
+    //
+    // Logica:
+    // - Capitale Iniziale Stimato = Cash + Totale Investito (se ci sono posizioni aperte)
+    // - P&L Totale = Somma di tutti i profit_loss delle posizioni aperte
+    // - Total Balance = Capitale Iniziale + P&L Totale
+    //
+    // Esempio:
+    // - Capitale iniziale: $1000
+    // - Investito: $300
+    // - Cash: $700
+    // - P&L: +$0.02
+    // - Total Balance = $1000 + $0.02 = $1000.02 ✅
     
-    // Calcola Total Balance alternativo usando capitale iniziale stimato
-    // Se totalInvested > 0, il capitale iniziale stimato = cash + totalInvested
+    // Calcola capitale iniziale stimato
     const estimatedInitialCapital = totalInvested > 0 ? validatedBalance + totalInvested : validatedBalance;
+    
+    // Calcola P&L totale da posizioni aperte
     const totalPnLFromOpenPositions = validOpenPositions.reduce((sum, pos) => {
         return sum + (parseFloat(pos.profit_loss) || 0);
     }, 0);
-    const totalBalanceFromInitial = estimatedInitialCapital + totalPnLFromOpenPositions;
     
-    // Usa il metodo che dà il risultato più ragionevole
-    // Se la differenza è piccola (< $5), usa quello da cash (più preciso)
-    // Altrimenti usa quello da capitale iniziale (più stabile)
-    const difference = Math.abs(totalBalanceFromCash - totalBalanceFromInitial);
-    const totalBalance = difference < 5 ? totalBalanceFromCash : totalBalanceFromInitial;
+    // Total Balance = Capitale Iniziale + P&L Totale
+    const totalBalance = estimatedInitialCapital + totalPnLFromOpenPositions;
     
     // ✅ DEBUG: Log dettagliato del calcolo finale (sempre, per diagnosticare problemi)
     console.log(`[BALANCE-DEBUG] Calcolo Total Balance:`, {
         cash: validatedBalance.toFixed(2),
         totalInvested: totalInvested.toFixed(2),
-        totalLongValue: totalLongValue.toFixed(2),
-        totalShortLiability: totalShortLiability.toFixed(2),
-        totalBalanceFromCash: totalBalanceFromCash.toFixed(2),
         estimatedInitialCapital: estimatedInitialCapital.toFixed(2),
         totalPnLFromOpenPositions: totalPnLFromOpenPositions.toFixed(2),
-        totalBalanceFromInitial: totalBalanceFromInitial.toFixed(2),
         totalBalance: totalBalance.toFixed(2),
-        method: difference < 5 ? 'cash' : 'initial',
+        formula: `${estimatedInitialCapital.toFixed(2)} + ${totalPnLFromOpenPositions.toFixed(2)} = ${totalBalance.toFixed(2)}`,
         openPositionsCount: validOpenPositions.length,
         longPositions: validOpenPositions.filter(p => p.type === 'buy').length,
-        shortPositions: validOpenPositions.filter(p => p.type === 'sell').length,
-        expectedCash: (1000 - totalInvested).toFixed(2), // Assumendo $1000 iniziali
-        cashDifference: (validatedBalance - (1000 - totalInvested)).toFixed(2)
+        shortPositions: validOpenPositions.filter(p => p.type === 'sell').length
     });
     
     // ✅ DEBUG: Verifica se totalLongValue è 0 quando ci sono posizioni LONG
