@@ -92,40 +92,38 @@ if [[ $REPLY =~ ^[Ss]$ ]]; then
     echo "   • Eliminazione da bot_settings..."
     sudo -u postgres psql -d crypto_db -c "
     DELETE FROM bot_settings 
-    WHERE symbol = 'uniswap_eur' AND strategy_name = 'RSI_Strategy';
+    WHERE symbol = 'uniswap_eur';
     "
     
-    # 2. Elimina klines (se presenti)
-    if [ "$KLINES" -gt 0 ]; then
-        echo "   • Eliminazione klines..."
-        sudo -u postgres psql -d crypto_db -c "
-        DELETE FROM klines WHERE symbol = 'uniswap_eur';
-        "
-    fi
+    # 2. Elimina klines (TUTTE, senza condizioni)
+    echo "   • Eliminazione klines (tutti gli intervalli)..."
+    sudo -u postgres psql -d crypto_db -c "
+    DELETE FROM klines WHERE symbol = 'uniswap_eur';
+    "
     
-    # 3. Elimina trades (se presenti)
-    if [ "$TRADES" -gt 0 ]; then
-        echo "   • Eliminazione trades..."
-        sudo -u postgres psql -d crypto_db -c "
-        DELETE FROM trades WHERE symbol = 'uniswap_eur';
-        "
-    fi
+    # 3. Elimina trades (TUTTI, senza condizioni)
+    echo "   • Eliminazione trades..."
+    sudo -u postgres psql -d crypto_db -c "
+    DELETE FROM trades WHERE symbol = 'uniswap_eur';
+    "
     
-    # 4. Elimina price_history (se presente)
-    if [ "$PRICE_HISTORY" -gt 0 ]; then
-        echo "   • Eliminazione price_history..."
-        sudo -u postgres psql -d crypto_db -c "
-        DELETE FROM price_history WHERE symbol = 'uniswap_eur';
-        "
-    fi
+    # 4. Elimina price_history (TUTTO, senza condizioni)
+    echo "   • Eliminazione price_history..."
+    sudo -u postgres psql -d crypto_db -c "
+    DELETE FROM price_history WHERE symbol = 'uniswap_eur';
+    "
     
-    # 5. Elimina symbol_volumes_24h (se presente)
-    if [ "$VOLUMES" -gt 0 ]; then
-        echo "   • Eliminazione symbol_volumes_24h..."
-        sudo -u postgres psql -d crypto_db -c "
-        DELETE FROM symbol_volumes_24h WHERE symbol = 'uniswap_eur';
-        "
-    fi
+    # 5. Elimina symbol_volumes_24h (TUTTO, senza condizioni)
+    echo "   • Eliminazione symbol_volumes_24h..."
+    sudo -u postgres psql -d crypto_db -c "
+    DELETE FROM symbol_volumes_24h WHERE symbol = 'uniswap_eur';
+    "
+    
+    # 6. Elimina open_positions (TUTTE, senza condizioni)
+    echo "   • Eliminazione open_positions..."
+    sudo -u postgres psql -d crypto_db -c "
+    DELETE FROM open_positions WHERE symbol = 'uniswap_eur';
+    "
     
     # 6. Verifica che uniswap (senza _eur) sia attivo
     

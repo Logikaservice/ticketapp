@@ -93,7 +93,7 @@ WHERE symbol = 'uniswap_eur';
 if [ "$VOLUMES_COUNT" -gt 0 ]; then
     echo "   ⚠️  Trovata entry in symbol_volumes_24h"
     sudo -u postgres psql -d crypto_db -c "
-    SELECT symbol, volume_24h, price
+    SELECT symbol, volume_24h
     FROM symbol_volumes_24h 
     WHERE symbol = 'uniswap_eur';
     "
