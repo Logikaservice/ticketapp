@@ -229,6 +229,9 @@ const BotAnalysisPageNew = () => {
     const dataAvailable = data?.dataAvailable !== false;
 
     const { signal, requirements, risk, positions, currentPrice, rsi, mtf } = data;
+    // ✅ STRATEGY v2.0: Estrai Williams %R e TSI
+    const williamsR = signal?.williamsR;
+    const tsi = signal?.tsi;
     const updateKey = data._timestamp || Date.now(); // Key per forzare re-render
 
     return (
@@ -329,6 +332,30 @@ const BotAnalysisPageNew = () => {
                                 {rsi < 30 ? 'Oversold (possibile rialzo)' :
                                     rsi > 70 ? 'Overbought (possibile calo)' :
                                         'Neutrale'}
+                            </div>
+                        </div>
+                        {/* ✅ STRATEGY v2.0: Williams %R */}
+                        <div className="info-card">
+                            <div className="info-label">Williams %R (14 periodi)</div>
+                            <div className={`info-value ${williamsR !== null && williamsR < -70 ? 'oversold' : williamsR !== null && williamsR > -30 ? 'overbought' : ''}`}>
+                                {williamsR !== null ? williamsR.toFixed(2) : 'N/A'}
+                            </div>
+                            <div className="info-hint">
+                                {williamsR !== null && williamsR < -70 ? 'Oversold (early buy signal) ⚡' :
+                                    williamsR !== null && williamsR > -30 ? 'Overbought (early sell signal) ⚡' :
+                                        williamsR !== null ? 'Neutral' : 'Calcolo...'}
+                            </div>
+                        </div>
+                        {/* ✅ STRATEGY v2.0: TSI */}
+                        <div className="info-card">
+                            <div className="info-label">TSI - True Strength Index</div>
+                            <div className={`info-value ${tsi !== null && tsi < -20 ? 'oversold' : tsi !== null && tsi > 20 ? 'overbought' : ''}`}>
+                                {tsi !== null ? tsi.toFixed(2) : 'N/A'}
+                            </div>
+                            <div className="info-hint">
+                                {tsi !== null && tsi < -20 ? 'Bearish momentum slowing ⚡' :
+                                    tsi !== null && tsi > 20 ? 'Bullish momentum slowing ⚡' :
+                                        tsi !== null ? 'Neutral momentum' : 'Calcolo...'}
                             </div>
                         </div>
                     </div>
