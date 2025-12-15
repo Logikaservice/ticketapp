@@ -810,9 +810,6 @@ app.get('/system-health', async (req, res) => {
     }
 });
 
-// ✅ Endpoint pubblici per AI accesso database (PRIMA delle route protette)
-app.use('/ai-db', cryptoRoutes);
-
 // ✅ Endpoint pubblici per AI accesso database (PRIMA delle route protette, senza autenticazione)
 // Questi endpoint sono accessibili senza token per permettere all'AI di controllare il database
 app.get('/ai-db/execute', async (req, res) => {
