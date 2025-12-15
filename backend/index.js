@@ -812,7 +812,8 @@ app.get('/system-health', async (req, res) => {
 
 // ✅ Endpoint pubblici per AI accesso database (PRIMA delle route protette, senza autenticazione)
 // Questi endpoint sono accessibili senza token per permettere all'AI di controllare il database
-app.get('/ai-db/execute', async (req, res) => {
+// Usa /api/ai-db per passare attraverso il proxy nginx
+app.get('/api/ai-db/execute', async (req, res) => {
     try {
         const { command } = req.query;
         const commands = {
@@ -850,7 +851,7 @@ app.get('/ai-db/execute', async (req, res) => {
     }
 });
 
-app.post('/ai-db/update', async (req, res) => {
+app.post('/api/ai-db/update', async (req, res) => {
     try {
         const { field, value } = req.body;
         const allowedFields = { 'total_balance': 'general_settings' };
