@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Settings, Save, X } from 'lucide-react';
 import './BotSettings.css';
-import FixVolumesButton from './FixVolumesButton';
 
 // ✅ PERFORMANCE: React.memo previene re-render inutili
 const BotSettings = React.memo(({ isOpen, onClose, apiBase, getAuthHeader = () => ({}) }) => {
@@ -765,23 +764,6 @@ const BotSettings = React.memo(({ isOpen, onClose, apiBase, getAuthHeader = () =
                                 <div className="parameter-desc">
                                     Timeframe utilizzato per l'analisi dei segnali. Timeframe più lunghi = segnali più stabili ma meno frequenti.
                                 </div>
-                            </div>
-                        </div>
-
-                        {/* 🔧 Manutenzione */}
-                        <div className="parameters-grid" style={{ marginTop: '30px', paddingTop: '30px', borderTop: '2px solid #374151' }}>
-                            <div style={{ gridColumn: '1 / -1' }}>
-                                <h3 style={{
-                                    fontSize: '18px',
-                                    fontWeight: '600',
-                                    marginBottom: '15px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px'
-                                }}>
-                                    🔧 Manutenzione Database
-                                </h3>
-                                <FixVolumesButton getAuthHeader={getAuthHeader} />
                             </div>
                         </div>
 
