@@ -1564,6 +1564,12 @@ const initWebSocketService = () => {
             },
             // ✅ NUOVO: Callback per volumi 24h
             (symbol, volume24h) => {
+                // ✅ FIX: Filtra solo simboli validi per evitare inserimenti non validi
+                if (VALID_SYMBOLS_SET.size > 0 && !VALID_SYMBOLS_SET.has(symbol)) {
+                    // Simbolo non valido - non salvare in symbol_volumes_24h
+                    return;
+                }
+                
                 // Callback: aggiorna cache volume quando arriva da WebSocket
                 volumeCache.set(symbol, { volume: volume24h, timestamp: Date.now() });
 
@@ -1574,7 +1580,7 @@ const initWebSocketService = () => {
                         await dbRun(
                             `INSERT INTO symbol_volumes_24h (symbol, volume_24h, updated_at) 
                              VALUES ($1, $2, CURRENT_TIMESTAMP)
-                             ON CONFLICT (symbol) 
+                             ON CONFLICT (symbol)
                              DO UPDATE SET volume_24h = EXCLUDED.volume_24h, updated_at = CURRENT_TIMESTAMP`,
                             [symbol, volume24h]
                         );
@@ -2123,6 +2129,12 @@ const get24hVolume = async (symbol) => {
         const volumeQuote = parseFloat(data.quoteVolume || data.q || 0);
 
         if (volumeQuote > 0) {
+            // ✅ FIX: Filtra solo simboli validi
+            if (VALID_SYMBOLS_SET.size > 0 && !VALID_SYMBOLS_SET.has(symbol)) {
+                // Simbolo non valido - non salvare in symbol_volumes_24h
+                return volumeQuote;
+            }
+            
             // ✅ Salva in cache
             volumeCache.set(symbol, { volume: volumeQuote, timestamp: Date.now() });
 

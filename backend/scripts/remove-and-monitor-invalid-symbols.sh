@@ -103,7 +103,7 @@ echo ""
 MONITOR_FILE="/tmp/monitor_invalid_symbols_$$.txt"
 echo "Timestamp,Table,Symbol,Action" > "$MONITOR_FILE"
 
-# Funzione per controllare nuovi inserimenti
+# Funzione per controllare nuovi inserimenti e cercare nei log
 check_new_inserts() {
     local check_time=$(date -u +"%Y-%m-%d %H:%M:%S")
     
@@ -118,6 +118,15 @@ check_new_inserts() {
     if [ ! -z "$NEW_PRICE" ]; then
         echo "$check_time,price_history,$NEW_PRICE,INSERTED" >> "$MONITOR_FILE"
         echo "   ⚠️  [$check_time] Trovato in price_history: $NEW_PRICE"
+        
+        # Cerca nei log del backend chi ha inserito
+        if command -v pm2 > /dev/null 2>&1; then
+            LOG_MATCH=$(pm2 logs ticketapp-backend --nostream --lines 50 2>/dev/null | grep -iE "(WEBSOCKET|price_history|INSERT.*price_history)" | tail -3)
+            if [ ! -z "$LOG_MATCH" ]; then
+                echo "      📋 Log backend recenti (possibile fonte):"
+                echo "$LOG_MATCH" | sed 's/^/         /'
+            fi
+        fi
     fi
     
     # Controlla klines (usa ID invece di timestamp)
@@ -131,6 +140,15 @@ check_new_inserts() {
     if [ ! -z "$NEW_KLINES" ]; then
         echo "$check_time,klines,$NEW_KLINES,INSERTED" >> "$MONITOR_FILE"
         echo "   ⚠️  [$check_time] Trovato in klines: $NEW_KLINES"
+        
+        # Cerca nei log del backend chi ha inserito
+        if command -v pm2 > /dev/null 2>&1; then
+            LOG_MATCH=$(pm2 logs ticketapp-backend --nostream --lines 50 2>/dev/null | grep -iE "(KLINES-AGGREGATOR|DATA-INTEGRITY|INSERT.*klines)" | tail -3)
+            if [ ! -z "$LOG_MATCH" ]; then
+                echo "      📋 Log backend recenti (possibile fonte):"
+                echo "$LOG_MATCH" | sed 's/^/         /'
+            fi
+        fi
     fi
     
     # Controlla symbol_volumes_24h
@@ -144,6 +162,15 @@ check_new_inserts() {
     if [ ! -z "$NEW_VOLUMES" ]; then
         echo "$check_time,symbol_volumes_24h,$NEW_VOLUMES,INSERTED" >> "$MONITOR_FILE"
         echo "   ⚠️  [$check_time] Trovato in symbol_volumes_24h: $NEW_VOLUMES"
+        
+        # Cerca nei log del backend chi ha inserito
+        if command -v pm2 > /dev/null 2>&1; then
+            LOG_MATCH=$(pm2 logs ticketapp-backend --nostream --lines 50 2>/dev/null | grep -iE "(WEBSOCKET.*VOLUME|symbol_volumes)" | tail -3)
+            if [ ! -z "$LOG_MATCH" ]; then
+                echo "      📋 Log backend recenti (possibile fonte):"
+                echo "$LOG_MATCH" | sed 's/^/         /'
+            fi
+        fi
     fi
 }
 
