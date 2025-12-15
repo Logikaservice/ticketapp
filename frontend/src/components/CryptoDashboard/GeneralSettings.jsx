@@ -22,25 +22,75 @@ const GeneralSettings = ({
         totalBalance: 1000 // ✅ Total Balance impostato manualmente
     });
 
-    // Load settings from localStorage on mount
+    // Load settings from database and localStorage on mount
     useEffect(() => {
-        const saved = localStorage.getItem('crypto_general_settings');
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            setSettings(parsed);
-            // Apply sound settings
-            cryptoSounds.setEnabled(parsed.soundEnabled);
-            cryptoSounds.setVolume(parsed.soundVolume / 100);
+        const loadSettings = async () => {
+            // Carica Total Balance dal database
+            try {
+                const response = await fetch(`${apiBase || ''}/api/crypto/general-settings`, {
+                    headers: {
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.total_balance) {
+                        setSettings(prev => ({
+                            ...prev,
+                            totalBalance: parseFloat(data.total_balance) || 1000
+                        }));
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading total balance from database:', error);
+            }
+            
+            // Carica altre impostazioni da localStorage
+            const saved = localStorage.getItem('crypto_general_settings');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                setSettings(prev => ({
+                    ...prev,
+                    ...parsed,
+                    // Mantieni totalBalance dal database se disponibile
+                    totalBalance: prev.totalBalance || parsed.totalBalance || 1000
+                }));
+                // Apply sound settings
+                cryptoSounds.setEnabled(parsed.soundEnabled);
+                cryptoSounds.setVolume(parsed.soundVolume / 100);
+            }
+        };
+        
+        if (isOpen) {
+            loadSettings();
         }
-    }, []);
+    }, [isOpen, apiBase, getAuthHeader]);
 
-    // Save settings to localStorage whenever they change
+    // Save settings to localStorage and database whenever they change
     useEffect(() => {
-        localStorage.setItem('crypto_general_settings', JSON.stringify(settings));
+        // Salva Total Balance nel database
+        if (settings.totalBalance !== undefined) {
+            fetch(`${apiBase || ''}/api/crypto/general-settings`, {
+                method: 'PUT',
+                headers: {
+                    ...getAuthHeader(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ totalBalance: settings.totalBalance })
+            }).catch(error => {
+                console.error('Error saving total balance to database:', error);
+            });
+        }
+        
+        // Salva altre impostazioni in localStorage (escluso totalBalance)
+        const { totalBalance, ...localStorageSettings } = settings;
+        localStorage.setItem('crypto_general_settings', JSON.stringify(localStorageSettings));
+        
         // Apply sound settings
         cryptoSounds.setEnabled(settings.soundEnabled);
         cryptoSounds.setVolume(settings.soundVolume / 100);
-    }, [settings]);
+    }, [settings, apiBase, getAuthHeader]);
 
     const updateSetting = (key, value) => {
         setSettings(prev => ({ ...prev, [key]: value }));

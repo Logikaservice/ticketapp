@@ -1755,6 +1755,8 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                     setShowGeneralSettings(false);
                     setShowAddFundsModal(true);
                 }}
+                apiBase={apiBase}
+                getAuthHeader={getAuthHeader}
             />
 
             {/* Health Monitor Dropdown */}
