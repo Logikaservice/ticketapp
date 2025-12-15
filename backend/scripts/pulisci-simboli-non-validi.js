@@ -169,7 +169,7 @@ async function pulisciSimboliNonValidi() {
 
             for (const symbol of invalidSymbols) {
                 try {
-                    // PostgreSQL restituisce result.rowCount invece di result.changes
+                    // dbRun restituisce { changes: rowCount } per PostgreSQL
                     const klinesResult = await dbRun('DELETE FROM klines WHERE symbol = $1', [symbol]);
                     const priceHistoryResult = await dbRun('DELETE FROM price_history WHERE symbol = $1', [symbol]);
                     const openPositionsResult = await dbRun('DELETE FROM open_positions WHERE symbol = $1', [symbol]);
@@ -177,12 +177,12 @@ async function pulisciSimboliNonValidi() {
                     const volumesResult = await dbRun('DELETE FROM symbol_volumes_24h WHERE symbol = $1', [symbol]);
                     const tradesResult = await dbRun('DELETE FROM trades WHERE symbol = $1', [symbol]);
 
-                    const deleted = (klinesResult.rowCount || 0) + 
-                                   (priceHistoryResult.rowCount || 0) + 
-                                   (openPositionsResult.rowCount || 0) + 
-                                   (botSettingsResult.rowCount || 0) + 
-                                   (volumesResult.rowCount || 0) + 
-                                   (tradesResult.rowCount || 0);
+                    const deleted = (klinesResult.changes || 0) + 
+                                   (priceHistoryResult.changes || 0) + 
+                                   (openPositionsResult.changes || 0) + 
+                                   (botSettingsResult.changes || 0) + 
+                                   (volumesResult.changes || 0) + 
+                                   (tradesResult.changes || 0);
 
                     if (deleted > 0) {
                         console.log(`   ✅ ${symbol.padEnd(30)} → ${deleted.toString().padStart(6)} record eliminati`);
