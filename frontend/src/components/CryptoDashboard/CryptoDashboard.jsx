@@ -812,11 +812,24 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
         };
     }, [portfolio.holdings, openPositions, apiBase, currentSymbol, currentPrice, wsConnected]);
 
-    // Calculate total balance (USDT + All Crypto values - Short Liabilities)
-    // ✅ FIX: Total Balance = Capitale Disponibile (cash) = balance_usd
-    // Se hai $1000 USDT totali e investi $500, il Total Balance mostra $500 (capitale disponibile)
-    // Il valore delle posizioni è già "bloccato" e non è disponibile come cash
-    // ✅ FIX: Use ONLY open positions effectively ignoring 'portfolio.holdings' which might be corrupted
+    // ✅ LOGICA TOTAL BALANCE (EQUITY):
+    // Total Balance = Cash (balance_usd) + Valore Attuale Posizioni Aperte
+    //
+    // ESEMPIO:
+    // 1. Iniziale: $1000 cash
+    // 2. Apri 2 posizioni da $100 → balance_usd = $800, valore posizioni = $200
+    //    → Total Balance = $800 + $200 = $1000 ✅
+    // 3. Chiudi 1 posizione in positivo (+$5):
+    //    → balance_usd = $800 + $105 = $905 (ricevi $100 + $5 profitto)
+    //    → Valore posizione rimanente = $100
+    //    → Total Balance = $905 + $100 = $1005 ✅
+    // 4. Chiudi 1 posizione in negativo (-$3):
+    //    → balance_usd = $800 + $97 = $897 (ricevi $100 - $3 perdita)
+    //    → Valore posizione rimanente = $100
+    //    → Total Balance = $897 + $100 = $997 ✅
+    //
+    // NOTA: Il valore delle posizioni usa current_price * volume (include P&L implicitamente)
+    // Se current_price non disponibile, usa entry_price + profit_loss (include P&L esplicitamente)
     const holdings = portfolio.holdings || {}; // Restore this for fallback logic
 
     // ✅ PERFORMANCE: Memoizza validazione posizioni aperte
