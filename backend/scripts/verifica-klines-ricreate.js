@@ -15,34 +15,51 @@ const cryptoRoutesPath = path.join(__dirname, '../routes/cryptoRoutes.js');
 const fs = require('fs');
 const cryptoRoutesContent = fs.readFileSync(cryptoRoutesPath, 'utf8');
 
-// Estrai SYMBOL_TO_PAIR usando regex (non-greedy fino alla chiusura })
-// Cerca dalla dichiarazione fino alla prima }; che chiude l'oggetto
-const symbolMapMatch = cryptoRoutesContent.match(/const SYMBOL_TO_PAIR\s*=\s*\{([\s\S]*?)\n\};\n/);
-if (!symbolMapMatch) {
-    // Fallback: cerca con pattern più semplice
-    const lines = cryptoRoutesContent.split('\n');
-    let startLine = -1;
-    let endLine = -1;
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes('const SYMBOL_TO_PAIR') && lines[i].includes('=')) {
-            startLine = i;
-        }
-        if (startLine >= 0 && lines[i].trim() === '};') {
+// Estrai SYMBOL_TO_PAIR analizzando le righe
+const lines = cryptoRoutesContent.split('\n');
+let startLine = -1;
+let endLine = -1;
+
+// Trova la riga di inizio (const SYMBOL_TO_PAIR = {)
+for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes('const SYMBOL_TO_PAIR') && lines[i].includes('=')) {
+        startLine = i;
+        break;
+    }
+}
+
+// Trova la riga di fine (};)
+if (startLine >= 0) {
+    for (let i = startLine + 1; i < lines.length; i++) {
+        if (lines[i].trim() === '};') {
             endLine = i;
             break;
         }
     }
-    if (startLine >= 0 && endLine >= 0) {
-        const symbolMapCode = lines.slice(startLine, endLine + 1).join('\n');
-        eval(symbolMapCode);
-    } else {
-        console.error('❌ Impossibile trovare SYMBOL_TO_PAIR in cryptoRoutes.js');
+}
+
+if (startLine < 0 || endLine < 0) {
+    console.error('❌ Impossibile trovare SYMBOL_TO_PAIR in cryptoRoutes.js');
+    console.error(`   Start: ${startLine}, End: ${endLine}`);
+    process.exit(1);
+}
+
+// Estrai e valuta il codice
+try {
+    const symbolMapCode = lines.slice(startLine, endLine + 1).join('\n');
+    eval(symbolMapCode);
+    
+    // Verifica che SYMBOL_TO_PAIR sia stato creato
+    if (typeof SYMBOL_TO_PAIR === 'undefined') {
+        console.error('❌ SYMBOL_TO_PAIR non definito dopo eval');
         process.exit(1);
     }
-} else {
-    // Eval per ottenere l'oggetto (sicuro perché è codice del progetto stesso)
-    const symbolMapCode = `const SYMBOL_TO_PAIR = {${symbolMapMatch[1]}};`;
-    eval(symbolMapCode);
+    
+    console.log(`✅ SYMBOL_TO_PAIR caricato: ${Object.keys(SYMBOL_TO_PAIR).length} simboli`);
+} catch (error) {
+    console.error('❌ Errore durante estrazione SYMBOL_TO_PAIR:', error.message);
+    console.error('   Start line:', startLine + 1, 'End line:', endLine + 1);
+    process.exit(1);
 }
 
 const VALID_SYMBOLS = new Set(Object.keys(SYMBOL_TO_PAIR));
@@ -53,9 +70,15 @@ async function main() {
 
         // 1. Verifica simboli non validi in bot_settings
         console.log('📋 1. Verifica bot_settings...');
-        const botSettings = await crypto_db.dbAll(
-            "SELECT symbol, is_active, strategy_name FROM bot_settings WHERE symbol != 'global' ORDER BY symbol"
-        );
+        let botSettings = [];
+        try {
+            botSettings = await crypto_db.dbAll(
+                "SELECT symbol, is_active, strategy_name FROM bot_settings WHERE symbol != 'global' ORDER BY symbol"
+            );
+        } catch (error) {
+            console.error('❌ Errore query bot_settings:', error.message);
+            throw error;
+        }
 
         const invalidInBotSettings = botSettings.filter(b => !VALID_SYMBOLS.has(b.symbol));
         
@@ -70,9 +93,15 @@ async function main() {
 
         // 2. Verifica klines per simboli non validi
         console.log('\n📊 2. Verifica klines esistenti...');
-        const allKlinesSymbols = await crypto_db.dbAll(
-            "SELECT DISTINCT symbol FROM klines ORDER BY symbol"
-        );
+        let allKlinesSymbols = [];
+        try {
+            allKlinesSymbols = await crypto_db.dbAll(
+                "SELECT DISTINCT symbol FROM klines ORDER BY symbol"
+            );
+        } catch (error) {
+            console.error('❌ Errore query klines:', error.message);
+            throw error;
+        }
 
         const invalidKlinesSymbols = allKlinesSymbols
             .map(r => r.symbol)
