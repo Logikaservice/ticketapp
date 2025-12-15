@@ -32,9 +32,9 @@ SELECT
     MAX(cnt) as massimo_klines
 FROM (
     SELECT symbol, COUNT(*) as cnt
-    FROM klines 
-    WHERE interval = '15m'
-    GROUP BY symbol
+FROM klines 
+WHERE interval = '15m'
+GROUP BY symbol
 ) as stats;
 "
 

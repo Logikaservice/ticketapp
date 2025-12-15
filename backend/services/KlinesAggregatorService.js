@@ -98,13 +98,13 @@ class KlinesAggregatorService {
             // Filtra solo simboli validi
             if (VALID_SYMBOLS.length === 0) {
                 console.warn('⚠️  [KLINES-AGGREGATOR] Nessun simbolo valido caricato - usando tutti i simboli');
-                const symbols = await dbAll(
-                    `SELECT DISTINCT symbol 
-                     FROM price_history 
-                     WHERE timestamp > NOW() - INTERVAL '30 minutes'`
-                );
-                if (symbols.length === 0) {
-                    console.log('⚠️  [KLINES-AGGREGATOR] Nessun simbolo con dati recenti');
+            const symbols = await dbAll(
+                `SELECT DISTINCT symbol 
+                 FROM price_history 
+                 WHERE timestamp > NOW() - INTERVAL '30 minutes'`
+            );
+            if (symbols.length === 0) {
+                console.log('⚠️  [KLINES-AGGREGATOR] Nessun simbolo con dati recenti');
                     return;
                 }
                 console.log(`   • Aggregando ${symbols.length} simboli...`);
