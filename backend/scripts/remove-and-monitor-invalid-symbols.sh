@@ -71,10 +71,11 @@ if [[ ! $REPLY =~ ^[Ss]$ ]]; then
     exit 0
 fi
 
-# Salva timestamp prima dell'eliminazione
+# Salva timestamp e ID massimo prima dell'eliminazione
 BEFORE_TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S")
+MAX_KLINES_ID_BEFORE=$(sudo -u postgres psql -d crypto_db -t -c "SELECT COALESCE(MAX(id), 0) FROM klines;" | xargs)
 echo ""
-echo "🔄 Eliminazione in corso (timestamp: $BEFORE_TIMESTAMP)..."
+echo "🔄 Eliminazione in corso (timestamp: $BEFORE_TIMESTAMP, max klines id: $MAX_KLINES_ID_BEFORE)..."
 
 # Crea lista SQL
 INVALID_SQL=$(echo "$ALL_INVALID" | sed "s/^/'/" | sed "s/$/',/" | tr -d '\n' | sed 's/,$//')
@@ -119,16 +120,12 @@ check_new_inserts() {
         echo "   ⚠️  [$check_time] Trovato in price_history: $NEW_PRICE"
     fi
     
-    # Controlla klines
+    # Controlla klines (usa ID invece di timestamp)
     NEW_KLINES=$(sudo -u postgres psql -d crypto_db -t -c "
     SELECT DISTINCT symbol
     FROM klines
     WHERE symbol NOT IN ($VALID_SYMBOLS_JSON)
-    AND id > (
-        SELECT COALESCE(MAX(id), 0)
-        FROM klines
-        WHERE timestamp < '$BEFORE_TIMESTAMP'::timestamp
-    );
+    AND id > $MAX_KLINES_ID_BEFORE;
     " | sed 's/^[[:space:]]*//' | sed '/^$/d')
     
     if [ ! -z "$NEW_KLINES" ]; then
@@ -192,7 +189,7 @@ else
     sudo -u postgres psql -d crypto_db -t -c "
     SELECT DISTINCT symbol, 
            (SELECT COUNT(*) FROM price_history WHERE symbol = s.symbol AND timestamp > '$BEFORE_TIMESTAMP'::timestamp) as price_history_count,
-           (SELECT COUNT(*) FROM klines WHERE symbol = s.symbol) as klines_count,
+           (SELECT COUNT(*) FROM klines WHERE symbol = s.symbol AND id > $MAX_KLINES_ID_BEFORE) as klines_count,
            (SELECT COUNT(*) FROM symbol_volumes_24h WHERE symbol = s.symbol AND updated_at > '$BEFORE_TIMESTAMP'::timestamp) as volumes_count
     FROM (
         SELECT symbol FROM klines WHERE symbol NOT IN ($VALID_SYMBOLS_JSON)
@@ -227,20 +224,88 @@ fi
 
 echo ""
 
-# Suggerimenti
+# Analisi dettagliata di chi ha inserito cosa
 if [ "$FINAL_INVALID" -gt 0 ]; then
+    echo "🔍 Analisi dettagliata inserimenti:"
+    echo ""
+    
+    # Analizza price_history (più probabile che venga da WebSocket)
+    echo "   📊 Price History (probabilmente da WebSocket):"
+    PRICE_INSERTS=$(sudo -u postgres psql -d crypto_db -t -c "
+    SELECT symbol, COUNT(*) as count, MIN(timestamp) as first_insert, MAX(timestamp) as last_insert
+    FROM price_history
+    WHERE symbol NOT IN ($VALID_SYMBOLS_JSON)
+    AND timestamp > '$BEFORE_TIMESTAMP'::timestamp
+    GROUP BY symbol
+    ORDER BY count DESC, symbol;
+    " 2>/dev/null)
+    
+    if [ ! -z "$PRICE_INSERTS" ]; then
+        echo "$PRICE_INSERTS" | while read line; do
+            if [ ! -z "$line" ]; then
+                echo "      - $line"
+            fi
+        done
+    else
+        echo "      (nessun inserimento rilevato)"
+    fi
+    
+    echo ""
+    
+    # Analizza klines (probabilmente da KlinesAggregatorService)
+    echo "   📊 Klines (probabilmente da KlinesAggregatorService):"
+    KLINES_INSERTS=$(sudo -u postgres psql -d crypto_db -t -c "
+    SELECT symbol, COUNT(*) as count, MIN(open_time) as first_kline, MAX(open_time) as last_kline
+    FROM klines
+    WHERE symbol NOT IN ($VALID_SYMBOLS_JSON)
+    AND id > $MAX_KLINES_ID_BEFORE
+    GROUP BY symbol
+    ORDER BY count DESC, symbol;
+    " 2>/dev/null)
+    
+    if [ ! -z "$KLINES_INSERTS" ]; then
+        echo "$KLINES_INSERTS" | while read line; do
+            if [ ! -z "$line" ]; then
+                echo "      - $line"
+            fi
+        done
+    else
+        echo "      (nessun inserimento rilevato)"
+    fi
+    
+    echo ""
+    
+    # Analizza symbol_volumes_24h (probabilmente da WebSocket)
+    echo "   📊 Symbol Volumes 24h (probabilmente da WebSocket):"
+    VOLUMES_INSERTS=$(sudo -u postgres psql -d crypto_db -t -c "
+    SELECT symbol, COUNT(*) as count, MIN(updated_at) as first_update, MAX(updated_at) as last_update
+    FROM symbol_volumes_24h
+    WHERE symbol NOT IN ($VALID_SYMBOLS_JSON)
+    AND updated_at > '$BEFORE_TIMESTAMP'::timestamp
+    GROUP BY symbol
+    ORDER BY count DESC, symbol;
+    " 2>/dev/null)
+    
+    if [ ! -z "$VOLUMES_INSERTS" ]; then
+        echo "$VOLUMES_INSERTS" | while read line; do
+            if [ ! -z "$line" ]; then
+                echo "      - $line"
+            fi
+        done
+    else
+        echo "      (nessun inserimento rilevato)"
+    fi
+    
+    echo ""
     echo "💡 SUGGERIMENTI:"
     echo ""
-    echo "   Se simboli sono stati ricreati, controlla:"
-    echo "   1. Log del backend: pm2 logs ticketapp-backend --lines 100 | grep -i 'price_history\|klines\|symbol'"
-    echo "   2. WebSocket: cerca '[WEBSOCKET]' nei log"
-    echo "   3. KlinesAggregatorService: cerca '[KLINES-AGGREGATOR]' nei log"
-    echo "   4. DataIntegrityService: cerca '[DATA-INTEGRITY]' nei log"
+    echo "   Se simboli sono stati ricreati, controlla i log del backend:"
+    echo "   pm2 logs ticketapp-backend --lines 200 | grep -E '(WEBSOCKET|KLINES-AGGREGATOR|DATA-INTEGRITY|price_history|INSERT)'"
     echo ""
     echo "   Verifica che i filtri siano attivi in:"
-    echo "   - backend/routes/cryptoRoutes.js (WebSocket callback)"
-    echo "   - backend/services/KlinesAggregatorService.js"
-    echo "   - backend/services/DataIntegrityService.js"
+    echo "   - backend/routes/cryptoRoutes.js (WebSocket callback - riga ~1510)"
+    echo "   - backend/services/KlinesAggregatorService.js (riga ~128)"
+    echo "   - backend/services/DataIntegrityService.js (riga ~71)"
 fi
 
 echo ""
