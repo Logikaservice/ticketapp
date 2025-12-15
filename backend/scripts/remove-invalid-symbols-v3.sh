@@ -55,84 +55,84 @@ fi
 echo ""
 echo "🔄 Eliminazione in corso..."
 
-# Crea una tabella temporanea con i simboli validi per migliorare le performance
-sudo -u postgres psql -d crypto_db -c "
-CREATE TEMP TABLE valid_symbols_temp (symbol TEXT);
-INSERT INTO valid_symbols_temp VALUES $VALID_SYMBOLS_JSON;
-" > /dev/null 2>&1
-
-# Elimina da tutte le tabelle usando la tabella temporanea
+# Elimina da tutte le tabelle (mostra errori se ci sono)
 echo "   • Eliminazione da bot_settings..."
-RESULT1=$(sudo -u postgres psql -d crypto_db -t -c "
+RESULT1=$(sudo -u postgres psql -d crypto_db -c "
 DELETE FROM bot_settings 
-WHERE symbol NOT IN (SELECT symbol FROM valid_symbols_temp);
-SELECT ROW_COUNT();
+WHERE symbol NOT IN ($VALID_SYMBOLS_JSON);
 " 2>&1)
-if [ $? -ne 0 ]; then
-    echo "      ⚠️  Errore: $RESULT1"
+if echo "$RESULT1" | grep -q "ERROR"; then
+    echo "      ⚠️  Errore SQL"
+    echo "$RESULT1" | grep "ERROR" | head -1
 else
-    echo "      ✅ Completato"
+    DELETED=$(echo "$RESULT1" | grep -o "DELETE [0-9]*" | grep -o "[0-9]*" || echo "0")
+    echo "      ✅ Eliminati $DELETED record"
 fi
 
 echo "   • Eliminazione klines (tutti gli intervalli)..."
-RESULT2=$(sudo -u postgres psql -d crypto_db -t -c "
+RESULT2=$(sudo -u postgres psql -d crypto_db -c "
 DELETE FROM klines 
-WHERE symbol NOT IN (SELECT symbol FROM valid_symbols_temp);
+WHERE symbol NOT IN ($VALID_SYMBOLS_JSON);
 " 2>&1)
-if [ $? -ne 0 ]; then
-    echo "      ⚠️  Errore: $RESULT2"
+if echo "$RESULT2" | grep -q "ERROR"; then
+    echo "      ⚠️  Errore SQL"
+    echo "$RESULT2" | grep "ERROR" | head -1
 else
     DELETED=$(echo "$RESULT2" | grep -o "DELETE [0-9]*" | grep -o "[0-9]*" || echo "0")
     echo "      ✅ Eliminati $DELETED record"
 fi
 
 echo "   • Eliminazione open_positions..."
-RESULT3=$(sudo -u postgres psql -d crypto_db -t -c "
+RESULT3=$(sudo -u postgres psql -d crypto_db -c "
 DELETE FROM open_positions 
-WHERE symbol NOT IN (SELECT symbol FROM valid_symbols_temp);
+WHERE symbol NOT IN ($VALID_SYMBOLS_JSON);
 " 2>&1)
-if [ $? -ne 0 ]; then
-    echo "      ⚠️  Errore: $RESULT3"
+if echo "$RESULT3" | grep -q "ERROR"; then
+    echo "      ⚠️  Errore SQL"
+    echo "$RESULT3" | grep "ERROR" | head -1
 else
-    echo "      ✅ Completato"
+    DELETED=$(echo "$RESULT3" | grep -o "DELETE [0-9]*" | grep -o "[0-9]*" || echo "0")
+    echo "      ✅ Eliminati $DELETED record"
 fi
 
 echo "   • Eliminazione trades..."
-RESULT4=$(sudo -u postgres psql -d crypto_db -t -c "
+RESULT4=$(sudo -u postgres psql -d crypto_db -c "
 DELETE FROM trades 
-WHERE symbol NOT IN (SELECT symbol FROM valid_symbols_temp);
+WHERE symbol NOT IN ($VALID_SYMBOLS_JSON);
 " 2>&1)
-if [ $? -ne 0 ]; then
-    echo "      ⚠️  Errore: $RESULT4"
+if echo "$RESULT4" | grep -q "ERROR"; then
+    echo "      ⚠️  Errore SQL"
+    echo "$RESULT4" | grep "ERROR" | head -1
 else
-    echo "      ✅ Completato"
+    DELETED=$(echo "$RESULT4" | grep -o "DELETE [0-9]*" | grep -o "[0-9]*" || echo "0")
+    echo "      ✅ Eliminati $DELETED record"
 fi
 
 echo "   • Eliminazione price_history..."
-RESULT5=$(sudo -u postgres psql -d crypto_db -t -c "
+RESULT5=$(sudo -u postgres psql -d crypto_db -c "
 DELETE FROM price_history 
-WHERE symbol NOT IN (SELECT symbol FROM valid_symbols_temp);
+WHERE symbol NOT IN ($VALID_SYMBOLS_JSON);
 " 2>&1)
-if [ $? -ne 0 ]; then
-    echo "      ⚠️  Errore: $RESULT5"
+if echo "$RESULT5" | grep -q "ERROR"; then
+    echo "      ⚠️  Errore SQL"
+    echo "$RESULT5" | grep "ERROR" | head -1
 else
     DELETED=$(echo "$RESULT5" | grep -o "DELETE [0-9]*" | grep -o "[0-9]*" || echo "0")
     echo "      ✅ Eliminati $DELETED record"
 fi
 
 echo "   • Eliminazione symbol_volumes_24h..."
-RESULT6=$(sudo -u postgres psql -d crypto_db -t -c "
+RESULT6=$(sudo -u postgres psql -d crypto_db -c "
 DELETE FROM symbol_volumes_24h 
-WHERE symbol NOT IN (SELECT symbol FROM valid_symbols_temp);
+WHERE symbol NOT IN ($VALID_SYMBOLS_JSON);
 " 2>&1)
-if [ $? -ne 0 ]; then
-    echo "      ⚠️  Errore: $RESULT6"
+if echo "$RESULT6" | grep -q "ERROR"; then
+    echo "      ⚠️  Errore SQL"
+    echo "$RESULT6" | grep "ERROR" | head -1
 else
-    echo "      ✅ Completato"
+    DELETED=$(echo "$RESULT6" | grep -o "DELETE [0-9]*" | grep -o "[0-9]*" || echo "0")
+    echo "      ✅ Eliminati $DELETED record"
 fi
-
-# Rimuovi tabella temporanea
-sudo -u postgres psql -d crypto_db -c "DROP TABLE IF EXISTS valid_symbols_temp;" > /dev/null 2>&1
 
 echo ""
 echo "✅ Eliminazione completata!"
