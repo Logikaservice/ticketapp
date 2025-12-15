@@ -1446,7 +1446,10 @@ class BidirectionalSignalGenerator {
                     ema10: ema10,
                     ema20: ema20,
                     ema50: ema50,
-                    ema200: ema200
+                    ema200: ema200,
+                    // ✅ STRATEGY v2.0: Aggiunti Williams %R e TSI
+                    williamsR: williamsR,
+                    tsi: tsi
                 },
                 // 🎯 PROFESSIONAL ANALYSIS DATA
                 professionalAnalysis: {
@@ -1492,7 +1495,10 @@ class BidirectionalSignalGenerator {
                     ema10: ema10,
                     ema20: ema20,
                     ema50: ema50,
-                    ema200: ema200
+                    ema200: ema200,
+                    // ✅ STRATEGY v2.0: Aggiunti Williams %R e TSI
+                    williamsR: williamsR,
+                    tsi: tsi
                 },
                 // 🎯 PROFESSIONAL ANALYSIS DATA
                 professionalAnalysis: {
@@ -1549,7 +1555,10 @@ class BidirectionalSignalGenerator {
                 ema10: ema10,
                 ema20: ema20,
                 ema50: ema50,
-                ema200: ema200
+                ema200: ema200,
+                // ✅ STRATEGY v2.0: Aggiunti Williams %R e TSI
+                williamsR: williamsR,
+                tsi: tsi
             },
             // 🎯 PROFESSIONAL ANALYSIS DATA (anche per NEUTRAL)
             professionalAnalysis: {

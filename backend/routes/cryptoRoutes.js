@@ -9062,7 +9062,10 @@ router.get('/bot-analysis', async (req, res) => {
                 strength: signal.strength || 0,
                 confirmations: signal.confirmations || 0,
                 reasons: signal.reasons || [],
-                indicators: signal.indicators || {}
+                indicators: signal.indicators || {},
+                // ✅ STRATEGY v2.0: Aggiunti Williams %R e TSI
+                williamsR: signal.williamsR !== undefined ? signal.williamsR : null,
+                tsi: signal.tsi !== undefined ? signal.tsi : null
             },
             requirements: {
                 long: {
