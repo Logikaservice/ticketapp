@@ -32,7 +32,7 @@ if (process.env.DATABASE_URL) {
     console.log('🔍 DATABASE_URL length:', dbUrl.length);
     // Regex per estrarre: postgresql://user:password@host:port/database
     const match = dbUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
-    
+
     if (match) {
       poolConfig.user = decodeURIComponent(match[1]);
       const rawPassword = match[2];
@@ -40,7 +40,7 @@ if (process.env.DATABASE_URL) {
       poolConfig.host = match[3];
       poolConfig.port = parseInt(match[4]);
       poolConfig.database = match[5];
-      
+
       // ✅ FIX: Disabilita SSL per connessioni localhost
       if (poolConfig.host === 'localhost' || poolConfig.host === '127.0.0.1') {
         poolConfig.ssl = false;
@@ -51,24 +51,24 @@ if (process.env.DATABASE_URL) {
         };
         console.log('✅ SSL abilitato per database remoto');
       }
-      
+
       // ✅ FIX: Verifica che la password sia una stringa
       if (typeof poolConfig.password !== 'string') {
         console.error('❌ ERRORE: Password non è una stringa! Tipo:', typeof poolConfig.password);
         poolConfig.password = String(poolConfig.password);
       }
-      
+
       // ✅ FIX: Verifica che la password non sia vuota
       if (!poolConfig.password || poolConfig.password.length === 0) {
         console.error('❌ ERRORE CRITICO: Password vuota dopo parsing!');
         console.error('❌ rawPassword (masked):', rawPassword.substring(0, 3) + '***');
       }
-      
+
       // ✅ FIX: Verifica caratteri speciali nella password
       if (poolConfig.password.includes('!')) {
         console.log('✅ Password contiene ! (carattere speciale gestito)');
       }
-      
+
       console.log('✅ DATABASE_URL parsato correttamente:', {
         host: poolConfig.host,
         port: poolConfig.port,
@@ -117,7 +117,7 @@ let poolVivaldi = null;
 if (vivaldiDbUrl) {
   // ✅ FIX: Parsing manuale robusto
   let vivaldiConfig = {};
-  
+
   try {
     const match = vivaldiDbUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
     if (match) {
@@ -130,7 +130,7 @@ if (vivaldiDbUrl) {
       vivaldiConfig.host = match[3];
       vivaldiConfig.port = parseInt(match[4]);
       vivaldiConfig.database = match[5];
-      
+
       // ✅ FIX: Disabilita SSL per connessioni localhost
       if (vivaldiConfig.host === 'localhost' || vivaldiConfig.host === '127.0.0.1') {
         vivaldiConfig.ssl = false;
@@ -144,7 +144,7 @@ if (vivaldiDbUrl) {
     console.warn('⚠️ Errore parsing DATABASE_URL_VIVALDI, uso connectionString:', e.message);
     vivaldiConfig.connectionString = vivaldiDbUrl;
   }
-  
+
   poolVivaldi = new Pool(vivaldiConfig);
 } else {
   console.warn('⚠️ DATABASE_URL_VIVALDI non configurato! Vivaldi non sarà disponibile.');
@@ -161,7 +161,7 @@ let poolPackVision = null;
 if (packvisionDbUrl) {
   // ✅ FIX: Parsing manuale robusto
   let packvisionConfig = {};
-  
+
   try {
     const match = packvisionDbUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
     if (match) {
@@ -174,7 +174,7 @@ if (packvisionDbUrl) {
       packvisionConfig.host = match[3];
       packvisionConfig.port = parseInt(match[4]);
       packvisionConfig.database = match[5];
-      
+
       // ✅ FIX: Disabilita SSL per connessioni localhost
       if (packvisionConfig.host === 'localhost' || packvisionConfig.host === '127.0.0.1') {
         packvisionConfig.ssl = false;
@@ -188,7 +188,7 @@ if (packvisionDbUrl) {
     console.warn('⚠️ Errore parsing packvisionDbUrl, uso connectionString:', e.message);
     packvisionConfig.connectionString = packvisionDbUrl;
   }
-  
+
   // Non creiamo subito il pool, o meglio lo creiamo ma gestiamo errori di connessione nelle route
   poolPackVision = new Pool(packvisionConfig);
 
@@ -319,7 +319,7 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
 // Funzione helper per verificare se un'origine è permessa
 const isOriginAllowed = (origin) => {
   if (!origin) return true; // Allow requests with no origin
-  
+
   // Allow any subdomain of logikaservice.it
   if (origin.endsWith('.logikaservice.it') || origin === 'https://logikaservice.it') {
     return true;
@@ -554,9 +554,46 @@ app.get('/api/keepalive', async (req, res) => {
   }
 });
 
+
 // Importa utility per hash delle password e JWT
 const { verifyPassword, migratePassword } = require('./utils/passwordUtils');
 const { generateLoginResponse, verifyRefreshToken, generateToken } = require('./utils/jwtUtils');
+
+// ✅ ENDPOINT PUBBLICO: Check system health (Database & Balance)
+// Definito QUI per evitare il middleware di autenticazione globale
+app.get('/api/crypto/public-balance-check', async (req, res) => {
+  try {
+    // Usa il pool crypto se disponibile, altrimenti fallback su pool principale
+    // Nota: crypto_db_postgresql usa la sua connessione, ma qui usiamo pool diretto per semplicità
+    let targetPool = pool;
+
+    // Se c'è un dbUrl crypto separato, dovremmo connetterci a quello.
+    // Ma per semplicità, assumiamo che 'portfolio' sia accessibile via 'pool' se è nello stesso DB,
+    // oppure dobbiamo usare cryptoDb.dbGet se importato.
+
+    // Importiamo cryptoDb dinamicamente per usare la sua connessione configurata
+    const cryptoDb = require('./crypto_db');
+    const portfolio = await cryptoDb.dbGet("SELECT * FROM portfolio WHERE id = 1");
+
+    if (portfolio) {
+      res.json({
+        success: true,
+        message: "Real Database Balance (Public)",
+        data: {
+          balance_usd: parseFloat(portfolio.balance_usd),
+          balance_eur: parseFloat(portfolio.balance_eur),
+          total_equity: parseFloat(portfolio.total_equity),
+          updated_at: portfolio.updated_at
+        }
+      });
+    } else {
+      res.status(404).json({ error: 'Portfolio not found' });
+    }
+  } catch (err) {
+    console.error('❌ Error in public balance check:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ENDPOINT: Login utente (TEMPORANEO senza JWT per debug)
 app.post('/api/login', async (req, res) => {
@@ -796,98 +833,98 @@ cryptoRoutes.setSocketIO(io);
 
 // ✅ Endpoint pubblico system health (FUORI da /api/ per evitare middleware globali)
 app.get('/system-health', async (req, res) => {
-    try {
-        const HealthCheckService = require('./services/HealthCheckService');
-        const status = HealthCheckService.getLastStatus();
-        if (!status) {
-            const newStatus = await HealthCheckService.performCheck();
-            return res.json({ success: true, status: newStatus });
-        }
-        res.json({ success: true, status });
-    } catch (error) {
-        console.error('❌ [SYSTEM-HEALTH] Errore:', error);
-        res.status(500).json({ success: false, error: error.message, stack: error.stack });
+  try {
+    const HealthCheckService = require('./services/HealthCheckService');
+    const status = HealthCheckService.getLastStatus();
+    if (!status) {
+      const newStatus = await HealthCheckService.performCheck();
+      return res.json({ success: true, status: newStatus });
     }
+    res.json({ success: true, status });
+  } catch (error) {
+    console.error('❌ [SYSTEM-HEALTH] Errore:', error);
+    res.status(500).json({ success: false, error: error.message, stack: error.stack });
+  }
 });
 
 // ✅ Endpoint pubblici per AI accesso database (PRIMA di TUTTO, senza autenticazione)
 // DEVE essere PRIMA di qualsiasi app.use('/api', ...) per evitare middleware globali
 app.get('/api/ai-db/execute', async (req, res) => {
-    try {
-        const { command } = req.query;
-        const commands = {
-            'total-balance': async () => {
-                const { dbGet } = require('./crypto_db_postgresql');
-                const result = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'");
-                return { totalBalance: parseFloat(result?.setting_value || 0) };
-            },
-            'summary': async () => {
-                const { dbGet, dbAll } = require('./crypto_db_postgresql');
-                const portfolio = await dbGet("SELECT balance_usd FROM portfolio WHERE id = 1");
-                const totalBalance = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'").catch(() => ({ setting_value: null }));
-                const openPositions = await dbAll("SELECT COUNT(*) as count, COALESCE(SUM(profit_loss), 0) as total_pnl FROM open_positions WHERE status = 'open'");
-                return {
-                    totalBalance: parseFloat(totalBalance?.setting_value || 0),
-                    cash: parseFloat(portfolio?.balance_usd || 0),
-                    openPositions: parseInt(openPositions[0]?.count || 0),
-                    totalPnL: parseFloat(openPositions[0]?.total_pnl || 0)
-                };
-            }
+  try {
+    const { command } = req.query;
+    const commands = {
+      'total-balance': async () => {
+        const { dbGet } = require('./crypto_db_postgresql');
+        const result = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'");
+        return { totalBalance: parseFloat(result?.setting_value || 0) };
+      },
+      'summary': async () => {
+        const { dbGet, dbAll } = require('./crypto_db_postgresql');
+        const portfolio = await dbGet("SELECT balance_usd FROM portfolio WHERE id = 1");
+        const totalBalance = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'").catch(() => ({ setting_value: null }));
+        const openPositions = await dbAll("SELECT COUNT(*) as count, COALESCE(SUM(profit_loss), 0) as total_pnl FROM open_positions WHERE status = 'open'");
+        return {
+          totalBalance: parseFloat(totalBalance?.setting_value || 0),
+          cash: parseFloat(portfolio?.balance_usd || 0),
+          openPositions: parseInt(openPositions[0]?.count || 0),
+          totalPnL: parseFloat(openPositions[0]?.total_pnl || 0)
         };
-        
-        if (!command || !commands[command]) {
-            return res.status(400).json({ 
-                error: 'Command not found',
-                availableCommands: Object.keys(commands)
-            });
-        }
-        
-        const result = await commands[command]();
-        res.json({ success: true, command, data: result, timestamp: new Date().toISOString() });
-    } catch (err) {
-        console.error('❌ Error in /api/ai-db/execute:', err.message);
-        res.status(500).json({ error: err.message });
+      }
+    };
+
+    if (!command || !commands[command]) {
+      return res.status(400).json({
+        error: 'Command not found',
+        availableCommands: Object.keys(commands)
+      });
     }
+
+    const result = await commands[command]();
+    res.json({ success: true, command, data: result, timestamp: new Date().toISOString() });
+  } catch (err) {
+    console.error('❌ Error in /api/ai-db/execute:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post('/api/ai-db/update', async (req, res) => {
-    try {
-        const { field, value } = req.body;
-        const allowedFields = { 'total_balance': 'general_settings' };
-        
-        if (!field || !allowedFields[field]) {
-            return res.status(400).json({ 
-                error: 'Field not allowed',
-                allowedFields: Object.keys(allowedFields)
-            });
-        }
-        
-        const { dbGet, dbRun } = require('./crypto_db_postgresql');
-        const table = allowedFields[field];
-        const oldValue = await dbGet(`SELECT setting_value FROM ${table} WHERE setting_key = $1`, [field]);
-        
-        await dbRun(
-            `INSERT INTO ${table} (setting_key, setting_value, updated_at)
+  try {
+    const { field, value } = req.body;
+    const allowedFields = { 'total_balance': 'general_settings' };
+
+    if (!field || !allowedFields[field]) {
+      return res.status(400).json({
+        error: 'Field not allowed',
+        allowedFields: Object.keys(allowedFields)
+      });
+    }
+
+    const { dbGet, dbRun } = require('./crypto_db_postgresql');
+    const table = allowedFields[field];
+    const oldValue = await dbGet(`SELECT setting_value FROM ${table} WHERE setting_key = $1`, [field]);
+
+    await dbRun(
+      `INSERT INTO ${table} (setting_key, setting_value, updated_at)
              VALUES ($1, $2, NOW())
              ON CONFLICT (setting_key) DO UPDATE SET setting_value = $2, updated_at = NOW()`,
-            [field, value.toString()]
-        );
-        
-        const newValue = await dbGet(`SELECT setting_value FROM ${table} WHERE setting_key = $1`, [field]);
-        
-        console.log(`✅ [AI-DB-UPDATE] ${field}: ${oldValue?.setting_value || 'null'} → ${newValue?.setting_value}`);
-        
-        res.json({ 
-            success: true, 
-            field,
-            oldValue: oldValue?.setting_value || null,
-            newValue: newValue?.setting_value,
-            timestamp: new Date().toISOString()
-        });
-    } catch (err) {
-        console.error('❌ Error in /api/ai-db/update:', err.message);
-        res.status(500).json({ error: err.message });
-    }
+      [field, value.toString()]
+    );
+
+    const newValue = await dbGet(`SELECT setting_value FROM ${table} WHERE setting_key = $1`, [field]);
+
+    console.log(`✅ [AI-DB-UPDATE] ${field}: ${oldValue?.setting_value || 'null'} → ${newValue?.setting_value}`);
+
+    res.json({
+      success: true,
+      field,
+      oldValue: oldValue?.setting_value || null,
+      newValue: newValue?.setting_value,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('❌ Error in /api/ai-db/update:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.use('/api/crypto', cryptoRoutes);
