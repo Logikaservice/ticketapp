@@ -170,6 +170,13 @@ router.get('/history', async (req, res) => {
         const interval = req.query.interval || '15m'; // Support: 1m, 15m, 1h, 1d, etc.
         const symbol = req.query.symbol || 'bitcoin_usdt'; // Default to bitcoin_usdt (duplicati rimossi)
 
+        // ✅ FIX CRITICO: Verifica che il simbolo sia valido PRIMA di processare
+        if (!isValidSymbol(symbol)) {
+            return res.status(400).json({ 
+                error: `Simbolo non valido: ${symbol}. Il simbolo deve essere presente in SYMBOL_TO_PAIR.` 
+            });
+        }
+
         // Check if we have OHLC klines data first (preferred)
         const klinesCountRows = await dbAll(`SELECT COUNT(*) as count FROM klines WHERE symbol = $1 AND interval = $2`, [symbol, interval]);
         const klinesCount = klinesCountRows && klinesCountRows.length > 0 ? klinesCountRows[0].count : 0;
