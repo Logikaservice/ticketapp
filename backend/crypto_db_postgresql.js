@@ -264,9 +264,23 @@ async function initDb() {
                 id SERIAL PRIMARY KEY,
                 symbol TEXT,
                 price DOUBLE PRECISION,
-                timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(symbol, timestamp)
             )
         `);
+        
+        // ✅ FIX: Aggiungi constraint UNIQUE se la tabella esiste già senza
+        try {
+            await client.query(`
+                CREATE UNIQUE INDEX IF NOT EXISTS price_history_symbol_timestamp_unique 
+                ON price_history (symbol, timestamp)
+            `);
+        } catch (error) {
+            // Ignora se il constraint esiste già
+            if (!error.message.includes('already exists')) {
+                console.warn('⚠️  [DB] Errore creazione constraint price_history:', error.message);
+            }
+        }
 
         // Klines
         await client.query(`
