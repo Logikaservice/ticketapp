@@ -3,23 +3,175 @@
 
 /* Health Monitor Pulse Animation */
 @keyframes healthPulse {
-    0%, 100% {
-        opacity: 1;
-        box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7);
-    }
-    50% {
-        opacity: 0.8;
-        box-shadow: 0 0 0 10px rgba(234, 179, 8, 0);
-    }
+
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7);
+  }
+
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 0 10px rgba(234, 179, 8, 0);
+  }
 }
 
 .health-alert-pulse {
-    animation: healthPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
+  animation: healthPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
 }
 
-/* ✨ SIMPLE ELEGANT DARK BLUE BACKGROUND ✨ */
+/* ✨ STARRY BACKGROUND - Full Screen ✨ */
+/* Applica le stelle al body per coprire tutto lo schermo */
+body {
+  background: #0a0a0a;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Subtle sparkles overlay - Random twinkling */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    radial-gradient(2px 2px at 20% 30%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 60% 70%, rgba(255, 255, 255, 0.2), transparent),
+    radial-gradient(1px 1px at 80% 10%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 33% 80%, rgba(255, 255, 255, 0.2), transparent),
+    radial-gradient(2px 2px at 45% 45%, rgba(255, 255, 255, 0.25), transparent),
+    radial-gradient(1px 1px at 15% 60%, rgba(255, 255, 255, 0.3), transparent);
+  background-size: 200% 200%;
+  background-position: 0% 0%;
+  opacity: 0.4;
+  animation: twinkleRandom 4s ease-in-out infinite;
+  animation-delay: 0.5s;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes twinkleRandom {
+  0% {
+    opacity: 0.2;
+  }
+
+  25% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+
+  75% {
+    opacity: 0.6;
+  }
+
+  100% {
+    opacity: 0.2;
+  }
+}
+
+/* Multiple floating stars with random movement - Full Screen */
+body::after {
+  content: '';
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.8) 1px, transparent 1px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.6) 2px, transparent 2px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.9) 1px, transparent 1px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.7) 1px, transparent 1px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.5) 2px, transparent 2px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.4) 1px, transparent 1px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.6) 1px, transparent 1px);
+  background-size:
+    250px 350px,
+    300px 400px,
+    200px 300px,
+    280px 380px,
+    220px 290px,
+    350px 450px,
+    180px 280px;
+  background-position:
+    0% 0%,
+    40% 10%,
+    80% 5%,
+    20% 15%,
+    60% 8%,
+    30% 20%,
+    70% 12%;
+  animation:
+    floatStarsRandom1 30s linear infinite,
+    floatStarsRandom2 25s linear infinite 1s,
+    floatStarsRandom3 35s linear infinite 2s;
+  filter: blur(1px);
+}
+
+@keyframes floatStarsRandom1 {
+  0% {
+    background-position: 0% 0%, 40% 10%, 80% 5%, 20% 15%, 60% 8%, 30% 20%, 70% 12%;
+  }
+
+  100% {
+    background-position: 0% 100%, 40% 110%, 80% 105%, 20% 115%, 60% 108%, 30% 120%, 70% 112%;
+  }
+}
+
+@keyframes floatStarsRandom2 {
+  0% {
+    opacity: 0.5;
+    transform: translateX(0);
+  }
+
+  33% {
+    opacity: 0.8;
+    transform: translateX(15px);
+  }
+
+  66% {
+    opacity: 0.6;
+    transform: translateX(-10px);
+  }
+
+  100% {
+    opacity: 0.5;
+    transform: translateX(0);
+  }
+}
+
+@keyframes floatStarsRandom3 {
+  0% {
+    filter: blur(1px);
+  }
+
+  25% {
+    filter: blur(2px);
+  }
+
+  50% {
+    filter: blur(1.5px);
+  }
+
+  75% {
+    filter: blur(1px);
+  }
+
+  100% {
+    filter: blur(2px);
+  }
+}
+
+/* Dashboard - Transparent background */
 .crypto-dashboard {
-  background: #0a1929;
+  background: transparent;
   color: #ffffff;
   min-height: 100vh;
   font-family: 'Inter', sans-serif;
@@ -29,85 +181,7 @@
   max-width: 1920px;
   margin: 0 auto;
   position: relative;
-  overflow: hidden;
-}
-
-/* Subtle sparkles overlay */
-.crypto-dashboard::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: 
-    radial-gradient(2px 2px at 20% 30%, rgba(255, 255, 255, 0.3), transparent),
-    radial-gradient(1px 1px at 60% 70%, rgba(255, 255, 255, 0.2), transparent),
-    radial-gradient(1px 1px at 80% 10%, rgba(255, 255, 255, 0.3), transparent),
-    radial-gradient(1px 1px at 33% 80%, rgba(255, 255, 255, 0.2), transparent);
-  background-size: 200% 200%;
-  background-position: 0% 0%;
-  opacity: 0.4;
-  animation: twinkle 3s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 0;
-}
-
-@keyframes twinkle {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 0.5; }
-}
-
-/* Multiple floating stars with random movement */
-.crypto-dashboard::after {
-  content: '';
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  z-index: 0;
-  background-image: 
-    radial-gradient(circle, rgba(255, 255, 255, 0.8) 1px, transparent 1px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.6) 2px, transparent 2px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.9) 1px, transparent 1px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.7) 1px, transparent 1px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.5) 2px, transparent 2px);
-  background-size: 
-    200px 300px,
-    250px 350px,
-    300px 280px,
-    180px 320px,
-    220px 290px;
-  background-position: 
-    0% 0%,
-    40% 10%,
-    80% 5%,
-    20% 15%,
-    60% 8%;
-  animation: 
-    floatStars1 25s linear infinite,
-    floatStars2 30s linear infinite,
-    floatStars3 35s linear infinite;
-  filter: blur(1px);
-}
-
-@keyframes floatStars1 {
-  0% { background-position: 0% 0%, 40% 10%, 80% 5%, 20% 15%, 60% 8%; }
-  100% { background-position: 0% 100%, 40% 110%, 80% 105%, 20% 115%, 60% 108%; }
-}
-
-@keyframes floatStars2 {
-  0% { opacity: 0.6; transform: translateX(0); }
-  50% { opacity: 0.9; transform: translateX(20px); }
-  100% { opacity: 0.6; transform: translateX(0); }
-}
-
-@keyframes floatStars3 {
-  0% { filter: blur(1px); }
-  50% { filter: blur(2px); }
-  100% { filter: blur(1px); }
+  z-index: 1;
 }
 
 /* Header Section */
@@ -190,7 +264,7 @@
 }
 
 /* Chart takes full width */
-.crypto-grid > .crypto-card:first-child {
+.crypto-grid>.crypto-card:first-child {
   min-width: 0;
   width: 100%;
   max-width: 100%;
@@ -200,7 +274,7 @@
   .crypto-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .crypto-dashboard {
     padding: 1.5rem;
   }
@@ -210,13 +284,13 @@
   .crypto-dashboard {
     padding: 1rem;
   }
-  
+
   .crypto-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
   }
-  
+
   .crypto-card {
     padding: 1rem;
   }
