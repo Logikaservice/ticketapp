@@ -106,9 +106,22 @@ class KlinesAggregatorService {
                 console.error('⚠️  [KLINES-AGGREGATOR] Errore caricamento isValidSymbol:', error.message);
             }
 
-            // Filtra solo simboli validi
-            if (VALID_SYMBOLS.length === 0 || !isValidSymbol) {
-                console.warn('⚠️  [KLINES-AGGREGATOR] Nessun simbolo valido caricato - usando isValidSymbol da cryptoRoutes');
+            // ✅ FIX CRITICO: Se isValidSymbol non è stato caricato, riprova
+            if (!isValidSymbol) {
+                try {
+                    const cryptoRoutes = require('../routes/cryptoRoutes');
+                    if (cryptoRoutes.isValidSymbol && typeof cryptoRoutes.isValidSymbol === 'function') {
+                        isValidSymbol = cryptoRoutes.isValidSymbol;
+                        console.log('✅ [KLINES-AGGREGATOR] isValidSymbol caricato correttamente');
+                    }
+                } catch (error) {
+                    console.error('❌ [KLINES-AGGREGATOR] Errore critico: isValidSymbol non disponibile:', error.message);
+                }
+            }
+
+            // Filtra solo simboli validi - usa fallback se VALID_SYMBOLS è vuoto
+            if (VALID_SYMBOLS.length === 0) {
+                console.log('⚠️  [KLINES-AGGREGATOR] VALID_SYMBOLS vuoto - uso fallback con isValidSymbol da cryptoRoutes');
                 const symbols = await dbAll(
                     `SELECT DISTINCT symbol 
                      FROM price_history 
@@ -118,10 +131,18 @@ class KlinesAggregatorService {
                     console.log('⚠️  [KLINES-AGGREGATOR] Nessun simbolo con dati recenti');
                     return;
                 }
-                console.log(`   • Filtro ${symbols.length} simboli con isValidSymbol...`);
-                // ✅ FIX: Filtra simboli usando isValidSymbol PRIMA di aggregare
-                const validSymbols = symbols.filter(({ symbol }) => isValidSymbol ? isValidSymbol(symbol) : false);
-                console.log(`   • Aggregando ${validSymbols.length} simboli validi (${symbols.length - validSymbols.length} filtrati)...`);
+                
+                // ✅ FIX CRITICO: Se isValidSymbol è disponibile, filtra; altrimenti usa tutti i simboli (con warning)
+                let validSymbols;
+                if (isValidSymbol) {
+                    console.log(`   • Filtro ${symbols.length} simboli con isValidSymbol...`);
+                    validSymbols = symbols.filter(({ symbol }) => isValidSymbol(symbol));
+                    console.log(`   • ${validSymbols.length} simboli validi (${symbols.length - validSymbols.length} filtrati)`);
+                } else {
+                    console.warn('⚠️  [KLINES-AGGREGATOR] isValidSymbol non disponibile - uso TUTTI i simboli (rischio simboli non validi)');
+                    validSymbols = symbols;
+                }
+                
                 let aggregated = 0;
                 for (const { symbol } of validSymbols) {
                     const success = await this.aggregateKlineForSymbol(symbol);

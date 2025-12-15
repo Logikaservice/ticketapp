@@ -12313,3 +12313,6 @@ router.post('/fix-wrong-volumes', async (req, res) => {
 module.exports = router;
 module.exports.setSocketIO = setSocketIO;
 module.exports.SYMBOL_TO_PAIR = SYMBOL_TO_PAIR;
+module.exports.isValidSymbol = isValidSymbol;
+module.exports.getValidSymbols = getValidSymbols;
+module.exports.filterValidSymbols = filterValidSymbols;
