@@ -37,7 +37,7 @@ async function main() {
         
         for (const symbol of INVALID_SYMBOLS) {
             const settings = await crypto_db.dbGet(
-                "SELECT is_active, strategy_name, created_at FROM bot_settings WHERE symbol = $1",
+                "SELECT is_active, strategy_name FROM bot_settings WHERE symbol = $1",
                 [symbol]
             );
             
