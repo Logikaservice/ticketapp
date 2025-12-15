@@ -22,6 +22,7 @@ VALID_SYMBOLS=(
     'chainlink' 'link' 'chainlink_usdt' 'linkusdt'
     'polygon' 'matic' 'pol' 'pol_polygon' 'pol_polygon_eur' 'maticusdt' 'polusdt'
     'uniswap' 'uni' 'uniusdt'
+    # NOTA: uniswap_eur rimosso - non disponibile su Binance
     'aave' 'aaveusdt'
     'curve' 'crv' 'crvusdt'
     'the_sandbox' 'sand' 'sandusdt' 'thesandbox'
