@@ -121,6 +121,27 @@ function httpsGet(url) {
 }
 
 async function updateKlinesForSymbol(symbol, binanceSymbol) {
+    // ✅ FIX CRITICO: Verifica che il simbolo sia valido PRIMA di processare
+    let isValid = false;
+    try {
+        const cryptoRoutes = require('./routes/cryptoRoutes');
+        if (cryptoRoutes.isValidSymbol && typeof cryptoRoutes.isValidSymbol === 'function') {
+            isValid = cryptoRoutes.isValidSymbol(symbol);
+        } else {
+            // Fallback: verifica direttamente nella mappa
+            const SYMBOL_TO_PAIR = cryptoRoutes.SYMBOL_TO_PAIR || {};
+            isValid = SYMBOL_TO_PAIR.hasOwnProperty(symbol?.toLowerCase()?.trim());
+        }
+    } catch (error) {
+        console.warn(`⚠️  [UPDATE-STALE-KLINES] Errore verifica simbolo ${symbol}:`, error.message);
+        isValid = false;
+    }
+    
+    if (!isValid) {
+        console.warn(`🚫 [UPDATE-STALE-KLINES] Simbolo non valido ignorato: ${symbol} (non in SYMBOL_TO_PAIR)`);
+        return 0; // Non processare simboli non validi
+    }
+    
     console.log(`   📥 Aggiornamento klines per ${symbol} (${binanceSymbol})...`);
     
     const interval = '15m';
