@@ -689,6 +689,80 @@ class BidirectionalSignalGenerator {
     }
 
     /**
+     * ========================================
+     * STRATEGY v2.0 - MOMENTUM INDICATORS
+     * ========================================
+     */
+
+    /**
+     * Calculate Williams %R (Strategy v2.0)
+     * @param {Array} prices - Array of prices
+     * @param {number} period - Lookback period (default 14)
+     * @returns {number|null} Williams %R value (-100 to 0)
+     */
+    calculateWilliamsR(prices, period = 14) {
+        if (prices.length < period) return null;
+
+        const recentPrices = prices.slice(-period);
+        const highestHigh = Math.max(...recentPrices);
+        const lowestLow = Math.min(...recentPrices);
+        const currentClose = prices[prices.length - 1];
+
+        if (highestHigh === lowestLow) return -50; // Neutral
+
+        const williamsR = ((highestHigh - currentClose) / (highestHigh - lowestLow)) * -100;
+        return williamsR;
+    }
+
+    /**
+     * Calculate TSI - True Strength Index (Strategy v2.0)
+     * @param {Array} prices - Array of prices
+     * @param {number} longPeriod - Long EMA period (default 25)
+     * @param {number} shortPeriod - Short EMA period (default 13)
+     * @returns {number|null} TSI value (-100 to 100)
+     */
+    calculateTSI(prices, longPeriod = 25, shortPeriod = 13) {
+        if (prices.length < longPeriod + 1) return null;
+
+        // Calculate price changes
+        const priceChanges = [];
+        for (let i = 1; i < prices.length; i++) {
+            priceChanges.push(prices[i] - prices[i - 1]);
+        }
+
+        if (priceChanges.length < longPeriod) return null;
+
+        // Helper: Calculate EMA
+        const calculateEMAForTSI = (data, period) => {
+            if (data.length < period) return null;
+
+            const multiplier = 2 / (period + 1);
+            let ema = data.slice(0, period).reduce((sum, val) => sum + val, 0) / period;
+
+            for (let i = period; i < data.length; i++) {
+                ema = (data[i] - ema) * multiplier + ema;
+            }
+
+            return ema;
+        };
+
+        const firstEMA = calculateEMAForTSI(priceChanges, longPeriod);
+        if (firstEMA === null) return null;
+
+        const absChanges = priceChanges.map(Math.abs);
+        const firstEMAabs = calculateEMAForTSI(absChanges, longPeriod);
+        if (firstEMAabs === null || firstEMAabs === 0) return 0;
+
+        const tsi = 100 * (firstEMA / firstEMAabs);
+        return tsi;
+    }
+
+    /**
+     * END STRATEGY v2.0 INDICATORS
+     * ========================================
+     */
+
+    /**
      * Genera segnale bidirezionale
      * @param {Array} priceHistory - Array di {price, timestamp}
      * @param {string} symbol - Simbolo (opzionale, per logging)
@@ -710,11 +784,11 @@ class BidirectionalSignalGenerator {
         const lows = priceHistory.map(h => h.low || h.price || h);
         const closes = prices;
 
-        // ✅ FIX: Usa parametri RSI configurati dall'utente invece di valori hardcoded
+        // ✅ STRATEGY v2.0: Soglie RSI abbassate per early entry (30→35 LONG, 70→65 SHORT)
         const rsiPeriod = params.rsi_period || 14;
-        const rsiOversold = params.rsi_oversold || 30;
-        const rsiOverbought = params.rsi_overbought || 70;
-        
+        const rsiOversold = params.rsi_oversold || 35; // v2.0: abbassato da 30 a 35
+        const rsiOverbought = params.rsi_overbought || 65; // v2.0: abbassato da 70 a 65
+
         // 1. Calcola indicatori BASE
         const rsi = this.calculateRSI(prices, rsiPeriod);
         const trend = this.detectTrend(prices);
@@ -734,6 +808,10 @@ class BidirectionalSignalGenerator {
         // 3. Calcola indicatori PROFESSIONALI
         const macd = this.calculateMACD(prices, 12, 26, 9);
         const bollinger = this.calculateBollingerBands(prices, 20, 2);
+
+        // ✅ STRATEGY v2.0: Calcola Williams %R e TSI per early entry
+        const williamsR = this.calculateWilliamsR(prices, 14);
+        const tsi = this.calculateTSI(prices, 25, 13);
 
         // 4. Calcola EMA multiple per trend analysis
         const ema10 = this.calculateEMA(prices, 10);
@@ -764,14 +842,14 @@ class BidirectionalSignalGenerator {
 
         // ✅ LOGICA INTELLIGENTE: Blocca LONG solo se prezzo scende SENZA segnali di inversione
         // Se ci sono segnali forti di inversione (RSI oversold, divergenze bullish), permette LONG anche durante discese
-        const isPriceActivelyFalling = (priceChange < -0.3 && priceChange5 < -0.3) || 
-                                       (priceChange5 < -0.5) ||
-                                       (priceChange10 < -1.0 && priceChange5 < -0.2);
-        
+        const isPriceActivelyFalling = (priceChange < -0.3 && priceChange5 < -0.3) ||
+            (priceChange5 < -0.5) ||
+            (priceChange10 < -1.0 && priceChange5 < -0.2);
+
         // Verifica se ci sono segnali forti di inversione che giustificano LONG durante discesa
         const hasStrongReversalSignals = (rsi !== null && rsi < rsiOversold) || // RSI oversold = possibile inversione
-                                        (rsiDivergence.type === 'bullish' && rsiDivergence.strength > 30); // Divergenza bullish forte
-        
+            (rsiDivergence.type === 'bullish' && rsiDivergence.strength > 30); // Divergenza bullish forte
+
         // Blocca LONG solo se prezzo scende E NON ci sono segnali di inversione forti
         if (isPriceActivelyFalling && !hasStrongReversalSignals) {
             const reason = `Prezzo in calo attivo (${priceChange.toFixed(2)}%, ${priceChange5.toFixed(2)}%, ${priceChange10.toFixed(2)}%) senza segnali di inversione - in attesa di inversione`;
@@ -795,159 +873,177 @@ class BidirectionalSignalGenerator {
 
         // ✅ SKIP tutte le conferme LONG solo se prezzo scende SENZA segnali di inversione
         if (!isPriceActivelyFalling || hasStrongReversalSignals) {
-        // CONFERMA 1: RSI oversold + uptrend (usa soglia configurata)
-        if (rsi !== null && rsi < rsiOversold && trend === 'bullish') {
-            const points = 25;
-            longSignal.strength += points;
-            longSignal.confirmations++;
-            longSignal.reasons.push(`RSI oversold (${rsi.toFixed(1)} < ${rsiOversold}) + uptrend`);
-            longSignal.strengthContributions.push({ indicator: 'RSI oversold + uptrend', points, reason: `RSI oversold (${rsi.toFixed(1)} < ${rsiOversold}) + uptrend` });
-        }
+            // CONFERMA 1: RSI oversold + uptrend (usa soglia configurata)
+            if (rsi !== null && rsi < rsiOversold && trend === 'bullish') {
+                const points = 25;
+                longSignal.strength += points;
+                longSignal.confirmations++;
+                longSignal.reasons.push(`RSI oversold (${rsi.toFixed(1)} < ${rsiOversold}) + uptrend`);
+                longSignal.strengthContributions.push({ indicator: 'RSI oversold + uptrend', points, reason: `RSI oversold (${rsi.toFixed(1)} < ${rsiOversold}) + uptrend` });
+            }
 
-        // CONFERMA 2: RSI fortemente oversold (usa soglia configurata - 5 punti)
-        const rsiStronglyOversold = rsiOversold - 5;
-        if (rsi !== null && rsi < rsiStronglyOversold) {
-            const points = 20;
-            longSignal.strength += points;
-            longSignal.confirmations++;
-            longSignal.reasons.push(`RSI strongly oversold (${rsi.toFixed(1)} < ${rsiStronglyOversold})`);
-            longSignal.strengthContributions.push({ indicator: 'RSI strongly oversold', points, reason: `RSI strongly oversold (${rsi.toFixed(1)} < ${rsiStronglyOversold})` });
-        }
+            // CONFERMA 2: RSI fortemente oversold (usa soglia configurata - 5 punti)
+            const rsiStronglyOversold = rsiOversold - 5;
+            if (rsi !== null && rsi < rsiStronglyOversold) {
+                const points = 20;
+                longSignal.strength += points;
+                longSignal.confirmations++;
+                longSignal.reasons.push(`RSI strongly oversold (${rsi.toFixed(1)} < ${rsiStronglyOversold})`);
+                longSignal.strengthContributions.push({ indicator: 'RSI strongly oversold', points, reason: `RSI strongly oversold (${rsi.toFixed(1)} < ${rsiStronglyOversold})` });
+            }
 
-        // CONFERMA 2.5: BULLISH DIVERGENCE RSI (segnale molto forte!)
-        if (rsiDivergence.type === 'bullish') {
-            const points = Math.min(40, rsiDivergence.strength);
-            longSignal.strength += points;
-            longSignal.confirmations++;
-            longSignal.reasons.push(`RSI Bullish Divergence detected (strength: ${rsiDivergence.strength})`);
-            longSignal.strengthContributions.push({ indicator: 'RSI Bullish Divergence', points, reason: `RSI Bullish Divergence detected (strength: ${rsiDivergence.strength})` });
-        }
+            // CONFERMA 2.5: BULLISH DIVERGENCE RSI (segnale molto forte!)
+            if (rsiDivergence.type === 'bullish') {
+                const points = Math.min(40, rsiDivergence.strength);
+                longSignal.strength += points;
+                longSignal.confirmations++;
+                longSignal.reasons.push(`RSI Bullish Divergence detected (strength: ${rsiDivergence.strength})`);
+                longSignal.strengthContributions.push({ indicator: 'RSI Bullish Divergence', points, reason: `RSI Bullish Divergence detected (strength: ${rsiDivergence.strength})` });
+            }
 
-        // CONFERMA 3: MACD positivo e crescente
-        if (macd && macd.macdAboveSignal && macd.macdAboveZero && macd.histogramGrowing) {
-            const points = 30;
-            longSignal.strength += points;
-            longSignal.confirmations++;
-            longSignal.reasons.push(`MACD rialzista (${macd.macdLine.toFixed(2)} > ${macd.signalLine.toFixed(2)})`);
-            longSignal.strengthContributions.push({ indicator: 'MACD rialzista', points, reason: `MACD rialzista (${macd.macdLine.toFixed(2)} > ${macd.signalLine.toFixed(2)})` });
-        }
+            // ✅ STRATEGY v2.0: CONFERMA 2.6 - Williams %R Oversold (early entry signal)
+            if (williamsR !== null && williamsR < -70) {
+                const points = 20;
+                longSignal.strength += points;
+                longSignal.confirmations++;
+                longSignal.reasons.push(`Williams %R oversold (${williamsR.toFixed(1)} < -70) - early entry signal`);
+                longSignal.strengthContributions.push({ indicator: 'Williams %R oversold', points, reason: `Williams %R oversold (${williamsR.toFixed(1)} < -70) - early entry signal` });
+            }
 
-        // CONFERMA 4: Bollinger - Prezzo tocca lower band (usa soglia configurata + 5)
-        if (bollinger && bollinger.priceAtLower && rsi !== null && rsi < (rsiOversold + 5)) {
-            const points = 25;
-            longSignal.strength += points;
-            longSignal.confirmations++;
-            longSignal.reasons.push(`Prezzo alla Bollinger inferiore + RSI ipervenduto`);
-            longSignal.strengthContributions.push({ indicator: 'Bollinger inferiore', points, reason: `Prezzo alla Bollinger inferiore + RSI ipervenduto` });
-        }
+            // ✅ STRATEGY v2.0: CONFERMA 2.7 - TSI Negative (momentum bearish, potential reversal)
+            if (tsi !== null && tsi < -20) {
+                const points = 15;
+                longSignal.strength += points;
+                longSignal.confirmations++;
+                longSignal.reasons.push(`TSI negative (${tsi.toFixed(1)} < -20) - bearish momentum slowing`);
+                longSignal.strengthContributions.push({ indicator: 'TSI negative momentum', points, reason: `TSI negative (${tsi.toFixed(1)} < -20) - bearish momentum slowing` });
+            }
 
-        // CONFERMA 5: Trend bullish su multiple timeframe
-        if (trend === 'bullish' && majorTrend === 'bullish') {
-            const points = 20;
-            longSignal.strength += points;
-            longSignal.confirmations++;
-            longSignal.reasons.push(`Trend rialzista confermato (EMA 10>20, 50>200)`);
-            longSignal.strengthContributions.push({ indicator: 'Trend rialzista confermato', points, reason: `Trend rialzista confermato (EMA 10>20, 50>200)` });
-        }
+            // CONFERMA 3: MACD positivo e crescente
+            if (macd && macd.macdAboveSignal && macd.macdAboveZero && macd.histogramGrowing) {
+                const points = 30;
+                longSignal.strength += points;
+                longSignal.confirmations++;
+                longSignal.reasons.push(`MACD rialzista (${macd.macdLine.toFixed(2)} > ${macd.signalLine.toFixed(2)})`);
+                longSignal.strengthContributions.push({ indicator: 'MACD rialzista', points, reason: `MACD rialzista (${macd.macdLine.toFixed(2)} > ${macd.signalLine.toFixed(2)})` });
+            }
 
-        // ✅ NUOVO: CONFERMA 5.5: Trend bullish anche senza RSI estremo (per mercati neutri)
-        if (trend === 'bullish' && rsi !== null && rsi >= 40 && rsi <= 60) {
-            const points = 15;
-            longSignal.strength += points;
-            longSignal.confirmations++;
-            longSignal.reasons.push(`Trend rialzista con RSI neutrale (${rsi.toFixed(1)}) - momentum trend`);
-            longSignal.strengthContributions.push({ indicator: 'Trend rialzista (RSI neutrale)', points, reason: `Trend rialzista con RSI neutrale (${rsi.toFixed(1)})` });
-        }
+            // CONFERMA 4: Bollinger - Prezzo tocca lower band (usa soglia configurata + 5)
+            if (bollinger && bollinger.priceAtLower && rsi !== null && rsi < (rsiOversold + 5)) {
+                const points = 25;
+                longSignal.strength += points;
+                longSignal.confirmations++;
+                longSignal.reasons.push(`Prezzo alla Bollinger inferiore + RSI ipervenduto`);
+                longSignal.strengthContributions.push({ indicator: 'Bollinger inferiore', points, reason: `Prezzo alla Bollinger inferiore + RSI ipervenduto` });
+            }
 
-        // CONFERMA 6: Prezzo sopra EMA key levels
-        if (ema10 && ema20 && currentPrice > ema10 && ema10 > ema20) {
-            const points = 15;
-            longSignal.strength += points;
-            longSignal.confirmations++;
-            longSignal.reasons.push(`Prezzo sopra EMA 10 e EMA 10 > EMA 20`);
-            longSignal.strengthContributions.push({ indicator: 'Prezzo sopra EMA', points, reason: `Prezzo sopra EMA 10 e EMA 10 > EMA 20` });
-        }
+            // CONFERMA 5: Trend bullish su multiple timeframe
+            if (trend === 'bullish' && majorTrend === 'bullish') {
+                const points = 20;
+                longSignal.strength += points;
+                longSignal.confirmations++;
+                longSignal.reasons.push(`Trend rialzista confermato (EMA 10>20, 50>200)`);
+                longSignal.strengthContributions.push({ indicator: 'Trend rialzista confermato', points, reason: `Trend rialzista confermato (EMA 10>20, 50>200)` });
+            }
 
-        // ✅ NUOVO: CONFERMA 6.5: MACD bullish anche con RSI neutrale (segnale forte)
-        if (macd && macd.macdAboveSignal && macd.macdAboveZero && rsi !== null && rsi >= 40 && rsi <= 60) {
-            const points = 20;
-            longSignal.strength += points;
-            longSignal.confirmations++;
-            longSignal.reasons.push(`MACD rialzista con RSI neutrale (${rsi.toFixed(1)}) - momentum in crescita`);
-            longSignal.strengthContributions.push({ indicator: 'MACD rialzista (RSI neutrale)', points, reason: `MACD rialzista con RSI neutrale (${rsi.toFixed(1)})` });
-        }
+            // ✅ NUOVO: CONFERMA 5.5: Trend bullish anche senza RSI estremo (per mercati neutri)
+            if (trend === 'bullish' && rsi !== null && rsi >= 40 && rsi <= 60) {
+                const points = 15;
+                longSignal.strength += points;
+                longSignal.confirmations++;
+                longSignal.reasons.push(`Trend rialzista con RSI neutrale (${rsi.toFixed(1)}) - momentum trend`);
+                longSignal.strengthContributions.push({ indicator: 'Trend rialzista (RSI neutrale)', points, reason: `Trend rialzista con RSI neutrale (${rsi.toFixed(1)})` });
+            }
 
-        // CONFERMA 7: Volume alto (movimento forte) - SOLO se prezzo sale o è stabile
-        const priceChangeForVolume = prices.length >= 3
-            ? (prices[prices.length - 1] - prices[prices.length - 3]) / prices[prices.length - 3] * 100
-            : 0;
-        if (volume.isHigh && priceChangeForVolume >= -0.2) { // Volume alto + prezzo sale/stabile (non scende)
-            const points = 15;
-            longSignal.strength += points;
-            longSignal.confirmations++;
-            longSignal.reasons.push(`Volume alto (${volume.ratio.toFixed(2)}x) + prezzo stabile/in crescita`);
-            longSignal.strengthContributions.push({ indicator: 'Volume alto', points, reason: `Volume alto (${volume.ratio.toFixed(2)}x) + prezzo stabile/in crescita` });
-        }
+            // CONFERMA 6: Prezzo sopra EMA key levels
+            if (ema10 && ema20 && currentPrice > ema10 && ema10 > ema20) {
+                const points = 15;
+                longSignal.strength += points;
+                longSignal.confirmations++;
+                longSignal.reasons.push(`Prezzo sopra EMA 10 e EMA 10 > EMA 20`);
+                longSignal.strengthContributions.push({ indicator: 'Prezzo sopra EMA', points, reason: `Prezzo sopra EMA 10 e EMA 10 > EMA 20` });
+            }
 
-        // CONFERMA 8: Prezzo NON scende (ultimi periodi) - SOLO se prezzo sale o è stabile
-        const priceChangeLong = prices.length >= 5
-            ? (prices[prices.length - 1] - prices[prices.length - 5]) / prices[prices.length - 5] * 100
-            : 0;
-        if (priceChangeLong >= 0) { // Prezzo sale o è stabile (NON scende)
-            const points = 10;
-            longSignal.strength += points;
-            longSignal.reasons.push(`Prezzo stabile/in crescita (${priceChangeLong.toFixed(2)}%)`);
-            longSignal.strengthContributions.push({ indicator: 'Prezzo stabile/in crescita', points, reason: `Prezzo stabile/in crescita (${priceChangeLong.toFixed(2)}%)` });
-        }
+            // ✅ NUOVO: CONFERMA 6.5: MACD bullish anche con RSI neutrale (segnale forte)
+            if (macd && macd.macdAboveSignal && macd.macdAboveZero && rsi !== null && rsi >= 40 && rsi <= 60) {
+                const points = 20;
+                longSignal.strength += points;
+                longSignal.confirmations++;
+                longSignal.reasons.push(`MACD rialzista con RSI neutrale (${rsi.toFixed(1)}) - momentum in crescita`);
+                longSignal.strengthContributions.push({ indicator: 'MACD rialzista (RSI neutrale)', points, reason: `MACD rialzista con RSI neutrale (${rsi.toFixed(1)})` });
+            }
 
-        // ✅ CONFERMA 9: MOMENTUM TREND - Prezzo sale consistentemente (trend forte in corso)
-        // ✅ FIX: Riutilizza priceChange3 e priceChange10 già dichiarati sopra
-        // Se prezzo sale consistentemente su più timeframe, è un trend forte
-        if (priceChange3 > 1.0 && priceChange10 > 1.5) { // Sale >1% su 3 periodi e >1.5% su 10 periodi
-            const points = 25;
-            longSignal.strength += points;
-            longSignal.confirmations++;
-            longSignal.reasons.push(`Trend momentum forte (+${priceChange3.toFixed(2)}% breve, +${priceChange10.toFixed(2)}% medio)`);
-            longSignal.strengthContributions.push({ indicator: 'Trend momentum forte', points, reason: `Trend momentum forte (+${priceChange3.toFixed(2)}% breve, +${priceChange10.toFixed(2)}% medio)` });
-        }
+            // CONFERMA 7: Volume alto (movimento forte) - SOLO se prezzo sale o è stabile
+            const priceChangeForVolume = prices.length >= 3
+                ? (prices[prices.length - 1] - prices[prices.length - 3]) / prices[prices.length - 3] * 100
+                : 0;
+            if (volume.isHigh && priceChangeForVolume >= -0.2) { // Volume alto + prezzo sale/stabile (non scende)
+                const points = 15;
+                longSignal.strength += points;
+                longSignal.confirmations++;
+                longSignal.reasons.push(`Volume alto (${volume.ratio.toFixed(2)}x) + prezzo stabile/in crescita`);
+                longSignal.strengthContributions.push({ indicator: 'Volume alto', points, reason: `Volume alto (${volume.ratio.toFixed(2)}x) + prezzo stabile/in crescita` });
+            }
 
-        // ✅ CONFERMA 10: RSI FORTE in trend positivo (60-85) - NON solo oversold!
-        // RSI 60-85 in un uptrend indica forza, non solo overbought
-        if (rsi !== null && rsi >= 60 && rsi <= 85 && trend === 'bullish' && priceChange3 > 0.5) {
-            const points = 20;
-            longSignal.strength += points;
-            longSignal.confirmations++;
-            longSignal.reasons.push(`RSI forte in trend rialzista (${rsi.toFixed(1)} - segnale momentum)`);
-            longSignal.strengthContributions.push({ indicator: 'RSI forte in trend rialzista', points, reason: `RSI forte in trend rialzista (${rsi.toFixed(1)} - segnale momentum)` });
-        }
+            // CONFERMA 8: Prezzo NON scende (ultimi periodi) - SOLO se prezzo sale o è stabile
+            const priceChangeLong = prices.length >= 5
+                ? (prices[prices.length - 1] - prices[prices.length - 5]) / prices[prices.length - 5] * 100
+                : 0;
+            if (priceChangeLong >= 0) { // Prezzo sale o è stabile (NON scende)
+                const points = 10;
+                longSignal.strength += points;
+                longSignal.reasons.push(`Prezzo stabile/in crescita (${priceChangeLong.toFixed(2)}%)`);
+                longSignal.strengthContributions.push({ indicator: 'Prezzo stabile/in crescita', points, reason: `Prezzo stabile/in crescita (${priceChangeLong.toFixed(2)}%)` });
+            }
 
-        // ✅ CONFERMA 11: PREZZO SOPRA MULTIPLE EMA (trend molto forte)
-        if (ema10 && ema20 && ema50 && currentPrice > ema10 && ema10 > ema20 && ema20 > ema50) {
-            const points = 20;
-            longSignal.strength += points;
-            longSignal.confirmations++;
-            longSignal.reasons.push(`Prezzo sopra tutte le EMA chiave (allineamento trend forte)`);
-            longSignal.strengthContributions.push({ indicator: 'Prezzo sopra tutte le EMA', points, reason: `Prezzo sopra tutte le EMA chiave (allineamento trend forte)` });
-        }
+            // ✅ CONFERMA 9: MOMENTUM TREND - Prezzo sale consistentemente (trend forte in corso)
+            // ✅ FIX: Riutilizza priceChange3 e priceChange10 già dichiarati sopra
+            // Se prezzo sale consistentemente su più timeframe, è un trend forte
+            if (priceChange3 > 1.0 && priceChange10 > 1.5) { // Sale >1% su 3 periodi e >1.5% su 10 periodi
+                const points = 25;
+                longSignal.strength += points;
+                longSignal.confirmations++;
+                longSignal.reasons.push(`Trend momentum forte (+${priceChange3.toFixed(2)}% breve, +${priceChange10.toFixed(2)}% medio)`);
+                longSignal.strengthContributions.push({ indicator: 'Trend momentum forte', points, reason: `Trend momentum forte (+${priceChange3.toFixed(2)}% breve, +${priceChange10.toFixed(2)}% medio)` });
+            }
 
-        // ✅ CONFERMA 12: BREAKOUT PATTERN - Prezzo rompe upper Bollinger Band (breakout)
-        if (bollinger && currentPrice > bollinger.upper && priceChange3 > 0.8) {
-            const points = 20;
-            longSignal.strength += points;
-            longSignal.confirmations++;
-            longSignal.reasons.push(`Breakout sopra Bollinger superiore (+${priceChange3.toFixed(2)}%)`);
-            longSignal.strengthContributions.push({ indicator: 'Pattern breakout', points, reason: `Breakout sopra Bollinger superiore (+${priceChange3.toFixed(2)}%)` });
-        }
+            // ✅ CONFERMA 10: RSI FORTE in trend positivo (60-85) - NON solo oversold!
+            // RSI 60-85 in un uptrend indica forza, non solo overbought
+            if (rsi !== null && rsi >= 60 && rsi <= 85 && trend === 'bullish' && priceChange3 > 0.5) {
+                const points = 20;
+                longSignal.strength += points;
+                longSignal.confirmations++;
+                longSignal.reasons.push(`RSI forte in trend rialzista (${rsi.toFixed(1)} - segnale momentum)`);
+                longSignal.strengthContributions.push({ indicator: 'RSI forte in trend rialzista', points, reason: `RSI forte in trend rialzista (${rsi.toFixed(1)} - segnale momentum)` });
+            }
 
-        // ✅ CONFERMA 13: VOLUME CRESCENTE in trend positivo
-        const volumeTrend = prices.length >= 10 ? volume.ratio : 1.0;
-        if (volumeTrend > 1.5 && priceChange3 > 0.5 && trend === 'bullish') {
-            const points = 15;
-            longSignal.strength += points;
-            longSignal.confirmations++;
-            longSignal.reasons.push(`Volume crescente in trend rialzista (${volumeTrend.toFixed(2)}x)`);
-            longSignal.strengthContributions.push({ indicator: 'Volume crescente', points, reason: `Volume crescente in trend rialzista (${volumeTrend.toFixed(2)}x)` });
-        }
+            // ✅ CONFERMA 11: PREZZO SOPRA MULTIPLE EMA (trend molto forte)
+            if (ema10 && ema20 && ema50 && currentPrice > ema10 && ema10 > ema20 && ema20 > ema50) {
+                const points = 20;
+                longSignal.strength += points;
+                longSignal.confirmations++;
+                longSignal.reasons.push(`Prezzo sopra tutte le EMA chiave (allineamento trend forte)`);
+                longSignal.strengthContributions.push({ indicator: 'Prezzo sopra tutte le EMA', points, reason: `Prezzo sopra tutte le EMA chiave (allineamento trend forte)` });
+            }
+
+            // ✅ CONFERMA 12: BREAKOUT PATTERN - Prezzo rompe upper Bollinger Band (breakout)
+            if (bollinger && currentPrice > bollinger.upper && priceChange3 > 0.8) {
+                const points = 20;
+                longSignal.strength += points;
+                longSignal.confirmations++;
+                longSignal.reasons.push(`Breakout sopra Bollinger superiore (+${priceChange3.toFixed(2)}%)`);
+                longSignal.strengthContributions.push({ indicator: 'Pattern breakout', points, reason: `Breakout sopra Bollinger superiore (+${priceChange3.toFixed(2)}%)` });
+            }
+
+            // ✅ CONFERMA 13: VOLUME CRESCENTE in trend positivo
+            const volumeTrend = prices.length >= 10 ? volume.ratio : 1.0;
+            if (volumeTrend > 1.5 && priceChange3 > 0.5 && trend === 'bullish') {
+                const points = 15;
+                longSignal.strength += points;
+                longSignal.confirmations++;
+                longSignal.reasons.push(`Volume crescente in trend rialzista (${volumeTrend.toFixed(2)}x)`);
+                longSignal.strengthContributions.push({ indicator: 'Volume crescente', points, reason: `Volume crescente in trend rialzista (${volumeTrend.toFixed(2)}x)` });
+            }
         } // ✅ FINE BLOCCO: Salta tutte le conferme LONG se prezzo sta scendendo
 
         // 4. SHORT SIGNAL (vendi) - SISTEMA MULTI-CONFERMA (PIÙ RIGOROSO)
@@ -1000,10 +1096,10 @@ class BidirectionalSignalGenerator {
         // - OPPURE scende >0.4% su 5 periodi = trend al ribasso medio termine
         // - OPPURE scende >0.5% su 10 periodi = trend al ribasso lungo termine
         // ✅ FIX: Rinomina per evitare conflitto con variabile LONG
-        const isPriceActivelyFallingShort = (priceChangeShort < -0.2 && priceChange5Short < -0.2) || 
-                                            (priceChangeShort < -0.3) || 
-                                            (priceChange5Short < -0.4) ||
-                                            (priceChange10Short < -0.5);
+        const isPriceActivelyFallingShort = (priceChangeShort < -0.2 && priceChange5Short < -0.2) ||
+            (priceChangeShort < -0.3) ||
+            (priceChange5Short < -0.4) ||
+            (priceChange10Short < -0.5);
 
         // ✅ FIX CRITICO: Se mercato è neutrale O prezzo sta salendo, BLOCCA solo SHORT ma continua a calcolare LONG
         // NON fare return early per permettere ai segnali LONG di essere generati
@@ -1059,6 +1155,24 @@ class BidirectionalSignalGenerator {
             shortSignal.confirmations++;
             shortSignal.reasons.push(`RSI Bearish Divergence detected (strength: ${rsiDivergence.strength})`);
             shortSignal.strengthContributions.push({ indicator: 'RSI Bearish Divergence', points, reason: `RSI Bearish Divergence detected (strength: ${rsiDivergence.strength})` });
+        }
+
+        // ✅ STRATEGY v2.0: CONFERMA 2.6 - Williams %R Overbought (early entry signal)
+        if (williamsR !== null && williamsR > -30 && isPriceActivelyFallingShort) {
+            const points = 20;
+            shortSignal.strength += points;
+            shortSignal.confirmations++;
+            shortSignal.reasons.push(`Williams %R overbought (${williamsR.toFixed(1)} > -30) - early entry signal`);
+            shortSignal.strengthContributions.push({ indicator: 'Williams %R overbought', points, reason: `Williams %R overbought (${williamsR.toFixed(1)} > -30) - early entry signal` });
+        }
+
+        // ✅ STRATEGY v2.0: CONFERMA 2.7 - TSI Positive (momentum bullish, potential reversal)
+        if (tsi !== null && tsi > 20 && isPriceActivelyFallingShort) {
+            const points = 15;
+            shortSignal.strength += points;
+            shortSignal.confirmations++;
+            shortSignal.reasons.push(`TSI positive (${tsi.toFixed(1)} > 20) - bullish momentum slowing`);
+            shortSignal.strengthContributions.push({ indicator: 'TSI positive momentum', points, reason: `TSI positive (${tsi.toFixed(1)} > 20) - bullish momentum slowing` });
         }
 
         // CONFERMA 3: MACD negativo e decrescente - SOLO se prezzo sta scendendo attivamente

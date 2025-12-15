@@ -897,6 +897,18 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
             if (pos.type === 'buy' && pos.status === 'open') {
                 const longValue = remainingVolume * price;
 
+                // ✅ DEBUG: Log se prezzo è 0 o mancante
+                if (price === 0 || !price) {
+                    console.warn(`⚠️ [BALANCE-DEBUG] Prezzo mancante per LONG ${pos.symbol} (${pos.ticket_id}):`, {
+                        symbol: pos.symbol,
+                        allSymbolPrices: allSymbolPrices[pos.symbol],
+                        currentSymbol: currentSymbol,
+                        currentPrice: currentPrice,
+                        dbPrice: parseFloat(pos.current_price) || 0,
+                        entryPrice: parseFloat(pos.entry_price) || 0
+                    });
+                }
+
                 // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT
                 if (longValue > MAX_REASONABLE_BALANCE) {
                     console.error(`🚨 [BALANCE] Valore LONG anomale per ${pos.ticket_id}: $${longValue.toLocaleString()}. Volume: ${remainingVolume}, Prezzo: $${price.toFixed(8)}. Skipping.`);
@@ -955,6 +967,23 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
     // Se hai $500 cash + $600 in BTC → mostra $1100 (patrimonio totale)
     // Quando chiudi posizioni, il balance non fa salti strani
     const totalBalance = validatedBalance + totalLongValue - totalShortLiability;
+    
+    // ✅ DEBUG: Log per diagnosticare problema Total Balance
+    if (validOpenPositions.length > 0 && (totalLongValue === 0 || totalBalance < validatedBalance)) {
+        console.warn(`⚠️ [BALANCE-DEBUG] Total Balance anomalo:`, {
+            cash: validatedBalance,
+            totalLongValue,
+            totalShortLiability,
+            totalBalance,
+            openPositionsCount: validOpenPositions.length,
+            longPositions: validOpenPositions.filter(p => p.type === 'buy').length,
+            shortPositions: validOpenPositions.filter(p => p.type === 'sell').length,
+            positionsWithPrice: validOpenPositions.filter(p => {
+                const price = allSymbolPrices[p.symbol] || (p.symbol === currentSymbol ? currentPrice : 0) || parseFloat(p.current_price) || 0;
+                return price > 0;
+            }).length
+        });
+    }
 
     // ✅ FIX CRITICO: Usa direttamente profit_loss calcolato dal backend
     // ✅ FIX: Validazione STRICTA - solo posizioni con status === 'open' e dati validi
