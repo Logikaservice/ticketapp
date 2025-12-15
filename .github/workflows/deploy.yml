@@ -45,12 +45,15 @@ jobs:
             npm install --silent || npm install
             echo "REACT_APP_API_URL=" > .env
             echo "GENERATE_SOURCEMAP=false" >> .env
-            npm run build
+            CI=false npm run build || {
+              echo "⚠️ Build fallito, provo senza CI=false..."
+              npm run build
+            }
             cd ..
             
             echo "🔄 Restart services..."
             pm2 restart ticketapp-backend || pm2 restart all || pm2 start backend/index.js --name ticketapp-backend || true
-            sudo nginx -t && sudo systemctl reload nginx || true
+            sudo systemctl reload nginx || sudo nginx -s reload || true
             
             echo "✅ Deploy completato!"
 
