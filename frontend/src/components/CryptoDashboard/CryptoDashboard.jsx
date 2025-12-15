@@ -1004,6 +1004,16 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
 
     // Balance debug validated values logging removed
 
+    // ✅ DEBUG: Calcola totale investito per verificare coerenza con cash (DEVE essere PRIMA del suo utilizzo)
+    const totalInvested = validOpenPositions.reduce((sum, pos) => {
+        const volume = parseFloat(pos.volume) || 0;
+        const volumeClosed = parseFloat(pos.volume_closed) || 0;
+        const remainingVolume = volume - volumeClosed;
+        const entryPrice = parseFloat(pos.entry_price) || 0;
+        const invested = remainingVolume * entryPrice;
+        return sum + invested;
+    }, 0);
+    
     // ✅ TOTAL BALANCE (EQUITY) = Cash + Valore Posizioni Aperte
     // - Cash (validatedBalance): denaro disponibile dopo investimenti
     // - totalLongValue: valore attuale posizioni LONG (entry_price * volume + P&L)
@@ -1027,16 +1037,6 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
     // Altrimenti usa quello da capitale iniziale (più stabile)
     const difference = Math.abs(totalBalanceFromCash - totalBalanceFromInitial);
     const totalBalance = difference < 5 ? totalBalanceFromCash : totalBalanceFromInitial;
-    
-    // ✅ DEBUG: Calcola totale investito per verificare coerenza con cash
-    const totalInvested = validOpenPositions.reduce((sum, pos) => {
-        const volume = parseFloat(pos.volume) || 0;
-        const volumeClosed = parseFloat(pos.volume_closed) || 0;
-        const remainingVolume = volume - volumeClosed;
-        const entryPrice = parseFloat(pos.entry_price) || 0;
-        const invested = remainingVolume * entryPrice;
-        return sum + invested;
-    }, 0);
     
     // ✅ DEBUG: Log dettagliato del calcolo finale (sempre, per diagnosticare problemi)
     console.log(`[BALANCE-DEBUG] Calcolo Total Balance:`, {
