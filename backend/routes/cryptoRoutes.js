@@ -2584,6 +2584,12 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     return;
                 }
 
+                // ✅ FIX CRITICO: Verifica che il simbolo sia valido PRIMA di creare candela
+                if (!isValidSymbol(symbol)) {
+                    console.warn(`🚫 [KLINES-CREATE] Simbolo non valido ignorato: ${symbol} (non in SYMBOL_TO_PAIR)`);
+                    return; // Non creare candela per simboli non validi
+                }
+                
                 // Crea nuova candela
                 await dbRun(
                     `INSERT INTO klines 
@@ -2627,6 +2633,12 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                             [newHigh, newLow, currentPrice, now, symbol, interval, candleStartTime]
                         );
                     } else {
+                        // ✅ FIX CRITICO: Verifica che il simbolo sia valido PRIMA di creare candela
+                        if (!isValidSymbol(symbol)) {
+                            console.warn(`🚫 [KLINES-CREATE] Simbolo non valido ignorato: ${symbol} (non in SYMBOL_TO_PAIR)`);
+                            continue; // Salta questo intervallo per simboli non validi
+                        }
+                        
                         await dbRun(
                             `INSERT INTO klines 
                             (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
