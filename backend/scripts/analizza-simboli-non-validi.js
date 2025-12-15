@@ -46,8 +46,11 @@ try {
         console.error('❌ SYMBOL_TO_PAIR non valido');
         process.exit(1);
     }
+    
+    console.log(`✅ SYMBOL_TO_PAIR caricato: ${Object.keys(SYMBOL_TO_PAIR).length} simboli`);
 } catch (error) {
     console.error('❌ Errore estrazione SYMBOL_TO_PAIR:', error.message);
+    console.error('   Stack:', error.stack);
     process.exit(1);
 }
 
