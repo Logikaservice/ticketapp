@@ -244,7 +244,10 @@ async function main() {
         console.error(error.stack);
         process.exit(1);
     } finally {
-        await crypto_db.close();
+        // Chiudi pool PostgreSQL se disponibile
+        if (crypto_db.pool && typeof crypto_db.pool.end === 'function') {
+            await crypto_db.pool.end();
+        }
     }
 }
 
