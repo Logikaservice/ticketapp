@@ -268,3 +268,4 @@ async function fixSymbol(symbol, tradingPair) {
 }
 
 checkAllSymbols();
+
