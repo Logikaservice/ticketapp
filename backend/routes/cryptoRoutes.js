@@ -3666,6 +3666,14 @@ const runBotCycle = async () => {
 
         // Aggiungi simboli comuni che non sono già nella lista attiva
         for (const symbol of commonSymbols) {
+            // ✅ FIX CRITICO: Verifica che il simbolo sia valido PRIMA di processare
+            if (!isValidSymbol(symbol)) {
+                if (Math.random() < 0.01) {
+                    console.warn(`🚫 [BOT-CYCLE-COMMON] Simbolo non valido ignorato: ${symbol}`);
+                }
+                continue; // Salta simboli non validi
+            }
+            
             if (!allScannedSymbols.has(symbol)) {
                 // Crea entry temporanea con bot disattivato solo per aggiornare dati
                 const tempBotSettings = { symbol, is_active: 0 };
