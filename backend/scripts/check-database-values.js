@@ -58,23 +58,29 @@ async function checkDatabaseValues() {
             console.log('   Nessuna configurazione bot');
         }
 
-        // 5. Verifica se esiste una tabella per impostazioni generali
-        console.log('\n⚙️  IMPOSTAZIONI:');
+        // 5. General Settings (Total Balance, etc.)
+        console.log('\n⚙️  IMPOSTAZIONI GENERALI:');
         try {
-            const settingsTable = await dbAll(`
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name LIKE '%setting%' OR table_name LIKE '%config%'
-            `);
-            if (settingsTable.length > 0) {
-                console.log(`   Tabelle trovate: ${settingsTable.map(t => t.table_name).join(', ')}`);
+            const generalSettings = await dbAll("SELECT setting_key, setting_value FROM general_settings");
+            if (generalSettings.length > 0) {
+                generalSettings.forEach(setting => {
+                    if (setting.setting_key === 'total_balance') {
+                        console.log(`   Total Balance: $${parseFloat(setting.setting_value || 0).toFixed(2)}`);
+                    } else {
+                        console.log(`   ${setting.setting_key}: ${setting.setting_value}`);
+                    }
+                });
             } else {
-                console.log('   ⚠️  Nessuna tabella impostazioni nel database');
-                console.log('   ℹ️  Le impostazioni Total Balance sono salvate in localStorage (browser), non nel database');
+                console.log('   ⚠️  Nessuna impostazione trovata nel database');
+                console.log('   ℹ️  Il Total Balance dovrebbe essere salvato nella tabella general_settings');
             }
         } catch (e) {
-            console.log('   ⚠️  Impossibile verificare tabelle impostazioni');
+            if (e.message && e.message.includes('does not exist')) {
+                console.log('   ⚠️  Tabella general_settings non esiste ancora');
+                console.log('   ℹ️  La tabella verrà creata al prossimo avvio del server');
+            } else {
+                console.log(`   ⚠️  Errore verificando impostazioni: ${e.message}`);
+            }
         }
 
         // 6. Calcolo rapido
