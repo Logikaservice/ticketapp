@@ -2601,6 +2601,11 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     return;
                 }
 
+                // ✅ DEBUG: Log simbolo prima di INSERT per identificare normalizzazione
+                if (!isValidSymbol(symbol)) {
+                    console.error(`🚨 [BOT-CYCLE-INSERT] ATTENZIONE: Tentativo di inserire kline per simbolo NON VALIDO: ${symbol} (bypassato filtro?)`);
+                }
+                
                 // Crea nuova candela
                 await dbRun(
                     `INSERT INTO klines 
@@ -2644,6 +2649,11 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                             [newHigh, newLow, currentPrice, now, symbol, interval, candleStartTime]
                         );
                     } else {
+                        // ✅ DEBUG: Log simbolo prima di INSERT per identificare normalizzazione
+                        if (!isValidSymbol(symbol)) {
+                            console.error(`🚨 [BOT-CYCLE-MTF-INSERT] ATTENZIONE: Tentativo di inserire kline per simbolo NON VALIDO: ${symbol} (interval: ${interval}, bypassato filtro?)`);
+                        }
+                        
                         await dbRun(
                             `INSERT INTO klines 
                             (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
