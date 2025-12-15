@@ -3573,9 +3573,10 @@ const runBotCycle = async () => {
         if (activeBots.length === 0) {
             // No active bots, but we still want to update prices for monitoring
             // Update price for bitcoin at least (for backward compatibility)
-            const currentPrice = await getSymbolPrice('bitcoin_usdt');
-            if (currentPrice > 0) {
-                await dbRun("INSERT INTO price_history (symbol, price) VALUES ($1, $2)", ['bitcoin_usdt', currentPrice]);
+            // ✅ FIX: Usa 'bitcoin' invece di 'bitcoin_usdt' (simbolo valido)
+            const currentPrice = await getSymbolPrice('bitcoin');
+            if (currentPrice > 0 && (VALID_SYMBOLS_SET.size === 0 || VALID_SYMBOLS_SET.has('bitcoin'))) {
+                await dbRun("INSERT INTO price_history (symbol, price) VALUES ($1, $2)", ['bitcoin', currentPrice]);
             }
             return;
         }
