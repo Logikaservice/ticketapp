@@ -14,16 +14,35 @@ const cryptoRoutesPath = path.join(__dirname, '../routes/cryptoRoutes.js');
 const fs = require('fs');
 const cryptoRoutesContent = fs.readFileSync(cryptoRoutesPath, 'utf8');
 
-// Estrai SYMBOL_TO_PAIR usando regex
-const symbolMapMatch = cryptoRoutesContent.match(/const SYMBOL_TO_PAIR\s*=\s*\{([\s\S]*?)\};/);
+// Estrai SYMBOL_TO_PAIR usando regex (non-greedy fino alla chiusura })
+// Cerca dalla dichiarazione fino alla prima }; che chiude l'oggetto
+const symbolMapMatch = cryptoRoutesContent.match(/const SYMBOL_TO_PAIR\s*=\s*\{([\s\S]*?)\n\};\n/);
 if (!symbolMapMatch) {
-    console.error('❌ Impossibile trovare SYMBOL_TO_PAIR in cryptoRoutes.js');
-    process.exit(1);
+    // Fallback: cerca con pattern più semplice
+    const lines = cryptoRoutesContent.split('\n');
+    let startLine = -1;
+    let endLine = -1;
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes('const SYMBOL_TO_PAIR') && lines[i].includes('=')) {
+            startLine = i;
+        }
+        if (startLine >= 0 && lines[i].trim() === '};') {
+            endLine = i;
+            break;
+        }
+    }
+    if (startLine >= 0 && endLine >= 0) {
+        const symbolMapCode = lines.slice(startLine, endLine + 1).join('\n');
+        eval(symbolMapCode);
+    } else {
+        console.error('❌ Impossibile trovare SYMBOL_TO_PAIR in cryptoRoutes.js');
+        process.exit(1);
+    }
+} else {
+    // Eval per ottenere l'oggetto (sicuro perché è codice del progetto stesso)
+    const symbolMapCode = `const SYMBOL_TO_PAIR = {${symbolMapMatch[1]}};`;
+    eval(symbolMapCode);
 }
-
-// Eval per ottenere l'oggetto (sicuro perché è codice del progetto stesso)
-const symbolMapCode = `const SYMBOL_TO_PAIR = {${symbolMapMatch[1]}};`;
-eval(symbolMapCode);
 
 const VALID_SYMBOLS = new Set(Object.keys(SYMBOL_TO_PAIR));
 const CONFIRM = process.argv.includes('--confirm');
