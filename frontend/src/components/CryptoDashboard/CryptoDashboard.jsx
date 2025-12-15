@@ -1004,65 +1004,57 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
 
     // Balance debug validated values logging removed
 
-    // ✅ TOTAL BALANCE: Prende solo il valore dalle impostazioni (semplice e diretto)
-    // Rimossa tutta la logica complessa - usa solo il valore impostato manualmente
+    // ✅ TOTAL BALANCE: Prende solo il valore dal database (semplice e diretto)
     const [totalBalanceFromSettings, setTotalBalanceFromSettings] = useState(1000);
     
-    // Carica Total Balance dalle impostazioni
+    // Carica Total Balance dal database
     useEffect(() => {
-        const saved = localStorage.getItem('crypto_general_settings');
-        if (saved) {
+        const fetchTotalBalance = async () => {
             try {
-                const parsed = JSON.parse(saved);
-                if (parsed.totalBalance !== undefined) {
-                    setTotalBalanceFromSettings(parseFloat(parsed.totalBalance) || 1000);
+                const result = await fetchJsonWithRetry(
+                    `${apiBase}/api/crypto/general-settings`,
+                    {
+                        method: 'GET',
+                        headers: {
+                            ...getAuthHeader(),
+                            'Content-Type': 'application/json'
+                        }
+                    },
+                    {
+                        maxRetries: 2,
+                        silent502: false
+                    }
+                );
+                
+                if (result.ok && result.data) {
+                    const totalBalance = parseFloat(result.data.total_balance || result.data.totalBalance || 1000);
+                    setTotalBalanceFromSettings(totalBalance);
                 }
-            } catch (e) {
-                console.error('Error loading total balance from settings:', e);
+            } catch (error) {
+                console.error('Error loading total balance from database:', error);
+                // Fallback a localStorage se database non disponibile
+                const saved = localStorage.getItem('crypto_general_settings');
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.totalBalance !== undefined) {
+                            setTotalBalanceFromSettings(parseFloat(parsed.totalBalance) || 1000);
+                        }
+                    } catch (e) {
+                        // Ignora errori
+                    }
+                }
             }
-        }
+        };
+        
+        fetchTotalBalance();
+        
+        // Aggiorna ogni 5 secondi per sincronizzare con database
+        const interval = setInterval(fetchTotalBalance, 5000);
+        return () => clearInterval(interval);
     }, []);
     
-    // Ascolta cambiamenti nelle impostazioni (via localStorage event)
-    useEffect(() => {
-        const handleStorageChange = (e) => {
-            if (e.key === 'crypto_general_settings') {
-                try {
-                    const parsed = JSON.parse(e.newValue);
-                    if (parsed && parsed.totalBalance !== undefined) {
-                        setTotalBalanceFromSettings(parseFloat(parsed.totalBalance) || 1000);
-                    }
-                } catch (err) {
-                    console.error('Error parsing settings:', err);
-                }
-            }
-        };
-        window.addEventListener('storage', handleStorageChange);
-        // Ascolta anche cambiamenti nello stesso tab (simulando storage event)
-        const interval = setInterval(() => {
-            const saved = localStorage.getItem('crypto_general_settings');
-            if (saved) {
-                try {
-                    const parsed = JSON.parse(saved);
-                    if (parsed && parsed.totalBalance !== undefined) {
-                        const newValue = parseFloat(parsed.totalBalance) || 1000;
-                        if (newValue !== totalBalanceFromSettings) {
-                            setTotalBalanceFromSettings(newValue);
-                        }
-                    }
-                } catch (e) {
-                    // Ignora errori
-                }
-            }
-        }, 1000); // Controlla ogni secondo
-        
-        return () => {
-            window.removeEventListener('storage', handleStorageChange);
-            clearInterval(interval);
-        };
-    }, [totalBalanceFromSettings]);
-    
-    // Total Balance = Valore dalle impostazioni (semplice!)
+    // Total Balance = Valore dal database (semplice!)
     const totalBalance = totalBalanceFromSettings;
 
     // ✅ FIX CRITICO: Usa direttamente profit_loss calcolato dal backend

@@ -500,6 +500,43 @@ router.get('/history', async (req, res) => {
 
 // ✅ POSTGRESQL ONLY: dbGet e dbRun sono già definiti sopra
 
+// GET /api/crypto/general-settings - Get general settings (Total Balance, etc.)
+router.get('/general-settings', async (req, res) => {
+    try {
+        const settings = await dbAll("SELECT setting_key, setting_value FROM general_settings");
+        const settingsObj = {};
+        settings.forEach(s => {
+            settingsObj[s.setting_key] = s.setting_value;
+        });
+        res.json(settingsObj);
+    } catch (err) {
+        console.error('❌ Error getting general settings:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PUT /api/crypto/general-settings - Update general settings
+router.put('/general-settings', async (req, res) => {
+    try {
+        const { totalBalance } = req.body;
+        
+        if (totalBalance !== undefined) {
+            await dbRun(
+                `INSERT INTO general_settings (setting_key, setting_value, updated_at)
+                 VALUES ('total_balance', $1, NOW())
+                 ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1, updated_at = NOW()`,
+                [totalBalance.toString()]
+            );
+            console.log(`✅ [GENERAL-SETTINGS] Total Balance aggiornato a: $${totalBalance}`);
+        }
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('❌ Error updating general settings:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /api/crypto/dashboard
 router.get('/dashboard', async (req, res) => {
     try {
@@ -2543,16 +2580,16 @@ const canOpenPositionHybridStrategy = async (symbol, openPositions, newSignal = 
             .replace(/usdt$/, '') // Rimuovi suffisso USDT
             .replace(/eur$/, ''); // Rimuovi suffisso EUR
     };
-    
+
     const normalizedSymbol = normalizeSymbolForComparison(symbol);
-    
+
     // Verifica limite posizioni per simbolo (confronto normalizzato)
     const symbolPositions = openPositions.filter(p => {
         if (p.status !== 'open') return false;
         const normalizedPosSymbol = normalizeSymbolForComparison(p.symbol);
         return normalizedPosSymbol === normalizedSymbol;
     });
-    
+
     if (symbolPositions.length >= maxPerSymbol) {
         return {
             allowed: false,
@@ -5206,11 +5243,11 @@ router.post('/positions/open', async (req, res) => {
         // ✅ FIX CRITICO: Verifica limiti prima di aprire posizione manuale
         const allOpenPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
         const params = await getBotParameters(symbol);
-        
+
         const hybridCheck = await canOpenPositionHybridStrategy(
-            symbol, 
-            allOpenPositions, 
-            null, 
+            symbol,
+            allOpenPositions,
+            null,
             type === 'buy' ? 'buy' : 'sell',
             {
                 maxPositions: params.max_positions || 10,
@@ -5218,14 +5255,14 @@ router.post('/positions/open', async (req, res) => {
                 maxPerSymbol: params.max_positions_per_symbol || 2
             }
         );
-        
+
         if (!hybridCheck.allowed) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 error: `Cannot open position: ${hybridCheck.reason}`,
                 reason: hybridCheck.reason
             });
         }
-        
+
         const portfolio = await getPortfolio();
         let balance = portfolio.balance_usd;
         let holdings = JSON.parse(portfolio.holdings || '{}');
@@ -9181,14 +9218,7 @@ router.get('/bot-analysis', async (req, res) => {
                     // Questo permette di vedere PERCHÉ non apre anche quando segnale è READY
                     const canOpen = meetsRequirements && canOpenCheck.allowed && !signal.atrBlocked;
 
-                    // ✅ FIX: Controllo Bot Attivo (mostra sempre, anche se requirements non soddisfatti)
-                    if (!isBotActive) {
-                        blocks.push({
-                            type: 'Bot Disabilitato',
-                            reason: 'Il bot non è attivo su questa moneta. Attivalo dalla Dashboard.',
-                            severity: 'high'
-                        });
-                    }
+
 
                     // ✅ FIX: Controllo Portfolio Drawdown (mostra sempre)
                     if (portfolioDrawdownBlock) {
@@ -9313,14 +9343,7 @@ router.get('/bot-analysis', async (req, res) => {
                     const meetsRequirements = shortAdjustedStrength >= SHORT_MIN_STRENGTH &&
                         shortCurrentConfirmations >= SHORT_MIN_CONFIRMATIONS;
 
-                    // ✅ FIX: Controllo Bot Attivo
-                    if (!isBotActive) {
-                        blocks.push({
-                            type: 'Bot Disabilitato',
-                            reason: 'Il bot non è attivo su questa moneta. Attivalo dalla Dashboard.',
-                            severity: 'high'
-                        });
-                    }
+
 
                     // ✅ FIX: Controllo Volume
                     if (volumeBlocked) {

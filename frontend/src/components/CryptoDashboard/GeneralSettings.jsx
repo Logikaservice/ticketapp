@@ -8,7 +8,9 @@ const GeneralSettings = ({
     isOpen,
     onClose,
     onResetPortfolio,
-    onAddFunds
+    onAddFunds,
+    apiBase = '',
+    getAuthHeader = () => ({})
 }) => {
     const [settings, setSettings] = useState({
         emailNotifications: true,

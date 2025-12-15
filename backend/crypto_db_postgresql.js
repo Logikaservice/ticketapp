@@ -231,6 +231,23 @@ async function initDb() {
             )
         `);
 
+        // General settings (per Total Balance e altre impostazioni)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS general_settings (
+                id SERIAL PRIMARY KEY,
+                setting_key TEXT UNIQUE NOT NULL,
+                setting_value TEXT,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Inserisci Total Balance default se non esiste
+        await client.query(`
+            INSERT INTO general_settings (setting_key, setting_value)
+            VALUES ('total_balance', '1000')
+            ON CONFLICT (setting_key) DO NOTHING
+        `);
+
         // Insert default strategy
         await client.query(`
             INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters)
