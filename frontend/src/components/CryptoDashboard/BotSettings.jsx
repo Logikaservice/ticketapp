@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { Settings, Save, X } from 'lucide-react';
 import './BotSettings.css';
 import FixVolumesButton from './FixVolumesButton';
@@ -53,11 +54,11 @@ const BotSettings = React.memo(({ isOpen, onClose, apiBase, getAuthHeader = () =
                     'Content-Type': 'application/json'
                 }
             });
-            
+
             // ✅ FIX: Verifica content-type PRIMA di fare res.json()
             const contentType = res.headers.get('content-type') || '';
             const isJson = contentType.includes('application/json');
-            
+
             if (res.ok && isJson) {
                 try {
                     const data = await res.json();
@@ -147,9 +148,9 @@ const BotSettings = React.memo(({ isOpen, onClose, apiBase, getAuthHeader = () =
 
             const res = await fetch(`${apiBase}/api/crypto/bot/parameters`, {
                 method: 'PUT',
-                headers: { 
+                headers: {
                     ...getAuthHeader(),
-                    'Content-Type': 'application/json' 
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ parameters })
             });
@@ -157,16 +158,16 @@ const BotSettings = React.memo(({ isOpen, onClose, apiBase, getAuthHeader = () =
             // ✅ FIX CRITICO: Verifica content-type PRIMA di fare res.json()
             const contentType = res.headers.get('content-type') || '';
             const isJson = contentType.includes('application/json');
-            
+
             if (res.ok && isJson) {
                 try {
                     const responseData = await res.json();
                     console.log('✅ [BOT-SETTINGS] Parametri salvati con successo:', responseData);
-                    
+
                     // ✅ VERIFICA: Controlla se la risposta contiene effettivamente i parametri
                     if (responseData.success && responseData.parameters) {
                         setSuccess(true);
-                        
+
                         // ✅ RICARICA i parametri dal server per verificare che siano stati salvati correttamente
                         setTimeout(async () => {
                             await loadParameters();
@@ -221,7 +222,7 @@ const BotSettings = React.memo(({ isOpen, onClose, apiBase, getAuthHeader = () =
                 valueString: String(value)
             });
         }
-        
+
         if (key === 'trailing_stop_enabled' || key === 'partial_close_enabled' || key === 'trailing_profit_protection_enabled') {
             setParameters(prev => ({ ...prev, [key]: value === true || value === 'true' || value === 1 }));
         } else if (key === 'analysis_timeframe') {
@@ -278,7 +279,8 @@ const BotSettings = React.memo(({ isOpen, onClose, apiBase, getAuthHeader = () =
 
     if (!isOpen) return null;
 
-    return (
+    // Render modal using Portal to bypass parent containers
+    return ReactDOM.createPortal(
         <div className="bot-settings-overlay" onClick={onClose}>
             <div className="bot-settings-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="bot-settings-header">
@@ -769,9 +771,9 @@ const BotSettings = React.memo(({ isOpen, onClose, apiBase, getAuthHeader = () =
                         {/* 🔧 Manutenzione */}
                         <div className="parameters-grid" style={{ marginTop: '30px', paddingTop: '30px', borderTop: '2px solid #374151' }}>
                             <div style={{ gridColumn: '1 / -1' }}>
-                                <h3 style={{ 
-                                    fontSize: '18px', 
-                                    fontWeight: '600', 
+                                <h3 style={{
+                                    fontSize: '18px',
+                                    fontWeight: '600',
                                     marginBottom: '15px',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -800,7 +802,8 @@ const BotSettings = React.memo(({ isOpen, onClose, apiBase, getAuthHeader = () =
                     </div>
                 )}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 });
 
