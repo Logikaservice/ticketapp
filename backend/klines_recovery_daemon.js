@@ -90,21 +90,32 @@ class KlinesVerifier {
             'cardano': 'ADAUSDT',
             'ripple': 'XRPUSDT',
             'polkadot': 'DOTUSDT',
+            'polkadot_usdt': 'DOTUSDT',
             'dogecoin': 'DOGEUSDT',
             'shiba_inu': 'SHIBUSDT',
             'binance_coin': 'BNBUSDT',
             'chainlink': 'LINKUSDT',
             'litecoin': 'LTCUSDT',
             'polygon': 'POLUSDT',
+            'pol_polygon': 'POLUSDT',
             'avalanche': 'AVAXUSDT',
+            'avax_usdt': 'AVAXUSDT',
             'stellar': 'XLMUSDT',
             'tron': 'TRXUSDT',
             'cosmos': 'ATOMUSDT',
             'uniswap': 'UNIUSDT',
             'optimism': 'OPUSDT',
             'the_sandbox': 'SANDUSDT',
+            'sand': 'SANDUSDT',
             'decentraland': 'MANAUSDT',
-            'axie_infinity': 'AXSUSDT'
+            'mana': 'MANAUSDT',
+            'axie_infinity': 'AXSUSDT',
+            'axs': 'AXSUSDT',
+            'bonk': 'BONKUSDT',
+            'floki': 'FLOKIUSDT',
+            'gala': 'GALAUSDT',
+            'near': 'NEARUSDT',
+            'render': 'RENDERUSDT'
         };
     }
 

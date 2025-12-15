@@ -3,14 +3,20 @@ import { TrendingUp, TrendingDown, BarChart3, Target, Activity, DollarSign, Perc
 import { formatPriceWithSymbol } from '../../utils/priceFormatter';
 import './StatisticsPanel.css';
 
-const StatisticsPanel = ({ apiBase }) => {
+// ✅ PERFORMANCE: React.memo previene re-render inutili
+const StatisticsPanel = React.memo(({ apiBase, getAuthHeader = () => ({}) }) => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     const fetchStatistics = async () => {
         try {
-            const res = await fetch(`${apiBase}/api/crypto/statistics`);
+            const res = await fetch(`${apiBase}/api/crypto/statistics`, {
+                headers: {
+                    ...getAuthHeader(),
+                    'Content-Type': 'application/json'
+                }
+            });
             if (res.ok) {
                 const data = await res.json();
                 if (data && data.statistics) {
@@ -45,8 +51,8 @@ const StatisticsPanel = ({ apiBase }) => {
 
     useEffect(() => {
         fetchStatistics();
-        // Refresh every 3 seconds for real-time updates
-        const interval = setInterval(fetchStatistics, 3000);
+        // ✅ PERFORMANCE FIX: Ridotto a 10s per ridurre lag
+        const interval = setInterval(fetchStatistics, 10000);
         return () => clearInterval(interval);
     }, []);
 
@@ -191,7 +197,7 @@ const StatisticsPanel = ({ apiBase }) => {
             </div>
         </div>
     );
-};
+});
 
 export default StatisticsPanel;
 

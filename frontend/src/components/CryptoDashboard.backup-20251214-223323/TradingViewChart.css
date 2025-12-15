@@ -1,0 +1,573 @@
+.tradingview-chart-container {
+    position: relative;
+    width: 100%;
+    background: #1c1c1e;
+    border-radius: 0;
+    overflow: visible;
+    border: none;
+    margin: 0;
+    padding: 0;
+}
+
+.chart-main-wrapper {
+    display: flex;
+    gap: 0;
+    align-items: stretch;
+    width: 100%;
+    height: 750px;
+    /* Altezza fissa per il contenitore */
+    min-height: 750px;
+}
+
+/* Chart-only mode - grafico ridotto del 25% in altezza e occupa tutta la larghezza */
+.chart-only-mode .chart-main-wrapper {
+    height: 75vh;
+    min-height: 75vh;
+    width: 100%;
+    max-width: 100vw;
+    margin: 0;
+    padding: 0;
+}
+
+.chart-only-mode .tradingview-chart-wrapper {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.chart-only-mode .tradingview-chart-container {
+    width: 100%;
+    max-width: 100vw;
+    height: 75vh;
+    min-height: 75vh;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    overflow: visible;
+}
+
+.chart-only-mode .tradingview-chart-container .chart-main-wrapper {
+    height: 75vh;
+    width: 100%;
+}
+
+/* Ensure TradingView widget fills chart-only mode */
+.chart-only-mode .tradingview-chart-wrapper > div {
+    height: 75vh !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+}
+
+/* Responsive per chart-only mode */
+@media (max-width: 768px) {
+    .chart-only-mode .chart-main-wrapper,
+    .chart-only-mode .tradingview-chart-container,
+    .chart-only-mode .tradingview-chart-wrapper > div {
+        height: 75vh !important;
+        width: 100% !important;
+    }
+}
+
+/* Rimuovi sidebar operazioni bot in chart-only mode */
+.chart-only-mode .trades-legend-right {
+    display: none !important;
+}
+
+/* Fullscreen mode - grafico allargato del 25% */
+.tradingview-chart-container.fullscreen-mode {
+    width: 125%;
+    margin-left: -12.5%;
+    overflow: visible !important;
+    position: relative;
+}
+
+.tradingview-chart-container.fullscreen-mode .chart-main-wrapper.fullscreen-chart {
+    height: calc((100vh - 200px) * 1.25);
+    min-height: calc((100vh - 200px) * 1.25);
+    overflow: visible !important;
+}
+
+/* Sezione posizioni sotto il grafico in fullscreen */
+.fullscreen-positions-section {
+    width: 125%;
+    margin-left: -12.5%;
+    background: #1a1a1a;
+    border-top: 2px solid #374151;
+    padding: 20px;
+    margin-top: 20px;
+    position: relative;
+    z-index: 10;
+    overflow: visible !important;
+}
+
+/* In chart-only mode, la sezione posizioni occupa tutta la larghezza */
+.chart-only-mode .fullscreen-positions-section {
+    width: 100%;
+    margin-left: 0;
+    max-width: 100vw;
+}
+
+.fullscreen-positions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #374151;
+}
+
+.fullscreen-positions-header h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.fullscreen-positions-header span {
+    color: #9ca3af;
+    font-size: 0.9rem;
+}
+
+.fullscreen-positions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 15px;
+}
+
+.fullscreen-position-card {
+    background: #27272a;
+    border-radius: 8px;
+    padding: 16px;
+    border: 1px solid #3f3f46;
+    transition: all 0.2s;
+}
+
+.fullscreen-position-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border-color: #52525b;
+}
+
+.fullscreen-position-card.buy {
+    border-left: 3px solid #4ade80;
+}
+
+.fullscreen-position-card.sell {
+    border-left: 3px solid #f87171;
+}
+
+.position-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.position-type-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.position-icon {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.fullscreen-position-card.buy .position-icon {
+    color: #4ade80;
+}
+
+.fullscreen-position-card.sell .position-icon {
+    color: #f87171;
+}
+
+.position-type {
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+}
+
+.fullscreen-position-card.buy .position-type {
+    color: #4ade80;
+}
+
+.fullscreen-position-card.sell .position-type {
+    color: #f87171;
+}
+
+.position-pnl {
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.position-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.position-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.position-label {
+    color: #9ca3af;
+}
+
+.position-value {
+    color: #fff;
+    font-weight: 500;
+}
+
+.tradingview-chart-wrapper {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    /* Si adatta al contenitore padre */
+    position: relative;
+    overflow: visible;
+    /* Permette ai markers di essere visibili */
+}
+
+/* ... (omesso) ... */
+
+.trades-legend-right {
+    width: 300px;
+    flex-shrink: 0;
+    padding: 15px;
+    background: #27272a;
+    border-left: 1px solid #3f3f46;
+    height: 100%;
+    /* Si adatta al contenitore padre */
+    box-sizing: border-box;
+    /* Include padding nell'altezza */
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.trade-markers-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.trade-marker {
+    position: absolute;
+    pointer-events: all;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform: translate(-50%, -100%);
+    animation: markerPulse 0.5s ease-out;
+}
+
+.trade-marker-buy {
+    color: #4ade80;
+}
+
+.trade-marker-sell {
+    color: #f87171;
+}
+
+.marker-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 18px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.marker-icon.buy {
+    background: linear-gradient(135deg, #4ade80, #22c55e);
+    color: white;
+}
+
+.marker-icon.sell {
+    background: linear-gradient(135deg, #f87171, #ef4444);
+    color: white;
+}
+
+.marker-label {
+    font-size: 10px;
+    font-weight: 600;
+    margin-top: 2px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+@keyframes markerPulse {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -100%) scale(0.5);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translate(-50%, -100%) scale(1);
+    }
+}
+
+.trade-marker:hover {
+    z-index: 20;
+}
+
+.trade-marker:hover .marker-icon {
+    transform: scale(1.2);
+    transition: transform 0.2s;
+}
+
+/* Trades Legend Below Chart */
+.trades-legend-top {
+    padding: 15px;
+    background: #27272a;
+    border-bottom: 1px solid #3f3f46;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.legend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.trades-legend-top h4 {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #9ca3af;
+    font-weight: 600;
+}
+
+.trade-count {
+    font-size: 0.8rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.trades-list-compact {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.trade-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.trade-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.trade-icon {
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+
+.trade-badge.buy {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+    border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+.trade-badge.sell {
+    background: rgba(248, 113, 113, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+.trade-type {
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+}
+
+.trade-price {
+    font-weight: 600;
+}
+
+.trade-amount {
+    color: #9ca3af;
+    font-size: 0.8rem;
+}
+
+.trade-time {
+    color: #6b7280;
+    font-size: 0.75rem;
+}
+
+.trades-legend-right {
+    width: 300px;
+    flex-shrink: 0;
+    padding: 15px;
+    background: #27272a;
+    border-left: 1px solid #3f3f46;
+    height: 750px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.trades-list-vertical {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.trade-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.trade-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.trade-badge {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+/* Marker overlay sopra TradingView */
+.markers-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 10000;
+    /* Alto z-index per essere sopra TradingView */
+}
+
+.chart-marker {
+    pointer-events: all;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform: translate(-50%, -50%);
+}
+
+.marker-arrow {
+    font-size: 24px;
+    font-weight: bold;
+    line-height: 1;
+    margin-bottom: 4px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.marker-buy .marker-arrow {
+    color: #4ade80;
+}
+
+.marker-sell .marker-arrow {
+    color: #f87171;
+}
+
+.marker-number {
+    background: rgba(28, 28, 30, 0.95);
+    border: 2px solid;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: bold;
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.marker-buy .marker-number {
+    border-color: #4ade80;
+    background: rgba(74, 222, 128, 0.2);
+}
+
+.marker-sell .marker-number {
+    border-color: #f87171;
+    background: rgba(248, 113, 113, 0.2);
+}
+
+.chart-marker:hover {
+    z-index: 1001;
+    transform: translate(-50%, -50%) scale(1.2);
+    transition: transform 0.2s;
+}
+
+/* Pulsante Ingrandisci */
+.chart-fullscreen-button {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 36px;
+    height: 36px;
+    background: rgba(31, 41, 55, 0.9);
+    color: #fff;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    padding: 8px;
+    cursor: pointer;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.chart-fullscreen-button:hover {
+    background: rgba(55, 65, 81, 0.95);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .tradingview-chart-container {
+        height: 400px;
+    }
+
+    .trades-list-compact {
+        flex-direction: column;
+    }
+
+    .trade-badge {
+        justify-content: space-between;
+    }
+}

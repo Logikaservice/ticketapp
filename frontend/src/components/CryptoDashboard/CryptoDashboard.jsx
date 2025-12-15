@@ -15,7 +15,7 @@ import { fetchWithRetry, fetchJsonWithRetry } from '../../utils/apiWithRetry';
 import './CryptoLayout.css';
 import './CryptoStandalone.css';
 
-const CryptoDashboard = () => {
+const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
     // Check if we're in chart-only mode (fullscreen chart in new window)
     const urlParams = new URLSearchParams(window.location.search);
     const isChartOnly = urlParams.get('page') === 'chart-only';
@@ -97,7 +97,12 @@ const CryptoDashboard = () => {
     // Fetch health status periodically
     const fetchHealthStatus = async () => {
         try {
-            const response = await fetch(`${apiBase}/system-health`);
+            const response = await fetch(`${apiBase}/system-health`, {
+                headers: {
+                    ...getAuthHeader(),
+                    'Content-Type': 'application/json'
+                }
+            });
             const data = await response.json();
             if (data.success) {
                 setHealthStatus(data.status);
@@ -121,7 +126,10 @@ const CryptoDashboard = () => {
                     `${apiBase}/api/crypto/fix-closed-positions-pnl`,
                     {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
+                        headers: { 
+                            ...getAuthHeader(),
+                            'Content-Type': 'application/json' 
+                        }
                     },
                     {
                         maxRetries: 2,
@@ -138,7 +146,10 @@ const CryptoDashboard = () => {
                 `${apiBase}/api/crypto/dashboard`,
                 {
                     method: 'GET',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json' 
+                    }
                 },
                 {
                     maxRetries: 3,
@@ -151,10 +162,11 @@ const CryptoDashboard = () => {
                 const data = await res.json();
                 // Dashboard data received logging removed
                 setPortfolio({ ...data.portfolio, rsi: data.rsi });
-                setTrades(data.recent_trades || []);
-                setAllTrades(data.all_trades || []); // Store full history for chart
-                setOpenPositions(data.open_positions || []); // Store open positions
-                setClosedPositions(data.closed_positions || []); // ✅ FIX: Store closed positions per P&L
+                // ✅ FIX: Validate arrays to prevent "filter is not a function" errors
+                setTrades(Array.isArray(data.recent_trades) ? data.recent_trades : []);
+                setAllTrades(Array.isArray(data.all_trades) ? data.all_trades : []); // Store full history for chart
+                setOpenPositions(Array.isArray(data.open_positions) ? data.open_positions : []); // Store open positions
+                setClosedPositions(Array.isArray(data.closed_positions) ? data.closed_positions : []); // ✅ FIX: Store closed positions per P&L
                 // ✅ FIX: Controlla se c'è ALMENO un bot attivo (non solo per currentSymbol)
                 const anyActiveBot = data.active_bots?.find(b => b.strategy_name === 'RSI_Strategy' && b.is_active === 1);
                 const bot = data.active_bots?.find(b => b.strategy_name === 'RSI_Strategy' && b.symbol === currentSymbol);
@@ -188,7 +200,12 @@ setBotParameters(data.bot_parameters);
             try {
                 const analyticsResult = await fetchJsonWithRetry(
                     `${apiBase}/api/crypto/performance-analytics`,
-                    {},
+                    {
+                        headers: {
+                            ...getAuthHeader(),
+                            'Content-Type': 'application/json'
+                        }
+                    },
                     {
                         maxRetries: 2,
                         silent502: true // Non loggare 502 per analytics
@@ -214,7 +231,12 @@ setBotParameters(data.bot_parameters);
         try {
             const result = await fetchJsonWithRetry(
                 `${apiBase}/api/crypto/symbols/available`,
-                {},
+                {
+                    headers: {
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json'
+                    }
+                },
                 {
                     maxRetries: 2,
                     silent502: true
@@ -233,7 +255,12 @@ setBotParameters(data.bot_parameters);
         try {
             const result = await fetchJsonWithRetry(
                 `${apiBase}/api/crypto/bot/active`,
-                {},
+                {
+                    headers: {
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json'
+                    }
+                },
                 {
                     maxRetries: 2,
                     silent502: true
@@ -253,18 +280,32 @@ setBotParameters(data.bot_parameters);
             // Non serve passare un simbolo specifico - il backend gestisce tutti i simboli
             await fetchWithRetry(
                 `${apiBase}/api/crypto/positions/update-pnl`,
-                { method: 'POST' },
+                { 
+                    method: 'POST',
+                    headers: {
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json'
+                    }
+                },
                 { maxRetries: 2, silent502: true }
             );
             
             // ✅ FIX: Refresh positions after update - recupera tutte le posizioni aperte
             const positionsResult = await fetchJsonWithRetry(
                 `${apiBase}/api/crypto/positions?status=open`,
-                {},
+                {
+                    headers: {
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json'
+                    }
+                },
                 { maxRetries: 2, silent502: true }
             );
             if (positionsResult.ok && positionsResult.data) {
-                const updatedPositions = positionsResult.data.positions || [];
+                // ✅ FIX: Validate array to prevent "filter is not a function" errors
+                const updatedPositions = Array.isArray(positionsResult.data.positions) 
+                    ? positionsResult.data.positions 
+                    : [];
                 setOpenPositions(updatedPositions);
                 
                 // ✅ REAL-TIME FIX: Aggiorna i prezzi per TUTTI i simboli delle posizioni aperte
@@ -278,7 +319,12 @@ setBotParameters(data.bot_parameters);
                         try {
                             const priceResult = await fetchJsonWithRetry(
                                 `${apiBase}/api/crypto/price/${symbol}?currency=usdt&_t=${Date.now()}`,
-                                {},
+                                {
+                                    headers: {
+                                        ...getAuthHeader(),
+                                        'Content-Type': 'application/json'
+                                    }
+                                },
                                 { maxRetries: 1, silent502: true, timeout: 5000 }
                             );
                             if (priceResult.ok && priceResult.data) {
@@ -348,7 +394,10 @@ setBotParameters(data.bot_parameters);
                 `${apiBase}/api/crypto/positions/close/${ticketId}`,
                 {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json' 
+                    },
                     body: JSON.stringify({
                         close_price: priceToUse,
                         symbol: symbolToUse
@@ -395,7 +444,10 @@ setBotParameters(data.bot_parameters);
                 `${apiBase}/api/crypto/reset`,
                 {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json' 
+                    },
                     body: JSON.stringify({ initial_balance: initialBalance })
                 },
                 {
@@ -422,7 +474,10 @@ setBotParameters(data.bot_parameters);
                 `${apiBase}/api/crypto/add-funds`,
                 {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json' 
+                    },
                     body: JSON.stringify({ amount: parseFloat(amount) })
                 },
                 {
@@ -460,7 +515,12 @@ setBotParameters(data.bot_parameters);
             // Fetch real price for current symbol from Binance (same source as bot)
             const result = await fetchJsonWithRetry(
                 `${apiBase}/api/crypto/price/${currentSymbol}?currency=usdt`,
-                {},
+                {
+                    headers: {
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json'
+                    }
+                },
                 {
                     maxRetries: 1, // ✅ Ridotto da 2 a 1 per evitare accumulo richieste
                     silent502: true,
@@ -494,7 +554,12 @@ setBotParameters(data.bot_parameters);
             fetchingHistoryRef.current = true;
             const result = await fetchJsonWithRetry(
                 `${apiBase}/api/crypto/history?interval=${interval}&symbol=${currentSymbol}`,
-                {},
+                {
+                    headers: {
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json'
+                    }
+                },
                 {
                     maxRetries: 1, // ✅ Ridotto da 2 a 1 per evitare accumulo richieste
                     silent502: true,
@@ -522,21 +587,21 @@ setBotParameters(data.bot_parameters);
         fetchData();
         fetchPrice();
 
-        // ✅ Update price frequently (aumentato per evitare ERR_INSUFFICIENT_RESOURCES)
+        // ✅ PERFORMANCE FIX: Ridotto polling per migliorare prestazioni
         const priceInterval = setInterval(() => {
             fetchPrice();
-        }, 5000); // ✅ Aumentato da 2000ms a 5000ms per ridurre carico
+        }, 10000); // ✅ Aumentato a 10s (il WebSocket gestisce gli update real-time)
 
-        // ✅ Update data (positions, trades) - reduced frequency
+        // ✅ PERFORMANCE FIX: Ridotto polling per migliorare prestazioni
         const dataInterval = setInterval(() => {
             fetchData();
             fetchActiveBots(); // Also update active bots
-        }, 5000); // ✅ Aumentato da 3000ms a 5000ms per ridurre carico
+        }, 15000); // ✅ Aumentato a 15s per ridurre carico
 
-        // ✅ Update history (candles) - less frequent
+        // ✅ PERFORMANCE FIX: Ridotto polling per migliorare prestazioni
         const historyInterval = setInterval(() => {
             fetchHistory();
-        }, 10000); // ✅ Aumentato da 5000ms a 10000ms per ridurre carico
+        }, 30000); // ✅ Aumentato a 30s per ridurre carico
 
         return () => {
             clearInterval(priceInterval);
@@ -592,7 +657,10 @@ setBotParameters(data.bot_parameters);
                 `${apiBase}/api/crypto/bot/toggle`,
                 {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        ...getAuthHeader(),
+                        'Content-Type': 'application/json' 
+                    },
                     body: JSON.stringify({
                         strategy_name: 'RSI_Strategy',
                         symbol: targetSymbol,
@@ -670,7 +738,12 @@ setBotParameters(data.bot_parameters);
                         // ✅ Aggiungi timestamp per evitare cache
                         const result = await fetchJsonWithRetry(
                             `${apiBase}/api/crypto/price/${symbol}?currency=usdt&_t=${Date.now()}`,
-                            {},
+                            {
+                                headers: {
+                                    ...getAuthHeader(),
+                                    'Content-Type': 'application/json'
+                                }
+                            },
                             {
                                 maxRetries: 1,
                                 silent502: true,
@@ -708,16 +781,36 @@ setBotParameters(data.bot_parameters);
             });
         };
 
-        // Aggiorna prezzi quando cambiano holdings o posizioni aperte
+        // ✅ WEBSOCKET: Aggiorna prezzi quando cambiano holdings o posizioni aperte
         fetchAllPrices();
 
-        // ✅ REAL-TIME CRITICO: Aggiorna prezzi per TUTTI i simboli delle posizioni ogni 500ms (INDIPENDENTE dal grafico)
-        const priceUpdateInterval = setInterval(() => {
-            fetchAllPrices();
-        }, 500); // ✅ REAL-TIME: Aggiorna ogni 500ms per aggiornamenti in tempo reale
+        // ✅ WEBSOCKET REAL-TIME: Ascolta eventi prezzi via WebSocket (NO più polling HTTP!)
+        const handlePriceUpdate = (event) => {
+            const { prices } = event.detail;
+            
+            // Aggiorna prezzi ricevuti via WebSocket
+            const updatedPrices = { ...pricesRef.current };
+            for (const [symbol, data] of Object.entries(prices)) {
+                updatedPrices[symbol] = data.price;
+            }
+            pricesRef.current = updatedPrices;
+            setPrices(updatedPrices);
+        };
 
-        return () => clearInterval(priceUpdateInterval);
-    }, [portfolio.holdings, openPositions, apiBase, currentSymbol, currentPrice]);
+        window.addEventListener('crypto-prices-update', handlePriceUpdate);
+
+        // ✅ PERFORMANCE FIX: Rallentato backup polling a 20s
+        const backupInterval = setInterval(() => {
+            if (!wsConnected) {
+                fetchAllPrices();
+            }
+        }, 20000); // Solo se WebSocket è disconnesso
+
+        return () => {
+            window.removeEventListener('crypto-prices-update', handlePriceUpdate);
+            clearInterval(backupInterval);
+        };
+    }, [portfolio.holdings, openPositions, apiBase, currentSymbol, currentPrice, wsConnected]);
 
     // Calculate total balance (USDT + All Crypto values - Short Liabilities)
     // ✅ FIX: Total Balance = Capitale Disponibile (cash) = balance_usd
@@ -726,18 +819,20 @@ setBotParameters(data.bot_parameters);
     // ✅ FIX: Use ONLY open positions effectively ignoring 'portfolio.holdings' which might be corrupted
     const holdings = portfolio.holdings || {}; // Restore this for fallback logic
 
-    // ✅ FIX CRITICO: Filtra STRICTO solo posizioni aperte PRIMA di usarle (evita ReferenceError)
-    const validOpenPositions = (openPositions || []).filter(pos => {
-        // Validazione STRICTA: deve essere esattamente 'open'
-        if (!pos || pos.status !== 'open') {
-            return false;
-        }
-        // Validazione: deve avere ticket_id valido
-        if (!pos.ticket_id) {
-            return false;
-        }
-        return true;
-    });
+    // ✅ PERFORMANCE: Memoizza validazione posizioni aperte
+    const validOpenPositions = useMemo(() => {
+        return (openPositions || []).filter(pos => {
+            // Validazione STRICTA: deve essere esattamente 'open'
+            if (!pos || pos.status !== 'open') {
+                return false;
+            }
+            // Validazione: deve avere ticket_id valido
+            if (!pos.ticket_id) {
+                return false;
+            }
+            return true;
+        });
+    }, [openPositions]);
 
     // ✅ FIX CRITICO: Dichiarare tutte le costanti PRIMA del loro utilizzo
     const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni USDT max (soglia di sicurezza)
@@ -787,6 +882,7 @@ setBotParameters(data.bot_parameters);
             // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT
 
             // ✅ FIX CRITICO: Valida che il prezzo sia ragionevole
+            const entryPrice = parseFloat(pos.entry_price) || 0;
             if (price > MAX_REASONABLE_PRICE) {
                 console.error(`🚨 [BALANCE] Prezzo anomale per ${pos.symbol}: $${price.toLocaleString()}. Usando entry_price come fallback.`);
                 // Usa entry_price come fallback se il prezzo è anomale
@@ -924,14 +1020,13 @@ setBotParameters(data.bot_parameters);
         pnlPercent = investedValue > 0 ? (pnlValue / investedValue) * 100 : 0;
     }
 
-    // ✅ DEBUG: Calcolo alternativo per verificare correttezza
-    // Formula alternativa: Initial Balance + Realized P&L + Unrealized P&L
-    // (dove Unrealized P&L è già incluso in totalLongValue - totalShortLiability)
-    // Nota: Questo è solo per debug, il calcolo principale è quello sopra
-    const realizedPnL = closedPositions?.reduce((sum, pos) => {
-        const pnl = parseFloat(pos.profit_loss) || 0;
-        return sum + pnl;
-    }, 0) || 0;
+    // ✅ PERFORMANCE: Memoizza calcolo realized P&L
+    const realizedPnL = useMemo(() => {
+        return closedPositions?.reduce((sum, pos) => {
+            const pnl = parseFloat(pos.profit_loss) || 0;
+            return sum + pnl;
+        }, 0) || 0;
+    }, [closedPositions]);
 
     const unrealizedPnL = pnlValue; // Ora pnlValue è già calcolato sopra
 
@@ -939,7 +1034,7 @@ setBotParameters(data.bot_parameters);
 
     // TradingView Chart doesn't need chartData preparation anymore
 
-    // ✅ FIX: Memorizza array filtrati per evitare ricreazioni ad ogni render
+    // ✅ PERFORMANCE: Memorizza array filtrati per evitare ricreazioni ad ogni render
     const filteredOpenPositions = useMemo(() => {
         return (openPositions || []).filter(p => p.symbol === currentSymbol);
     }, [openPositions, currentSymbol]);
@@ -954,6 +1049,11 @@ setBotParameters(data.bot_parameters);
             ticket_id: trade.ticket_id || null
         }));
     }, [allTrades, currentSymbol]);
+
+    // ✅ PERFORMANCE: Limita closedPositions a max 50 per evitare lag nel render
+    const limitedClosedPositions = useMemo(() => {
+        return (closedPositions || []).slice(-50); // Solo ultime 50 posizioni
+    }, [closedPositions]);
 
     // If chart-only mode, show only the chart in fullscreen
     if (isChartOnly) {
@@ -1340,6 +1440,7 @@ setBotParameters(data.bot_parameters);
             {/* MARKET SCANNER */}
             <MarketScanner
                 apiBase={apiBase}
+                getAuthHeader={getAuthHeader}
                 currentSymbol={currentSymbol}
                 onSelectSymbol={(symbol) => {
                     setCurrentSymbol(symbol);
@@ -1358,26 +1459,32 @@ setBotParameters(data.bot_parameters);
                     Closed Positions History
                 </div>
                 <div className="trades-list">
-                    {closedPositions.length === 0 ? (
+                    {limitedClosedPositions.length === 0 ? (
                         <div style={{ color: '#555', textAlign: 'center', padding: '20px' }}>Nessuna posizione chiusa ancora</div>
                     ) : (
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                            <thead>
-                                <tr style={{ color: '#6b7280', borderBottom: '1px solid #374151' }}>
-                                    <th style={{ padding: '10px', textAlign: 'left' }}>Time</th>
-                                    <th style={{ padding: '10px', textAlign: 'left' }}>Symbol</th>
-                                    <th style={{ padding: '10px', textAlign: 'left' }}>Type</th>
-                                    <th style={{ padding: '10px', textAlign: 'right' }}>Price</th>
-                                    <th style={{ padding: '10px', textAlign: 'right' }}>Amount</th>
-                                    <th style={{ padding: '10px', textAlign: 'right' }}>Total</th>
-                                    <th style={{ padding: '10px', textAlign: 'right' }}>P&L</th>
-                                    <th style={{ padding: '10px', textAlign: 'left' }}>Durata</th>
-                                    <th style={{ padding: '10px', textAlign: 'left' }}>Motivo Chiusura</th>
-                                    <th style={{ padding: '10px', textAlign: 'center' }}>Details</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {closedPositions.map((pos, i) => {
+                        <>
+                            {closedPositions.length > 50 && (
+                                <div style={{ color: '#9ca3af', textAlign: 'center', padding: '10px', fontSize: '0.85rem' }}>
+                                    Mostrando ultime 50 di {closedPositions.length} posizioni chiuse
+                                </div>
+                            )}
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                                <thead>
+                                    <tr style={{ color: '#6b7280', borderBottom: '1px solid #374151' }}>
+                                        <th style={{ padding: '10px', textAlign: 'left' }}>Time</th>
+                                        <th style={{ padding: '10px', textAlign: 'left' }}>Symbol</th>
+                                        <th style={{ padding: '10px', textAlign: 'left' }}>Type</th>
+                                        <th style={{ padding: '10px', textAlign: 'right' }}>Price</th>
+                                        <th style={{ padding: '10px', textAlign: 'right' }}>Amount</th>
+                                        <th style={{ padding: '10px', textAlign: 'right' }}>Total</th>
+                                        <th style={{ padding: '10px', textAlign: 'right' }}>P&L</th>
+                                        <th style={{ padding: '10px', textAlign: 'left' }}>Durata</th>
+                                        <th style={{ padding: '10px', textAlign: 'left' }}>Motivo Chiusura</th>
+                                        <th style={{ padding: '10px', textAlign: 'center' }}>Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {limitedClosedPositions.map((pos, i) => {
                                     const profit = parseFloat(pos.profit_loss || 0);
                                     const profitPct = parseFloat(pos.profit_loss_pct || 0);
                                     const isWin = profit >= 0;
@@ -1436,9 +1543,10 @@ setBotParameters(data.bot_parameters);
                                             </td>
                                         </tr>
                                     );
-                                })}
-                            </tbody>
-                        </table>
+                                    })}
+                                </tbody>
+                            </table>
+                        </>
                     )}
                 </div>
             </div>
@@ -1446,7 +1554,7 @@ setBotParameters(data.bot_parameters);
 
             {/* ADVANCED STATISTICS PANEL - Moved here per user request */}
             <div style={{ marginTop: '20px' }}>
-                <StatisticsPanel apiBase={apiBase} />
+                <StatisticsPanel apiBase={apiBase} getAuthHeader={getAuthHeader} />
             </div>
 
             {/* 📊 PERFORMANCE ANALYTICS - Day/Week/Month/Year */}
@@ -1534,6 +1642,7 @@ setBotParameters(data.bot_parameters);
                 isOpen={showBotSettings}
                 onClose={() => setShowBotSettings(false)}
                 apiBase={apiBase}
+                getAuthHeader={getAuthHeader}
             />
 
             {/* General Settings Modal */}

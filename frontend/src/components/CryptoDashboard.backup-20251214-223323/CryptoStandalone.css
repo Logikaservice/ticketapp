@@ -1,0 +1,31 @@
+/* Crypto Dashboard Standalone Styles */
+
+/* Sfondo uniforme per tutta la pagina quando siamo in crypto */
+body.crypto-standalone {
+    background: #0f172a !important;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+/* Nascondi header quando siamo in crypto standalone */
+body.crypto-standalone .app-zoom-wrapper>header {
+    display: none !important;
+}
+
+/* Nascondi il pulsante "Torna alla Dashboard" */
+body.crypto-standalone .crypto-back-button {
+    display: none !important;
+}
+
+/* Rimuovi padding dal main quando siamo in crypto */
+body.crypto-standalone main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+}
+
+/* Sfondo uniforme per il container principale */
+body.crypto-standalone .min-h-screen {
+    background: #0f172a !important;
+}

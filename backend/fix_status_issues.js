@@ -17,16 +17,20 @@ const SYMBOL_MAP = {
     'solana': 'SOLUSDT',
     'cardano': 'ADAUSDT',
     'polkadot': 'DOTUSDT',
+    'polkadot_usdt': 'DOTUSDT',
     'ripple': 'XRPUSDT',
     'chainlink': 'LINKUSDT',
     'litecoin': 'LTCUSDT',
     'binance_coin': 'BNBUSDT',
     'avax_usdt': 'AVAXUSDT',
     'sand': 'SANDUSDT',
+    'the_sandbox': 'SANDUSDT',
     'uniswap': 'UNIUSDT',
     'aave': 'AAVEUSDT',
     'mana': 'MANAUSDT',
     'bonk': 'BONKUSDT',
+    'axie_infinity': 'AXSUSDT',
+    'axs': 'AXSUSDT',
     'matic': 'MATICUSDT',
     'dogecoin': 'DOGEUSDT',
     'shiba': 'SHIBUSDT',
@@ -65,6 +69,7 @@ const SYMBOL_MAP = {
     'polygon': 'MATICUSDT',
     'polpolygon': 'MATICUSDT', // ✅ FIX: POLPOLYGON = MATIC
     'pol_polygon': 'MATICUSDT', // ✅ FIX: Variante con underscore
+    'pol_polygon_eur': 'POLEUR', // ✅ POL con EUR
     // ✅ Simboli EUR disponibili su Binance
     'bitcoin_eur': 'BTCEUR',
     'ethereum_eur': 'ETHEUR',
@@ -73,6 +78,7 @@ const SYMBOL_MAP = {
     'chainlink_eur': 'LINKEUR',
     'litecoin_eur': 'LTCEUR',
     'ripple_eur': 'XRPEUR',
+    'xrp_eur': 'XRPEUR',
     'binance_coin_eur': 'BNBEUR',
     'solana_eur': 'SOLEUR',
     'avax_eur': 'AVAXEUR',

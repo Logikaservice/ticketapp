@@ -4,7 +4,8 @@ import { AlertTriangle, CheckCircle, XCircle, Activity, Database, Radio, Layers,
 // Usa stessa logica di CryptoDashboard per determinare API URL
 const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
-const SystemHealthMonitor = ({ compact = false }) => {
+// ✅ PERFORMANCE: React.memo previene re-render inutili
+const SystemHealthMonitor = React.memo(({ compact = false }) => {
     const [healthStatus, setHealthStatus] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showDetails, setShowDetails] = useState(false);
@@ -213,7 +214,7 @@ const SystemHealthMonitor = ({ compact = false }) => {
             </div>
         </div>
     );
-};
+});
 
 // Componente per singolo servizio
 const ServiceStatus = ({ icon, name, status }) => {

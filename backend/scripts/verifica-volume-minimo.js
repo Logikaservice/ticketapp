@@ -193,3 +193,4 @@ verificaVolumeMinimo()
         process.exit(1);
     });
 
+

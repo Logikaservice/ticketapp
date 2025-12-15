@@ -67,3 +67,4 @@ if ($running.Count -eq 0) {
     Write-Host "Attenzione: Alcuni servizi sono ancora attivi" -ForegroundColor Yellow
 }
 
+

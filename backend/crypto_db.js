@@ -224,8 +224,27 @@ async function initDb() {
                 take_profit_1 DOUBLE PRECISION,
                 take_profit_2 DOUBLE PRECISION,
                 tp1_hit INTEGER DEFAULT 0,
-                signal_details TEXT
+                signal_details TEXT,
+                trade_size_usdt DOUBLE PRECISION DEFAULT 100
             )
+        `);
+
+        // ✅ MIGRATION: Aggiungi colonna trade_size_usdt se non esiste
+        await client.query(`
+            DO $$ 
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                              WHERE table_name='open_positions' AND column_name='trade_size_usdt') THEN
+                    ALTER TABLE open_positions ADD COLUMN trade_size_usdt DOUBLE PRECISION DEFAULT 100;
+                END IF;
+            END $$;
+        `);
+
+        // ✅ MIGRATION: Popola trade_size_usdt per posizioni esistenti che non ce l'hanno
+        await client.query(`
+            UPDATE open_positions 
+            SET trade_size_usdt = volume * entry_price 
+            WHERE trade_size_usdt IS NULL OR trade_size_usdt = 0
         `);
 
         // Indici open_positions

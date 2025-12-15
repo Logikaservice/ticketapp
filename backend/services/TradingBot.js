@@ -53,33 +53,71 @@ const BOT_CONFIG = {
     TRADE_COOLDOWN_MS: 3 * 60 * 1000, // 3 minuti (più veloce)
 };
 
-// Mappa simboli a coppie Binance
-// ✅ RIMOSSI simboli duplicati senza suffisso (eliminati dal database)
+// Mappa simboli a coppie Binance - COMPLETA
 const SYMBOL_TO_PAIR = {
-    'bitcoin_usdt': 'BTCUSDT',
-    'ethereum_usdt': 'ETHUSDT',
-    'solana_eur': 'SOLUSDT',
-    'cardano_usdt': 'ADAUSDT',
-    'polkadot_usdt': 'DOTUSDT',
-    'chainlink_usdt': 'LINKUSDT',
-    'ripple_eur': 'XRPUSDT',
-    'binance_coin_eur': 'BNBUSDT',
+    // Major cryptocurrencies
+    'bitcoin': 'BTCUSDT', 'btc': 'BTCUSDT', 'bitcoin_usdt': 'BTCUSDT', 'btcusdt': 'BTCUSDT',
+    'ethereum': 'ETHUSDT', 'eth': 'ETHUSDT', 'ethereum_usdt': 'ETHUSDT', 'ethusdt': 'ETHUSDT',
+    'solana': 'SOLUSDT', 'sol': 'SOLUSDT', 'solana_eur': 'SOLUSDT', 'solana_usdt': 'SOLUSDT', 'solusdt': 'SOLUSDT',
+    'cardano': 'ADAUSDT', 'ada': 'ADAUSDT', 'cardano_usdt': 'ADAUSDT', 'adausdt': 'ADAUSDT',
+    'ripple': 'XRPUSDT', 'xrp': 'XRPUSDT', 'ripple_eur': 'XRPEUR', 'ripple_usdt': 'XRPUSDT', 'xrpusdt': 'XRPUSDT',
+    'polkadot': 'DOTUSDT', 'dot': 'DOTUSDT', 'polkadot_usdt': 'DOTUSDT', 'dotusdt': 'DOTUSDT',
+    'dogecoin': 'DOGEUSDT', 'doge': 'DOGEUSDT', 'dogeusdt': 'DOGEUSDT',
+    'shiba_inu': 'SHIBUSDT', 'shib': 'SHIBUSDT', 'shibusdt': 'SHIBUSDT',
+    'avalanche': 'AVAXUSDT', 'avax': 'AVAXUSDT', 'avalanche_eur': 'AVAXEUR', 'avax_usdt': 'AVAXUSDT', 'avaxusdt': 'AVAXUSDT',
+    'binance_coin': 'BNBUSDT', 'bnb': 'BNBUSDT', 'binance_coin_eur': 'BNBUSDT', 'bnbusdt': 'BNBUSDT',
+    'chainlink': 'LINKUSDT', 'link': 'LINKUSDT', 'chainlink_usdt': 'LINKUSDT', 'linkusdt': 'LINKUSDT',
+    
+    // DeFi tokens
+    'polygon': 'POLUSDT', 'matic': 'POLUSDT', 'pol': 'POLUSDT', 'pol_polygon': 'POLUSDT', 'pol_polygon_eur': 'POLEUR', 'maticusdt': 'POLUSDT', 'polusdt': 'POLUSDT',
+    'uniswap': 'UNIUSDT', 'uni': 'UNIUSDT', 'uniswap_eur': 'UNIEUR', 'uniusdt': 'UNIUSDT',
+    'aave': 'AAVEUSDT', 'aaveusdt': 'AAVEUSDT',
+    'curve': 'CRVUSDT', 'crv': 'CRVUSDT', 'crvusdt': 'CRVUSDT',
+    
+    // Gaming & Metaverse
+    'the_sandbox': 'SANDUSDT', 'sand': 'SANDUSDT', 'sandusdt': 'SANDUSDT', 'thesandbox': 'SANDUSDT',
+    'axie_infinity': 'AXSUSDT', 'axs': 'AXSUSDT', 'axsusdt': 'AXSUSDT', 'axieinfinity': 'AXSUSDT',
+    'decentraland': 'MANAUSDT', 'mana': 'MANAUSDT', 'manausdt': 'MANAUSDT',
+    'gala': 'GALAUSDT', 'galausdt': 'GALAUSDT',
+    'immutable': 'IMXUSDT', 'imx': 'IMXUSDT', 'imxusdt': 'IMXUSDT',
+    'enjin': 'ENJUSDT', 'enj': 'ENJUSDT', 'enjusdt': 'ENJUSDT',
+    'render': 'RENDERUSDT', 'renderusdt': 'RENDERUSDT', 'rndr': 'RENDERUSDT',
+    
+    // Layer 1 & Infrastructure
+    'theta_network': 'THETAUSDT', 'theta': 'THETAUSDT', 'thetausdt': 'THETAUSDT', 'thetanetwork': 'THETAUSDT',
+    'near': 'NEARUSDT', 'nearusdt': 'NEARUSDT',
+    'optimism': 'OPUSDT', 'op': 'OPUSDT', 'opusdt': 'OPUSDT',
+    'sei': 'SEIUSDT', 'seiusdt': 'SEIUSDT',
+    'filecoin': 'FILUSDT', 'fil': 'FILUSDT', 'filusdt': 'FILUSDT',
+    
+    // Meme coins
+    'bonk': 'BONKUSDT', 'bonkusdt': 'BONKUSDT',
+    'floki': 'FLOKIUSDT', 'flokiusdt': 'FLOKIUSDT',
+    
+    // Other major tokens
+    'ton': 'TONUSDT', 'toncoin': 'TONUSDT', 'tonusdt': 'TONUSDT',
+    'tron': 'TRXUSDT', 'trx': 'TRXUSDT', 'trxusdt': 'TRXUSDT',
+    'stellar': 'XLMUSDT', 'xlm': 'XLMUSDT', 'xlmusdt': 'XLMUSDT',
+    'ripple_xrp': 'XRPUSDT', 'xrp_eur': 'XRPEUR',
+    'cosmos': 'ATOMUSDT', 'atom': 'ATOMUSDT', 'atomusdt': 'ATOMUSDT',
+    'icp': 'ICPUSDT', 'icpusdt': 'ICPUSDT', // Internet Computer
+    'flow': 'FLOWUSDT', 'flowusdt': 'FLOWUSDT', // Flow blockchain
 };
 
 // Gruppi di correlazione per diversificazione
-// ✅ RIMOSSI simboli duplicati senza suffisso (eliminati dal database)
 const CORRELATION_GROUPS = {
-    'BTC_MAJOR': ['bitcoin_usdt', 'ethereum_usdt', 'solana_eur'],
-    'DEFI': ['chainlink_usdt'],
-    'INDEPENDENT': ['ripple_eur', 'binance_coin_eur'],
+    'BTC_MAJOR': ['bitcoin', 'bitcoin_usdt', 'btc', 'ethereum', 'ethereum_usdt', 'eth'],
+    'DEFI': ['chainlink', 'chainlink_usdt', 'link', 'uniswap', 'uni', 'avalanche', 'avax'],
+    'GAMING': ['the_sandbox', 'sand', 'axie_infinity', 'axs', 'decentraland', 'mana'],
+    'PLATFORM': ['solana', 'solana_eur', 'sol', 'cardano', 'ada', 'polkadot', 'dot', 'polygon', 'matic', 'pol'],
+    'INDEPENDENT': ['ripple', 'ripple_eur', 'xrp', 'binance_coin', 'binance_coin_eur', 'bnb', 'dogecoin', 'doge', 'theta', 'theta_network'],
 };
 
-// ✅ LIMITI AUMENTATI per più posizioni contemporanee
-// MA solo quando il bot è SICURO al 100% (strength e confirmations alte)
+// ✅ LIMITI DEFAULT - Verranno sovrascritti dai valori nel database (bot_settings)
 const HYBRID_STRATEGY_CONFIG = {
-    MAX_TOTAL_POSITIONS: 8,        // Da 5 a 8 posizioni totali
-    MAX_POSITIONS_PER_GROUP: 4,    // Da 2 a 4 per gruppo di correlazione
-    MAX_POSITIONS_PER_SYMBOL: 2,   // Da 1 a 2 per simbolo (LONG + SHORT)
+    MAX_TOTAL_POSITIONS: 10,       // Default, legge da bot_settings.max_positions
+    MAX_POSITIONS_PER_GROUP: 6,    // Default, legge da bot_settings.max_positions_per_group
+    MAX_POSITIONS_PER_SYMBOL: 2,   // Default, legge da bot_settings.max_positions_per_symbol
 };
 
 // Cooldown tracker
@@ -98,11 +136,55 @@ const API_CONFIG = {
 };
 
 /**
+ * Normalize symbol name for mapping lookup
+ */
+function normalizeSymbol(symbol) {
+    if (!symbol) return '';
+    
+    // Convert to lowercase and remove special characters
+    let normalized = symbol.toLowerCase()
+        .replace(/\s+/g, '_')        // spaces to underscore
+        .replace(/\//g, '')           // remove slashes
+        .replace(/-/g, '_');          // hyphens to underscore
+    
+    // Remove common suffixes for lookup
+    normalized = normalized
+        .replace(/usdt$/, '')
+        .replace(/_usdt$/, '')
+        .replace(/eur$/, '')
+        .replace(/_eur$/, '');
+    
+    return normalized;
+}
+
+/**
  * Get current price for a symbol from Binance with timeout and retry logic
  */
 async function getSymbolPrice(symbol, retries = API_CONFIG.MAX_RETRIES) {
     try {
-        const pair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';
+        // Try direct lookup first
+        let pair = SYMBOL_TO_PAIR[symbol];
+        let mappingMethod = 'direct';
+        
+        // If not found, try normalized symbol
+        if (!pair) {
+            const normalized = normalizeSymbol(symbol);
+            pair = SYMBOL_TO_PAIR[normalized];
+            mappingMethod = 'normalized';
+            
+            // If still not found, log warning and use BTC as last resort
+            if (!pair) {
+                console.warn(`⚠️ [BOT] Symbol mapping not found for '${symbol}' (normalized: '${normalized}'), using BTCUSDT as fallback`);
+                pair = 'BTCUSDT';
+                mappingMethod = 'fallback';
+            }
+        }
+        
+        // Log del mapping usato (solo se non è direct per non spammare i log)
+        if (mappingMethod !== 'direct') {
+            console.log(`🔍 [PRICE] ${symbol} → ${pair} (method: ${mappingMethod})`);
+        }
+        
         const https = require('https');
         const url = `${API_CONFIG.BINANCE_BASE_URL}/ticker/price?symbol=${pair}`;
 
@@ -141,7 +223,21 @@ async function getSymbolPrice(symbol, retries = API_CONFIG.MAX_RETRIES) {
  */
 async function get24hVolume(symbol, retries = API_CONFIG.MAX_RETRIES) {
     try {
-        const pair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';
+        // Try direct lookup first
+        let pair = SYMBOL_TO_PAIR[symbol];
+        
+        // If not found, try normalized symbol
+        if (!pair) {
+            const normalized = normalizeSymbol(symbol);
+            pair = SYMBOL_TO_PAIR[normalized];
+            
+            // If still not found, use BTC as fallback
+            if (!pair) {
+                console.warn(`⚠️ [BOT] Symbol mapping not found for '${symbol}' (normalized: '${normalized}') in get24hVolume`);
+                pair = 'BTCUSDT';
+            }
+        }
+        
         const https = require('https');
         const url = `${API_CONFIG.BINANCE_BASE_URL}/ticker/24hr?symbol=${pair}`;
 
@@ -189,17 +285,23 @@ function getCorrelationGroup(symbol) {
 
 /**
  * Check if can open position (Hybrid Strategy)
+ * @param {object} limits - Optional custom limits from database
  */
-async function canOpenPositionHybridStrategy(symbol, openPositions, newSignal = null, signalType = null) {
+async function canOpenPositionHybridStrategy(symbol, openPositions, newSignal = null, signalType = null, limits = null) {
     const group = getCorrelationGroup(symbol);
+    
+    // ✅ USA LIMITI DAL DATABASE se forniti, altrimenti usa i default
+    const maxTotal = limits?.max_positions || HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS;
+    const maxPerGroup = limits?.max_positions_per_group || HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_GROUP;
+    const maxPerSymbol = limits?.max_positions_per_symbol || HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_SYMBOL;
 
     // Count total open positions
     const totalPositions = openPositions.filter(p => p.status === 'open').length;
 
-    if (totalPositions >= HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS) {
+    if (totalPositions >= maxTotal) {
         return {
             allowed: false,
-            reason: `Max ${HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS} total positions reached`
+            reason: `Max ${maxTotal} total positions reached (configured in settings)`
         };
     }
 
@@ -210,10 +312,10 @@ async function canOpenPositionHybridStrategy(symbol, openPositions, newSignal = 
             groupSymbols.includes(p.symbol) && p.status === 'open'
         ).length;
 
-        if (groupPositions >= HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_GROUP) {
+        if (groupPositions >= maxPerGroup) {
             return {
                 allowed: false,
-                reason: `Max ${HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_GROUP} positions per group (${group})`
+                reason: `Max ${maxPerGroup} positions per group (${group}) - configured in settings`
             };
         }
     }
@@ -223,10 +325,10 @@ async function canOpenPositionHybridStrategy(symbol, openPositions, newSignal = 
         p.symbol === symbol && p.status === 'open'
     ).length;
 
-    if (symbolPositions >= HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_SYMBOL) {
+    if (symbolPositions >= maxPerSymbol) {
         return {
             allowed: false,
-            reason: `Max ${HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_SYMBOL} position per symbol`
+            reason: `Max ${maxPerSymbol} position per symbol - configured in settings`
         };
     }
 
@@ -320,12 +422,12 @@ async function openPosition(symbol, type, volume, entryPrice, strategy, stopLoss
             INSERT INTO open_positions (
                 ticket_id, symbol, type, volume, entry_price, current_price,
                 stop_loss, take_profit, status, opened_at, strategy,
-                signal_details, volume_closed, profit_loss, profit_loss_pct
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                signal_details, volume_closed, profit_loss, profit_loss_pct, trade_size_usdt
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             ticketId, symbol, type, volume, entryPrice, entryPrice,
             stopLoss, takeProfit, 'open', now, strategy,
-            JSON.stringify(signalDetails), 0, 0, 0
+            JSON.stringify(signalDetails), 0, 0, 0, tradeSize
         ]);
 
         console.log(`✅ [BOT] Opened ${type.toUpperCase()} position for ${symbol} @ $${entryPrice.toFixed(2)}`);
@@ -366,6 +468,17 @@ async function runBotCycleForSymbol(symbol, botSettings) {
             console.error(`⚠️ [BOT] Could not fetch price for ${symbol}, skipping`);
             return;
         }
+        
+        // ✅ VALIDAZIONE PREZZO: Verifica che il prezzo sia ragionevole
+        // Se è > $100k probabilmente è BTC/ETH e non il simbolo corretto
+        if (currentPrice > 100000) {
+            console.error(`🚨 [BOT] Prezzo SOSPETTO per ${symbol}: $${currentPrice} (troppo alto, probabilmente wrong mapping)`);
+            console.error(`   Simbolo: "${symbol}" - Verifica che sia mappato correttamente in SYMBOL_TO_PAIR`);
+            return;
+        }
+        
+        // Log dettagliato per debugging
+        console.log(`💰 [BOT] ${symbol} - Current Price: $${currentPrice.toFixed(8)}`)
 
         // 2. Check cooldown
         if (!checkCooldown(symbol)) {
@@ -483,9 +596,17 @@ async function runBotCycleForSymbol(symbol, botSettings) {
         // 11. Get all open positions
         const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
 
-        // 12. Check Hybrid Strategy
+        // 12. Check Hybrid Strategy with DYNAMIC LIMITS from database
+        const customLimits = {
+            max_positions: settingsParams.max_positions || HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS,
+            max_positions_per_group: settingsParams.max_positions_per_group || HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_GROUP,
+            max_positions_per_symbol: settingsParams.max_positions_per_symbol || HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_SYMBOL
+        };
+        
         console.log(`🔍 [BOT] ${symbol} - Hybrid Strategy Check: ${openPositions.length} open positions`);
-        const hybridCheck = await canOpenPositionHybridStrategy(symbol, openPositions, signal, signal.direction);
+        console.log(`   Limits: Max Total=${customLimits.max_positions}, Per Group=${customLimits.max_positions_per_group}, Per Symbol=${customLimits.max_positions_per_symbol}`);
+        
+        const hybridCheck = await canOpenPositionHybridStrategy(symbol, openPositions, signal, signal.direction, customLimits);
         if (!hybridCheck.allowed) {
             console.log(`⏸️ [BOT] ${symbol} - Hybrid Strategy blocked: ${hybridCheck.reason}`);
             return;
@@ -510,6 +631,13 @@ async function runBotCycleForSymbol(symbol, botSettings) {
 
         // 14. Calculate position size
         const volume = tradeSize / currentPrice;
+        
+        // ✅ LOG DETTAGLIATO per verificare i calcoli
+        console.log(`📊 [BOT] ${symbol} - Volume Calculation:`);
+        console.log(`   Trade Size:     $${tradeSize.toFixed(2)}`);
+        console.log(`   Current Price:  $${currentPrice.toFixed(8)}`);
+        console.log(`   Calculated Vol: ${volume.toFixed(8)} ${symbol.toUpperCase()}`);
+        console.log(`   Verificare che: $${tradeSize.toFixed(2)} / $${currentPrice.toFixed(8)} = ${volume.toFixed(8)}`);
 
         // 15. Calculate Stop Loss and Take Profit
         // ✅ MIGLIORATO: Stop loss più stretto se ci sono warning professionali su segnali forti

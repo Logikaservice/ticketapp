@@ -29,4 +29,4 @@ backend/backups/
 # SQLite Database (Local)
 backend/crypto.db
 backend/crypto.db-journal
-backend/crypto.db-wal
+backend/crypto.db-wal*.backup-*

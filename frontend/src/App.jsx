@@ -28,6 +28,7 @@ import TimesheetManager from './components/TimesheetManager';
 import VivaldiManager from './components/VivaldiManager';
 import PackVisionWithAuth from './components/PackVisionWithAuth';
 import PackVision from './components/PackVision';
+// ✅ DASHBOARD ORIGINALE: Interfaccia completa con tutte le analisi
 import CryptoDashboard from './components/CryptoDashboard/CryptoDashboard';
 import BotAnalysisPageNew from './components/CryptoDashboard/BotAnalysisPageNew';
 import { buildApiUrl } from './utils/apiConfig';
@@ -2996,7 +2997,7 @@ export default function TicketApp() {
                       </div>
                     )}
                     <div className="animate-slideInRight">
-                      <CryptoDashboard />
+                      <CryptoDashboard getAuthHeader={getAuthHeader} />
                     </div>
                   </>
                 );

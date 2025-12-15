@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { RefreshCw, TrendingUp, TrendingDown, AlertCircle, Play, Activity, BarChart2, ChevronDown, ChevronUp, Lock, ChevronsDown, ExternalLink } from 'lucide-react';
 import './CryptoLayout.css';
 
-const MarketScanner = ({ apiBase, onSelectSymbol, currentSymbol = null }) => {
+// ✅ PERFORMANCE: React.memo previene re-render inutili
+const MarketScanner = React.memo(({ apiBase, getAuthHeader = () => ({}), onSelectSymbol, currentSymbol = null }) => {
     const [scanResults, setScanResults] = useState([]);
     const [loading, setLoading] = useState(false);
     const [lastScan, setLastScan] = useState(null);
@@ -44,7 +45,12 @@ const MarketScanner = ({ apiBase, onSelectSymbol, currentSymbol = null }) => {
         lastFetchRef.current[cleanSymbol] = now;
 
         try {
-            const res = await fetch(`${apiBase}/api/crypto/bot-analysis?symbol=${cleanSymbol}`);
+            const res = await fetch(`${apiBase}/api/crypto/bot-analysis?symbol=${cleanSymbol}`, {
+                headers: {
+                    ...getAuthHeader(),
+                    'Content-Type': 'application/json'
+                }
+            });
             if (res.ok) {
                 const data = await res.json();
                 setQuickAnalysis(data);
@@ -63,7 +69,12 @@ const MarketScanner = ({ apiBase, onSelectSymbol, currentSymbol = null }) => {
     const runScan = async () => {
         try {
             setLoading(true);
-            const res = await fetch(`${apiBase}/api/crypto/scanner`);
+            const res = await fetch(`${apiBase}/api/crypto/scanner`, {
+                headers: {
+                    ...getAuthHeader(),
+                    'Content-Type': 'application/json'
+                }
+            });
             if (res.ok) {
                 const data = await res.json();
                 // ✅ FIX: Aggiorna solo se abbiamo dati validi
@@ -583,6 +594,9 @@ const MarketScanner = ({ apiBase, onSelectSymbol, currentSymbol = null }) => {
             }
         </div>
     );
-};
+});
+
+// ✅ PERFORMANCE: displayName per debug React DevTools
+MarketScanner.displayName = 'MarketScanner';
 
 export default MarketScanner;

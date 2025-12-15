@@ -103,9 +103,9 @@ const openPosition = async (symbol, type, volume, entryPrice, stopLoss = null, t
         // 5. Crea posizione
         await dbRun(
             `INSERT INTO open_positions 
-            (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open')`,
-            [ticketId, symbol, type, volume, entryPrice, entryPrice, stopLoss || null, takeProfit || null, strategy]
+            (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status, trade_size_usdt)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open', $10)`,
+            [ticketId, symbol, type, volume, entryPrice, entryPrice, stopLoss || null, takeProfit || null, strategy, volume * entryPrice]
         );
 
         // 6. Registra trade

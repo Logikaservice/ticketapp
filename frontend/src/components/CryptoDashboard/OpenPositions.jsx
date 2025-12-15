@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, TrendingUp, TrendingDown, AlertCircle, BarChart2, ChevronsDown, ExternalLink } from 'lucide-react';
 import { formatPrice, formatPriceWithSymbol, formatVolume, formatSymbol, formatPnL } from '../../utils/priceFormatter';
 
-const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices = {}, onClosePosition, onUpdatePnL, availableSymbols = [], onSelectSymbol, apiBase }) => {
+// ✅ PERFORMANCE: React.memo previene re-render inutili quando props non cambiano
+const OpenPositions = React.memo(({ positions, currentPrice, currentSymbol, allSymbolPrices = {}, onClosePosition, onUpdatePnL, availableSymbols = [], onSelectSymbol, apiBase }) => {
     const [isUpdating, setIsUpdating] = useState(false);
     const [openMenuFor, setOpenMenuFor] = useState(null);
     const menuRefs = useRef({});
@@ -27,14 +28,16 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
 
     // Update P&L periodically (real-time updates)
     useEffect(() => {
-        const interval = setInterval(() => {
-            if (onUpdatePnL) {
-                setIsUpdating(true);
-                onUpdatePnL().finally(() => setIsUpdating(false));
-            }
-        }, 500); // ✅ REAL-TIME: Update every 500ms for instant feedback
+        // ✅ PERFORMANCE FIX: Disabilitato auto-update per ridurre lag
+        // L'utente può fare refresh manuale o aspettare il polling principale
+        // const interval = setInterval(() => {
+        //     if (onUpdatePnL) {
+        //         setIsUpdating(true);
+        //         onUpdatePnL().finally(() => setIsUpdating(false));
+        //     }
+        // }, 5000); // Rallentato a 5s per ridurre lag
 
-        return () => clearInterval(interval);
+        // return () => clearInterval(interval);
     }, [onUpdatePnL]);
 
     // Chiudi menu quando si clicca fuori
@@ -455,7 +458,7 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                                         {formatVolume(volume || 0)}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: '600', color: '#fbbf24' }}>
-                                        ${((entryPrice || 0) * (volume || 0)).toFixed(2)}
+                                        ${(pos.trade_size_usdt || 0).toFixed(2)}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#9ca3af' }}>
                                         {entryPrice > 0 ? (
@@ -628,6 +631,9 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
             </div>
         </div>
     );
-};
+});
+
+// ✅ PERFORMANCE: displayName per debug React DevTools
+OpenPositions.displayName = 'OpenPositions';
 
 export default OpenPositions;
