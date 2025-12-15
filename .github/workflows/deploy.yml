@@ -35,21 +35,18 @@ jobs:
             git reset --hard origin/main
             
             echo "📦 Backend dependencies..."
-            cd backend
+            cd /var/www/ticketapp/backend
             npm install --production --silent || npm install --production
-            cd ..
+            cd /var/www/ticketapp
             
             echo "📦 Frontend dependencies..."
-            cd frontend
+            cd /var/www/ticketapp/frontend
             rm -rf build || true
             npm install --silent || npm install
             echo "REACT_APP_API_URL=" > .env
             echo "GENERATE_SOURCEMAP=false" >> .env
-            CI=false npm run build || {
-              echo "⚠️ Build fallito, provo senza CI=false..."
-              npm run build
-            }
-            cd ..
+            CI=false npm run build
+            cd /var/www/ticketapp
             
             echo "🔄 Restart services..."
             pm2 restart ticketapp-backend || pm2 restart all || pm2 start backend/index.js --name ticketapp-backend || true
