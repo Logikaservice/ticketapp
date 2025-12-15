@@ -1018,8 +1018,25 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
         totalBalance: totalBalance.toFixed(2),
         openPositionsCount: validOpenPositions.length,
         longPositions: validOpenPositions.filter(p => p.type === 'buy').length,
-        shortPositions: validOpenPositions.filter(p => p.type === 'sell').length
+        shortPositions: validOpenPositions.filter(p => p.type === 'sell').length,
+        positionsDetails: validOpenPositions.map(p => ({
+            ticket_id: p.ticket_id,
+            symbol: p.symbol,
+            type: p.type,
+            entry_price: parseFloat(p.entry_price) || 0,
+            profit_loss: parseFloat(p.profit_loss) || 0,
+            volume: parseFloat(p.volume) || 0,
+            volume_closed: parseFloat(p.volume_closed) || 0
+        }))
     });
+    
+    // ✅ DEBUG: Verifica se totalLongValue è 0 quando ci sono posizioni LONG
+    if (validOpenPositions.filter(p => p.type === 'buy').length > 0 && totalLongValue === 0) {
+        console.error(`🚨 [BALANCE-DEBUG] PROBLEMA: Ci sono ${validOpenPositions.filter(p => p.type === 'buy').length} posizioni LONG ma totalLongValue = 0!`);
+        validOpenPositions.filter(p => p.type === 'buy').forEach(pos => {
+            console.error(`   - ${pos.ticket_id} (${pos.symbol}): entry_price=${pos.entry_price}, profit_loss=${pos.profit_loss}, volume=${pos.volume}`);
+        });
+    }
 
     // ✅ FIX CRITICO: Usa direttamente profit_loss calcolato dal backend
     // ✅ FIX: Validazione STRICTA - solo posizioni con status === 'open' e dati validi
