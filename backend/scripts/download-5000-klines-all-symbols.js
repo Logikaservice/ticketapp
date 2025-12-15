@@ -15,7 +15,8 @@ const { dbAll, dbGet, dbRun } = require('../crypto_db');
 const https = require('https');
 
 const INTERVAL = '15m';
-const TARGET_KLINES = 5000;
+const TARGET_KLINES = 5000; // Target ideale
+const MIN_KLINES = 2000; // Minimo accettabile
 const KLINE_INTERVAL_MS = 15 * 60 * 1000; // 15 minuti
 const RATE_LIMIT_DELAY = 300; // ms tra richieste (rispetta 20 req/sec)
 const BATCH_SIZE = 1000; // Max klines per richiesta Binance
@@ -135,7 +136,9 @@ async function downloadKlinesFromBinance(binanceSymbol, startTime, endTime) {
     let allKlines = [];
     let currentStartTime = startTime;
     let attempts = 0;
-    const maxAttempts = 50; // Max 50 richieste per simbolo (50k klines teorici)
+    const maxAttempts = 100; // ✅ Aumentato: Max 100 richieste per simbolo (100k klines teorici)
+    let consecutiveErrors = 0;
+    const maxConsecutiveErrors = 3;
     
     while (currentStartTime < endTime && attempts < maxAttempts) {
         const url = `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${INTERVAL}&startTime=${currentStartTime}&limit=${BATCH_SIZE}`;
@@ -143,22 +146,49 @@ async function downloadKlinesFromBinance(binanceSymbol, startTime, endTime) {
         try {
             const klines = await httpsGet(url);
             
-            if (!Array.isArray(klines) || klines.length === 0) {
+            if (!Array.isArray(klines)) {
+                consecutiveErrors++;
+                if (consecutiveErrors >= maxConsecutiveErrors) {
+                    console.error(`      ⚠️ Troppi errori consecutivi, interrompo per ${binanceSymbol}`);
+                    break;
+                }
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Pausa più lunga in caso di errore
+                continue;
+            }
+            
+            if (klines.length === 0) {
+                // Nessun dato disponibile per questo periodo
                 break;
             }
             
             allKlines = allKlines.concat(klines);
             currentStartTime = klines[klines.length - 1][0] + 1;
             attempts++;
+            consecutiveErrors = 0; // Reset errori consecutivi
             
             // Rate limiting
             await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY));
         } catch (error) {
+            consecutiveErrors++;
+            
             if (error.message.includes('Invalid symbol')) {
                 throw new Error(`Simbolo ${binanceSymbol} non disponibile su Binance`);
             }
-            console.error(`      ⚠️ Errore: ${error.message}`);
-            break;
+            
+            if (error.message.includes('429') || error.message.includes('rate limit')) {
+                console.error(`      ⚠️ Rate limit raggiunto, attendo 5 secondi...`);
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                consecutiveErrors = 0; // Reset dopo pausa rate limit
+                continue;
+            }
+            
+            if (consecutiveErrors >= maxConsecutiveErrors) {
+                console.error(`      ⚠️ Troppi errori consecutivi: ${error.message}`);
+                break;
+            }
+            
+            // Pausa più lunga in caso di errore
+            await new Promise(resolve => setTimeout(resolve, 1000));
         }
     }
     
@@ -191,6 +221,7 @@ async function downloadKlinesForSymbol(symbol, binanceSymbol) {
         // Verifica klines esistenti
         const currentCount = await getCurrentKlinesCount(symbol);
         
+        // ✅ FIX: Accetta se ha almeno MIN_KLINES, ma target è TARGET_KLINES
         if (currentCount >= TARGET_KLINES) {
             return {
                 success: true,
@@ -198,27 +229,40 @@ async function downloadKlinesForSymbol(symbol, binanceSymbol) {
                 action: 'skipped',
                 current: currentCount,
                 inserted: 0,
-                message: `Già ha ${currentCount} klines (target: ${TARGET_KLINES})`
+                message: `Già ha ${currentCount} klines (target: ${TARGET_KLINES}) ✅`
             };
+        }
+        
+        if (currentCount >= MIN_KLINES) {
+            // Ha il minimo, ma proviamo ad arrivare al target
+            const needed = TARGET_KLINES - currentCount;
+            // Continua per completare fino a 5000
+        } else {
+            // Sotto il minimo, deve scaricare
         }
         
         const needed = TARGET_KLINES - currentCount;
         const daysNeeded = Math.ceil((needed * 15) / (60 * 24));
         
-        // Calcola range temporale
+        // Calcola range temporale - MIGLIORATO: va sempre più indietro nel tempo
         const range = await getKlinesRange(symbol);
         const now = Date.now();
         let startTime;
         
+        // ✅ FIX: Calcola sempre partendo da OGGI e andando indietro per i giorni necessari
+        // Questo garantisce di coprire tutto il periodo necessario
+        const daysToGoBack = Math.max(daysNeeded, 60); // Almeno 60 giorni per sicurezza
+        startTime = now - (daysToGoBack * 24 * 60 * 60 * 1000);
+        
+        // Se ci sono klines esistenti, estendi il range per coprire eventuali gap
         if (range.last) {
-            // Parte dall'ultima kline e va indietro
-            startTime = range.last - (needed * KLINE_INTERVAL_MS);
-        } else {
-            // Nessuna kline esistente, scarica gli ultimi N giorni
-            startTime = now - (daysNeeded * 24 * 60 * 60 * 1000);
+            // Vai ancora più indietro per essere sicuri di coprire tutto
+            const existingDays = (now - range.last) / (24 * 60 * 60 * 1000);
+            const totalDaysNeeded = daysNeeded + existingDays + 10; // +10 giorni di buffer
+            startTime = now - (totalDaysNeeded * 24 * 60 * 60 * 1000);
         }
         
-        const endTime = range.last ? range.last : now;
+        const endTime = now; // ✅ FIX: Sempre fino a oggi per avere dati aggiornati
         
         // Download
         const klines = await downloadKlinesFromBinance(binanceSymbol, startTime, endTime);
@@ -357,19 +401,41 @@ async function downloadAllSymbols() {
         // Verifica simboli ancora incompleti
         console.log('🔍 Verifica simboli ancora incompleti...');
         const incomplete = [];
+        const belowMinimum = [];
+        
         for (const { symbol } of validSymbols) {
             const count = await getCurrentKlinesCount(symbol);
             if (count < TARGET_KLINES) {
                 incomplete.push({ symbol, count });
+                if (count < MIN_KLINES) {
+                    belowMinimum.push({ symbol, count });
+                }
             }
         }
 
         if (incomplete.length > 0) {
-            console.log(`\n⚠️  ${incomplete.length} simboli ancora incompleti:`);
-            incomplete.forEach(({ symbol, count }) => {
-                console.log(`   - ${symbol}: ${count}/${TARGET_KLINES} klines`);
-            });
-            console.log('\n💡 Esegui di nuovo lo script per completare i simboli mancanti');
+            // Separa simboli sotto minimo da quelli sopra minimo ma sotto target
+            if (belowMinimum.length > 0) {
+                console.log(`\n❌ ${belowMinimum.length} simboli SOTTO MINIMO (${MIN_KLINES} klines):`);
+                belowMinimum.forEach(({ symbol, count }) => {
+                    console.log(`   - ${symbol}: ${count}/${MIN_KLINES} klines (CRITICO)`);
+                });
+            }
+            
+            const aboveMinButBelowTarget = incomplete.filter(({ count }) => count >= MIN_KLINES);
+            if (aboveMinButBelowTarget.length > 0) {
+                console.log(`\n⚠️  ${aboveMinButBelowTarget.length} simboli sopra minimo ma sotto target:`);
+                aboveMinButBelowTarget.forEach(({ symbol, count }) => {
+                    console.log(`   - ${symbol}: ${count}/${TARGET_KLINES} klines (OK ma incompleto)`);
+                });
+            }
+            
+            console.log('\n💡 SOLUZIONI:');
+            if (belowMinimum.length > 0) {
+                console.log('   • Per simboli sotto minimo: verifica disponibilità su Binance');
+                console.log('   • Usa: node scripts/diagnose-incomplete-klines.js per diagnostica');
+            }
+            console.log('   • Esegui di nuovo lo script per completare i simboli mancanti');
         } else {
             console.log('✅ Tutti i simboli hanno almeno 5000 klines!\n');
         }
