@@ -649,6 +649,12 @@ router.get('/general-settings', async (req, res) => {
         settings.forEach(s => {
             settingsObj[s.setting_key] = s.setting_value;
         });
+        
+        // ✅ DEBUG: Log per verificare cosa viene restituito
+        if (settingsObj.total_balance) {
+            console.log(`📊 [GENERAL-SETTINGS] GET - Total Balance: $${parseFloat(settingsObj.total_balance || 0).toFixed(2)} (raw: "${settingsObj.total_balance}")`);
+        }
+        
         res.json(settingsObj);
     } catch (err) {
         console.error('❌ Error getting general settings:', err.message);
@@ -662,13 +668,20 @@ router.put('/general-settings', async (req, res) => {
         const { totalBalance } = req.body;
         
         if (totalBalance !== undefined) {
+            const valueToSave = totalBalance.toString();
+            console.log(`💾 [GENERAL-SETTINGS] PUT - Ricevuto totalBalance: ${totalBalance} (tipo: ${typeof totalBalance}), salvo come: "${valueToSave}"`);
+            
             await dbRun(
                 `INSERT INTO general_settings (setting_key, setting_value, updated_at)
                  VALUES ('total_balance', $1, NOW())
                  ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1, updated_at = NOW()`,
-                [totalBalance.toString()]
+                [valueToSave]
             );
-            console.log(`✅ [GENERAL-SETTINGS] Total Balance aggiornato a: $${totalBalance}`);
+            
+            // ✅ Verifica che sia stato salvato correttamente
+            const verify = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'");
+            const savedValue = parseFloat(verify?.setting_value || 0);
+            console.log(`✅ [GENERAL-SETTINGS] Total Balance salvato: $${savedValue.toFixed(2)} (verificato nel DB)`);
         }
         
         res.json({ success: true });
