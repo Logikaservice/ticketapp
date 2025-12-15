@@ -1296,7 +1296,7 @@ const getBotParameters = async (symbol = 'bitcoin_usdt') => {
 // Aggiornato: 2025-12-14 - Rimossi 23 duplicati
 const SYMBOL_TO_PAIR = {
     // Top Cryptocurrencies
-    'bitcoin': 'BTCUSDT', 'btc': 'BTCUSDT', 'bitcoin_usdt': 'BTCUSDT', 'btcusdt': 'BTCUSDT',
+    'bitcoin': 'BTCUSDT', 'btc': 'BTCUSDT', 'bitcoin_usdt': 'BTCUSDT', 'bitcoin_eur': 'BTCEUR', 'btcusdt': 'BTCUSDT',
     'ethereum': 'ETHUSDT', 'eth': 'ETHUSDT', 'ethereum_usdt': 'ETHUSDT', 'ethusdt': 'ETHUSDT',
     'solana': 'SOLUSDT', 'sol': 'SOLUSDT', 'solana_eur': 'SOLUSDT', 'solana_usdt': 'SOLUSDT', 'solusdt': 'SOLUSDT',
     'ripple': 'XRPUSDT', 'xrp': 'XRPUSDT', 'ripple_eur': 'XRPEUR', 'xrp_eur': 'XRPEUR', 'ripple_usdt': 'XRPUSDT', 'xrpusdt': 'XRPUSDT',
@@ -1401,6 +1401,7 @@ const HYBRID_STRATEGY_CONFIG = {
 // Symbol to CoinGecko ID mapping (SENZA DUPLICATI)
 const SYMBOL_TO_COINGECKO = {
     'bitcoin_usdt': 'bitcoin',
+    'bitcoin_eur': 'bitcoin',
     'ethereum_usdt': 'ethereum',
     'solana_eur': 'solana',
     'cardano_usdt': 'cardano',
@@ -1707,7 +1708,7 @@ const getSymbolPrice = async (symbol) => {
 
     // ✅ FIX: Mappa locale robusta per garantire che i simboli principali siano sempre risolti
     const SYMBOL_MAP_FALLBACK = {
-        'bitcoin': 'BTCUSDT', 'btc': 'BTCUSDT', 'btcusdt': 'BTCUSDT',
+        'bitcoin': 'BTCUSDT', 'btc': 'BTCUSDT', 'btcusdt': 'BTCUSDT', 'bitcoineur': 'BTCEUR',
         'ethereum': 'ETHUSDT', 'eth': 'ETHUSDT', 'ethusdt': 'ETHUSDT',
         'solana': 'SOLUSDT', 'sol': 'SOLUSDT', 'solusdt': 'SOLUSDT',
         'cardano': 'ADAUSDT', 'ada': 'ADAUSDT', 'adausdt': 'ADAUSDT',
