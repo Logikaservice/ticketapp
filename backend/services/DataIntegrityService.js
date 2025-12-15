@@ -13,39 +13,38 @@
 
 const { dbGet, dbAll, dbRun } = require('../crypto_db');
 const https = require('https');
-const fs = require('fs');
-const path = require('path');
 
-// ✅ FIX: Carica SYMBOL_TO_PAIR da TradingBot.js (fonte di verità) leggendo direttamente il file
-// Usa lo stesso approccio di KlinesAggregatorService per evitare problemi di circular dependency
+// ✅ FIX: Carica SYMBOL_TO_PAIR da TradingBot.js (fonte di verità)
 let SYMBOL_TO_PAIR = {};
 try {
     const TradingBot = require('./TradingBot');
-    if (TradingBot.SYMBOL_TO_PAIR && Object.keys(TradingBot.SYMBOL_TO_PAIR).length > 0) {
-        SYMBOL_TO_PAIR = TradingBot.SYMBOL_TO_PAIR;
-        console.log(`✅ [DATA-INTEGRITY] Caricati ${Object.keys(SYMBOL_TO_PAIR).length} simboli da TradingBot.js`);
+    SYMBOL_TO_PAIR = TradingBot.SYMBOL_TO_PAIR || {};
+    const symbolCount = Object.keys(SYMBOL_TO_PAIR).length;
+    if (symbolCount > 0) {
+        console.log(`✅ [DATA-INTEGRITY] Caricati ${symbolCount} simboli da TradingBot.SYMBOL_TO_PAIR`);
     } else {
-        // Fallback: leggi direttamente dal file (come KlinesAggregatorService)
-        const tradingBotPath = path.join(__dirname, 'TradingBot.js');
-        const content = fs.readFileSync(tradingBotPath, 'utf8');
-        const symbolToPairMatch = content.match(/const SYMBOL_TO_PAIR = \{([\s\S]*?)\};/);
-        if (symbolToPairMatch) {
-            const symbolMatches = symbolToPairMatch[1].match(/'([^']+)':/g);
-            if (symbolMatches) {
-                symbolMatches.forEach(match => {
-                    const symbol = match.match(/'([^']+)':/)[1];
-                    // Estrai il trading pair (semplificato - cerca il valore dopo i due punti)
-                    const pairMatch = content.match(new RegExp(`'${symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}':\\s*'([^']+)'`));
-                    if (pairMatch) {
-                        SYMBOL_TO_PAIR[symbol] = pairMatch[1];
-                    }
-                });
-                console.log(`✅ [DATA-INTEGRITY] Caricati ${Object.keys(SYMBOL_TO_PAIR).length} simboli da TradingBot.js (fallback file reading)`);
+        console.warn('⚠️  [DATA-INTEGRITY] SYMBOL_TO_PAIR vuoto o non disponibile da TradingBot.js');
+        // Fallback: usa cryptoRoutes come prima
+        try {
+            const cryptoRoutes = require('../routes/cryptoRoutes');
+            SYMBOL_TO_PAIR = cryptoRoutes.SYMBOL_TO_PAIR || {};
+            if (Object.keys(SYMBOL_TO_PAIR).length > 0) {
+                console.log(`⚠️  [DATA-INTEGRITY] Usato fallback: ${Object.keys(SYMBOL_TO_PAIR).length} simboli da cryptoRoutes.js`);
             }
+        } catch (fallbackError) {
+            console.error('❌ [DATA-INTEGRITY] Errore caricamento SYMBOL_TO_PAIR da entrambe le fonti:', fallbackError.message);
         }
     }
 } catch (error) {
-    console.error('⚠️  [DATA-INTEGRITY] Errore caricamento SYMBOL_TO_PAIR:', error.message);
+    console.error('⚠️  [DATA-INTEGRITY] Errore caricamento TradingBot:', error.message);
+    // Fallback: usa cryptoRoutes
+    try {
+        const cryptoRoutes = require('../routes/cryptoRoutes');
+        SYMBOL_TO_PAIR = cryptoRoutes.SYMBOL_TO_PAIR || {};
+        console.log(`⚠️  [DATA-INTEGRITY] Usato fallback: ${Object.keys(SYMBOL_TO_PAIR).length} simboli da cryptoRoutes.js`);
+    } catch (fallbackError) {
+        console.error('❌ [DATA-INTEGRITY] Errore caricamento SYMBOL_TO_PAIR:', fallbackError.message);
+    }
 }
 
 // Helper per HTTPS requests (simile a PriceService)
