@@ -44,20 +44,30 @@ if (startLine < 0 || endLine < 0) {
     process.exit(1);
 }
 
-// Estrai e valuta il codice
+// Estrai e valuta il codice in un contesto isolato
+let SYMBOL_TO_PAIR = {};
 try {
     const symbolMapCode = lines.slice(startLine, endLine + 1).join('\n');
-    eval(symbolMapCode);
+    // Usa Function constructor per creare un contesto isolato
+    const func = new Function(symbolMapCode + '; return SYMBOL_TO_PAIR;');
+    SYMBOL_TO_PAIR = func();
     
     // Verifica che SYMBOL_TO_PAIR sia stato creato
-    if (typeof SYMBOL_TO_PAIR === 'undefined') {
-        console.error('❌ SYMBOL_TO_PAIR non definito dopo eval');
+    if (!SYMBOL_TO_PAIR || typeof SYMBOL_TO_PAIR !== 'object') {
+        console.error('❌ SYMBOL_TO_PAIR non definito o non valido dopo estrazione');
         process.exit(1);
     }
     
-    console.log(`✅ SYMBOL_TO_PAIR caricato: ${Object.keys(SYMBOL_TO_PAIR).length} simboli`);
+    const symbolCount = Object.keys(SYMBOL_TO_PAIR).length;
+    if (symbolCount === 0) {
+        console.error('❌ SYMBOL_TO_PAIR è vuoto');
+        process.exit(1);
+    }
+    
+    console.log(`✅ SYMBOL_TO_PAIR caricato: ${symbolCount} simboli`);
 } catch (error) {
     console.error('❌ Errore durante estrazione SYMBOL_TO_PAIR:', error.message);
+    console.error('   Stack:', error.stack);
     console.error('   Start line:', startLine + 1, 'End line:', endLine + 1);
     process.exit(1);
 }
