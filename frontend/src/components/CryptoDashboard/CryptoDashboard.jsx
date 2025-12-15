@@ -1004,47 +1004,66 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
 
     // Balance debug validated values logging removed
 
-    // ✅ DEBUG: Calcola totale investito per verificare coerenza con cash (DEVE essere PRIMA del suo utilizzo)
-    const totalInvested = validOpenPositions.reduce((sum, pos) => {
-        const volume = parseFloat(pos.volume) || 0;
-        const volumeClosed = parseFloat(pos.volume_closed) || 0;
-        const remainingVolume = volume - volumeClosed;
-        const entryPrice = parseFloat(pos.entry_price) || 0;
-        const invested = remainingVolume * entryPrice;
-        return sum + invested;
-    }, 0);
+    // ✅ TOTAL BALANCE: Prende solo il valore dalle impostazioni (semplice e diretto)
+    // Rimossa tutta la logica complessa - usa solo il valore impostato manualmente
+    const [totalBalanceFromSettings, setTotalBalanceFromSettings] = useState(1000);
     
-    // ✅ TOTAL BALANCE (EQUITY) = Cash + Valore Attuale Posizioni Aperte
-    // Questa è la formula corretta per l'Equity:
-    // - Cash: denaro disponibile (include già perdite/guadagni da posizioni chiuse)
-    // - Valore Posizioni: entry_price * volume + P&L (valore attuale delle posizioni aperte)
-    //
-    // Esempio:
-    // - Capitale iniziale: $1000
-    // - Investito: $300
-    // - Cash: $700 (o $650 se ci sono state -$50 perdite da posizioni chiuse)
-    // - Valore posizioni: $300 + $2.70 (P&L) = $302.70
-    // - Total Balance = $700 + $302.70 = $1002.70 ✅
-    //
-    // Questa formula riflette il patrimonio totale REALE (Equity):
-    // - Se chiudi posizioni con perdite, il cash diminuisce e il Total Balance lo riflette
-    // - Se le posizioni aperte hanno P&L positivo, il Total Balance aumenta
+    // Carica Total Balance dalle impostazioni
+    useEffect(() => {
+        const saved = localStorage.getItem('crypto_general_settings');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (parsed.totalBalance !== undefined) {
+                    setTotalBalanceFromSettings(parseFloat(parsed.totalBalance) || 1000);
+                }
+            } catch (e) {
+                console.error('Error loading total balance from settings:', e);
+            }
+        }
+    }, []);
     
-    // Total Balance = Cash + Valore Posizioni Aperte
-    const totalBalance = validatedBalance + totalLongValue - totalShortLiability;
+    // Ascolta cambiamenti nelle impostazioni (via localStorage event)
+    useEffect(() => {
+        const handleStorageChange = (e) => {
+            if (e.key === 'crypto_general_settings') {
+                try {
+                    const parsed = JSON.parse(e.newValue);
+                    if (parsed && parsed.totalBalance !== undefined) {
+                        setTotalBalanceFromSettings(parseFloat(parsed.totalBalance) || 1000);
+                    }
+                } catch (err) {
+                    console.error('Error parsing settings:', err);
+                }
+            }
+        };
+        window.addEventListener('storage', handleStorageChange);
+        // Ascolta anche cambiamenti nello stesso tab (simulando storage event)
+        const interval = setInterval(() => {
+            const saved = localStorage.getItem('crypto_general_settings');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (parsed && parsed.totalBalance !== undefined) {
+                        const newValue = parseFloat(parsed.totalBalance) || 1000;
+                        if (newValue !== totalBalanceFromSettings) {
+                            setTotalBalanceFromSettings(newValue);
+                        }
+                    }
+                } catch (e) {
+                    // Ignora errori
+                }
+            }
+        }, 1000); // Controlla ogni secondo
+        
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            clearInterval(interval);
+        };
+    }, [totalBalanceFromSettings]);
     
-    // ✅ DEBUG: Log dettagliato del calcolo finale (sempre, per diagnosticare problemi)
-    console.log(`[BALANCE-DEBUG] Calcolo Total Balance (Equity):`, {
-        cash: validatedBalance.toFixed(2),
-        totalInvested: totalInvested.toFixed(2),
-        totalLongValue: totalLongValue.toFixed(2),
-        totalShortLiability: totalShortLiability.toFixed(2),
-        totalBalance: totalBalance.toFixed(2),
-        formula: `${validatedBalance.toFixed(2)} + ${totalLongValue.toFixed(2)} - ${totalShortLiability.toFixed(2)} = ${totalBalance.toFixed(2)}`,
-        openPositionsCount: validOpenPositions.length,
-        longPositions: validOpenPositions.filter(p => p.type === 'buy').length,
-        shortPositions: validOpenPositions.filter(p => p.type === 'sell').length
-    });
+    // Total Balance = Valore dalle impostazioni (semplice!)
+    const totalBalance = totalBalanceFromSettings;
     
     // ✅ DEBUG: Verifica se totalLongValue è 0 quando ci sono posizioni LONG
     if (validOpenPositions.filter(p => p.type === 'buy').length > 0 && totalLongValue === 0) {

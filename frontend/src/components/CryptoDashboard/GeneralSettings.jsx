@@ -16,7 +16,8 @@ const GeneralSettings = ({
         soundVolume: 30,
         showTradeHistory: true, // Mostra ultimi 10 trade sul grafico
         darkMode: false,
-        autoRefreshInterval: 10 // seconds
+        autoRefreshInterval: 10, // seconds
+        totalBalance: 1000 // ✅ Total Balance impostato manualmente
     });
 
     // Load settings from localStorage on mount
@@ -283,6 +284,44 @@ const GeneralSettings = ({
                             >
                                 🔄 Reset Portfolio
                             </button>
+                        </div>
+                    </div>
+
+                    {/* Total Balance Setting */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginBottom: '8px'
+                        }}>
+                            <Wallet size={18} style={{ color: '#f59e0b' }} />
+                            <span style={{ color: '#fff', fontWeight: '500' }}>
+                                Total Balance (Equity)
+                            </span>
+                        </div>
+                        <div style={{ paddingLeft: '26px' }}>
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={settings.totalBalance}
+                                onChange={(e) => updateSetting('totalBalance', parseFloat(e.target.value) || 0)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    background: '#1f2937',
+                                    border: '1px solid #374151',
+                                    borderRadius: '8px',
+                                    color: '#fff',
+                                    fontSize: '1rem',
+                                    outline: 'none'
+                                }}
+                                placeholder="1000"
+                            />
+                            <p style={{ margin: '8px 0 0 0', fontSize: '0.75rem', color: '#6b7280' }}>
+                                Imposta manualmente il Total Balance (Equity) da visualizzare
+                            </p>
                         </div>
                     </div>
 
