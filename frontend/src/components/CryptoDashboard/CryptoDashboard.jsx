@@ -1064,20 +1064,6 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
     
     // Total Balance = Valore dalle impostazioni (semplice!)
     const totalBalance = totalBalanceFromSettings;
-    
-    // ✅ DEBUG: Verifica se totalLongValue è 0 quando ci sono posizioni LONG
-    if (validOpenPositions.filter(p => p.type === 'buy').length > 0 && totalLongValue === 0) {
-        console.error(`🚨 [BALANCE-DEBUG] PROBLEMA: Ci sono ${validOpenPositions.filter(p => p.type === 'buy').length} posizioni LONG ma totalLongValue = 0!`);
-        validOpenPositions.filter(p => p.type === 'buy').forEach(pos => {
-            console.error(`   - ${pos.ticket_id} (${pos.symbol}): entry_price=${pos.entry_price}, profit_loss=${pos.profit_loss}, volume=${pos.volume}`);
-        });
-    }
-    
-    // ✅ DEBUG: Verifica se il cash è coerente con l'investimento
-    const expectedCashFrom1000 = 1000 - totalInvested;
-    if (Math.abs(validatedBalance - expectedCashFrom1000) > 1) {
-        console.warn(`⚠️ [BALANCE-DEBUG] Cash incoerente: Cash attuale $${validatedBalance.toFixed(2)}, atteso da $1000 iniziali: $${expectedCashFrom1000.toFixed(2)}, differenza: $${(validatedBalance - expectedCashFrom1000).toFixed(2)}`);
-    }
 
     // ✅ FIX CRITICO: Usa direttamente profit_loss calcolato dal backend
     // ✅ FIX: Validazione STRICTA - solo posizioni con status === 'open' e dati validi
