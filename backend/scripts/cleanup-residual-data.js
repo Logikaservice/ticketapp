@@ -85,9 +85,19 @@ async function cleanupResidualData() {
         if (finalAllPositions[0]?.count === 0 && finalTrades[0]?.count === 0) {
             console.log('\n' + '='.repeat(60));
             console.log('✅ PULIZIA COMPLETATA CON SUCCESSO!');
-            console.log('='.repeat(60) + '\n');
+            console.log('='.repeat(60));
+            console.log('   ✅ Tutte le posizioni cancellate');
+            console.log('   ✅ Tutti i trade cancellati');
+            console.log('   ✅ Sistema pronto per nuovi trade\n');
         } else {
-            console.log('\n⚠️  Alcuni dati potrebbero essere rimasti. Esegui di nuovo lo script se necessario.\n');
+            console.log('\n⚠️  Alcuni dati potrebbero essere rimasti:');
+            if (finalAllPositions[0]?.count > 0) {
+                console.log(`   - ${finalAllPositions[0].count} posizioni ancora presenti`);
+            }
+            if (finalTrades[0]?.count > 0) {
+                console.log(`   - ${finalTrades[0].count} trade ancora presenti`);
+            }
+            console.log('   Esegui di nuovo lo script se necessario.\n');
         }
         
         process.exit(0);
