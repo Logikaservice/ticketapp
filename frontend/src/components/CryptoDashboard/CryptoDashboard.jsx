@@ -1014,42 +1014,33 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
         return sum + invested;
     }, 0);
     
-    // ✅ TOTAL BALANCE (EQUITY) = Capitale Iniziale FISSO + P&L Totale Posizioni Aperte
-    // Questo metodo è il più semplice e corretto:
-    // - Usa sempre $1000 come capitale iniziale (fisso)
-    // - Aggiunge il P&L totale delle posizioni aperte
-    // - Non dipende dal cash che può essere incoerente per perdite da posizioni chiuse
+    // ✅ TOTAL BALANCE (EQUITY) = Cash + Valore Attuale Posizioni Aperte
+    // Questa è la formula corretta per l'Equity:
+    // - Cash: denaro disponibile (include già perdite/guadagni da posizioni chiuse)
+    // - Valore Posizioni: entry_price * volume + P&L (valore attuale delle posizioni aperte)
     //
     // Esempio:
-    // - Capitale iniziale: $1000 (FISSO)
+    // - Capitale iniziale: $1000
     // - Investito: $300
-    // - Cash: $700 (o meno se ci sono state perdite)
-    // - P&L posizioni aperte: +$0.02
-    // - Total Balance = $1000 + $0.02 = $1000.02 ✅
+    // - Cash: $700 (o $650 se ci sono state -$50 perdite da posizioni chiuse)
+    // - Valore posizioni: $300 + $2.70 (P&L) = $302.70
+    // - Total Balance = $700 + $302.70 = $1002.70 ✅
     //
-    // Se chiudi posizioni con perdite:
-    // - Cash diminuisce (es. $700 → $650 per -$50 perdite)
-    // - Ma Total Balance = $1000 + P&L posizioni APERTE (non chiuse) ✅
+    // Questa formula riflette il patrimonio totale REALE (Equity):
+    // - Se chiudi posizioni con perdite, il cash diminuisce e il Total Balance lo riflette
+    // - Se le posizioni aperte hanno P&L positivo, il Total Balance aumenta
     
-    // ✅ FIX: Usa capitale iniziale FISSO di $1000
-    const INITIAL_CAPITAL = 1000;
-    
-    // Calcola P&L totale da posizioni aperte
-    const totalPnLFromOpenPositions = validOpenPositions.reduce((sum, pos) => {
-        return sum + (parseFloat(pos.profit_loss) || 0);
-    }, 0);
-    
-    // Total Balance = Capitale Iniziale FISSO + P&L Totale Posizioni Aperte
-    const totalBalance = INITIAL_CAPITAL + totalPnLFromOpenPositions;
+    // Total Balance = Cash + Valore Posizioni Aperte
+    const totalBalance = validatedBalance + totalLongValue - totalShortLiability;
     
     // ✅ DEBUG: Log dettagliato del calcolo finale (sempre, per diagnosticare problemi)
-    console.log(`[BALANCE-DEBUG] Calcolo Total Balance:`, {
-        initialCapital: INITIAL_CAPITAL.toFixed(2),
+    console.log(`[BALANCE-DEBUG] Calcolo Total Balance (Equity):`, {
         cash: validatedBalance.toFixed(2),
         totalInvested: totalInvested.toFixed(2),
-        totalPnLFromOpenPositions: totalPnLFromOpenPositions.toFixed(2),
+        totalLongValue: totalLongValue.toFixed(2),
+        totalShortLiability: totalShortLiability.toFixed(2),
         totalBalance: totalBalance.toFixed(2),
-        formula: `${INITIAL_CAPITAL.toFixed(2)} + ${totalPnLFromOpenPositions.toFixed(2)} = ${totalBalance.toFixed(2)}`,
+        formula: `${validatedBalance.toFixed(2)} + ${totalLongValue.toFixed(2)} - ${totalShortLiability.toFixed(2)} = ${totalBalance.toFixed(2)}`,
         openPositionsCount: validOpenPositions.length,
         longPositions: validOpenPositions.filter(p => p.type === 'buy').length,
         shortPositions: validOpenPositions.filter(p => p.type === 'sell').length
