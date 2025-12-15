@@ -67,6 +67,19 @@ class DataIntegrityService {
      */
     async verifyAndRegenerate(symbol) {
         try {
+            // ✅ FIX: Salta simboli non validi (non in SYMBOL_TO_PAIR)
+            if (!SYMBOL_TO_PAIR || !SYMBOL_TO_PAIR[symbol]) {
+                log.warn(`${symbol}: Simbolo non valido (non trovato in SYMBOL_TO_PAIR) - skip verifica`);
+                return {
+                    valid: false,
+                    klinesCount: 0,
+                    priceHistoryCount: 0,
+                    gaps: 0,
+                    regenerated: false,
+                    issues: [`Simbolo ${symbol} non valido (non in SYMBOL_TO_PAIR)`]
+                };
+            }
+            
             log.info(`Verifica integrità dati per ${symbol}...`);
             
             // 1. Verifica klines
