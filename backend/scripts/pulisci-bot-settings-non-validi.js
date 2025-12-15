@@ -14,34 +14,49 @@ const cryptoRoutesPath = path.join(__dirname, '../routes/cryptoRoutes.js');
 const fs = require('fs');
 const cryptoRoutesContent = fs.readFileSync(cryptoRoutesPath, 'utf8');
 
-// Estrai SYMBOL_TO_PAIR usando regex (non-greedy fino alla chiusura })
-// Cerca dalla dichiarazione fino alla prima }; che chiude l'oggetto
-const symbolMapMatch = cryptoRoutesContent.match(/const SYMBOL_TO_PAIR\s*=\s*\{([\s\S]*?)\n\};\n/);
-if (!symbolMapMatch) {
-    // Fallback: cerca con pattern più semplice
-    const lines = cryptoRoutesContent.split('\n');
-    let startLine = -1;
-    let endLine = -1;
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes('const SYMBOL_TO_PAIR') && lines[i].includes('=')) {
-            startLine = i;
-        }
-        if (startLine >= 0 && lines[i].trim() === '};') {
+// Estrai SYMBOL_TO_PAIR analizzando le righe
+const lines = cryptoRoutesContent.split('\n');
+let startLine = -1;
+let endLine = -1;
+
+// Trova la riga di inizio (const SYMBOL_TO_PAIR = {)
+for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes('const SYMBOL_TO_PAIR') && lines[i].includes('=')) {
+        startLine = i;
+        break;
+    }
+}
+
+// Trova la riga di fine (};)
+if (startLine >= 0) {
+    for (let i = startLine + 1; i < lines.length; i++) {
+        if (lines[i].trim() === '};') {
             endLine = i;
             break;
         }
     }
-    if (startLine >= 0 && endLine >= 0) {
-        const symbolMapCode = lines.slice(startLine, endLine + 1).join('\n');
-        eval(symbolMapCode);
-    } else {
-        console.error('❌ Impossibile trovare SYMBOL_TO_PAIR in cryptoRoutes.js');
+}
+
+if (startLine < 0 || endLine < 0) {
+    console.error('❌ Impossibile trovare SYMBOL_TO_PAIR in cryptoRoutes.js');
+    process.exit(1);
+}
+
+// Estrai e valuta il codice in un contesto isolato
+let SYMBOL_TO_PAIR = {};
+try {
+    const symbolMapCode = lines.slice(startLine, endLine + 1).join('\n');
+    // Usa Function constructor per creare un contesto isolato
+    const func = new Function(symbolMapCode + '; return SYMBOL_TO_PAIR;');
+    SYMBOL_TO_PAIR = func();
+    
+    if (!SYMBOL_TO_PAIR || typeof SYMBOL_TO_PAIR !== 'object' || Object.keys(SYMBOL_TO_PAIR).length === 0) {
+        console.error('❌ SYMBOL_TO_PAIR non valido o vuoto');
         process.exit(1);
     }
-} else {
-    // Eval per ottenere l'oggetto (sicuro perché è codice del progetto stesso)
-    const symbolMapCode = `const SYMBOL_TO_PAIR = {${symbolMapMatch[1]}};`;
-    eval(symbolMapCode);
+} catch (error) {
+    console.error('❌ Errore durante estrazione SYMBOL_TO_PAIR:', error.message);
+    process.exit(1);
 }
 
 const VALID_SYMBOLS = new Set(Object.keys(SYMBOL_TO_PAIR));
