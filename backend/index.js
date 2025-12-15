@@ -913,6 +913,86 @@ try {
   console.error('❌ [INIT] Error starting Price WebSocket Service:', wsError.message);
 }
 
+// ✅ Endpoint pubblici per AI accesso database (PRIMA di TUTTO, senza autenticazione)
+// DEVE essere PRIMA di qualsiasi app.use('/api', ...) per evitare middleware globali
+app.get('/api/ai-db/execute', async (req, res) => {
+    try {
+        const { command } = req.query;
+        const commands = {
+            'total-balance': async () => {
+                const { dbGet } = require('./crypto_db_postgresql');
+                const result = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'");
+                return { totalBalance: parseFloat(result?.setting_value || 0) };
+            },
+            'summary': async () => {
+                const { dbGet, dbAll } = require('./crypto_db_postgresql');
+                const portfolio = await dbGet("SELECT balance_usd FROM portfolio WHERE id = 1");
+                const totalBalance = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'").catch(() => ({ setting_value: null }));
+                const openPositions = await dbAll("SELECT COUNT(*) as count, COALESCE(SUM(profit_loss), 0) as total_pnl FROM open_positions WHERE status = 'open'");
+                return {
+                    totalBalance: parseFloat(totalBalance?.setting_value || 0),
+                    cash: parseFloat(portfolio?.balance_usd || 0),
+                    openPositions: parseInt(openPositions[0]?.count || 0),
+                    totalPnL: parseFloat(openPositions[0]?.total_pnl || 0)
+                };
+            }
+        };
+        
+        if (!command || !commands[command]) {
+            return res.status(400).json({ 
+                error: 'Command not found',
+                availableCommands: Object.keys(commands)
+            });
+        }
+        
+        const result = await commands[command]();
+        res.json({ success: true, command, data: result, timestamp: new Date().toISOString() });
+    } catch (err) {
+        console.error('❌ Error in /api/ai-db/execute:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/ai-db/update', async (req, res) => {
+    try {
+        const { field, value } = req.body;
+        const allowedFields = { 'total_balance': 'general_settings' };
+        
+        if (!field || !allowedFields[field]) {
+            return res.status(400).json({ 
+                error: 'Field not allowed',
+                allowedFields: Object.keys(allowedFields)
+            });
+        }
+        
+        const { dbGet, dbRun } = require('./crypto_db_postgresql');
+        const table = allowedFields[field];
+        const oldValue = await dbGet(`SELECT setting_value FROM ${table} WHERE setting_key = $1`, [field]);
+        
+        await dbRun(
+            `INSERT INTO ${table} (setting_key, setting_value, updated_at)
+             VALUES ($1, $2, NOW())
+             ON CONFLICT (setting_key) DO UPDATE SET setting_value = $2, updated_at = NOW()`,
+            [field, value.toString()]
+        );
+        
+        const newValue = await dbGet(`SELECT setting_value FROM ${table} WHERE setting_key = $1`, [field]);
+        
+        console.log(`✅ [AI-DB-UPDATE] ${field}: ${oldValue?.setting_value || 'null'} → ${newValue?.setting_value}`);
+        
+        res.json({ 
+            success: true, 
+            field,
+            oldValue: oldValue?.setting_value || null,
+            newValue: newValue?.setting_value,
+            timestamp: new Date().toISOString()
+        });
+    } catch (err) {
+        console.error('❌ Error in /api/ai-db/update:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Rotte temporanee per debug (senza autenticazione) - DEVE ESSERE PRIMA
 app.use('/api/temp', tempLoginRoutes);
 
