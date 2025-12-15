@@ -1509,6 +1509,10 @@ const initWebSocketService = () => {
                         // Filtra solo simboli validi
                         if (VALID_SYMBOLS_SET.size > 0 && !VALID_SYMBOLS_SET.has(symbol)) {
                             // Simbolo non valido - non salvare in price_history
+                            // ✅ DEBUG: Log solo occasionalmente per vedere quali simboli vengono filtrati
+                            if (Math.random() < 0.01) {
+                                console.warn(`🚫 [WEBSOCKET-FILTER] Simbolo non valido filtrato: ${symbol} (non in VALID_SYMBOLS_SET)`);
+                            }
                             return;
                         }
                         
@@ -1567,6 +1571,10 @@ const initWebSocketService = () => {
                 // ✅ FIX: Filtra solo simboli validi per evitare inserimenti non validi
                 if (VALID_SYMBOLS_SET.size > 0 && !VALID_SYMBOLS_SET.has(symbol)) {
                     // Simbolo non valido - non salvare in symbol_volumes_24h
+                    // ✅ DEBUG: Log solo occasionalmente per vedere quali simboli vengono filtrati
+                    if (Math.random() < 0.01) {
+                        console.warn(`🚫 [WEBSOCKET-VOLUME-FILTER] Simbolo non valido filtrato: ${symbol} (non in VALID_SYMBOLS_SET)`);
+                    }
                     return;
                 }
                 

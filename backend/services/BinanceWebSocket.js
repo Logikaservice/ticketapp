@@ -168,6 +168,10 @@ class BinanceWebSocketService {
         tickers.forEach(ticker => {
             const symbol = pairToSymbol[ticker.s];
             if (!symbol) {
+                // ✅ DEBUG: Log solo occasionalmente per vedere quali trading pair non sono mappati
+                if (Math.random() < 0.001) {
+                    console.warn(`🚫 [WEBSOCKET] Trading pair non mappato ignorato: ${ticker.s} (non in pairToSymbol)`);
+                }
                 return; // Simbolo non nella nostra mappa, salta
             }
             
