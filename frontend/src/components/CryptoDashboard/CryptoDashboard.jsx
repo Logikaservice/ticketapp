@@ -126,9 +126,9 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                     `${apiBase}/api/crypto/fix-closed-positions-pnl`,
                     {
                         method: 'POST',
-                        headers: { 
+                        headers: {
                             ...getAuthHeader(),
-                            'Content-Type': 'application/json' 
+                            'Content-Type': 'application/json'
                         }
                     },
                     {
@@ -146,9 +146,9 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                 `${apiBase}/api/crypto/dashboard`,
                 {
                     method: 'GET',
-                    headers: { 
+                    headers: {
                         ...getAuthHeader(),
-                        'Content-Type': 'application/json' 
+                        'Content-Type': 'application/json'
                     }
                 },
                 {
@@ -178,7 +178,7 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                 });
                 // Load bot parameters for backtesting
                 if (data.bot_parameters) {
-setBotParameters(data.bot_parameters);
+                    setBotParameters(data.bot_parameters);
                 }
                 // Load performance stats for Kelly Criterion
                 if (data.performance_stats) {
@@ -280,7 +280,7 @@ setBotParameters(data.bot_parameters);
             // Non serve passare un simbolo specifico - il backend gestisce tutti i simboli
             await fetchWithRetry(
                 `${apiBase}/api/crypto/positions/update-pnl`,
-                { 
+                {
                     method: 'POST',
                     headers: {
                         ...getAuthHeader(),
@@ -289,7 +289,7 @@ setBotParameters(data.bot_parameters);
                 },
                 { maxRetries: 2, silent502: true }
             );
-            
+
             // ✅ FIX: Refresh positions after update - recupera tutte le posizioni aperte
             const positionsResult = await fetchJsonWithRetry(
                 `${apiBase}/api/crypto/positions?status=open`,
@@ -303,17 +303,17 @@ setBotParameters(data.bot_parameters);
             );
             if (positionsResult.ok && positionsResult.data) {
                 // ✅ FIX: Validate array to prevent "filter is not a function" errors
-                const updatedPositions = Array.isArray(positionsResult.data.positions) 
-                    ? positionsResult.data.positions 
+                const updatedPositions = Array.isArray(positionsResult.data.positions)
+                    ? positionsResult.data.positions
                     : [];
                 setOpenPositions(updatedPositions);
-                
+
                 // ✅ REAL-TIME FIX: Aggiorna i prezzi per TUTTI i simboli delle posizioni aperte
                 // Questo assicura che allSymbolPrices sia sempre aggiornato con i prezzi più recenti
                 if (updatedPositions.length > 0) {
                     const uniqueSymbols = [...new Set(updatedPositions.map(pos => pos.symbol))];
                     const newPrices = {};
-                    
+
                     // ✅ FIX CRITICO: Recupera i prezzi in parallelo per velocità
                     const pricePromises = uniqueSymbols.map(async (symbol) => {
                         try {
@@ -353,14 +353,14 @@ setBotParameters(data.bot_parameters);
                         }
                         return null;
                     });
-                    
+
                     const priceResults = await Promise.all(pricePromises);
                     priceResults.forEach(result => {
                         if (result && result.price > 0) {
                             newPrices[result.symbol] = result.price;
                         }
                     });
-                    
+
                     // ✅ FIX CRITICO: Aggiorna allSymbolPrices con i nuovi prezzi (sovrascrive i vecchi)
                     if (Object.keys(newPrices).length > 0) {
                         setAllSymbolPrices(prev => {
@@ -382,21 +382,21 @@ setBotParameters(data.bot_parameters);
         try {
             // ✅ FIX: Usa il simbolo della posizione invece di sempre 'bitcoin'
             const symbolToUse = positionSymbol || currentSymbol;
-            
+
             // Trova il prezzo corretto per questo simbolo
             let priceToUse = currentPrice;
             if (positionSymbol && allSymbolPrices[positionSymbol]) {
                 priceToUse = allSymbolPrices[positionSymbol];
             }
-            
+
             // Pass current price to ensure correct closing price
             const result = await fetchJsonWithRetry(
                 `${apiBase}/api/crypto/positions/close/${ticketId}`,
                 {
                     method: 'POST',
-                    headers: { 
+                    headers: {
                         ...getAuthHeader(),
-                        'Content-Type': 'application/json' 
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         close_price: priceToUse,
@@ -444,9 +444,9 @@ setBotParameters(data.bot_parameters);
                 `${apiBase}/api/crypto/reset`,
                 {
                     method: 'POST',
-                    headers: { 
+                    headers: {
                         ...getAuthHeader(),
-                        'Content-Type': 'application/json' 
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ initial_balance: initialBalance })
                 },
@@ -474,9 +474,9 @@ setBotParameters(data.bot_parameters);
                 `${apiBase}/api/crypto/add-funds`,
                 {
                     method: 'POST',
-                    headers: { 
+                    headers: {
                         ...getAuthHeader(),
-                        'Content-Type': 'application/json' 
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ amount: parseFloat(amount) })
                 },
@@ -509,7 +509,7 @@ setBotParameters(data.bot_parameters);
         if (fetchingPriceRef.current) {
             return; // Già una chiamata in corso, salta questa
         }
-        
+
         try {
             fetchingPriceRef.current = true;
             // Fetch real price for current symbol from Binance (same source as bot)
@@ -549,7 +549,7 @@ setBotParameters(data.bot_parameters);
         if (fetchingHistoryRef.current) {
             return; // Già una chiamata in corso, salta questa
         }
-        
+
         try {
             fetchingHistoryRef.current = true;
             const result = await fetchJsonWithRetry(
@@ -657,9 +657,9 @@ setBotParameters(data.bot_parameters);
                 `${apiBase}/api/crypto/bot/toggle`,
                 {
                     method: 'POST',
-                    headers: { 
+                    headers: {
                         ...getAuthHeader(),
-                        'Content-Type': 'application/json' 
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         strategy_name: 'RSI_Strategy',
@@ -718,7 +718,7 @@ setBotParameters(data.bot_parameters);
 
             // Combina tutti i simboli unici (posizioni aperte hanno PRIORITÀ)
             const allSymbols = [...new Set([...openPositionSymbols, ...holdingsSymbols])];
-            
+
             if (allSymbols.length === 0) {
                 return; // Nessun simbolo da recuperare
             }
@@ -787,7 +787,7 @@ setBotParameters(data.bot_parameters);
         // ✅ WEBSOCKET REAL-TIME: Ascolta eventi prezzi via WebSocket (NO più polling HTTP!)
         const handlePriceUpdate = (event) => {
             const { prices } = event.detail;
-            
+
             // Aggiorna prezzi ricevuti via WebSocket
             const updatedPrices = { ...pricesRef.current };
             for (const [symbol, data] of Object.entries(prices)) {
@@ -1058,10 +1058,10 @@ setBotParameters(data.bot_parameters);
     // If chart-only mode, show only the chart in fullscreen
     if (isChartOnly) {
         return (
-            <div className="crypto-dashboard chart-only-mode" style={{ 
-                width: '100vw', 
-                height: '100vh', 
-                margin: 0, 
+            <div className="crypto-dashboard chart-only-mode" style={{
+                width: '100vw',
+                height: '100vh',
+                margin: 0,
                 padding: 0,
                 overflow: 'hidden',
                 background: '#1c1c1e'
@@ -1107,7 +1107,7 @@ setBotParameters(data.bot_parameters);
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    marginBottom: '1rem',
+                    marginBottom: '0.5rem',
                     marginLeft: '-0.5rem',
                     paddingTop: '0.5rem'
                 }}>
@@ -1115,10 +1115,10 @@ setBotParameters(data.bot_parameters);
                         src="/logo-logika-transparent.png"
                         alt="Logika"
                         style={{
-                            height: '80px',
+                            height: '150px',
                             width: 'auto',
                             display: 'block',
-                            maxWidth: '300px',
+                            maxWidth: '450px',
                             objectFit: 'contain'
                         }}
                         onError={(e) => {
@@ -1310,17 +1310,17 @@ setBotParameters(data.bot_parameters);
                             <Settings size={18} />
                             <span>Impostazioni</span>
                         </button>
-                        
+
                         {/* Pulsante Health Monitor */}
                         <div style={{ position: 'relative' }}>
                             <button
                                 className={`toggle-btn ${healthStatus?.criticalIssues?.length > 0 ? 'health-alert-pulse' : ''}`}
                                 onClick={() => setShowHealthMonitor(!showHealthMonitor)}
-                                style={{ 
-                                    padding: '10px 12px', 
-                                    fontSize: '0.9rem', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
+                                style={{
+                                    padding: '10px 12px',
+                                    fontSize: '0.9rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
                                     justifyContent: 'center',
                                     position: 'relative',
                                     backgroundColor: healthStatus?.criticalIssues?.length > 0 ? 'rgba(234, 179, 8, 0.15)' : '',
@@ -1330,13 +1330,13 @@ setBotParameters(data.bot_parameters);
                             >
                                 <Activity size={18} className={healthStatus?.overall === 'healthy' ? 'text-green-500' : 'text-red-500'} />
                             </button>
-                            
+
                             {/* Triangolo giallo lampeggiante se ci sono problemi */}
                             {healthStatus?.criticalIssues?.length > 0 && (
-                                <div 
-                                    style={{ 
-                                        position: 'absolute', 
-                                        top: '-8px', 
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        top: '-8px',
                                         right: '-8px',
                                         animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
                                     }}
@@ -1485,64 +1485,64 @@ setBotParameters(data.bot_parameters);
                                 </thead>
                                 <tbody>
                                     {limitedClosedPositions.map((pos, i) => {
-                                    const profit = parseFloat(pos.profit_loss || 0);
-                                    const profitPct = parseFloat(pos.profit_loss_pct || 0);
-                                    const isWin = profit >= 0;
-                                    const durationMs = new Date(pos.closed_at).getTime() - new Date(pos.opened_at).getTime();
-                                    const durationMin = Math.floor(durationMs / 60000);
+                                        const profit = parseFloat(pos.profit_loss || 0);
+                                        const profitPct = parseFloat(pos.profit_loss_pct || 0);
+                                        const isWin = profit >= 0;
+                                        const durationMs = new Date(pos.closed_at).getTime() - new Date(pos.opened_at).getTime();
+                                        const durationMin = Math.floor(durationMs / 60000);
 
-                                    return (
-                                        <tr key={i} style={{ borderBottom: '1px solid #2d3748', background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
-                                            <td style={{ padding: '10px' }}>{new Date(pos.closed_at).toLocaleTimeString()}</td>
-                                            <td style={{ padding: '10px', fontWeight: 'bold' }}>{pos.symbol}</td>
-                                            <td style={{ padding: '10px' }}>
-                                                <span style={{
-                                                    color: pos.type === 'buy' ? '#10b981' : '#ef4444',
-                                                    background: pos.type === 'buy' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                                    padding: '2px 6px',
-                                                    borderRadius: '4px',
-                                                    fontSize: '0.8rem'
-                                                }}>
-                                                    {pos.type === 'buy' ? 'LONG' : 'SHORT'}
-                                                </span>
-                                            </td>
-                                            <td style={{ padding: '10px', textAlign: 'right' }}>{parseFloat(pos.entry_price).toFixed(2)}</td>
-                                            <td style={{ padding: '10px', textAlign: 'right' }}>{parseFloat(pos.volume).toFixed(4)}</td>
-                                            <td style={{ padding: '10px', textAlign: 'right' }}>{(parseFloat(pos.entry_price) * parseFloat(pos.volume)).toFixed(2)}€</td>
-                                            <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: isWin ? '#10b981' : '#ef4444' }}>
-                                                {isWin ? '+' : ''}{profit.toFixed(2)}€ ({isWin ? '+' : ''}{profitPct.toFixed(2)}%)
-                                            </td>
-                                            <td style={{ padding: '10px', color: '#9ca3af', fontSize: '0.85rem' }}>{durationMin} min</td>
-                                            <td style={{ padding: '10px', color: '#9ca3af', fontSize: '0.8rem', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={pos.close_reason}>
-                                                {pos.close_reason || 'Manual'}
-                                            </td>
-                                            <td style={{ padding: '10px', textAlign: 'center' }}>
-                                                <button
-                                                    onClick={() => {
-                                                        // Show details in a readable modal
-                                                        try {
-                                                            const details = pos.signal_details ? (typeof pos.signal_details === 'string' ? JSON.parse(pos.signal_details) : pos.signal_details) : {};
-                                                            setSelectedPositionDetails({
-                                                                ...pos,
-                                                                parsedDetails: details
-                                                            });
-                                                            setShowDetailsModal(true);
-                                                        } catch (e) {
-                                                            console.error('Error parsing signal details:', e);
-                                                            setSelectedPositionDetails({
-                                                                ...pos,
-                                                                parsedDetails: {}
-                                                            });
-                                                            setShowDetailsModal(true);
-                                                        }
-                                                    }}
-                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6366f1' }}
-                                                >
-                                                    <Info size={16} />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
+                                        return (
+                                            <tr key={i} style={{ borderBottom: '1px solid #2d3748', background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                                                <td style={{ padding: '10px' }}>{new Date(pos.closed_at).toLocaleTimeString()}</td>
+                                                <td style={{ padding: '10px', fontWeight: 'bold' }}>{pos.symbol}</td>
+                                                <td style={{ padding: '10px' }}>
+                                                    <span style={{
+                                                        color: pos.type === 'buy' ? '#10b981' : '#ef4444',
+                                                        background: pos.type === 'buy' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                                        padding: '2px 6px',
+                                                        borderRadius: '4px',
+                                                        fontSize: '0.8rem'
+                                                    }}>
+                                                        {pos.type === 'buy' ? 'LONG' : 'SHORT'}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '10px', textAlign: 'right' }}>{parseFloat(pos.entry_price).toFixed(2)}</td>
+                                                <td style={{ padding: '10px', textAlign: 'right' }}>{parseFloat(pos.volume).toFixed(4)}</td>
+                                                <td style={{ padding: '10px', textAlign: 'right' }}>{(parseFloat(pos.entry_price) * parseFloat(pos.volume)).toFixed(2)}€</td>
+                                                <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: isWin ? '#10b981' : '#ef4444' }}>
+                                                    {isWin ? '+' : ''}{profit.toFixed(2)}€ ({isWin ? '+' : ''}{profitPct.toFixed(2)}%)
+                                                </td>
+                                                <td style={{ padding: '10px', color: '#9ca3af', fontSize: '0.85rem' }}>{durationMin} min</td>
+                                                <td style={{ padding: '10px', color: '#9ca3af', fontSize: '0.8rem', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={pos.close_reason}>
+                                                    {pos.close_reason || 'Manual'}
+                                                </td>
+                                                <td style={{ padding: '10px', textAlign: 'center' }}>
+                                                    <button
+                                                        onClick={() => {
+                                                            // Show details in a readable modal
+                                                            try {
+                                                                const details = pos.signal_details ? (typeof pos.signal_details === 'string' ? JSON.parse(pos.signal_details) : pos.signal_details) : {};
+                                                                setSelectedPositionDetails({
+                                                                    ...pos,
+                                                                    parsedDetails: details
+                                                                });
+                                                                setShowDetailsModal(true);
+                                                            } catch (e) {
+                                                                console.error('Error parsing signal details:', e);
+                                                                setSelectedPositionDetails({
+                                                                    ...pos,
+                                                                    parsedDetails: {}
+                                                                });
+                                                                setShowDetailsModal(true);
+                                                            }
+                                                        }}
+                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6366f1' }}
+                                                    >
+                                                        <Info size={16} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
                                     })}
                                 </tbody>
                             </table>
@@ -1658,7 +1658,7 @@ setBotParameters(data.bot_parameters);
 
             {/* Health Monitor Dropdown */}
             {showHealthMonitor && (
-                <div 
+                <div
                     style={{
                         position: 'fixed',
                         top: 0,
@@ -1669,7 +1669,7 @@ setBotParameters(data.bot_parameters);
                     }}
                     onClick={() => setShowHealthMonitor(false)}
                 >
-                    <div 
+                    <div
                         style={{
                             position: 'absolute',
                             top: '200px',
