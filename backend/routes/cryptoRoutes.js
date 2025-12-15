@@ -2533,12 +2533,30 @@ const canOpenPositionHybridStrategy = async (symbol, openPositions, newSignal = 
         };
     }
 
-    // Verifica limite posizioni per simbolo
-    const symbolPositions = openPositions.filter(p => p.symbol === symbol && p.status === 'open');
+    // ✅ FIX CRITICO: Normalizza simboli per confronto corretto
+    // "solana", "solana_eur", "solana_usdt" devono essere trattati come lo stesso simbolo
+    const normalizeSymbolForComparison = (sym) => {
+        if (!sym) return '';
+        return sym.toLowerCase()
+            .replace(/\//g, '') // Rimuovi slash
+            .replace(/_/g, '') // Rimuovi underscore
+            .replace(/usdt$/, '') // Rimuovi suffisso USDT
+            .replace(/eur$/, ''); // Rimuovi suffisso EUR
+    };
+    
+    const normalizedSymbol = normalizeSymbolForComparison(symbol);
+    
+    // Verifica limite posizioni per simbolo (confronto normalizzato)
+    const symbolPositions = openPositions.filter(p => {
+        if (p.status !== 'open') return false;
+        const normalizedPosSymbol = normalizeSymbolForComparison(p.symbol);
+        return normalizedPosSymbol === normalizedSymbol;
+    });
+    
     if (symbolPositions.length >= maxPerSymbol) {
         return {
             allowed: false,
-            reason: `Max ${maxPerSymbol} positions per symbol ${symbol} (current: ${symbolPositions.length})`,
+            reason: `Max ${maxPerSymbol} positions per symbol (${symbol} - normalized: ${normalizedSymbol}) (current: ${symbolPositions.length})`,
             symbolPositions: symbolPositions.length
         };
     }

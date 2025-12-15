@@ -114,7 +114,11 @@ async function cleanupResidualData() {
         console.log(`   Holdings non azzerate: ${finalHoldingsCount}`);
         console.log(`   Bot attivi: ${finalActiveBots}`);
         
-        if (finalAllPositions[0]?.count === 0 && finalTrades[0]?.count === 0 && finalHoldingsCount === 0) {
+        const hasRemainingData = (finalAllPositions[0]?.count || 0) > 0 || 
+                                  (finalTrades[0]?.count || 0) > 0 || 
+                                  finalHoldingsCount > 0;
+        
+        if (!hasRemainingData) {
             console.log('\n' + '='.repeat(60));
             console.log('✅ PULIZIA COMPLETATA CON SUCCESSO!');
             console.log('='.repeat(60));
@@ -127,10 +131,10 @@ async function cleanupResidualData() {
             console.log('   ✅ Sistema pronto per nuovi trade\n');
         } else {
             console.log('\n⚠️  Alcuni dati potrebbero essere rimasti:');
-            if (finalAllPositions[0]?.count > 0) {
+            if ((finalAllPositions[0]?.count || 0) > 0) {
                 console.log(`   - ${finalAllPositions[0].count} posizioni ancora presenti`);
             }
-            if (finalTrades[0]?.count > 0) {
+            if ((finalTrades[0]?.count || 0) > 0) {
                 console.log(`   - ${finalTrades[0].count} trade ancora presenti`);
             }
             if (finalHoldingsCount > 0) {
