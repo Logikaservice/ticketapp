@@ -7,7 +7,8 @@
  * Database: PostgreSQL
  */
 
-const { dbAll, dbRun } = require('../crypto_db');
+const crypto_db = require('../crypto_db');
+const { dbAll, dbRun } = crypto_db;
 const fs = require('fs');
 const path = require('path');
 
@@ -15,20 +16,45 @@ const path = require('path');
 const cryptoRoutesPath = path.join(__dirname, '../routes/cryptoRoutes.js');
 const cryptoRoutesContent = fs.readFileSync(cryptoRoutesPath, 'utf8');
 
-// Estrai SYMBOL_TO_PAIR
-const symbolToPairMatch = cryptoRoutesContent.match(/const SYMBOL_TO_PAIR = \{([\s\S]*?)\};/);
-if (!symbolToPairMatch) {
-    console.error('❌ Non riesco a trovare SYMBOL_TO_PAIR nel codice');
+// Estrai SYMBOL_TO_PAIR usando lo stesso metodo degli altri script
+const lines = cryptoRoutesContent.split('\n');
+let startLine = -1;
+let endLine = -1;
+
+for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes('const SYMBOL_TO_PAIR') && lines[i].includes('=')) {
+        startLine = i;
+    }
+    if (startLine >= 0 && lines[i].trim() === '};') {
+        endLine = i;
+        break;
+    }
+}
+
+if (startLine < 0 || endLine < 0) {
+    console.error('❌ Impossibile trovare SYMBOL_TO_PAIR in cryptoRoutes.js');
+    process.exit(1);
+}
+
+let SYMBOL_TO_PAIR = {};
+try {
+    const symbolMapCode = lines.slice(startLine, endLine + 1).join('\n');
+    const func = new Function(symbolMapCode + '; return SYMBOL_TO_PAIR;');
+    SYMBOL_TO_PAIR = func();
+    
+    if (!SYMBOL_TO_PAIR || typeof SYMBOL_TO_PAIR !== 'object' || Object.keys(SYMBOL_TO_PAIR).length === 0) {
+        console.error('❌ SYMBOL_TO_PAIR non valido o vuoto');
+        process.exit(1);
+    }
+    
+    console.log(`✅ SYMBOL_TO_PAIR caricato: ${Object.keys(SYMBOL_TO_PAIR).length} simboli`);
+} catch (error) {
+    console.error('❌ Errore durante estrazione SYMBOL_TO_PAIR:', error.message);
     process.exit(1);
 }
 
 // Crea Set di simboli validi
-const validSymbols = new Set();
-const symbolToPairStr = symbolToPairMatch[1];
-const symbolMatches = symbolToPairStr.matchAll(/'([^']+)':\s*'[^']+'/g);
-for (const match of symbolMatches) {
-    validSymbols.add(match[1].toLowerCase().trim());
-}
+const validSymbols = new Set(Object.keys(SYMBOL_TO_PAIR));
 
 console.log('🧹 PULIZIA SIMBOLI NON VALIDI DAL DATABASE\n');
 console.log('='.repeat(80));
@@ -143,19 +169,20 @@ async function pulisciSimboliNonValidi() {
 
             for (const symbol of invalidSymbols) {
                 try {
-                    const klinesDeleted = await dbRun('DELETE FROM klines WHERE symbol = $1', [symbol]);
-                    const priceHistoryDeleted = await dbRun('DELETE FROM price_history WHERE symbol = $1', [symbol]);
-                    const openPositionsDeleted = await dbRun('DELETE FROM open_positions WHERE symbol = $1', [symbol]);
-                    const botSettingsDeleted = await dbRun('DELETE FROM bot_settings WHERE symbol = $1', [symbol]);
-                    const volumesDeleted = await dbRun('DELETE FROM symbol_volumes_24h WHERE symbol = $1', [symbol]);
-                    const tradesDeleted = await dbRun('DELETE FROM trades WHERE symbol = $1', [symbol]);
+                    // PostgreSQL restituisce result.rowCount invece di result.changes
+                    const klinesResult = await dbRun('DELETE FROM klines WHERE symbol = $1', [symbol]);
+                    const priceHistoryResult = await dbRun('DELETE FROM price_history WHERE symbol = $1', [symbol]);
+                    const openPositionsResult = await dbRun('DELETE FROM open_positions WHERE symbol = $1', [symbol]);
+                    const botSettingsResult = await dbRun('DELETE FROM bot_settings WHERE symbol = $1', [symbol]);
+                    const volumesResult = await dbRun('DELETE FROM symbol_volumes_24h WHERE symbol = $1', [symbol]);
+                    const tradesResult = await dbRun('DELETE FROM trades WHERE symbol = $1', [symbol]);
 
-                    const deleted = klinesDeleted.changes + 
-                                   priceHistoryDeleted.changes + 
-                                   openPositionsDeleted.changes + 
-                                   botSettingsDeleted.changes + 
-                                   volumesDeleted.changes + 
-                                   tradesDeleted.changes;
+                    const deleted = (klinesResult.rowCount || 0) + 
+                                   (priceHistoryResult.rowCount || 0) + 
+                                   (openPositionsResult.rowCount || 0) + 
+                                   (botSettingsResult.rowCount || 0) + 
+                                   (volumesResult.rowCount || 0) + 
+                                   (tradesResult.rowCount || 0);
 
                     if (deleted > 0) {
                         console.log(`   ✅ ${symbol.padEnd(30)} → ${deleted.toString().padStart(6)} record eliminati`);
@@ -180,6 +207,12 @@ async function pulisciSimboliNonValidi() {
     } catch (error) {
         console.error('❌ Errore durante pulizia:', error.message);
         console.error(error.stack);
+        process.exit(1);
+    } finally {
+        // Chiudi pool PostgreSQL se disponibile
+        if (crypto_db.pool && typeof crypto_db.pool.end === 'function') {
+            await crypto_db.pool.end();
+        }
     }
 }
 
