@@ -1471,6 +1471,26 @@ const HealthCheckService = require('../services/HealthCheckService');
 const BackupService = require('../services/BackupService');
 let wsService = null;
 
+// Carica lista simboli validi per filtrare price_history
+let VALID_SYMBOLS_SET = new Set();
+try {
+    const fs = require('fs');
+    const path = require('path');
+    const tradingBotPath = path.join(__dirname, '../services/TradingBot.js');
+    const content = fs.readFileSync(tradingBotPath, 'utf8');
+    const symbolToPairMatch = content.match(/const SYMBOL_TO_PAIR = \{([\s\S]*?)\};/);
+    if (symbolToPairMatch) {
+        const symbolMatches = symbolToPairMatch[1].match(/'([^']+)':/g);
+        if (symbolMatches) {
+            VALID_SYMBOLS_SET = new Set(symbolMatches.map(match => match.match(/'([^']+)':/)[1]));
+            VALID_SYMBOLS_SET.delete('uniswap_eur'); // Rimuovi uniswap_eur (non disponibile)
+            console.log(`✅ [WEBSOCKET] Caricati ${VALID_SYMBOLS_SET.size} simboli validi per filtrare price_history`);
+        }
+    }
+} catch (error) {
+    console.error('⚠️  [WEBSOCKET] Errore caricamento simboli validi:', error.message);
+}
+
 // Inizializza WebSocket service con callback per aggiornare cache
 const initWebSocketService = () => {
     if (!wsService) {
@@ -1483,8 +1503,15 @@ const initWebSocketService = () => {
                 // ✅ NUOVO: Salva anche nel database per persistenza (fallback quando IP è bannato)
                 // Usa setImmediate per non bloccare il callback WebSocket
                 // ✅ FIX: Salva solo se prezzo è cambiato rispetto all'ultimo salvato (evita duplicati)
+                // ✅ FIX: Filtra solo simboli validi per evitare che KlinesAggregatorService ricrei klines non validi
                 setImmediate(async () => {
                     try {
+                        // Filtra solo simboli validi
+                        if (VALID_SYMBOLS_SET.size > 0 && !VALID_SYMBOLS_SET.has(symbol)) {
+                            // Simbolo non valido - non salvare in price_history
+                            return;
+                        }
+                        
                         // Valida prezzo prima di salvare (evita valori anomali)
                         if (price > 0 && price < 100000 && price > 0.000001) {
                             // ✅ FIX: Usa try-catch per gestire errori DB senza bloccare
@@ -2407,7 +2434,10 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
         // ✅ REFACTORING: Manteniamo price_history per backward compatibility (dashboard, RSI legacy)
         // ma non lo usiamo più per i segnali del bot
-        await dbRun("INSERT INTO price_history (symbol, price) VALUES ($1, $2)", [symbol, currentPrice]);
+        // ✅ FIX: Inserisci solo se simbolo è valido
+        if (VALID_SYMBOLS_SET.size === 0 || VALID_SYMBOLS_SET.has(symbol)) {
+            await dbRun("INSERT INTO price_history (symbol, price) VALUES ($1, $2)", [symbol, currentPrice]);
+        }
 
         // Carica price_history per RSI legacy (backward compatibility)
         const symbolPriceHistory = await dbAll(
