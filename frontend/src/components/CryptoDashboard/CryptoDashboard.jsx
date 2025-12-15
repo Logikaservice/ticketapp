@@ -1008,7 +1008,25 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
     // - Cash (validatedBalance): denaro disponibile dopo investimenti
     // - totalLongValue: valore attuale posizioni LONG (entry_price * volume + P&L)
     // - totalShortLiability: debito SHORT (entry_price * volume - P&L, quanto devi restituire ORA)
-    const totalBalance = validatedBalance + totalLongValue - totalShortLiability;
+    // 
+    // ✅ FIX ALTERNATIVO: Se il cash è incoerente, calcola Total Balance come:
+    // Total Balance = Capitale Iniziale + P&L Totale Posizioni Aperte
+    // Questo evita problemi con cash che potrebbe essere sbagliato per perdite da posizioni chiuse
+    const totalBalanceFromCash = validatedBalance + totalLongValue - totalShortLiability;
+    
+    // Calcola Total Balance alternativo usando capitale iniziale stimato
+    // Se totalInvested > 0, il capitale iniziale stimato = cash + totalInvested
+    const estimatedInitialCapital = totalInvested > 0 ? validatedBalance + totalInvested : validatedBalance;
+    const totalPnLFromOpenPositions = validOpenPositions.reduce((sum, pos) => {
+        return sum + (parseFloat(pos.profit_loss) || 0);
+    }, 0);
+    const totalBalanceFromInitial = estimatedInitialCapital + totalPnLFromOpenPositions;
+    
+    // Usa il metodo che dà il risultato più ragionevole
+    // Se la differenza è piccola (< $5), usa quello da cash (più preciso)
+    // Altrimenti usa quello da capitale iniziale (più stabile)
+    const difference = Math.abs(totalBalanceFromCash - totalBalanceFromInitial);
+    const totalBalance = difference < 5 ? totalBalanceFromCash : totalBalanceFromInitial;
     
     // ✅ DEBUG: Calcola totale investito per verificare coerenza con cash
     const totalInvested = validOpenPositions.reduce((sum, pos) => {
@@ -1026,7 +1044,12 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
         totalInvested: totalInvested.toFixed(2),
         totalLongValue: totalLongValue.toFixed(2),
         totalShortLiability: totalShortLiability.toFixed(2),
+        totalBalanceFromCash: totalBalanceFromCash.toFixed(2),
+        estimatedInitialCapital: estimatedInitialCapital.toFixed(2),
+        totalPnLFromOpenPositions: totalPnLFromOpenPositions.toFixed(2),
+        totalBalanceFromInitial: totalBalanceFromInitial.toFixed(2),
         totalBalance: totalBalance.toFixed(2),
+        method: difference < 5 ? 'cash' : 'initial',
         openPositionsCount: validOpenPositions.length,
         longPositions: validOpenPositions.filter(p => p.type === 'buy').length,
         shortPositions: validOpenPositions.filter(p => p.type === 'sell').length,
