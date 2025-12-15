@@ -3,7 +3,7 @@
     {
       "name": "backend",
       "script": "index.js",
-      "cwd": "/var/www/ticketapp/TicketApp/backend",
+      "cwd": "/var/www/ticketapp/backend",
       "instances": 1,
       "exec_mode": "fork",
       "watch": false,
