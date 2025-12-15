@@ -945,8 +945,15 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                 }
                 totalLongValue += longValue;
             } else if (pos.type === 'sell' && pos.status === 'open') {
-                // ✅ FIX: Per SHORT, il debito è FISSO all'entry price (quanto crypto dobbiamo restituire)
-                // NON usiamo current_price perché il debito non cambia - solo il P&L cambia
+                // ✅ FIX CRITICO: Per SHORT, il debito deve includere il P&L
+                // Logica SHORT:
+                // - Quando apri SHORT: ricevi denaro (entry_price * volume) → balance aumenta
+                // - Debito da restituire: entry_price * volume (fisso)
+                // - P&L: se prezzo scende → guadagni (debito diminuisce), se prezzo sale → perdi (debito aumenta)
+                // - Equity = Cash + Long Value - (Short Debt - P&L) = Cash + Long Value - Short Debt + P&L
+                // - Ma è più semplice: Short Liability = current_price * volume (quanto devi restituire ORA)
+                //   Questo include già il P&L perché: current_price * volume = entry_price * volume + P&L
+                
                 const entryPrice = parseFloat(pos.entry_price) || 0;
 
                 // ✅ FIX: Valida entry_price
@@ -956,9 +963,42 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                 }
 
                 if (entryPrice > 0) {
-                    const shortLiability = remainingVolume * entryPrice;
+                    let shortLiability;
+                    
+                    if (price > 0) {
+                        // Prezzo corrente disponibile: usa quello (include già P&L)
+                        // Se prezzo scende → shortLiability diminuisce (guadagno)
+                        // Se prezzo sale → shortLiability aumenta (perdita)
+                        shortLiability = remainingVolume * price;
+                    } else {
+                        // Prezzo corrente non disponibile: usa entry_price - P&L
+                        // P&L SHORT = (entry_price - current_price) * volume
+                        // Se P&L positivo (prezzo sceso) → shortLiability = entry_price * volume - P&L
+                        // Se P&L negativo (prezzo salito) → shortLiability = entry_price * volume + |P&L|
+                        const profitLoss = parseFloat(pos.profit_loss) || 0;
+                        const baseDebt = remainingVolume * entryPrice;
+                        // Per SHORT: P&L positivo = prezzo sceso = debito diminuisce
+                        // P&L negativo = prezzo salito = debito aumenta
+                        shortLiability = baseDebt - profitLoss; // Sottrai P&L perché se positivo riduce il debito
+                        
+                        // ✅ DEBUG: Log quando usiamo fallback
+                        if (Math.random() < 0.1) { // Log solo 10% delle volte
+                            console.warn(`⚠️ [BALANCE-DEBUG] Prezzo mancante per SHORT ${pos.symbol} (${pos.ticket_id}), uso entry_price - P&L:`, {
+                                symbol: pos.symbol,
+                                entryPrice,
+                                baseDebt,
+                                profitLoss,
+                                shortLiability,
+                                allSymbolPrices: allSymbolPrices[pos.symbol],
+                                currentSymbol: currentSymbol,
+                                currentPrice: currentPrice,
+                                dbPrice: parseFloat(pos.current_price) || 0
+                            });
+                        }
+                    }
+                    
                     // ✅ FIX: Valida che il valore calcolato sia ragionevole
-                    if (shortLiability > MAX_REASONABLE_BALANCE) {
+                    if (shortLiability > MAX_REASONABLE_BALANCE || shortLiability < 0) {
                         console.error(`🚨 [BALANCE] Valore SHORT anomale per ${pos.ticket_id}: $${shortLiability.toLocaleString()}. Skipping.`);
                         return;
                     }
