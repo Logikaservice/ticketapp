@@ -131,16 +131,7 @@ class KlinesAggregatorService {
                 return;
             }
 
-            // ✅ FIX: Carica sempre isValidSymbol da cryptoRoutes per doppia validazione
-            let isValidSymbol = null;
-            try {
-                const cryptoRoutes = require('../routes/cryptoRoutes');
-                if (cryptoRoutes.isValidSymbol && typeof cryptoRoutes.isValidSymbol === 'function') {
-                    isValidSymbol = cryptoRoutes.isValidSymbol;
-                }
-            } catch (error) {
-                console.error('⚠️  [KLINES-AGGREGATOR] Errore caricamento isValidSymbol:', error.message);
-            }
+            // ✅ FIX: isValidSymbol è già caricato all'inizio della funzione - usa quello per doppia validazione
 
             // Crea lista SQL per filtrare solo simboli validi
             const validSymbolsSQL = VALID_SYMBOLS.map(s => `'${s.replace(/'/g, "''")}'`).join(',');
