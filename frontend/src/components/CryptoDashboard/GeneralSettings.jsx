@@ -82,6 +82,11 @@ const GeneralSettings = ({
             .then(async (response) => {
                 if (response.ok) {
                     console.log(`[TOTAL-BALANCE] Salvato nel database: $${settings.totalBalance.toFixed(2)}`);
+                    // ✅ Notifica il dashboard principale che il valore è cambiato
+                    // Dispatches a custom event che il dashboard può ascoltare
+                    window.dispatchEvent(new CustomEvent('totalBalanceUpdated', { 
+                        detail: { totalBalance: settings.totalBalance } 
+                    }));
                 } else {
                     const errorText = await response.text();
                     console.error('[TOTAL-BALANCE] Errore salvataggio:', response.status, errorText);

@@ -1057,9 +1057,23 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
         
         fetchTotalBalance();
         
+        // ✅ Ascolta eventi di aggiornamento da GeneralSettings
+        const handleTotalBalanceUpdate = (event) => {
+            const newValue = event.detail?.totalBalance;
+            if (newValue !== undefined) {
+                console.log(`[TOTAL-BALANCE] Aggiornamento immediato da GeneralSettings: $${newValue.toFixed(2)}`);
+                setTotalBalanceFromSettings(newValue);
+            }
+        };
+        
+        window.addEventListener('totalBalanceUpdated', handleTotalBalanceUpdate);
+        
         // Aggiorna ogni 5 secondi per sincronizzare con database
         const interval = setInterval(fetchTotalBalance, 5000);
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('totalBalanceUpdated', handleTotalBalanceUpdate);
+        };
     }, [apiBase, getAuthHeader]);
     
     // Total Balance = Valore dal database (semplice!)
