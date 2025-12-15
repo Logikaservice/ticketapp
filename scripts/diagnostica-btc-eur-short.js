@@ -3,41 +3,57 @@
  * 
  * Questo script verifica tutti i possibili blocchi che impediscono l'apertura
  * di posizioni SHORT su bitcoin_eur.
+ * 
+ * Database: PostgreSQL
  */
 
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../backend/.env') });
 
-const DB_PATH = path.join(__dirname, '../backend/crypto_trading.db');
+// Configurazione PostgreSQL
+let cryptoDbUrl = process.env.DATABASE_URL_CRYPTO;
+
+if (!cryptoDbUrl && process.env.DATABASE_URL) {
+    cryptoDbUrl = process.env.DATABASE_URL.replace(/\/[^\/]+$/, '/crypto_db');
+} else if (!cryptoDbUrl) {
+    console.error('❌ DATABASE_URL o DATABASE_URL_CRYPTO non configurato!');
+    process.exit(1);
+}
+
+const pool = new Pool({
+    connectionString: cryptoDbUrl,
+    ssl: cryptoDbUrl.includes('localhost') || cryptoDbUrl.includes('127.0.0.1') ? false : {
+        rejectUnauthorized: false
+    },
+    max: 5,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+});
 
 async function diagnosticaBtcEurShort() {
     console.log('🔍 DIAGNOSTICA: Perché il Bot Non Ha Aperto SHORT su Bitcoin/EUR\n');
     console.log('='.repeat(80));
     console.log('');
 
-    const db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READONLY, (err) => {
-        if (err) {
-            console.error('❌ Errore apertura database:', err.message);
-            process.exit(1);
+    const dbGet = async (query, params = []) => {
+        const client = await pool.connect();
+        try {
+            const result = await client.query(query, params);
+            return result.rows[0] || null;
+        } finally {
+            client.release();
         }
-    });
-
-    const dbGet = (query, params = []) => {
-        return new Promise((resolve, reject) => {
-            db.get(query, params, (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-            });
-        });
     };
 
-    const dbAll = (query, params = []) => {
-        return new Promise((resolve, reject) => {
-            db.all(query, params, (err, rows) => {
-                if (err) reject(err);
-                else resolve(rows || []);
-            });
-        });
+    const dbAll = async (query, params = []) => {
+        const client = await pool.connect();
+        try {
+            const result = await client.query(query, params);
+            return result.rows || [];
+        } finally {
+            client.release();
+        }
     };
 
     try {
@@ -257,11 +273,7 @@ async function diagnosticaBtcEurShort() {
         console.error('❌ Errore durante diagnostica:', error.message);
         console.error(error.stack);
     } finally {
-        db.close((err) => {
-            if (err) {
-                console.error('❌ Errore chiusura database:', err.message);
-            }
-        });
+        await pool.end();
     }
 
     console.log('='.repeat(80));
