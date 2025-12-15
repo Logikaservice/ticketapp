@@ -115,22 +115,40 @@ class KlinesAggregatorService {
                 return;
             }
 
-            // Ottieni tutti i simboli con dati recenti
-            const symbols = await dbAll(
-                `SELECT DISTINCT symbol 
-                 FROM price_history 
-                 WHERE timestamp > NOW() - INTERVAL '30 minutes'
-                 ORDER BY symbol`
-            );
+            // Ottieni simboli con dati recenti
+            // Se VALID_SYMBOLS è disponibile, ottimizza la query SQL
+            let symbols;
+            if (VALID_SYMBOLS.length > 0) {
+                // Ottimizzazione: filtra già a livello SQL se abbiamo VALID_SYMBOLS
+                const validSymbolsSQL = VALID_SYMBOLS.map(s => `'${s.replace(/'/g, "''")}'`).join(',');
+                symbols = await dbAll(
+                    `SELECT DISTINCT symbol 
+                     FROM price_history 
+                     WHERE timestamp > NOW() - INTERVAL '30 minutes'
+                       AND symbol IN (${validSymbolsSQL})
+                     ORDER BY symbol`
+                );
+                console.log(`   • Query ottimizzata con ${VALID_SYMBOLS.length} simboli pre-validati`);
+            } else {
+                // Fallback: prendi tutti i simboli e filtra dopo
+                symbols = await dbAll(
+                    `SELECT DISTINCT symbol 
+                     FROM price_history 
+                     WHERE timestamp > NOW() - INTERVAL '30 minutes'
+                     ORDER BY symbol`
+                );
+                console.log(`   • Query senza pre-filtro (VALID_SYMBOLS vuoto)`);
+            }
 
             if (symbols.length === 0) {
-                console.log('⚠️  [KLINES-AGGREGATOR] Nessun simbolo con dati recenti in price_history');
+                console.log('⚠️  [KLINES-AGGREGATOR] Nessun simbolo con dati recenti in price_history (ultimi 30 minuti)');
+                console.log('   💡 Verifica che il WebSocket stia salvando dati in price_history');
                 return;
             }
 
             console.log(`   • Trovati ${symbols.length} simboli con dati recenti, filtro con isValidSymbol...`);
 
-            // ✅ FIX: Filtra simboli usando isValidSymbol PRIMA di aggregare
+            // ✅ FIX: Doppia validazione usando isValidSymbol (più robusto)
             const validSymbols = symbols.filter(({ symbol }) => {
                 const isValid = isValidSymbol(symbol);
                 if (!isValid) {
@@ -142,10 +160,17 @@ class KlinesAggregatorService {
                 return isValid;
             });
 
-            console.log(`   • Simboli validi: ${validSymbols.length}/${symbols.length} (${symbols.length - validSymbols.length} filtrati)`);
+            const filteredCount = symbols.length - validSymbols.length;
+            if (filteredCount > 0) {
+                console.log(`   • Simboli validi: ${validSymbols.length}/${symbols.length} (${filteredCount} filtrati)`);
+            } else {
+                console.log(`   • Tutti i ${validSymbols.length} simboli sono validi`);
+            }
 
             if (validSymbols.length === 0) {
-                console.warn('⚠️  [KLINES-AGGREGATOR] Nessun simbolo valido dopo filtro - verifica SYMBOL_TO_PAIR in cryptoRoutes');
+                console.warn('⚠️  [KLINES-AGGREGATOR] Nessun simbolo valido dopo filtro');
+                console.warn('   💡 Verifica che i simboli in price_history corrispondano a quelli in SYMBOL_TO_PAIR');
+                console.warn('   💡 Esegui: node scripts/diagnostica-klines-aggregator.js per diagnosticare');
                 return;
             }
 
