@@ -20,6 +20,28 @@ const { dbAll, dbGet, dbRun } = require('../crypto_db');
 const KLINE_INTERVAL = '15m';
 const KLINE_INTERVAL_MS = 15 * 60 * 1000; // 15 minuti
 
+// Carica simboli validi da TradingBot.js
+let VALID_SYMBOLS = [];
+try {
+    const TradingBot = require('./TradingBot');
+    // Estrai SYMBOL_TO_PAIR dal file se non è esportato
+    const fs = require('fs');
+    const path = require('path');
+    const tradingBotPath = path.join(__dirname, 'TradingBot.js');
+    const content = fs.readFileSync(tradingBotPath, 'utf8');
+    const symbolToPairMatch = content.match(/const SYMBOL_TO_PAIR = \{([\s\S]*?)\};/);
+    if (symbolToPairMatch) {
+        const symbolMatches = symbolToPairMatch[1].match(/'([^']+)':/g);
+        if (symbolMatches) {
+            VALID_SYMBOLS = symbolMatches.map(match => match.match(/'([^']+)':/)[1]);
+            // Rimuovi uniswap_eur (non disponibile)
+            VALID_SYMBOLS = VALID_SYMBOLS.filter(s => s !== 'uniswap_eur');
+        }
+    }
+} catch (error) {
+    console.error('⚠️  [KLINES-AGGREGATOR] Errore caricamento simboli validi:', error.message);
+}
+
 class KlinesAggregatorService {
     constructor() {
         this.aggregationInterval = null;
@@ -73,19 +95,45 @@ class KlinesAggregatorService {
         try {
             console.log(`[${new Date().toISOString()}] 🔄 [KLINES-AGGREGATOR] Inizio aggregazione...`);
 
-            // Ottieni simboli che hanno price_history recente
-            const symbols = await dbAll(
-                `SELECT DISTINCT symbol 
-                 FROM price_history 
-                 WHERE timestamp > NOW() - INTERVAL '30 minutes'`
-            );
-
-            if (symbols.length === 0) {
-                console.log('⚠️  [KLINES-AGGREGATOR] Nessun simbolo con dati recenti');
+            // Filtra solo simboli validi
+            if (VALID_SYMBOLS.length === 0) {
+                console.warn('⚠️  [KLINES-AGGREGATOR] Nessun simbolo valido caricato - usando tutti i simboli');
+                const symbols = await dbAll(
+                    `SELECT DISTINCT symbol 
+                     FROM price_history 
+                     WHERE timestamp > NOW() - INTERVAL '30 minutes'`
+                );
+                if (symbols.length === 0) {
+                    console.log('⚠️  [KLINES-AGGREGATOR] Nessun simbolo con dati recenti');
+                    return;
+                }
+                console.log(`   • Aggregando ${symbols.length} simboli...`);
+                let aggregated = 0;
+                for (const { symbol } of symbols) {
+                    const success = await this.aggregateKlineForSymbol(symbol);
+                    if (success) aggregated++;
+                }
+                console.log(`✅ [KLINES-AGGREGATOR] Aggregazione completata: ${aggregated}/${symbols.length} simboli`);
                 return;
             }
 
-            console.log(`   • Aggregando ${symbols.length} simboli...`);
+            // Crea lista SQL per filtrare solo simboli validi
+            const validSymbolsSQL = VALID_SYMBOLS.map(s => `'${s.replace(/'/g, "''")}'`).join(',');
+
+            // Ottieni simboli che hanno price_history recente E sono validi
+            const symbols = await dbAll(
+                `SELECT DISTINCT symbol 
+                 FROM price_history 
+                 WHERE timestamp > NOW() - INTERVAL '30 minutes'
+                   AND symbol IN (${validSymbolsSQL})`
+            );
+
+            if (symbols.length === 0) {
+                console.log('⚠️  [KLINES-AGGREGATOR] Nessun simbolo valido con dati recenti');
+                return;
+            }
+
+            console.log(`   • Aggregando ${symbols.length} simboli validi...`);
 
             let aggregated = 0;
             for (const { symbol } of symbols) {
