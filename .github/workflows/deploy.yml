@@ -24,108 +24,32 @@ jobs:
           script_stop: true
           script: |
             set -e
-            set -o pipefail
             
             echo "🚀 Deploy TicketApp..."
-            echo "📅 Timestamp: $(date)"
             
-            cd /var/www/ticketapp || {
-              echo "❌ Directory /var/www/ticketapp non trovata!"
-              exit 1
-            }
+            cd /var/www/ticketapp
             
             echo "📥 Git pull..."
-            # Salva stato corrente
-            git status || true
-            
-            # Rimuovi file non tracciati che potrebbero bloccare il merge
             git clean -fd || true
-            
-            # Fetch e reset hard per allineare completamente con il remoto
-            git fetch origin main || {
-              echo "❌ Git fetch fallito!"
-              exit 1
-            }
-            
-            git reset --hard origin/main || {
-              echo "❌ Git reset fallito!"
-              exit 1
-            }
-            
-            echo "✅ Git aggiornato"
+            git fetch origin main
+            git reset --hard origin/main
             
             echo "📦 Backend dependencies..."
-            cd backend || {
-              echo "❌ Directory backend non trovata!"
-              exit 1
-            }
-            
-            # Verifica che package.json esista
-            if [ ! -f "package.json" ]; then
-              echo "❌ package.json non trovato in backend!"
-              exit 1
-            fi
-            
-            # Installa solo se package.json è cambiato (ottimizzazione)
-            npm ci --production --prefer-offline --no-audit || npm install --production --prefer-offline --no-audit || {
-              echo "❌ npm install backend fallito!"
-              exit 1
-            }
-            
-            echo "✅ Backend dependencies installate"
+            cd backend
+            npm install --production --silent || npm install --production
             cd ..
             
             echo "📦 Frontend dependencies..."
-            cd frontend || {
-              echo "❌ Directory frontend non trovata!"
-              exit 1
-            }
-            
-            # Verifica che package.json esista
-            if [ ! -f "package.json" ]; then
-              echo "❌ package.json non trovato in frontend!"
-              exit 1
-            fi
-            
-            # Rimuovi solo build, mantieni cache per velocità
+            cd frontend
             rm -rf build || true
-            
-            # Installa solo se necessario (ottimizzazione)
-            npm ci --prefer-offline --no-audit || npm install --prefer-offline --no-audit || {
-              echo "❌ npm install frontend fallito!"
-              exit 1
-            }
-            
-            echo "✅ Frontend dependencies installate"
-            
-            echo "🔨 Build frontend..."
+            npm install --silent || npm install
             echo "REACT_APP_API_URL=" > .env
             echo "GENERATE_SOURCEMAP=false" >> .env
-            
-            # Build con ottimizzazioni
-            CI=false npm run build || {
-              echo "❌ Build frontend fallito!"
-              exit 1
-            }
-            
-            echo "✅ Frontend build completato"
+            npm run build
             cd ..
             
             echo "🔄 Restart services..."
-            
-            # Restart PM2 veloce (senza verifiche eccessive)
-            if pm2 restart ticketapp-backend 2>/dev/null; then
-              echo "✅ Backend riavviato con PM2"
-            elif pm2 restart all 2>/dev/null; then
-              echo "✅ Tutti i processi PM2 riavviati"
-            elif pm2 list | grep -q "ticketapp-backend"; then
-              pm2 stop ticketapp-backend 2>/dev/null || true
-              pm2 start ticketapp-backend 2>/dev/null || pm2 start backend/index.js --name ticketapp-backend || true
-            else
-              pm2 start backend/index.js --name ticketapp-backend || true
-            fi
-            
-            # Ricarica nginx veloce
+            pm2 restart ticketapp-backend || pm2 restart all || pm2 start backend/index.js --name ticketapp-backend || true
             sudo nginx -t && sudo systemctl reload nginx || true
             
             echo "✅ Deploy completato!"
