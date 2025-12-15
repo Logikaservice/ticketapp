@@ -749,5 +749,6 @@ runBotCycle();
 module.exports = {
     runBotCycle,
     runBotCycleForSymbol,
-    BOT_CONFIG
+    BOT_CONFIG,
+    SYMBOL_TO_PAIR  // ✅ Esporta SYMBOL_TO_PAIR per altri servizi (DataIntegrityService, ecc.)
 };
