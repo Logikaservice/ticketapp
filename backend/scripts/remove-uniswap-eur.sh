@@ -57,6 +57,30 @@ else
 fi
 
 echo ""
+echo "📊 4. Verifica altri dati per uniswap_eur:"
+TRADES=$(sudo -u postgres psql -d crypto_db -t -c "
+SELECT COUNT(*) 
+FROM trades 
+WHERE symbol = 'uniswap_eur';
+" | xargs)
+
+PRICE_HISTORY=$(sudo -u postgres psql -d crypto_db -t -c "
+SELECT COUNT(*) 
+FROM price_history 
+WHERE symbol = 'uniswap_eur';
+" | xargs)
+
+VOLUMES=$(sudo -u postgres psql -d crypto_db -t -c "
+SELECT COUNT(*) 
+FROM symbol_volumes_24h 
+WHERE symbol = 'uniswap_eur';
+" | xargs)
+
+echo "   • Trades: $TRADES"
+echo "   • Price history: $PRICE_HISTORY"
+echo "   • Volumes 24h: $VOLUMES"
+
+echo ""
 read -p "⚠️  Sei sicuro di voler ELIMINARE completamente 'uniswap_eur'? (s/n): " -n 1 -r
 echo ""
 
@@ -79,7 +103,32 @@ if [[ $REPLY =~ ^[Ss]$ ]]; then
         "
     fi
     
-    # 3. Verifica che uniswap (senza _eur) sia attivo
+    # 3. Elimina trades (se presenti)
+    if [ "$TRADES" -gt 0 ]; then
+        echo "   • Eliminazione trades..."
+        sudo -u postgres psql -d crypto_db -c "
+        DELETE FROM trades WHERE symbol = 'uniswap_eur';
+        "
+    fi
+    
+    # 4. Elimina price_history (se presente)
+    if [ "$PRICE_HISTORY" -gt 0 ]; then
+        echo "   • Eliminazione price_history..."
+        sudo -u postgres psql -d crypto_db -c "
+        DELETE FROM price_history WHERE symbol = 'uniswap_eur';
+        "
+    fi
+    
+    # 5. Elimina symbol_volumes_24h (se presente)
+    if [ "$VOLUMES" -gt 0 ]; then
+        echo "   • Eliminazione symbol_volumes_24h..."
+        sudo -u postgres psql -d crypto_db -c "
+        DELETE FROM symbol_volumes_24h WHERE symbol = 'uniswap_eur';
+        "
+    fi
+    
+    # 6. Verifica che uniswap (senza _eur) sia attivo
+    
     echo "   • Verifica che 'uniswap' (senza _eur) sia attivo..."
     UNISWAP_EXISTS=$(sudo -u postgres psql -d crypto_db -t -c "
     SELECT COUNT(*) FROM bot_settings WHERE symbol = 'uniswap' AND strategy_name = 'RSI_Strategy';
