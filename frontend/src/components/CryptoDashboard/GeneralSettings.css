@@ -1,4 +1,4 @@
-/* General Settings Modal - Stile simile a BotSettings */
+/* General Settings Modal - Posizionamento fisso centrato */
 .general-settings-overlay {
     position: fixed;
     top: 0;
@@ -6,17 +6,15 @@
     right: 0;
     bottom: 0;
     background: rgba(0, 0, 0, 0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
     z-index: 99999;
     animation: fadeIn 0.2s ease-in-out;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 20px;
 }
 
 .general-settings-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     background: linear-gradient(145deg, #1f2937, #111827);
     border-radius: 16px;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
@@ -28,8 +26,7 @@
     flex-direction: column;
     animation: slideUp 0.3s ease-out;
     overflow: hidden;
-    margin: auto;
-    position: relative;
+    z-index: 100000;
 }
 
 .general-settings-header {
