@@ -35,32 +35,50 @@ echo ""
 
 # Aggiungi constraint
 echo "🔧 Aggiunta constraint UNIQUE..."
-RESULT=$(sudo -u postgres psql -d crypto_db -t -c "
-DO \$\$
+RESULT=$(sudo -u postgres psql -d crypto_db <<'SQL'
+DO $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1
-        FROM pg_constraint
-        WHERE conname = 'price_history_symbol_timestamp_unique'
-    ) THEN
+    -- Prova a creare il constraint
+    BEGIN
         ALTER TABLE price_history
         ADD CONSTRAINT price_history_symbol_timestamp_unique
         UNIQUE (symbol, timestamp);
         
         RAISE NOTICE 'Constraint aggiunto';
-    ELSE
-        RAISE NOTICE 'Constraint già esistente';
-    END IF;
-END \$\$;
-" 2>&1)
+    EXCEPTION
+        WHEN duplicate_object THEN
+            RAISE NOTICE 'Constraint già esistente';
+        WHEN others THEN
+            RAISE NOTICE 'Errore durante creazione constraint: %', SQLERRM;
+            -- Se il constraint esiste già come index, prova a creare un index UNIQUE
+            BEGIN
+                CREATE UNIQUE INDEX IF NOT EXISTS price_history_symbol_timestamp_idx 
+                ON price_history (symbol, timestamp);
+                RAISE NOTICE 'Index UNIQUE creato come fallback';
+            EXCEPTION
+                WHEN others THEN
+                    RAISE NOTICE 'Errore anche nella creazione index: %', SQLERRM;
+            END;
+    END;
+END $$;
+SQL
+)
 
 if echo "$RESULT" | grep -q "Constraint aggiunto"; then
     echo "   ✅ Constraint UNIQUE aggiunto con successo"
 elif echo "$RESULT" | grep -q "Constraint già esistente"; then
     echo "   ℹ️  Constraint UNIQUE già presente"
+elif echo "$RESULT" | grep -q "Index UNIQUE creato"; then
+    echo "   ✅ Index UNIQUE creato come fallback (funziona con ON CONFLICT)"
 else
-    echo "   ❌ Errore: $RESULT"
-    exit 1
+    echo "   ⚠️  Output: $RESULT"
+    echo "   Tentativo di creare index UNIQUE diretto..."
+    sudo -u postgres psql -d crypto_db -c "CREATE UNIQUE INDEX IF NOT EXISTS price_history_symbol_timestamp_idx ON price_history (symbol, timestamp);" 2>&1
+    if [ $? -eq 0 ]; then
+        echo "   ✅ Index UNIQUE creato direttamente"
+    else
+        echo "   ❌ Errore nella creazione index"
+    fi
 fi
 
 echo ""
