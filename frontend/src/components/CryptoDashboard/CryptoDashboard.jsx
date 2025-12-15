@@ -1004,27 +1004,22 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
 
     // Balance debug validated values logging removed
 
-    // ✅ FIX: Total Balance = Cash + Valore Posizioni (Equity Totale)
-    // Se hai $500 cash + $600 in BTC → mostra $1100 (patrimonio totale)
-    // Quando chiudi posizioni, il balance non fa salti strani
+    // ✅ TOTAL BALANCE (EQUITY) = Cash + Valore Posizioni Aperte
+    // - Cash (validatedBalance): denaro disponibile dopo investimenti
+    // - totalLongValue: valore attuale posizioni LONG (entry_price * volume + P&L)
+    // - totalShortLiability: debito SHORT (entry_price * volume - P&L, quanto devi restituire ORA)
     const totalBalance = validatedBalance + totalLongValue - totalShortLiability;
     
-    // ✅ DEBUG: Log per diagnosticare problema Total Balance
-    if (validOpenPositions.length > 0 && (totalLongValue === 0 || totalBalance < validatedBalance)) {
-        console.warn(`⚠️ [BALANCE-DEBUG] Total Balance anomalo:`, {
-            cash: validatedBalance,
-            totalLongValue,
-            totalShortLiability,
-            totalBalance,
-            openPositionsCount: validOpenPositions.length,
-            longPositions: validOpenPositions.filter(p => p.type === 'buy').length,
-            shortPositions: validOpenPositions.filter(p => p.type === 'sell').length,
-            positionsWithPrice: validOpenPositions.filter(p => {
-                const price = allSymbolPrices[p.symbol] || (p.symbol === currentSymbol ? currentPrice : 0) || parseFloat(p.current_price) || 0;
-                return price > 0;
-            }).length
-        });
-    }
+    // ✅ DEBUG: Log dettagliato del calcolo finale (sempre, per diagnosticare problemi)
+    console.log(`[BALANCE-DEBUG] Calcolo Total Balance:`, {
+        cash: validatedBalance.toFixed(2),
+        totalLongValue: totalLongValue.toFixed(2),
+        totalShortLiability: totalShortLiability.toFixed(2),
+        totalBalance: totalBalance.toFixed(2),
+        openPositionsCount: validOpenPositions.length,
+        longPositions: validOpenPositions.filter(p => p.type === 'buy').length,
+        shortPositions: validOpenPositions.filter(p => p.type === 'sell').length
+    });
 
     // ✅ FIX CRITICO: Usa direttamente profit_loss calcolato dal backend
     // ✅ FIX: Validazione STRICTA - solo posizioni con status === 'open' e dati validi
