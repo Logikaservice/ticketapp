@@ -78,8 +78,17 @@ const GeneralSettings = ({
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ totalBalance: settings.totalBalance })
-            }).catch(error => {
-                console.error('Error saving total balance to database:', error);
+            })
+            .then(async (response) => {
+                if (response.ok) {
+                    console.log(`[TOTAL-BALANCE] Salvato nel database: $${settings.totalBalance.toFixed(2)}`);
+                } else {
+                    const errorText = await response.text();
+                    console.error('[TOTAL-BALANCE] Errore salvataggio:', response.status, errorText);
+                }
+            })
+            .catch(error => {
+                console.error('[TOTAL-BALANCE] Errore salvataggio nel database:', error);
             });
         }
         

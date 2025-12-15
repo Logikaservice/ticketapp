@@ -1027,18 +1027,26 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                 );
                 
                 if (result.ok && result.data) {
-                    const totalBalance = parseFloat(result.data.total_balance || result.data.totalBalance || 1000);
+                    // ✅ FIX: L'API restituisce { total_balance: "1000.0" } come stringa
+                    const totalBalanceValue = result.data.total_balance || result.data.totalBalance;
+                    const totalBalance = parseFloat(totalBalanceValue || 1000);
+                    
+                    console.log(`[TOTAL-BALANCE] Caricato dal database: $${totalBalance.toFixed(2)} (raw: ${totalBalanceValue})`);
                     setTotalBalanceFromSettings(totalBalance);
+                } else {
+                    console.warn('[TOTAL-BALANCE] Risposta API non OK:', result);
                 }
             } catch (error) {
-                console.error('Error loading total balance from database:', error);
+                console.error('[TOTAL-BALANCE] Errore caricamento dal database:', error);
                 // Fallback a localStorage se database non disponibile
                 const saved = localStorage.getItem('crypto_general_settings');
                 if (saved) {
                     try {
                         const parsed = JSON.parse(saved);
                         if (parsed.totalBalance !== undefined) {
-                            setTotalBalanceFromSettings(parseFloat(parsed.totalBalance) || 1000);
+                            const fallbackValue = parseFloat(parsed.totalBalance) || 1000;
+                            console.log(`[TOTAL-BALANCE] Usato fallback localStorage: $${fallbackValue.toFixed(2)}`);
+                            setTotalBalanceFromSettings(fallbackValue);
                         }
                     } catch (e) {
                         // Ignora errori
@@ -1052,7 +1060,7 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
         // Aggiorna ogni 5 secondi per sincronizzare con database
         const interval = setInterval(fetchTotalBalance, 5000);
         return () => clearInterval(interval);
-    }, []);
+    }, [apiBase, getAuthHeader]);
     
     // Total Balance = Valore dal database (semplice!)
     const totalBalance = totalBalanceFromSettings;
