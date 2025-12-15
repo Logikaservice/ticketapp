@@ -1,169 +1,79 @@
 /**
- * 🔍 VERIFICA TRADES STORICI - PostgreSQL VPS
- * 
- * Questo script mostra i trades storici per i simboli duplicati.
- * Questi trades NON vengono eliminati perché sono dati storici importanti.
+ * Script per contare le klines di BTC/EUR
  */
 
-const { Pool } = require('pg');
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+const { dbAll, dbGet, pool } = require('../crypto_db');
 
-// Configurazione PostgreSQL (stessa logica di crypto_db.js)
-let cryptoDbUrl = process.env.DATABASE_URL_CRYPTO;
-
-if (!cryptoDbUrl && process.env.DATABASE_URL) {
-    cryptoDbUrl = process.env.DATABASE_URL.replace(/\/[^\/]+$/, '/crypto_db');
-    console.log(`📊 Usando database separato: crypto_db`);
-} else if (cryptoDbUrl) {
-    console.log(`📊 Usando DATABASE_URL_CRYPTO configurato`);
-} else {
-    cryptoDbUrl = process.env.DATABASE_URL;
-}
-
-if (!cryptoDbUrl) {
-    console.error('❌ DATABASE_URL o DATABASE_URL_CRYPTO non configurato!');
-    process.exit(1);
-}
-
-// Disabilita SSL per localhost
-const isLocalhost = cryptoDbUrl.includes('localhost') || cryptoDbUrl.includes('127.0.0.1');
-const pool = new Pool({
-    connectionString: cryptoDbUrl,
-    ssl: isLocalhost ? false : { rejectUnauthorized: false }
-});
-
-// Lista simboli duplicati (stessa lista dello script di eliminazione)
-const DUPLICATE_SYMBOLS = [
-    'bitcoin', 'ethereum', 'solana', 'cardano', 'polkadot', 'litecoin',
-    'ripple', 'binance_coin', 'pol_polygon', 'avalanche', 'uniswap',
-    'dogecoin', 'shiba', 'near', 'atom', 'trx', 'xlm', 'arb', 'op',
-    'matic', 'sui', 'enj', 'pepe'
-];
-
-async function checkHistoricalTrades() {
+async function countBtcEurKlines() {
     const client = await pool.connect();
-
     try {
-        console.log('🔍 VERIFICA TRADES STORICI - Simboli Duplicati\n');
-        console.log('='.repeat(80));
+        console.log('🔍 Conta klines per BTC/EUR...\n');
 
         // Test connessione
-        console.log('\n📡 Test connessione database VPS...');
-        const testResult = await client.query('SELECT NOW()');
-        console.log(`✅ Connesso a PostgreSQL VPS: ${testResult.rows[0].now}\n`);
+        await client.query('SELECT 1');
+        console.log('✅ Connessione database OK\n');
 
-        // Verifica trades storici
-        console.log('🔍 Ricerca trades storici per simboli duplicati...\n');
-        const trades = await client.query(
-            `SELECT 
-                id,
-                symbol,
-                type,
-                amount,
-                price,
-                timestamp,
-                strategy,
-                profit_loss,
-                ticket_id
-             FROM trades 
-             WHERE symbol = ANY($1::text[])
-             ORDER BY timestamp DESC`,
-            [DUPLICATE_SYMBOLS]
+        // Helper per query con timeout
+        const queryWithTimeout = async (query, params, timeoutMs = 30000) => {
+            const queryPromise = client.query(query, params);
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error(`Query timeout dopo ${timeoutMs/1000} secondi`)), timeoutMs)
+            );
+            return Promise.race([queryPromise, timeoutPromise]);
+        };
+
+        // Conta totale klines per bitcoin (il simbolo nel DB è 'bitcoin', non 'bitcoin_eur')
+        const countResult = await queryWithTimeout(
+            "SELECT COUNT(*) as count FROM klines WHERE symbol = $1",
+            ['bitcoin']
         );
+        const totalCount = countResult.rows[0];
+        console.log(`📊 Totale klines BTC/EUR: ${totalCount.count}`);
 
-        const tradesCount = trades.rows.length;
-        console.log(`📊 Trovati ${tradesCount} trades storici per simboli duplicati\n`);
-
-        // Verifica anche il totale di tutti i trades nel database
-        const allTradesResult = await client.query('SELECT COUNT(*) as count FROM trades');
-        const allTradesCount = parseInt(allTradesResult.rows[0]?.count || 0);
-        console.log(`📊 TOTALE trades nel database: ${allTradesCount}\n`);
-
-        if (tradesCount === 0) {
-            if (allTradesCount === 0) {
-                console.log('✅ Nessun trade storico trovato nel database.');
-                console.log('   Il reset ha cancellato tutti i trades (come previsto).\n');
-            } else {
-                console.log('✅ Nessun trade storico trovato per i simboli duplicati.');
-                console.log(`   Ci sono ${allTradesCount} trades nel database, ma non per simboli duplicati.\n`);
-            }
-            return;
+        // Conta per intervallo
+        const intervalResult = await queryWithTimeout(
+            "SELECT interval, COUNT(*) as count FROM klines WHERE symbol = $1 GROUP BY interval ORDER BY interval",
+            ['bitcoin']
+        );
+        const byInterval = intervalResult.rows;
+        
+        if (byInterval.length > 0) {
+            console.log('\n📈 Klines per intervallo:');
+            byInterval.forEach(row => {
+                console.log(`   ${row.interval}: ${row.count} klines`);
+            });
         }
 
-        // Raggruppa per simbolo
-        const tradesBySymbol = {};
-        trades.rows.forEach(trade => {
-            if (!tradesBySymbol[trade.symbol]) {
-                tradesBySymbol[trade.symbol] = [];
-            }
-            tradesBySymbol[trade.symbol].push(trade);
-        });
+        // Range temporale
+        const timeRangeResult = await queryWithTimeout(
+            `SELECT 
+                MIN(open_time) as first_candle,
+                MAX(open_time) as last_candle
+             FROM klines 
+             WHERE symbol = $1`,
+            ['bitcoin']
+        );
+        const timeRange = timeRangeResult.rows[0];
 
-        console.log('📝 Dettagli trades storici:\n');
-        console.log('='.repeat(80));
+        if (timeRange.first_candle && timeRange.last_candle) {
+            const firstDate = new Date(Number(timeRange.first_candle));
+            const lastDate = new Date(Number(timeRange.last_candle));
+            const daysSpan = (Number(timeRange.last_candle) - Number(timeRange.first_candle)) / (1000 * 60 * 60 * 24);
 
-        Object.keys(tradesBySymbol).sort().forEach(symbol => {
-            const symbolTrades = tradesBySymbol[symbol];
-            console.log(`\n📊 ${symbol.toUpperCase()} - ${symbolTrades.length} trade(s):`);
-            console.log('-'.repeat(80));
+            console.log('\n📅 Range temporale:');
+            console.log(`   Prima kline: ${firstDate.toISOString()}`);
+            console.log(`   Ultima kline: ${lastDate.toISOString()}`);
+            console.log(`   Giorni coperti: ${daysSpan.toFixed(1)}`);
+        }
 
-            symbolTrades.forEach((trade, index) => {
-                const date = new Date(trade.timestamp).toLocaleString('it-IT');
-                const type = trade.type === 'buy' ? 'ACQUISTO' : 'VENDITA';
-                const amount = parseFloat(trade.amount || 0).toFixed(8);
-                const price = parseFloat(trade.price || 0).toFixed(6);
-                const profitLoss = trade.profit_loss ? parseFloat(trade.profit_loss).toFixed(2) : 'N/A';
-                const strategy = trade.strategy || 'N/A';
-                const ticketId = trade.ticket_id || 'N/A';
-
-                console.log(`\n   Trade #${index + 1}:`);
-                console.log(`   ├─ ID: ${trade.id}`);
-                console.log(`   ├─ Tipo: ${type}`);
-                console.log(`   ├─ Quantità: ${amount}`);
-                console.log(`   ├─ Prezzo: $${price}`);
-                console.log(`   ├─ Data/Ora: ${date}`);
-                console.log(`   ├─ Strategia: ${strategy}`);
-                console.log(`   ├─ Profit/Loss: $${profitLoss}`);
-                console.log(`   └─ Ticket ID: ${ticketId}`);
-            });
-        });
-
-        // Statistiche
-        console.log('\n' + '='.repeat(80));
-        console.log('\n📊 Statistiche:\n');
-
-        const totalBuy = trades.rows.filter(t => t.type === 'buy').length;
-        const totalSell = trades.rows.filter(t => t.type === 'sell').length;
-        const totalProfit = trades.rows.reduce((sum, t) => {
-            return sum + (parseFloat(t.profit_loss || 0));
-        }, 0);
-
-        console.log(`   📈 Acquisti: ${totalBuy}`);
-        console.log(`   📉 Vendite: ${totalSell}`);
-        console.log(`   💰 Profit/Loss Totale: $${totalProfit.toFixed(2)}`);
-
-        // Simboli coinvolti
-        console.log(`\n   📋 Simboli coinvolti: ${Object.keys(tradesBySymbol).join(', ')}`);
-
-        console.log('\n' + '='.repeat(80));
-        console.log('\n💡 NOTA:');
-        console.log('   Questi trades storici NON vengono eliminati perché:');
-        console.log('   - Sono dati storici importanti per statistiche e analisi');
-        console.log('   - Servono per calcolare performance passate');
-        console.log('   - Fanno parte della cronologia completa del trading');
-        console.log('   - Solo le configurazioni bot (bot_settings) vengono eliminate\n');
-
-    } catch (error) {
-        console.error('\n❌ ERRORE:', error.message);
-        console.error(error.stack);
-        process.exit(1);
-    } finally {
         client.release();
-        await pool.end();
+        process.exit(0);
+    } catch (error) {
+        if (client) client.release();
+        console.error('❌ Errore:', error.message);
+        if (error.stack) console.error(error.stack);
+        process.exit(1);
     }
 }
 
-// Esegui verifica
-checkHistoricalTrades().catch(console.error);
-
+countBtcEurKlines();
