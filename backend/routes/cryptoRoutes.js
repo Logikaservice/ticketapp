@@ -562,6 +562,85 @@ router.get('/debug/db', async (req, res) => {
     }
 });
 
+// GET /api/crypto/debug/execute - Esegui comando predefinito (per accesso rapido al database)
+router.get('/debug/execute', async (req, res) => {
+    try {
+        const { command } = req.query;
+        
+        const commands = {
+            'total-balance': async () => {
+                const result = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'");
+                return { totalBalance: parseFloat(result?.setting_value || 0) };
+            },
+            'portfolio': async () => {
+                const result = await dbGet("SELECT * FROM portfolio WHERE id = 1");
+                return {
+                    balance_usd: parseFloat(result?.balance_usd || 0),
+                    holdings: result?.holdings || '{}'
+                };
+            },
+            'open-positions': async () => {
+                const results = await dbAll("SELECT ticket_id, symbol, type, volume, entry_price, profit_loss FROM open_positions WHERE status = 'open'");
+                return {
+                    count: results.length,
+                    totalPnL: results.reduce((sum, p) => sum + (parseFloat(p.profit_loss) || 0), 0),
+                    positions: results.map(p => ({
+                        ticket_id: p.ticket_id,
+                        symbol: p.symbol,
+                        type: p.type,
+                        volume: parseFloat(p.volume || 0),
+                        entry_price: parseFloat(p.entry_price || 0),
+                        profit_loss: parseFloat(p.profit_loss || 0)
+                    }))
+                };
+            },
+            'closed-positions': async () => {
+                const results = await dbAll("SELECT ticket_id, symbol, type, profit_loss, closed_at FROM open_positions WHERE status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC LIMIT 10");
+                return {
+                    count: results.length,
+                    positions: results.map(p => ({
+                        ticket_id: p.ticket_id,
+                        symbol: p.symbol,
+                        type: p.type,
+                        profit_loss: parseFloat(p.profit_loss || 0),
+                        closed_at: p.closed_at
+                    }))
+                };
+            },
+            'all-settings': async () => {
+                const results = await dbAll("SELECT setting_key, setting_value FROM general_settings");
+                const settings = {};
+                results.forEach(s => settings[s.setting_key] = s.setting_value);
+                return settings;
+            },
+            'summary': async () => {
+                const portfolio = await dbGet("SELECT balance_usd FROM portfolio WHERE id = 1");
+                const totalBalance = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'").catch(() => ({ setting_value: null }));
+                const openPositions = await dbAll("SELECT COUNT(*) as count, COALESCE(SUM(profit_loss), 0) as total_pnl FROM open_positions WHERE status = 'open'");
+                return {
+                    totalBalance: parseFloat(totalBalance?.setting_value || 0),
+                    cash: parseFloat(portfolio?.balance_usd || 0),
+                    openPositions: parseInt(openPositions[0]?.count || 0),
+                    totalPnL: parseFloat(openPositions[0]?.total_pnl || 0)
+                };
+            }
+        };
+        
+        if (!command || !commands[command]) {
+            return res.status(400).json({ 
+                error: 'Command not found',
+                availableCommands: Object.keys(commands)
+            });
+        }
+        
+        const result = await commands[command]();
+        res.json({ success: true, command, data: result, timestamp: new Date().toISOString() });
+    } catch (err) {
+        console.error('❌ Error in /debug/execute:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /api/crypto/general-settings - Get general settings (Total Balance, etc.)
 router.get('/general-settings', async (req, res) => {
     try {
