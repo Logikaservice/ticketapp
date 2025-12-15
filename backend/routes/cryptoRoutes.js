@@ -5203,6 +5203,29 @@ router.post('/positions/open', async (req, res) => {
     }
 
     try {
+        // ✅ FIX CRITICO: Verifica limiti prima di aprire posizione manuale
+        const allOpenPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
+        const params = await getBotParameters(symbol);
+        
+        const hybridCheck = await canOpenPositionHybridStrategy(
+            symbol, 
+            allOpenPositions, 
+            null, 
+            type === 'buy' ? 'buy' : 'sell',
+            {
+                maxPositions: params.max_positions || 10,
+                maxPerGroup: params.max_positions_per_group || 6,
+                maxPerSymbol: params.max_positions_per_symbol || 2
+            }
+        );
+        
+        if (!hybridCheck.allowed) {
+            return res.status(400).json({ 
+                error: `Cannot open position: ${hybridCheck.reason}`,
+                reason: hybridCheck.reason
+            });
+        }
+        
         const portfolio = await getPortfolio();
         let balance = portfolio.balance_usd;
         let holdings = JSON.parse(portfolio.holdings || '{}');
