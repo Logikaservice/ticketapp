@@ -895,18 +895,34 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
             }
 
             if (pos.type === 'buy' && pos.status === 'open') {
-                const longValue = remainingVolume * price;
-
-                // ✅ DEBUG: Log se prezzo è 0 o mancante
-                if (price === 0 || !price) {
-                    console.warn(`⚠️ [BALANCE-DEBUG] Prezzo mancante per LONG ${pos.symbol} (${pos.ticket_id}):`, {
-                        symbol: pos.symbol,
-                        allSymbolPrices: allSymbolPrices[pos.symbol],
-                        currentSymbol: currentSymbol,
-                        currentPrice: currentPrice,
-                        dbPrice: parseFloat(pos.current_price) || 0,
-                        entryPrice: parseFloat(pos.entry_price) || 0
-                    });
+                // ✅ FIX CRITICO: Se il prezzo corrente non è disponibile, usa entry_price + P&L
+                // Questo assicura che il Total Balance includa sempre il P&L anche se i prezzi non sono aggiornati
+                let longValue;
+                
+                if (price > 0) {
+                    // Prezzo corrente disponibile: usa quello
+                    longValue = remainingVolume * price;
+                } else {
+                    // Prezzo corrente non disponibile: usa entry_price + P&L calcolato dal backend
+                    const entryPrice = parseFloat(pos.entry_price) || 0;
+                    const profitLoss = parseFloat(pos.profit_loss) || 0;
+                    const investedValue = remainingVolume * entryPrice;
+                    longValue = investedValue + profitLoss; // Valore investito + P&L
+                    
+                    // ✅ DEBUG: Log quando usiamo fallback
+                    if (Math.random() < 0.1) { // Log solo 10% delle volte per non spammare
+                        console.warn(`⚠️ [BALANCE-DEBUG] Prezzo mancante per LONG ${pos.symbol} (${pos.ticket_id}), uso entry_price + P&L:`, {
+                            symbol: pos.symbol,
+                            entryPrice,
+                            investedValue,
+                            profitLoss,
+                            longValue,
+                            allSymbolPrices: allSymbolPrices[pos.symbol],
+                            currentSymbol: currentSymbol,
+                            currentPrice: currentPrice,
+                            dbPrice: parseFloat(pos.current_price) || 0
+                        });
+                    }
                 }
 
                 // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT
