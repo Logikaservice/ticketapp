@@ -96,9 +96,19 @@ Nei log del bot dovresti vedere:
 ## File Modificati
 
 1. `/workspace/backend/crypto_db_postgresql.js` - Aggiunto parametri ai default
-2. `/workspace/backend/routes/cryptoRoutes.js` - Completato DEFAULT_PARAMS
+2. `/workspace/backend/routes/cryptoRoutes.js` - Completato DEFAULT_PARAMS, salvataggio parametri e lettura
 3. `/workspace/backend/scripts/fix-max-positions-limit.js` - Script di fix (NUOVO)
 4. `/workspace/FIX_MAX_POSITIONS_LIMIT.md` - Documentazione (NUOVO)
+
+### Dettaglio Modifiche cryptoRoutes.js:
+
+- ✅ Aggiunto `max_positions_per_group` e `max_positions_per_symbol` a `DEFAULT_PARAMS`
+- ✅ Aggiunto salvataggio di questi parametri nell'endpoint `/bot/parameters` (PUT)
+- ✅ Aggiornata funzione `canOpenPositionHybridStrategy` per leggere parametri da options
+- ✅ Aggiornate chiamate a `canOpenPositionHybridStrategy` per passare tutti e 3 i parametri:
+  - `maxTotalPositions` (limite totale)
+  - `maxPerGroup` (limite per gruppo correlazione)
+  - `maxPerSymbol` (limite per simbolo singolo)
 
 ## Note Importanti
 

@@ -2290,17 +2290,29 @@ const canOpenPositionHybridStrategy = async (symbol, openPositions, newSignal = 
         groupSymbols.includes(p.symbol) && p.status === 'open'
     );
 
+    // ✅ LEGGI LIMITI DA OPTIONS (configurabili dall'utente) o usa default
+    const maxPerGroup = Math.max(1, parseInt(options.maxPerGroup || HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_GROUP));
+    const maxPerSymbol = Math.max(1, parseInt(options.maxPerSymbol || HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_SYMBOL));
+    const maxTotalPositions = Math.max(1, parseInt(options.maxTotalPositions || HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS));
+
     // Verifica limite posizioni per gruppo
-    if (groupPositions.length >= HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_GROUP) {
+    if (groupPositions.length >= maxPerGroup) {
         return {
             allowed: false,
-            reason: `Max ${HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_GROUP} positions per group ${group} (current: ${groupPositions.length})`,
+            reason: `Max ${maxPerGroup} positions per group ${group} (current: ${groupPositions.length})`,
             groupPositions: groupPositions.length
         };
     }
 
-    // ✅ SCELTA UTENTE: max posizioni deve essere deciso dall'utente (DB/UI), non dal win-rate
-    const maxTotalPositions = Math.max(1, parseInt(options.maxTotalPositions || HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS));
+    // Verifica limite posizioni per simbolo
+    const symbolPositions = openPositions.filter(p => p.symbol === symbol && p.status === 'open');
+    if (symbolPositions.length >= maxPerSymbol) {
+        return {
+            allowed: false,
+            reason: `Max ${maxPerSymbol} positions per symbol ${symbol} (current: ${symbolPositions.length})`,
+            symbolPositions: symbolPositions.length
+        };
+    }
 
     // ✅ LOGICA INTELLIGENTE: Se limite totale raggiunto, confronta nuovo segnale con posizioni esistenti
     // ✅ FIX: Smart Replacement solo se ci sono almeno 5 posizioni (evita blocchi precoci)
@@ -3073,7 +3085,9 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 // ✅ HYBRID STRATEGY - Verifica limiti correlazione con LOGICA INTELLIGENTE
                 // ✅ Passa il segnale per confronto con posizioni esistenti
                 const hybridCheck = await canOpenPositionHybridStrategy(symbol, allOpenPositions, signal, 'buy', {
-                    maxTotalPositions: params.max_positions || 10
+                    maxTotalPositions: params.max_positions || 10,
+                    maxPerGroup: params.max_positions_per_group || 6,
+                    maxPerSymbol: params.max_positions_per_symbol || 2
                 });
 
                 if (!hybridCheck.allowed) {
@@ -3313,7 +3327,9 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     // ✅ HYBRID STRATEGY - Verifica limiti correlazione con LOGICA INTELLIGENTE
                     // ✅ Passa il segnale per confronto con posizioni esistenti
                     const hybridCheck = await canOpenPositionHybridStrategy(symbol, allOpenPositions, signal, 'sell', {
-                        maxTotalPositions: params.max_positions || 10
+                        maxTotalPositions: params.max_positions || 10,
+                        maxPerGroup: params.max_positions_per_group || 6,
+                        maxPerSymbol: params.max_positions_per_symbol || 2
                     });
 
                     if (!hybridCheck.allowed) {
@@ -6272,6 +6288,12 @@ router.put('/bot/parameters', async (req, res) => {
             max_positions: (parameters.max_positions !== undefined && parameters.max_positions !== null && parameters.max_positions !== '')
                 ? Math.max(1, Math.min(20, parseInt(parameters.max_positions) || existingParams.max_positions || 5))
                 : (existingParams.max_positions || 5),
+            max_positions_per_group: (parameters.max_positions_per_group !== undefined && parameters.max_positions_per_group !== null && parameters.max_positions_per_group !== '')
+                ? Math.max(1, Math.min(15, parseInt(parameters.max_positions_per_group) || existingParams.max_positions_per_group || 6))
+                : (existingParams.max_positions_per_group || 6),
+            max_positions_per_symbol: (parameters.max_positions_per_symbol !== undefined && parameters.max_positions_per_symbol !== null && parameters.max_positions_per_symbol !== '')
+                ? Math.max(1, Math.min(4, parseInt(parameters.max_positions_per_symbol) || existingParams.max_positions_per_symbol || 2))
+                : (existingParams.max_positions_per_symbol || 2),
 
             // ✅ NUOVO: Timeframe
             analysis_timeframe: parameters.analysis_timeframe !== undefined
@@ -8626,7 +8648,9 @@ router.get('/bot-analysis', async (req, res) => {
 
         // ✅ Check Hybrid Strategy (pass ALL positions)
         const hybridCheck = await canOpenPositionHybridStrategy(symbol, allOpenPositions, null, null, {
-            maxTotalPositions: (params && params.max_positions) ? params.max_positions : 10
+            maxTotalPositions: (params && params.max_positions) ? params.max_positions : 10,
+            maxPerGroup: (params && params.max_positions_per_group) ? params.max_positions_per_group : 6,
+            maxPerSymbol: (params && params.max_positions_per_symbol) ? params.max_positions_per_symbol : 2
         });
         console.log(`📊 [BOT-ANALYSIS] Hybrid Check: ${hybridCheck.allowed ? 'OK' : 'BLOCKED'} (${hybridCheck.reason})`);
 
