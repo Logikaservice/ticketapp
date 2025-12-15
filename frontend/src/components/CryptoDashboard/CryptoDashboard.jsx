@@ -1010,24 +1010,28 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
     // - totalShortLiability: debito SHORT (entry_price * volume - P&L, quanto devi restituire ORA)
     const totalBalance = validatedBalance + totalLongValue - totalShortLiability;
     
+    // ✅ DEBUG: Calcola totale investito per verificare coerenza con cash
+    const totalInvested = validOpenPositions.reduce((sum, pos) => {
+        const volume = parseFloat(pos.volume) || 0;
+        const volumeClosed = parseFloat(pos.volume_closed) || 0;
+        const remainingVolume = volume - volumeClosed;
+        const entryPrice = parseFloat(pos.entry_price) || 0;
+        const invested = remainingVolume * entryPrice;
+        return sum + invested;
+    }, 0);
+    
     // ✅ DEBUG: Log dettagliato del calcolo finale (sempre, per diagnosticare problemi)
     console.log(`[BALANCE-DEBUG] Calcolo Total Balance:`, {
         cash: validatedBalance.toFixed(2),
+        totalInvested: totalInvested.toFixed(2),
         totalLongValue: totalLongValue.toFixed(2),
         totalShortLiability: totalShortLiability.toFixed(2),
         totalBalance: totalBalance.toFixed(2),
         openPositionsCount: validOpenPositions.length,
         longPositions: validOpenPositions.filter(p => p.type === 'buy').length,
         shortPositions: validOpenPositions.filter(p => p.type === 'sell').length,
-        positionsDetails: validOpenPositions.map(p => ({
-            ticket_id: p.ticket_id,
-            symbol: p.symbol,
-            type: p.type,
-            entry_price: parseFloat(p.entry_price) || 0,
-            profit_loss: parseFloat(p.profit_loss) || 0,
-            volume: parseFloat(p.volume) || 0,
-            volume_closed: parseFloat(p.volume_closed) || 0
-        }))
+        expectedCash: (1000 - totalInvested).toFixed(2), // Assumendo $1000 iniziali
+        cashDifference: (validatedBalance - (1000 - totalInvested)).toFixed(2)
     });
     
     // ✅ DEBUG: Verifica se totalLongValue è 0 quando ci sono posizioni LONG
@@ -1036,6 +1040,12 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
         validOpenPositions.filter(p => p.type === 'buy').forEach(pos => {
             console.error(`   - ${pos.ticket_id} (${pos.symbol}): entry_price=${pos.entry_price}, profit_loss=${pos.profit_loss}, volume=${pos.volume}`);
         });
+    }
+    
+    // ✅ DEBUG: Verifica se il cash è coerente con l'investimento
+    const expectedCashFrom1000 = 1000 - totalInvested;
+    if (Math.abs(validatedBalance - expectedCashFrom1000) > 1) {
+        console.warn(`⚠️ [BALANCE-DEBUG] Cash incoerente: Cash attuale $${validatedBalance.toFixed(2)}, atteso da $1000 iniziali: $${expectedCashFrom1000.toFixed(2)}, differenza: $${(validatedBalance - expectedCashFrom1000).toFixed(2)}`);
     }
 
     // ✅ FIX CRITICO: Usa direttamente profit_loss calcolato dal backend
