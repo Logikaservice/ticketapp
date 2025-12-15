@@ -172,8 +172,8 @@ router.get('/history', async (req, res) => {
 
         // ✅ FIX CRITICO: Verifica che il simbolo sia valido PRIMA di processare
         if (!isValidSymbol(symbol)) {
-            return res.status(400).json({ 
-                error: `Simbolo non valido: ${symbol}. Il simbolo deve essere presente in SYMBOL_TO_PAIR.` 
+            return res.status(400).json({
+                error: `Simbolo non valido: ${symbol}. Il simbolo deve essere presente in SYMBOL_TO_PAIR.`
             });
         }
 
@@ -1333,7 +1333,7 @@ const SYMBOL_TO_PAIR = {
     // Layer 2 / Scaling
     'arb': 'ARBUSDT', 'arb_eur': 'ARBEUR', 'arbitrum': 'ARBUSDT', 'arbusdt': 'ARBUSDT',
     'op': 'OPUSDT', 'op_eur': 'OPEUR', 'optimism': 'OPUSDT', 'opusdt': 'OPUSDT',
-    'matic': 'POLUSDT', 'matic_eur': 'MATEUR', 'polygon': 'POLUSDT', 'maticusdt': 'POLUSDT', 
+    'matic': 'POLUSDT', 'matic_eur': 'MATEUR', 'polygon': 'POLUSDT', 'maticusdt': 'POLUSDT',
     'pol': 'POLUSDT', 'pol_polygon': 'POLUSDT', 'pol_polygon_eur': 'POLEUR', 'polpolygon': 'POLUSDT', 'polusdt': 'POLUSDT',
 
     // Payments & Old School
@@ -1528,7 +1528,7 @@ const initWebSocketService = () => {
                             }
                             return;
                         }
-                        
+
                         // Valida prezzo prima di salvare (evita valori anomali)
                         if (price > 0 && price < 100000 && price > 0.000001) {
                             // ✅ FIX: Usa try-catch per gestire errori DB senza bloccare
@@ -1600,7 +1600,7 @@ const initWebSocketService = () => {
                     }
                     return;
                 }
-                
+
                 // Callback: aggiorna cache volume quando arriva da WebSocket
                 volumeCache.set(symbol, { volume: volume24h, timestamp: Date.now() });
 
@@ -2018,6 +2018,160 @@ const calculateRSI = (prices, period = 14) => {
 };
 
 /**
+ * ========================================
+ * STRATEGY v2.0 - MOMENTUM INDICATORS
+ * ========================================
+ * Williams %R: Early oversold/overbought detection (faster than RSI)
+ * TSI: True Strength Index for momentum acceleration
+ */
+
+/**
+ * Calculate Williams %R
+ * @param {Array} prices - Array of prices (oldest to newest)
+ * @param {number} period - Lookback period (default 14)
+ * @returns {number|null} Williams %R value (-100 to 0)
+ * 
+ * Interpretation:
+ * - Below -80: Oversold (potential buy)
+ * - Above -20: Overbought (potential sell)
+ * - Faster than RSI, anticipates reversals
+ */
+const calculateWilliamsR = (prices, period = 14) => {
+    if (prices.length < period) return null;
+
+    // Get last N prices
+    const recentPrices = prices.slice(-period);
+
+    // Find highest high and lowest low
+    const highestHigh = Math.max(...recentPrices);
+    const lowestLow = Math.min(...recentPrices);
+    const currentClose = prices[prices.length - 1];
+
+    // Avoid division by zero
+    if (highestHigh === lowestLow) return -50; // Neutral
+
+    // Williams %R formula: ((Highest High - Close) / (Highest High - Lowest Low)) * -100
+    const williamsR = ((highestHigh - currentClose) / (highestHigh - lowestLow)) * -100;
+
+    return williamsR;
+};
+
+/**
+ * Calculate TSI (True Strength Index)
+ * @param {Array} prices - Array of prices (oldest to newest)
+ * @param {number} longPeriod - Long EMA period (default 25)
+ * @param {number} shortPeriod - Short EMA period (default 13)
+ * @returns {number|null} TSI value (-100 to 100)
+ * 
+ * Interpretation:
+ * - Positive values: Bullish momentum
+ * - Negative values: Bearish momentum
+ * - Crossing zero line: Momentum shift
+ * - Acceleration: Rate of change in TSI indicates momentum strength
+ */
+const calculateTSI = (prices, longPeriod = 25, shortPeriod = 13) => {
+    if (prices.length < longPeriod + 1) return null;
+
+    // Calculate price changes (momentum)
+    const priceChanges = [];
+    for (let i = 1; i < prices.length; i++) {
+        priceChanges.push(prices[i] - prices[i - 1]);
+    }
+
+    if (priceChanges.length < longPeriod) return null;
+
+    // Helper: Calculate EMA
+    const calculateEMAForTSI = (data, period) => {
+        if (data.length < period) return null;
+
+        const multiplier = 2 / (period + 1);
+        let ema = data.slice(0, period).reduce((sum, val) => sum + val, 0) / period;
+
+        for (let i = period; i < data.length; i++) {
+            ema = (data[i] - ema) * multiplier + ema;
+        }
+
+        return ema;
+    };
+
+    // Double smoothed momentum
+    const firstEMA = calculateEMAForTSI(priceChanges, longPeriod);
+    if (firstEMA === null) return null;
+
+    // For second EMA, we need to calculate EMA of EMA values
+    // Simplified: use absolute values for denominator
+    const absChanges = priceChanges.map(Math.abs);
+    const firstEMAabs = calculateEMAForTSI(absChanges, longPeriod);
+    if (firstEMAabs === null || firstEMAabs === 0) return 0;
+
+    // TSI = 100 * (Double smoothed momentum / Double smoothed absolute momentum)
+    // Simplified version: use single smoothing for performance
+    const tsi = 100 * (firstEMA / firstEMAabs);
+
+    return tsi;
+};
+
+/**
+ * Calculate TSI Momentum (rate of change)
+ * @param {Array} tsiValues - Array of TSI values
+ * @returns {number|null} TSI momentum (change from previous)
+ */
+const calculateTSIMomentum = (tsiValues) => {
+    if (!tsiValues || tsiValues.length < 2) return null;
+
+    const current = tsiValues[tsiValues.length - 1];
+    const previous = tsiValues[tsiValues.length - 2];
+
+    if (current === null || previous === null) return null;
+
+    return current - previous;
+};
+
+/**
+ * Detect early entry signal using Williams %R + RSI + TSI
+ * @param {Array} prices - Price history
+ * @param {Object} params - Parameters {rsi, williamsR, tsi}
+ * @returns {Object} Early signal detection result
+ */
+const detectEarlyEntrySignal = (prices, params = {}) => {
+    const rsi = calculateRSI(prices, params.rsiPeriod || 14);
+    const williamsR = calculateWilliamsR(prices, params.williamsRPeriod || 14);
+    const tsi = calculateTSI(prices, params.tsiLongPeriod || 25, params.tsiShortPeriod || 13);
+
+    // Calculate TSI momentum if we have historical TSI values
+    let tsiMomentum = null;
+    if (params.tsiHistory && params.tsiHistory.length >= 2) {
+        tsiMomentum = calculateTSIMomentum(params.tsiHistory);
+    }
+
+    return {
+        rsi,
+        williamsR,
+        tsi,
+        tsiMomentum,
+        // LONG early signals
+        longEarly: {
+            williamsROversold: williamsR !== null && williamsR < -70,
+            rsiApproachingOversold: rsi !== null && rsi < 35,
+            tsiAccelerating: tsiMomentum !== null && tsiMomentum < -0.3,
+            ready: williamsR !== null && williamsR < -70 && rsi !== null && rsi < 35
+        },
+        // SHORT early signals
+        shortEarly: {
+            williamsROverbought: williamsR !== null && williamsR > -30,
+            rsiApproachingOverbought: rsi !== null && rsi > 65,
+            tsiAccelerating: tsiMomentum !== null && tsiMomentum > 0.3,
+            ready: williamsR !== null && williamsR > -30 && rsi !== null && rsi > 65
+        }
+    };
+};
+
+/**
+ * END STRATEGY v2.0 INDICATORS
+ * ========================================
+ */
+
+/**
  * Rileva trend su un timeframe specifico per un simbolo
  * @param {string} symbol - Simbolo crypto (es. 'bitcoin')
  * @param {string} interval - Timeframe (es. '1h', '4h')
@@ -2170,7 +2324,7 @@ const get24hVolume = async (symbol) => {
                 // Simbolo non valido - non salvare in symbol_volumes_24h
                 return volumeQuote;
             }
-            
+
             // ✅ Salva in cache
             volumeCache.set(symbol, { volume: volumeQuote, timestamp: Date.now() });
 
@@ -2605,7 +2759,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 if (!isValidSymbol(symbol)) {
                     console.error(`🚨 [BOT-CYCLE-INSERT] ATTENZIONE: Tentativo di inserire kline per simbolo NON VALIDO: ${symbol} (bypassato filtro?)`);
                 }
-                
+
                 // Crea nuova candela
                 await dbRun(
                     `INSERT INTO klines 
@@ -2653,7 +2807,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         if (!isValidSymbol(symbol)) {
                             console.error(`🚨 [BOT-CYCLE-MTF-INSERT] ATTENZIONE: Tentativo di inserire kline per simbolo NON VALIDO: ${symbol} (interval: ${interval}, bypassato filtro?)`);
                         }
-                        
+
                         await dbRun(
                             `INSERT INTO klines 
                             (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
@@ -3276,7 +3430,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     // Verifica che ci sia abbastanza cash
                     let positionSizeToUse = strictTradeSize || 100; // Default $100
                     let canOpen = { allowed: true, reason: 'OK' };
-                    
+
                     if (cashBalance < positionSizeToUse) {
                         canOpen = { allowed: false, reason: `Insufficient cash: $${cashBalance.toFixed(2)} < $${positionSizeToUse.toFixed(2)}` };
                         console.log(`🛑 [TRADE-SIZE] Cash insufficiente: $${cashBalance.toFixed(2)} < $${positionSizeToUse.toFixed(2)}. Skip.`);
@@ -3519,7 +3673,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         // Verifica che ci sia abbastanza cash
                         let positionSizeToUse = strictTradeSize || 100; // Default $100
                         let canOpen = { allowed: true, reason: 'OK' };
-                        
+
                         if (cashBalance < positionSizeToUse) {
                             canOpen = { allowed: false, reason: `Insufficient cash: $${cashBalance.toFixed(2)} < $${positionSizeToUse.toFixed(2)}` };
                             console.log(`🛑 [SHORT-TRADE-SIZE] Cash insufficiente: $${cashBalance.toFixed(2)} < $${positionSizeToUse.toFixed(2)}. Skip.`);
@@ -3681,7 +3835,7 @@ const runBotCycle = async () => {
                 console.warn(`🚫 [BOT-CYCLE-COMMON] Simbolo non valido BLOCCATO: ${symbol} (non in SYMBOL_TO_PAIR) - NESSUNA kline verrà creata`);
                 continue; // Salta simboli non validi
             }
-            
+
             if (!allScannedSymbols.has(symbol)) {
                 // Crea entry temporanea con bot disattivato solo per aggiornare dati
                 const tempBotSettings = { symbol, is_active: 0 };
@@ -12291,9 +12445,9 @@ router.post('/fix-wrong-volumes', async (req, res) => {
         console.log('🔧 [API] Starting fix wrong volumes...');
         const { fixWrongVolumes } = require('./fix-volumes-endpoint');
         const results = await fixWrongVolumes();
-        
+
         console.log(`✅ [API] Fix completed: ${results.fixed} fixed, ${results.skipped} skipped, ${results.errors} errors`);
-        
+
         res.json({
             success: true,
             message: 'Volume fix completed',

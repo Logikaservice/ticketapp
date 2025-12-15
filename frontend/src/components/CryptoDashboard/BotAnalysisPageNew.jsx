@@ -42,14 +42,14 @@ const BotAnalysisPageNew = () => {
 
             // ✅ FORZA AGGIORNAMENTO: Aggiungi sempre timestamp unico per forzare re-render
             counterRef.current += 1;
-            
+
             // ✅ FIX: Preserva signal.reasons e blockers per evitare che scompaiano durante l'aggiornamento
             // Se i nuovi dati hanno reasons/blockers validi, usali. Altrimenti, mantieni quelli precedenti
             const newReasons = jsonData.signal?.reasons;
             const newBlockers = jsonData.blockers;
             const newDirection = jsonData.signal?.direction;
             const oldDirection = data?.signal?.direction;
-            
+
             // ✅ Inizializza i preservati con i dati esistenti se non sono ancora stati impostati
             if (preservedBlockersRef.current.long.length === 0 && data?.blockers?.long?.length > 0) {
                 preservedBlockersRef.current.long = data.blockers.long;
@@ -57,7 +57,7 @@ const BotAnalysisPageNew = () => {
             if (preservedBlockersRef.current.short.length === 0 && data?.blockers?.short?.length > 0) {
                 preservedBlockersRef.current.short = data.blockers.short;
             }
-            
+
             // ✅ Reset i blocchi preservati SOLO se il segnale cambia direzione E i nuovi blockers sono vuoti
             // Questo evita di resettare i blockers quando il segnale cambia ma i blockers rimangono validi
             if (oldDirection && newDirection && oldDirection !== newDirection) {
@@ -68,12 +68,12 @@ const BotAnalysisPageNew = () => {
                     preservedBlockersRef.current = { long: [], short: [] };
                 }
             }
-            
+
             // ✅ Aggiorna i ref SOLO se i nuovi dati contengono informazioni valide (non vuote)
             if (newReasons && Array.isArray(newReasons) && newReasons.length > 0) {
                 preservedReasonsRef.current = newReasons;
             }
-            
+
             // ✅ Aggiorna i blockers preservati SOLO se i nuovi hanno contenuto valido
             // Se i nuovi sono vuoti, mantieni quelli preservati
             if (newBlockers) {
@@ -81,13 +81,13 @@ const BotAnalysisPageNew = () => {
                     preservedBlockersRef.current.long = newBlockers.long;
                 }
                 // Se i nuovi sono vuoti, NON aggiornare il ref - mantieni quelli preservati
-                
+
                 if (newBlockers.short && Array.isArray(newBlockers.short) && newBlockers.short.length > 0) {
                     preservedBlockersRef.current.short = newBlockers.short;
                 }
                 // Se i nuovi sono vuoti, NON aggiornare il ref - mantieni quelli preservati
             }
-            
+
             // ✅ Determina quali blockers usare: preferisci i nuovi se validi, altrimenti usa i preservati
             const finalBlockers = {
                 long: (newBlockers?.long && Array.isArray(newBlockers.long) && newBlockers.long.length > 0)
@@ -105,7 +105,7 @@ const BotAnalysisPageNew = () => {
                             ? data.blockers.short
                             : []
             };
-            
+
             const freshData = {
                 ...jsonData,
                 _timestamp: timestamp,
@@ -191,7 +191,7 @@ const BotAnalysisPageNew = () => {
         const reasonLower = reason.toLowerCase();
         // Keywords che indicano indicatori grafici/tecnici
         const chartKeywords = [
-            'rsi', 'macd', 'ema', 'bollinger', 'trend', 'volume', 'atr', 
+            'rsi', 'macd', 'ema', 'bollinger', 'trend', 'volume', 'atr',
             'divergence', 'momentum', 'breakout', 'price', 'candlestick',
             'bullish', 'bearish', 'oversold', 'overbought', 'moving average',
             'support', 'resistance', 'indicator', 'technical'
@@ -250,7 +250,7 @@ const BotAnalysisPageNew = () => {
                         border: '2px solid #fff',
                         animation: 'pulse 2s infinite'
                     }}>
-                        🚀 VERSIONE 3.0 - BUILD {new Date().toLocaleDateString('it-IT')} - AGGIORNAMENTO AUTOMATICO ATTIVO
+                        🚀 STRATEGY v2.0 - Williams %R + TSI Momentum - BUILD {new Date().toLocaleDateString('it-IT')}
                     </div>
                     <style>{`
                         @keyframes pulse {
@@ -702,11 +702,11 @@ const BotAnalysisPageNew = () => {
                                 {(signal.reasons || []).map((reason, idx) => {
                                     const isChartRelated = isChartRelatedConfirmation(reason);
                                     return (
-                                        <div 
-                                            key={idx} 
+                                        <div
+                                            key={idx}
                                             className={`confirmation-item ${isChartRelated ? 'chart-related' : ''}`}
                                             style={{
-                                                background: isChartRelated 
+                                                background: isChartRelated
                                                     ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(124, 58, 237, 0.1))'
                                                     : 'rgba(59, 130, 246, 0.1)',
                                                 border: isChartRelated
@@ -736,12 +736,12 @@ const BotAnalysisPageNew = () => {
                         // Questo permette di vedere sempre perché il bot non sta aprendo posizioni
                         const hasLongBlockers = data.blockers?.long && Array.isArray(data.blockers.long) && data.blockers.long.length > 0;
                         const hasShortBlockers = data.blockers?.short && Array.isArray(data.blockers.short) && data.blockers.short.length > 0;
-                        
+
                         // ✅ Mostra la sezione se ci sono blockers LONG o SHORT (o entrambi)
                         if (!hasLongBlockers && !hasShortBlockers) {
                             return null;
                         }
-                        
+
                         return (
                             <div className="blockers-section" key={`blockers-${updateKey}`} style={{ marginTop: '20px' }}>
                                 <h3 style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
