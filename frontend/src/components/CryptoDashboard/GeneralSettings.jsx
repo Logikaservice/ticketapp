@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { Settings, Mail, Volume2, VolumeX, Wallet, Bell, Moon, Sun, RefreshCw, X, BarChart2 } from 'lucide-react';
 import cryptoSounds from '../../utils/cryptoSounds';
 import './GeneralSettings.css';
@@ -49,7 +50,8 @@ const GeneralSettings = ({
 
     if (!isOpen) return null;
 
-    return (
+    // Render modal using Portal to bypass parent containers
+    return ReactDOM.createPortal(
         <div className="general-settings-overlay" onClick={onClose}>
             <div className="general-settings-modal" onClick={(e) => e.stopPropagation()}>
                 {/* Header */}
@@ -383,7 +385,8 @@ const GeneralSettings = ({
 
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
