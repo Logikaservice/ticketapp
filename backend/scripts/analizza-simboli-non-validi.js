@@ -56,6 +56,31 @@ try {
 
 const VALID_SYMBOLS = new Set(Object.keys(SYMBOL_TO_PAIR));
 
+// Mappa alias comuni (definita fuori dal loop per essere accessibile ovunque)
+const commonAliases = {
+    'btc': 'bitcoin',
+    'eth': 'ethereum',
+    'sol': 'solana',
+    'xrp': 'ripple',
+    'bnb': 'binance_coin',
+    'ada': 'cardano',
+    'dot': 'polkadot',
+    'avax': 'avalanche',
+    'link': 'chainlink',
+    'uni': 'uniswap',
+    'doge': 'dogecoin',
+    'shib': 'shiba_inu',
+    'matic': 'polygon',
+    'op': 'optimism',
+    'arb': 'arbitrum',
+    'algo': 'algorand',
+    'ltc': 'litecoin',
+    'trx': 'tron',
+    'xlm': 'stellar',
+    'vet': 'vechain',
+    'sui': 'sui_eur' // Verifica se esiste nella mappa
+};
+
 async function main() {
     try {
         console.log('🔍 ANALISI APPROFONDITA: Simboli Non Validi nel Database\n');
@@ -228,25 +253,7 @@ async function main() {
                 }
             }
 
-            // Verifica se è un alias comune
-            const commonAliases = {
-                'btc': 'bitcoin',
-                'eth': 'ethereum',
-                'sol': 'solana',
-                'xrp': 'ripple',
-                'bnb': 'binance_coin',
-                'ada': 'cardano',
-                'dot': 'polkadot',
-                'avax': 'avalanche',
-                'link': 'chainlink',
-                'uni': 'uniswap',
-                'doge': 'dogecoin',
-                'shib': 'shiba_inu',
-                'matic': 'polygon',
-                'op': 'optimism',
-                'arb': 'arbitrum'
-            };
-
+            // Verifica se è un alias comune (usa la mappa definita sopra)
             if (commonAliases[symbol.toLowerCase()]) {
                 const validName = commonAliases[symbol.toLowerCase()];
                 console.log(`      - ⚠️  È un alias comune! Dovrebbe essere: "${validName}"`);
