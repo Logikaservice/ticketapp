@@ -37,21 +37,22 @@ async function cleanupResidualData() {
                 try {
                     const currentPrice = parseFloat(pos.current_price) || parseFloat(pos.entry_price) || 0;
                     
+                    const profitLoss = pos.type === 'buy' 
+                        ? (currentPrice - parseFloat(pos.entry_price)) * parseFloat(pos.volume)
+                        : (parseFloat(pos.entry_price) - currentPrice) * parseFloat(pos.volume);
+                    const profitLossPct = parseFloat(pos.entry_price) > 0 
+                        ? (profitLoss / (parseFloat(pos.entry_price) * parseFloat(pos.volume))) * 100 
+                        : 0;
+                    
                     await dbRun(
                         `UPDATE open_positions 
                          SET status = 'closed',
                              closed_at = NOW(),
-                             close_price = $1,
+                             current_price = $1,
                              profit_loss = $2,
-                             close_reason = 'Cleanup Post-Reset'
-                         WHERE ticket_id = $3`,
-                        [
-                            currentPrice,
-                            pos.type === 'buy' 
-                                ? (currentPrice - parseFloat(pos.entry_price)) * parseFloat(pos.volume)
-                                : (parseFloat(pos.entry_price) - currentPrice) * parseFloat(pos.volume),
-                            pos.ticket_id
-                        ]
+                             profit_loss_pct = $3
+                         WHERE ticket_id = $4`,
+                        [currentPrice, profitLoss, profitLossPct, pos.ticket_id]
                     );
                     
                     console.log(`   ✅ Chiusa ${pos.ticket_id} (${pos.symbol}, ${pos.type})`);
