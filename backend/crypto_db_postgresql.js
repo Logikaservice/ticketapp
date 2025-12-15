@@ -249,7 +249,10 @@ async function initDb() {
                     "trailing_stop_distance_pct": 1.0,
                     "partial_close_enabled": false,
                     "take_profit_1_pct": 1.5,
-                    "take_profit_2_pct": 3.0
+                    "take_profit_2_pct": 3.0,
+                    "max_positions": 10,
+                    "max_positions_per_group": 6,
+                    "max_positions_per_symbol": 2
                 }'
             )
             ON CONFLICT (strategy_name, symbol) DO NOTHING

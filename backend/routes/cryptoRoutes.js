@@ -1230,7 +1230,9 @@ const DEFAULT_PARAMS = {
     market_scanner_min_strength: 30,  // ✅ Soglia minima per mostrare "potenziale" nel Market Scanner (configurabile)
     // ✅ Risk management (configurabile dal DB/UI)
     max_exposure_pct: 80.0,
-    max_positions: 10
+    max_positions: 10,
+    max_positions_per_group: 6,
+    max_positions_per_symbol: 2
 };
 
 // Helper to get bot strategy parameters from database (supports multi-symbol)
