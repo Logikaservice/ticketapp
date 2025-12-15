@@ -57,24 +57,24 @@ VALID_SYMBOLS=(
     'ltc'
 )
 
-# Aggiungi anche simboli presenti in bot_settings (potrebbero esserci altri validi)
-echo "📊 Recupero simboli validi da bot_settings..."
-BOT_SETTINGS_SYMBOLS=$(sudo -u postgres psql -d crypto_db -t -c "
+# Usa SOLO i simboli ATTIVI in bot_settings (non tutti, per evitare duplicati)
+echo "📊 Recupero simboli validi da bot_settings (solo ATTIVI)..."
+BOT_SETTINGS_ACTIVE=$(sudo -u postgres psql -d crypto_db -t -c "
 SELECT DISTINCT symbol 
 FROM bot_settings 
-WHERE symbol IS NOT NULL;
+WHERE symbol IS NOT NULL AND is_active = 1;
 " | xargs)
 
-# Combina le liste
+# Combina le liste (VALID_SYMBOLS + simboli attivi in bot_settings)
 ALL_VALID_SYMBOLS=("${VALID_SYMBOLS[@]}")
-for SYMBOL in $BOT_SETTINGS_SYMBOLS; do
+for SYMBOL in $BOT_SETTINGS_ACTIVE; do
     # Aggiungi solo se non è già presente
     if [[ ! " ${ALL_VALID_SYMBOLS[@]} " =~ " ${SYMBOL} " ]]; then
         ALL_VALID_SYMBOLS+=("$SYMBOL")
     fi
 done
 
-echo "   ✅ Trovati ${#ALL_VALID_SYMBOLS[@]} simboli validi"
+echo "   ✅ Trovati ${#ALL_VALID_SYMBOLS[@]} simboli validi (${#VALID_SYMBOLS[@]} da SYMBOL_TO_PAIR + simboli attivi in bot_settings)"
 echo ""
 
 # Trova tutti i simboli nel database
