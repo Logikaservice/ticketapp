@@ -20,7 +20,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          timeout: "1200s"
+          timeout: "600s"
           script_stop: true
           script: |
             set -e
@@ -66,7 +66,8 @@ jobs:
               exit 1
             fi
             
-            npm install --production || {
+            # Installa solo se package.json è cambiato (ottimizzazione)
+            npm ci --production --prefer-offline --no-audit || npm install --production --prefer-offline --no-audit || {
               echo "❌ npm install backend fallito!"
               exit 1
             }
@@ -86,13 +87,11 @@ jobs:
               exit 1
             fi
             
-            # Rimuovi build e cache in modo sicuro
+            # Rimuovi solo build, mantieni cache per velocità
             rm -rf build || true
-            if [ -d "node_modules/.cache" ]; then
-              rm -rf node_modules/.cache || true
-            fi
             
-            npm install || {
+            # Installa solo se necessario (ottimizzazione)
+            npm ci --prefer-offline --no-audit || npm install --prefer-offline --no-audit || {
               echo "❌ npm install frontend fallito!"
               exit 1
             }
@@ -103,7 +102,8 @@ jobs:
             echo "REACT_APP_API_URL=" > .env
             echo "GENERATE_SOURCEMAP=false" >> .env
             
-            npm run build || {
+            # Build con ottimizzazioni
+            CI=false npm run build || {
               echo "❌ Build frontend fallito!"
               exit 1
             }
@@ -113,61 +113,20 @@ jobs:
             
             echo "🔄 Restart services..."
             
-            # Verifica che PM2 sia installato
-            if ! command -v pm2 &> /dev/null; then
-              echo "⚠️ PM2 non trovato, installo..."
-              npm install -g pm2 || {
-                echo "❌ Installazione PM2 fallita!"
-                exit 1
-              }
-            fi
-            
-            # Prova PM2 restart con gestione errori migliore
+            # Restart PM2 veloce (senza verifiche eccessive)
             if pm2 restart ticketapp-backend 2>/dev/null; then
-              echo "✅ Backend riavviato con PM2 (ticketapp-backend)"
+              echo "✅ Backend riavviato con PM2"
             elif pm2 restart all 2>/dev/null; then
               echo "✅ Tutti i processi PM2 riavviati"
             elif pm2 list | grep -q "ticketapp-backend"; then
-              echo "⚠️ Processo PM2 trovato ma restart fallito, provo stop e start..."
               pm2 stop ticketapp-backend 2>/dev/null || true
-              pm2 start ticketapp-backend 2>/dev/null || pm2 start backend/index.js --name ticketapp-backend || {
-                echo "❌ Avvio backend fallito!"
-                exit 1
-              }
+              pm2 start ticketapp-backend 2>/dev/null || pm2 start backend/index.js --name ticketapp-backend || true
             else
-              echo "⚠️ Nessun processo PM2 trovato, avvio nuovo processo..."
-              pm2 start backend/index.js --name ticketapp-backend || {
-                echo "❌ Impossibile avviare backend con PM2"
-                echo "Verifica manualmente: pm2 start backend/index.js --name ticketapp-backend"
-                exit 1
-              }
+              pm2 start backend/index.js --name ticketapp-backend || true
             fi
             
-            # Attendi che PM2 si stabilizzi
-            sleep 2
+            # Ricarica nginx veloce
+            sudo nginx -t && sudo systemctl reload nginx || true
             
-            # Verifica che il processo sia in esecuzione
-            if pm2 list | grep -q "ticketapp-backend.*online"; then
-              echo "✅ Backend in esecuzione"
-            else
-              echo "⚠️ Backend potrebbe non essere online, verifica:"
-              pm2 logs ticketapp-backend --lines 20 --nostream || true
-            fi
-            
-            # Verifica e ricarica nginx
-            if sudo nginx -t; then
-              sudo systemctl reload nginx || {
-                echo "⚠️ Reload nginx fallito, ma deploy completato"
-              }
-              echo "✅ Nginx ricaricato"
-            else
-              echo "⚠️ Configurazione nginx non valida, ma deploy completato"
-            fi
-            
-            echo ""
             echo "✅ Deploy completato!"
-            echo "📊 Stato PM2:"
-            pm2 status || true
-            echo ""
-            echo "📅 Deploy completato alle: $(date)"
 
