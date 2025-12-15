@@ -612,29 +612,29 @@ const LightweightChart = React.memo(({ symbol = 'BTCUSDT', trades = [], currentP
                     <div className="legend-header">
                         <h4>🤖 Operazioni Bot</h4>
                         <span className="trade-count">
-                            {trades.filter(trade => {
-                                if (!openPositions || openPositions.length === 0) return false;
-                                if (!trade.ticket_id) return false;
-                                
-                                // Confronta ticket_id come stringhe per evitare problemi di tipo
-                                const tradeTicketId = String(trade.ticket_id);
-                                return openPositions.some(
-                                    pos => String(pos.ticket_id) === tradeTicketId && pos.status === 'open'
-                                );
-                            }).length} operazioni aperte
+                            {/* ✅ FIX: Usa direttamente openPositions invece di filtrare trades */}
+                            {openPositions && openPositions.length > 0 
+                                ? openPositions.filter(pos => pos && pos.status === 'open').length 
+                                : 0} operazioni aperte
                         </span>
                     </div>
                     {(() => {
-                        const openTrades = trades.filter(trade => {
-                            if (!openPositions || openPositions.length === 0) return false;
-                            if (!trade.ticket_id) return false;
-                            
-                            // Confronta ticket_id come stringhe per evitare problemi di tipo
-                            const tradeTicketId = String(trade.ticket_id);
-                            return openPositions.some(
-                                pos => String(pos.ticket_id) === tradeTicketId && pos.status === 'open'
-                            );
-                        });
+                        // ✅ FIX: Usa direttamente openPositions invece di filtrare trades
+                        const openTrades = (openPositions || [])
+                            .filter(pos => pos && pos.status === 'open')
+                            .map(pos => {
+                                // Crea un oggetto trade-like per compatibilità con il codice esistente
+                                const matchingTrade = trades.find(t => String(t.ticket_id) === String(pos.ticket_id));
+                                return matchingTrade || {
+                                    ticket_id: pos.ticket_id,
+                                    symbol: pos.symbol,
+                                    type: pos.type,
+                                    price: pos.entry_price,
+                                    amount: pos.volume,
+                                    timestamp: pos.opened_at || pos.timestamp,
+                                    strategy: pos.strategy || 'Bot'
+                                };
+                            });
                         
                         return openTrades.length > 0 ? (
                         <div className="trades-list-vertical">
@@ -655,9 +655,9 @@ const LightweightChart = React.memo(({ symbol = 'BTCUSDT', trades = [], currentP
                                             </span>
                                         </div>
                                         <div className="trade-row">
-                                            <span className="trade-amount">{parseFloat(trade.amount).toFixed(4)} BTC</span>
+                                            <span className="trade-amount">{parseFloat(trade.amount || trade.volume || 0).toFixed(4)} {trade.symbol?.toUpperCase().replace('_EUR', '').replace('_USDT', '') || 'BTC'}</span>
                                             <span className="trade-time">
-                                                {new Date(trade.timestamp).toLocaleTimeString('it-IT', { 
+                                                {new Date(trade.timestamp || trade.opened_at || Date.now()).toLocaleTimeString('it-IT', { 
                                                     hour: '2-digit', 
                                                     minute: '2-digit',
                                                     day: '2-digit',
