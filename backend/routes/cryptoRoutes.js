@@ -148,11 +148,14 @@ const getPortfolio = async () => {
         const finalBalance = parseFloat(row.balance_usd) || 0;
         // Balance validation logging removed
 
+        // ✅ FIX: Assicura che l'ID sia presente
+        if (!row.id) row.id = 1;
+
         return row;
     } catch (e) {
         console.error('❌ Exception getting portfolio:', e.message);
-        // ✅ FIX: Ritorna default invece di crashare
-        return { balance_usd: 10000.0, holdings: '{}' };
+        // ✅ FIX: Ritorna default invece di crashare (con ID dummy)
+        return { id: 1, balance_usd: 10000.0, holdings: '{}' };
     }
 };
 
@@ -1174,17 +1177,40 @@ router.post('/reset', async (req, res) => {
         const tradeCountRows = await dbAll("SELECT COUNT(*) as count FROM trades");
         const tradeCount = tradeCountRows && tradeCountRows.length > 0 ? tradeCountRows[0].count : 0;
 
+        // ✅ FIX: Recupera l'ID corretto del portfolio
+        const portfolio = await getPortfolio();
+        const portfolioId = portfolio.id || 1;
+
         // 2. Cancella TUTTE le posizioni (aperte e chiuse) - questo rimuove anche dal grafico
         await dbRun("DELETE FROM open_positions");
-        console.log(`🗑️ Cancellate ${positionCount} posizione/i (aperte e chiuse)`);
+        console.log(`🗑️ Cancellate ${positionCount} posizioni`);
 
         // 3. Cancella TUTTI i trades - questo rimuove marker dal grafico e lista recenti
         await dbRun("DELETE FROM trades");
         console.log(`🗑️ Cancellati ${tradeCount} trade/i`);
 
-        // 4. Reset portfolio a valore custom (default 250 se non specificato o se reset normale)
+        // 4. Reset portfolio a valore custom
         const newBalance = (initial_balance && !isNaN(parseFloat(initial_balance))) ? parseFloat(initial_balance) : 250;
-        await dbRun("UPDATE portfolio SET balance_usd = $1, holdings = '{}' WHERE id = 1", [newBalance]);
+
+        console.log(`🔄 [RESET] Tentativo reset a $${newBalance}. ID Target: ${portfolioId}`);
+
+        // Esegui update
+        await dbRun("UPDATE portfolio SET balance_usd = $1, holdings = '{}' WHERE id = $2", [newBalance, portfolioId]);
+
+        // 🔍 VERIFICA IMMEDIATA: Rileggi il valore dal DB
+        const verifyRow = await dbGet("SELECT balance_usd FROM portfolio WHERE id = $1", [portfolioId]);
+        const verifyBalance = verifyRow ? parseFloat(verifyRow.balance_usd) : -1;
+
+        console.log(`✅ [RESET] Verifica post-update. Richiesto: $${newBalance}, Nel DB: $${verifyBalance}`);
+
+        if (Math.abs(verifyBalance - newBalance) > 0.01) {
+            console.error(`🚨 [RESET ERROR] Il valore nel DB NON corrisponde! Forse trigger o altro processo lo sovrascrive?`);
+            // Tentativo fallback: Forza ID=1 se ID dinamico ha fallito
+            if (portfolioId !== 1) {
+                console.log(`🔄 [RESET FALLBACK] Provo update su ID=1...`);
+                await dbRun("UPDATE portfolio SET balance_usd = $1, holdings = '{}' WHERE id = 1", [newBalance]);
+            }
+        }
 
         // ✅ FIX: Sync with general_settings "total_balance"
         await dbRun(
@@ -1391,16 +1417,21 @@ router.post('/add-funds', async (req, res) => {
         const fundsToAdd = parseFloat(amount);
 
         // Get current portfolio
-        const portfolio = await dbGet("SELECT * FROM portfolio WHERE id = 1");
+        const portfolio = await getPortfolio(); // Use helper to be safe
         if (!portfolio) {
             return res.status(404).json({ error: 'Portfolio non trovato' });
         }
 
+        const portfolioId = portfolio.id || 1;
+
         const currentBalance = parseFloat(portfolio.balance_usd) || 0;
         const newBalance = currentBalance + fundsToAdd;
 
-        // Update portfolio balance
-        await dbRun("UPDATE portfolio SET balance_usd = $1 WHERE id = 1", [newBalance]);
+        // Update database
+        await dbRun("UPDATE portfolio SET balance_usd = $1 WHERE id = $2", [newBalance, portfolioId]);
+
+        // Synced with general settings
+        await dbRun("INSERT INTO general_settings (setting_key, setting_value) VALUES ('total_balance', $1) ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1", [newBalance]);
 
         console.log(`💰 Fondi aggiunti: $${fundsToAdd.toFixed(2)} USDT | Saldo precedente: $${currentBalance.toFixed(2)} USDT | Nuovo saldo: $${newBalance.toFixed(2)} USDT`);
 
@@ -11957,10 +11988,11 @@ router.post('/recalculate-balance', async (req, res) => {
 
         // 5. Leggi balance attuale dal DB
         const portfolio = await getPortfolio();
+        const portfolioId = portfolio.id || 1;
         const currentBalanceDB = parseFloat(portfolio.balance_usd) || 0;
 
         // 6. Aggiorna balance nel DB con quello calcolato
-        await dbRun("UPDATE portfolio SET balance_usd = $1 WHERE id = 1", [calculatedBalance]);
+        await dbRun("UPDATE portfolio SET balance_usd = $1 WHERE id = $2", [calculatedBalance, portfolioId]);
 
         console.log(`✅ [RECALCULATE BALANCE] Balance ricalcolato: €${currentBalanceDB.toFixed(2)} → €${calculatedBalance.toFixed(2)}`);
         console.log(`   Capitale disponibile: €${availableBalance.toFixed(2)}`);
