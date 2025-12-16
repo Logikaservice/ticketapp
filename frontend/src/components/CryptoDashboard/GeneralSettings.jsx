@@ -30,7 +30,7 @@ const GeneralSettings = ({
         const loadSettings = async () => {
             // Carica Total Balance dal database
             try {
-                const response = await fetch(`${apiBase || ''}/api/crypto/general-settings`, {
+                const response = await fetch(`${apiBase || ''}/crypto/general-settings`, {
                     headers: {
                         ...getAuthHeader(),
                         'Content-Type': 'application/json'
@@ -86,7 +86,7 @@ const GeneralSettings = ({
             const valueToSave = settings.totalBalance;
             prevTotalBalanceRef.current = valueToSave;
             
-            fetch(`${apiBase || ''}/api/crypto/general-settings`, {
+            fetch(`${apiBase || ''}/crypto/general-settings`, {
                 method: 'PUT',
                 headers: {
                     ...getAuthHeader(),

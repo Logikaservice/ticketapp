@@ -1012,7 +1012,7 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
         const fetchTotalBalance = async () => {
             try {
                 const result = await fetchJsonWithRetry(
-                    `${apiBase}/api/crypto/general-settings`,
+                    `${apiBase}/crypto/general-settings`,
                     {
                         method: 'GET',
                         headers: {
