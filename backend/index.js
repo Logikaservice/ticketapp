@@ -861,36 +861,8 @@ app.get('/api/crypto/general-settings', async (req, res) => {
   }
 });
 
-app.put('/api/crypto/general-settings', async (req, res) => {
-  console.log('✅ [ROUTE-PUBBLICA] PUT /api/crypto/general-settings raggiunta!');
-  try {
-    const { totalBalance } = req.body;
-    if (totalBalance !== undefined) {
-      const { dbGet, dbRun } = require('./crypto_db_postgresql');
-      const valueToSave = totalBalance.toString();
-      console.log(`💾 [GENERAL-SETTINGS] PUT - Ricevuto totalBalance: ${totalBalance}, salvo come: "${valueToSave}"`);
-      await dbRun(
-        `INSERT INTO general_settings (setting_key, setting_value, updated_at)
-         VALUES ('total_balance', $1, NOW())
-         ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1, updated_at = NOW()`,
-        [valueToSave]
-      );
-      const verify = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'");
-      const savedValue = parseFloat(verify?.setting_value || 0);
-
-      // ✅ FIX: Sync with portfolio table immediately
-      await dbRun(
-        "UPDATE portfolio SET balance_usd = $1 WHERE id = 1",
-        [savedValue]
-      );
-      console.log(`✅ [GENERAL-SETTINGS] Total Balance salvato e sincronizzato con Portfolio: $${savedValue.toFixed(2)}`);
-    }
-    res.json({ success: true });
-  } catch (err) {
-    console.error('❌ Error updating general settings:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
+// ✅ Routes are now handled inside cryptoRoutes.js
+// Access via /api/crypto/general-settings
 
 // ✅ IMPORTANTE: Monta /api/crypto DOPO le route pubbliche specifiche
 // Le route in cryptoRoutes.js che sono già definite verranno ignorate se abbiamo già definito le route pubbliche sopra
