@@ -887,7 +887,15 @@ app.put('/api/crypto/general-settings', async (req, res) => {
 });
 
 // ✅ IMPORTANTE: Monta /api/crypto DOPO le route pubbliche specifiche
-app.use('/api/crypto', cryptoRoutes);
+// Bypassa le route general-settings che sono già definite sopra come pubbliche
+app.use('/api/crypto', (req, res, next) => {
+  // Se è la route general-settings, passa al prossimo handler (che è la route pubblica sopra)
+  if (req.path === '/general-settings') {
+    return next('route'); // 'route' fa saltare questo router e passa al prossimo handler
+  }
+  // Altrimenti passa al router cryptoRoutes
+  next();
+}, cryptoRoutes);
 
 // ✅ Endpoint pubblico per Total Balance (FUORI da /api/ per evitare middleware globali)
 app.get('/public-total-balance', async (req, res) => {
