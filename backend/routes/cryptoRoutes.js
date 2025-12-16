@@ -734,9 +734,63 @@ router.post('/debug/update', async (req, res) => {
     }
 });
 
-// ✅ RIMOSSO: Route general-settings spostate in index.js come route pubbliche
-// Le route general-settings sono ora definite in backend/index.js (righe 845-887)
-// per essere accessibili senza autenticazione
+// ✅ FIX: Ripristinate route general-settings qui per garantire che siano raggiungibili
+// GET /api/crypto/general-settings
+router.get('/general-settings', async (req, res) => {
+    try {
+        const settings = await dbAll("SELECT setting_key, setting_value FROM general_settings");
+        const settingsObj = {};
+        settings.forEach(s => {
+            settingsObj[s.setting_key] = s.setting_value;
+        });
+
+        // Verifica se total_balance esiste, altrimenti crealo
+        if (!settingsObj.total_balance) {
+            const portfolio = await getPortfolio();
+            const balance = portfolio.balance_usd || 1000;
+            settingsObj.total_balance = balance;
+            // Auto-heal
+            await dbRun(
+                "INSERT INTO general_settings (setting_key, setting_value) VALUES ('total_balance', $1) ON CONFLICT(setting_key) DO UPDATE SET setting_value=$1",
+                [balance]
+            );
+        }
+
+        res.json(settingsObj);
+    } catch (err) {
+        console.error('❌ Error getting general settings:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PUT /api/crypto/general-settings
+router.put('/general-settings', async (req, res) => {
+    try {
+        const { totalBalance } = req.body;
+
+        if (totalBalance !== undefined) {
+            console.log(`💾 [SETTINGS] Aggiornamento manuale Total Balance: ${totalBalance}`);
+
+            // 1. Aggiorna settings
+            await dbRun(
+                "INSERT INTO general_settings (setting_key, setting_value, updated_at) VALUES ('total_balance', $1, NOW()) ON CONFLICT(setting_key) DO UPDATE SET setting_value=$1, updated_at=NOW()",
+                [totalBalance]
+            );
+
+            // 2. Sync Portfolio (ID dinamico)
+            const portfolio = await getPortfolio();
+            const pid = portfolio.id || 1;
+            await dbRun("UPDATE portfolio SET balance_usd = $1 WHERE id = $2", [totalBalance, pid]);
+
+            console.log(`✅ [SETTINGS] Sincronizzato portfolio ${pid} con nuovo balance: ${totalBalance}`);
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error('❌ Error updating general settings:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // GET /api/crypto/dashboard
 router.get('/dashboard', async (req, res) => {
