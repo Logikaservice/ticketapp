@@ -458,6 +458,10 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
 
             if (result.ok && result.data) {
                 alert(result.data.message || 'Portfolio resettato completamente!');
+
+                // ✅ FIX: Aggiorna immediatamente il balance visualizzato
+                setTotalBalanceFromSettings(initialBalance);
+
                 // Refresh data
                 fetchData();
             } else {
@@ -914,7 +918,7 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                 const profitLoss = parseFloat(pos.profit_loss) || 0;
                 const investedValue = remainingVolume * entryPrice;
                 const longValue = investedValue + profitLoss; // Valore investito + P&L
-                
+
                 // ✅ DEBUG: Log dettagliato per ogni posizione
                 console.log(`[BALANCE-DEBUG] LONG ${pos.symbol} (${pos.ticket_id}):`, {
                     entryPrice: entryPrice.toFixed(6),
@@ -941,7 +945,7 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                 // - Equity = Cash + Long Value - (Short Debt - P&L) = Cash + Long Value - Short Debt + P&L
                 // - Ma è più semplice: Short Liability = current_price * volume (quanto devi restituire ORA)
                 //   Questo include già il P&L perché: current_price * volume = entry_price * volume + P&L
-                
+
                 const entryPrice = parseFloat(pos.entry_price) || 0;
 
                 // ✅ FIX: Valida entry_price
@@ -957,7 +961,7 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                     const profitLoss = parseFloat(pos.profit_loss) || 0;
                     const baseDebt = remainingVolume * entryPrice;
                     const shortLiability = baseDebt - profitLoss; // Sottrai P&L perché se positivo riduce il debito
-                    
+
                     // ✅ DEBUG: Log dettagliato per ogni posizione
                     console.log(`[BALANCE-DEBUG] SHORT ${pos.symbol} (${pos.ticket_id}):`, {
                         entryPrice: entryPrice.toFixed(6),
@@ -968,7 +972,7 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                         currentPriceFromDB: parseFloat(pos.current_price) || 0,
                         priceFromCache: price
                     });
-                    
+
                     // ✅ FIX: Valida che il valore calcolato sia ragionevole
                     if (shortLiability > MAX_REASONABLE_BALANCE || shortLiability < 0) {
                         console.error(`🚨 [BALANCE] Valore SHORT anomale per ${pos.ticket_id}: $${shortLiability.toLocaleString()}. Skipping.`);
@@ -1006,13 +1010,13 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
 
     // ✅ TOTAL BALANCE: Prende solo il valore dal database (semplice e diretto)
     const [totalBalanceFromSettings, setTotalBalanceFromSettings] = useState(1000);
-    
+
     // Carica Total Balance dal database
     useEffect(() => {
         const fetchTotalBalance = async () => {
             try {
                 const result = await fetchJsonWithRetry(
-                    `${apiBase}/crypto/general-settings`,
+                    `${apiBase}/api/crypto/general-settings`,
                     {
                         method: 'GET',
                         headers: {
@@ -1025,12 +1029,12 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                         silent502: false
                     }
                 );
-                
+
                 if (result.ok && result.data) {
                     // ✅ FIX: L'API restituisce { total_balance: "1000.0" } come stringa
                     const totalBalanceValue = result.data.total_balance || result.data.totalBalance;
                     const totalBalance = parseFloat(totalBalanceValue || 1000);
-                    
+
                     console.log(`[TOTAL-BALANCE] Caricato dal database: $${totalBalance.toFixed(2)} (raw: ${totalBalanceValue})`);
                     setTotalBalanceFromSettings(totalBalance);
                 } else {
@@ -1054,9 +1058,9 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                 }
             }
         };
-        
+
         fetchTotalBalance();
-        
+
         // ✅ Ascolta eventi di aggiornamento da GeneralSettings
         const handleTotalBalanceUpdate = (event) => {
             const newValue = event.detail?.totalBalance;
@@ -1065,9 +1069,9 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                 setTotalBalanceFromSettings(newValue);
             }
         };
-        
+
         window.addEventListener('totalBalanceUpdated', handleTotalBalanceUpdate);
-        
+
         // Aggiorna ogni 5 secondi per sincronizzare con database
         const interval = setInterval(fetchTotalBalance, 5000);
         return () => {
@@ -1075,7 +1079,7 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
             window.removeEventListener('totalBalanceUpdated', handleTotalBalanceUpdate);
         };
     }, [apiBase, getAuthHeader]);
-    
+
     // Total Balance = Valore dal database (semplice!)
     const totalBalance = totalBalanceFromSettings;
 
