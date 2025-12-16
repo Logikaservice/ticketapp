@@ -840,26 +840,7 @@ const cryptoRoutes = require('./routes/cryptoRoutes');
 // Pass Socket.io instance to crypto routes for real-time notifications
 cryptoRoutes.setSocketIO(io);
 
-// ✅ IMPORTANTE: Route pubbliche per general-settings DEVE essere PRIMA di TUTTI gli altri middleware /api
-// Queste route devono essere accessibili senza autenticazione
-app.get('/api/crypto/general-settings', async (req, res) => {
-  console.log('✅ [ROUTE-PUBBLICA] GET /api/crypto/general-settings raggiunta!');
-  try {
-    const { dbAll } = require('./crypto_db_postgresql');
-    const settings = await dbAll("SELECT setting_key, setting_value FROM general_settings");
-    const settingsObj = {};
-    settings.forEach(s => {
-      settingsObj[s.setting_key] = s.setting_value;
-    });
-    if (settingsObj.total_balance) {
-      console.log(`📊 [GENERAL-SETTINGS] GET - Total Balance: $${parseFloat(settingsObj.total_balance || 0).toFixed(2)}`);
-    }
-    res.json(settingsObj);
-  } catch (err) {
-    console.error('❌ Error getting general settings:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
+
 
 // ✅ Routes are now handled inside cryptoRoutes.js
 // Access via /api/crypto/general-settings
