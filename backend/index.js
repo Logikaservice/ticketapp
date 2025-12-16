@@ -805,6 +805,15 @@ app.post('/api/logout', async (req, res) => {
 // Importa middleware di autenticazione
 const { authenticateToken, requireRole } = require('./middleware/authMiddleware');
 
+// ✅ Middleware per bypassare autenticazione per route specifiche crypto
+const cryptoPublicRoutes = ['/api/crypto/general-settings'];
+const bypassAuthForCrypto = (req, res, next) => {
+  if (cryptoPublicRoutes.includes(req.path)) {
+    return next(); // Bypassa autenticazione per queste route
+  }
+  authenticateToken(req, res, next); // Altrimenti richiedi autenticazione
+};
+
 // --- IMPORTA LE ROUTES ---
 const usersRoutes = require('./routes/users')(pool);
 const ticketsRoutes = require('./routes/tickets')(pool, uploadTicketPhotos, uploadOffertaDocs, io);
@@ -1454,8 +1463,18 @@ app.use('/api/users', authenticateToken, usersRoutes);
 app.use('/api/tickets', authenticateToken, ticketsRoutes);
 app.use('/api/alerts', authenticateToken, alertsRoutes);
 app.use('/api/keepass', authenticateToken, keepassRoutes);
-app.use('/api', authenticateToken, googleCalendarRoutes);
-app.use('/api', authenticateToken, googleAuthRoutes);
+// Route Google Calendar e Auth con autenticazione
+// ✅ FIX: Usa middleware che bypassa autenticazione solo per route crypto pubbliche
+app.use('/api', (req, res, next) => {
+  // Bypassa autenticazione per route pubbliche crypto
+  if (req.path.startsWith('/crypto/general-settings')) {
+    return next(); // Salta autenticazione per general-settings
+  }
+  // Richiedi autenticazione per tutte le altre route /api/*
+  authenticateToken(req, res, next);
+});
+app.use('/api', googleCalendarRoutes);
+app.use('/api', googleAuthRoutes);
 app.use('/api/email', authenticateToken, emailNotificationsRoutes);
 app.use('/api/availability', authenticateToken, availabilityRoutes);
 app.use('/api/analytics', authenticateToken, requireRole('tecnico'), analyticsRoutes);
