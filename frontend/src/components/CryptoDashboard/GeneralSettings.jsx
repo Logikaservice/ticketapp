@@ -22,6 +22,9 @@ const GeneralSettings = ({
         totalBalance: 1000 // ✅ Total Balance impostato manualmente
     });
 
+    const [isInitialLoad, setIsInitialLoad] = React.useState(true);
+    const prevTotalBalanceRef = React.useRef(null);
+
     // Load settings from database and localStorage on mount
     useEffect(() => {
         const loadSettings = async () => {
@@ -36,9 +39,11 @@ const GeneralSettings = ({
                 if (response.ok) {
                     const data = await response.json();
                     if (data.total_balance) {
+                        const loadedValue = parseFloat(data.total_balance) || 1000;
+                        prevTotalBalanceRef.current = loadedValue;
                         setSettings(prev => ({
                             ...prev,
-                            totalBalance: parseFloat(data.total_balance) || 1000
+                            totalBalance: loadedValue
                         }));
                     }
                 }
@@ -60,6 +65,8 @@ const GeneralSettings = ({
                 cryptoSounds.setEnabled(parsed.soundEnabled);
                 cryptoSounds.setVolume(parsed.soundVolume / 100);
             }
+            
+            setIsInitialLoad(false);
         };
         
         if (isOpen) {
@@ -67,25 +74,32 @@ const GeneralSettings = ({
         }
     }, [isOpen, apiBase, getAuthHeader]);
 
-    // Save settings to localStorage and database whenever they change
+    // Save Total Balance nel database solo quando cambia (non al primo caricamento)
     useEffect(() => {
+        // Non salvare durante il caricamento iniziale o se il valore non è cambiato
+        if (isInitialLoad || prevTotalBalanceRef.current === settings.totalBalance) {
+            return;
+        }
+
         // Salva Total Balance nel database
-        if (settings.totalBalance !== undefined) {
+        if (settings.totalBalance !== undefined && settings.totalBalance !== null) {
+            const valueToSave = settings.totalBalance;
+            prevTotalBalanceRef.current = valueToSave;
+            
             fetch(`${apiBase || ''}/api/crypto/general-settings`, {
                 method: 'PUT',
                 headers: {
                     ...getAuthHeader(),
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ totalBalance: settings.totalBalance })
+                body: JSON.stringify({ totalBalance: valueToSave })
             })
             .then(async (response) => {
                 if (response.ok) {
-                    console.log(`[TOTAL-BALANCE] Salvato nel database: $${settings.totalBalance.toFixed(2)}`);
+                    console.log(`[TOTAL-BALANCE] Salvato nel database: $${valueToSave.toFixed(2)}`);
                     // ✅ Notifica il dashboard principale che il valore è cambiato
-                    // Dispatches a custom event che il dashboard può ascoltare
                     window.dispatchEvent(new CustomEvent('totalBalanceUpdated', { 
-                        detail: { totalBalance: settings.totalBalance } 
+                        detail: { totalBalance: valueToSave } 
                     }));
                 } else {
                     const errorText = await response.text();
@@ -96,7 +110,10 @@ const GeneralSettings = ({
                 console.error('[TOTAL-BALANCE] Errore salvataggio nel database:', error);
             });
         }
-        
+    }, [settings.totalBalance, isInitialLoad, apiBase, getAuthHeader]);
+
+    // Save other settings to localStorage whenever they change (but not totalBalance)
+    useEffect(() => {
         // Salva altre impostazioni in localStorage (escluso totalBalance)
         const { totalBalance, ...localStorageSettings } = settings;
         localStorage.setItem('crypto_general_settings', JSON.stringify(localStorageSettings));
@@ -104,7 +121,7 @@ const GeneralSettings = ({
         // Apply sound settings
         cryptoSounds.setEnabled(settings.soundEnabled);
         cryptoSounds.setVolume(settings.soundVolume / 100);
-    }, [settings, apiBase, getAuthHeader]);
+    }, [settings.emailNotifications, settings.soundEnabled, settings.soundVolume, settings.autoRefreshInterval, settings.showTradeHistory, settings.darkMode]);
 
     const updateSetting = (key, value) => {
         setSettings(prev => ({ ...prev, [key]: value }));
