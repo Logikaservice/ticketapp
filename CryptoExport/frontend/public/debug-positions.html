@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Positions - Visualizzatore</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 15px;
+            transition: all 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .summary-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .stat:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .stat-value.good {
+            color: #10b981;
+        }
+
+        .stat-value.bad {
+            color: #ef4444;
+        }
+
+        .message {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .message.success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .message.warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+        }
+
+        .positions-grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        .position-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .position-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f3f4f6;
+        }
+
+        .position-symbol {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .position-type {
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .position-type.buy {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .position-type.sell {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .bot-version {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .bot-version.new {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .bot-version.old {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+
+        .position-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .detail-item {
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 8px;
+        }
+
+        .detail-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+
+        .detail-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #111827;
+        }
+
+        .detail-value.profit {
+            color: #10b981;
+        }
+
+        .detail-value.loss {
+            color: #ef4444;
+        }
+
+        .professional-data {
+            background: #f0f9ff;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .professional-data h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .filter-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .filter-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .filter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .filter-name {
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .filter-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .filter-status.ok {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .filter-status.warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .filter-details {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 18px;
+        }
+
+        .error {
+            background: #fee2e2;
+            border: 2px solid #ef4444;
+            border-radius: 12px;
+            padding: 20px;
+            color: #991b1b;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Debug Positions - Verifica Filtri Professionali</h1>
+            <p class="subtitle">Controlla se il bot nuovo con filtri professionali è attivo</p>
+            <button class="refresh-btn" onclick="loadData()">🔄 Aggiorna Dati</button>
+        </div>
+
+        <div id="content">
+            <div class="loading">⏳ Caricamento dati...</div>
+        </div>
+    </div>
+
+    <script>
+        async function loadData() {
+            const content = document.getElementById('content');
+            content.innerHTML = '<div class="loading">⏳ Caricamento dati...</div>';
+
+            try {
+                const response = await fetch('/api/crypto/debug-positions');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                renderData(data);
+            } catch (error) {
+                content.innerHTML = `
+                    <div class="error">
+                        <h3>❌ Errore di Caricamento</h3>
+                        <p>${error.message}</p>
+                        <p>Assicurati che il backend sia in esecuzione e che l'endpoint /api/crypto/debug-positions sia disponibile.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderData(data) {
+            const content = document.getElementById('content');
+            
+            let html = '';
+
+            // Message
+            const messageClass = data.message.includes('✅') ? 'success' : 'warning';
+            html += `<div class="message ${messageClass}">${data.message}</div>`;
+
+            // Summary
+            html += '<div class="summary">';
+            html += `
+                <div class="summary-card">
+                    <h3>📊 Posizioni Aperte</h3>
+                    <div class="stat">
+                        <span class="stat-label">Totale</span>
+                        <span class="stat-value">${data.summary.openPositions.total}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Con Filtri Professionali</span>
+                        <span class="stat-value good">${data.summary.openPositions.withProfessionalFilters}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Senza Filtri</span>
+                        <span class="stat-value bad">${data.summary.openPositions.withoutProfessionalFilters}</span>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <h3>📈 Posizioni Chiuse</h3>
+                    <div class="stat">
+                        <span class="stat-label">Totale</span>
+                        <span class="stat-value">${data.summary.closedPositions.total}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Con Filtri Professionali</span>
+                        <span class="stat-value good">${data.summary.closedPositions.withProfessionalFilters}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Senza Filtri</span>
+                        <span class="stat-value bad">${data.summary.closedPositions.withoutProfessionalFilters}</span>
+                    </div>
+                </div>
+            `;
+            html += '</div>';
+
+            // Open Positions
+            if (data.openPositions && data.openPositions.length > 0) {
+                html += '<h2 style="color: white; margin: 30px 0 20px 0;">📊 Posizioni Aperte</h2>';
+                html += '<div class="positions-grid">';
+                
+                data.openPositions.forEach(pos => {
+                    html += renderPosition(pos, false);
+                });
+                
+                html += '</div>';
+            }
+
+            // Closed Positions
+            if (data.closedPositions && data.closedPositions.length > 0) {
+                html += '<h2 style="color: white; margin: 30px 0 20px 0;">📈 Posizioni Chiuse Recenti</h2>';
+                html += '<div class="positions-grid">';
+                
+                data.closedPositions.forEach(pos => {
+                    html += renderPosition(pos, true);
+                });
+                
+                html += '</div>';
+            }
+
+            content.innerHTML = html;
+        }
+
+        function renderPosition(pos, isClosed) {
+            const profitClass = pos.profit_loss >= 0 ? 'profit' : 'loss';
+            const botClass = pos.hasProfessionalFilters ? 'new' : 'old';
+            
+            let html = '<div class="position-card">';
+            
+            // Header
+            html += `
+                <div class="position-header">
+                    <div class="position-symbol">${pos.symbol}</div>
+                    <div class="position-type ${pos.type}">${pos.type.toUpperCase()}</div>
+                </div>
+            `;
+
+            // Bot Version
+            html += `<div class="bot-version ${botClass}">${pos.botVersion}</div>`;
+
+            // Details
+            html += '<div class="position-details">';
+            html += `
+                <div class="detail-item">
+                    <div class="detail-label">Entry Price</div>
+                    <div class="detail-value">$${parseFloat(pos.entry_price).toFixed(2)}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">${isClosed ? 'Exit Price' : 'Current Price'}</div>
+                    <div class="detail-value">$${parseFloat(isClosed ? pos.exit_price : pos.current_price).toFixed(2)}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">P&L</div>
+                    <div class="detail-value ${profitClass}">$${parseFloat(pos.profit_loss).toFixed(2)} (${parseFloat(pos.profit_loss_pct).toFixed(2)}%)</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Opened</div>
+                    <div class="detail-value" style="font-size: 14px;">${new Date(pos.opened_at).toLocaleString('it-IT')}</div>
+                </div>
+            `;
+            
+            if (isClosed && pos.duration_minutes) {
+                html += `
+                    <div class="detail-item">
+                        <div class="detail-label">Duration</div>
+                        <div class="detail-value">${pos.duration_minutes} min</div>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+
+            // Professional Data
+            if (pos.professionalData) {
+                html += '<div class="professional-data">';
+                html += '<h4>🎯 Analisi Professionale</h4>';
+
+                if (pos.professionalData.momentumQuality) {
+                    const mq = pos.professionalData.momentumQuality;
+                    const status = mq.isHealthy ? 'ok' : 'warning';
+                    html += `
+                        <div class="filter-item">
+                            <div class="filter-header">
+                                <span class="filter-name">Momentum Quality</span>
+                                <span class="filter-status ${status}">${mq.score}/100</span>
+                            </div>
+                            <div class="filter-details">
+                                ${mq.isHealthy ? '✅ Healthy' : '⚠️ Unhealthy'}
+                                ${mq.warnings && mq.warnings.length > 0 ? '<br>' + mq.warnings.join('<br>') : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (pos.professionalData.reversalRisk) {
+                    const rr = pos.professionalData.reversalRisk;
+                    const status = rr.risk === 'low' ? 'ok' : 'warning';
+                    html += `
+                        <div class="filter-item">
+                            <div class="filter-header">
+                                <span class="filter-name">Reversal Risk</span>
+                                <span class="filter-status ${status}">${rr.risk.toUpperCase()} (${rr.score}/100)</span>
+                            </div>
+                            <div class="filter-details">
+                                ${rr.reasons ? rr.reasons.join('<br>') : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (pos.professionalData.marketStructure) {
+                    const ms = pos.professionalData.marketStructure;
+                    html += '<div class="filter-item">';
+                    html += '<div class="filter-header"><span class="filter-name">Market Structure</span></div>';
+                    html += '<div class="filter-details">';
+                    if (ms.nearestResistance) {
+                        html += `Resistance: $${ms.nearestResistance.price.toFixed(2)} (${(ms.nearestResistance.distance * 100).toFixed(2)}% away)<br>`;
+                    }
+                    if (ms.nearestSupport) {
+                        html += `Support: $${ms.nearestSupport.price.toFixed(2)} (${(ms.nearestSupport.distance * 100).toFixed(2)}% away)`;
+                    }
+                    html += '</div></div>';
+                }
+
+                if (pos.professionalData.riskReward) {
+                    const rr = pos.professionalData.riskReward;
+                    const status = rr.isAcceptable ? 'ok' : 'warning';
+                    html += `
+                        <div class="filter-item">
+                            <div class="filter-header">
+                                <span class="filter-name">Risk/Reward</span>
+                                <span class="filter-status ${status}">1:${rr.ratio.toFixed(2)}</span>
+                            </div>
+                            <div class="filter-details">
+                                ${rr.isAcceptable ? '✅ Acceptable (≥1:1.5)' : '⚠️ Poor (<1:1.5)'}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                html += '</div>';
+            }
+
+            html += '</div>';
+            return html;
+        }
+
+        // Load data on page load
+        loadData();
+    </script>
+</body>
+</html>

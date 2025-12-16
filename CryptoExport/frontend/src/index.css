@@ -1,0 +1,225 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Zoom globale 90% di default */
+/* Reset standard per html e body */
+html {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background-color: #f3f4f6; /* Spostato qui dal ::before */
+}
+
+#root {
+  height: 100%;
+  isolation: isolate; /* Crea un nuovo stacking context */
+}
+
+/* Classe per lo zoom del contenuto */
+.app-zoom-wrapper {
+  transform: scale(0.9);
+  transform-origin: top left;
+  width: 111.11%; /* 100 / 0.9 */
+  min-height: 111.11vh;
+}
+
+/* Animazione personalizzata per messaggi non letti */
+@keyframes pulse-slow {
+  0%, 100% {
+    border-color: rgb(250, 204, 21);
+    background-color: rgb(254, 249, 195);
+  }
+  50% {
+    border-color: rgb(234, 179, 8);
+    background-color: rgb(254, 243, 199);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s ease-in-out infinite;
+}
+
+/* Animazione fade-in per modal notifica */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Numero badge cambiato */
+.count-badge-changed {
+  color: #1d4ed8 !important;
+  font-weight: 900 !important;
+}
+
+/* ========================================== */
+/* AGGIUNTE PER MODALE MESSAGGI NON LETTI */
+/* ========================================== */
+
+/* Animazione fade-in per overlay modale */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Animazione slide-in per contenuto modale */
+@keyframes slideIn {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideIn {
+  animation: slideIn 0.4s ease-out;
+}
+
+/* ================================ */
+/*  Dashboard - Effetti Eleganti    */
+/* ================================ */
+@keyframes gradient-move {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.gradient-border {
+  background: linear-gradient(45deg, #ff0080, #ff8c00, #40e0d0, #7c3aed, #ff0080);
+  background-size: 400% 400%;
+  animation: gradient-move 6s linear infinite;
+  border-radius: 1rem; /* 16px */
+  padding: 2px;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes pulse-strong {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+.animate-pulse-strong {
+  animation: pulse-strong 2s ease-in-out infinite;
+}
+
+@keyframes arrow-slide {
+  0%, 100% { transform: translateX(0); opacity: .5; }
+  50% { transform: translateX(6px); opacity: 1; }
+}
+
+.animate-arrow-slide { animation: arrow-slide 1.2s ease-in-out infinite; }
+
+/* Frecce rimosse */
+
+
+/* Soft ring pulse around cards */
+@keyframes ringPulseGreen {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  50% { box-shadow: 0 0 0 18px rgba(34, 197, 94, 0.28); }
+}
+
+@keyframes ringPulseRed {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  50% { box-shadow: 0 0 0 18px rgba(239, 68, 68, 0.28); }
+}
+
+.ring-pulse-green {}
+.ring-pulse-red {}
+
+/* Slide out left animation for dashboard hide */
+@keyframes slideOutLeft {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(-24px); }
+}
+.animate-slideOutLeft { animation: slideOutLeft 0.35s ease forwards; }
+
+/* Slide in right animation */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.animate-slideInRight { animation: slideInRight 0.35s ease forwards; }
+
+/* ================================ */
+/*  Card Dashboard - Miglioramenti */
+/* ================================ */
+
+/* Bordi superiori colorati per stati */
+.border-top-blue { border-top: 3px solid #2563eb; }
+.border-top-yellow { border-top: 3px solid #f59e0b; }
+.border-top-green { border-top: 3px solid #10b981; }
+.border-top-gray { border-top: 3px solid #6b7280; }
+.border-top-indigo { border-top: 3px solid #6366f1; }
+.border-top-purple { border-top: 3px solid #8b5cf6; }
+.border-top-teal { border-top: 3px solid #14b8a6; }
+.border-top-emerald { border-top: 3px solid #10b981; }
+.border-top-cyan { border-top: 3px solid #06b6d4; }
+.border-top-amber { border-top: 3px solid #f59e0b; }
+.border-top-orange { border-top: 3px solid #f97316; }
+.border-top-sky { border-top: 3px solid #0ea5e9; }
+
+/* Background molto chiaro per card stati (appena visibile) */
+.bg-emerald-very-light { background-color: rgba(16, 185, 129, 0.05); }
+.bg-cyan-very-light { background-color: rgba(6, 182, 212, 0.05); }
+.bg-sky-very-light { background-color: rgba(14, 165, 233, 0.05); }
+.bg-purple-very-light { background-color: rgba(139, 92, 246, 0.05); }
+.bg-indigo-very-light { background-color: rgba(99, 102, 241, 0.05); }
+.bg-amber-very-light { background-color: rgba(245, 158, 11, 0.05); }
+.bg-blue-very-light { background-color: rgba(37, 99, 235, 0.05); }
+.bg-orange-very-light { background-color: rgba(249, 115, 22, 0.05); }
+
+/* Background gradient leggero per profondità (ripristinato) */
+.bg-gradient-blue { background: linear-gradient(to bottom, rgba(37, 99, 235, 0.03), rgba(37, 99, 235, 0.01)); }
+.bg-gradient-yellow { background: linear-gradient(to bottom, rgba(245, 158, 11, 0.03), rgba(245, 158, 11, 0.01)); }
+.bg-gradient-green { background: linear-gradient(to bottom, rgba(16, 185, 129, 0.03), rgba(16, 185, 129, 0.01)); }
+.bg-gradient-gray { background: linear-gradient(to bottom, rgba(107, 114, 128, 0.03), rgba(107, 114, 128, 0.01)); }
+.bg-gradient-indigo { background: linear-gradient(to bottom, rgba(99, 102, 241, 0.03), rgba(99, 102, 241, 0.01)); }
+.bg-gradient-purple { background: linear-gradient(to bottom, rgba(139, 92, 246, 0.03), rgba(139, 92, 246, 0.01)); }
+.bg-gradient-teal { background: linear-gradient(to bottom, rgba(20, 184, 166, 0.03), rgba(20, 184, 166, 0.01)); }
+.bg-gradient-emerald { background: linear-gradient(to bottom, rgba(16, 185, 129, 0.03), rgba(16, 185, 129, 0.01)); }
+.bg-gradient-cyan { background: linear-gradient(to bottom, rgba(6, 182, 212, 0.03), rgba(6, 182, 212, 0.01)); }
+.bg-gradient-amber { background: linear-gradient(to bottom, rgba(245, 158, 11, 0.03), rgba(245, 158, 11, 0.01)); }
+.bg-gradient-orange { background: linear-gradient(to bottom, rgba(249, 115, 22, 0.03), rgba(249, 115, 22, 0.01)); }
+.bg-gradient-sky { background: linear-gradient(to bottom, rgba(14, 165, 233, 0.03), rgba(14, 165, 233, 0.01)); }
+
+/* Effetto hover per card */
+.card-hover {
+  transition: all 0.3s ease;
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+}
