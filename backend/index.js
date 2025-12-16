@@ -840,54 +840,7 @@ const cryptoRoutes = require('./routes/cryptoRoutes');
 // Pass Socket.io instance to crypto routes for real-time notifications
 cryptoRoutes.setSocketIO(io);
 
-// ✅ IMPORTANTE: Route pubbliche per general-settings DEVE essere PRIMA di TUTTI gli altri middleware /api
-// Queste route devono essere accessibili senza autenticazione
-app.get('/api/crypto/general-settings', async (req, res) => {
-  console.log('✅ [ROUTE-PUBBLICA] GET /api/crypto/general-settings raggiunta!');
-  try {
-    const { dbAll } = require('./crypto_db_postgresql');
-    const settings = await dbAll("SELECT setting_key, setting_value FROM general_settings");
-    const settingsObj = {};
-    settings.forEach(s => {
-      settingsObj[s.setting_key] = s.setting_value;
-    });
-    if (settingsObj.total_balance) {
-      console.log(`📊 [GENERAL-SETTINGS] GET - Total Balance: $${parseFloat(settingsObj.total_balance || 0).toFixed(2)}`);
-    }
-    res.json(settingsObj);
-  } catch (err) {
-    console.error('❌ Error getting general settings:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.put('/api/crypto/general-settings', async (req, res) => {
-  console.log('✅ [ROUTE-PUBBLICA] PUT /api/crypto/general-settings raggiunta!');
-  try {
-    const { totalBalance } = req.body;
-    if (totalBalance !== undefined) {
-      const { dbGet, dbRun } = require('./crypto_db_postgresql');
-      const valueToSave = totalBalance.toString();
-      console.log(`💾 [GENERAL-SETTINGS] PUT - Ricevuto totalBalance: ${totalBalance}, salvo come: "${valueToSave}"`);
-      await dbRun(
-        `INSERT INTO general_settings (setting_key, setting_value, updated_at)
-         VALUES ('total_balance', $1, NOW())
-         ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1, updated_at = NOW()`,
-        [valueToSave]
-      );
-      const verify = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'");
-      const savedValue = parseFloat(verify?.setting_value || 0);
-      console.log(`✅ [GENERAL-SETTINGS] Total Balance salvato: $${savedValue.toFixed(2)}`);
-    }
-    res.json({ success: true });
-  } catch (err) {
-    console.error('❌ Error updating general settings:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ✅ IMPORTANTE: Monta /api/crypto DOPO le route pubbliche specifiche
-// Le route in cryptoRoutes.js che sono già definite verranno ignorate se abbiamo già definito le route pubbliche sopra
+// ✅ IMPORTANTE: Monta /api/crypto (le route general-settings sono in cryptoRoutes.js)
 app.use('/api/crypto', cryptoRoutes);
 
 // ✅ Endpoint pubblico per Total Balance (FUORI da /api/ per evitare middleware globali)
