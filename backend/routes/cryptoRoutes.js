@@ -731,55 +731,9 @@ router.post('/debug/update', async (req, res) => {
     }
 });
 
-// GET /api/crypto/general-settings - Get general settings (Total Balance, etc.)
-router.get('/general-settings', async (req, res) => {
-    try {
-        const settings = await dbAll("SELECT setting_key, setting_value FROM general_settings");
-        const settingsObj = {};
-        settings.forEach(s => {
-            settingsObj[s.setting_key] = s.setting_value;
-        });
-
-        // ✅ DEBUG: Log per verificare cosa viene restituito
-        if (settingsObj.total_balance) {
-            console.log(`📊 [GENERAL-SETTINGS] GET - Total Balance: $${parseFloat(settingsObj.total_balance || 0).toFixed(2)} (raw: "${settingsObj.total_balance}")`);
-        }
-
-        res.json(settingsObj);
-    } catch (err) {
-        console.error('❌ Error getting general settings:', err.message);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// PUT /api/crypto/general-settings - Update general settings
-router.put('/general-settings', async (req, res) => {
-    try {
-        const { totalBalance } = req.body;
-
-        if (totalBalance !== undefined) {
-            const valueToSave = totalBalance.toString();
-            console.log(`💾 [GENERAL-SETTINGS] PUT - Ricevuto totalBalance: ${totalBalance} (tipo: ${typeof totalBalance}), salvo come: "${valueToSave}"`);
-
-            await dbRun(
-                `INSERT INTO general_settings (setting_key, setting_value, updated_at)
-                 VALUES ('total_balance', $1, NOW())
-                 ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1, updated_at = NOW()`,
-                [valueToSave]
-            );
-
-            // ✅ Verifica che sia stato salvato correttamente
-            const verify = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'");
-            const savedValue = parseFloat(verify?.setting_value || 0);
-            console.log(`✅ [GENERAL-SETTINGS] Total Balance salvato: $${savedValue.toFixed(2)} (verificato nel DB)`);
-        }
-
-        res.json({ success: true });
-    } catch (err) {
-        console.error('❌ Error updating general settings:', err.message);
-        res.status(500).json({ error: err.message });
-    }
-});
+// ✅ RIMOSSO: Route general-settings spostate in index.js come route pubbliche
+// Le route general-settings sono ora definite in backend/index.js (righe 845-887)
+// per essere accessibili senza autenticazione
 
 // GET /api/crypto/dashboard
 router.get('/dashboard', async (req, res) => {
@@ -1231,6 +1185,15 @@ router.post('/reset', async (req, res) => {
         // 4. Reset portfolio a valore custom (default 250 se non specificato o se reset normale)
         const newBalance = (initial_balance && !isNaN(parseFloat(initial_balance))) ? parseFloat(initial_balance) : 250;
         await dbRun("UPDATE portfolio SET balance_usd = $1, holdings = '{}' WHERE id = 1", [newBalance]);
+
+        // ✅ FIX: Sync with general_settings "total_balance"
+        await dbRun(
+            `INSERT INTO general_settings (setting_key, setting_value, updated_at)
+             VALUES ('total_balance', $1, NOW())
+             ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1, updated_at = NOW()`,
+            [newBalance.toString()]
+        );
+        console.log(`✅ [RESET] Sincronizzato general_settings.total_balance a $${newBalance}`);
 
         // 5. Reset Kelly Criterion Stats (Performance Stats)
         await dbRun("DELETE FROM performance_stats");
@@ -9480,7 +9443,7 @@ router.get('/bot-analysis', async (req, res) => {
             meta: {
                 timestamp: new Date().toISOString(),
                 symbol: symbol,
-                display_symbol: s.display || symbol.toUpperCase().replace('_', '/'),
+                display_symbol: symbol.toUpperCase().replace('_', '/'),
                 data_quality: historyForSignal.length >= 100 ? 'high' : (historyForSignal.length >= 50 ? 'medium' : 'low')
             },
             currentPrice: Number(currentPrice), // Ensure number

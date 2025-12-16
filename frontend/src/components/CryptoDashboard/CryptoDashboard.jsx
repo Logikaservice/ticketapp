@@ -460,7 +460,8 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                 alert(result.data.message || 'Portfolio resettato completamente!');
 
                 // ✅ FIX: Aggiorna immediatamente il balance visualizzato
-                setTotalBalanceFromSettings(initialBalance);
+                // ✅ FIX: Aggiorna immediatamente il balance visualizzato
+                setPortfolio(prev => ({ ...prev, balance_usd: initialBalance }));
 
                 // Refresh data
                 fetchData();
@@ -612,7 +613,27 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
             clearInterval(dataInterval);
             clearInterval(historyInterval);
         };
+        return () => {
+            clearInterval(priceInterval);
+            clearInterval(dataInterval);
+            clearInterval(historyInterval);
+        };
     }, [currentSymbol]);
+
+    // ✅ FIX: Ascolta aggiornamenti del total balance da GeneralSettings
+    useEffect(() => {
+        const handleBalanceUpdate = (event) => {
+            if (event.detail && event.detail.totalBalance !== undefined) {
+                console.log('[DASHBOARD] Ricevuto aggiornamento balance:', event.detail.totalBalance);
+                setPortfolio(prev => ({ ...prev, balance_usd: event.detail.totalBalance }));
+            }
+        };
+
+        window.addEventListener('totalBalanceUpdated', handleBalanceUpdate);
+        return () => {
+            window.removeEventListener('totalBalanceUpdated', handleBalanceUpdate);
+        };
+    }, []);
 
     // Add/remove crypto-standalone class to body
     useEffect(() => {

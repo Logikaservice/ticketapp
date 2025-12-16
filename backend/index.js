@@ -802,52 +802,6 @@ app.post('/api/logout', async (req, res) => {
   res.json({ success: true });
 });
 
-// ✅ Route pubbliche per general-settings (PRIMA di qualsiasi altro middleware /api)
-// Queste route devono essere accessibili senza autenticazione
-app.get('/api/crypto/general-settings', async (req, res) => {
-  console.log('✅ [ROUTE-PUBBLICA] GET /api/crypto/general-settings raggiunta!');
-  try {
-    const { dbAll } = require('./crypto_db_postgresql');
-    const settings = await dbAll("SELECT setting_key, setting_value FROM general_settings");
-    const settingsObj = {};
-    settings.forEach(s => {
-      settingsObj[s.setting_key] = s.setting_value;
-    });
-    if (settingsObj.total_balance) {
-      console.log(`📊 [GENERAL-SETTINGS] GET - Total Balance: $${parseFloat(settingsObj.total_balance || 0).toFixed(2)}`);
-    }
-    res.json(settingsObj);
-  } catch (err) {
-    console.error('❌ Error getting general settings:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.put('/api/crypto/general-settings', async (req, res) => {
-  console.log('✅ [ROUTE-PUBBLICA] PUT /api/crypto/general-settings raggiunta!');
-  try {
-    const { totalBalance } = req.body;
-    if (totalBalance !== undefined) {
-      const { dbGet, dbRun } = require('./crypto_db_postgresql');
-      const valueToSave = totalBalance.toString();
-      console.log(`💾 [GENERAL-SETTINGS] PUT - Ricevuto totalBalance: ${totalBalance}, salvo come: "${valueToSave}"`);
-      await dbRun(
-        `INSERT INTO general_settings (setting_key, setting_value, updated_at)
-         VALUES ('total_balance', $1, NOW())
-         ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1, updated_at = NOW()`,
-        [valueToSave]
-      );
-      const verify = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'");
-      const savedValue = parseFloat(verify?.setting_value || 0);
-      console.log(`✅ [GENERAL-SETTINGS] Total Balance salvato: $${savedValue.toFixed(2)}`);
-    }
-    res.json({ success: true });
-  } catch (err) {
-    console.error('❌ Error updating general settings:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // Importa middleware di autenticazione
 const { authenticateToken, requireRole } = require('./middleware/authMiddleware');
 
@@ -886,7 +840,60 @@ const cryptoRoutes = require('./routes/cryptoRoutes');
 // Pass Socket.io instance to crypto routes for real-time notifications
 cryptoRoutes.setSocketIO(io);
 
-// ✅ IMPORTANTE: Monta /api/crypto (le route general-settings sono già definite sopra come pubbliche)
+// ✅ IMPORTANTE: Route pubbliche per general-settings DEVE essere PRIMA di TUTTI gli altri middleware /api
+// Queste route devono essere accessibili senza autenticazione
+app.get('/api/crypto/general-settings', async (req, res) => {
+  console.log('✅ [ROUTE-PUBBLICA] GET /api/crypto/general-settings raggiunta!');
+  try {
+    const { dbAll } = require('./crypto_db_postgresql');
+    const settings = await dbAll("SELECT setting_key, setting_value FROM general_settings");
+    const settingsObj = {};
+    settings.forEach(s => {
+      settingsObj[s.setting_key] = s.setting_value;
+    });
+    if (settingsObj.total_balance) {
+      console.log(`📊 [GENERAL-SETTINGS] GET - Total Balance: $${parseFloat(settingsObj.total_balance || 0).toFixed(2)}`);
+    }
+    res.json(settingsObj);
+  } catch (err) {
+    console.error('❌ Error getting general settings:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/crypto/general-settings', async (req, res) => {
+  console.log('✅ [ROUTE-PUBBLICA] PUT /api/crypto/general-settings raggiunta!');
+  try {
+    const { totalBalance } = req.body;
+    if (totalBalance !== undefined) {
+      const { dbGet, dbRun } = require('./crypto_db_postgresql');
+      const valueToSave = totalBalance.toString();
+      console.log(`💾 [GENERAL-SETTINGS] PUT - Ricevuto totalBalance: ${totalBalance}, salvo come: "${valueToSave}"`);
+      await dbRun(
+        `INSERT INTO general_settings (setting_key, setting_value, updated_at)
+         VALUES ('total_balance', $1, NOW())
+         ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1, updated_at = NOW()`,
+        [valueToSave]
+      );
+      const verify = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'");
+      const savedValue = parseFloat(verify?.setting_value || 0);
+
+      // ✅ FIX: Sync with portfolio table immediately
+      await dbRun(
+        "UPDATE portfolio SET balance_usd = $1 WHERE id = 1",
+        [savedValue]
+      );
+      console.log(`✅ [GENERAL-SETTINGS] Total Balance salvato e sincronizzato con Portfolio: $${savedValue.toFixed(2)}`);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Error updating general settings:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ✅ IMPORTANTE: Monta /api/crypto DOPO le route pubbliche specifiche
+// Le route in cryptoRoutes.js che sono già definite verranno ignorate se abbiamo già definito le route pubbliche sopra
 app.use('/api/crypto', cryptoRoutes);
 
 // ✅ Endpoint pubblico per Total Balance (FUORI da /api/ per evitare middleware globali)
@@ -896,7 +903,7 @@ app.get('/public-total-balance', async (req, res) => {
     const portfolio = await dbGet("SELECT balance_usd FROM portfolio WHERE id = 1");
     const totalBalance = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'").catch(() => ({ setting_value: null }));
     const openPositions = await dbAll("SELECT COUNT(*) as count, COALESCE(SUM(profit_loss), 0) as total_pnl FROM open_positions WHERE status = 'open'");
-    
+
     res.json({
       success: true,
       data: {
@@ -1464,17 +1471,22 @@ app.use('/api/users', authenticateToken, usersRoutes);
 app.use('/api/tickets', authenticateToken, ticketsRoutes);
 app.use('/api/alerts', authenticateToken, alertsRoutes);
 app.use('/api/keepass', authenticateToken, keepassRoutes);
-// Route Google Calendar e Auth con autenticazione (solo per route specifiche)
-// ✅ FIX: Non usare middleware globale /api, ma solo per route specifiche
-app.use('/api/sync-google-calendar', authenticateToken, googleCalendarRoutes);
-app.use('/api/disable-calendar-notifications', authenticateToken, googleCalendarRoutes);
-app.use('/api/force-update-permissions', authenticateToken, googleCalendarRoutes);
-app.use('/api/share-calendar-with-client', authenticateToken, googleCalendarRoutes);
-app.use('/api/bulk-sync-google-calendar', authenticateToken, googleCalendarRoutes);
-app.use('/api/sync-missing-interventi', authenticateToken, googleCalendarRoutes);
-app.use('/api/resync-tickets-to-original-date', authenticateToken, googleCalendarRoutes);
-app.use('/api/update-interventi-format', authenticateToken, googleCalendarRoutes);
-app.use('/api/google-auth', authenticateToken, googleAuthRoutes);
+// Route Google Calendar e Auth con autenticazione
+// ✅ FIX: Usa middleware che bypassa autenticazione solo per route crypto pubbliche
+app.use('/api', (req, res, next) => {
+  // req.path include il path completo relativo al mount point (/api)
+  // Quindi per /api/crypto/general-settings, req.path sarà /crypto/general-settings
+  console.log(`[MIDDLEWARE-AUTH] Path: ${req.path}, Method: ${req.method}`);
+  if (req.path === '/crypto/general-settings') {
+    console.log(`[MIDDLEWARE-AUTH] Bypassa autenticazione per ${req.path}`);
+    return next(); // Salta autenticazione per general-settings
+  }
+  // Richiedi autenticazione per tutte le altre route /api/*
+  console.log(`[MIDDLEWARE-AUTH] Richiede autenticazione per ${req.path}`);
+  authenticateToken(req, res, next);
+});
+app.use('/api', googleCalendarRoutes);
+app.use('/api', googleAuthRoutes);
 app.use('/api/email', authenticateToken, emailNotificationsRoutes);
 app.use('/api/availability', authenticateToken, availabilityRoutes);
 app.use('/api/analytics', authenticateToken, requireRole('tecnico'), analyticsRoutes);
