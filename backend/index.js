@@ -802,45 +802,7 @@ app.post('/api/logout', async (req, res) => {
   res.json({ success: true });
 });
 
-// Importa middleware di autenticazione
-const { authenticateToken, requireRole } = require('./middleware/authMiddleware');
-
-// ✅ Middleware per bypassare autenticazione per route specifiche crypto
-const cryptoPublicRoutes = ['/api/crypto/general-settings'];
-const bypassAuthForCrypto = (req, res, next) => {
-  if (cryptoPublicRoutes.includes(req.path)) {
-    return next(); // Bypassa autenticazione per queste route
-  }
-  authenticateToken(req, res, next); // Altrimenti richiedi autenticazione
-};
-
-// --- IMPORTA LE ROUTES ---
-const usersRoutes = require('./routes/users')(pool);
-const ticketsRoutes = require('./routes/tickets')(pool, uploadTicketPhotos, uploadOffertaDocs, io);
-const alertsRoutes = require('./routes/alerts')(pool);
-const googleCalendarRoutes = require('./routes/googleCalendar')(pool);
-const googleAuthRoutes = require('./routes/googleAuth')(pool);
-const emailNotificationsRoutes = require('./routes/emailNotifications')(pool);
-const tempLoginRoutes = require('./routes/tempLogin')(pool);
-const availabilityRoutes = require('./routes/availability')(pool);
-const keepassRoutes = require('./routes/keepass')(pool);
-const analyticsRoutes = require('./routes/analytics')(pool);
-const accessLogsRoutes = require('./routes/accessLogs')(pool);
-// Route per Orari e Turni (usa stesso pool ma tabella separata orari_data)
-const orariRoutes = require('./routes/orari')(pool);
-
-// Route per Vivaldi (database separato) - solo se pool disponibile
-const vivaldiRoutes = poolVivaldi ? require('./routes/vivaldi')(poolVivaldi) : null;
-const packvisionRoutes = require('./routes/packvision')(poolPackVision, io);
-
-app.use('/api/packvision', packvisionRoutes);
-
-// Route per Crypto Dashboard (database SQLite separato)
-const cryptoRoutes = require('./routes/cryptoRoutes');
-// Pass Socket.io instance to crypto routes for real-time notifications
-cryptoRoutes.setSocketIO(io);
-
-// ✅ Route pubbliche per general-settings (PRIMA di app.use('/api/crypto', ...))
+// ✅ Route pubbliche per general-settings (PRIMA di qualsiasi altro middleware /api)
 // Queste route devono essere accessibili senza autenticazione
 app.get('/api/crypto/general-settings', async (req, res) => {
   console.log('✅ [ROUTE-PUBBLICA] GET /api/crypto/general-settings raggiunta!');
@@ -886,16 +848,46 @@ app.put('/api/crypto/general-settings', async (req, res) => {
   }
 });
 
-// ✅ IMPORTANTE: Monta /api/crypto DOPO le route pubbliche specifiche
-// Bypassa le route general-settings che sono già definite sopra come pubbliche
-app.use('/api/crypto', (req, res, next) => {
-  // Se è la route general-settings, passa al prossimo handler (che è la route pubblica sopra)
-  if (req.path === '/general-settings') {
-    return next('route'); // 'route' fa saltare questo router e passa al prossimo handler
+// Importa middleware di autenticazione
+const { authenticateToken, requireRole } = require('./middleware/authMiddleware');
+
+// ✅ Middleware per bypassare autenticazione per route specifiche crypto
+const cryptoPublicRoutes = ['/api/crypto/general-settings'];
+const bypassAuthForCrypto = (req, res, next) => {
+  if (cryptoPublicRoutes.includes(req.path)) {
+    return next(); // Bypassa autenticazione per queste route
   }
-  // Altrimenti passa al router cryptoRoutes
-  next();
-}, cryptoRoutes);
+  authenticateToken(req, res, next); // Altrimenti richiedi autenticazione
+};
+
+// --- IMPORTA LE ROUTES ---
+const usersRoutes = require('./routes/users')(pool);
+const ticketsRoutes = require('./routes/tickets')(pool, uploadTicketPhotos, uploadOffertaDocs, io);
+const alertsRoutes = require('./routes/alerts')(pool);
+const googleCalendarRoutes = require('./routes/googleCalendar')(pool);
+const googleAuthRoutes = require('./routes/googleAuth')(pool);
+const emailNotificationsRoutes = require('./routes/emailNotifications')(pool);
+const tempLoginRoutes = require('./routes/tempLogin')(pool);
+const availabilityRoutes = require('./routes/availability')(pool);
+const keepassRoutes = require('./routes/keepass')(pool);
+const analyticsRoutes = require('./routes/analytics')(pool);
+const accessLogsRoutes = require('./routes/accessLogs')(pool);
+// Route per Orari e Turni (usa stesso pool ma tabella separata orari_data)
+const orariRoutes = require('./routes/orari')(pool);
+
+// Route per Vivaldi (database separato) - solo se pool disponibile
+const vivaldiRoutes = poolVivaldi ? require('./routes/vivaldi')(poolVivaldi) : null;
+const packvisionRoutes = require('./routes/packvision')(poolPackVision, io);
+
+app.use('/api/packvision', packvisionRoutes);
+
+// Route per Crypto Dashboard (database SQLite separato)
+const cryptoRoutes = require('./routes/cryptoRoutes');
+// Pass Socket.io instance to crypto routes for real-time notifications
+cryptoRoutes.setSocketIO(io);
+
+// ✅ IMPORTANTE: Monta /api/crypto (le route general-settings sono già definite sopra come pubbliche)
+app.use('/api/crypto', cryptoRoutes);
 
 // ✅ Endpoint pubblico per Total Balance (FUORI da /api/ per evitare middleware globali)
 app.get('/public-total-balance', async (req, res) => {
