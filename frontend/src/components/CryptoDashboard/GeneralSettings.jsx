@@ -25,9 +25,20 @@ const GeneralSettings = ({
     const [isInitialLoad, setIsInitialLoad] = React.useState(true);
     const prevTotalBalanceRef = React.useRef(null);
 
+    // ✅ FIX: Ref per evitare loop infiniti
+    const hasAttemptedLoadRef = React.useRef(false);
+
     // Load settings from database and localStorage on mount
     useEffect(() => {
+        // Se abbiamo già tentato, non richiamare
+        if (hasAttemptedLoadRef.current) {
+            return;
+        }
+
         const loadSettings = async () => {
+            // Marca come tentato per evitare chiamate multiple
+            hasAttemptedLoadRef.current = true;
+
             // Carica Total Balance dal database
             try {
                 const response = await fetch(`${apiBase || ''}/api/crypto/general-settings`, {
@@ -46,6 +57,9 @@ const GeneralSettings = ({
                             totalBalance: loadedValue
                         }));
                     }
+                } else if (response.status === 404) {
+                    // ✅ FIX: Se 404, logga solo una volta e usa fallback
+                    console.warn('[GENERAL-SETTINGS] Endpoint non trovato (404) - uso fallback');
                 }
             } catch (error) {
                 console.error('Error loading total balance from database:', error);

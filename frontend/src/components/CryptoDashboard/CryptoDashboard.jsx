@@ -1032,9 +1032,20 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
     // ✅ TOTAL BALANCE: Prende solo il valore dal database (semplice e diretto)
     const [totalBalanceFromSettings, setTotalBalanceFromSettings] = useState(1000);
 
+    // ✅ FIX: Ref per evitare loop infiniti
+    const hasAttemptedLoadRef = React.useRef(false);
+
     // Carica Total Balance dal database
     useEffect(() => {
+        // Se abbiamo già tentato, non richiamare
+        if (hasAttemptedLoadRef.current) {
+            return;
+        }
+
         const fetchTotalBalance = async () => {
+            // Marca come tentato per evitare chiamate multiple
+            hasAttemptedLoadRef.current = true;
+
             try {
                 const result = await fetchJsonWithRetry(
                     `${apiBase}/api/crypto/general-settings`,
@@ -1046,8 +1057,8 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                         }
                     },
                     {
-                        maxRetries: 2,
-                        silent502: false
+                        maxRetries: 1, // ✅ Ridotto a 1 retry per evitare spam
+                        silent502: true // ✅ Silenzioso per 502
                     }
                 );
 
@@ -1059,7 +1070,26 @@ const CryptoDashboard = ({ getAuthHeader = () => ({}) }) => {
                     console.log(`[TOTAL-BALANCE] Caricato dal database: $${totalBalance.toFixed(2)} (raw: ${totalBalanceValue})`);
                     setTotalBalanceFromSettings(totalBalance);
                 } else {
-                    console.warn('[TOTAL-BALANCE] Risposta API non OK:', result);
+                    // ✅ FIX: Se 404, logga solo una volta e usa fallback
+                    if (result.status === 404) {
+                        console.warn('[TOTAL-BALANCE] Endpoint non trovato (404) - uso fallback');
+                    } else {
+                        console.warn('[TOTAL-BALANCE] Risposta API non OK:', result);
+                    }
+                    // Usa fallback anche in caso di errore
+                    const saved = localStorage.getItem('crypto_general_settings');
+                    if (saved) {
+                        try {
+                            const parsed = JSON.parse(saved);
+                            if (parsed.totalBalance !== undefined) {
+                                const fallbackValue = parseFloat(parsed.totalBalance) || 1000;
+                                console.log(`[TOTAL-BALANCE] Usato fallback localStorage: $${fallbackValue.toFixed(2)}`);
+                                setTotalBalanceFromSettings(fallbackValue);
+                            }
+                        } catch (e) {
+                            // Ignora errori
+                        }
+                    }
                 }
             } catch (error) {
                 console.error('[TOTAL-BALANCE] Errore caricamento dal database:', error);

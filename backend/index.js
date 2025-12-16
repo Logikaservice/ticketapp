@@ -845,8 +845,8 @@ cryptoRoutes.setSocketIO(io);
 // ✅ Routes are now handled inside cryptoRoutes.js
 // Access via /api/crypto/general-settings
 
-// ✅ IMPORTANTE: Monta /api/crypto DOPO le route pubbliche specifiche
-// Le route in cryptoRoutes.js che sono già definite verranno ignorate se abbiamo già definito le route pubbliche sopra
+// ✅ IMPORTANTE: Monta /api/crypto PRIMA del middleware di autenticazione globale
+// Questo garantisce che le route crypto (inclusa general-settings) siano accessibili
 app.use('/api/crypto', cryptoRoutes);
 
 // ✅ Endpoint pubblico per Total Balance (FUORI da /api/ per evitare middleware globali)
@@ -1425,17 +1425,19 @@ app.use('/api/tickets', authenticateToken, ticketsRoutes);
 app.use('/api/alerts', authenticateToken, alertsRoutes);
 app.use('/api/keepass', authenticateToken, keepassRoutes);
 // Route Google Calendar e Auth con autenticazione
-// ✅ FIX: Usa middleware che bypassa autenticazione solo per route crypto pubbliche
+// ✅ FIX: Middleware di autenticazione per route /api/* (escluso /api/crypto che è già gestito sopra)
 app.use('/api', (req, res, next) => {
   // req.path include il path completo relativo al mount point (/api)
-  // Quindi per /api/crypto/general-settings, req.path sarà /crypto/general-settings
-  console.log(`[MIDDLEWARE-AUTH] Path: ${req.path}, Method: ${req.method}`);
-  if (req.path === '/crypto/general-settings') {
-    console.log(`[MIDDLEWARE-AUTH] Bypassa autenticazione per ${req.path}`);
-    return next(); // Salta autenticazione per general-settings
+  // Se la richiesta è per /api/crypto/*, è già stata gestita dal router crypto sopra
+  // quindi questo middleware non dovrebbe essere chiamato per quelle route
+  // Ma per sicurezza, bypassiamo l'autenticazione per route crypto pubbliche
+  if (req.path.startsWith('/crypto/')) {
+    // Le route crypto sono già gestite dal router crypto montato sopra
+    // Se arriviamo qui, significa che la route non è stata matchata dal router crypto
+    // In questo caso, passiamo al prossimo middleware senza autenticazione
+    return next();
   }
   // Richiedi autenticazione per tutte le altre route /api/*
-  console.log(`[MIDDLEWARE-AUTH] Richiede autenticazione per ${req.path}`);
   authenticateToken(req, res, next);
 });
 app.use('/api', googleCalendarRoutes);

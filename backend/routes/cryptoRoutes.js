@@ -737,6 +737,7 @@ router.post('/debug/update', async (req, res) => {
 // ✅ FIX: Ripristinate route general-settings qui per garantire che siano raggiungibili
 // GET /api/crypto/general-settings
 router.get('/general-settings', async (req, res) => {
+    console.log('✅ [GENERAL-SETTINGS] Endpoint chiamato - GET /api/crypto/general-settings');
     try {
         const settings = await dbAll("SELECT setting_key, setting_value FROM general_settings");
         const settingsObj = {};
