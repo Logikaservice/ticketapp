@@ -1466,8 +1466,9 @@ app.use('/api/keepass', authenticateToken, keepassRoutes);
 // Route Google Calendar e Auth con autenticazione
 // ✅ FIX: Usa middleware che bypassa autenticazione solo per route crypto pubbliche
 app.use('/api', (req, res, next) => {
-  // Bypassa autenticazione per route pubbliche crypto
-  if (req.path.startsWith('/crypto/general-settings')) {
+  // req.path include il path completo relativo al mount point (/api)
+  // Quindi per /api/crypto/general-settings, req.path sarà /crypto/general-settings
+  if (req.path === '/crypto/general-settings') {
     return next(); // Salta autenticazione per general-settings
   }
   // Richiedi autenticazione per tutte le altre route /api/*
