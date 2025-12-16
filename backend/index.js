@@ -831,6 +831,34 @@ const cryptoRoutes = require('./routes/cryptoRoutes');
 // Pass Socket.io instance to crypto routes for real-time notifications
 cryptoRoutes.setSocketIO(io);
 
+// ✅ IMPORTANTE: Monta /api/crypto PRIMA delle altre route /api con autenticazione
+// per evitare che vengano intercettate dai middleware di autenticazione
+app.use('/api/crypto', cryptoRoutes);
+
+// ✅ Endpoint pubblico per Total Balance (FUORI da /api/ per evitare middleware globali)
+app.get('/public-total-balance', async (req, res) => {
+  try {
+    const { dbGet, dbAll } = require('./crypto_db_postgresql');
+    const portfolio = await dbGet("SELECT balance_usd FROM portfolio WHERE id = 1");
+    const totalBalance = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'").catch(() => ({ setting_value: null }));
+    const openPositions = await dbAll("SELECT COUNT(*) as count, COALESCE(SUM(profit_loss), 0) as total_pnl FROM open_positions WHERE status = 'open'");
+    
+    res.json({
+      success: true,
+      data: {
+        totalBalance: parseFloat(totalBalance?.setting_value || 0),
+        cash: parseFloat(portfolio?.balance_usd || 0),
+        openPositions: parseInt(openPositions[0]?.count || 0),
+        totalPnL: parseFloat(openPositions[0]?.total_pnl || 0)
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('❌ Error in /public-total-balance:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ✅ Endpoint pubblico system health (FUORI da /api/ per evitare middleware globali)
 app.get('/system-health', async (req, res) => {
   try {
@@ -926,8 +954,6 @@ app.post('/api/ai-db/update', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-app.use('/api/crypto', cryptoRoutes);
 
 // 🤖 Start Professional Trading Bot
 console.log('🤖 [INIT] Starting Professional Crypto Trading Bot...');
