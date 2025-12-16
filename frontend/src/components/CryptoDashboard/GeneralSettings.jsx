@@ -30,7 +30,7 @@ const GeneralSettings = ({
         const loadSettings = async () => {
             // Carica Total Balance dal database
             try {
-                const response = await fetch(`${apiBase || ''}/crypto/general-settings`, {
+                const response = await fetch(`${apiBase || ''}/api/crypto/general-settings`, {
                     headers: {
                         ...getAuthHeader(),
                         'Content-Type': 'application/json'
