@@ -1464,22 +1464,17 @@ app.use('/api/users', authenticateToken, usersRoutes);
 app.use('/api/tickets', authenticateToken, ticketsRoutes);
 app.use('/api/alerts', authenticateToken, alertsRoutes);
 app.use('/api/keepass', authenticateToken, keepassRoutes);
-// Route Google Calendar e Auth con autenticazione
-// ✅ FIX: Usa middleware che bypassa autenticazione solo per route crypto pubbliche
-app.use('/api', (req, res, next) => {
-  // req.path include il path completo relativo al mount point (/api)
-  // Quindi per /api/crypto/general-settings, req.path sarà /crypto/general-settings
-  console.log(`[MIDDLEWARE-AUTH] Path: ${req.path}, Method: ${req.method}`);
-  if (req.path === '/crypto/general-settings') {
-    console.log(`[MIDDLEWARE-AUTH] Bypassa autenticazione per ${req.path}`);
-    return next(); // Salta autenticazione per general-settings
-  }
-  // Richiedi autenticazione per tutte le altre route /api/*
-  console.log(`[MIDDLEWARE-AUTH] Richiede autenticazione per ${req.path}`);
-  authenticateToken(req, res, next);
-});
-app.use('/api', googleCalendarRoutes);
-app.use('/api', googleAuthRoutes);
+// Route Google Calendar e Auth con autenticazione (solo per route specifiche)
+// ✅ FIX: Non usare middleware globale /api, ma solo per route specifiche
+app.use('/api/sync-google-calendar', authenticateToken, googleCalendarRoutes);
+app.use('/api/disable-calendar-notifications', authenticateToken, googleCalendarRoutes);
+app.use('/api/force-update-permissions', authenticateToken, googleCalendarRoutes);
+app.use('/api/share-calendar-with-client', authenticateToken, googleCalendarRoutes);
+app.use('/api/bulk-sync-google-calendar', authenticateToken, googleCalendarRoutes);
+app.use('/api/sync-missing-interventi', authenticateToken, googleCalendarRoutes);
+app.use('/api/resync-tickets-to-original-date', authenticateToken, googleCalendarRoutes);
+app.use('/api/update-interventi-format', authenticateToken, googleCalendarRoutes);
+app.use('/api/google-auth', authenticateToken, googleAuthRoutes);
 app.use('/api/email', authenticateToken, emailNotificationsRoutes);
 app.use('/api/availability', authenticateToken, availabilityRoutes);
 app.use('/api/analytics', authenticateToken, requireRole('tecnico'), analyticsRoutes);
