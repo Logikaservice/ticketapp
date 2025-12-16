@@ -1468,10 +1468,13 @@ app.use('/api/keepass', authenticateToken, keepassRoutes);
 app.use('/api', (req, res, next) => {
   // req.path include il path completo relativo al mount point (/api)
   // Quindi per /api/crypto/general-settings, req.path sarà /crypto/general-settings
+  console.log(`[MIDDLEWARE-AUTH] Path: ${req.path}, Method: ${req.method}`);
   if (req.path === '/crypto/general-settings') {
+    console.log(`[MIDDLEWARE-AUTH] Bypassa autenticazione per ${req.path}`);
     return next(); // Salta autenticazione per general-settings
   }
   // Richiedi autenticazione per tutte le altre route /api/*
+  console.log(`[MIDDLEWARE-AUTH] Richiede autenticazione per ${req.path}`);
   authenticateToken(req, res, next);
 });
 app.use('/api', googleCalendarRoutes);
