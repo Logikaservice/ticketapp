@@ -50,19 +50,9 @@ echo -e "${GREEN}✅ Build verificato!${NC}"
 echo "Percorso build: $(pwd)/build"
 echo ""
 
-# 2. Salva il percorso assoluto del build
+# 2. Salva il percorso assoluto del build (siamo ancora in frontend/)
 BUILD_SOURCE="$(pwd)/build"
 echo "Sorgente build: $BUILD_SOURCE"
-
-# 3. Torna alla directory principale
-cd "$PROJECT_DIR"
-
-# 4. Copia il build nella directory nginx
-echo -e "${YELLOW}📤 2. Copia build in /var/www/ticketapp/frontend/build...${NC}"
-BUILD_DEST="/var/www/ticketapp/frontend/build"
-
-echo "Sorgente: $BUILD_SOURCE"
-echo "Destinazione: $BUILD_DEST"
 
 # Verifica che la sorgente esista
 if [ ! -d "$BUILD_SOURCE" ]; then
@@ -75,14 +65,29 @@ if [ ! -f "$BUILD_SOURCE/index.html" ]; then
     exit 1
 fi
 
-# Rimuovi la destinazione e ricreala
-echo "Rimozione directory destinazione esistente..."
-sudo rm -rf "$BUILD_DEST"
-sudo mkdir -p /var/www/ticketapp/frontend
+# 3. Torna alla directory principale
+cd "$PROJECT_DIR"
 
-# Copia il build
-echo "Copia file..."
-sudo cp -r "$BUILD_SOURCE" "$BUILD_DEST"
+# 4. Determina se dobbiamo copiare o se siamo già nella posizione corretta
+BUILD_DEST="/var/www/ticketapp/frontend/build"
+
+echo -e "${YELLOW}📤 2. Deploy build...${NC}"
+echo "Sorgente: $BUILD_SOURCE"
+echo "Destinazione: $BUILD_DEST"
+
+# Se la sorgente e la destinazione sono la stessa, non copiare, solo fixare permessi
+if [ "$BUILD_SOURCE" = "$BUILD_DEST" ]; then
+    echo -e "${YELLOW}ℹ️  Build già nella posizione corretta, solo fix permessi...${NC}"
+else
+    # Rimuovi la destinazione e ricreala
+    echo "Rimozione directory destinazione esistente..."
+    sudo rm -rf "$BUILD_DEST"
+    sudo mkdir -p /var/www/ticketapp/frontend
+    
+    # Copia il build
+    echo "Copia file da $BUILD_SOURCE a $BUILD_DEST..."
+    sudo cp -r "$BUILD_SOURCE" "$BUILD_DEST"
+fi
 
 # 5. Imposta permessi
 echo -e "${YELLOW}🔐 3. Impostazione permessi...${NC}"
