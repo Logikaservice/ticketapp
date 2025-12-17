@@ -41,12 +41,15 @@ fi
 echo -e "${GREEN}✅ Build trovato!${NC}"
 echo ""
 
-# 2. Torna alla directory principale
+# 2. Salva il percorso assoluto del build PRIMA di uscire da frontend
+BUILD_SOURCE="$(pwd)/build"
+echo "Percorso build sorgente: $BUILD_SOURCE"
+
+# 3. Torna alla directory principale
 cd ..
 
-# 3. Copia il build
+# 4. Copia il build
 echo -e "${YELLOW}📤 2. Copia build in /var/www/ticketapp/frontend/build...${NC}"
-BUILD_SOURCE="$(pwd)/frontend/build"
 BUILD_DEST="/var/www/ticketapp/frontend/build"
 
 echo "Sorgente: $BUILD_SOURCE"
@@ -54,6 +57,15 @@ echo "Destinazione: $BUILD_DEST"
 
 if [ ! -d "$BUILD_SOURCE" ]; then
     echo -e "${RED}❌ Directory build non trovata in $BUILD_SOURCE!${NC}"
+    echo "Contenuto directory frontend:"
+    ls -la frontend/ | head -10
+    exit 1
+fi
+
+if [ ! -f "$BUILD_SOURCE/index.html" ]; then
+    echo -e "${RED}❌ index.html non trovato in $BUILD_SOURCE!${NC}"
+    echo "Contenuto build:"
+    ls -la "$BUILD_SOURCE" | head -10
     exit 1
 fi
 
