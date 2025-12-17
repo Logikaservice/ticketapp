@@ -73,12 +73,21 @@ echo ""
 # 4. Copia il build nella directory nginx
 echo -e "${YELLOW}📋 4. Copia build in /var/www/ticketapp/frontend/build...${NC}"
 echo "----------------------------------------"
+# Siamo ancora in frontend/, quindi build/ è qui
+if [ ! -d "build" ]; then
+    echo -e "${RED}❌ Directory build non trovata in frontend/!${NC}"
+    exit 1
+fi
+
 sudo rm -rf /var/www/ticketapp/frontend/build
 sudo mkdir -p /var/www/ticketapp/frontend
 sudo cp -r build /var/www/ticketapp/frontend/
 sudo chown -R www-data:www-data /var/www/ticketapp/frontend/build
 echo -e "${GREEN}✅ Build copiato!${NC}"
 echo ""
+
+# Torna alla directory del progetto
+cd $PROJECT_DIR
 
 # 5. Aggiorna configurazione nginx
 echo -e "${YELLOW}🔧 5. Aggiornamento configurazione nginx...${NC}"
