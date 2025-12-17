@@ -6,30 +6,30 @@ import { buildApiUrl } from '../utils/apiConfig';
 export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
   const [temporarySupplies, setTemporarySupplies] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   // ✅ LOCK per evitare chiamate simultanee
   const fetchingRef = useRef(false);
 
   // Carica tutte le forniture temporanee dai ticket
   const fetchTemporarySupplies = async () => {
     if (!getAuthHeader || fetchingRef.current) return; // Evita chiamate se non c'è autenticazione o già in corso
-    
+
     try {
       fetchingRef.current = true;
       setLoading(true);
-      
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // ✅ Timeout 5 secondi
-      
+
       const response = await fetch(buildApiUrl('/api/tickets/forniture/all'), {
         headers: {
           ...getAuthHeader()
         },
         signal: controller.signal
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       if (response.ok) {
         const data = await response.json();
         setTemporarySupplies(data);
@@ -77,25 +77,12 @@ export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
     }
   };
 
-  // Carica le forniture al mount e quando getAuthHeader cambia (con debounce)
+  // Carica le forniture al mount
   useEffect(() => {
-    if (!getAuthHeader) return;
-    
-    // ✅ Carica solo una volta al mount
+    // Carica solo una volta al mount
     fetchTemporarySupplies();
-    
-    // ✅ Debounce: ricarica dopo 1 secondo se getAuthHeader cambia (ma evita chiamate multiple)
-    const timeoutId = setTimeout(() => {
-      if (!fetchingRef.current) {
-        fetchTemporarySupplies();
-      }
-    }, 1000);
-    
-    return () => {
-      clearTimeout(timeoutId);
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getAuthHeader]);
+  }, []);
 
   return {
     temporarySupplies,

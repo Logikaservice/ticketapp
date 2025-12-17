@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Trading Bot - Backtest Report</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 24px;
+            opacity: 0.9;
+        }
+
+        .meta {
+            background: #f8f9fa;
+            padding: 30px 40px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .meta-item {
+            text-align: center;
+        }
+
+        .meta-item .label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .meta-item .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1a1a1a;
+        }
+
+        .section {
+            padding: 40px;
+        }
+
+        .section-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 30px;
+            color: #1a1a1a;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .stat-card .label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .value {
+            font-size: 36px;
+            font-weight: bold;
+        }
+
+        .ranking-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        .ranking-table thead {
+            background: #343a40;
+            color: white;
+        }
+
+        .ranking-table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .ranking-table td {
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .ranking-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .ranking-table .medal {
+            font-size: 24px;
+        }
+
+        .positive {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .negative {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .neutral {
+            color: #6c757d;
+        }
+
+        .asset-card {
+            background: #f8f9fa;
+            border-left: 5px solid;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+        }
+
+        .asset-card.winner {
+            border-color: #28a745;
+            background: #e7f5e7;
+        }
+
+        .asset-card.loser {
+            border-color: #dc3545;
+            background: #ffe7e7;
+        }
+
+        .asset-card h3 {
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+
+        .asset-card .return {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .asset-card ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .asset-card li {
+            padding: 5px 0;
+            font-size: 14px;
+        }
+
+        .recommendations {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .recommendations h4 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: #856404;
+        }
+
+        .recommendations ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .recommendations li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .recommendations li:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #ffc107;
+            font-weight: bold;
+        }
+
+        .footer {
+            background: #1a1a1a;
+            color: white;
+            padding: 30px 40px;
+            text-align: center;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🚀 CRYPTO TRADING BOT</h1>
+            <p>Backtest Analysis Report</p>
+        </div>
+
+        <!-- Meta Info -->
+        <div class="meta">
+            <div class="meta-item">
+                <div class="label">Test Period</div>
+                <div class="value">30 Days</div>
+            </div>
+            <div class="meta-item">
+                <div class="label">Assets Tested</div>
+                <div class="value">9</div>
+            </div>
+            <div class="meta-item">
+                <div class="label">Total Trades</div>
+                <div class="value">175</div>
+            </div>
+            <div class="meta-item">
+                <div class="label">Initial Capital</div>
+                <div class="value">$1,000</div>
+            </div>
+        </div>
+
+        <!-- Executive Summary -->
+        <div class="section">
+            <h2 class="section-title">📊 Executive Summary</h2>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="label">Average Return</div>
+                    <div class="value">+0.36%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Average Win Rate</div>
+                    <div class="value">43.2%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Profitable Assets</div>
+                    <div class="value">5/9</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Avg Profit Factor</div>
+                    <div class="value">1.20</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Ranking -->
+        <div class="section">
+            <h2 class="section-title">🏆 Performance Ranking</h2>
+            
+            <table class="ranking-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Asset</th>
+                        <th>Return</th>
+                        <th>Win Rate</th>
+                        <th>Profit Factor</th>
+                        <th>Max DD</th>
+                        <th>Sharpe</th>
+                        <th>Trades</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="medal">🥇</span> 1</td>
+                        <td>Ł Litecoin</td>
+                        <td class="positive">+2.58%</td>
+                        <td>50.0%</td>
+                        <td>1.80</td>
+                        <td>1.22%</td>
+                        <td>0.24</td>
+                        <td>20</td>
+                    </tr>
+                    <tr>
+                        <td><span class="medal">🥈</span> 2</td>
+                        <td>Ξ Ethereum</td>
+                        <td class="positive">+2.31%</td>
+                        <td>55.6%</td>
+                        <td>1.82</td>
+                        <td>0.91%</td>
+                        <td>0.30</td>
+                        <td>18</td>
+                    </tr>
+                    <tr>
+                        <td><span class="medal">🥉</span> 3</td>
+                        <td>◎ Solana</td>
+                        <td class="positive">+1.94%</td>
+                        <td>50.0%</td>
+                        <td>1.50</td>
+                        <td>1.16%</td>
+                        <td>0.20</td>
+                        <td>16</td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td>✕ XRP</td>
+                        <td class="positive">+0.67%</td>
+                        <td>40.0%</td>
+                        <td>1.24</td>
+                        <td>1.47%</td>
+                        <td>0.08</td>
+                        <td>15</td>
+                    </tr>
+                    <tr>
+                        <td>5</td>
+                        <td>Ð Dogecoin</td>
+                        <td class="positive">+0.09%</td>
+                        <td>35.7%</td>
+                        <td>1.03</td>
+                        <td>1.74%</td>
+                        <td>0.01</td>
+                        <td>14</td>
+                    </tr>
+                    <tr>
+                        <td>6</td>
+                        <td>₿ Bitcoin</td>
+                        <td class="neutral">+0.02%</td>
+                        <td>42.1%</td>
+                        <td>1.01</td>
+                        <td>1.31%</td>
+                        <td>0.00</td>
+                        <td>19</td>
+                    </tr>
+                    <tr>
+                        <td>7</td>
+                        <td>● Polkadot</td>
+                        <td class="negative">-0.75%</td>
+                        <td>33.3%</td>
+                        <td>0.79</td>
+                        <td>2.15%</td>
+                        <td>-0.09</td>
+                        <td>21</td>
+                    </tr>
+                    <tr>
+                        <td>8</td>
+                        <td>₳ Cardano</td>
+                        <td class="negative">-1.19%</td>
+                        <td>38.5%</td>
+                        <td>0.75</td>
+                        <td>2.44%</td>
+                        <td>-0.14</td>
+                        <td>13</td>
+                    </tr>
+                    <tr>
+                        <td>9</td>
+                        <td>⬡ Chainlink</td>
+                        <td class="negative">-2.02%</td>
+                        <td>33.3%</td>
+                        <td>0.68</td>
+                        <td>2.98%</td>
+                        <td>-0.19</td>
+                        <td>39</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Top 3 Analysis -->
+        <div class="section">
+            <h2 class="section-title">🌟 Top 3 Performers</h2>
+            
+            <div class="asset-card winner">
+                <h3>🥇 Ł Litecoin</h3>
+                <div class="return positive">+2.58%</div>
+                <ul>
+                    <li>✓ Win Rate: 50.0% (Balanced)</li>
+                    <li>✓ Profit Factor: 1.80 (Excellent)</li>
+                    <li>✓ Max Drawdown: 1.22% (Low risk)</li>
+                    <li>✓ Sharpe Ratio: 0.24 (Positive risk-adjusted return)</li>
+                    <li><strong>Recommendation: IDEAL asset for this bot</strong></li>
+                </ul>
+            </div>
+
+            <div class="asset-card winner">
+                <h3>🥈 Ξ Ethereum</h3>
+                <div class="return positive">+2.31%</div>
+                <ul>
+                    <li>✓ Win Rate: 55.6% (Best overall)</li>
+                    <li>✓ Profit Factor: 1.82 (Excellent)</li>
+                    <li>✓ Max Drawdown: 0.91% (Lowest risk)</li>
+                    <li>✓ Sharpe Ratio: 0.30 (Best risk-adjusted return)</li>
+                    <li><strong>Recommendation: Increase position size</strong></li>
+                </ul>
+            </div>
+
+            <div class="asset-card winner">
+                <h3>🥉 ◎ Solana</h3>
+                <div class="return positive">+1.94%</div>
+                <ul>
+                    <li>✓ Win Rate: 50.0% (Balanced)</li>
+                    <li>✓ Profit Factor: 1.50 (Good)</li>
+                    <li>✓ Max Drawdown: 1.16% (Low risk)</li>
+                    <li>✓ Consistent performance</li>
+                    <li><strong>Recommendation: Good portfolio complement</strong></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Bottom 3 Analysis -->
+        <div class="section">
+            <h2 class="section-title">⚠️ Bottom 3 - Areas of Concern</h2>
+            
+            <div class="asset-card loser">
+                <h3>⬡ Chainlink</h3>
+                <div class="return negative">-2.02%</div>
+                <ul>
+                    <li>✗ Win Rate: 33.3% (Very low)</li>
+                    <li>✗ Profit Factor: 0.68 (Loss-making)</li>
+                    <li>✗ Max Drawdown: 2.98% (Highest risk)</li>
+                    <li>✗ Overtrading: 39 trades (too many)</li>
+                    <li><strong>Recommendation: DISABLE trading on this asset</strong></li>
+                </ul>
+            </div>
+
+            <div class="asset-card loser">
+                <h3>₳ Cardano</h3>
+                <div class="return negative">-1.19%</div>
+                <ul>
+                    <li>✗ Profit Factor: 0.75 (Loss-making)</li>
+                    <li>✗ Max Drawdown: 2.44% (High risk)</li>
+                    <li>✗ Unreliable signals</li>
+                    <li><strong>Recommendation: Increase filters or disable</strong></li>
+                </ul>
+            </div>
+
+            <div class="asset-card loser">
+                <h3>● Polkadot</h3>
+                <div class="return negative">-0.75%</div>
+                <ul>
+                    <li>✗ Win Rate: 33.3% (Low)</li>
+                    <li>✗ Profit Factor: 0.79 (Below 1)</li>
+                    <li>✗ Max Drawdown: 2.15%</li>
+                    <li><strong>Recommendation: Require score > 90 or disable</strong></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Recommendations -->
+        <div class="section">
+            <h2 class="section-title">💡 Strategic Recommendations</h2>
+            
+            <div class="recommendations">
+                <h4>Portfolio Allocation Strategy</h4>
+                <ul>
+                    <li><strong>Tier 1 (60% capital):</strong> Litecoin (25%), Ethereum (25%), Solana (10%)</li>
+                    <li><strong>Tier 2 (30% capital):</strong> XRP (15%), Dogecoin (10%), Bitcoin (5%)</li>
+                    <li><strong>Tier 3 (0% capital):</strong> DISABLE Polkadot, Cardano, Chainlink</li>
+                </ul>
+            </div>
+
+            <div class="recommendations">
+                <h4>Immediate Action Items</h4>
+                <ul>
+                    <li>Disable trading on bottom 3 performers (Polkadot, Cardano, Chainlink)</li>
+                    <li>Increase position size on Litecoin and Ethereum by 50%</li>
+                    <li>Implement stricter entry filters for mid-tier assets (require score > 85)</li>
+                    <li>Add 4-hour timeframe confirmation for all entries</li>
+                    <li>Monitor weekly performance and adjust allocations</li>
+                </ul>
+            </div>
+
+            <div class="recommendations">
+                <h4>Expected Improvements</h4>
+                <ul>
+                    <li>Focusing on Top 3: Estimated return +2.3%/month</li>
+                    <li>Eliminating Bottom 3: Reduce losses by 60%</li>
+                    <li>Balanced portfolio: Sustainable +1.5%/month</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>TicketApp Crypto Bot v1.0</strong></p>
+            <p>Report Generated: December 10, 2025</p>
+            <p style="margin-top: 15px; opacity: 0.7; font-size: 12px;">
+                This report is based on historical backtesting and does not guarantee future performance.
+                Past performance is not indicative of future results.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

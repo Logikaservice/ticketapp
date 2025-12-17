@@ -1,0 +1,2040 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Settings, BarChart2, Wallet, Maximize2, Minimize2, DollarSign, TrendingUp, Info, AlertTriangle } from 'lucide-react'; // ✅ FIX: Added TrendingUp & Info & AlertTriangle
+import OpenPositions from './OpenPositions';
+import TradingViewChart from './TradingViewChart';
+import BotSettings from './BotSettings';
+import StatisticsPanel from './StatisticsPanel';
+import CryptoNotification from './CryptoNotification';
+import MarketScanner from './MarketScanner';
+import GeneralSettings from './GeneralSettings';
+import SystemHealthMonitor from './SystemHealthMonitor';
+
+import cryptoSounds from '../../utils/cryptoSounds';
+import { useCryptoWebSocket } from '../../hooks/useCryptoWebSocket';
+import { fetchWithRetry, fetchJsonWithRetry } from '../../utils/apiWithRetry';
+import './CryptoLayout.css';
+import './CryptoStandalone.css';
+
+const CryptoDashboard = () => {
+    // Check if we're in chart-only mode (fullscreen chart in new window)
+    const urlParams = new URLSearchParams(window.location.search);
+    const isChartOnly = urlParams.get('page') === 'chart-only';
+    const symbolFromUrl = urlParams.get('symbol');
+
+    const [portfolio, setPortfolio] = useState({ balance_usd: 10800, holdings: {}, rsi: null }); // balance_usd is now in USDT (10800 USDT ≈ 10000 EUR)
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [trades, setTrades] = useState([]);
+    const [botStatus, setBotStatus] = useState({ active: false, strategy: 'RSI_Strategy' });
+    const [priceData, setPriceData] = useState([]);
+    const [currentPrice, setCurrentPrice] = useState(0);
+    const [currentSymbol, setCurrentSymbol] = useState(symbolFromUrl || 'bitcoin'); // Current symbol being viewed
+    const [availableSymbols, setAvailableSymbols] = useState([]);
+    const [activeBots, setActiveBots] = useState([]);
+
+    // Determine API base URL
+    const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+
+    // Set symbol from URL on mount if in chart-only mode
+    useEffect(() => {
+        if (isChartOnly && symbolFromUrl) {
+            setCurrentSymbol(symbolFromUrl);
+        }
+    }, [isChartOnly, symbolFromUrl]);
+
+    const [allTrades, setAllTrades] = useState([]); // For chart plotting
+    const [openPositions, setOpenPositions] = useState([]);
+    const [closedPositions, setClosedPositions] = useState([]); // ✅ FIX: Aggiungi closed positions per recuperare P&L
+    const [performanceAnalytics, setPerformanceAnalytics] = useState(null); // 📊 Performance Analytics (Day/Week/Month/Year)
+    const [showBotSettings, setShowBotSettings] = useState(false);
+    const [showBacktestPanel, setShowBacktestPanel] = useState(false);
+    const [notifications, setNotifications] = useState([]);
+    const [botParameters, setBotParameters] = useState(null);
+    const [performanceStats, setPerformanceStats] = useState(null); // ✅ FIX: Aggiunto stato mancante per performance stats
+    const [showAddFundsModal, setShowAddFundsModal] = useState(false); // Modal per aggiungere fondi
+    const [showGeneralSettings, setShowGeneralSettings] = useState(false); // Modal per impostazioni generali
+    const [showDetailsModal, setShowDetailsModal] = useState(false); // Modal per dettagli posizione
+    const [selectedPositionDetails, setSelectedPositionDetails] = useState(null); // Dettagli posizione selezionata
+    const [showHealthMonitor, setShowHealthMonitor] = useState(false); // Modal per health monitor
+    const [healthStatus, setHealthStatus] = useState(null); // Stato health check
+
+    // WebSocket for real-time notifications
+    const { connected: wsConnected } = useCryptoWebSocket(
+        // onPositionOpened
+        (data) => {
+            // WebSocket position opened logging removed
+            addNotification({ ...data, type: 'opened' });
+            // Play sound
+            cryptoSounds.positionOpened();
+            // Refresh data immediately (no delay for instant updates)
+            fetchData();
+            fetchPrice(); // Also update price immediately
+        },
+        // onPositionClosed
+        (data) => {
+            // WebSocket position closed logging removed
+            addNotification({ ...data, type: 'closed' });
+            // Play sound based on profit/loss
+            if (data.profit_loss >= 0) {
+                cryptoSounds.positionClosedProfit();
+            } else {
+                cryptoSounds.positionClosedLoss();
+            }
+            // Refresh data immediately (no delay for instant updates)
+            fetchData();
+            fetchPrice(); // Also update price immediately
+        }
+    );
+
+    const addNotification = (notification) => {
+        const id = Date.now() + Math.random();
+        setNotifications(prev => [...prev, { ...notification, id }]);
+    };
+
+    const removeNotification = (id) => {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+    };
+
+    // Fetch health status periodically
+    const fetchHealthStatus = async () => {
+        try {
+            const response = await fetch(`${apiBase}/system-health`);
+            const data = await response.json();
+            if (data.success) {
+                setHealthStatus(data.status);
+            }
+        } catch (error) {
+            console.error('Errore fetch health status:', error);
+        }
+    };
+
+    useEffect(() => {
+        fetchHealthStatus();
+        const interval = setInterval(fetchHealthStatus, 30000); // ogni 30 secondi
+        return () => clearInterval(interval);
+    }, [apiBase]);
+
+    const fetchData = async () => {
+        try {
+            // ✅ FIX: Correggi automaticamente P&L anomali al caricamento
+            try {
+                const fixResult = await fetchJsonWithRetry(
+                    `${apiBase}/api/crypto/fix-closed-positions-pnl`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    },
+                    {
+                        maxRetries: 2,
+                        silent502: true // Non loggare 502 per questa chiamata opzionale
+                    }
+                );
+                // Auto-fix P&L logging removed - continua comunque
+            } catch (fixError) {
+                // Ignora errori silenziosamente - non bloccare il caricamento
+            }
+
+            // ✅ FIX: Usa fetchWithRetry per gestire automaticamente errori 502
+            const res = await fetchWithRetry(
+                `${apiBase}/api/crypto/dashboard`,
+                {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                },
+                {
+                    maxRetries: 3,
+                    silent502: true, // Non loggare ogni singolo errore 502
+                    timeout: 30000
+                }
+            );
+
+            if (res.ok) {
+                const data = await res.json();
+                // Dashboard data received logging removed
+                setPortfolio({ ...data.portfolio, rsi: data.rsi });
+                setTrades(data.recent_trades || []);
+                setAllTrades(data.all_trades || []); // Store full history for chart
+                setOpenPositions(data.open_positions || []); // Store open positions
+                setClosedPositions(data.closed_positions || []); // ✅ FIX: Store closed positions per P&L
+                // ✅ FIX: Controlla se c'è ALMENO un bot attivo (non solo per currentSymbol)
+                const anyActiveBot = data.active_bots?.find(b => b.strategy_name === 'RSI_Strategy' && b.is_active === 1);
+                const bot = data.active_bots?.find(b => b.strategy_name === 'RSI_Strategy' && b.symbol === currentSymbol);
+                // Se c'è almeno un bot attivo, mostra ACTIVE, altrimenti PAUSED
+                setBotStatus({
+                    active: anyActiveBot ? true : false,
+                    strategy: bot?.strategy_name || 'RSI_Strategy',
+                    currentSymbolBot: bot ? (bot.is_active === 1) : false
+                });
+                // Load bot parameters for backtesting
+                if (data.bot_parameters) {
+setBotParameters(data.bot_parameters);
+                }
+                // Load performance stats for Kelly Criterion
+                if (data.performance_stats) {
+                    // Kelly performance stats logging removed
+                    setPerformanceStats(data.performance_stats);
+                } else {
+                    console.warn('⚠️ [KELLY] Performance stats non presenti nella risposta');
+                    setPerformanceStats(null);
+                }
+            } else if (res.status === 502) {
+                // 502 Bad Gateway - backend non raggiungibile (dopo tutti i retry)
+                // Log solo se tutti i tentativi sono falliti
+                console.warn('⚠️ [DASHBOARD] Backend non raggiungibile (502) dopo tutti i tentativi - riprovo al prossimo ciclo');
+            } else {
+                console.error('❌ Dashboard fetch failed:', res.status, res.statusText);
+            }
+
+            // 📊 Fetch Performance Analytics (Day/Week/Month/Year)
+            try {
+                const analyticsResult = await fetchJsonWithRetry(
+                    `${apiBase}/api/crypto/performance-analytics`,
+                    {},
+                    {
+                        maxRetries: 2,
+                        silent502: true // Non loggare 502 per analytics
+                    }
+                );
+                if (analyticsResult.ok && analyticsResult.data) {
+                    setPerformanceAnalytics(analyticsResult.data);
+                }
+            } catch (analyticsError) {
+                // Ignora errori silenziosamente per analytics
+            }
+        } catch (error) {
+            // Solo loggare errori non-502
+            if (error.message && !error.message.includes('502') && !error.message.includes('Bad Gateway')) {
+                console.error("❌ Error fetching dashboard:", error);
+            }
+        } finally {
+            fetchingDataRef.current = false;
+        }
+    };
+
+    const fetchAvailableSymbols = async () => {
+        try {
+            const result = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/symbols/available`,
+                {},
+                {
+                    maxRetries: 2,
+                    silent502: true
+                }
+            );
+            if (result.ok && result.data) {
+                // Available symbols logging removed
+                setAvailableSymbols(result.data.symbols || []);
+            }
+        } catch (error) {
+            // Ignora errori silenziosamente
+        }
+    };
+
+    const fetchActiveBots = async () => {
+        try {
+            const result = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/bot/active`,
+                {},
+                {
+                    maxRetries: 2,
+                    silent502: true
+                }
+            );
+            if (result.ok && result.data) {
+                setActiveBots(result.data.active_bots || []);
+            }
+        } catch (error) {
+            // Ignora errori silenziosamente
+        }
+    };
+
+    const handleUpdatePnL = async () => {
+        try {
+            // ✅ FIX: Aggiorna P&L per TUTTE le posizioni (il backend aggiorna tutte automaticamente)
+            // Non serve passare un simbolo specifico - il backend gestisce tutti i simboli
+            await fetchWithRetry(
+                `${apiBase}/api/crypto/positions/update-pnl`,
+                { method: 'POST' },
+                { maxRetries: 2, silent502: true }
+            );
+            
+            // ✅ FIX: Refresh positions after update - recupera tutte le posizioni aperte
+            const positionsResult = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/positions?status=open`,
+                {},
+                { maxRetries: 2, silent502: true }
+            );
+            if (positionsResult.ok && positionsResult.data) {
+                const updatedPositions = positionsResult.data.positions || [];
+                setOpenPositions(updatedPositions);
+                
+                // ✅ REAL-TIME FIX: Aggiorna i prezzi per TUTTI i simboli delle posizioni aperte
+                // Questo assicura che allSymbolPrices sia sempre aggiornato con i prezzi più recenti
+                if (updatedPositions.length > 0) {
+                    const uniqueSymbols = [...new Set(updatedPositions.map(pos => pos.symbol))];
+                    const newPrices = {};
+                    
+                    // ✅ FIX CRITICO: Recupera i prezzi in parallelo per velocità
+                    const pricePromises = uniqueSymbols.map(async (symbol) => {
+                        try {
+                            const priceResult = await fetchJsonWithRetry(
+                                `${apiBase}/api/crypto/price/${symbol}?currency=usdt&_t=${Date.now()}`,
+                                {},
+                                { maxRetries: 1, silent502: true, timeout: 5000 }
+                            );
+                            if (priceResult.ok && priceResult.data) {
+                                const fetchedPrice = parseFloat(priceResult.data.price || 0);
+                                if (fetchedPrice > 0) {
+                                    return { symbol, price: fetchedPrice };
+                                }
+                            }
+                            // ✅ FALLBACK: Se l'API fallisce, usa il current_price dalla posizione aggiornata
+                            const pos = updatedPositions.find(p => p.symbol === symbol);
+                            if (pos && pos.current_price) {
+                                const dbPrice = parseFloat(pos.current_price);
+                                if (dbPrice > 0) {
+                                    return { symbol, price: dbPrice };
+                                }
+                            }
+                        } catch (err) {
+                            // Fallback al prezzo dal database
+                            const pos = updatedPositions.find(p => p.symbol === symbol);
+                            if (pos && pos.current_price) {
+                                const dbPrice = parseFloat(pos.current_price);
+                                if (dbPrice > 0) {
+                                    return { symbol, price: dbPrice };
+                                }
+                            }
+                        }
+                        return null;
+                    });
+                    
+                    const priceResults = await Promise.all(pricePromises);
+                    priceResults.forEach(result => {
+                        if (result && result.price > 0) {
+                            newPrices[result.symbol] = result.price;
+                        }
+                    });
+                    
+                    // ✅ FIX CRITICO: Aggiorna allSymbolPrices con i nuovi prezzi (sovrascrive i vecchi)
+                    if (Object.keys(newPrices).length > 0) {
+                        setAllSymbolPrices(prev => {
+                            const updated = { ...prev };
+                            Object.keys(newPrices).forEach(symbol => {
+                                updated[symbol] = newPrices[symbol];
+                            });
+                            return updated;
+                        });
+                    }
+                }
+            }
+        } catch (error) {
+            // Ignora errori silenziosamente per update P&L
+        }
+    };
+
+    const handleClosePosition = async (ticketId, positionSymbol = null) => {
+        try {
+            // ✅ FIX: Usa il simbolo della posizione invece di sempre 'bitcoin'
+            const symbolToUse = positionSymbol || currentSymbol;
+            
+            // Trova il prezzo corretto per questo simbolo
+            let priceToUse = currentPrice;
+            if (positionSymbol && allSymbolPrices[positionSymbol]) {
+                priceToUse = allSymbolPrices[positionSymbol];
+            }
+            
+            // Pass current price to ensure correct closing price
+            const result = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/positions/close/${ticketId}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        close_price: priceToUse,
+                        symbol: symbolToUse
+                    })
+                },
+                {
+                    maxRetries: 2,
+                    silent502: false // Mostra errore per azioni utente
+                }
+            );
+            if (result.ok) {
+                // Refresh data
+                fetchData();
+            } else {
+                alert(result.error || 'Errore nella chiusura della posizione');
+            }
+        } catch (error) {
+            console.error("Error closing position:", error);
+            alert('Errore nella chiusura della posizione');
+        }
+    };
+
+    const handleResetPortfolio = async () => {
+        const confirmMessage = `⚠️ ATTENZIONE: Reset completo del portfolio!\n\nQuesto cancellerà:\n- TUTTE le posizioni (aperte e chiuse)\n- TUTTI i trades (marker sul grafico e lista recenti)\n\nVuoi continuare?`;
+
+        if (!window.confirm(confirmMessage)) {
+            return;
+        }
+
+        // Chiedi l'importo iniziale
+        const defaultBalance = '1000';
+        const initialBalanceInput = window.prompt("Inserisci il saldo iniziale (USDT) per il nuovo portfolio:", defaultBalance);
+
+        if (initialBalanceInput === null) return; // Annullato dall'utente
+
+        const initialBalance = parseFloat(initialBalanceInput);
+        if (isNaN(initialBalance) || initialBalance < 0) {
+            alert("⚠️ Importo non valido. Inserisci un numero maggiore o uguale a 0.");
+            return;
+        }
+
+        try {
+            const result = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/reset`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initial_balance: initialBalance })
+                },
+                {
+                    maxRetries: 2,
+                    silent502: false // Mostra errore per azioni utente
+                }
+            );
+
+            if (result.ok && result.data) {
+                alert(result.data.message || 'Portfolio resettato completamente!');
+                // Refresh data
+                fetchData();
+            } else {
+                alert(result.error || 'Errore nel reset del portfolio');
+            }
+        } catch (error) {
+            alert(`Errore nel reset del portfolio: ${error.message || 'Errore di connessione'}`);
+        }
+    };
+
+    const handleAddFunds = async (amount) => {
+        try {
+            const result = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/add-funds`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount: parseFloat(amount) })
+                },
+                {
+                    maxRetries: 2,
+                    silent502: false // Mostra errore per azioni utente
+                }
+            );
+
+            if (result.ok && result.data) {
+                alert(`✅ Fondi aggiunti con successo!\n\nImporto: $${amount}\nNuovo saldo: $${result.data.new_balance.toFixed(2)}`);
+                // Refresh data
+                fetchData();
+                setShowAddFundsModal(false);
+            } else {
+                alert(result.error || 'Errore nell\'aggiunta dei fondi');
+            }
+        } catch (error) {
+            alert(`Errore nell'aggiunta dei fondi: ${error.message || 'Errore di connessione'}`);
+        }
+    };
+
+    // ✅ LOCK per evitare chiamate simultanee
+    const fetchingPriceRef = React.useRef(false);
+    const fetchingDataRef = React.useRef(false);
+    const fetchingHistoryRef = React.useRef(false);
+
+    const fetchPrice = async () => {
+        // ✅ Evita chiamate simultanee
+        if (fetchingPriceRef.current) {
+            return; // Già una chiamata in corso, salta questa
+        }
+        
+        try {
+            fetchingPriceRef.current = true;
+            // Fetch real price for current symbol from Binance (same source as bot)
+            const result = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/price/${currentSymbol}?currency=usdt`,
+                {},
+                {
+                    maxRetries: 1, // ✅ Ridotto da 2 a 1 per evitare accumulo richieste
+                    silent502: true,
+                    timeout: 5000 // ✅ Ridotto timeout da 10s a 5s
+                }
+            );
+            if (result.ok && result.data) {
+                // Read price directly (USDT from Binance, same as bot uses)
+                const price = parseFloat(result.data.price || result.data.data?.priceUsd || 0);
+                if (price > 0) {
+                    setCurrentPrice(price);
+                    // NOTE: We don't add to priceData here - the chart uses OHLC data from /api/crypto/history
+                }
+            }
+            // Don't set mock price - keep using last known price
+        } catch (error) {
+            // Ignora errori silenziosamente per price fetch
+            // Don't set mock price - keep using last known price
+        } finally {
+            fetchingPriceRef.current = false;
+        }
+    };
+
+    const fetchHistory = async (interval = '15m') => {
+        // ✅ Evita chiamate simultanee
+        if (fetchingHistoryRef.current) {
+            return; // Già una chiamata in corso, salta questa
+        }
+        
+        try {
+            fetchingHistoryRef.current = true;
+            const result = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/history?interval=${interval}&symbol=${currentSymbol}`,
+                {},
+                {
+                    maxRetries: 1, // ✅ Ridotto da 2 a 1 per evitare accumulo richieste
+                    silent502: true,
+                    timeout: 10000 // ✅ Ridotto timeout da 30s a 10s
+                }
+            );
+            if (result.ok && result.data) {
+                const history = result.data;
+                setPriceData(history);
+            } else {
+                console.error('❌ History fetch failed:', result.status, result.statusText);
+            }
+        } catch (error) {
+            console.error("❌ Error fetching history:", error);
+        } finally {
+            fetchingHistoryRef.current = false;
+        }
+    };
+
+
+    useEffect(() => {
+        fetchAvailableSymbols();
+        fetchActiveBots();
+        fetchHistory(); // Load history first (15m for TradingView)
+        fetchData();
+        fetchPrice();
+
+        // ✅ Update price frequently (aumentato per evitare ERR_INSUFFICIENT_RESOURCES)
+        const priceInterval = setInterval(() => {
+            fetchPrice();
+        }, 5000); // ✅ Aumentato da 2000ms a 5000ms per ridurre carico
+
+        // ✅ Update data (positions, trades) - reduced frequency
+        const dataInterval = setInterval(() => {
+            fetchData();
+            fetchActiveBots(); // Also update active bots
+        }, 5000); // ✅ Aumentato da 3000ms a 5000ms per ridurre carico
+
+        // ✅ Update history (candles) - less frequent
+        const historyInterval = setInterval(() => {
+            fetchHistory();
+        }, 10000); // ✅ Aumentato da 5000ms a 10000ms per ridurre carico
+
+        return () => {
+            clearInterval(priceInterval);
+            clearInterval(dataInterval);
+            clearInterval(historyInterval);
+        };
+    }, [currentSymbol]);
+
+    // Add/remove crypto-standalone class to body
+    useEffect(() => {
+        document.body.classList.add('crypto-standalone');
+        return () => {
+            document.body.classList.remove('crypto-standalone');
+        };
+    }, []);
+
+    // Fullscreen toggle function
+    const toggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().then(() => {
+                setIsFullscreen(true);
+            }).catch(err => {
+                console.error('Error attempting to enable fullscreen:', err);
+            });
+        } else {
+            document.exitFullscreen().then(() => {
+                setIsFullscreen(false);
+            });
+        }
+    };
+
+    // Listen for fullscreen changes
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        };
+    }, []);
+
+
+    const toggleBot = async (symbol = null) => {
+        try {
+            const targetSymbol = symbol || currentSymbol;
+            const currentBot = activeBots.find(b => b.symbol === targetSymbol);
+            const newStatus = currentBot ? !currentBot.is_active : true;
+
+            // Bot toggle logging removed
+
+            const result = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/bot/toggle`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        strategy_name: 'RSI_Strategy',
+                        symbol: targetSymbol,
+                        is_active: newStatus
+                    })
+                },
+                {
+                    maxRetries: 2,
+                    silent502: false // Mostra errore per azioni utente
+                }
+            );
+
+            if (!result.ok) {
+                alert(`Errore nell'attivazione del bot: ${result.error || 'Errore sconosciuto'}`);
+                return;
+            }
+            // Bot toggle result logging removed
+
+            // Update local state
+            if (targetSymbol === currentSymbol) {
+                setBotStatus(prev => ({ ...prev, active: newStatus }));
+            }
+
+            // Refresh active bots list
+            await fetchActiveBots();
+
+            // Show success message
+            if (newStatus) {
+                const symbolInfo = availableSymbols.find(s => s.symbol === targetSymbol);
+                alert(`Bot attivato per ${symbolInfo?.display || targetSymbol.toUpperCase()}`);
+            } else {
+                const symbolInfo = availableSymbols.find(s => s.symbol === targetSymbol);
+                alert(`Bot disattivato per ${symbolInfo?.display || targetSymbol.toUpperCase()}`);
+            }
+        } catch (error) {
+            console.error("❌ Error toggling bot:", error);
+            alert(`Errore nell'attivazione del bot: ${error.message || 'Errore di connessione'}`);
+        }
+    };
+
+    // Calculate total balance (USDT + All Crypto values)
+    const [allSymbolPrices, setAllSymbolPrices] = useState({});
+
+    // ✅ REAL-TIME CRITICO: Fetch prices for ALL symbols in open positions - INDIPENDENTE dal grafico
+    useEffect(() => {
+        const fetchAllPrices = async () => {
+            const holdings = portfolio.holdings || {};
+            const holdingsSymbols = Object.keys(holdings).filter(s => holdings[s] > 0);
+
+            // ✅ CRITICO: Recupera prezzi per TUTTI i simboli delle posizioni aperte (INDIPENDENTE dal grafico)
+            const openPositionSymbols = (openPositions || [])
+                .filter(pos => pos && pos.status === 'open')
+                .map(pos => pos.symbol)
+                .filter((symbol, index, self) => symbol && self.indexOf(symbol) === index); // Remove duplicates
+
+            // Combina tutti i simboli unici (posizioni aperte hanno PRIORITÀ)
+            const allSymbols = [...new Set([...openPositionSymbols, ...holdingsSymbols])];
+            
+            if (allSymbols.length === 0) {
+                return; // Nessun simbolo da recuperare
+            }
+
+            const prices = {};
+
+            // ✅ OTTIMIZZAZIONE: Se il simbolo corrente è nella lista, usa currentPrice (più veloce, già aggiornato)
+            if (currentPrice > 0 && currentSymbol && allSymbols.includes(currentSymbol)) {
+                prices[currentSymbol] = currentPrice;
+            }
+
+            // ✅ REAL-TIME CRITICO: Fetch prezzi per TUTTI i simboli in parallelo (INDIPENDENTE dal grafico)
+            const pricePromises = allSymbols
+                .filter(symbol => !(symbol === currentSymbol && prices[symbol])) // Skip se già abbiamo il prezzo
+                .map(async (symbol) => {
+                    try {
+                        // ✅ Aggiungi timestamp per evitare cache
+                        const result = await fetchJsonWithRetry(
+                            `${apiBase}/api/crypto/price/${symbol}?currency=usdt&_t=${Date.now()}`,
+                            {},
+                            {
+                                maxRetries: 1,
+                                silent502: true,
+                                timeout: 5000
+                            }
+                        );
+                        if (result.ok && result.data) {
+                            const fetchedPrice = parseFloat(result.data.price || 0);
+                            if (fetchedPrice > 0) {
+                                return { symbol, price: fetchedPrice };
+                            }
+                        }
+                    } catch (error) {
+                        // Ignora errori silenziosamente per price fetch
+                    }
+                    return null;
+                });
+
+            const priceResults = await Promise.all(pricePromises);
+            priceResults.forEach(result => {
+                if (result && result.price > 0) {
+                    prices[result.symbol] = result.price;
+                }
+            });
+
+            // ✅ CRITICO: Aggiorna allSymbolPrices mantenendo i prezzi esistenti e aggiornando quelli nuovi/modificati
+            setAllSymbolPrices(prev => {
+                const updated = { ...prev };
+                Object.keys(prices).forEach(symbol => {
+                    if (prices[symbol] > 0) {
+                        updated[symbol] = prices[symbol];
+                    }
+                });
+                return updated;
+            });
+        };
+
+        // ✅ WEBSOCKET: Aggiorna prezzi quando cambiano holdings o posizioni aperte
+        fetchAllPrices();
+
+        // ✅ WEBSOCKET REAL-TIME: Ascolta eventi prezzi via WebSocket (NO più polling HTTP!)
+        const handlePriceUpdate = (event) => {
+            const { prices } = event.detail;
+            
+            // Aggiorna prezzi ricevuti via WebSocket
+            const updatedPrices = { ...pricesRef.current };
+            for (const [symbol, data] of Object.entries(prices)) {
+                updatedPrices[symbol] = data.price;
+            }
+            pricesRef.current = updatedPrices;
+            setPrices(updatedPrices);
+        };
+
+        window.addEventListener('crypto-prices-update', handlePriceUpdate);
+
+        // ✅ FALLBACK: Polling HTTP solo se WebSocket disconnesso (ogni 5 secondi come backup)
+        const backupInterval = setInterval(() => {
+            if (!wsConnected) {
+                fetchAllPrices();
+            }
+        }, 5000); // Solo se WebSocket è disconnesso
+
+        return () => {
+            window.removeEventListener('crypto-prices-update', handlePriceUpdate);
+            clearInterval(backupInterval);
+        };
+    }, [portfolio.holdings, openPositions, apiBase, currentSymbol, currentPrice, wsConnected]);
+
+    // Calculate total balance (USDT + All Crypto values - Short Liabilities)
+    // ✅ FIX: Total Balance = Capitale Disponibile (cash) = balance_usd
+    // Se hai $1000 USDT totali e investi $500, il Total Balance mostra $500 (capitale disponibile)
+    // Il valore delle posizioni è già "bloccato" e non è disponibile come cash
+    // ✅ FIX: Use ONLY open positions effectively ignoring 'portfolio.holdings' which might be corrupted
+    const holdings = portfolio.holdings || {}; // Restore this for fallback logic
+
+    // ✅ FIX CRITICO: Filtra STRICTO solo posizioni aperte PRIMA di usarle (evita ReferenceError)
+    const validOpenPositions = (openPositions || []).filter(pos => {
+        // Validazione STRICTA: deve essere esattamente 'open'
+        if (!pos || pos.status !== 'open') {
+            return false;
+        }
+        // Validazione: deve avere ticket_id valido
+        if (!pos.ticket_id) {
+            return false;
+        }
+        return true;
+    });
+
+    // ✅ FIX CRITICO: Dichiarare tutte le costanti PRIMA del loro utilizzo
+    const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni USDT max (soglia di sicurezza)
+    const MIN_REASONABLE_BALANCE = -1000000; // -1 milione min (per permettere debiti)
+    const MAX_REASONABLE_VOLUME = 1000000; // 1 milione di unità max
+    const MAX_REASONABLE_PRICE = 1000000; // 1 milione USDT max per unità
+
+    let totalLongValue = 0;
+    let totalShortLiability = 0;
+
+    // ✅ FIX: Usa validOpenPositions invece di openPositions per coerenza
+    if (validOpenPositions && validOpenPositions.length > 0) {
+        validOpenPositions.forEach(pos => {
+            // ✅ FIX: Validazione aggiuntiva
+            if (pos.status !== 'open') {
+                return; // Skip non-open positions
+            }
+
+            const volume = parseFloat(pos.volume) || 0;
+            const volumeClosed = parseFloat(pos.volume_closed) || 0;
+            const remainingVolume = volume - volumeClosed;
+
+            // ✅ FIX: Valida remainingVolume
+            if (remainingVolume <= 0) {
+                return; // Skip positions with no remaining volume
+            }
+
+            if (remainingVolume > MAX_REASONABLE_VOLUME) {
+                console.error(`🚨 [BALANCE] Volume anomale per posizione ${pos.ticket_id}: ${remainingVolume}. Skipping.`);
+                return;
+            }
+
+            // ✅ FIX CRITICO: Usa sempre il prezzo più aggiornato disponibile
+            // Priorità: 1) allSymbolPrices (aggiornato ogni fetch), 2) currentPrice se stesso simbolo, 3) current_price dal DB
+            let price = allSymbolPrices[pos.symbol];
+
+            // Se non c'è in allSymbolPrices ma è il simbolo corrente, usa currentPrice (aggiornato ogni secondo)
+            if (!price && pos.symbol === currentSymbol && currentPrice > 0) {
+                price = currentPrice;
+            }
+
+            // Fallback: usa prezzo dal database
+            if (!price || price === 0) {
+                price = parseFloat(pos.current_price) || 0;
+            }
+
+            // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT
+
+            // ✅ FIX CRITICO: Valida che il prezzo sia ragionevole
+            if (price > MAX_REASONABLE_PRICE) {
+                console.error(`🚨 [BALANCE] Prezzo anomale per ${pos.symbol}: $${price.toLocaleString()}. Usando entry_price come fallback.`);
+                // Usa entry_price come fallback se il prezzo è anomale
+                if (entryPrice > 0 && entryPrice <= MAX_REASONABLE_PRICE) {
+                    price = entryPrice;
+                } else {
+                    console.error(`🚨 [BALANCE] Anche entry_price è anomale (${entryPrice}). Skipping posizione ${pos.ticket_id}.`);
+                    return;
+                }
+            }
+
+            if (pos.type === 'buy' && pos.status === 'open') {
+                const longValue = remainingVolume * price;
+
+                // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT
+                if (longValue > MAX_REASONABLE_BALANCE) {
+                    console.error(`🚨 [BALANCE] Valore LONG anomale per ${pos.ticket_id}: $${longValue.toLocaleString()}. Volume: ${remainingVolume}, Prezzo: $${price.toFixed(8)}. Skipping.`);
+                    return;
+                }
+                totalLongValue += longValue;
+            } else if (pos.type === 'sell' && pos.status === 'open') {
+                // ✅ FIX: Per SHORT, il debito è FISSO all'entry price (quanto crypto dobbiamo restituire)
+                // NON usiamo current_price perché il debito non cambia - solo il P&L cambia
+                const entryPrice = parseFloat(pos.entry_price) || 0;
+
+                // ✅ FIX: Valida entry_price
+                if (entryPrice > MAX_REASONABLE_PRICE) {
+                    console.error(`🚨 [BALANCE] Entry price anomale per SHORT ${pos.ticket_id}: $${entryPrice.toLocaleString()}. Skipping.`);
+                    return;
+                }
+
+                if (entryPrice > 0) {
+                    const shortLiability = remainingVolume * entryPrice;
+                    // ✅ FIX: Valida che il valore calcolato sia ragionevole
+                    if (shortLiability > MAX_REASONABLE_BALANCE) {
+                        console.error(`🚨 [BALANCE] Valore SHORT anomale per ${pos.ticket_id}: $${shortLiability.toLocaleString()}. Skipping.`);
+                        return;
+                    }
+                    totalShortLiability += shortLiability;
+                }
+            }
+        });
+    }
+
+    // ✅ FIX CRITICO: Calcolo corretto Total Balance
+    // LONG: Valore attuale delle crypto possedute (current_price * volume)
+    // SHORT: Debito da ripagare (entry_price * volume) - questo è quanto dobbiamo restituire
+    // Equity = Cash + Long Value - Short Debt
+
+    // Per SHORT, il debito è FISSO all'entry price (quanto abbiamo "preso in prestito")
+    // NON cambia con il prezzo corrente - quello influenza solo il P&L
+
+    // ✅ FIX CRITICO: Valida portfolio.balance_usd per evitare valori assurdi
+    // ✅ NOTA: MAX_REASONABLE_BALANCE e MIN_REASONABLE_BALANCE sono già dichiarati sopra
+    const rawBalance = parseFloat(portfolio.balance_usd) || 0;
+
+    // Balance debug logging removed
+
+    // Balance debug open positions logging removed
+
+    let validatedBalance = rawBalance;
+    if (rawBalance > MAX_REASONABLE_BALANCE || rawBalance < MIN_REASONABLE_BALANCE) {
+        console.error(`🚨 [BALANCE] Valore anomale di balance_usd: $${rawBalance.toLocaleString()}. Usando fallback: $10000`);
+        validatedBalance = 10000; // Fallback a 10k USDT
+    }
+
+    // Balance debug validated values logging removed
+
+    // ✅ FIX: Total Balance = Cash + Valore Posizioni (Equity Totale)
+    // Se hai $500 cash + $600 in BTC → mostra $1100 (patrimonio totale)
+    // Quando chiudi posizioni, il balance non fa salti strani
+    const totalBalance = validatedBalance + totalLongValue - totalShortLiability;
+
+    // ✅ FIX CRITICO: Usa direttamente profit_loss calcolato dal backend
+    // ✅ FIX: Validazione STRICTA - solo posizioni con status === 'open' e dati validi
+    // ✅ NOTA: validOpenPositions è già dichiarato sopra, non dichiararlo di nuovo!
+    let pnlValue = 0;
+    let pnlPercent = 0;
+    let totalInvestedValue = 0;
+    let avgPrice = 0;
+
+    if (validOpenPositions.length > 0) {
+        // Calcolo SEMPLICE: somma i profit_loss già calcolati dal backend
+        // Questo evita problemi con prezzi sbagliati o mancanti
+        validOpenPositions.forEach(pos => {
+            // ✅ FIX: Validazione aggiuntiva per sicurezza
+            if (pos.status !== 'open') {
+                console.warn(`⚠️ [P&L] Skipping position ${pos.ticket_id} with invalid status: ${pos.status}`);
+                return;
+            }
+
+            // Usa direttamente profit_loss dal backend (già calcolato correttamente)
+            const positionPnL = parseFloat(pos.profit_loss) || 0;
+
+            // ✅ FIX: Valida valori anomali (evita errori di calcolo)
+            const MAX_REASONABLE_PNL = 1000000; // 1 milione USDT max
+            if (Math.abs(positionPnL) > MAX_REASONABLE_PNL) {
+                console.warn(`⚠️ [P&L] Skipping anomalous profit_loss for position ${pos.ticket_id}: $${positionPnL.toFixed(2)}`);
+                return;
+            }
+
+            pnlValue += positionPnL;
+
+            // Calcola invested value per la percentuale
+            const entryPrice = parseFloat(pos.entry_price) || 0;
+            const volume = parseFloat(pos.volume) || 0;
+            const volumeClosed = parseFloat(pos.volume_closed) || 0;
+            const remainingVolume = volume - volumeClosed;
+
+            if (remainingVolume > 0 && entryPrice > 0) {
+                const invested = remainingVolume * entryPrice;
+                totalInvestedValue += invested;
+            }
+        });
+
+        // Calcola percentuale P&L
+        pnlPercent = totalInvestedValue > 0 ? (pnlValue / totalInvestedValue) * 100 : 0;
+
+        // Calculate average price (weighted average of all entry prices)
+        const totalVolume = validOpenPositions.reduce((sum, pos) => {
+            if (pos.status !== 'open') return sum;
+            const vol = parseFloat(pos.volume) || 0;
+            const volClosed = parseFloat(pos.volume_closed) || 0;
+            return sum + (vol - volClosed);
+        }, 0);
+
+        avgPrice = totalInvestedValue > 0 && totalVolume > 0 ? totalInvestedValue / totalVolume : 0;
+    } else {
+        // Fallback: use old calculation if no open positions (for backward compatibility)
+        const currentHoldings = holdings[currentSymbol] || 0;
+        avgPrice = portfolio.avg_buy_price || 0;
+        const investedValue = currentHoldings * avgPrice;
+        const currentValue = currentHoldings * currentPrice;
+        pnlValue = currentValue - investedValue;
+        pnlPercent = investedValue > 0 ? (pnlValue / investedValue) * 100 : 0;
+    }
+
+    // ✅ DEBUG: Calcolo alternativo per verificare correttezza
+    // Formula alternativa: Initial Balance + Realized P&L + Unrealized P&L
+    // (dove Unrealized P&L è già incluso in totalLongValue - totalShortLiability)
+    // Nota: Questo è solo per debug, il calcolo principale è quello sopra
+    const realizedPnL = closedPositions?.reduce((sum, pos) => {
+        const pnl = parseFloat(pos.profit_loss) || 0;
+        return sum + pnl;
+    }, 0) || 0;
+
+    const unrealizedPnL = pnlValue; // Ora pnlValue è già calcolato sopra
+
+    // Debug logging removed for cleaner console output
+
+    // TradingView Chart doesn't need chartData preparation anymore
+
+    // ✅ FIX: Memorizza array filtrati per evitare ricreazioni ad ogni render
+    const filteredOpenPositions = useMemo(() => {
+        return (openPositions || []).filter(p => p.symbol === currentSymbol);
+    }, [openPositions, currentSymbol]);
+
+    const filteredTrades = useMemo(() => {
+        return (allTrades || []).filter(t => t.symbol === currentSymbol).map(trade => ({
+            type: trade.type,
+            timestamp: trade.timestamp,
+            price: typeof trade.price === 'number' ? trade.price : parseFloat(trade.price),
+            amount: typeof trade.amount === 'number' ? trade.amount : parseFloat(trade.amount),
+            strategy: trade.strategy || 'Bot',
+            ticket_id: trade.ticket_id || null
+        }));
+    }, [allTrades, currentSymbol]);
+
+    // If chart-only mode, show only the chart in fullscreen
+    if (isChartOnly) {
+        return (
+            <div className="crypto-dashboard chart-only-mode" style={{ 
+                width: '100vw', 
+                height: '100vh', 
+                margin: 0, 
+                padding: 0,
+                overflow: 'hidden',
+                background: '#1c1c1e'
+            }}>
+                <TradingViewChart
+                    symbol={(() => {
+                        const found = availableSymbols.find(s => s.symbol === currentSymbol);
+                        if (found) return found.pair;
+
+                        // Auto-generate pair if not found
+                        const symbolMap = {
+                            'bitcoin': 'BTCUSDT',
+                            'ethereum': 'ETHUSDT',
+                            'solana': 'SOLUSDT',
+                            'cardano': 'ADAUSDT',
+                            'polkadot': 'DOTUSDT',
+                            'chainlink': 'LINKUSDT',
+                            'litecoin': 'LTCUSDT',
+                            'ripple': 'XRPUSDT',
+                            'binance_coin': 'BNBUSDT'
+                        };
+
+                        if (symbolMap[currentSymbol]) {
+                            return symbolMap[currentSymbol];
+                        }
+
+                        const upperSymbol = currentSymbol.toUpperCase().replace(/_/g, '');
+                        return `${upperSymbol}USDT`;
+                    })()}
+                    trades={filteredTrades}
+                    openPositions={filteredOpenPositions}
+                    currentPrice={currentPrice}
+                    priceHistory={priceData || []}
+                />
+            </div>
+        );
+    }
+
+    return (
+        <div className="crypto-dashboard">
+            <div className="crypto-header" style={{ position: 'relative' }}>
+                {/* ✅ Logo LogiKa in alto a sinistra (PNG) */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    marginBottom: '1rem',
+                    marginLeft: '-0.5rem',
+                    paddingTop: '0.5rem'
+                }}>
+                    <img
+                        src="/logo-logika-transparent.png"
+                        alt="Logika"
+                        style={{
+                            height: '80px',
+                            width: 'auto',
+                            display: 'block',
+                            maxWidth: '300px',
+                            objectFit: 'contain'
+                        }}
+                        onError={(e) => {
+                            // Fallback al logo originale se quello trasparente non viene trovato
+                            e.target.src = '/logo-logika.png';
+                            console.warn('Logo trasparente non trovato, uso versione originale');
+                        }}
+                    />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#9ca3af' }}>
+                    <button
+                        onClick={toggleFullscreen}
+                        style={{
+                            padding: '6px 10px',
+                            background: '#374151',
+                            border: 'none',
+                            borderRadius: '6px',
+                            color: '#9ca3af',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '0.85rem',
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#4b5563';
+                            e.currentTarget.style.color = '#fff';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = '#374151';
+                            e.currentTarget.style.color = '#9ca3af';
+                        }}
+                        title={isFullscreen ? "Esci da Fullscreen" : "Fullscreen"}
+                    >
+                        {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                        {isFullscreen ? "Esci" : "Fullscreen"}
+                    </button>
+                    <Wallet size={18} /> Demo Account
+                </div>
+            </div>
+
+            {/* TOP STATS GRID - 4 COLUMNS (separato Impostazioni) */}
+            <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.8fr 0.6fr', gap: '20px', marginBottom: '20px' }}>
+                <div className="balance-card" style={{ marginBottom: 0 }}>
+                    <div className="balance-label">Total Balance (Equity)</div>
+                    <div className="balance-amount">${totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className={`balance-change ${performanceAnalytics?.daily?.roi_percent >= 0 ? 'change-positive' : 'change-negative'}`}>
+                        {performanceAnalytics?.daily?.roi_percent >= 0 ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+                        {performanceAnalytics?.daily?.roi_percent >= 0 ? '+' : ''}{(performanceAnalytics?.daily?.roi_percent || 0).toFixed(2)}% Today
+                    </div>
+                </div>
+
+                <div className="balance-card" style={{ marginBottom: 0, background: 'linear-gradient(145deg, #1c1c1e, #2a2a2d)' }}>
+                    <div className="balance-label">Open Position P&L</div>
+                    <div className={`balance-amount ${pnlValue >= 0 ? 'text-green-500' : 'text-red-500'}`} style={{ fontSize: '2.5rem' }}>
+                        {pnlValue >= 0 ? '+' : ''}${pnlValue.toFixed(2)}
+                    </div>
+                    <div style={{ color: pnlValue >= 0 ? '#4ade80' : '#f87171', fontWeight: 'bold' }}>
+                        {pnlValue >= 0 ? '▲' : '▼'} {pnlPercent.toFixed(2)}%
+                        <span style={{ color: '#9ca3af', marginLeft: '10px', fontSize: '0.9rem', fontWeight: 'normal' }}>
+                            (Avg: ${avgPrice.toFixed(2)})
+                        </span>
+                    </div>
+                </div>
+
+                {/* Compact Bot Control */}
+                <div className="balance-card" style={{ marginBottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="balance-label">AI Bot Status</div>
+                        <Power size={20} className={botStatus.active ? "text-green-500" : "text-gray-500"} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
+                        <div className={`bot-indicator ${botStatus.active ? 'bot-active' : 'bot-inactive'}`} style={{ width: '40px', height: '40px' }}>
+                            <Activity size={20} />
+                        </div>
+                        <div>
+                            <div style={{ fontWeight: 'bold', color: botStatus.active ? '#4ade80' : '#9ca3af' }}>
+                                {botStatus.active ? "Active" : "Paused"}
+                            </div>
+                            {!botStatus.active && (
+                                <div style={{ fontSize: '0.7rem', color: '#6b7280', marginTop: '2px' }} title="Bot in pausa: non apre nuove posizioni, ma continua ad aggiornare dati e gestire posizioni esistenti">
+                                    (aggiorna dati)
+                                </div>
+                            )}
+                            {portfolio.rsi !== null && (
+                                <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>RSI: {portfolio.rsi.toFixed(2)}</div>
+                            )}
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexDirection: 'column' }}>
+                        {/* ✅ Toggle Bot Button */}
+                        <button
+                            onClick={async () => {
+                                try {
+                                    const newStatus = !botStatus.active;
+
+                                    // Toggle all bots logging removed
+
+                                    const result = await fetchJsonWithRetry(
+                                        `${apiBase}/api/crypto/bot/toggle-all`,
+                                        {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                is_active: newStatus
+                                            })
+                                        },
+                                        {
+                                            maxRetries: 2,
+                                            silent502: false // Mostra errore per azioni utente
+                                        }
+                                    );
+
+                                    if (!result.ok) {
+                                        throw new Error(result.error || 'Errore nel toggle bot');
+                                    }
+
+                                    const data = result.data;
+                                    // Toggle all bots result logging removed
+
+                                    // Aggiorna stato locale
+                                    setBotStatus(prev => ({ ...prev, active: newStatus }));
+
+                                    // Mostra messaggio
+                                    alert(data.message);
+
+                                    // Ricarica dashboard per aggiornare dati
+                                    setTimeout(() => {
+                                        window.location.reload();
+                                    }, 1000);
+
+                                } catch (error) {
+                                    console.error('Errore toggle bot:', error);
+                                    alert(`Errore: ${error.message}`);
+                                }
+                            }}
+                            style={{
+                                width: '100%',
+                                padding: '10px',
+                                fontSize: '0.9rem',
+                                fontWeight: '600',
+                                background: botStatus.active ? '#ef4444' : '#10b981',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                transition: 'opacity 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                            title={botStatus.active ? 'Disattiva Bot (le posizioni esistenti continueranno ad essere gestite)' : 'Attiva Bot (il bot inizierà ad aprire nuove posizioni)'}
+                        >
+                            <Power size={18} />
+                            {botStatus.active ? 'Disattiva Bot' : 'Attiva Bot'}
+                        </button>
+
+                        {/* Settings Button */}
+                        <button
+                            className="toggle-btn"
+                            onClick={() => setShowBotSettings(true)}
+                            style={{ width: '100%', padding: '8px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                            title="Configurazione Bot"
+                        >
+                            <Settings size={18} />
+                            <span>Impostazioni</span>
+                        </button>
+                    </div>
+                </div>
+
+                {/* Impostazioni Generali - Quadrato separato a destra */}
+                <div className="balance-card" style={{ marginBottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="balance-label">Impostazioni</div>
+                        <Settings size={20} className="text-blue-500" />
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                        {/* Pulsante Impostazioni */}
+                        <button
+                            className="toggle-btn"
+                            onClick={() => setShowGeneralSettings(true)}
+                            style={{ flex: 1, padding: '10px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                            title="Impostazioni Generali"
+                        >
+                            <Settings size={18} />
+                            <span>Impostazioni</span>
+                        </button>
+                        
+                        {/* Pulsante Health Monitor */}
+                        <div style={{ position: 'relative' }}>
+                            <button
+                                className={`toggle-btn ${healthStatus?.criticalIssues?.length > 0 ? 'health-alert-pulse' : ''}`}
+                                onClick={() => setShowHealthMonitor(!showHealthMonitor)}
+                                style={{ 
+                                    padding: '10px 12px', 
+                                    fontSize: '0.9rem', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center',
+                                    position: 'relative',
+                                    backgroundColor: healthStatus?.criticalIssues?.length > 0 ? 'rgba(234, 179, 8, 0.15)' : '',
+                                    border: healthStatus?.criticalIssues?.length > 0 ? '2px solid rgba(234, 179, 8, 0.5)' : ''
+                                }}
+                                title={`Stato Sistema${healthStatus?.criticalIssues?.length > 0 ? ' - ' + healthStatus.criticalIssues.length + ' problemi!' : ''}`}
+                            >
+                                <Activity size={18} className={healthStatus?.overall === 'healthy' ? 'text-green-500' : 'text-red-500'} />
+                            </button>
+                            
+                            {/* Triangolo giallo lampeggiante se ci sono problemi */}
+                            {healthStatus?.criticalIssues?.length > 0 && (
+                                <div 
+                                    style={{ 
+                                        position: 'absolute', 
+                                        top: '-8px', 
+                                        right: '-8px',
+                                        animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                                    }}
+                                >
+                                    <AlertTriangle size={20} className="text-yellow-500" style={{ fill: 'rgba(234, 179, 8, 0.2)' }} />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* MAIN CRYPTO GRID - CHART & OPEN POSITIONS */}
+            <div className="crypto-grid">
+                <div className="crypto-card">
+                    <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                            <Activity size={20} className="text-blue-500" />
+                            <select
+                                value={currentSymbol}
+                                onChange={(e) => {
+                                    setCurrentSymbol(e.target.value);
+                                    // Reset price data when changing symbol
+                                    setPriceData([]);
+                                }}
+                                style={{
+                                    background: '#1f2937',
+                                    color: '#fff',
+                                    border: '1px solid #374151',
+                                    borderRadius: '6px',
+                                    padding: '6px 12px',
+                                    fontSize: '0.9rem',
+                                    cursor: 'pointer',
+                                    minWidth: '150px'
+                                }}
+                            >
+                                {availableSymbols.length > 0 ? (
+                                    availableSymbols.map(s => (
+                                        <option key={s.symbol} value={s.symbol}>
+                                            {s.display}
+                                        </option>
+                                    ))
+                                ) : (
+                                    <option value="bitcoin">Loading symbols...</option>
+                                )}
+                            </select>
+                            <span style={{ color: '#9ca3af', fontSize: '0.9rem' }}>
+                                {availableSymbols.find(s => s.symbol === currentSymbol)?.display || 'Live Market'}
+                            </span>
+                        </div>
+                    </div>
+                    <TradingViewChart
+                        symbol={(() => {
+                            const found = availableSymbols.find(s => s.symbol === currentSymbol);
+                            if (found) return found.pair;
+
+                            // ✅ FIX: Auto-generate pair if not found - mappa simboli comuni
+                            const symbolMap = {
+                                'bitcoin': 'BTCUSDT',
+                                'ethereum': 'ETHUSDT',
+                                'solana': 'SOLUSDT',
+                                'cardano': 'ADAUSDT',
+                                'polkadot': 'DOTUSDT',
+                                'chainlink': 'LINKUSDT',
+                                'litecoin': 'LTCUSDT',
+                                'ripple': 'XRPUSDT',
+                                'binance_coin': 'BNBUSDT'
+                            };
+
+                            if (symbolMap[currentSymbol]) {
+                                return symbolMap[currentSymbol];
+                            }
+
+                            // Fallback: genera da nome simbolo
+                            const upperSymbol = currentSymbol.toUpperCase().replace(/_/g, '');
+                            return `${upperSymbol}USDT`;
+                        })()}
+                        trades={filteredTrades}
+                        openPositions={filteredOpenPositions}
+                        currentPrice={currentPrice}
+                        priceHistory={priceData || []}
+                    />
+                </div>
+
+                {/* MT5 Style Open Positions */}
+                <div className="crypto-card" style={{ gridColumn: 'span 2' }}>
+                    <OpenPositions
+                        positions={openPositions}
+                        currentPrice={currentPrice}
+                        currentSymbol={currentSymbol}
+                        allSymbolPrices={allSymbolPrices}
+                        onClosePosition={handleClosePosition}
+                        onUpdatePnL={handleUpdatePnL}
+                        availableSymbols={availableSymbols}
+                        onSelectSymbol={setCurrentSymbol}
+                        apiBase={apiBase}
+                    />
+                </div>
+            </div>
+
+            {/* MARKET SCANNER */}
+            <MarketScanner
+                apiBase={apiBase}
+                currentSymbol={currentSymbol}
+                onSelectSymbol={(symbol) => {
+                    setCurrentSymbol(symbol);
+                    setPriceData([]);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+            />
+
+
+            {/* Kelly Criterion rimosso - ora usiamo Fixed Position Sizing */}
+
+            {/* RECENT TRADES HISTORY */}
+            <div className="crypto-card" style={{ marginTop: '20px' }}>
+                <div className="card-title">
+                    <RefreshCw size={20} className="text-gray-400" />
+                    Closed Positions History
+                </div>
+                <div className="trades-list">
+                    {closedPositions.length === 0 ? (
+                        <div style={{ color: '#555', textAlign: 'center', padding: '20px' }}>Nessuna posizione chiusa ancora</div>
+                    ) : (
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                            <thead>
+                                <tr style={{ color: '#6b7280', borderBottom: '1px solid #374151' }}>
+                                    <th style={{ padding: '10px', textAlign: 'left' }}>Time</th>
+                                    <th style={{ padding: '10px', textAlign: 'left' }}>Symbol</th>
+                                    <th style={{ padding: '10px', textAlign: 'left' }}>Type</th>
+                                    <th style={{ padding: '10px', textAlign: 'right' }}>Price</th>
+                                    <th style={{ padding: '10px', textAlign: 'right' }}>Amount</th>
+                                    <th style={{ padding: '10px', textAlign: 'right' }}>Total</th>
+                                    <th style={{ padding: '10px', textAlign: 'right' }}>P&L</th>
+                                    <th style={{ padding: '10px', textAlign: 'left' }}>Durata</th>
+                                    <th style={{ padding: '10px', textAlign: 'left' }}>Motivo Chiusura</th>
+                                    <th style={{ padding: '10px', textAlign: 'center' }}>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {closedPositions.map((pos, i) => {
+                                    if (!pos) return null; // Skip null/undefined positions
+                                    
+                                    const profit = parseFloat(pos.profit_loss || 0);
+                                    const profitPct = parseFloat(pos.profit_loss_pct || 0);
+                                    const isWin = profit >= 0;
+                                    
+                                    // ✅ FIX: Safe date handling
+                                    const closedAt = pos.closed_at ? new Date(pos.closed_at) : new Date();
+                                    const openedAt = pos.opened_at ? new Date(pos.opened_at) : new Date();
+                                    const durationMs = closedAt.getTime() - openedAt.getTime();
+                                    const durationMin = Math.floor(durationMs / 60000);
+
+                                    return (
+                                        <tr key={i} style={{ borderBottom: '1px solid #2d3748', background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                                            <td style={{ padding: '10px' }}>{pos.closed_at ? closedAt.toLocaleTimeString() : 'N/A'}</td>
+                                            <td style={{ padding: '10px', fontWeight: 'bold' }}>{pos.symbol || 'N/A'}</td>
+                                            <td style={{ padding: '10px' }}>
+                                                <span style={{
+                                                    color: pos.type === 'buy' ? '#10b981' : '#ef4444',
+                                                    background: pos.type === 'buy' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                                    padding: '2px 6px',
+                                                    borderRadius: '4px',
+                                                    fontSize: '0.8rem'
+                                                }}>
+                                                    {pos.type === 'buy' ? 'LONG' : pos.type === 'sell' ? 'SHORT' : 'N/A'}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '10px', textAlign: 'right' }}>{parseFloat(pos.entry_price || 0).toFixed(2)}</td>
+                                            <td style={{ padding: '10px', textAlign: 'right' }}>{parseFloat(pos.volume || 0).toFixed(4)}</td>
+                                            <td style={{ padding: '10px', textAlign: 'right' }}>{(parseFloat(pos.entry_price || 0) * parseFloat(pos.volume || 0)).toFixed(2)}€</td>
+                                            <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: isWin ? '#10b981' : '#ef4444' }}>
+                                                {isWin ? '+' : ''}{profit.toFixed(2)}€ ({isWin ? '+' : ''}{profitPct.toFixed(2)}%)
+                                            </td>
+                                            <td style={{ padding: '10px', color: '#9ca3af', fontSize: '0.85rem' }}>{durationMin >= 0 ? `${durationMin} min` : 'N/A'}</td>
+                                            <td style={{ padding: '10px', color: '#9ca3af', fontSize: '0.8rem', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={pos.close_reason || ''}>
+                                                {pos.close_reason || 'Manual'}
+                                            </td>
+                                            <td style={{ padding: '10px', textAlign: 'center' }}>
+                                                <button
+                                                    onClick={() => {
+                                                        // Show details in a readable modal
+                                                        try {
+                                                            const details = pos.signal_details ? (typeof pos.signal_details === 'string' ? JSON.parse(pos.signal_details) : pos.signal_details) : {};
+                                                            setSelectedPositionDetails({
+                                                                ...pos,
+                                                                parsedDetails: details
+                                                            });
+                                                            setShowDetailsModal(true);
+                                                        } catch (e) {
+                                                            console.error('Error parsing signal details:', e);
+                                                            setSelectedPositionDetails({
+                                                                ...pos,
+                                                                parsedDetails: {}
+                                                            });
+                                                            setShowDetailsModal(true);
+                                                        }
+                                                    }}
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6366f1' }}
+                                                >
+                                                    <Info size={16} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            </div>
+
+
+            {/* ADVANCED STATISTICS PANEL - Moved here per user request */}
+            <div style={{ marginTop: '20px' }}>
+                <StatisticsPanel apiBase={apiBase} />
+            </div>
+
+            {/* 📊 PERFORMANCE ANALYTICS - Day/Week/Month/Year */}
+            {performanceAnalytics && (
+                <div className="crypto-card" style={{ marginTop: '20px' }}>
+                    <div className="card-title">
+                        <TrendingUp size={20} className="text-gray-400" />
+                        📊 Performance Analytics
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', padding: '15px' }}>
+                        {/* Daily */}
+                        <div style={{ background: '#1a1d29', padding: '15px', borderRadius: '8px', border: '1px solid #2d3748' }}>
+                            <div style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '8px' }}>📅 Oggi</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: (performanceAnalytics?.daily?.net_profit || 0) >= 0 ? '#10b981' : '#ef4444' }}>
+                                {(performanceAnalytics?.daily?.net_profit || 0) >= 0 ? '+' : ''}{(performanceAnalytics?.daily?.net_profit || 0).toFixed(2)} $
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: (performanceAnalytics?.daily?.roi_percent || 0) >= 0 ? '#10b981' : '#ef4444', marginTop: '4px' }}>
+                                {(performanceAnalytics?.daily?.roi_percent || 0) >= 0 ? '+' : ''}{(performanceAnalytics?.daily?.roi_percent || 0).toFixed(2)}% ROI
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '8px' }}>
+                                {performanceAnalytics?.daily?.total_trades || 0} trade • {(performanceAnalytics?.daily?.win_rate || 0).toFixed(1)}% win rate
+                            </div>
+                        </div>
+
+                        {/* Weekly */}
+                        <div style={{ background: '#1a1d29', padding: '15px', borderRadius: '8px', border: '1px solid #2d3748' }}>
+                            <div style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '8px' }}>📅 Settimana</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: (performanceAnalytics?.weekly?.net_profit || 0) >= 0 ? '#10b981' : '#ef4444' }}>
+                                {(performanceAnalytics?.weekly?.net_profit || 0) >= 0 ? '+' : ''}{(performanceAnalytics?.weekly?.net_profit || 0).toFixed(2)} $
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: (performanceAnalytics?.weekly?.roi_percent || 0) >= 0 ? '#10b981' : '#ef4444', marginTop: '4px' }}>
+                                {(performanceAnalytics?.weekly?.roi_percent || 0) >= 0 ? '+' : ''}{(performanceAnalytics?.weekly?.roi_percent || 0).toFixed(2)}% ROI
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '8px' }}>
+                                {performanceAnalytics?.weekly?.total_trades || 0} trade • {(performanceAnalytics?.weekly?.win_rate || 0).toFixed(1)}% win rate
+                            </div>
+                        </div>
+
+                        {/* Monthly */}
+                        <div style={{ background: '#1a1d29', padding: '15px', borderRadius: '8px', border: '1px solid #2d3748' }}>
+                            <div style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '8px' }}>📅 Mese</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: (performanceAnalytics?.monthly?.net_profit || 0) >= 0 ? '#10b981' : '#ef4444' }}>
+                                {(performanceAnalytics?.monthly?.net_profit || 0) >= 0 ? '+' : ''}{(performanceAnalytics?.monthly?.net_profit || 0).toFixed(2)} $
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: (performanceAnalytics?.monthly?.roi_percent || 0) >= 0 ? '#10b981' : '#ef4444', marginTop: '4px' }}>
+                                {(performanceAnalytics?.monthly?.roi_percent || 0) >= 0 ? '+' : ''}{(performanceAnalytics?.monthly?.roi_percent || 0).toFixed(2)}% ROI
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '8px' }}>
+                                {performanceAnalytics?.monthly?.total_trades || 0} trade • {(performanceAnalytics?.monthly?.win_rate || 0).toFixed(1)}% win rate
+                            </div>
+                        </div>
+
+                        {/* Yearly */}
+                        <div style={{ background: '#1a1d29', padding: '15px', borderRadius: '8px', border: '1px solid #2d3748' }}>
+                            <div style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '8px' }}>📅 Anno</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: (performanceAnalytics?.yearly?.net_profit || 0) >= 0 ? '#10b981' : '#ef4444' }}>
+                                {(performanceAnalytics?.yearly?.net_profit || 0) >= 0 ? '+' : ''}{(performanceAnalytics?.yearly?.net_profit || 0).toFixed(2)} $
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: (performanceAnalytics?.yearly?.roi_percent || 0) >= 0 ? '#10b981' : '#ef4444', marginTop: '4px' }}>
+                                {(performanceAnalytics?.yearly?.roi_percent || 0) >= 0 ? '+' : ''}{(performanceAnalytics?.yearly?.roi_percent || 0).toFixed(2)}% ROI
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '8px' }}>
+                                {performanceAnalytics?.yearly?.total_trades || 0} trade • {(performanceAnalytics?.yearly?.win_rate || 0).toFixed(1)}% win rate
+                            </div>
+                        </div>
+
+                        {/* All Time */}
+                        <div style={{ background: '#1a1d29', padding: '15px', borderRadius: '8px', border: '1px solid #2d3748' }}>
+                            <div style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '8px' }}>📅 Totale</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: (performanceAnalytics?.all_time?.net_profit || 0) >= 0 ? '#10b981' : '#ef4444' }}>
+                                {(performanceAnalytics?.all_time?.net_profit || 0) >= 0 ? '+' : ''}{(performanceAnalytics?.all_time?.net_profit || 0).toFixed(2)} $
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: (performanceAnalytics?.all_time?.roi_percent || 0) >= 0 ? '#10b981' : '#ef4444', marginTop: '4px' }}>
+                                {(performanceAnalytics?.all_time?.roi_percent || 0) >= 0 ? '+' : ''}{(performanceAnalytics?.all_time?.roi_percent || 0).toFixed(2)}% ROI
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '8px' }}>
+                                {performanceAnalytics?.all_time?.total_trades || 0} trade • {(performanceAnalytics?.all_time?.win_rate || 0).toFixed(1)}% win rate
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Bot Settings Modal */}
+            <BotSettings
+                isOpen={showBotSettings}
+                onClose={() => setShowBotSettings(false)}
+                apiBase={apiBase}
+            />
+
+            {/* General Settings Modal */}
+            <GeneralSettings
+                isOpen={showGeneralSettings}
+                onClose={() => setShowGeneralSettings(false)}
+                onResetPortfolio={handleResetPortfolio}
+                onAddFunds={() => {
+                    setShowGeneralSettings(false);
+                    setShowAddFundsModal(true);
+                }}
+            />
+
+            {/* Health Monitor Dropdown */}
+            {showHealthMonitor && (
+                <div 
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 999
+                    }}
+                    onClick={() => setShowHealthMonitor(false)}
+                >
+                    <div 
+                        style={{
+                            position: 'absolute',
+                            top: '200px',
+                            right: '20px',
+                            width: '400px',
+                            background: '#1f2937',
+                            border: '1px solid #374151',
+                            borderRadius: '12px',
+                            boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+                            padding: '20px',
+                            zIndex: 1000
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <SystemHealthMonitor />
+                    </div>
+                </div>
+            )}
+
+            {/* Add Funds Modal */}
+            {
+                showAddFundsModal && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0, 0, 0, 0.8)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 2000
+                    }}>
+                        <div style={{
+                            background: 'linear-gradient(145deg, #1f2937, #111827)',
+                            borderRadius: '16px',
+                            padding: '30px',
+                            maxWidth: '500px',
+                            width: '90%',
+                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+                            border: '1px solid #374151'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                <h2 style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <DollarSign size={24} className="text-green-500" />
+                                    Aggiungi Fondi
+                                </h2>
+                                <button
+                                    onClick={() => setShowAddFundsModal(false)}
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: '#9ca3af',
+                                        fontSize: '1.5rem',
+                                        cursor: 'pointer',
+                                        padding: '0',
+                                        width: '30px',
+                                        height: '30px'
+                                    }}
+                                >
+                                    ×
+                                </button>
+                            </div>
+
+                            <div style={{ color: '#9ca3af', marginBottom: '20px', fontSize: '0.9rem' }}>
+                                Simula un deposito di fondi nel tuo portfolio. L'importo verrà aggiunto al saldo attuale.
+                            </div>
+
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={{ color: '#e5e7eb', fontSize: '0.9rem', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                                    Importo da aggiungere (USDT)
+                                </label>
+                                <input
+                                    type="number"
+                                    id="addFundsAmount"
+                                    min="1"
+                                    step="0.01"
+                                    placeholder="Inserisci importo..."
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px',
+                                        background: '#111827',
+                                        border: '1px solid #374151',
+                                        borderRadius: '8px',
+                                        color: '#fff',
+                                        fontSize: '1.1rem',
+                                        fontWeight: 'bold'
+                                    }}
+                                    onKeyPress={(e) => {
+                                        if (e.key === 'Enter') {
+                                            const amount = document.getElementById('addFundsAmount').value;
+                                            if (amount && parseFloat(amount) > 0) {
+                                                handleAddFunds(amount);
+                                            }
+                                        }
+                                    }}
+                                />
+                            </div>
+
+                            {/* Quick Amount Buttons */}
+                            <div style={{ marginBottom: '25px' }}>
+                                <div style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: '10px' }}>Importi rapidi:</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                                    {[50, 100, 250, 500].map(amount => (
+                                        <button
+                                            key={amount}
+                                            onClick={() => {
+                                                const input = document.getElementById('addFundsAmount');
+                                                if (input) input.value = amount;
+                                            }}
+                                            style={{
+                                                padding: '10px',
+                                                background: '#374151',
+                                                border: '1px solid #4b5563',
+                                                borderRadius: '8px',
+                                                color: '#fff',
+                                                cursor: 'pointer',
+                                                fontSize: '0.9rem',
+                                                fontWeight: '500',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.target.style.background = '#4b5563';
+                                                e.target.style.borderColor = '#6366f1';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.target.style.background = '#374151';
+                                                e.target.style.borderColor = '#4b5563';
+                                            }}
+                                        >
+                                            ${amount}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button
+                                    onClick={() => setShowAddFundsModal(false)}
+                                    style={{
+                                        flex: 1,
+                                        padding: '12px',
+                                        background: '#374151',
+                                        border: '1px solid #4b5563',
+                                        borderRadius: '8px',
+                                        color: '#fff',
+                                        cursor: 'pointer',
+                                        fontSize: '1rem',
+                                        fontWeight: '500'
+                                    }}
+                                >
+                                    Annulla
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const amount = document.getElementById('addFundsAmount').value;
+                                        if (!amount || parseFloat(amount) <= 0) {
+                                            alert('⚠️ Inserisci un importo valido maggiore di 0');
+                                            return;
+                                        }
+                                        handleAddFunds(amount);
+                                    }}
+                                    style={{
+                                        flex: 1,
+                                        padding: '12px',
+                                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        color: '#fff',
+                                        cursor: 'pointer',
+                                        fontSize: '1rem',
+                                        fontWeight: 'bold',
+                                        boxShadow: '0 4px 6px rgba(16, 185, 129, 0.3)'
+                                    }}
+                                >
+                                    Conferma Deposito
+                                </button>
+                            </div>
+
+                            <div style={{ marginTop: '20px', padding: '12px', background: '#1f2937', borderRadius: '8px', border: '1px solid #374151' }}>
+                                <div style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: '6px' }}>
+                                    💡 <strong>Nota:</strong> Questa è una simulazione
+                                </div>
+                                <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
+                                    I fondi aggiunti sono virtuali e servono solo per testare la strategia di trading.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Real-time Notifications */}
+            <div className="crypto-notifications-container">
+                {notifications.map(notification => (
+                    <CryptoNotification
+                        key={notification.id}
+                        notification={notification}
+                        onClose={() => removeNotification(notification.id)}
+                    />
+                ))}
+            </div>
+
+            {/* Position Details Modal */}
+            {showDetailsModal && selectedPositionDetails && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0, 0, 0, 0.8)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 10000,
+                        padding: '20px'
+                    }}
+                    onClick={() => setShowDetailsModal(false)}
+                >
+                    <div
+                        style={{
+                            background: '#1a1a1a',
+                            borderRadius: '12px',
+                            padding: '24px',
+                            maxWidth: '90vw',
+                            maxHeight: '90vh',
+                            width: '800px',
+                            color: '#fff',
+                            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+                            overflow: 'visible'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>
+                                Dettagli Posizione - {selectedPositionDetails?.symbol || 'N/A'}
+                            </h2>
+                            <button
+                                onClick={() => setShowDetailsModal(false)}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#9ca3af',
+                                    cursor: 'pointer',
+                                    fontSize: '24px',
+                                    padding: '0',
+                                    width: '32px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div style={{
+                            background: '#0f0f0f',
+                            borderRadius: '8px',
+                            padding: '20px',
+                            marginBottom: '16px',
+                            border: '1px solid #2d2d2d'
+                        }}>
+                            <div style={{ marginBottom: '16px' }}>
+                                <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '4px' }}>Informazioni Posizione</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
+                                    <div>
+                                        <span style={{ color: '#6b7280' }}>Tipo:</span>
+                                        <span style={{ marginLeft: '8px', color: selectedPositionDetails?.type === 'buy' ? '#10b981' : '#ef4444' }}>
+                                            {selectedPositionDetails?.type === 'buy' ? 'LONG' : selectedPositionDetails?.type === 'sell' ? 'SHORT' : 'N/A'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span style={{ color: '#6b7280' }}>Entry Price:</span>
+                                        <span style={{ marginLeft: '8px' }}>${parseFloat(selectedPositionDetails?.entry_price || 0).toFixed(4)}</span>
+                                    </div>
+                                    <div>
+                                        <span style={{ color: '#6b7280' }}>Volume:</span>
+                                        <span style={{ marginLeft: '8px' }}>{parseFloat(selectedPositionDetails?.volume || 0).toFixed(4)}</span>
+                                    </div>
+                                    <div>
+                                        <span style={{ color: '#6b7280' }}>P&L:</span>
+                                        <span style={{
+                                            marginLeft: '8px',
+                                            color: parseFloat(selectedPositionDetails?.profit_loss || 0) >= 0 ? '#10b981' : '#ef4444'
+                                        }}>
+                                            {parseFloat(selectedPositionDetails?.profit_loss || 0) >= 0 ? '+' : ''}
+                                            ${parseFloat(selectedPositionDetails?.profit_loss || 0).toFixed(2)}
+                                            ({parseFloat(selectedPositionDetails?.profit_loss_pct || 0) >= 0 ? '+' : ''}
+                                            {parseFloat(selectedPositionDetails?.profit_loss_pct || 0).toFixed(2)}%)
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span style={{ color: '#6b7280' }}>Aperta:</span>
+                                        <span style={{ marginLeft: '8px' }}>
+                                            {selectedPositionDetails?.opened_at ? new Date(selectedPositionDetails.opened_at).toLocaleString() : 'N/A'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span style={{ color: '#6b7280' }}>Chiusa:</span>
+                                        <span style={{ marginLeft: '8px' }}>
+                                            {selectedPositionDetails?.closed_at ? new Date(selectedPositionDetails.closed_at).toLocaleString() : 'N/A'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {selectedPositionDetails?.parsedDetails && Object.keys(selectedPositionDetails.parsedDetails).length > 0 && (
+                            <div style={{
+                                background: '#0f0f0f',
+                                borderRadius: '8px',
+                                padding: '20px',
+                                border: '1px solid #2d2d2d',
+                                maxHeight: 'calc(90vh - 300px)',
+                                overflowY: 'auto'
+                            }}>
+                                <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '12px', fontWeight: '600' }}>
+                                    Analisi Segnale
+                                </div>
+
+                                {selectedPositionDetails?.parsedDetails?.mtf && (
+                                    <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
+                                        <div style={{ color: '#6366f1', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Multi-Timeframe</div>
+                                        <div style={{ fontSize: '13px', lineHeight: '1.8' }}>
+                                            <div><span style={{ color: '#6b7280' }}>Trend 1h:</span> <span style={{ color: selectedPositionDetails?.parsedDetails?.mtf?.trend1h === 'bullish' ? '#10b981' : selectedPositionDetails?.parsedDetails?.mtf?.trend1h === 'bearish' ? '#ef4444' : '#9ca3af' }}>{selectedPositionDetails?.parsedDetails?.mtf?.trend1h || 'N/A'}</span></div>
+                                            <div><span style={{ color: '#6b7280' }}>Trend 4h:</span> <span style={{ color: selectedPositionDetails?.parsedDetails?.mtf?.trend4h === 'bullish' ? '#10b981' : selectedPositionDetails?.parsedDetails?.mtf?.trend4h === 'bearish' ? '#ef4444' : '#9ca3af' }}>{selectedPositionDetails?.parsedDetails?.mtf?.trend4h || 'N/A'}</span></div>
+                                            <div><span style={{ color: '#6b7280' }}>MTF Bonus:</span> <span style={{ color: (selectedPositionDetails?.parsedDetails?.mtf?.bonus || 0) >= 0 ? '#10b981' : '#ef4444' }}>{(selectedPositionDetails?.parsedDetails?.mtf?.bonus || 0) >= 0 ? '+' : ''}{selectedPositionDetails?.parsedDetails?.mtf?.bonus || 0}</span></div>
+                                            <div><span style={{ color: '#6b7280' }}>Strength Aggiustata:</span> <span style={{ fontWeight: '600' }}>{selectedPositionDetails?.parsedDetails?.mtf?.adjustedStrength || 'N/A'}/100</span></div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {selectedPositionDetails?.parsedDetails?.direction && (
+                                    <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
+                                        <div style={{ color: '#6366f1', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Segnale</div>
+                                        <div style={{ fontSize: '13px', lineHeight: '1.8' }}>
+                                            <div><span style={{ color: '#6b7280' }}>Direzione:</span> <span style={{ color: selectedPositionDetails?.parsedDetails?.direction === 'LONG' ? '#10b981' : '#ef4444' }}>{selectedPositionDetails?.parsedDetails?.direction || 'N/A'}</span></div>
+                                            <div><span style={{ color: '#6b7280' }}>Strength:</span> <span style={{ fontWeight: '600' }}>{selectedPositionDetails?.parsedDetails?.strength || 0}/100</span></div>
+                                            <div><span style={{ color: '#6b7280' }}>Conferme:</span> <span>{selectedPositionDetails?.parsedDetails?.confirmations || 0}</span></div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {selectedPositionDetails?.parsedDetails?.reasons && selectedPositionDetails.parsedDetails.reasons.length > 0 && (
+                                    <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
+                                        <div style={{ color: '#6366f1', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Motivi del Segnale</div>
+                                        <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', lineHeight: '1.8', color: '#d1d5db' }}>
+                                            {(selectedPositionDetails?.parsedDetails?.reasons || []).map((reason, idx) => (
+                                                <li key={idx} style={{ marginBottom: '4px' }}>{reason}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {selectedPositionDetails?.parsedDetails?.indicators && (
+                                    <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
+                                        <div style={{ color: '#6366f1', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Indicatori</div>
+                                        <div style={{ fontSize: '13px', lineHeight: '1.8' }}>
+                                            {selectedPositionDetails?.parsedDetails?.indicators?.rsi && (
+                                                <div><span style={{ color: '#6b7280' }}>RSI:</span> <span>{parseFloat(selectedPositionDetails.parsedDetails.indicators.rsi).toFixed(2)}</span></div>
+                                            )}
+                                            {selectedPositionDetails?.parsedDetails?.indicators?.trend && (
+                                                <div><span style={{ color: '#6b7280' }}>Trend:</span> <span>{selectedPositionDetails.parsedDetails.indicators.trend}</span></div>
+                                            )}
+                                            {selectedPositionDetails?.parsedDetails?.indicators?.macd && (
+                                                <div style={{ marginTop: '8px' }}>
+                                                    <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>MACD:</div>
+                                                    <div style={{ paddingLeft: '12px', fontSize: '12px' }}>
+                                                        {selectedPositionDetails?.parsedDetails?.indicators?.macd?.macdLine && (
+                                                            <div>MACD Line: {parseFloat(selectedPositionDetails.parsedDetails.indicators.macd.macdLine).toFixed(4)}</div>
+                                                        )}
+                                                        {selectedPositionDetails?.parsedDetails?.indicators?.macd?.signalLine && (
+                                                            <div>Signal Line: {parseFloat(selectedPositionDetails.parsedDetails.indicators.macd.signalLine).toFixed(4)}</div>
+                                                        )}
+                                                        {selectedPositionDetails?.parsedDetails?.indicators?.macd?.histogram && (
+                                                            <div>Histogram: {parseFloat(selectedPositionDetails.parsedDetails.indicators.macd.histogram).toFixed(4)}</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {selectedPositionDetails?.parsedDetails?.longSignal && (
+                                    <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
+                                        <div style={{ color: '#10b981', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Segnale LONG</div>
+                                        <div style={{ fontSize: '13px', lineHeight: '1.8' }}>
+                                            <div><span style={{ color: '#6b7280' }}>Strength:</span> <span style={{ fontWeight: '600' }}>{selectedPositionDetails?.parsedDetails?.longSignal?.strength || 0}/100</span></div>
+                                            <div><span style={{ color: '#6b7280' }}>Conferme:</span> <span>{selectedPositionDetails?.parsedDetails?.longSignal?.confirmations || 0}</span></div>
+                                            {selectedPositionDetails?.parsedDetails?.longSignal?.reasons && selectedPositionDetails.parsedDetails.longSignal.reasons.length > 0 && (
+                                                <div style={{ marginTop: '8px' }}>
+                                                    <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>Motivi:</div>
+                                                    <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '12px', lineHeight: '1.6' }}>
+                                                        {(selectedPositionDetails?.parsedDetails?.longSignal?.reasons || []).map((reason, idx) => (
+                                                            <li key={idx} style={{ marginBottom: '2px', color: '#d1d5db' }}>{reason}</li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {(!selectedPositionDetails?.parsedDetails || Object.keys(selectedPositionDetails.parsedDetails || {}).length === 0) && (
+                            <div style={{
+                                padding: '20px',
+                                textAlign: 'center',
+                                color: '#6b7280',
+                                fontSize: '14px'
+                            }}>
+                                Nessun dettaglio segnale disponibile per questa posizione.
+                            </div>
+                        )}
+
+                        <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => setShowDetailsModal(false)}
+                                style={{
+                                    padding: '10px 24px',
+                                    background: '#3b82f6',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    color: '#fff',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    fontWeight: '600'
+                                }}
+                            >
+                                Chiudi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+
+
+
+        </div >
+    );
+};
+
+export default CryptoDashboard;

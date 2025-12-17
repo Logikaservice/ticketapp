@@ -1,0 +1,64 @@
+{
+  "symbol": "bitcoin",
+  "period": "60 days",
+  "initialCapital": 1080,
+  "testDate": "2025-12-10T00:47:36.076Z",
+  "best": {
+    "strategy": "All-In 100%",
+    "tradeSize": 1080,
+    "profit": 215.75602894447502,
+    "monthlyProfit": 107.87801447223751,
+    "return": 19.977410087451393,
+    "maxDrawdown": 9.49434550072221
+  },
+  "allResults": [
+    {
+      "strategy": "Conservativo 10%",
+      "tradeSize": 108,
+      "profit": 21.575602894447456,
+      "return": 1.9977410087451348,
+      "winRate": 64.70588235294117,
+      "maxDrawdown": 1.02610757329903
+    },
+    {
+      "strategy": "Moderato 20%",
+      "tradeSize": 216,
+      "profit": 43.15120578889537,
+      "return": 3.9954820174903114,
+      "winRate": 64.70588235294117,
+      "maxDrawdown": 2.0339644933447847
+    },
+    {
+      "strategy": "Balanced 30%",
+      "tradeSize": 324,
+      "profit": 64.72680868334214,
+      "return": 5.993223026235384,
+      "winRate": 64.70588235294117,
+      "maxDrawdown": 3.024053385367058
+    },
+    {
+      "strategy": "Aggressivo 50%",
+      "tradeSize": 540,
+      "profit": 107.87801447223728,
+      "return": 9.988705043725675,
+      "winRate": 64.70588235294117,
+      "maxDrawdown": 4.952773975788377
+    },
+    {
+      "strategy": "Molto Aggressivo 75%",
+      "tradeSize": 810,
+      "profit": 161.81702170835683,
+      "return": 14.983057565588595,
+      "winRate": 64.70588235294117,
+      "maxDrawdown": 7.271691583576369
+    },
+    {
+      "strategy": "All-In 100%",
+      "tradeSize": 1080,
+      "profit": 215.75602894447502,
+      "return": 19.977410087451393,
+      "winRate": 64.70588235294117,
+      "maxDrawdown": 9.49434550072221
+    }
+  ]
+}

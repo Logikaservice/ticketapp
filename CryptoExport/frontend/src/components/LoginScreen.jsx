@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User } from 'lucide-react';
-import QuickRequestModal from './Modals/QuickRequestModal';
-import { buildApiUrl } from '../utils/apiConfig';
+// import QuickRequestModal from './Modals/QuickRequestModal'; // ✅ Rimosso per crypto
+// import { buildApiUrl } from '../utils/apiConfig'; // ✅ Rimosso per crypto
 
 const LoginScreen = ({
   loginData,
@@ -97,13 +97,7 @@ const LoginScreen = ({
 
   return (
     <>
-      {showQuickRequest && (
-        <QuickRequestModal
-          onClose={() => setShowQuickRequest(false)}
-          onSubmit={handleQuickRequest}
-          existingClients={clients}
-        />
-      )}
+      {/* QuickRequestModal rimosso per crypto */}
       <div
         className={`fixed bg-gradient-to-br ${bgGradient} flex items-center justify-center`}
         style={{
@@ -147,12 +141,7 @@ const LoginScreen = ({
           <form
             className="space-y-3 sm:space-y-4"
             method="post"
-            action={(() => {
-              const urlParams = new URLSearchParams(window.location.search);
-              const domainParam = urlParams.get('domain') || localStorage.getItem('requestedDomain');
-              const baseUrl = buildApiUrl('/api/login');
-              return domainParam ? `${baseUrl}?domain=${domainParam}` : baseUrl;
-            })()}
+            action="/api/login"
             onSubmit={(e) => {
               e.preventDefault();
               // Leggi i valori direttamente dai campi nativi (non controllati)
@@ -205,18 +194,7 @@ const LoginScreen = ({
             </button>
           </form>
 
-          {/* Pulsante Richiesta Assistenza Veloce */}
-          <div className="mt-4 sm:mt-5 md:mt-6 text-center">
-            <button
-              onClick={() => setShowQuickRequest(true)}
-              className={`text-xs sm:text-sm ${linkColor} underline transition`}
-            >
-              Richiesta Assistenza Veloce
-            </button>
-            <p className="text-xs text-gray-500 mt-1">
-              Invia una richiesta senza registrarti
-            </p>
-          </div>
+          {/* Richiesta Assistenza Veloce rimossa per crypto */}
         </div>
       </div>
     </>

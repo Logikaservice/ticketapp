@@ -28,9 +28,6 @@ import TimesheetManager from './components/TimesheetManager';
 import VivaldiManager from './components/VivaldiManager';
 import PackVisionWithAuth from './components/PackVisionWithAuth';
 import PackVision from './components/PackVision';
-// ✅ DASHBOARD ORIGINALE: Interfaccia completa con tutte le analisi
-import CryptoDashboard from './components/CryptoDashboard/CryptoDashboard';
-import BotAnalysisPageNew from './components/CryptoDashboard/BotAnalysisPageNew';
 import { buildApiUrl } from './utils/apiConfig';
 
 const INITIAL_NEW_CLIENT_DATA = {
@@ -50,8 +47,8 @@ export default function TicketApp() {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
 
-  // Rileva se siamo su orari.logikaservice.it, turni.logikaservice.it, vivaldi.logikaservice.it o packvision.logikaservice.it
-  // Supporta anche parametro URL ?domain=orari/vivaldi/packvision per test locali
+  // Rileva se siamo su orari.logikaservice.it, turni.logikaservice.it o vivaldi.logikaservice.it
+  // Supporta anche parametro URL ?domain=orari/vivaldi per test locali
 
   // 1. Rileva l'hostname reale
   const hostname = window.location.hostname;
@@ -66,9 +63,6 @@ export default function TicketApp() {
   const isPackVisionHostname = hostname === 'packvision.logikaservice.it' ||
     (hostname.includes('packvision') && !hostname.includes('ticket'));
 
-  const isCryptoHostname = hostname === 'crypto.logikaservice.it' ||
-    (hostname.includes('crypto') && !hostname.includes('ticket'));
-
   // 2. Parametro URL ?domain=orari/vivaldi/packvision per test
   const urlParams = new URLSearchParams(window.location.search);
   const testDomain = urlParams.get('domain');
@@ -80,7 +74,7 @@ export default function TicketApp() {
 
   // 4. Salva il dominio richiesto SOLO se presente nell'URL o nell'hostname
   useEffect(() => {
-    if (testDomain === 'orari' || testDomain === 'turni' || testDomain === 'vivaldi' || testDomain === 'packvision' || testDomain === 'crypto') {
+    if (testDomain === 'orari' || testDomain === 'turni' || testDomain === 'vivaldi' || testDomain === 'packvision') {
       localStorage.setItem('requestedDomain', testDomain);
     } else if (isOrariHostname) {
       localStorage.setItem('requestedDomain', 'orari');
@@ -88,14 +82,12 @@ export default function TicketApp() {
       localStorage.setItem('requestedDomain', 'vivaldi');
     } else if (isPackVisionHostname) {
       localStorage.setItem('requestedDomain', 'packvision');
-    } else if (isCryptoHostname) {
-      localStorage.setItem('requestedDomain', 'crypto');
     }
-  }, [testDomain, isOrariHostname, isVivaldiHostname, isPackVisionHostname, isCryptoHostname]);
+  }, [testDomain, isOrariHostname, isVivaldiHostname, isPackVisionHostname]);
 
   // 5. Determina il dominio finale: priorità a hostname reale, poi testDomain
   // MODIFICA: Rimosso localStorage.getItem('requestedDomain') per evitare persistenza indesiderata
-  const requestedDomain = isOrariHostname ? 'orari' : (isVivaldiHostname ? 'vivaldi' : (isPackVisionHostname ? 'packvision' : (isCryptoHostname ? 'crypto' : (testDomain || null))));
+  const requestedDomain = isOrariHostname ? 'orari' : (isVivaldiHostname ? 'vivaldi' : (isPackVisionHostname ? 'packvision' : (testDomain || null)));
 
   const isOrariDomain = requestedDomain === 'orari' || requestedDomain === 'turni';
   const isVivaldiDomain = requestedDomain === 'vivaldi';
@@ -190,12 +182,6 @@ export default function TicketApp() {
     }
     const params = new URLSearchParams(window.location.search);
     return params.get('mode') === 'display';
-  });
-
-  const [showCryptoDashboard, setShowCryptoDashboard] = useState(() => {
-    if (isCryptoHostname) return true;
-    const params = new URLSearchParams(window.location.search);
-    return params.get('domain') === 'crypto';
   });
 
   // Controlla se siamo in modalità display PackVision (riutilizza urlParams già dichiarato alla riga 63)
@@ -300,24 +286,11 @@ export default function TicketApp() {
 
       // Dopo il login, verifica se c'è un dominio richiesto e mostra la gestione orari se necessario
       // Per Vivaldi, la dashboard è sempre la schermata principale
-      const savedDomain = localStorage.getItem('requestedDomain');
-      if (savedDomain === 'crypto' || isCryptoHostname) {
-        setShowDashboard(false);
-        setShowOrariTurni(false);
-        setShowVivaldi(false);
-        setShowCryptoDashboard(true);
-      } else if (savedDomain === 'orari' || savedDomain === 'turni') {
-        setShowDashboard(false);
-        setShowOrariTurni(true);
-        setShowVivaldi(false);
-        setShowCryptoDashboard(false);
-      } else {
-        // Per tutti gli altri domini (incluso vivaldi), mostra la dashboard
-        setShowDashboard(true);
-        setShowOrariTurni(false);
-        setShowVivaldi(false);
-        setShowCryptoDashboard(false);
-      }
+    } else {
+      // Per tutti gli altri domini (incluso vivaldi), mostra la dashboard
+      setShowDashboard(true);
+      setShowOrariTurni(false);
+      setShowVivaldi(false);
     }
   }, [isLoggedIn]);
 
@@ -2872,25 +2845,25 @@ export default function TicketApp() {
       <div className="app-zoom-wrapper">
         {/* Nascondi Header quando domain=crypto */}
         {!(requestedDomain === 'crypto' || isCryptoHostname) && (
-        <Header
-          {...{
-            currentUser,
-            handleLogout,
-            openNewTicketModal,
-            openNewClientModal,
-            openSettings,
-            openManageClientsModal,
-            openAlertsHistory,
-            openImportKeepass,
-            openAnalytics,
-            openAccessLogs,
-            openInactivityTimer,
-            openOrariTurni: () => { setShowOrariTurni(true); setShowDashboard(false); setShowVivaldi(false); },
-            openVivaldi: () => { setShowVivaldi(true); setShowDashboard(false); setShowOrariTurni(false); },
-            openPackVision: () => setShowPackVision(true),
-            isOrariDomain: isOrariDomain
-          }}
-        />
+          <Header
+            {...{
+              currentUser,
+              handleLogout,
+              openNewTicketModal,
+              openNewClientModal,
+              openSettings,
+              openManageClientsModal,
+              openAlertsHistory,
+              openImportKeepass,
+              openAnalytics,
+              openAccessLogs,
+              openInactivityTimer,
+              openOrariTurni: () => { setShowOrariTurni(true); setShowDashboard(false); setShowVivaldi(false); },
+              openVivaldi: () => { setShowVivaldi(true); setShowDashboard(false); setShowOrariTurni(false); },
+              openPackVision: () => setShowPackVision(true),
+              isOrariDomain: isOrariDomain
+            }}
+          />
         )}
 
         {showOrariTurni && !isOrariHostname && (
@@ -2974,7 +2947,7 @@ export default function TicketApp() {
                 const urlParams = new URLSearchParams(window.location.search);
                 const page = urlParams.get('page');
                 const isBotAnalysisPage = page === 'bot-analysis';
-                
+
                 return isBotAnalysisPage ? (
                   <div className="animate-slideInRight">
                     <BotAnalysisPageNew />
@@ -2984,8 +2957,8 @@ export default function TicketApp() {
                     {!isCryptoHostname && (
                       <div
                         className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200 mb-4"
-                        onClick={() => { 
-                          setShowCryptoDashboard(false); 
+                        onClick={() => {
+                          setShowCryptoDashboard(false);
                           setShowDashboard(true);
                           // Rimuovi parametro domain=crypto dall'URL
                           const url = new URL(window.location);

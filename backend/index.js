@@ -410,17 +410,7 @@ io.on('connection', (socket) => {
   socket.join(`user:${socket.userId}`);
   socket.join(`role:${socket.userRole}`);
 
-  // Allow joining crypto dashboard room (for real-time bot notifications)
-  socket.on('crypto:join-dashboard', () => {
-    socket.join('crypto:dashboard');
-    console.log(`✅ Socket ${socket.userId} joined crypto:dashboard room`);
-    socket.emit('crypto:joined', { room: 'crypto:dashboard' });
-  });
 
-  socket.on('crypto:leave-dashboard', () => {
-    socket.leave('crypto:dashboard');
-    console.log(`✅ Socket ${socket.userId} left crypto:dashboard room`);
-  });
 
   socket.on('disconnect', () => {
     console.log(`❌ WebSocket disconnesso: ${socket.userId}`);
@@ -559,41 +549,7 @@ app.get('/api/keepalive', async (req, res) => {
 const { verifyPassword, migratePassword } = require('./utils/passwordUtils');
 const { generateLoginResponse, verifyRefreshToken, generateToken } = require('./utils/jwtUtils');
 
-// ✅ ENDPOINT PUBBLICO: Check system health (Database & Balance)
-// Definito QUI per evitare il middleware di autenticazione globale
-app.get('/api/crypto/public-balance-check', async (req, res) => {
-  try {
-    // Usa il pool crypto se disponibile, altrimenti fallback su pool principale
-    // Nota: crypto_db_postgresql usa la sua connessione, ma qui usiamo pool diretto per semplicità
-    let targetPool = pool;
 
-    // Se c'è un dbUrl crypto separato, dovremmo connetterci a quello.
-    // Ma per semplicità, assumiamo che 'portfolio' sia accessibile via 'pool' se è nello stesso DB,
-    // oppure dobbiamo usare cryptoDb.dbGet se importato.
-
-    // Importiamo cryptoDb dinamicamente per usare la sua connessione configurata
-    const cryptoDb = require('./crypto_db');
-    const portfolio = await cryptoDb.dbGet("SELECT * FROM portfolio WHERE id = 1");
-
-    if (portfolio) {
-      res.json({
-        success: true,
-        message: "Real Database Balance (Public)",
-        data: {
-          balance_usd: parseFloat(portfolio.balance_usd),
-          balance_eur: parseFloat(portfolio.balance_eur),
-          total_equity: parseFloat(portfolio.total_equity),
-          updated_at: portfolio.updated_at
-        }
-      });
-    } else {
-      res.status(404).json({ error: 'Portfolio not found' });
-    }
-  } catch (err) {
-    console.error('❌ Error in public balance check:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // ENDPOINT: Login utente (TEMPORANEO senza JWT per debug)
 app.post('/api/login', async (req, res) => {
@@ -805,14 +761,7 @@ app.post('/api/logout', async (req, res) => {
 // Importa middleware di autenticazione
 const { authenticateToken, requireRole } = require('./middleware/authMiddleware');
 
-// ✅ Middleware per bypassare autenticazione per route specifiche crypto
-const cryptoPublicRoutes = ['/api/crypto/general-settings'];
-const bypassAuthForCrypto = (req, res, next) => {
-  if (cryptoPublicRoutes.includes(req.path)) {
-    return next(); // Bypassa autenticazione per queste route
-  }
-  authenticateToken(req, res, next); // Altrimenti richiedi autenticazione
-};
+
 
 // --- IMPORTA LE ROUTES ---
 const usersRoutes = require('./routes/users')(pool);
@@ -835,160 +784,9 @@ const packvisionRoutes = require('./routes/packvision')(poolPackVision, io);
 
 app.use('/api/packvision', packvisionRoutes);
 
-// Route per Crypto Dashboard (database SQLite separato)
-const cryptoRoutes = require('./routes/cryptoRoutes');
-// Pass Socket.io instance to crypto routes for real-time notifications
-cryptoRoutes.setSocketIO(io);
 
 
 
-// ✅ Routes are now handled inside cryptoRoutes.js
-// Access via /api/crypto/general-settings
-
-// ✅ IMPORTANTE: Monta /api/crypto PRIMA del middleware di autenticazione globale
-// Questo garantisce che le route crypto (inclusa general-settings) siano accessibili
-app.use('/api/crypto', cryptoRoutes);
-
-// ✅ Endpoint pubblico per Total Balance (FUORI da /api/ per evitare middleware globali)
-app.get('/public-total-balance', async (req, res) => {
-  try {
-    const { dbGet, dbAll } = require('./crypto_db_postgresql');
-    const portfolio = await dbGet("SELECT balance_usd FROM portfolio WHERE id = 1");
-    const totalBalance = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'").catch(() => ({ setting_value: null }));
-    const openPositions = await dbAll("SELECT COUNT(*) as count, COALESCE(SUM(profit_loss), 0) as total_pnl FROM open_positions WHERE status = 'open'");
-
-    res.json({
-      success: true,
-      data: {
-        totalBalance: parseFloat(totalBalance?.setting_value || 0),
-        cash: parseFloat(portfolio?.balance_usd || 0),
-        openPositions: parseInt(openPositions[0]?.count || 0),
-        totalPnL: parseFloat(openPositions[0]?.total_pnl || 0)
-      },
-      timestamp: new Date().toISOString()
-    });
-  } catch (err) {
-    console.error('❌ Error in /public-total-balance:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ✅ Endpoint pubblico system health (FUORI da /api/ per evitare middleware globali)
-app.get('/system-health', async (req, res) => {
-  try {
-    const HealthCheckService = require('./services/HealthCheckService');
-    const status = HealthCheckService.getLastStatus();
-    if (!status) {
-      const newStatus = await HealthCheckService.performCheck();
-      return res.json({ success: true, status: newStatus });
-    }
-    res.json({ success: true, status });
-  } catch (error) {
-    console.error('❌ [SYSTEM-HEALTH] Errore:', error);
-    res.status(500).json({ success: false, error: error.message, stack: error.stack });
-  }
-});
-
-// ✅ Endpoint pubblici per AI accesso database (PRIMA di TUTTO, senza autenticazione)
-// DEVE essere PRIMA di qualsiasi app.use('/api', ...) per evitare middleware globali
-app.get('/api/ai-db/execute', async (req, res) => {
-  try {
-    const { command } = req.query;
-    const commands = {
-      'total-balance': async () => {
-        const { dbGet } = require('./crypto_db_postgresql');
-        const result = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'");
-        return { totalBalance: parseFloat(result?.setting_value || 0) };
-      },
-      'summary': async () => {
-        const { dbGet, dbAll } = require('./crypto_db_postgresql');
-        const portfolio = await dbGet("SELECT balance_usd FROM portfolio WHERE id = 1");
-        const totalBalance = await dbGet("SELECT setting_value FROM general_settings WHERE setting_key = 'total_balance'").catch(() => ({ setting_value: null }));
-        const openPositions = await dbAll("SELECT COUNT(*) as count, COALESCE(SUM(profit_loss), 0) as total_pnl FROM open_positions WHERE status = 'open'");
-        return {
-          totalBalance: parseFloat(totalBalance?.setting_value || 0),
-          cash: parseFloat(portfolio?.balance_usd || 0),
-          openPositions: parseInt(openPositions[0]?.count || 0),
-          totalPnL: parseFloat(openPositions[0]?.total_pnl || 0)
-        };
-      }
-    };
-
-    if (!command || !commands[command]) {
-      return res.status(400).json({
-        error: 'Command not found',
-        availableCommands: Object.keys(commands)
-      });
-    }
-
-    const result = await commands[command]();
-    res.json({ success: true, command, data: result, timestamp: new Date().toISOString() });
-  } catch (err) {
-    console.error('❌ Error in /api/ai-db/execute:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/api/ai-db/update', async (req, res) => {
-  try {
-    const { field, value } = req.body;
-    const allowedFields = { 'total_balance': 'general_settings' };
-
-    if (!field || !allowedFields[field]) {
-      return res.status(400).json({
-        error: 'Field not allowed',
-        allowedFields: Object.keys(allowedFields)
-      });
-    }
-
-    const { dbGet, dbRun } = require('./crypto_db_postgresql');
-    const table = allowedFields[field];
-    const oldValue = await dbGet(`SELECT setting_value FROM ${table} WHERE setting_key = $1`, [field]);
-
-    await dbRun(
-      `INSERT INTO ${table} (setting_key, setting_value, updated_at)
-             VALUES ($1, $2, NOW())
-             ON CONFLICT (setting_key) DO UPDATE SET setting_value = $2, updated_at = NOW()`,
-      [field, value.toString()]
-    );
-
-    const newValue = await dbGet(`SELECT setting_value FROM ${table} WHERE setting_key = $1`, [field]);
-
-    console.log(`✅ [AI-DB-UPDATE] ${field}: ${oldValue?.setting_value || 'null'} → ${newValue?.setting_value}`);
-
-    res.json({
-      success: true,
-      field,
-      oldValue: oldValue?.setting_value || null,
-      newValue: newValue?.setting_value,
-      timestamp: new Date().toISOString()
-    });
-  } catch (err) {
-    console.error('❌ Error in /api/ai-db/update:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 🤖 Start Professional Trading Bot
-console.log('🤖 [INIT] Starting Professional Crypto Trading Bot...');
-try {
-  const TradingBot = require('./services/TradingBot');
-  console.log('✅ [INIT] Professional Trading Bot started successfully');
-} catch (botError) {
-  console.error('❌ [INIT] Error starting Trading Bot:', botError.message);
-  console.error('❌ [INIT] Stack:', botError.stack);
-}
-
-// 📡 Start Price WebSocket Service (real-time price broadcasting)
-console.log('📡 [INIT] Starting Price WebSocket Service...');
-try {
-  const priceWebSocketService = require('./services/PriceWebSocketService');
-  priceWebSocketService.setSocketIO(io);
-  priceWebSocketService.start();
-  console.log('✅ [INIT] Price WebSocket Service started successfully');
-} catch (wsError) {
-  console.error('❌ [INIT] Error starting Price WebSocket Service:', wsError.message);
-}
 
 // Rotte temporanee per debug (senza autenticazione) - DEVE ESSERE PRIMA
 app.use('/api/temp', tempLoginRoutes);
@@ -1425,21 +1223,8 @@ app.use('/api/tickets', authenticateToken, ticketsRoutes);
 app.use('/api/alerts', authenticateToken, alertsRoutes);
 app.use('/api/keepass', authenticateToken, keepassRoutes);
 // Route Google Calendar e Auth con autenticazione
-// ✅ FIX: Middleware di autenticazione per route /api/* (escluso /api/crypto che è già gestito sopra)
-app.use('/api', (req, res, next) => {
-  // req.path include il path completo relativo al mount point (/api)
-  // Se la richiesta è per /api/crypto/*, è già stata gestita dal router crypto sopra
-  // quindi questo middleware non dovrebbe essere chiamato per quelle route
-  // Ma per sicurezza, bypassiamo l'autenticazione per route crypto pubbliche
-  if (req.path.startsWith('/crypto/')) {
-    // Le route crypto sono già gestite dal router crypto montato sopra
-    // Se arriviamo qui, significa che la route non è stata matchata dal router crypto
-    // In questo caso, passiamo al prossimo middleware senza autenticazione
-    return next();
-  }
-  // Richiedi autenticazione per tutte le altre route /api/*
-  authenticateToken(req, res, next);
-});
+// Middleware di autenticazione per route /api/*
+app.use('/api', authenticateToken);
 app.use('/api', googleCalendarRoutes);
 app.use('/api', googleAuthRoutes);
 app.use('/api/email', authenticateToken, emailNotificationsRoutes);

@@ -201,3 +201,7 @@ Se il problema persiste dopo aver provato tutte le soluzioni:
 - `backend/scripts/fix_btc_data.js`
 - `backend/scripts/fix_all_symbols_data.js`
 
+
+
+
+

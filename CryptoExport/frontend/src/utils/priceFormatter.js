@@ -11,16 +11,16 @@
  */
 export const formatSymbol = (symbol, availableSymbols = []) => {
     if (!symbol) return '';
-    
+
     // Cerca il simbolo in availableSymbols per ottenere il display corretto
     const symbolInfo = availableSymbols.find(s => s.symbol === symbol);
     if (symbolInfo && symbolInfo.display) {
-        return symbolInfo.display;
+        return String(symbolInfo.display);
     }
-    
+
     // Fallback: formatta manualmente
     const symbolLower = symbol.toLowerCase();
-    
+
     // Rimuovi suffissi _usdt, _eur, ecc. e aggiungi /USDT o /EUR
     if (symbolLower.includes('_usdt')) {
         const baseSymbol = symbolLower.replace('_usdt', '').toUpperCase();
@@ -29,7 +29,7 @@ export const formatSymbol = (symbol, availableSymbols = []) => {
         const baseSymbol = symbolLower.replace('_eur', '').toUpperCase();
         return `${baseSymbol}/EUR`;
     }
-    
+
     // Mappa simboli comuni
     const symbolMap = {
         'bitcoin': 'BTC/USDT',
@@ -50,11 +50,11 @@ export const formatSymbol = (symbol, availableSymbols = []) => {
         'shiba_inu': 'SHIB/USDT',
         'shib': 'SHIB/USDT'
     };
-    
+
     if (symbolMap[symbolLower]) {
         return symbolMap[symbolLower];
     }
-    
+
     // Fallback finale: uppercase semplice con /USDT
     const upperSymbol = symbol.toUpperCase().replace(/_/g, '');
     return `${upperSymbol}/USDT`;
@@ -158,10 +158,10 @@ export const formatPnL = (pnl) => {
     if (pnl == null || isNaN(pnl) || pnl === 0) {
         return '$0.00';
     }
-    
+
     const absPnl = Math.abs(pnl);
     const sign = pnl >= 0 ? '+' : '';
-    
+
     // ✅ LOGICA INTELLIGENTE: Mostra più decimali per valori piccoli
     // Se il valore è molto piccolo (< 0.01), mostra più decimali per evitare $0.00
     if (absPnl < 0.0001) {

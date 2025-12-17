@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock API Response - Bot Analysis</title>
+    <style>
+        body { background-color: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', monospace; padding: 20px; }
+        pre { background-color: #252526; padding: 20px; border-radius: 5px; overflow-x: auto; border: 1px solid #3e3e42; }
+        .key { color: #9cdcfe; }
+        .string { color: #ce9178; }
+        .number { color: #b5cea8; }
+        .boolean { color: #569cd6; }
+        .null { color: #569cd6; }
+    </style>
+</head>
+<body>
+    <h1>API Response Verification</h1>
+    <p>Endpoint: <code>/api/crypto/bot-analysis?symbol=bitcoin_usdt</code></p>
+    <div id="json-viewer"></div>
+
+    <script>
+        const mockResponse = {
+            "meta": {
+                "timestamp": new Date().toISOString(),
+                "symbol": "bitcoin_usdt",
+                "display_symbol": "BITCOIN/USDT",
+                "data_quality": "high"
+            },
+            "currentPrice": 94500.00,
+            "rsi": 32.5,
+            "swot_analysis": {
+                "strengths": [
+                    "Forza del segnale molto alta (78/100)",
+                    "Trend allineato rialzista su 1h e 4h",
+                    "Alta liquidità (Volume > 50M)"
+                ],
+                "weaknesses": [
+                    "Nessuna debolezza critica rilevata"
+                ],
+                "opportunities": [
+                    "RSI in zona favorevole per ingresso (Pullback)",
+                    "Ritracciamento (1h) in un trend primario rialzista (4h) - 'Dip Buying'"
+                ],
+                "threats": [
+                    "Monitorare volatilità"
+                ]
+            },
+            "signal": {
+                "direction": "LONG",
+                "strength": 78,
+                "confirmations": 4,
+                "reasons": [
+                    "Trend 1h Rialzista",
+                    "Trend 4h Rialzista",
+                    "Volume in aumento",
+                    "RSI Sold"
+                ],
+                "indicators": {
+                    "rsi": 32.5,
+                    "trend1h": "bullish",
+                    "trend4h": "bullish",
+                    "volume24h": 1500000000
+                },
+                "williamsR": -80,
+                "tsi": 12.5
+            },
+            "requirements": {
+                "long": {
+                    "minStrength": 65,
+                    "minConfirmations": 3,
+                    "currentStrength": 88,
+                    "currentConfirmations": 4,
+                    "needsStrength": 0,
+                    "needsConfirmations": 0,
+                    "canOpen": true,
+                    "reason": "✅ PRONTO AD APRIRE LONG",
+                    "strengthContributions": [
+                        { "name": "Trend 1h Bullish", "value": 20 },
+                        { "name": "Trend 4h Bullish", "value": 30 },
+                        { "name": "RSI Oversold", "value": 15 },
+                        { "name": "MTF Bonus", "value": 10 }
+                    ]
+                },
+                "short": {
+                    "minStrength": 65,
+                    "minConfirmations": 4,
+                    "currentStrength": 0,
+                    "currentConfirmations": 0,
+                    "needsStrength": 65,
+                    "needsConfirmations": 4,
+                    "canOpen": false,
+                    "reason": "Nessun segnale SHORT attivo",
+                    "strengthContributions": []
+                }
+            }
+        };
+
+        function syntaxHighlight(json) {
+            if (typeof json != 'string') {
+                json = JSON.stringify(json, undefined, 4);
+            }
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                var cls = 'number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'key';
+                    } else {
+                        cls = 'string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+
+        document.getElementById('json-viewer').innerHTML = '<pre>' + syntaxHighlight(mockResponse) + '</pre>';
+    </script>
+</body>
+</html>

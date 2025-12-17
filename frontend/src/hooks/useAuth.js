@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { buildApiUrl } from '../utils/apiConfig';
 
 export const useAuth = (showNotification) => {
@@ -95,7 +95,7 @@ export const useAuth = (showNotification) => {
     // Usa i valori passati come parametri se disponibili, altrimenti usa lo state
     const email = overrideEmail !== null ? overrideEmail : loginData.email;
     const password = overridePassword !== null ? overridePassword : loginData.password;
-    
+
     if (!email || !password) return showNotification('Inserisci email e password.', 'error');
     try {
       // Aggiungi il parametro domain se presente nell'URL o in localStorage
@@ -140,12 +140,12 @@ export const useAuth = (showNotification) => {
 
       setCurrentUser(loginResponse.user);
       setIsLoggedIn(true);
-      
+
       // NON svuotare i campi - lascia che il browser salvi le credenziali
       // Il browser Chrome richiede che i campi mantengano i valori per poter salvare
       // Svuoteremo i campi solo quando necessario (logout o nuovo login)
       // NOTA: I campi verranno comunque nascosti quando l'utente è loggato
-      
+
       localStorage.removeItem('sessionExpiredReason');
 
       // Carica il timeout di inattività dal database (se presente) o usa localStorage
@@ -215,9 +215,9 @@ export const useAuth = (showNotification) => {
   };
 
   // Funzione per ottenere l'header Authorization
-  const getAuthHeader = () => {
+  const getAuthHeader = useCallback(() => {
     return token ? { 'Authorization': `Bearer ${token}` } : {};
-  };
+  }, [token]);
 
 
   return {

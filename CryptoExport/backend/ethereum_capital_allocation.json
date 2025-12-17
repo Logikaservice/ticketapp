@@ -1,0 +1,33 @@
+{
+  "asset": "Ethereum",
+  "period": "60 days",
+  "initialCapital": 1080,
+  "testDate": "2025-12-10T00:55:49.332Z",
+  "best": {
+    "strategy": "All-In 100%",
+    "profit": 183.6249134815762,
+    "monthlyProfit": 91.8124567407881,
+    "return": 17.002306803849645,
+    "maxDrawdown": 15.535798450688038,
+    "trades": 36
+  },
+  "comparison": {
+    "bitcoin": {
+      "profit": 215.76,
+      "monthly": 107.88,
+      "return": 19.98
+    },
+    "ethereum": {
+      "profit": 183.6249134815762,
+      "monthly": 91.8124567407881,
+      "return": 17.002306803849645
+    },
+    "winner": "Bitcoin",
+    "difference": 32.135086518423805
+  },
+  "portfolio": {
+    "allocation": "50% BTC + 50% ETH",
+    "profit": 199.6924567407881,
+    "monthly": 99.84622837039404
+  }
+}

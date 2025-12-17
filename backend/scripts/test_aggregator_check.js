@@ -224,3 +224,7 @@ async function testAggregatorCheck() {
 // Esegui il test
 testAggregatorCheck();
 
+
+
+
+
