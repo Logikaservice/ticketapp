@@ -46,11 +46,13 @@ echo -e "${YELLOW}📋 3. Verifica PM2...${NC}"
 if command -v pm2 &> /dev/null; then
     echo -e "${GREEN}✅ PM2 installato!${NC}"
     
-    # Ferma eventuali processi PM2 esistenti
+    # Ferma e rimuovi eventuali processi PM2 esistenti (ticketapp-backend e backend generico)
     pm2 stop ticketapp-backend 2>/dev/null || true
     pm2 delete ticketapp-backend 2>/dev/null || true
+    pm2 stop backend 2>/dev/null || true
+    pm2 delete backend 2>/dev/null || true
     
-    echo "PM2 status:"
+    echo "PM2 status (dopo pulizia):"
     pm2 list
     echo ""
 else
