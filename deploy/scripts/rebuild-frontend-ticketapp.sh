@@ -74,16 +74,36 @@ echo ""
 echo -e "${YELLOW}📋 4. Copia build in /var/www/ticketapp/frontend/build...${NC}"
 echo "----------------------------------------"
 # Siamo ancora in frontend/, quindi build/ è qui
-if [ ! -d "build" ]; then
-    echo -e "${RED}❌ Directory build non trovata in frontend/!${NC}"
+BUILD_DIR="$(pwd)/build"
+if [ ! -d "$BUILD_DIR" ]; then
+    echo -e "${RED}❌ Directory build non trovata in $(pwd)!${NC}"
+    echo "Contenuto directory corrente:"
+    ls -la
     exit 1
 fi
 
+echo "Directory build trovata: $BUILD_DIR"
+echo "Contenuto build:"
+ls -la "$BUILD_DIR" | head -10
+
+# Rimuovi la directory di destinazione e ricreala
 sudo rm -rf /var/www/ticketapp/frontend/build
 sudo mkdir -p /var/www/ticketapp/frontend
-sudo cp -r build /var/www/ticketapp/frontend/
+
+# Copia il contenuto della directory build
+sudo cp -r "$BUILD_DIR" /var/www/ticketapp/frontend/
 sudo chown -R www-data:www-data /var/www/ticketapp/frontend/build
-echo -e "${GREEN}✅ Build copiato!${NC}"
+
+# Verifica che i file siano stati copiati
+if [ -f "/var/www/ticketapp/frontend/build/index.html" ]; then
+    echo -e "${GREEN}✅ Build copiato correttamente!${NC}"
+    echo "File index.html presente in /var/www/ticketapp/frontend/build/"
+else
+    echo -e "${RED}❌ Errore: index.html non trovato dopo la copia!${NC}"
+    echo "Contenuto /var/www/ticketapp/frontend/build/:"
+    sudo ls -la /var/www/ticketapp/frontend/build/ | head -10
+    exit 1
+fi
 echo ""
 
 # Torna alla directory del progetto
