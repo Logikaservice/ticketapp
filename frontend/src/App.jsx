@@ -189,16 +189,40 @@ export default function TicketApp() {
     return params.get('mode') === 'display';
   });
 
+  const [showCryptoDashboard, setShowCryptoDashboard] = useState(() => {
+    // Mostra CryptoDashboard solo se domain=crypto nell'URL o se siamo su crypto.logikaservice.it
+    return requestedDomain === 'crypto' || isCryptoHostname;
+  });
+
   // Controlla se siamo in modalità display PackVision (riutilizza urlParams già dichiarato alla riga 63)
   const isPackVisionDisplayMode = urlParams.get('mode') === 'display' || isPackVisionHostname;
 
   // Aggiorna lo stato quando cambia il dominio richiesto
-  // Aggiorna lo stato quando cambia il dominio richiesto
   useEffect(() => {
-    // Questo effetto causava loop infiniti se non gestito correttamente
-    // Rimosso logica aggressiva di reset stato
-    // Lasciamo che lo stato iniziale gestisca la visualizzazione corretta
-  }, []);
+    // Aggiorna showCryptoDashboard quando cambia il dominio
+    if (requestedDomain === 'crypto' || isCryptoHostname) {
+      setShowCryptoDashboard(true);
+      setShowDashboard(false);
+      setShowOrariTurni(false);
+      setShowVivaldi(false);
+    } else if (requestedDomain === 'orari' || requestedDomain === 'turni') {
+      setShowOrariTurni(true);
+      setShowDashboard(false);
+      setShowCryptoDashboard(false);
+      setShowVivaldi(false);
+    } else if (requestedDomain === 'vivaldi') {
+      setShowVivaldi(true);
+      setShowDashboard(false);
+      setShowCryptoDashboard(false);
+      setShowOrariTurni(false);
+    } else {
+      // Nessun dominio specifico, mostra dashboard principale
+      setShowDashboard(true);
+      setShowCryptoDashboard(false);
+      setShowOrariTurni(false);
+      setShowVivaldi(false);
+    }
+  }, [requestedDomain, isCryptoHostname]);
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
   const [dashboardHighlights, setDashboardHighlights] = useState({});
   const [prevTicketStates, setPrevTicketStates] = useState({});
@@ -2947,40 +2971,28 @@ export default function TicketApp() {
               </div>
             )
           ) : showCryptoDashboard ? (
-            <>
-              {(() => {
-                const urlParams = new URLSearchParams(window.location.search);
-                const page = urlParams.get('page');
-                const isBotAnalysisPage = page === 'bot-analysis';
-
-                return isBotAnalysisPage ? (
-                  <div className="animate-slideInRight">
-                    <BotAnalysisPageNew />
-                  </div>
-                ) : (
-                  <>
-                    {!isCryptoHostname && (
-                      <div
-                        className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200 mb-4"
-                        onClick={() => {
-                          setShowCryptoDashboard(false);
-                          setShowDashboard(true);
-                          // Rimuovi parametro domain=crypto dall'URL
-                          const url = new URL(window.location);
-                          url.searchParams.delete('domain');
-                          window.history.replaceState({}, '', url);
-                        }}
-                      >
-                        ← Torna alla Dashboard Ticket (Clienti, Ricerche, Progetti, Analisi)
-                      </div>
-                    )}
-                    <div className="animate-slideInRight">
-                      <CryptoDashboard getAuthHeader={getAuthHeader} />
-                    </div>
-                  </>
-                );
-              })()}
-            </>
+            <div className="min-h-[60vh] flex items-center justify-center">
+              <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border-2 border-blue-200">
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold text-blue-600 mb-3">Crypto Dashboard</h2>
+                  <p className="text-gray-700 mb-6">
+                    Il modulo Crypto è stato spostato in un progetto separato.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowCryptoDashboard(false);
+                      setShowDashboard(true);
+                      const url = new URL(window.location);
+                      url.searchParams.delete('domain');
+                      window.history.replaceState({}, '', url);
+                    }}
+                    className="w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition font-semibold"
+                  >
+                    Torna alla Dashboard
+                  </button>
+                </div>
+              </div>
+            </div>
           ) : showOrariTurni ? (
             // Verifica accesso al sistema orari (admin e tecnici hanno sempre accesso)
             (currentUser?.ruolo === 'admin' || currentUser?.ruolo === 'tecnico' || currentUser?.enabled_projects?.includes('orari')) ? (
