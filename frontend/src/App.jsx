@@ -222,7 +222,7 @@ export default function TicketApp() {
       setShowOrariTurni(false);
       setShowVivaldi(false);
     }
-  }, [requestedDomain, isCryptoHostname]);
+  }, [requestedDomain, isCryptoHostname, isOrariHostname, isVivaldiHostname]);
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
   const [dashboardHighlights, setDashboardHighlights] = useState({});
   const [prevTicketStates, setPrevTicketStates] = useState({});

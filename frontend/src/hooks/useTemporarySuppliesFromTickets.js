@@ -77,12 +77,14 @@ export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
     }
   };
 
-  // Carica le forniture al mount
+  // Carica le forniture al mount e quando getAuthHeader diventa disponibile
   useEffect(() => {
-    // Carica solo una volta al mount
-    fetchTemporarySupplies();
+    // Carica solo quando getAuthHeader è disponibile
+    if (getAuthHeader) {
+      fetchTemporarySupplies();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [getAuthHeader]);
 
   return {
     temporarySupplies,
