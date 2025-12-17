@@ -13,15 +13,27 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Directory del progetto
-PROJECT_DIR="/root/TicketApp"
-
-# Verifica che la directory esista
-if [ ! -d "$PROJECT_DIR" ]; then
-    echo -e "${RED}❌ Directory $PROJECT_DIR non trovata!${NC}"
-    exit 1
+# Rileva automaticamente la directory del progetto
+# Prova diverse posizioni comuni
+if [ -d "/root/TicketApp" ]; then
+    PROJECT_DIR="/root/TicketApp"
+elif [ -d "/var/www/ticketapp" ]; then
+    PROJECT_DIR="/var/www/ticketapp"
+elif [ -d "$(pwd)/.." ] && [ -f "$(pwd)/../package.json" ]; then
+    # Se siamo in una sottodirectory del progetto
+    PROJECT_DIR="$(cd .. && pwd)"
+else
+    # Prova la directory corrente se contiene frontend/
+    if [ -d "frontend" ]; then
+        PROJECT_DIR="$(pwd)"
+    else
+        echo -e "${RED}❌ Directory del progetto non trovata!${NC}"
+        echo "Cerca in: /root/TicketApp, /var/www/ticketapp o nella directory corrente"
+        exit 1
+    fi
 fi
 
+echo -e "${GREEN}📁 Directory progetto: $PROJECT_DIR${NC}"
 cd $PROJECT_DIR
 
 # 1. Pull delle modifiche da GitHub
