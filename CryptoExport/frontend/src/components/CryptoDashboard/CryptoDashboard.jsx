@@ -212,6 +212,9 @@ setBotParameters(data.bot_parameters);
 
     const fetchAvailableSymbols = async () => {
         try {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/6f004952-c197-4c3e-94bf-3807f2eaa494',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CryptoDashboard.jsx:215',message:'fetchAvailableSymbols START',data:{apiBase,url:`${apiBase}/api/crypto/symbols/available`},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
             const result = await fetchJsonWithRetry(
                 `${apiBase}/api/crypto/symbols/available`,
                 {},
@@ -220,12 +223,27 @@ setBotParameters(data.bot_parameters);
                     silent502: true
                 }
             );
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/6f004952-c197-4c3e-94bf-3807f2eaa494',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CryptoDashboard.jsx:223',message:'fetchAvailableSymbols API RESPONSE',data:{ok:result.ok,hasData:!!result.data,symbolsCount:result.data?.symbols?.length||0,allSymbols:result.data?.symbols?.map(s=>s.symbol)||[],hasBinanceCoinEur:result.data?.symbols?.some(s=>s.symbol==='binance_coin_eur'||s.symbol.includes('binance_coin')||s.symbol.includes('bnb'))||false},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
             if (result.ok && result.data) {
-                // Available symbols logging removed
-                setAvailableSymbols(result.data.symbols || []);
+                const symbols = result.data.symbols || [];
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/6f004952-c197-4c3e-94bf-3807f2eaa494',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CryptoDashboard.jsx:225',message:'BEFORE setAvailableSymbols',data:{symbolsCount:symbols.length,eurSymbols:symbols.filter(s=>s.symbol.includes('eur')||s.symbol.includes('EUR')).map(s=>s.symbol),binanceCoinVariants:symbols.filter(s=>s.symbol.includes('binance')||s.symbol.includes('bnb')||s.symbol.includes('BNB')).map(s=>({symbol:s.symbol,display:s.display}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                // #endregion
+                setAvailableSymbols(symbols);
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/6f004952-c197-4c3e-94bf-3807f2eaa494',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CryptoDashboard.jsx:226',message:'AFTER setAvailableSymbols',data:{symbolsSet:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                // #endregion
+            } else {
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/6f004952-c197-4c3e-94bf-3807f2eaa494',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CryptoDashboard.jsx:227',message:'fetchAvailableSymbols ERROR - result not ok or no data',data:{ok:result.ok,hasData:!!result.data,error:result.error||'unknown'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                // #endregion
             }
         } catch (error) {
-            // Ignora errori silenziosamente
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/6f004952-c197-4c3e-94bf-3807f2eaa494',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CryptoDashboard.jsx:228',message:'fetchAvailableSymbols EXCEPTION',data:{error:error.message,stack:error.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
         }
     };
 
@@ -1294,11 +1312,16 @@ setBotParameters(data.bot_parameters);
                                 }}
                             >
                                 {availableSymbols.length > 0 ? (
-                                    availableSymbols.map(s => (
-                                        <option key={s.symbol} value={s.symbol}>
-                                            {s.display}
-                                        </option>
-                                    ))
+                                    (() => {
+                                        // #region agent log
+                                        fetch('http://127.0.0.1:7242/ingest/6f004952-c197-4c3e-94bf-3807f2eaa494',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CryptoDashboard.jsx:1297',message:'RENDERING dropdown symbols',data:{availableSymbolsCount:availableSymbols.length,allSymbols:availableSymbols.map(s=>s.symbol),eurSymbols:availableSymbols.filter(s=>s.symbol.includes('eur')||s.symbol.includes('EUR')).map(s=>s.symbol),hasBinanceCoinEur:availableSymbols.some(s=>s.symbol==='binance_coin_eur'),binanceVariants:availableSymbols.filter(s=>s.symbol.includes('binance')||s.symbol.includes('bnb')).map(s=>({symbol:s.symbol,display:s.display}))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+                                        // #endregion
+                                        return availableSymbols.map(s => (
+                                            <option key={s.symbol} value={s.symbol}>
+                                                {s.display}
+                                            </option>
+                                        ));
+                                    })()
                                 ) : (
                                     <option value="bitcoin">Loading symbols...</option>
                                 )}

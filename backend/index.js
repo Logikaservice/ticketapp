@@ -782,6 +782,13 @@ const orariRoutes = require('./routes/orari')(pool);
 const vivaldiRoutes = poolVivaldi ? require('./routes/vivaldi')(poolVivaldi) : null;
 const packvisionRoutes = require('./routes/packvision')(poolPackVision, io);
 
+// Crypto routes - Import from CryptoExport backend
+const cryptoRoutes = require('../CryptoExport/backend/routes/cryptoRoutes');
+// Configure Socket.IO for crypto routes if needed
+if (cryptoRoutes.setSocketIO && io) {
+    cryptoRoutes.setSocketIO(io);
+}
+
 app.use('/api/packvision', packvisionRoutes);
 
 
@@ -1231,6 +1238,8 @@ app.use('/api/email', authenticateToken, emailNotificationsRoutes);
 app.use('/api/availability', authenticateToken, availabilityRoutes);
 app.use('/api/analytics', authenticateToken, requireRole('tecnico'), analyticsRoutes);
 app.use('/api/access-logs', accessLogsRoutes);
+// Crypto routes - Mount before other /api routes to avoid conflicts
+app.use('/api/crypto', authenticateToken, cryptoRoutes);
 // Route Orari e Turni (per tecnico/admin e clienti con permesso progetto orari)
 // Endpoint /debug accessibile senza autenticazione per diagnostica
 app.use('/api/orari', authenticateToken, (req, res, next) => {
