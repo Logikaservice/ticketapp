@@ -63,21 +63,18 @@ export default function TicketApp() {
   const isPackVisionHostname = hostname === 'packvision.logikaservice.it' ||
     (hostname.includes('packvision') && !hostname.includes('ticket'));
 
-  const isCryptoHostname = hostname === 'crypto.logikaservice.it' ||
-    (hostname.includes('crypto') && !hostname.includes('ticket'));
-
-  // 2. Parametro URL ?domain=orari/vivaldi/packvision/crypto per test
+  // 2. Parametro URL ?domain=orari/vivaldi/packvision per test
   const urlParams = new URLSearchParams(window.location.search);
   const testDomain = urlParams.get('domain');
 
-  // 3. Se siamo su ticket.logikaservice.it (o hostname senza orari/turni/vivaldi/packvision/crypto), pulisci requestedDomain
-  if (!isOrariHostname && !isVivaldiHostname && !isPackVisionHostname && !isCryptoHostname && !testDomain) {
+  // 3. Se siamo su ticket.logikaservice.it (o hostname senza orari/turni/vivaldi/packvision), pulisci requestedDomain
+  if (!isOrariHostname && !isVivaldiHostname && !isPackVisionHostname && !testDomain) {
     localStorage.removeItem('requestedDomain');
   }
 
   // 4. Salva il dominio richiesto SOLO se presente nell'URL o nell'hostname
   useEffect(() => {
-    if (testDomain === 'orari' || testDomain === 'turni' || testDomain === 'vivaldi' || testDomain === 'packvision' || testDomain === 'crypto') {
+    if (testDomain === 'orari' || testDomain === 'turni' || testDomain === 'vivaldi' || testDomain === 'packvision') {
       localStorage.setItem('requestedDomain', testDomain);
     } else if (isOrariHostname) {
       localStorage.setItem('requestedDomain', 'orari');
@@ -85,14 +82,12 @@ export default function TicketApp() {
       localStorage.setItem('requestedDomain', 'vivaldi');
     } else if (isPackVisionHostname) {
       localStorage.setItem('requestedDomain', 'packvision');
-    } else if (isCryptoHostname) {
-      localStorage.setItem('requestedDomain', 'crypto');
     }
-  }, [testDomain, isOrariHostname, isVivaldiHostname, isPackVisionHostname, isCryptoHostname]);
+  }, [testDomain, isOrariHostname, isVivaldiHostname, isPackVisionHostname]);
 
   // 5. Determina il dominio finale: priorità a hostname reale, poi testDomain
   // MODIFICA: Rimosso localStorage.getItem('requestedDomain') per evitare persistenza indesiderata
-  const requestedDomain = isOrariHostname ? 'orari' : (isVivaldiHostname ? 'vivaldi' : (isPackVisionHostname ? 'packvision' : (isCryptoHostname ? 'crypto' : (testDomain || null))));
+  const requestedDomain = isOrariHostname ? 'orari' : (isVivaldiHostname ? 'vivaldi' : (isPackVisionHostname ? 'packvision' : (testDomain || null)));
 
   const isOrariDomain = requestedDomain === 'orari' || requestedDomain === 'turni';
   const isVivaldiDomain = requestedDomain === 'vivaldi';
@@ -189,40 +184,27 @@ export default function TicketApp() {
     return params.get('mode') === 'display';
   });
 
-  const [showCryptoDashboard, setShowCryptoDashboard] = useState(() => {
-    // Mostra CryptoDashboard solo se domain=crypto nell'URL o se siamo su crypto.logikaservice.it
-    return requestedDomain === 'crypto' || isCryptoHostname;
-  });
 
   // Controlla se siamo in modalità display PackVision (riutilizza urlParams già dichiarato alla riga 63)
   const isPackVisionDisplayMode = urlParams.get('mode') === 'display' || isPackVisionHostname;
 
   // Aggiorna lo stato quando cambia il dominio richiesto
   useEffect(() => {
-    // Aggiorna showCryptoDashboard quando cambia il dominio
-    if (requestedDomain === 'crypto' || isCryptoHostname) {
-      setShowCryptoDashboard(true);
-      setShowDashboard(false);
-      setShowOrariTurni(false);
-      setShowVivaldi(false);
-    } else if (requestedDomain === 'orari' || requestedDomain === 'turni') {
+    if (requestedDomain === 'orari' || requestedDomain === 'turni') {
       setShowOrariTurni(true);
       setShowDashboard(false);
-      setShowCryptoDashboard(false);
       setShowVivaldi(false);
     } else if (requestedDomain === 'vivaldi') {
       setShowVivaldi(true);
       setShowDashboard(false);
-      setShowCryptoDashboard(false);
       setShowOrariTurni(false);
     } else {
       // Nessun dominio specifico, mostra dashboard principale
       setShowDashboard(true);
-      setShowCryptoDashboard(false);
       setShowOrariTurni(false);
       setShowVivaldi(false);
     }
-  }, [requestedDomain, isCryptoHostname, isOrariHostname, isVivaldiHostname]);
+  }, [requestedDomain, isOrariHostname, isVivaldiHostname]);
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
   const [dashboardHighlights, setDashboardHighlights] = useState({});
   const [prevTicketStates, setPrevTicketStates] = useState({});
@@ -2872,8 +2854,7 @@ export default function TicketApp() {
         ))}
       </div>
       <div className="app-zoom-wrapper">
-        {/* Nascondi Header quando domain=crypto */}
-        {!(requestedDomain === 'crypto' || isCryptoHostname) && (
+        {(
           <Header
             {...{
               currentUser,
@@ -2926,7 +2907,7 @@ export default function TicketApp() {
           <PackVision onClose={() => setShowPackVision(false)} />
         )}
 
-        <main className={`mx-auto px-4 py-6 ${showCryptoDashboard ? 'w-full max-w-none' : 'max-w-7xl'}`}>
+        <main className="mx-auto px-4 py-6 max-w-7xl">
           {showVivaldi ? (
             // Verifica accesso al sistema Vivaldi (admin e tecnici hanno sempre accesso)
             (currentUser?.ruolo === 'admin' || currentUser?.ruolo === 'tecnico' || currentUser?.enabled_projects?.includes('vivaldi')) ? (
@@ -2970,29 +2951,6 @@ export default function TicketApp() {
                 </div>
               </div>
             )
-          ) : showCryptoDashboard ? (
-            <div className="min-h-[60vh] flex items-center justify-center">
-              <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border-2 border-blue-200">
-                <div className="text-center">
-                  <h2 className="text-2xl font-bold text-blue-600 mb-3">Crypto Dashboard</h2>
-                  <p className="text-gray-700 mb-6">
-                    Il modulo Crypto è stato spostato in un progetto separato.
-                  </p>
-                  <button
-                    onClick={() => {
-                      setShowCryptoDashboard(false);
-                      setShowDashboard(true);
-                      const url = new URL(window.location);
-                      url.searchParams.delete('domain');
-                      window.history.replaceState({}, '', url);
-                    }}
-                    className="w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition font-semibold"
-                  >
-                    Torna alla Dashboard
-                  </button>
-                </div>
-              </div>
-            </div>
           ) : showOrariTurni ? (
             // Verifica accesso al sistema orari (admin e tecnici hanno sempre accesso)
             (currentUser?.ruolo === 'admin' || currentUser?.ruolo === 'tecnico' || currentUser?.enabled_projects?.includes('orari')) ? (

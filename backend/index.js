@@ -782,12 +782,6 @@ const orariRoutes = require('./routes/orari')(pool);
 const vivaldiRoutes = poolVivaldi ? require('./routes/vivaldi')(poolVivaldi) : null;
 const packvisionRoutes = require('./routes/packvision')(poolPackVision, io);
 
-// Crypto routes - Import from CryptoExport backend
-const cryptoRoutes = require('../CryptoExport/backend/routes/cryptoRoutes');
-// Configure Socket.IO for crypto routes if needed
-if (cryptoRoutes.setSocketIO && io) {
-    cryptoRoutes.setSocketIO(io);
-}
 
 app.use('/api/packvision', packvisionRoutes);
 
@@ -1220,7 +1214,7 @@ app.get('/clients', async (req, res) => {
 
 // Endpoint pubblico per invii server-to-server (es. quick-request senza login)
 // DEVE essere montato PRIMA di qualsiasi app.use('/api', authenticateToken, ...)
-app.use('/api/public-email', emailNotificationsRoutes);
+// ✅ RIMOSSO DUPLICATO: già montato alla linea 797
 
 // ✅ Endpoint /api/health è già definito sopra (linea 846) - RIMOSSO DUPLICATO
 
@@ -1238,8 +1232,6 @@ app.use('/api/email', authenticateToken, emailNotificationsRoutes);
 app.use('/api/availability', authenticateToken, availabilityRoutes);
 app.use('/api/analytics', authenticateToken, requireRole('tecnico'), analyticsRoutes);
 app.use('/api/access-logs', accessLogsRoutes);
-// Crypto routes - Mount before other /api routes to avoid conflicts
-app.use('/api/crypto', authenticateToken, cryptoRoutes);
 // Route Orari e Turni (per tecnico/admin e clienti con permesso progetto orari)
 // Endpoint /debug accessibile senza autenticazione per diagnostica
 app.use('/api/orari', authenticateToken, (req, res, next) => {
@@ -1332,36 +1324,6 @@ app.use((err, req, res, next) => {
   console.error('❌ Route:', req.method, req.path);
   console.error('❌ URL completo:', req.originalUrl);
 
-  // ✅ FIX: Se è un errore da /api/crypto/bot-analysis, restituisci 200 invece di 500
-  if (req.path && (req.path.includes('/bot-analysis') || req.originalUrl && req.originalUrl.includes('/bot-analysis'))) {
-    console.error('⚠️ [ERROR-HANDLER] Errore intercettato per bot-analysis, restituisco 200 invece di 500');
-    console.error('⚠️ [ERROR-HANDLER] Path:', req.path, '| OriginalUrl:', req.originalUrl);
-    console.error('⚠️ [ERROR-HANDLER] Query:', req.query);
-    try {
-      return res.status(200).json({
-        error: err.message || 'Errore interno',
-        symbol: req.query?.symbol || 'unknown',
-        errorType: err.constructor.name,
-        signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Errore analisi'] },
-        currentPrice: 0,
-        longSignal: { strength: 0, confirmations: 0 },
-        shortSignal: { strength: 0, confirmations: 0 }
-      });
-    } catch (sendErr) {
-      console.error('❌ [ERROR-HANDLER] Impossibile inviare risposta 200, provo send:', sendErr.message);
-      // Ultimo tentativo
-      try {
-        if (!res.headersSent) {
-          res.status(200).send(JSON.stringify({
-            error: 'Errore interno',
-            symbol: req.query?.symbol || 'unknown'
-          }));
-        }
-      } catch (finalErr) {
-        console.error('❌ [ERROR-HANDLER] Impossibile inviare risposta anche dopo ultimo tentativo');
-      }
-    }
-  }
 
   // Non esporre dettagli dell'errore in produzione
   const isDevelopment = process.env.NODE_ENV !== 'production';

@@ -1,0 +1,17 @@
+{
+  "activeProject": "ticketapp",
+  "projects": {
+    "ticketapp": {
+      "name": "TicketApp",
+      "basePath": ".",
+      "vps": "159.69.121.162",
+      "description": "Progetto TicketApp principale"
+    },
+    "crypto": {
+      "name": "Crypto",
+      "basePath": "c:\\Crypto",
+      "vps": "49.13.122.12",
+      "description": "Progetto Crypto (quello attivo su VPS 49.13.122.12)"
+    }
+  }
+}
