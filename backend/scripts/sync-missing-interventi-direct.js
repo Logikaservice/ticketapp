@@ -2,7 +2,24 @@
 // Esegue il codice direttamente sul server senza passare per HTTP
 // Uso: node backend/scripts/sync-missing-interventi-direct.js
 
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+// Prova a caricare .env da diverse posizioni
+const path = require('path');
+const fs = require('fs');
+
+// Prova backend/.env prima
+const backendEnvPath = path.join(__dirname, '../.env');
+if (fs.existsSync(backendEnvPath)) {
+  require('dotenv').config({ path: backendEnvPath });
+} else {
+  // Prova root/.env
+  const rootEnvPath = path.join(__dirname, '../../.env');
+  if (fs.existsSync(rootEnvPath)) {
+    require('dotenv').config({ path: rootEnvPath });
+  } else {
+    // Fallback: carica da process.env (variabili d'ambiente del sistema)
+    console.log('⚠️ File .env non trovato, uso variabili d\'ambiente del sistema');
+  }
+}
 
 const { Pool } = require('pg');
 const { google } = require('googleapis');
