@@ -98,19 +98,34 @@ async function syncMissingInterventi() {
     }
 
     // Recupera tutti i ticket con timelogs
+    // Leggiamo timelogs come testo per evitare errori JSON PostgreSQL
     const client = await pool.connect();
     const ticketsResult = await client.query(`
-      SELECT t.*, u.azienda 
+      SELECT t.id, t.numero, t.titolo, t.descrizione, t.stato, t.priorita, 
+             t.clienteid, t.datacreazione, t.dataapertura, t.categoria,
+             t.timelogs::text as timelogs_text, u.azienda 
       FROM tickets t 
       LEFT JOIN users u ON t.clienteid = u.id 
       WHERE t.timelogs IS NOT NULL 
-        AND t.timelogs != '[]' 
-        AND t.timelogs != ''
+        AND t.timelogs::text != '[]' 
+        AND t.timelogs::text != ''
+        AND t.timelogs::text != 'null'
       ORDER BY t.dataapertura DESC
     `);
     client.release();
 
-    const tickets = ticketsResult.rows;
+    // Parsa timelogs in JavaScript con gestione errori
+    const tickets = ticketsResult.rows.map(row => {
+      const ticket = { ...row };
+      try {
+        ticket.timelogs = JSON.parse(row.timelogs_text || '[]');
+      } catch (err) {
+        console.warn(`⚠️  Ticket #${row.numero || row.id}: timelogs JSON invalido, salto`);
+        ticket.timelogs = [];
+      }
+      delete ticket.timelogs_text;
+      return ticket;
+    }).filter(t => Array.isArray(t.timelogs) && t.timelogs.length > 0);
     console.log(`📋 Trovati ${tickets.length} ticket con timelogs da verificare\n`);
 
     if (tickets.length === 0) {
