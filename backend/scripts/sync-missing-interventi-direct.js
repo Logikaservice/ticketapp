@@ -102,7 +102,7 @@ async function syncMissingInterventi() {
     const client = await pool.connect();
     const ticketsResult = await client.query(`
       SELECT t.id, t.numero, t.titolo, t.descrizione, t.stato, t.priorita, 
-             t.clienteid, t.datacreazione, t.dataapertura, t.categoria,
+             t.clienteid, t.dataapertura, t.categoria,
              t.timelogs::text as timelogs_text, u.azienda 
       FROM tickets t 
       LEFT JOIN users u ON t.clienteid = u.id 
