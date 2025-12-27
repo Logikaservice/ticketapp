@@ -613,6 +613,20 @@ module.exports = (pool) => {
         // Crea eventi intervento in background (NON bloccare la risposta HTTP)
         setImmediate(async () => {
           try {
+            // Recupera il nome dell'azienda dal clienteid (necessario per la descrizione degli interventi)
+            let clientName = 'Cliente Sconosciuto';
+            if (ticket.clienteid) {
+              try {
+                const clientQuery = 'SELECT azienda FROM users WHERE id = $1';
+                const clientResult = await pool.query(clientQuery, [ticket.clienteid]);
+                if (clientResult.rows.length > 0) {
+                  clientName = clientResult.rows[0].azienda || 'Cliente Sconosciuto';
+                }
+              } catch (err) {
+                console.error('[UPDATE] Errore recupero nome cliente:', err);
+              }
+            }
+            
             // Cerca il calendario corretto per gli interventi
             let interventiCalendarId = 'primary';
             try {

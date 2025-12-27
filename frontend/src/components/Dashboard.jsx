@@ -1291,16 +1291,48 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
-                              <div className="font-semibold text-sm">{ticket.numero}</div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className="font-semibold text-sm">{ticket.numero}</div>
+                                <span className={`px-1.5 py-0.5 text-xs rounded-full font-medium ${(() => {
+                                  const colorMap = {
+                                    'aperto': 'bg-blue-100 text-blue-800',
+                                    'in_lavorazione': 'bg-yellow-100 text-yellow-800',
+                                    'risolto': 'bg-green-100 text-green-800',
+                                    'chiuso': 'bg-purple-100 text-purple-800',
+                                    'inviato': 'bg-teal-100 text-teal-800',
+                                    'fatturato': 'bg-gray-100 text-gray-800'
+                                  };
+                                  return colorMap[ticket.stato] || 'bg-gray-100 text-gray-800';
+                                })()}`}>
+                                  {ticket.stato?.replace('_', ' ')}
+                                </span>
+                                <span className={`text-xs font-medium ${(() => {
+                                  const colorMap = {
+                                    'urgente': 'text-red-600',
+                                    'alta': 'text-orange-600',
+                                    'media': 'text-blue-600',
+                                    'bassa': 'text-gray-600'
+                                  };
+                                  return colorMap[ticket.priorita] || 'text-gray-600';
+                                })()}`}>
+                                  {ticket.priorita?.toUpperCase()}
+                                </span>
+                              </div>
                               <div className="text-xs text-gray-600 truncate mt-0.5">{ticket.titolo}</div>
+                              {ticket.descrizione && (
+                                <div className="text-xs text-gray-500 truncate mt-0.5">{ticket.descrizione.substring(0, 60)}{ticket.descrizione.length > 60 ? '...' : ''}</div>
+                              )}
                               {cliente && (
                                 <div className="text-xs text-gray-500 mt-1">
-                                  Cliente: {cliente.nome} {cliente.cognome} ({cliente.email})
+                                  Cliente: {cliente.nome} {cliente.cognome}
                                 </div>
                               )}
                             </div>
-                            <div className="text-xs text-gray-500 whitespace-nowrap">
-                              {ticket.datacreazione ? formatDate(ticket.datacreazione) : '-'}
+                            <div className="text-xs text-gray-500 whitespace-nowrap text-right">
+                              <div>{ticket.dataapertura ? formatDate(ticket.dataapertura) : (ticket.datacreazione ? formatDate(ticket.datacreazione) : '-')}</div>
+                              {ticket.categoria && (
+                                <div className="text-gray-400 mt-0.5">{ticket.categoria}</div>
+                              )}
                             </div>
                           </div>
                         </div>
