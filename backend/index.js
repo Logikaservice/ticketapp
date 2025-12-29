@@ -1901,6 +1901,48 @@ const startServer = async () => {
       console.log("⚠️ Errore creazione tabella keepass_entries (auto-init):", keepassEntriesErr.message);
     }
 
+    // Crea tabella forniture_temporanee se non esiste (auto-init)
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS forniture_temporanee (
+          id SERIAL PRIMARY KEY,
+          ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
+          materiale TEXT NOT NULL,
+          quantita INTEGER NOT NULL,
+          nota TEXT,
+          data_prestito TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          data_restituzione TIMESTAMP
+        )
+      `);
+      console.log("✅ Tabella forniture_temporanee creata/verificata (auto-init)");
+      
+      // Aggiungi colonna nota se non esiste (per tabelle create prima dell'aggiornamento)
+      try {
+        await pool.query(`ALTER TABLE forniture_temporanee ADD COLUMN IF NOT EXISTS nota TEXT`);
+        console.log("✅ Colonna nota verificata/aggiunta a forniture_temporanee (auto-init)");
+      } catch (alterErr) {
+        console.log("⚠️ Errore aggiunta colonna nota (potrebbe già esistere):", alterErr.message);
+      }
+      
+      // Aggiungi colonna data_prestito se non esiste
+      try {
+        await pool.query(`ALTER TABLE forniture_temporanee ADD COLUMN IF NOT EXISTS data_prestito TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+        console.log("✅ Colonna data_prestito verificata/aggiunta a forniture_temporanee (auto-init)");
+      } catch (alterErr) {
+        console.log("⚠️ Errore aggiunta colonna data_prestito (potrebbe già esistere):", alterErr.message);
+      }
+      
+      // Aggiungi colonna data_restituzione se non esiste
+      try {
+        await pool.query(`ALTER TABLE forniture_temporanee ADD COLUMN IF NOT EXISTS data_restituzione TIMESTAMP`);
+        console.log("✅ Colonna data_restituzione verificata/aggiunta a forniture_temporanee (auto-init)");
+      } catch (alterErr) {
+        console.log("⚠️ Errore aggiunta colonna data_restituzione (potrebbe già esistere):", alterErr.message);
+      }
+    } catch (fornitureErr) {
+      console.log("⚠️ Errore creazione tabella forniture_temporanee (auto-init):", fornitureErr.message);
+    }
+
     // Avvia Vivaldi Scheduler se il database è disponibile
     try {
       if (poolVivaldi) {
