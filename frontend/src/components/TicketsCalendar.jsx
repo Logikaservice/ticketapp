@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, ExternalLink, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, ExternalLink, X, Paperclip } from 'lucide-react';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { useAvailability } from '../hooks/useAvailability';
 import { SYNC_STATES } from '../config/googleConfig';
@@ -561,6 +561,12 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
                         {ticket.isIntervento && ticket.timelogModalita && (
                           <span className="text-xs text-gray-600 italic">
                             ({ticket.timelogModalita})
+                          </span>
+                        )}
+                        {ticket.photos && ticket.photos.length > 0 && (
+                          <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700 font-medium flex items-center gap-1" title={`${ticket.photos.length} file allegato${ticket.photos.length !== 1 ? 'i' : ''}`}>
+                            <Paperclip size={11} />
+                            {ticket.photos.length}
                           </span>
                         )}
                       </div>

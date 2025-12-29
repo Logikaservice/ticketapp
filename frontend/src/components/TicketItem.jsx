@@ -44,6 +44,8 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
   const canManagePhotos = allowedPhotoStates.includes(ticket.stato);
   const photos = ticket.photos || [];
   const hasPhotos = photos.length > 0;
+  
+  // Icona graffetta sempre visibile quando ci sono file allegati (indipendentemente dallo stato)
 
   const handlePrint = (e) => {
     e.stopPropagation();
@@ -108,6 +110,14 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                 {hasMessages && !hasUnread && (
                   <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-medium flex items-center gap-1" title={`${messagesCount} commento${messagesCount !== 1 ? 'i' : ''}`}>
                     💬 {messagesCount}
+                  </span>
+                )}
+                
+                {/* Badge per presenza di file allegati (sempre visibile) */}
+                {hasPhotos && (
+                  <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700 font-medium flex items-center gap-1" title={`${photos.length} file allegato${photos.length !== 1 ? 'i' : ''}`}>
+                    <Paperclip size={12} />
+                    {photos.length}
                   </span>
                 )}
               </div>

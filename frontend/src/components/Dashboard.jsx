@@ -1,7 +1,7 @@
 // src/components/Dashboard.jsx
 
 import React, { useEffect } from 'react';
-import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, Copy, X, Info, Users, Trash2, Sparkles, Building, Search, User, Globe, Key, Eye, EyeOff, Lock, ChevronDown, Clock, Hourglass, Monitor } from 'lucide-react';
+import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, Copy, X, Info, Users, Trash2, Sparkles, Building, Search, User, Globe, Key, Eye, EyeOff, Lock, ChevronDown, Clock, Hourglass, Monitor, Paperclip } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
@@ -1142,7 +1142,15 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm text-gray-900">{ticket.numero}</div>
+                          <div className="font-medium text-sm text-gray-900 flex items-center gap-2">
+                            {ticket.numero}
+                            {(ticket.photos && ticket.photos.length > 0) && (
+                              <span className="flex items-center gap-1 text-purple-600" title={`${ticket.photos.length} file allegato${ticket.photos.length !== 1 ? 'i' : ''}`}>
+                                <Paperclip size={12} />
+                                <span className="text-xs">{ticket.photos.length}</span>
+                              </span>
+                            )}
+                          </div>
                           <div className="text-xs text-gray-700 truncate mt-0.5">{ticket.titolo}</div>
                           <div className="text-xs text-blue-600 mt-1 flex items-center gap-1">
                             <span className="text-gray-400">•</span>
@@ -1317,6 +1325,12 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                                 })()}`}>
                                   {ticket.priorita?.toUpperCase()}
                                 </span>
+                                {(ticket.photos && ticket.photos.length > 0) && (
+                                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700 font-medium flex items-center gap-1" title={`${ticket.photos.length} file allegato${ticket.photos.length !== 1 ? 'i' : ''}`}>
+                                    <Paperclip size={11} />
+                                    {ticket.photos.length}
+                                  </span>
+                                )}
                               </div>
                               <div className="text-xs text-gray-600 truncate mt-0.5">{ticket.titolo}</div>
                               {ticket.descrizione && (
