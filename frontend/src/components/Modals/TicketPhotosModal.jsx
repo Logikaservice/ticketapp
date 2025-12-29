@@ -346,20 +346,42 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                       console.error('❌ Errore caricamento immagine:', {
                         url: fileUrl,
                         error: e.target.error,
-                        status: e.target.naturalWidth === 0 ? 'Failed to load' : 'Unknown error'
+                        status: e.target.naturalWidth === 0 ? 'Failed to load' : 'Unknown error',
+                        filename: currentPhoto.originalName
                       });
-                      e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2U1ZTdlYiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5FcnJvcmUgY2FyaWNhbWVudG88L3RleHQ+PC9zdmc+';
+                      // Mostra placeholder con messaggio più chiaro
+                      e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNDUlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTYiIGZpbGw9IiM2YjcyODAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSJib2xkIj5GaWxlIG5vbiBkaXNwb25pYmlsZTwvdGV4dD48dGV4dCB4PSI1MCUiIHk9IjU1JSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOWEzYWZiIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbCBmaWxlIGFsbGVnYXRvIMOpIHN0YXRvIGVsaW1pbmF0byBvIG5vbiDDqSBkaXNwb25pYmlsZTwvdGV4dD48L3N2Zz4=';
+                      e.target.onerror = null; // Previeni loop infinito
                     }}
                   />
                 );
               } else if (isPdf) {
                 return (
-                  <iframe
-                    src={`${fileUrl}#toolbar=0&navpanes=0&scrollbar=0`}
-                    title={currentPhoto.originalName}
-                    className="w-full h-full rounded-lg bg-white"
-                    style={{ border: 'none' }}
-                  />
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-white rounded-lg">
+                    <iframe
+                      src={`${fileUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                      title={currentPhoto.originalName}
+                      className="w-full h-full rounded-lg bg-white"
+                      style={{ border: 'none' }}
+                      onError={(e) => {
+                        console.error('❌ Errore caricamento PDF:', fileUrl);
+                        // Nascondi iframe e mostra messaggio
+                        e.target.style.display = 'none';
+                        const container = e.target.parentElement;
+                        if (container) {
+                          container.innerHTML = `
+                            <div class="flex flex-col items-center justify-center text-gray-600 p-8">
+                              <svg class="w-24 h-24 mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                              </svg>
+                              <p class="text-lg font-semibold mb-2">File non disponibile</p>
+                              <p class="text-sm text-gray-500">Il file allegato è stato eliminato o non è disponibile</p>
+                            </div>
+                          `;
+                        }
+                      }}
+                    />
+                  </div>
                 );
               } else {
                 // Per file non immagine/PDF, mostra un'icona
@@ -407,6 +429,17 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                             alt={photo.originalName}
                             className="w-full h-full object-cover"
                             crossOrigin="anonymous"
+                            onError={(e) => {
+                              // Se la miniatura fallisce, mostra un'icona
+                              e.target.style.display = 'none';
+                              const parent = e.target.parentElement;
+                              if (parent && !parent.querySelector('.file-icon')) {
+                                const icon = document.createElement('div');
+                                icon.className = 'file-icon flex items-center justify-center w-full h-full bg-gray-100';
+                                icon.innerHTML = '<svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
+                                parent.appendChild(icon);
+                              }
+                            }}
                           />
                         );
                       })() : (
