@@ -50,8 +50,8 @@ const TimeLoggerModal = ({
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto p-6">
-        <div className="space-y-6">
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="p-6 space-y-6">
         <div className="bg-blue-50 p-3 rounded-lg text-sm">
           Ticket: {selectedTicket.numero} - {selectedTicket.titolo}
         </div>
@@ -621,7 +621,7 @@ const TimeLoggerModal = ({
               </div>
             </div>
           );
-        })()}
+        })}
         </div>
       </div>
 
