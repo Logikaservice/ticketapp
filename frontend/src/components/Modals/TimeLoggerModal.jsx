@@ -35,8 +35,8 @@ const TimeLoggerModal = ({
   const fieldsDisabled = readOnly && !isEditing;
 
   return (
-    <div className="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[85vh] overflow-y-auto">
-      <div className="flex items-center justify-between mb-6 border-b pb-3">
+    <div className="bg-white rounded-xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl">
+      <div className="flex items-center justify-between p-6 border-b pb-3 flex-shrink-0">
         <h2 className="text-2xl font-bold text-blue-700 flex items-center gap-2">
           {readOnly ? (
             isEditing ? <Edit size={24} /> : <Eye size={24} />
@@ -50,7 +50,8 @@ const TimeLoggerModal = ({
         </button>
       </div>
 
-      <div className="space-y-6">
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="space-y-6">
         <div className="bg-blue-50 p-3 rounded-lg text-sm">
           Ticket: {selectedTicket.numero} - {selectedTicket.titolo}
         </div>
@@ -621,48 +622,49 @@ const TimeLoggerModal = ({
             </div>
           );
         })()}
-
-        <div className="flex gap-3 pt-4 border-t">
-          <button onClick={closeModal} className="flex-1 px-4 py-3 border rounded-lg">
-            {readOnly && !isEditing ? 'Chiudi' : 'Annulla'}
-          </button>
-
-          {/* Pulsante Modifica - Solo per TECNICO in modalità readOnly */}
-          {readOnly && !isEditing && currentUser?.ruolo === 'tecnico' && (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
-            >
-              <Edit size={18} />
-              Modifica
-            </button>
-          )}
-
-          {/* Pulsante Salva - Quando in modalità editing */}
-          {readOnly && isEditing && (
-            <button
-              onClick={() => {
-                handleSaveTimeLogs();
-                setIsEditing(false);
-              }}
-              className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
-            >
-              <Save size={18} />
-              Salva Modifiche
-            </button>
-          )}
-
-          {/* Pulsante Conferma e Risolvi - Solo quando NON è readOnly */}
-          {!readOnly && (
-            <button
-              onClick={handleConfirmTimeLogs}
-              className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
-            >
-              <Check size={18} />
-              Conferma e Risolvi
-            </button>
-          )}
         </div>
+      </div>
+
+      <div className="flex gap-3 pt-4 border-t flex-shrink-0 p-6">
+        <button onClick={closeModal} className="flex-1 px-4 py-3 border rounded-lg">
+          {readOnly && !isEditing ? 'Chiudi' : 'Annulla'}
+        </button>
+
+        {/* Pulsante Modifica - Solo per TECNICO in modalità readOnly */}
+        {readOnly && !isEditing && currentUser?.ruolo === 'tecnico' && (
+          <button
+            onClick={() => setIsEditing(true)}
+            className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
+          >
+            <Edit size={18} />
+            Modifica
+          </button>
+        )}
+
+        {/* Pulsante Salva - Quando in modalità editing */}
+        {readOnly && isEditing && (
+          <button
+            onClick={() => {
+              handleSaveTimeLogs();
+              setIsEditing(false);
+            }}
+            className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
+          >
+            <Save size={18} />
+            Salva Modifiche
+          </button>
+        )}
+
+        {/* Pulsante Conferma e Risolvi - Solo quando NON è readOnly */}
+        {!readOnly && (
+          <button
+            onClick={handleConfirmTimeLogs}
+            className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
+          >
+            <Check size={18} />
+            Conferma e Risolvi
+          </button>
+        )}
       </div>
     </div>
   );
