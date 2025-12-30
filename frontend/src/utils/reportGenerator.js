@@ -18,6 +18,7 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
   // Calcola totali
   let totalServizi = 0;
   let totalMateriali = 0;
+  let totalOfferte = 0;
   
   tickets.forEach(ticket => {
     if (ticket.timelogs && ticket.timelogs.length > 0) {
@@ -33,11 +34,18 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
             }
           });
         }
+        
+        // Aggiungi costi delle offerte
+        if (log.offerte && log.offerte.length > 0) {
+          log.offerte.forEach(offerta => {
+            totalOfferte += parseFloat(offerta.totale) || 0;
+          });
+        }
       });
     }
   });
   
-  const totalGenerale = totalServizi + totalMateriali;
+  const totalGenerale = totalServizi + totalMateriali + totalOfferte;
 
   // Genera HTML
   let html = `
@@ -245,7 +253,12 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
           return sum;
         }, 0);
         
-        totaleTicket += costoManodopera + costoMaterialiLog;
+        // Calcola costo offerte per questo log specifico
+        const costoOfferteLog = (log.offerte || []).reduce((sum, o) => {
+          return sum + (parseFloat(o.totale) || 0);
+        }, 0);
+        
+        totaleTicket += costoManodopera + costoMaterialiLog + costoOfferteLog;
 
         const dataItaliana = formatDateItalian(log.data);
         const oraInizio = log.oraInizio || 'N/A';
@@ -301,6 +314,32 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
         </div>
 `;
       }
+
+      // OFFERTE - Raccogli tutte le offerte valide
+      let allOfferteText = '';
+      let hasOfferte = false;
+      let totaleOfferteTicket = 0;
+      
+      ticket.timelogs.forEach(log => {
+        if (log.offerte && log.offerte.length > 0) {
+          log.offerte.forEach(o => {
+            hasOfferte = true;
+            const numeroOfferta = o.numeroOfferta || 'N/A';
+            const totale = parseFloat(o.totale) || 0;
+            totaleOfferteTicket += totale;
+            allOfferteText += `${numeroOfferta} (€${totale.toFixed(2)}), `;
+          });
+        }
+      });
+      
+      if (hasOfferte) {
+        allOfferteText = allOfferteText.slice(0, -2); // Rimuovi ultima virgola
+        html += `
+        <div class="materials" style="background-color: #f0e8ff; border-left-color: #9b59b6;">
+            <strong>Come da Offerta:</strong> ${allOfferteText} | Totale: €${totaleOfferteTicket.toFixed(2)}
+        </div>
+`;
+      }
     }
 
     html += `
@@ -321,6 +360,10 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
         <div class="summary-row">
             <span>TOTALE MATERIALI:</span>
             <span>€${totalMateriali.toFixed(2)}</span>
+        </div>
+        <div class="summary-row">
+            <span>TOTALE OFFERTE:</span>
+            <span>€${totalOfferte.toFixed(2)}</span>
         </div>
         <div class="summary-row grand-total">
             <span>TOTALE GENERALE DOCUMENTO:</span>
