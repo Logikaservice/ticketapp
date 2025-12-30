@@ -332,7 +332,156 @@ const TimeLoggerModal = ({
                     )}
                   </div>
                 </div>
-              </div> {/* Chiusura sezione Intervento racchiusa */}
+              </div> {/* Chiusura sezione Materiali */}
+
+              {/* Sezione Come da Offerta - LEGATA A QUESTO INTERVENTO */}
+              {log.offerte && log.offerte.length > 0 && (
+                <div className="mt-5 p-4 border rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50">
+                  <h3 className="text-lg font-bold text-purple-800 mb-4 flex items-center gap-2">
+                    <Users size={20} />
+                    Come da Offerta
+                  </h3>
+
+                  <div className="space-y-4">
+                    {log.offerte.map((offerta, offertaIndex) => (
+                      <div key={offerta.id} className="p-4 bg-white rounded-lg border border-purple-200">
+                        <div className="flex justify-between items-center mb-3">
+                          <h4 className="font-semibold text-purple-700">Offerta #{offertaIndex + 1}</h4>
+                          {!fieldsDisabled && (
+                            <button
+                              onClick={() => handleRemoveOfferta(log.id, offerta.id)}
+                              className="text-red-500 p-1 hover:bg-red-50 rounded"
+                              title="Elimina offerta"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col md:flex-row md:items-end gap-2 md:gap-3 mb-4">
+                          <div className="w-full md:w-auto" style={{ minWidth: 140 }}>
+                            <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Offerta n°</label>
+                            <input
+                              type="text"
+                              value={offerta.numeroOfferta}
+                              onChange={(e) => handleOffertaChange(log.id, offerta.id, 'numeroOfferta', e.target.value)}
+                              placeholder="OFF-001"
+                              disabled={fieldsDisabled}
+                              className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            />
+                          </div>
+
+                          <div className="w-full md:w-auto" style={{ minWidth: 125 }}>
+                            <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Data</label>
+                            <input
+                              type="date"
+                              value={offerta.dataOfferta}
+                              onChange={(e) => handleOffertaChange(log.id, offerta.id, 'dataOfferta', e.target.value)}
+                              disabled={fieldsDisabled}
+                              className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            />
+                          </div>
+
+                          <div className="w-full md:w-auto" style={{ minWidth: 70 }}>
+                            <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Qta</label>
+                            <input
+                              type="number"
+                              min="1"
+                              step="0.25"
+                              value={offerta.qta}
+                              onChange={(e) => handleOffertaChange(log.id, offerta.id, 'qta', e.target.value)}
+                              disabled={fieldsDisabled}
+                              className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            />
+                          </div>
+
+                          <div className="w-full md:w-auto" style={{ minWidth: 120 }}>
+                            <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Costo Unit.</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={offerta.costoUnitario || 0}
+                              onChange={(e) => handleOffertaChange(log.id, offerta.id, 'costoUnitario', e.target.value)}
+                              disabled={fieldsDisabled}
+                              className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            />
+                          </div>
+
+                          <div className="w-full md:w-auto" style={{ minWidth: 80 }}>
+                            <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Sconto %</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              value={offerta.sconto}
+                              onChange={(e) => handleOffertaChange(log.id, offerta.id, 'sconto', e.target.value)}
+                              disabled={fieldsDisabled}
+                              className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            />
+                          </div>
+
+                          <div className="w-full md:w-auto md:ml-auto" style={{ minWidth: 120 }}>
+                            <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Totale</label>
+                            <div className="px-2 py-1.5 bg-purple-100 rounded-lg font-bold text-purple-800 text-sm">
+                              {offerta.totale.toFixed(2)}€
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs mb-1 text-gray-600">Descrizione</label>
+                          <textarea
+                            rows="2"
+                            value={offerta.descrizione}
+                            onChange={(e) => {
+                              e.currentTarget.style.height = 'auto';
+                              e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                              handleOffertaChange(log.id, offerta.id, 'descrizione', e.target.value);
+                            }}
+                            onInput={(e) => {
+                              e.currentTarget.style.height = 'auto';
+                              e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                            }}
+                            ref={(el) => {
+                              if (el) {
+                                el.style.height = 'auto';
+                                el.style.height = `${el.scrollHeight}px`;
+                              }
+                            }}
+                            placeholder="Descrizione dell'offerta..."
+                            disabled={fieldsDisabled}
+                            className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-hidden"
+                            style={{ height: 'auto' }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+
+                    {!fieldsDisabled && (
+                      <button
+                        onClick={() => handleAddOfferta(log.id)}
+                        className="w-full text-purple-600 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-purple-300 rounded-lg hover:bg-purple-50"
+                      >
+                        <Plus size={16} />
+                        Aggiungi Offerta
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {!fieldsDisabled && (!log.offerte || log.offerte.length === 0) && (
+                <button
+                  onClick={() => handleAddOfferta(log.id)}
+                  className="mt-5 w-full text-purple-600 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-purple-300 rounded-lg hover:bg-purple-50"
+                >
+                  <Plus size={16} />
+                  Aggiungi Offerta
+                </button>
+              )}
+            </div> {/* Chiusura sezione Intervento racchiusa */}
             </div>
           );
         })}
