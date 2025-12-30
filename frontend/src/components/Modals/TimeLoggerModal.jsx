@@ -380,7 +380,7 @@ const TimeLoggerModal = ({
                         <input
                           type="text"
                           value={offerta.numeroOfferta}
-                          onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'numeroOfferta', e.target.value)}
+                          onChange={(e) => handleOffertaChange(log.id, offerta.id, 'numeroOfferta', e.target.value)}
                           placeholder="OFF-001"
                           disabled={fieldsDisabled}
                           className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -392,7 +392,7 @@ const TimeLoggerModal = ({
                         <input
                           type="date"
                           value={offerta.dataOfferta}
-                          onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'dataOfferta', e.target.value)}
+                          onChange={(e) => handleOffertaChange(log.id, offerta.id, 'dataOfferta', e.target.value)}
                           disabled={fieldsDisabled}
                           className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
                         />
@@ -405,7 +405,7 @@ const TimeLoggerModal = ({
                           min="1"
                           step="0.25"
                           value={offerta.qta}
-                          onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'qta', e.target.value)}
+                          onChange={(e) => handleOffertaChange(log.id, offerta.id, 'qta', e.target.value)}
                           disabled={fieldsDisabled}
                           className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
                         />
@@ -418,7 +418,7 @@ const TimeLoggerModal = ({
                           min="0"
                           step="0.01"
                           value={offerta.costoUnitario || 0}
-                          onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'costoUnitario', e.target.value)}
+                          onChange={(e) => handleOffertaChange(log.id, offerta.id, 'costoUnitario', e.target.value)}
                           disabled={fieldsDisabled}
                           className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
                         />
@@ -432,7 +432,7 @@ const TimeLoggerModal = ({
                           max="100"
                           step="0.01"
                           value={offerta.sconto}
-                          onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'sconto', e.target.value)}
+                          onChange={(e) => handleOffertaChange(log.id, offerta.id, 'sconto', e.target.value)}
                           disabled={fieldsDisabled}
                           className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
                         />
@@ -484,10 +484,12 @@ const TimeLoggerModal = ({
 
                                   const meta = await res.json();
                                   // Inserisce subito l'allegato nell'offerta locale; il salvataggio persistente avverrà con "Salva Modifiche"
-                                  setTimeLogs(prev => prev.map(l => l.id === offertaOwner.id ? {
-                                    ...l,
-                                    offerte: l.offerte.map(o => o.id === offerta.id ? { ...o, allegati: [...(o.allegati || []), meta] } : o)
-                                  } : l));
+                                  setTimeLogs(prev => prev.map(l => 
+                                    l.id === log.id ? {
+                                      ...l,
+                                      offerte: l.offerte.map(o => o.id === offerta.id ? { ...o, allegati: [...(o.allegati || []), meta] } : o)
+                                    } : l
+                                  ));
 
                                   // Aggiorna anche la lista photos del ticket (il backend ha già aggiunto il file, ma aggiorniamo l'UI)
                                   // Crea un oggetto photo compatibile con la struttura photos del ticket
@@ -560,7 +562,7 @@ const TimeLoggerModal = ({
                                       const errorData = await res.json().catch(() => ({}));
                                       throw new Error(errorData.error || 'Eliminazione fallita');
                                     }
-                                    setTimeLogs(prev => prev.map(l => l.id === offertaOwner.id ? {
+                                    setTimeLogs(prev => prev.map(l => l.id === log.id ? {
                                       ...l,
                                       offerte: l.offerte.map(o => o.id === offerta.id ? { ...o, allegati: (o.allegati || []).filter(x => x.filename !== al.filename) } : o)
                                     } : l));
@@ -587,7 +589,7 @@ const TimeLoggerModal = ({
                           // auto-resize
                           e.currentTarget.style.height = 'auto';
                           e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
-                          handleOffertaChange(offertaOwner.id, offerta.id, 'descrizione', e.target.value);
+                          handleOffertaChange(log.id, offerta.id, 'descrizione', e.target.value);
                         }}
                         onInput={(e) => {
                           e.currentTarget.style.height = 'auto';
@@ -608,16 +610,29 @@ const TimeLoggerModal = ({
                   </div>
                 ))}
 
-                {!fieldsDisabled && (
-                  <button
-                    onClick={() => handleAddOfferta(offertaOwner.id)}
-                    className="w-full text-purple-600 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-purple-300 rounded-lg hover:bg-purple-50"
-                  >
-                    <Plus size={16} />
-                    Aggiungi Offerta
-                  </button>
-                )}
-              </div>
+                    {!fieldsDisabled && (
+                      <button
+                        onClick={() => handleAddOfferta(log.id)}
+                        className="w-full text-purple-600 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-purple-300 rounded-lg hover:bg-purple-50"
+                      >
+                        <Plus size={16} />
+                        Aggiungi Offerta
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {!fieldsDisabled && (!log.offerte || log.offerte.length === 0) && (
+                <button
+                  onClick={() => handleAddOfferta(log.id)}
+                  className="mt-5 w-full text-purple-600 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-purple-300 rounded-lg hover:bg-purple-50"
+                >
+                  <Plus size={16} />
+                  Aggiungi Offerta
+                </button>
+              )}
+            </div> {/* Chiusura sezione Intervento racchiusa */}
             </div>
           );
         })}
