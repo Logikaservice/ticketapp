@@ -357,10 +357,11 @@ const TimeLoggerModal = ({
                   <div key={offerta.id} className="p-4 bg-white rounded-lg border border-purple-200">
                     <div className="flex justify-between items-center mb-3">
                       <h4 className="font-semibold text-purple-700">Offerta #{offertaIndex + 1}</h4>
-                      {!fieldsDisabled && offertaOwner.offerte.length > 1 && (
+                      {!fieldsDisabled && (
                         <button
                           onClick={() => handleRemoveOfferta(offertaOwner.id, offerta.id)}
                           className="text-red-500 p-1 hover:bg-red-50 rounded"
+                          title="Elimina offerta"
                         >
                           <Trash2 size={16} />
                         </button>
