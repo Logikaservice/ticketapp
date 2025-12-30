@@ -18,8 +18,9 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
             ? lg.materials.map(m => ({ 
                 ...m, 
                 id: Date.now() + Math.random(), 
-                quantita: parseInt(m.quantita) || 0,
-                costo: parseFloat(m.costo) || 0
+                // Mostra vuoto se il valore è 0, altrimenti mantieni il valore
+                quantita: (parseInt(m.quantita) || 0) === 0 ? '' : parseInt(m.quantita),
+                costo: (parseFloat(m.costo) || 0) === 0 ? '' : parseFloat(m.costo)
               })) 
             : [getInitialMaterial()],
           offerte: Array.isArray(lg.offerte) 
@@ -41,8 +42,9 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
             ? lg.materials.map(m => ({ 
                 ...m, 
                 id: Date.now() + Math.random(),
-                quantita: parseInt(m.quantita) || 0,
-                costo: parseFloat(m.costo) || 0
+                // Mostra vuoto se il valore è 0, altrimenti mantieni il valore
+                quantita: (parseInt(m.quantita) || 0) === 0 ? '' : parseInt(m.quantita),
+                costo: (parseFloat(m.costo) || 0) === 0 ? '' : parseFloat(m.costo)
               })) 
             : [getInitialMaterial()],
           offerte: Array.isArray(lg.offerte) 
@@ -83,8 +85,17 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
 
       const coerceValue = (fieldName, raw) => {
         if (fieldName === 'nome') return raw; // testo libero
-        if (fieldName === 'quantita') return parseInt(raw) || 0;
-        if (fieldName === 'costo') return parseFloat(raw) || 0;
+        // Per quantita e costo, mantieni stringa vuota se vuoto, altrimenti converti
+        if (fieldName === 'quantita') {
+          if (raw === '' || raw === null || raw === undefined) return '';
+          const parsed = parseInt(raw);
+          return isNaN(parsed) ? '' : parsed;
+        }
+        if (fieldName === 'costo') {
+          if (raw === '' || raw === null || raw === undefined) return '';
+          const parsed = parseFloat(raw);
+          return isNaN(parsed) ? '' : parsed;
+        }
         return raw;
       };
 

@@ -325,10 +325,11 @@ const TimeLoggerModal = ({
                           <input
                             type="number"
                             min="0"
-                            value={m.quantita}
+                            value={m.quantita === 0 || m.quantita === '0' ? '' : (m.quantita || '')}
                             onChange={(e) => handleMaterialChange(log.id, m.id, 'quantita', e.target.value)}
                             disabled={fieldsDisabled}
                             className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            placeholder=""
                           />
                         </div>
 
@@ -337,17 +338,22 @@ const TimeLoggerModal = ({
                           <input
                             type="number"
                             step="0.01"
-                            value={m.costo}
+                            value={m.costo === 0 || m.costo === '0' || m.costo === 0.00 ? '' : (m.costo || '')}
                             onChange={(e) => handleMaterialChange(log.id, m.id, 'costo', e.target.value)}
                             disabled={fieldsDisabled}
                             className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            placeholder=""
                           />
                         </div>
 
                         <div className="col-span-1">
                           <label className="block text-xs mb-1">Totale (€)</label>
                           <div className="p-2 bg-purple-100 rounded-lg font-bold text-purple-800 text-right">
-                            {(((parseFloat(m.quantita) || 0) * (parseFloat(m.costo) || 0)).toFixed(2))}
+                            {(() => {
+                              const qta = m.quantita === '' || m.quantita === null || m.quantita === undefined ? 0 : parseFloat(m.quantita) || 0;
+                              const costo = m.costo === '' || m.costo === null || m.costo === undefined ? 0 : parseFloat(m.costo) || 0;
+                              return (qta * costo).toFixed(2);
+                            })()}
                           </div>
                         </div>
 
