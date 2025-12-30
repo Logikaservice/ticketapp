@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Clock, Check, Plus, Copy, Trash2, Users, Eye, Edit, Save, Wrench } from 'lucide-react';
 import { calculateDurationHours } from '../../utils/helpers';
 import { buildApiUrl } from '../../utils/apiConfig';
@@ -28,6 +28,22 @@ const TimeLoggerModal = ({
 }) => {
   // Stato locale per gestire la modalità editing
   const [isEditing, setIsEditing] = useState(false);
+  
+  // Ref per il container scrollabile per preservare la posizione dello scroll
+  const scrollContainerRef = useRef(null);
+  const scrollPositionRef = useRef(0);
+
+  // Preserva la posizione dello scroll durante i re-render
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollPositionRef.current;
+    }
+  });
+
+  // Gestisce lo scroll preservando la posizione
+  const handleScroll = (e) => {
+    scrollPositionRef.current = e.target.scrollTop;
+  };
 
   // console.debug: rimosso per evitare rumore in console
 
@@ -35,7 +51,12 @@ const TimeLoggerModal = ({
   const fieldsDisabled = readOnly && !isEditing;
 
   return (
-    <div className="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[85vh] overflow-y-auto">
+    <div 
+      ref={scrollContainerRef}
+      onScroll={handleScroll}
+      className="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[85vh] overflow-y-auto"
+      style={{ scrollBehavior: 'smooth' }}
+    >
       <div className="flex items-center justify-between mb-6 border-b pb-3">
         <h2 className="text-2xl font-bold text-blue-700 flex items-center gap-2">
           {readOnly ? (
@@ -176,20 +197,48 @@ const TimeLoggerModal = ({
                   rows="3"
                   value={log.descrizione}
                   onChange={(e) => {
+                    // Preserva la posizione dello scroll prima di modificare l'altezza
+                    const scrollTop = scrollContainerRef.current?.scrollTop || 0;
+                    
                     // Auto-resize textarea on input
                     e.currentTarget.style.height = 'auto';
                     e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
                     handleTimeLogChange(log.id, 'descrizione', e.target.value);
+                    
+                    // Ripristina la posizione dello scroll dopo il re-layout
+                    requestAnimationFrame(() => {
+                      if (scrollContainerRef.current) {
+                        scrollContainerRef.current.scrollTop = scrollTop;
+                      }
+                    });
                   }}
                   onInput={(e) => {
+                    // Preserva la posizione dello scroll
+                    const scrollTop = scrollContainerRef.current?.scrollTop || 0;
+                    
                     // Ensure height adjusts also on paste/undo
                     e.currentTarget.style.height = 'auto';
                     e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                    
+                    // Ripristina la posizione dello scroll
+                    requestAnimationFrame(() => {
+                      if (scrollContainerRef.current) {
+                        scrollContainerRef.current.scrollTop = scrollTop;
+                      }
+                    });
                   }}
                   ref={(el) => {
                     if (el) {
+                      const scrollTop = scrollContainerRef.current?.scrollTop || 0;
                       el.style.height = 'auto';
                       el.style.height = `${el.scrollHeight}px`;
+                      
+                      // Ripristina la posizione dello scroll
+                      requestAnimationFrame(() => {
+                        if (scrollContainerRef.current) {
+                          scrollContainerRef.current.scrollTop = scrollTop;
+                        }
+                      });
                     }
                   }}
                   placeholder="Descrizione"
@@ -578,19 +627,47 @@ const TimeLoggerModal = ({
                         rows="2"
                         value={offerta.descrizione}
                         onChange={(e) => {
+                          // Preserva la posizione dello scroll prima di modificare l'altezza
+                          const scrollTop = scrollContainerRef.current?.scrollTop || 0;
+                          
                           // auto-resize
                           e.currentTarget.style.height = 'auto';
                           e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
                           handleOffertaChange(offertaOwner.id, offerta.id, 'descrizione', e.target.value);
+                          
+                          // Ripristina la posizione dello scroll dopo il re-layout
+                          requestAnimationFrame(() => {
+                            if (scrollContainerRef.current) {
+                              scrollContainerRef.current.scrollTop = scrollTop;
+                            }
+                          });
                         }}
                         onInput={(e) => {
+                          // Preserva la posizione dello scroll
+                          const scrollTop = scrollContainerRef.current?.scrollTop || 0;
+                          
                           e.currentTarget.style.height = 'auto';
                           e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                          
+                          // Ripristina la posizione dello scroll
+                          requestAnimationFrame(() => {
+                            if (scrollContainerRef.current) {
+                              scrollContainerRef.current.scrollTop = scrollTop;
+                            }
+                          });
                         }}
                         ref={(el) => {
                           if (el) {
+                            const scrollTop = scrollContainerRef.current?.scrollTop || 0;
                             el.style.height = 'auto';
                             el.style.height = `${el.scrollHeight}px`;
+                            
+                            // Ripristina la posizione dello scroll
+                            requestAnimationFrame(() => {
+                              if (scrollContainerRef.current) {
+                                scrollContainerRef.current.scrollTop = scrollTop;
+                              }
+                            });
                           }
                         }}
                         placeholder="Descrizione dell'offerta..."
