@@ -35,7 +35,7 @@ const TimeLoggerModal = ({
   const fieldsDisabled = readOnly && !isEditing;
 
   return (
-    <div className="bg-white rounded-xl max-w-4xl w-full flex flex-col shadow-2xl" style={{ maxHeight: '90vh', height: '90vh' }}>
+    <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl">
       <div className="flex items-center justify-between p-6 border-b pb-3 flex-shrink-0">
         <h2 className="text-2xl font-bold text-blue-700 flex items-center gap-2">
           {readOnly ? (
@@ -50,8 +50,8 @@ const TimeLoggerModal = ({
         </button>
       </div>
 
-      <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 180px)' }}>
-        <div className="p-6 space-y-6">
+      <div className="flex-1 min-h-0 overflow-y-auto p-6">
+        <div className="space-y-6">
         <div className="bg-blue-50 p-3 rounded-lg text-sm">
           Ticket: {selectedTicket.numero} - {selectedTicket.titolo}
         </div>
