@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, Clock, Check, Plus, Copy, Trash2, Users, Eye, Edit, Save, Wrench } from 'lucide-react';
 import { calculateDurationHours } from '../../utils/helpers';
 import { buildApiUrl } from '../../utils/apiConfig';
