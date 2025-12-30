@@ -55,7 +55,7 @@ const TimeLoggerModal = ({
           Ticket: {selectedTicket.numero} - {selectedTicket.titolo}
         </div>
 
-        {timeLogs.map((log, index) => {
+        {Array.isArray(timeLogs) && timeLogs.map((log, index) => {
           const hours = parseFloat(log.oreIntervento) || 0;
           const costPerHour = parseFloat(log.costoUnitario) || 0;
           const discount = parseFloat(log.sconto) || 0;
