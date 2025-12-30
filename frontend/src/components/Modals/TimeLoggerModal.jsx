@@ -29,21 +29,8 @@ const TimeLoggerModal = ({
   // Stato locale per gestire la modalità editing
   const [isEditing, setIsEditing] = useState(false);
   
-  // Ref per il container scrollabile per preservare la posizione dello scroll
+  // Ref per il container scrollabile per preservare la posizione dello scroll solo durante le modifiche dei textarea
   const scrollContainerRef = useRef(null);
-  const scrollPositionRef = useRef(0);
-
-  // Preserva la posizione dello scroll durante i re-render
-  useEffect(() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = scrollPositionRef.current;
-    }
-  });
-
-  // Gestisce lo scroll preservando la posizione
-  const handleScroll = (e) => {
-    scrollPositionRef.current = e.target.scrollTop;
-  };
 
   // console.debug: rimosso per evitare rumore in console
 
@@ -53,9 +40,7 @@ const TimeLoggerModal = ({
   return (
     <div 
       ref={scrollContainerRef}
-      onScroll={handleScroll}
       className="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[85vh] overflow-y-auto"
-      style={{ scrollBehavior: 'smooth' }}
     >
       <div className="flex items-center justify-between mb-6 border-b pb-3">
         <h2 className="text-2xl font-bold text-blue-700 flex items-center gap-2">
