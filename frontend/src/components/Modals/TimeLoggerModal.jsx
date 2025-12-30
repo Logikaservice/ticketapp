@@ -332,11 +332,10 @@ const TimeLoggerModal = ({
                     )}
                   </div>
                 </div>
-              </div> {/* Chiusura sezione Materiali */}
 
-              {/* Sezione Come da Offerta - LEGATA A QUESTO INTERVENTO */}
-              {log.offerte && log.offerte.length > 0 && (
-                <div className="mt-5 p-4 border rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50">
+                {/* Sezione Come da Offerta - LEGATA A QUESTO INTERVENTO */}
+                {log.offerte && log.offerte.length > 0 && (
+                  <div className="mt-5 p-4 border rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50">
                   <h3 className="text-lg font-bold text-purple-800 mb-4 flex items-center gap-2">
                     <Users size={20} />
                     Come da Offerta
@@ -469,19 +468,19 @@ const TimeLoggerModal = ({
                       </button>
                     )}
                   </div>
-                </div>
-              )}
+                  </div>
+                )}
 
-              {!fieldsDisabled && (!log.offerte || log.offerte.length === 0) && (
-                <button
-                  onClick={() => handleAddOfferta(log.id)}
-                  className="mt-5 w-full text-purple-600 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-purple-300 rounded-lg hover:bg-purple-50"
-                >
-                  <Plus size={16} />
-                  Aggiungi Offerta
-                </button>
-              )}
-            </div> {/* Chiusura sezione Intervento racchiusa */}
+                {!fieldsDisabled && (!log.offerte || log.offerte.length === 0) && (
+                  <button
+                    onClick={() => handleAddOfferta(log.id)}
+                    className="mt-5 w-full text-purple-600 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-purple-300 rounded-lg hover:bg-purple-50"
+                  >
+                    <Plus size={16} />
+                    Aggiungi Offerta
+                  </button>
+                )}
+              </div> {/* Chiusura sezione Intervento racchiusa */}
             </div>
           );
         })}
