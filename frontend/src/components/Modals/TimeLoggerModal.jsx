@@ -347,32 +347,7 @@ const TimeLoggerModal = ({
           </button>
         )}
 
-        {/* Sezione Come da Offerta - GLOBALE (non legata agli Interventi) */}
-        {(() => {
-          const offertaOwner = timeLogs[0];
-          if (!offertaOwner) return null;
-          return (
-            <div className="p-4 border rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50">
-              <h3 className="text-lg font-bold text-purple-800 mb-4 flex items-center gap-2">
-                <Users size={20} />
-                Come da Offerta
-              </h3>
-
-              <div className="space-y-4">
-                {offertaOwner.offerte && offertaOwner.offerte.map((offerta, offertaIndex) => (
-                  <div key={offerta.id} className="p-4 bg-white rounded-lg border border-purple-200">
-                    <div className="flex justify-between items-center mb-3">
-                      <h4 className="font-semibold text-purple-700">Offerta #{offertaIndex + 1}</h4>
-                      {!fieldsDisabled && (
-                        <button
-                          onClick={() => handleRemoveOfferta(offertaOwner.id, offerta.id)}
-                          className="text-red-500 p-1 hover:bg-red-50 rounded"
-                          title="Elimina offerta"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </div>
+        <div className="flex gap-3 pt-4 border-t">
 
                     <div className="flex flex-col md:flex-row md:items-end gap-2 md:gap-3 mb-4">
                       <div className="w-full md:w-auto" style={{ minWidth: 140 }}>
