@@ -300,7 +300,10 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
             const nomeMateriale = (m.nome || '').trim();
             if (nomeMateriale && nomeMateriale !== '0' && nomeMateriale !== '') {
               hasMaterials = true;
-              allMaterialsText += `${nomeMateriale} (${m.quantita}x) €${parseFloat(m.costo).toFixed(2)}, `;
+              const quantita = parseInt(m.quantita) || 0;
+              const costoUnitario = parseFloat(m.costo) || 0;
+              const totale = quantita * costoUnitario;
+              allMaterialsText += `${nomeMateriale} (${quantita}x) €${costoUnitario.toFixed(2)} = €${totale.toFixed(2)}, `;
             }
           });
         }
