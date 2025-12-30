@@ -5,15 +5,25 @@ import { X, Printer } from 'lucide-react';
 
 const ReportModal = ({ closeModal, htmlContent, title }) => {
   const handlePrint = () => {
-    // Usa about:blank per assicurarsi che si apra in una nuova scheda
-    const printWindow = window.open('about:blank', '_blank', 'noopener,noreferrer');
+    // Crea un blob URL per aprire l'HTML in una nuova scheda
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const printWindow = window.open(url, '_blank', 'noopener,noreferrer');
+    
     if (printWindow) {
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-      printWindow.focus();
+      // Pulisci l'URL dopo che la finestra è stata aperta
+      printWindow.addEventListener('load', () => {
+        URL.revokeObjectURL(url);
+        // Attendi che il contenuto sia completamente caricato prima di stampare
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+      });
+      
+      // Fallback: pulisci l'URL dopo 10 secondi anche se l'evento load non viene chiamato
       setTimeout(() => {
-        printWindow.print();
-      }, 250);
+        URL.revokeObjectURL(url);
+      }, 10000);
     }
   };
 
