@@ -50,7 +50,7 @@ const TimeLoggerModal = ({
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 180px)' }}>
         <div className="p-6 space-y-6">
         <div className="bg-blue-50 p-3 rounded-lg text-sm">
           Ticket: {selectedTicket.numero} - {selectedTicket.titolo}
