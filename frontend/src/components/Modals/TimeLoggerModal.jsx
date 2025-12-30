@@ -28,9 +28,6 @@ const TimeLoggerModal = ({
 }) => {
   // Stato locale per gestire la modalità editing
   const [isEditing, setIsEditing] = useState(false);
-  
-  // Ref per il container scrollabile per preservare la posizione dello scroll solo durante le modifiche dei textarea
-  const scrollContainerRef = useRef(null);
 
   // console.debug: rimosso per evitare rumore in console
 
@@ -38,10 +35,7 @@ const TimeLoggerModal = ({
   const fieldsDisabled = readOnly && !isEditing;
 
   return (
-    <div 
-      ref={scrollContainerRef}
-      className="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[85vh] overflow-y-auto"
-    >
+    <div className="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[85vh] overflow-y-auto">
       <div className="flex items-center justify-between mb-6 border-b pb-3">
         <h2 className="text-2xl font-bold text-blue-700 flex items-center gap-2">
           {readOnly ? (
@@ -182,44 +176,15 @@ const TimeLoggerModal = ({
                   rows="3"
                   value={log.descrizione}
                   onChange={(e) => {
-                    // Salva l'altezza precedente per determinare se è cambiata
-                    const previousHeight = e.currentTarget.offsetHeight;
-                    
                     // Auto-resize textarea on input
                     e.currentTarget.style.height = 'auto';
-                    const newHeight = e.currentTarget.scrollHeight;
-                    e.currentTarget.style.height = `${newHeight}px`;
-                    
+                    e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
                     handleTimeLogChange(log.id, 'descrizione', e.target.value);
-                    
-                    // Preserva lo scroll solo se l'altezza è cambiata
-                    if (Math.abs(newHeight - previousHeight) > 1 && scrollContainerRef.current) {
-                      const scrollTop = scrollContainerRef.current.scrollTop;
-                      requestAnimationFrame(() => {
-                        if (scrollContainerRef.current) {
-                          scrollContainerRef.current.scrollTop = scrollTop;
-                        }
-                      });
-                    }
                   }}
                   onInput={(e) => {
-                    // Salva l'altezza precedente
-                    const previousHeight = e.currentTarget.offsetHeight;
-                    
                     // Ensure height adjusts also on paste/undo
                     e.currentTarget.style.height = 'auto';
-                    const newHeight = e.currentTarget.scrollHeight;
-                    e.currentTarget.style.height = `${newHeight}px`;
-                    
-                    // Preserva lo scroll solo se l'altezza è cambiata
-                    if (Math.abs(newHeight - previousHeight) > 1 && scrollContainerRef.current) {
-                      const scrollTop = scrollContainerRef.current.scrollTop;
-                      requestAnimationFrame(() => {
-                        if (scrollContainerRef.current) {
-                          scrollContainerRef.current.scrollTop = scrollTop;
-                        }
-                      });
-                    }
+                    e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
                   }}
                   ref={(el) => {
                     if (el) {
@@ -619,42 +584,14 @@ const TimeLoggerModal = ({
                         rows="2"
                         value={offerta.descrizione}
                         onChange={(e) => {
-                          // Salva l'altezza precedente per determinare se è cambiata
-                          const previousHeight = e.currentTarget.offsetHeight;
-                          
                           // auto-resize
                           e.currentTarget.style.height = 'auto';
-                          const newHeight = e.currentTarget.scrollHeight;
-                          e.currentTarget.style.height = `${newHeight}px`;
+                          e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
                           handleOffertaChange(offertaOwner.id, offerta.id, 'descrizione', e.target.value);
-                          
-                          // Preserva lo scroll solo se l'altezza è cambiata
-                          if (Math.abs(newHeight - previousHeight) > 1 && scrollContainerRef.current) {
-                            const scrollTop = scrollContainerRef.current.scrollTop;
-                            requestAnimationFrame(() => {
-                              if (scrollContainerRef.current) {
-                                scrollContainerRef.current.scrollTop = scrollTop;
-                              }
-                            });
-                          }
                         }}
                         onInput={(e) => {
-                          // Salva l'altezza precedente
-                          const previousHeight = e.currentTarget.offsetHeight;
-                          
                           e.currentTarget.style.height = 'auto';
-                          const newHeight = e.currentTarget.scrollHeight;
-                          e.currentTarget.style.height = `${newHeight}px`;
-                          
-                          // Preserva lo scroll solo se l'altezza è cambiata
-                          if (Math.abs(newHeight - previousHeight) > 1 && scrollContainerRef.current) {
-                            const scrollTop = scrollContainerRef.current.scrollTop;
-                            requestAnimationFrame(() => {
-                              if (scrollContainerRef.current) {
-                                scrollContainerRef.current.scrollTop = scrollTop;
-                              }
-                            });
-                          }
+                          e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
                         }}
                         ref={(el) => {
                           if (el) {
