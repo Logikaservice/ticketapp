@@ -24,7 +24,7 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
     useEffect(() => {
         const fetchUsers = async () => {
             try {
-                const res = await fetch(buildApiUrl(/api/users), { headers: getAuthHeader() });
+                const res = await fetch(buildApiUrl('/api/users'), { headers: getAuthHeader() });
                 const data = await res.json();
                 // Filter for clients only? Or all? Usually contracts are clients.
                 setUsers(data.filter(u => u.ruolo === 'cliente'));
