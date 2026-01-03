@@ -520,6 +520,33 @@ const uploadOffertaDocs = multer({
   limits: { fileSize: 15 * 1024 * 1024 } // 15MB
 });
 
+// Configurazione Multer per Contratti (PDF)
+const storageContracts = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, 'uploads', 'contracts');
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `contract-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
+
+const uploadContracts = multer({
+  storage: storageContracts,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo file PDF sono permessi per i contratti!'), false);
+    }
+  }
+});
+
 // --- SERVIRE FILE STATICI ---
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -778,12 +805,17 @@ const accessLogsRoutes = require('./routes/accessLogs')(pool);
 // Route per Orari e Turni (usa stesso pool ma tabella separata orari_data)
 const orariRoutes = require('./routes/orari')(pool);
 
+// Route per Contratti (Nuova)
+const contractsRoutes = require('./routes/contracts')(pool, uploadContracts);
+
 // Route per Vivaldi (database separato) - solo se pool disponibile
 const vivaldiRoutes = poolVivaldi ? require('./routes/vivaldi')(poolVivaldi) : null;
 const packvisionRoutes = require('./routes/packvision')(poolPackVision, io);
 
 
 app.use('/api/packvision', packvisionRoutes);
+
+app.use('/api/contracts', contractsRoutes);
 
 
 
@@ -1915,7 +1947,7 @@ const startServer = async () => {
         )
       `);
       console.log("✅ Tabella forniture_temporanee creata/verificata (auto-init)");
-      
+
       // Aggiungi colonna nota se non esiste (per tabelle create prima dell'aggiornamento)
       try {
         await pool.query(`ALTER TABLE forniture_temporanee ADD COLUMN IF NOT EXISTS nota TEXT`);
@@ -1923,7 +1955,7 @@ const startServer = async () => {
       } catch (alterErr) {
         console.log("⚠️ Errore aggiunta colonna nota (potrebbe già esistere):", alterErr.message);
       }
-      
+
       // Aggiungi colonna data_prestito se non esiste
       try {
         await pool.query(`ALTER TABLE forniture_temporanee ADD COLUMN IF NOT EXISTS data_prestito TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
@@ -1931,7 +1963,7 @@ const startServer = async () => {
       } catch (alterErr) {
         console.log("⚠️ Errore aggiunta colonna data_prestito (potrebbe già esistere):", alterErr.message);
       }
-      
+
       // Aggiungi colonna data_restituzione se non esiste
       try {
         await pool.query(`ALTER TABLE forniture_temporanee ADD COLUMN IF NOT EXISTS data_restituzione TIMESTAMP`);

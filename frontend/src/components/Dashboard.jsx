@@ -5,6 +5,8 @@ import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCh
 import TicketListContainer from './TicketListContainer';
 import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
+import ContractTimelineCard from './ContractTimelineCard';
+import ManageContractsModal from './Modals/ManageContractsModal';
 
 import { formatDate } from '../utils/formatters';
 import { buildApiUrl } from '../utils/apiConfig';
@@ -347,7 +349,7 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
   );
 };
 
-const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelectedTicket, setModalState, onCreateTicketFromAlert, handlers, getUnreadCount, onOpenState, externalHighlights, alertsRefreshTrigger, getAuthHeader, temporarySupplies, temporarySuppliesLoading, onRemoveTemporarySupply, onRefreshTemporarySupplies }) => {
+const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelectedTicket, setModalState, onCreateTicketFromAlert, handlers, getUnreadCount, onOpenState, externalHighlights, alertsRefreshTrigger, getAuthHeader, temporarySupplies, temporarySuppliesLoading, onRemoveTemporarySupply, onRefreshTemporarySupplies, notify }) => {
   // Stati per la ricerca
   const [searchTerm, setSearchTerm] = React.useState('');
   const [searchResults, setSearchResults] = React.useState([]);
@@ -484,6 +486,33 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
 
   const roleLabel = currentUser?.ruolo === 'tecnico' ? 'Tecnico' : 'Cliente';
+
+  // --- CONTRACTS LOGIC ---
+  const [contracts, setContracts] = React.useState([]);
+  const [showContractModal, setShowContractModal] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!currentUser) return;
+    // Only fetch own contracts for Client, or maybe all active for Technician?
+    // Actually, technician usually views contracts per client.
+    // For now, let's load contracts for the Current User if they are a Client.
+    if (currentUser.ruolo === 'cliente') {
+      const fetchContracts = async () => {
+        try {
+          const res = await fetch(buildApiUrl(`/api/contracts/user/${currentUser.id}`), { headers: getAuthHeader() });
+          if (res.ok) {
+            const data = await res.json();
+            setContracts(data);
+          }
+        } catch (err) {
+          console.error('Failed to load contracts', err);
+        }
+      };
+      fetchContracts();
+    }
+  }, [currentUser, getAuthHeader]);
+
+  // --- END CONTRACTS LOGIC --- 
 
   // Funzione di ricerca avanzata che cerca in tutti i campi del ticket
   const advancedSearch = (ticket, searchTerm) => {
@@ -1385,229 +1414,216 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <AlertsPanel
-            alerts={alerts}
-            onDelete={currentUser?.ruolo === 'tecnico' ? deleteAlert : undefined}
-            isEditable={currentUser?.ruolo === 'tecnico'}
-            onOpenTicket={(t) => {
-              if (!t || !t.id) return;
-              // Integrazione futura: handlers.handleSelectTicket
-            }}
-            onCreateTicketFromAlert={onCreateTicketFromAlert}
-            onManageAlerts={() => setModalState({ type: 'manageAlerts', data: null })}
-            onEditAlert={handleEditAlertClick}
-            currentUser={currentUser}
-            users={users || []}
-            setModalState={setModalState}
-          />
+          {/* PULSANTE GESTIONE CONTRATTI (SOLO TECNICO) */}
+          {currentUser?.ruolo === 'tecnico' && (
+            <div className="mb-4 flex justify-end">
+              <button
+                onClick={() => setShowContractModal(true)}
+                className="px-4 py-2 bg-slate-800 text-cyan-400 border border-slate-600 rounded-lg hover:bg-slate-700 hover:text-cyan-300 transition-colors flex items-center gap-2 shadow-sm"
+              >
+                <FileText size={16} />
+                Gestione Contratti
+              </button>
+            </div>
+          )}
 
-          {/* Sezione Forniture Temporanee - per tutti gli utenti */}
-          <TemporarySuppliesPanel
-            temporarySupplies={temporarySupplies || []}
-            loading={temporarySuppliesLoading}
-            onRemoveSupply={currentUser?.ruolo === 'tecnico' ? onRemoveTemporarySupply : null}
-            users={users || []}
-            onRefresh={currentUser?.ruolo === 'tecnico' ? onRefreshTemporarySupplies : null}
-            onOpenTicket={(ticketId) => {
-              const ticket = tickets.find(t => t.id === ticketId);
-              if (ticket && handlers?.handleSelectTicket) {
-                handlers.handleSelectTicket(ticket);
-                onOpenState && onOpenState(ticket.stato);
-              }
-            }}
-            onEditSupply={currentUser?.ruolo === 'tecnico' ? (supply) => {
-              const ticket = tickets.find(t => t.id === supply.ticket_id);
-              if (ticket && handlers?.handleSelectTicket) {
-                handlers.handleSelectTicket(ticket);
-                onOpenState && onOpenState(ticket.stato);
-                // Apri il modal delle forniture per questo ticket
-                setTimeout(() => {
-                  setModalState({ type: 'forniture', data: ticket });
-                }, 100);
-              }
-            } : null}
-            isReadOnly={currentUser?.ruolo !== 'tecnico'}
-          />
-        </div>
-        <div>
-          <TicketsCalendar
-            users={users}
-            tickets={tickets}
-            onTicketClick={(ticket) => {
-              // Naviga alla sezione corretta e seleziona il ticket
-              if (handlers?.handleSelectTicket) {
-                handlers.handleSelectTicket(ticket);
-              }
-              // Naviga alla sezione corretta basata sullo stato del ticket
-              if (onOpenState) {
-                onOpenState(ticket.stato);
-              }
-            }}
-            currentUser={currentUser}
-            getAuthHeader={getAuthHeader}
-          />
+          {/* VISUALIZZAZIONE CONTRATTI (WIDGET UTENTE) */}
+          {contracts.length > 0 && (
+            <div className="mb-6">
+              {contracts.map(contract => (
+                <ContractTimelineCard key={contract.id} contract={contract} />
+              ))}
+            </div>
+          )}
 
-          {/* Pulsante Credenziali KeePass + ricerca rapida - solo per amministratori */}
-          {isKeepassAdmin && (
-            <div className="mt-4">
-              <div className="bg-white border border-indigo-200 rounded-lg overflow-hidden shadow-md">
-                <button
-                  onClick={() => {
-                    const url = new URL(window.location);
-                    url.searchParams.set('modal', 'keepass');
-                    window.history.pushState({}, '', url);
-                    setModalState({ type: 'keepassCredentials' });
-                  }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 transition"
-                >
-                  <Key size={20} />
-                  <span className="font-semibold">Credenziali KeePass</span>
-                </button>
+          {/* AVVISI IMPORTANTI */}
+          <div className="mb-6">
+            <AlertsPanel
+              alerts={alerts}
+              onDelete={currentUser?.ruolo === 'tecnico' ? deleteAlert : undefined}
+              isEditable={currentUser?.ruolo === 'tecnico'}
+              onOpenTicket={(t) => {
+                if (!t || !t.id) return;
+                // Integrazione futura: handlers.handleSelectTicket
+              }}
+              onCreateTicketFromAlert={onCreateTicketFromAlert}
+              onManageAlerts={() => setModalState({ type: 'manageAlerts', data: null })}
+              onEditAlert={handleEditAlertClick}
+              currentUser={currentUser}
+              users={users || []}
+              setModalState={setModalState}
+            />
 
-                <div className="p-4 border-t border-indigo-100 bg-white space-y-3">
-                  <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent transition bg-gray-50">
-                    <Search size={16} className="text-gray-400" />
-                    <input
-                      type="text"
-                      value={keepassSearchQuery}
-                      onChange={(e) => setKeepassSearchQuery(e.target.value)}
-                      placeholder="Ricerca veloce..."
-                      className="flex-1 text-sm text-gray-700 bg-transparent focus:outline-none"
-                    />
-                    {keepassSearchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => setKeepassSearchQuery('')}
-                        className="text-gray-400 hover:text-gray-600 transition"
-                        title="Pulisci ricerca"
-                      >
-                        <X size={14} />
-                      </button>
+            {/* Sezione Forniture Temporanee - per tutti gli utenti */}
+            <TemporarySuppliesPanel
+              temporarySupplies={temporarySupplies || []}
+              loading={temporarySuppliesLoading}
+              onRemoveSupply={currentUser?.ruolo === 'tecnico' ? onRemoveTemporarySupply : null}
+              users={users || []}
+              onRefresh={currentUser?.ruolo === 'tecnico' ? onRefreshTemporarySupplies : null}
+              onOpenTicket={(ticketId) => {
+                const ticket = tickets.find(t => t.id === ticketId);
+                if (ticket && handlers?.handleSelectTicket) {
+                  handlers.handleSelectTicket(ticket);
+                  onOpenState && onOpenState(ticket.stato);
+                }
+              }}
+              onEditSupply={currentUser?.ruolo === 'tecnico' ? (supply) => {
+                const ticket = tickets.find(t => t.id === supply.ticket_id);
+                if (ticket && handlers?.handleSelectTicket) {
+                  handlers.handleSelectTicket(ticket);
+                  onOpenState && onOpenState(ticket.stato);
+                  // Apri il modal delle forniture per questo ticket
+                  setTimeout(() => {
+                    setModalState({ type: 'forniture', data: ticket });
+                  }, 100);
+                }
+              } : null}
+              isReadOnly={currentUser?.ruolo !== 'tecnico'}
+            />
+          </div>
+          <div>
+            <TicketsCalendar
+              users={users}
+              tickets={tickets}
+              onTicketClick={(ticket) => {
+                // Naviga alla sezione corretta e seleziona il ticket
+                if (handlers?.handleSelectTicket) {
+                  handlers.handleSelectTicket(ticket);
+                }
+                // Naviga alla sezione corretta basata sullo stato del ticket
+                if (onOpenState) {
+                  onOpenState(ticket.stato);
+                }
+              }}
+              currentUser={currentUser}
+              getAuthHeader={getAuthHeader}
+            />
+
+            {/* Pulsante Credenziali KeePass + ricerca rapida - solo per amministratori */}
+            {isKeepassAdmin && (
+              <div className="mt-4">
+                <div className="bg-white border border-indigo-200 rounded-lg overflow-hidden shadow-md">
+                  <button
+                    onClick={() => {
+                      const url = new URL(window.location);
+                      url.searchParams.set('modal', 'keepass');
+                      window.history.pushState({}, '', url);
+                      setModalState({ type: 'keepassCredentials' });
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 transition"
+                  >
+                    <Key size={20} />
+                    <span className="font-semibold">Credenziali KeePass</span>
+                  </button>
+
+                  <div className="p-4 border-t border-indigo-100 bg-white space-y-3">
+                    <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent transition bg-gray-50">
+                      <Search size={16} className="text-gray-400" />
+                      <input
+                        type="text"
+                        value={keepassSearchQuery}
+                        onChange={(e) => setKeepassSearchQuery(e.target.value)}
+                        placeholder="Ricerca veloce..."
+                        className="flex-1 text-sm text-gray-700 bg-transparent focus:outline-none"
+                      />
+                      {keepassSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setKeepassSearchQuery('')}
+                          className="text-gray-400 hover:text-gray-600 transition"
+                          title="Pulisci ricerca"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    {keepassSearchLoadingResults && (
+                      <div className="flex items-center justify-center py-4">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500"></div>
+                      </div>
                     )}
-                  </div>
 
-                  {keepassSearchLoadingResults && (
-                    <div className="flex items-center justify-center py-4">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500"></div>
-                    </div>
-                  )}
+                    {!keepassSearchLoadingResults && keepassSearchError && (
+                      <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                        {keepassSearchError}
+                      </div>
+                    )}
 
-                  {!keepassSearchLoadingResults && keepassSearchError && (
-                    <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                      {keepassSearchError}
-                    </div>
-                  )}
+                    {!keepassSearchLoadingResults && !keepassSearchError && (
+                      <>
+                        {keepassSearchQuery.trim().length < 2 ? (
+                          <p className="text-xs text-gray-500">
+                            Inserisci almeno 2 caratteri per cercare le tue credenziali. La ricerca avviene solo tra i dati a te associati.
+                          </p>
+                        ) : keepassResults.length === 0 ? (
+                          <p className="text-sm text-gray-500">Nessuna credenziale trovata.</p>
+                        ) : (
+                          <ul className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                            {keepassResults.map((entry, index) => (
+                              <li
+                                key={entry.id || `${entry.title}-${index}`}
+                                className="border border-gray-200 rounded-lg p-3 hover:border-indigo-300 hover:shadow-sm transition"
+                              >
+                                <div className="space-y-1">
+                                  {entry.groupPath && (
+                                    <div className="text-xs text-gray-500 font-medium">
+                                      {entry.groupPath}
+                                    </div>
+                                  )}
+                                  <div className="text-sm font-semibold text-gray-800">{entry.title}</div>
+                                </div>
 
-                  {!keepassSearchLoadingResults && !keepassSearchError && (
-                    <>
-                      {keepassSearchQuery.trim().length < 2 ? (
-                        <p className="text-xs text-gray-500">
-                          Inserisci almeno 2 caratteri per cercare le tue credenziali. La ricerca avviene solo tra i dati a te associati.
-                        </p>
-                      ) : keepassResults.length === 0 ? (
-                        <p className="text-sm text-gray-500">Nessuna credenziale trovata.</p>
-                      ) : (
-                        <ul className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                          {keepassResults.map((entry, index) => (
-                            <li
-                              key={entry.id || `${entry.title}-${index}`}
-                              className="border border-gray-200 rounded-lg p-3 hover:border-indigo-300 hover:shadow-sm transition"
-                            >
-                              <div className="space-y-1">
-                                {entry.groupPath && (
-                                  <div className="text-xs text-gray-500 font-medium">
-                                    {entry.groupPath}
+                                {entry.username && (
+                                  <div className="flex items-center gap-2 text-sm text-gray-600 mt-2">
+                                    <User size={14} className="text-gray-400" />
+                                    <span className="truncate">{entry.username}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => navigator.clipboard.writeText(entry.username)}
+                                      className="ml-auto text-gray-400 hover:text-indigo-600 transition"
+                                      title="Copia username"
+                                    >
+                                      <Copy size={14} />
+                                    </button>
                                   </div>
                                 )}
-                                <div className="text-sm font-semibold text-gray-800">{entry.title}</div>
-                              </div>
 
-                              {entry.username && (
-                                <div className="flex items-center gap-2 text-sm text-gray-600 mt-2">
-                                  <User size={14} className="text-gray-400" />
-                                  <span className="truncate">{entry.username}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => navigator.clipboard.writeText(entry.username)}
-                                    className="ml-auto text-gray-400 hover:text-indigo-600 transition"
-                                    title="Copia username"
+                                {entry.url && (
+                                  <a
+                                    href={entry.url.startsWith('http') ? entry.url : `http://${entry.url}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 text-sm text-blue-600 hover:underline mt-2"
                                   >
-                                    <Copy size={14} />
-                                  </button>
-                                </div>
-                              )}
+                                    <Globe size={14} className="text-blue-500" />
+                                    <span className="truncate">{entry.url}</span>
+                                  </a>
+                                )}
 
-                              {entry.url && (
-                                <a
-                                  href={entry.url.startsWith('http') ? entry.url : `http://${entry.url}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-2 text-sm text-blue-600 hover:underline mt-2"
-                                >
-                                  <Globe size={14} className="text-blue-500" />
-                                  <span className="truncate">{entry.url}</span>
-                                </a>
-                              )}
-
-                              {/* Password */}
-                              <div className="flex items-center gap-2 bg-gray-50 p-2 rounded border border-gray-200 mt-2">
-                                <Lock size={14} className="text-gray-400" />
-                                <span className="text-sm font-mono flex-1">
-                                  {keepassVisiblePasswords[entry.id] ? (
-                                    <span className="text-gray-900">{keepassVisiblePasswords[entry.id]}</span>
-                                  ) : (
-                                    <span className="text-gray-400">••••••••</span>
-                                  )}
-                                </span>
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      if (keepassVisiblePasswords[entry.id]) {
-                                        setKeepassVisiblePasswords(prev => {
-                                          const next = { ...prev };
-                                          delete next[entry.id];
-                                          return next;
-                                        });
-                                        return;
-                                      }
-                                      try {
-                                        const authHeader = getAuthHeader();
-                                        const response = await fetch(`${apiBase}/api/keepass/decrypt-password`, {
-                                          method: 'POST',
-                                          headers: {
-                                            'Content-Type': 'application/json',
-                                            ...authHeader,
-                                            'x-user-id': currentUser?.id?.toString() || authHeader['x-user-id'] || '',
-                                            'x-user-role': currentUser?.ruolo || ''
-                                          },
-                                          body: JSON.stringify({ entryId: entry.id })
-                                        });
-                                        if (!response.ok) throw new Error('Errore nella decifratura della password');
-                                        const data = await response.json();
-                                        setKeepassVisiblePasswords(prev => ({
-                                          ...prev,
-                                          [entry.id]: data.password || ''
-                                        }));
-                                      } catch (err) {
-                                        console.error('Errore decifratura password:', err);
-                                        alert('Errore nel recupero della password');
-                                      }
-                                    }}
-                                    className="p-1 text-gray-400 hover:text-gray-600"
-                                    title={keepassVisiblePasswords[entry.id] ? 'Nascondi password' : 'Mostra password'}
-                                  >
+                                {/* Password */}
+                                <div className="flex items-center gap-2 bg-gray-50 p-2 rounded border border-gray-200 mt-2">
+                                  <Lock size={14} className="text-gray-400" />
+                                  <span className="text-sm font-mono flex-1">
                                     {keepassVisiblePasswords[entry.id] ? (
-                                      <EyeOff size={16} />
+                                      <span className="text-gray-900">{keepassVisiblePasswords[entry.id]}</span>
                                     ) : (
-                                      <Eye size={16} />
+                                      <span className="text-gray-400">••••••••</span>
                                     )}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      let password = keepassVisiblePasswords[entry.id];
-                                      if (!password) {
+                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        if (keepassVisiblePasswords[entry.id]) {
+                                          setKeepassVisiblePasswords(prev => {
+                                            const next = { ...prev };
+                                            delete next[entry.id];
+                                            return next;
+                                          });
+                                          return;
+                                        }
                                         try {
                                           const authHeader = getAuthHeader();
                                           const response = await fetch(`${apiBase}/api/keepass/decrypt-password`, {
@@ -1622,61 +1638,113 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                                           });
                                           if (!response.ok) throw new Error('Errore nella decifratura della password');
                                           const data = await response.json();
-                                          password = data.password || '';
                                           setKeepassVisiblePasswords(prev => ({
                                             ...prev,
-                                            [entry.id]: password
+                                            [entry.id]: data.password || ''
                                           }));
                                         } catch (err) {
-                                          console.error('Errore copia password:', err);
+                                          console.error('Errore decifratura password:', err);
                                           alert('Errore nel recupero della password');
-                                          return;
                                         }
-                                      }
-                                      navigator.clipboard.writeText(password);
-                                      alert('Password copiata!');
-                                    }}
-                                    className="p-1 text-gray-400 hover:text-indigo-600"
-                                    title="Copia password"
-                                  >
-                                    <Copy size={14} />
-                                  </button>
+                                      }}
+                                      className="p-1 text-gray-400 hover:text-gray-600"
+                                      title={keepassVisiblePasswords[entry.id] ? 'Nascondi password' : 'Mostra password'}
+                                    >
+                                      {keepassVisiblePasswords[entry.id] ? (
+                                        <EyeOff size={16} />
+                                      ) : (
+                                        <Eye size={16} />
+                                      )}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        let password = keepassVisiblePasswords[entry.id];
+                                        if (!password) {
+                                          try {
+                                            const authHeader = getAuthHeader();
+                                            const response = await fetch(`${apiBase}/api/keepass/decrypt-password`, {
+                                              method: 'POST',
+                                              headers: {
+                                                'Content-Type': 'application/json',
+                                                ...authHeader,
+                                                'x-user-id': currentUser?.id?.toString() || authHeader['x-user-id'] || '',
+                                                'x-user-role': currentUser?.ruolo || ''
+                                              },
+                                              body: JSON.stringify({ entryId: entry.id })
+                                            });
+                                            if (!response.ok) throw new Error('Errore nella decifratura della password');
+                                            const data = await response.json();
+                                            password = data.password || '';
+                                            setKeepassVisiblePasswords(prev => ({
+                                              ...prev,
+                                              [entry.id]: password
+                                            }));
+                                          } catch (err) {
+                                            console.error('Errore copia password:', err);
+                                            alert('Errore nel recupero della password');
+                                            return;
+                                          }
+                                        }
+                                        navigator.clipboard.writeText(password);
+                                        alert('Password copiata!');
+                                      }}
+                                      className="p-1 text-gray-400 hover:text-indigo-600"
+                                      title="Copia password"
+                                    >
+                                      <Copy size={14} />
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
 
-                              {entry.notes && (
-                                <p className="text-xs text-gray-500 mt-2 line-clamp-2 whitespace-pre-wrap">
-                                  {entry.notes}
-                                </p>
-                              )}
+                                {entry.notes && (
+                                  <p className="text-xs text-gray-500 mt-2 line-clamp-2 whitespace-pre-wrap">
+                                    {entry.notes}
+                                  </p>
+                                )}
 
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setKeepassHighlightEntryId(entry.id);
-                                  const url = new URL(window.location);
-                                  url.searchParams.set('modal', 'keepass');
-                                  url.searchParams.set('entryId', entry.id.toString());
-                                  window.history.pushState({}, '', url);
-                                  setModalState({ type: 'keepassCredentials', data: { highlightEntryId: entry.id } });
-                                }}
-                                className="mt-3 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition"
-                              >
-                                Apri credenziali complete
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </>
-                  )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setKeepassHighlightEntryId(entry.id);
+                                    const url = new URL(window.location);
+                                    url.searchParams.set('modal', 'keepass');
+                                    url.searchParams.set('entryId', entry.id.toString());
+                                    window.history.pushState({}, '', url);
+                                    setModalState({ type: 'keepassCredentials', data: { highlightEntryId: entry.id } });
+                                  }}
+                                  className="mt-3 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition"
+                                >
+                                  Apri credenziali complete
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
 
+        {showContractModal && (
+          <ManageContractsModal
+            onClose={() => setShowContractModal(false)}
+            getAuthHeader={getAuthHeader}
+            notify={notify || ((msg) => console.log(msg))}
+            onSuccess={() => {
+              // Refresh?
+              // Maybe re-fetch contracts?
+              // But fetchContracts is inside useEffect with no dependency on trigger.
+              // I should add a trigger or reloading mechanism.
+              window.location.reload(); // Simple solution for now
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 };
