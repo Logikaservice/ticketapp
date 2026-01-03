@@ -1,18 +1,53 @@
 // Migration script to create contracts tables
 const { Pool } = require('pg');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-const DATABASE_URL = process.env.DATABASE_URL;
+console.log('🔍 Tentativo lettura DATABASE_URL...');
+let poolConfig = {};
 
-const pool = new Pool({
-    connectionString: DATABASE_URL,
-    ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false }
-});
+if (process.env.DATABASE_URL) {
+    try {
+        const dbUrl = process.env.DATABASE_URL;
+        // Regex per parsing manuale (gestione password con caratteri speciali)
+        const match = dbUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
+
+        if (match) {
+            poolConfig.user = decodeURIComponent(match[1]);
+            poolConfig.password = decodeURIComponent(match[2]);
+            poolConfig.host = match[3];
+            poolConfig.port = parseInt(match[4]);
+            poolConfig.database = match[5];
+
+            if (poolConfig.host === 'localhost' || poolConfig.host === '127.0.0.1') {
+                poolConfig.ssl = false;
+            } else {
+                poolConfig.ssl = { rejectUnauthorized: false };
+            }
+        } else {
+            console.warn('⚠️ Regex URL non corrispondente, uso connectionString standard');
+            poolConfig.connectionString = dbUrl;
+            poolConfig.ssl = { rejectUnauthorized: false };
+        }
+    } catch (e) {
+        console.error('❌ Errore parsing URL:', e);
+        poolConfig.connectionString = process.env.DATABASE_URL;
+    }
+} else {
+    // Fallback hardcoded per VPS se necessario (per sicurezza) o defaults
+    console.error('❌ DATABASE_URL non trovato nel file .env (../.env)');
+    process.exit(1);
+}
+
+const pool = new Pool(poolConfig);
 
 async function createContractsTables() {
     const client = await pool.connect();
 
     try {
         console.log('\n🔧 MIGRAZIONE DATABASE: Creazione tabelle Contracts\n');
+
+        // ... Logica esistente ...
 
         // Create contracts table
         console.log('📝 Creazione tabella contracts...');
@@ -33,7 +68,7 @@ async function createContractsTables() {
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
-        
+
         // Create contract_events table
         console.log('📝 Creazione tabella contract_events...');
         await client.query(`
