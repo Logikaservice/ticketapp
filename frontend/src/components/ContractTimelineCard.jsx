@@ -25,24 +25,31 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
     const nextEvent = contract.next_event;
     const daysToNextEvent = nextEvent ? getDaysRemaining(nextEvent.event_date) : 0;
 
-    // Calculate progress for the timeline bar: from start to next event (or end if no next event)
+    // Calculate progress for the timeline bar: la barra rappresenta SEMPRE 1 anno
     const startDate = new Date(contract.start_date).getTime();
-    const endDate = new Date(contract.end_date || new Date().setFullYear(new Date().getFullYear() + 1)).getTime();
+    // Calcola la fine del primo anno (sempre 1 anno dalla data di inizio)
+    const firstYearEndDate = new Date(contract.start_date);
+    firstYearEndDate.setFullYear(firstYearEndDate.getFullYear() + 1);
+    const endDate = firstYearEndDate.getTime(); // Sempre 1 anno
     const today = new Date().getTime();
 
-    // Se c'è un prossimo evento, calcola il progresso dall'inizio fino a quel punto
-    // Altrimenti usa la data di fine come riferimento
+    // Se c'è un prossimo evento nel primo anno, calcola il progresso dall'inizio fino a quel punto
+    // Altrimenti usa la fine del primo anno come riferimento
     let targetDate = endDate;
     if (nextEvent && nextEvent.event_date) {
-        targetDate = new Date(nextEvent.event_date).getTime();
+        const nextEventDate = new Date(nextEvent.event_date).getTime();
+        // Usa il prossimo evento solo se è entro il primo anno
+        if (nextEventDate <= endDate) {
+            targetDate = nextEventDate;
+        }
     }
 
     let progress = 0;
     if (targetDate > startDate) {
-        // Calcola quanto siamo vicini alla prossima fatturazione (o alla fine)
+        // Calcola quanto siamo vicini alla prossima fatturazione (o alla fine del primo anno)
         progress = ((today - startDate) / (targetDate - startDate)) * 100;
     }
-    // Limita il progresso al 100% (non oltre la prossima fatturazione)
+    // Limita il progresso al 100% (non oltre la fine del primo anno)
     progress = Math.max(0, Math.min(100, progress));
 
     // Find the first non-processed event for yellow color
