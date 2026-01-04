@@ -30,20 +30,41 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
             try {
                 const res = await fetch(buildApiUrl('/api/users'), { headers: getAuthHeader() });
                 const data = await res.json();
-                // Filter for clients only, remove duplicates, and sort alphabetically
+                // Filter for clients only
                 const clientUsers = data.filter(u => u.ruolo === 'cliente');
                 
-                // Remove duplicates based on user ID
-                const uniqueUsers = Array.from(
-                    new Map(clientUsers.map(user => [user.id, user])).values()
-                );
-                
-                // Sort alphabetically by name (nome + cognome) or azienda
-                uniqueUsers.sort((a, b) => {
-                    const nameA = (a.azienda || `${a.nome || ''} ${a.cognome || ''}`).trim().toLowerCase();
-                    const nameB = (b.azienda || `${b.nome || ''} ${b.cognome || ''}`).trim().toLowerCase();
-                    return nameA.localeCompare(nameB, 'it');
+                // Raggruppa per azienda e prendi un rappresentante per azienda
+                const aziendaMap = new Map();
+                clientUsers.forEach(user => {
+                    const azienda = user.azienda || `${user.nome || ''} ${user.cognome || ''}`.trim();
+                    if (!azienda) return; // Salta utenti senza azienda e nome
+                    
+                    if (!aziendaMap.has(azienda)) {
+                        // Prendi il primo utente per azienda (preferibilmente admin se esiste)
+                        const isAdmin = user.admin_companies && 
+                                       Array.isArray(user.admin_companies) && 
+                                       user.admin_companies.includes(azienda);
+                        aziendaMap.set(azienda, { user, isAdmin });
+                    } else {
+                        // Se esiste già, preferisci l'admin
+                        const existing = aziendaMap.get(azienda);
+                        const isAdmin = user.admin_companies && 
+                                       Array.isArray(user.admin_companies) && 
+                                       user.admin_companies.includes(azienda);
+                        if (isAdmin && !existing.isAdmin) {
+                            aziendaMap.set(azienda, { user, isAdmin });
+                        }
+                    }
                 });
+                
+                // Converti in array e ordina alfabeticamente per nome azienda
+                const uniqueUsers = Array.from(aziendaMap.values())
+                    .map(item => item.user)
+                    .sort((a, b) => {
+                        const nameA = (a.azienda || `${a.nome || ''} ${a.cognome || ''}`).trim().toLowerCase();
+                        const nameB = (b.azienda || `${b.nome || ''} ${b.cognome || ''}`).trim().toLowerCase();
+                        return nameA.localeCompare(nameB, 'it');
+                    });
                 
                 setUsers(uniqueUsers);
             } catch (err) {
