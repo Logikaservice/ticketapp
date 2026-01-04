@@ -47,43 +47,11 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
         if (!formData.start_date || !formData.amount) return;
 
         const events = [];
-        const inputDate = new Date(formData.start_date);
-        
-        // Normalizza la data al primo del mese appropriato in base alla frequenza
-        let firstInvoiceDate = new Date(inputDate);
-        firstInvoiceDate.setDate(1); // Sempre primo del mese
-        
-        // Per frequenze specifiche, arrotonda al primo del periodo appropriato
-        if (formData.billing_frequency === 'quarterly') {
-            // Trimestrale: gennaio, aprile, luglio, ottobre (mesi 0, 3, 6, 9)
-            const month = firstInvoiceDate.getMonth();
-            if (month >= 0 && month < 3) {
-                firstInvoiceDate.setMonth(0); // Gennaio
-            } else if (month >= 3 && month < 6) {
-                firstInvoiceDate.setMonth(3); // Aprile
-            } else if (month >= 6 && month < 9) {
-                firstInvoiceDate.setMonth(6); // Luglio
-            } else {
-                firstInvoiceDate.setMonth(9); // Ottobre
-            }
-        } else if (formData.billing_frequency === 'semiannual') {
-            // Semestrale: gennaio (0) o luglio (6)
-            const month = firstInvoiceDate.getMonth();
-            if (month >= 0 && month < 6) {
-                firstInvoiceDate.setMonth(0); // Gennaio
-            } else {
-                firstInvoiceDate.setMonth(6); // Luglio
-            }
-        } else if (formData.billing_frequency === 'annual') {
-            // Annuale: sempre gennaio
-            firstInvoiceDate.setMonth(0); // Gennaio
-        }
-        // Mensile: già normalizzato al primo del mese
+        const startDate = new Date(formData.start_date);
+        const endDate = new Date(startDate);
+        endDate.setFullYear(endDate.getFullYear() + 1); // Un anno dopo la data di inizio
 
-        const endDate = new Date(firstInvoiceDate);
-        endDate.setFullYear(endDate.getFullYear() + 1); // Un anno dopo la prima fattura
-
-        // Calcola il numero di fatture nell'anno in base alla frequenza
+        // Calcola il numero di fatture nell'anno e il periodo tra le fatture
         let numberOfInvoices = 0;
         let incrementMonths = 0;
         switch (formData.billing_frequency) {
@@ -128,8 +96,8 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                 amountPerInvoice = monthlyAmount;
         }
 
-        // Genera le fatture per esattamente un anno partendo dalla data normalizzata
-        let current = new Date(firstInvoiceDate);
+        // Genera le fatture partendo dalla data di inizio esatta (senza normalizzazione)
+        let current = new Date(startDate);
         for (let i = 0; i < numberOfInvoices; i++) {
             events.push({
                 date: new Date(current).toISOString().split('T')[0],
