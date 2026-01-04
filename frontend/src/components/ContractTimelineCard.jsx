@@ -77,14 +77,6 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                 <div className="absolute top-1/2 left-12 right-12 h-1 bg-gray-200 rounded-full -translate-y-1/2"></div>
                 <div className="absolute top-1/2 left-12 h-1 bg-teal-400 rounded-full -translate-y-1/2 transition-all duration-1000" style={{ width: `calc((100% - 96px) * ${progress / 100})` }}></div>
 
-                {/* Start Point */}
-                <div className="absolute top-1/2 left-12 -translate-y-1/2 -ml-1.5">
-                    <div className="w-3 h-3 rounded-full bg-white border-2 border-teal-500"></div>
-                    <div className="absolute top-5 left-1/2 -translate-x-1/2 text-xs text-gray-500 whitespace-nowrap">
-                        {formatDate(contract.start_date)}
-                    </div>
-                </div>
-
                 {/* Current Point (Today) */}
                 <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `calc(48px + ((100% - 96px) * ${progress / 100}))` }}>
                     <div className="relative -ml-1.5">
@@ -125,6 +117,18 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                         iconColor = 'text-gray-400';
                     }
 
+                    // Converti la descrizione dell'evento per rimuovere i numeri progressivi
+                    let displayDescription = event.description || 'Fattura';
+                    if (contract.billing_frequency === 'monthly') {
+                        displayDescription = 'Mensile';
+                    } else if (contract.billing_frequency === 'quarterly') {
+                        displayDescription = 'Trimestre';
+                    } else if (contract.billing_frequency === 'semiannual') {
+                        displayDescription = 'Semestre';
+                    } else if (contract.billing_frequency === 'annual') {
+                        displayDescription = 'Annuale';
+                    }
+
                     return (
                         <div 
                             key={event.id || index} 
@@ -140,21 +144,13 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                             </div>
                             <div className="absolute top-7 left-1/2 -translate-x-1/2 text-center w-32">
                                 <div className={`text-xs font-semibold ${textColor}`}>
-                                    {event.description || 'Fattura'}
+                                    {displayDescription}
                                 </div>
                                 <div className="text-[10px] text-gray-400">{formatDate(event.event_date)}</div>
                             </div>
                         </div>
                     );
                 })}
-
-                {/* End Point */}
-                <div className="absolute top-1/2 right-12 -translate-y-1/2 mr-1.5">
-                    <div className="w-3 h-3 rounded-full bg-white border-2 border-gray-400"></div>
-                    <div className="absolute top-5 right-1/2 translate-x-1/2 text-xs text-gray-500 whitespace-nowrap">
-                        {formatDate(contract.end_date)}
-                    </div>
-                </div>
             </div>
 
             {/* Bottom Actions */}
