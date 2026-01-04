@@ -97,19 +97,27 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
         }
 
         // Genera le fatture partendo dalla data di inizio esatta (senza normalizzazione)
-        // Usa un metodo più affidabile per calcolare le date successive
-        const startYear = startDate.getFullYear();
-        const startMonth = startDate.getMonth();
-        const startDay = startDate.getDate();
+        // Parsa la data manualmente per evitare problemi di fuso orario
+        const dateParts = formData.start_date.split('-');
+        const startYear = parseInt(dateParts[0], 10);
+        const startMonth = parseInt(dateParts[1], 10) - 1; // JavaScript months are 0-based
+        const startDay = parseInt(dateParts[2], 10);
         
         for (let i = 0; i < numberOfInvoices; i++) {
-            // Calcola la data aggiungendo i mesi usando il costruttore Date
-            const invoiceYear = startYear + Math.floor((startMonth + (i * incrementMonths)) / 12);
-            const invoiceMonth = (startMonth + (i * incrementMonths)) % 12;
+            // Calcola la data aggiungendo i mesi usando il costruttore Date (local time)
+            const totalMonths = startMonth + (i * incrementMonths);
+            const invoiceYear = startYear + Math.floor(totalMonths / 12);
+            const invoiceMonth = totalMonths % 12;
             const invoiceDate = new Date(invoiceYear, invoiceMonth, startDay);
             
+            // Formatta la data come YYYY-MM-DD
+            const year = invoiceDate.getFullYear();
+            const month = String(invoiceDate.getMonth() + 1).padStart(2, '0');
+            const day = String(invoiceDate.getDate()).padStart(2, '0');
+            const dateString = `${year}-${month}-${day}`;
+            
             events.push({
-                date: invoiceDate.toISOString().split('T')[0],
+                date: dateString,
                 type: 'invoice',
                 title: 'Fattura Periodica',
                 description: `Fatturazione ${formData.billing_frequency}`,
