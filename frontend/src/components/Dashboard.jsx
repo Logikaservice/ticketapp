@@ -477,6 +477,45 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     inviato: visibleTickets.filter(t => t.stato === 'inviato').length,
     fatturato: visibleTickets.filter(t => t.stato === 'fatturato').length
   }), [visibleTickets]);
+
+  // Filtra le forniture temporanee in base al ruolo dell'utente
+  const filteredTemporarySupplies = React.useMemo(() => {
+    if (!temporarySupplies || temporarySupplies.length === 0) {
+      return [];
+    }
+
+    // I tecnici vedono tutte le forniture
+    if (currentUser?.ruolo === 'tecnico') {
+      return temporarySupplies;
+    }
+
+    // I clienti vedono solo le forniture della loro azienda
+    if (currentUser?.ruolo === 'cliente') {
+      // Verifica se è amministratore
+      const isAdmin = currentUser.admin_companies &&
+        Array.isArray(currentUser.admin_companies) &&
+        currentUser.admin_companies.length > 0;
+
+      if (isAdmin) {
+        // Se è amministratore, mostra le forniture delle sue aziende
+        const companyNames = currentUser.admin_companies;
+        return temporarySupplies.filter(supply => 
+          supply.azienda && companyNames.includes(supply.azienda)
+        );
+      }
+
+      // Non è amministratore, mostra solo le forniture della sua azienda
+      if (currentUser?.azienda) {
+        return temporarySupplies.filter(supply => 
+          supply.azienda === currentUser.azienda
+        );
+      }
+
+      return [];
+    }
+
+    return [];
+  }, [temporarySupplies, currentUser]);
   // Evidenzia spostamenti basati su segnali esterni (eventi dal polling/azioni)
   const [activeHighlights, setActiveHighlights] = React.useState({});
   useEffect(() => {
@@ -1503,7 +1542,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           {/* Sezione Forniture Temporanee - per tutti gli utenti */}
           <div className="mb-6">
             <TemporarySuppliesPanel
-              temporarySupplies={temporarySupplies || []}
+              temporarySupplies={filteredTemporarySupplies || []}
               loading={temporarySuppliesLoading}
               onRemoveSupply={currentUser?.ruolo === 'tecnico' ? onRemoveTemporarySupply : null}
               users={users || []}
