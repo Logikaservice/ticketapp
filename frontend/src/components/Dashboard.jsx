@@ -577,7 +577,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     }
   }, [currentUser, fetchContracts]);
 
-  // Listener per refresh automatico quando viene creato o eliminato un contratto
+  // Listener per refresh automatico quando viene creato, eliminato o modificato un contratto
   React.useEffect(() => {
     const handleContractCreated = () => {
       fetchContracts();
@@ -585,11 +585,16 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     const handleContractDeleted = () => {
       fetchContracts();
     };
+    const handleContractUpdated = () => {
+      fetchContracts();
+    };
     window.addEventListener('contractCreated', handleContractCreated);
     window.addEventListener('contractDeleted', handleContractDeleted);
+    window.addEventListener('contractUpdated', handleContractUpdated);
     return () => {
       window.removeEventListener('contractCreated', handleContractCreated);
       window.removeEventListener('contractDeleted', handleContractDeleted);
+      window.removeEventListener('contractUpdated', handleContractUpdated);
     };
   }, [fetchContracts]);
 

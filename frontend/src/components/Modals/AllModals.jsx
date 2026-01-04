@@ -15,6 +15,7 @@ import ImportKeepassModal from './ImportKeepassModal';
 import KeepassCredentialsModal from './KeepassCredentialsModal';
 import AnalyticsModal from './AnalyticsModal';
 import AccessLogsModal from './AccessLogsModal';
+import EditContractModal from './EditContractModal';
 
 const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...handlers }) => {
   if (!modalState.type) return null;
@@ -157,6 +158,20 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             isOpen={true}
             onClose={closeModal}
             getAuthHeader={handlers.getAuthHeader}
+          />
+        );
+
+      case 'editContract':
+        return (
+          <EditContractModal
+            contract={modalState.data}
+            onClose={closeModal}
+            getAuthHeader={handlers.getAuthHeader}
+            notify={handlers.showNotification}
+            onSuccess={() => {
+              // Trigger refresh dei contratti
+              window.dispatchEvent(new CustomEvent('contractUpdated'));
+            }}
           />
         );
 
