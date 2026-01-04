@@ -967,6 +967,144 @@ module.exports = (pool) => {
     return colors[priorita?.toLowerCase()] || '1';
   };
 
+  // ENDPOINT: Sincronizza contratto con Google Calendar
+  router.post('/sync-contract-google-calendar', async (req, res) => {
+    try {
+      console.log('=== RICHIESTA SINCRONIZZAZIONE CONTRATTO GOOGLE CALENDAR ===');
+      const { contract, events } = req.body;
+      
+      console.log('Contratto ricevuto:', contract ? `#${contract.id} - ${contract.title}` : 'Nessun contratto');
+      console.log('Eventi:', events ? events.length : 0);
+
+      if (!contract) {
+        console.log('ERRORE: Contratto non fornito');
+        return res.status(400).json({ error: 'Contratto non fornito' });
+      }
+
+      // Verifica che le credenziali Service Account siano configurate
+      if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
+        console.log('ERRORE: Credenziali Google Service Account non configurate');
+        return res.json({
+          success: false,
+          message: 'Google Service Account non configurato'
+        });
+      }
+
+      // Usa Service Account per sincronizzazione automatica
+      const authInstance = getAuth();
+      if (!authInstance) {
+        console.log('ERRORE: Google Auth non disponibile');
+        return res.json({
+          success: false,
+          message: 'Google Auth non configurato'
+        });
+      }
+      
+      const authClient = await authInstance.getClient();
+      const calendar = google.calendar({ version: 'v3', auth: authClient });
+
+      // Trova il calendario corretto
+      let calendarId = 'primary';
+      try {
+        const calendarList = await calendar.calendarList.list();
+        const ticketAppCalendar = calendarList.data.items?.find(cal => cal.summary === 'TicketApp Test Calendar');
+        if (ticketAppCalendar) {
+          calendarId = ticketAppCalendar.id;
+        } else if (calendarList.data.items && calendarList.data.items.length > 0) {
+          calendarId = calendarList.data.items[0].id;
+        }
+      } catch (calErr) {
+        console.log('⚠️ Errore ricerca calendario, uso primary:', calErr.message);
+      }
+
+      // Funzione helper per formattare date
+      const formatDateTime = (date) => {
+        return date.toLocaleString('it-IT', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Europe/Rome'
+        });
+      };
+
+      // Crea eventi per ogni evento del contratto
+      const createdEvents = [];
+      if (events && Array.isArray(events)) {
+        for (const eventData of events) {
+          if (!eventData.event_date) {
+            continue;
+          }
+
+          // Gestisci la data
+          let eventDate;
+          if (eventData.event_date.includes('T')) {
+            eventDate = new Date(eventData.event_date);
+          } else {
+            eventDate = new Date(eventData.event_date + 'T00:00:00+02:00');
+          }
+          
+          if (isNaN(eventDate.getTime())) {
+            console.log('⚠️ Data evento non valida, salto:', eventData.event_date);
+            continue;
+          }
+
+          const eventEndDate = new Date(eventDate.getTime() + 60 * 60 * 1000); // 1 ora dopo
+
+          // Costruisci la descrizione
+          let description = `CONTRATTO: ${contract.title}\n`;
+          description += `CLIENTE: ${contract.client_name || 'N/D'}\n`;
+          description += `DESCRIZIONE: ${eventData.description || eventData.title || 'Fatturazione'}\n`;
+          if (eventData.amount) {
+            description += `IMPORTO: € ${parseFloat(eventData.amount).toFixed(2)}\n`;
+          }
+          description += `DATA: ${formatDateTime(eventDate)}\n`;
+
+          const event = {
+            summary: `Contratto: ${contract.title} - ${eventData.description || eventData.title || 'Fatturazione'}`,
+            description: description,
+            start: {
+              dateTime: eventDate.toISOString(),
+              timeZone: 'Europe/Rome'
+            },
+            end: {
+              dateTime: eventEndDate.toISOString(),
+              timeZone: 'Europe/Rome'
+            },
+            colorId: '5', // Giallo per contratti
+            source: {
+              title: 'TicketApp - Contratto',
+              url: `${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}`
+            }
+          };
+
+          try {
+            const result = await calendar.events.insert({
+              calendarId: calendarId,
+              resource: event,
+              sendUpdates: 'none',
+              conferenceDataVersion: 0
+            });
+            createdEvents.push(result.data.id);
+            console.log(`✅ Evento contratto creato: ${result.data.id}`);
+          } catch (eventErr) {
+            console.error(`⚠️ Errore creazione evento contratto:`, eventErr.message);
+          }
+        }
+      }
+
+      res.json({
+        success: true,
+        eventIds: createdEvents,
+        message: `${createdEvents.length} eventi contratto sincronizzati con Google Calendar`
+      });
+    } catch (err) {
+      console.error('❌ Errore sincronizzazione contratto Google Calendar:', err);
+      res.status(500).json({ error: 'Errore sincronizzazione Google Calendar' });
+    }
+  });
+
   // ENDPOINT: Disabilita notifiche calendario per utente
   router.post('/disable-calendar-notifications', async (req, res) => {
     try {

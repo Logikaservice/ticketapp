@@ -4,7 +4,7 @@ import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { useAvailability } from '../hooks/useAvailability';
 import { SYNC_STATES } from '../config/googleConfig';
 
-const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, users = [] }) => {
+const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, users = [], contracts = [] }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedDateTickets, setSelectedDateTickets] = useState([]);
@@ -339,6 +339,48 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
       });
     });
     
+    // Aggiungi eventi contratti per data
+    contracts.forEach(contract => {
+      if (!contract.events || !Array.isArray(contract.events)) {
+        return;
+      }
+      
+      contract.events.forEach(event => {
+        if (!event.event_date) {
+          return;
+        }
+        
+        // Estrai la data dall'evento
+        let dateKey;
+        
+        if (event.event_date.includes('T')) {
+          const dateOnly = event.event_date.split('T')[0];
+          dateKey = dateOnly;
+        } else {
+          dateKey = event.event_date;
+        }
+        
+        if (!grouped[dateKey]) {
+          grouped[dateKey] = {};
+        }
+        
+        // Usa una priorità speciale per i contratti
+        const contrattoKey = 'contratto';
+        if (!grouped[dateKey][contrattoKey]) {
+          grouped[dateKey][contrattoKey] = [];
+        }
+        
+        // Aggiungi l'evento contratto con riferimento al contratto
+        grouped[dateKey][contrattoKey].push({
+          ...event,
+          isContratto: true,
+          contract_id: contract.id,
+          contract_title: contract.title,
+          contract_client_name: contract.client_name
+        });
+      });
+    });
+    
     return grouped;
   })();
 
@@ -351,6 +393,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
       case 'bassa': return 'bg-gray-500';
       case 'google': return 'bg-green-500';
       case 'intervento': return 'bg-purple-500';
+      case 'contratto': return 'bg-amber-500';
       default: return 'bg-gray-500';
     }
   };
@@ -364,6 +407,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
       case 'bassa': return 'Bassa';
       case 'google': return 'Google Calendar';
       case 'intervento': return 'Intervento';
+      case 'contratto': return 'Contratto';
       default: return 'Sconosciuta';
     }
   };
@@ -474,13 +518,14 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
         <div className="grid grid-cols-7 gap-1">
           {calendarDays.map((day, index) => {
             const hasTickets = Object.values(day.tickets).flat().length > 0;
+            const hasContracts = day.tickets.contratto && day.tickets.contratto.length > 0;
             const isSelected = selectedDate && selectedDate.toDateString() === day.date.toDateString();
             
             return (
               <div
                 key={index}
                 className={`min-h-[40px] p-1 border rounded cursor-pointer transition-all relative ${
-                  day.isCurrentMonth ? (day.isUnavailable ? 'bg-gray-300 text-gray-800' : 'bg-white') : 'bg-gray-50'
+                  day.isCurrentMonth ? (day.isUnavailable ? 'bg-gray-300 text-gray-800' : hasContracts ? 'bg-amber-50' : 'bg-white') : 'bg-gray-50'
                 } ${day.isToday ? 'ring-2 ring-blue-500' : ''} ${
                   isSelected ? 'ring-2 ring-green-500 bg-green-50' : ''
                 } ${hasTickets ? 'hover:bg-blue-50 hover:border-blue-300' : ''} ${
@@ -660,6 +705,10 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
             <div className="flex items-center gap-1">
               <div className="w-2 h-2 rounded-full bg-purple-500"></div>
               <span>Intervento</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+              <span>Contratto</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-4 h-4 rounded bg-gray-300 border border-gray-400"></div>

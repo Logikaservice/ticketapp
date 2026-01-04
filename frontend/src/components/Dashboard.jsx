@@ -1592,6 +1592,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           <TicketsCalendar
             users={users}
             tickets={tickets}
+            contracts={contracts}
             onTicketClick={(ticket) => {
               // Naviga alla sezione corretta e seleziona il ticket
               if (handlers?.handleSelectTicket) {

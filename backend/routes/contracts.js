@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 
 module.exports = (pool, upload) => {
 
@@ -157,6 +158,67 @@ module.exports = (pool, upload) => {
             }
 
             await client.query('COMMIT');
+
+            // 3. Sync to Google Calendar (only for technicians)
+            if (req.user && req.user.ruolo === 'tecnico') {
+                try {
+                    // Recupera il contratto completo con gli eventi
+                    const contractResult = await client.query(`
+                        SELECT * FROM contracts WHERE id = $1
+                    `, [contractId]);
+                    const contract = contractResult.rows[0];
+
+                    const eventsResult = await client.query(`
+                        SELECT * FROM contract_events WHERE contract_id = $1 ORDER BY event_date ASC
+                    `, [contractId]);
+                    const contractEvents = eventsResult.rows;
+
+                    // Chiama l'endpoint di sincronizzazione Google Calendar
+                    const apiUrl = process.env.API_URL || `http://localhost:${process.env.PORT || 3001}`;
+                    const syncUrl = `${apiUrl}/api/sync-contract-google-calendar`;
+                    
+                    const syncPayload = JSON.stringify({
+                        contract: contract,
+                        events: contractEvents
+                    });
+
+                    const url = new URL(syncUrl);
+                    const options = {
+                        hostname: url.hostname,
+                        port: url.port || (url.protocol === 'https:' ? 443 : 80),
+                        path: url.pathname,
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Content-Length': Buffer.byteLength(syncPayload),
+                            'Authorization': req.headers.authorization || ''
+                        }
+                    };
+
+                    const syncReq = http.request(options, (syncRes) => {
+                        let data = '';
+                        syncRes.on('data', (chunk) => { data += chunk; });
+                        syncRes.on('end', () => {
+                            if (syncRes.statusCode === 200) {
+                                console.log('✅ Contratto sincronizzato con Google Calendar');
+                            } else {
+                                console.log('⚠️ Errore sincronizzazione Google Calendar:', data);
+                            }
+                        });
+                    });
+
+                    syncReq.on('error', (err) => {
+                        console.error('⚠️ Errore chiamata sincronizzazione Google Calendar:', err.message);
+                    });
+
+                    syncReq.write(syncPayload);
+                    syncReq.end();
+                } catch (syncErr) {
+                    // Non bloccare la risposta se la sincronizzazione fallisce
+                    console.error('⚠️ Errore sincronizzazione Google Calendar (non bloccante):', syncErr.message);
+                }
+            }
+
             res.status(201).json({ success: true, contractId });
 
         } catch (err) {
