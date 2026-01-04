@@ -86,20 +86,22 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
             <div className="flex justify-between items-start mb-5">
                 <div>
                     <h3 className="text-lg font-bold text-gray-800 mb-1">{contract.title}</h3>
-                    {contract.client_name && (
+                    {contract.client_name && currentUser?.ruolo === 'tecnico' && (
                         <p className="text-gray-400 text-xs mt-1">Cliente: {contract.client_name}</p>
                     )}
                 </div>
                 <div className="text-right">
-                    <div className="bg-teal-50 border border-teal-200 text-teal-700 px-3 py-1 rounded-full text-xs font-medium inline-block mb-2">
-                        {contract.billing_frequency === 'monthly' ? 'Mensile' :
-                            contract.billing_frequency === 'quarterly' ? 'Trimestrale' :
-                                contract.billing_frequency === 'semiannual' ? 'Semestrale' :
-                                contract.billing_frequency === 'annual' ? 'Annuale' : 'Personalizzata'}
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="bg-teal-50 border border-teal-200 text-teal-700 px-3 py-1 rounded-full text-xs font-medium inline-block">
+                            {contract.billing_frequency === 'monthly' ? 'Mensile' :
+                                contract.billing_frequency === 'quarterly' ? 'Trimestrale' :
+                                    contract.billing_frequency === 'semiannual' ? 'Semestrale' :
+                                    contract.billing_frequency === 'annual' ? 'Annuale' : 'Personalizzata'}
+                        </div>
+                        {contract.end_date && (
+                            <span className="text-xs text-gray-600 font-medium">Scadenza: {formatDate(contract.end_date)}</span>
+                        )}
                     </div>
-                    {contract.amount && (
-                        <div className="font-semibold text-base text-gray-800">€ {parseFloat(contract.amount).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    )}
                 </div>
             </div>
 
@@ -169,19 +171,30 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                         displayDescription = 'Annuale';
                     }
 
+                    // Calcola l'importo da mostrare nel tooltip (solo per eventi non-rinnovo)
+                    const eventAmount = isRenewal ? null : (event.amount || contract.amount);
+                    const displayAmount = eventAmount ? parseFloat(eventAmount).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;
+
                     return (
                         <div 
                             key={event.id || index} 
-                            className="absolute top-1/2 -translate-y-1/2" 
+                            className="absolute top-1/2 -translate-y-1/2 group" 
                             style={{ left: `calc(24px + ((100% - 48px) * ${eventPercent / 100}))` }}
                         >
-                            <div className={`w-5 h-5 rounded-full ${bgColor} border-2 ${borderColor} flex items-center justify-center -ml-2.5 z-0`}>
+                            <div className={`w-5 h-5 rounded-full ${bgColor} border-2 ${borderColor} flex items-center justify-center -ml-2.5 z-0 cursor-pointer relative`}>
                                 {isRenewal ? (
                                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                                 ) : isProcessed ? (
                                     <CheckCircle size={12} className={iconColor} />
                                 ) : (
                                     <AlertCircle size={12} className={iconColor} />
+                                )}
+                                {/* Tooltip con importo (solo per eventi non-rinnovo) */}
+                                {!isRenewal && displayAmount && (
+                                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                                        € {displayAmount}
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                                    </div>
                                 )}
                             </div>
                             <div className="absolute top-7 left-1/2 -translate-x-1/2 text-center w-32">
