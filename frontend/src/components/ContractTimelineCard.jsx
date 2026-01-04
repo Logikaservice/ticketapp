@@ -52,18 +52,22 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
         const eventYear = eventDate.getFullYear();
         const isRenewal = event.event_type === 'renewal' || event.type === 'renewal';
         
-        // Se è un evento di rinnovo, mostra solo se è nell'anno corrente E se l'anno del rinnovo corrisponde all'ultimo anno del contratto
+        // Se è un evento di rinnovo, mostra solo se è nell'anno corrente
+        // E se l'anno del rinnovo corrisponde all'anno di fine contratto (end_date)
         if (isRenewal) {
             // Mostra il rinnovo solo se è nell'anno corrente
             if (eventYear !== currentYear) return false;
             
-            // Verifica che questo rinnovo sia effettivamente alla fine del contratto
-            // (non un rinnovo intermedio se il contratto dura più di 1 anno)
-            // Il rinnovo dovrebbe essere alla fine del contratto, quindi se c'è un end_date,
-            // il rinnovo dovrebbe essere nello stesso anno dell'end_date
+            // Se c'è un end_date, mostra il rinnovo solo se è nello stesso anno dell'end_date
             if (contract.end_date) {
-                const contractEndYear = new Date(contract.end_date).getFullYear();
-                return eventYear === contractEndYear;
+                try {
+                    const contractEndDate = new Date(contract.end_date);
+                    const contractEndYear = contractEndDate.getFullYear();
+                    return eventYear === contractEndYear;
+                } catch (e) {
+                    // Se c'è un errore nel parsing, mostra comunque (per compatibilità)
+                    return true;
+                }
             }
             // Se non c'è end_date, mostra comunque (per compatibilità)
             return true;
