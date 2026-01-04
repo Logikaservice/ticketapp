@@ -25,42 +25,33 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
     const nextEvent = contract.next_event;
     const daysToNextEvent = nextEvent ? getDaysRemaining(nextEvent.event_date) : 0;
 
-    // Calculate progress for the timeline bar: la barra rappresenta SEMPRE 1 anno
-    // Calcola startDate e endDate una volta per usarli in tutto il componente
-    const startDate = new Date(contract.start_date).getTime();
-    // Calcola la fine del primo anno (sempre 1 anno dalla data di inizio)
-    const firstYearEndDate = new Date(contract.start_date);
-    firstYearEndDate.setFullYear(firstYearEndDate.getFullYear() + 1);
-    const endDate = firstYearEndDate.getTime(); // Sempre 1 anno
+    // Calculate progress for the timeline bar: la barra rappresenta SEMPRE l'anno solare corrente
+    // Calcola startDate e endDate per l'anno corrente (sempre 01/01/YYYY - 31/12/YYYY)
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const yearStartDate = new Date(currentYear, 0, 1).getTime(); // 01/01/YYYY 00:00:00
+    const yearEndDate = new Date(currentYear, 11, 31, 23, 59, 59).getTime(); // 31/12/YYYY 23:59:59
     
-    // Usa useMemo per evitare ricalcoli quando solo gli eventi cambiano (non start_date)
+    // Usa useMemo per evitare ricalcoli quando solo gli eventi cambiano
     const progress = useMemo(() => {
-        const today = new Date().getTime();
+        const now = new Date().getTime();
 
-        // Calcola il progresso basato sulla data di oggi rispetto al primo anno (sempre 1 anno)
-        // Il punto "OGGI" deve sempre essere posizionato in base alla data corrente, indipendentemente dagli eventi
+        // Calcola il progresso basato sulla data di oggi rispetto all'anno corrente (01/01 - 31/12)
         let calculatedProgress = 0;
-        if (endDate > startDate) {
-            // Calcola la percentuale di avanzamento dell'anno (da startDate a endDate)
-            calculatedProgress = ((today - startDate) / (endDate - startDate)) * 100;
+        if (yearEndDate > yearStartDate) {
+            // Calcola la percentuale di avanzamento dell'anno corrente (da 01/01 a oggi)
+            calculatedProgress = ((now - yearStartDate) / (yearEndDate - yearStartDate)) * 100;
         }
-        // Limita il progresso tra 0% e 100% (sempre entro il primo anno)
+        // Limita il progresso tra 0% e 100% (sempre entro l'anno corrente)
         return Math.max(0, Math.min(100, calculatedProgress));
-    }, [contract.start_date, startDate, endDate]); // Solo ricalcola se start_date cambia
+    }, [yearStartDate, yearEndDate]); // Ricalcola quando cambia l'anno
 
-    // Filtra eventi del primo anno per la timeline (includi rinnovo solo se è nel primo anno)
-    const firstYearEnd = new Date(contract.start_date);
-    firstYearEnd.setFullYear(firstYearEnd.getFullYear() + 1);
+    // Filtra eventi dell'anno corrente per la timeline
     const visibleEvents = events.filter(event => {
         const eventDate = new Date(event.event_date);
-        const isRenewal = event.event_type === 'renewal' || event.type === 'renewal';
-        // Mostra eventi del primo anno (includi rinnovo se è entro il primo anno)
-        if (isRenewal) {
-            // Mostra rinnovo solo se è entro il primo anno (durata = 1 anno)
-            return eventDate <= firstYearEnd;
-        }
-        // Mostra tutti gli altri eventi del primo anno
-        return eventDate <= firstYearEnd;
+        const eventYear = eventDate.getFullYear();
+        // Mostra solo eventi dell'anno corrente
+        return eventYear === currentYear;
     });
     
     // Find the first non-processed event for yellow color (solo tra gli eventi visibili)
@@ -105,10 +96,10 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                     </div>
                 </div>
 
-                {/* All Event Points - mostra solo eventi del primo anno */}
+                {/* All Event Points - mostra solo eventi dell'anno corrente */}
                 {visibleEvents.map((event, index) => {
                     const eventDate = new Date(event.event_date).getTime();
-                    const eventPercent = ((eventDate - startDate) / (endDate - startDate)) * 100;
+                    const eventPercent = ((eventDate - yearStartDate) / (yearEndDate - yearStartDate)) * 100;
                     const isProcessed = event.is_processed === true;
                     const isFirstNonProcessed = index === firstNonProcessedIndex && !isProcessed;
                     
