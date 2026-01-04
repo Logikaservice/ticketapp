@@ -1037,7 +1037,7 @@ module.exports = (pool) => {
             continue;
           }
 
-          // Gestisci la data
+          // Gestisci la data - eventi di un giorno intero
           let eventDate;
           if (eventData.event_date.includes('T')) {
             eventDate = new Date(eventData.event_date);
@@ -1050,8 +1050,6 @@ module.exports = (pool) => {
             continue;
           }
 
-          const eventEndDate = new Date(eventDate.getTime() + 60 * 60 * 1000); // 1 ora dopo
-
           // Costruisci la descrizione
           let description = `CONTRATTO: ${contract.title}\n`;
           description += `CLIENTE: ${contract.client_name || 'N/D'}\n`;
@@ -1059,23 +1057,27 @@ module.exports = (pool) => {
           if (eventData.amount) {
             description += `IMPORTO: € ${parseFloat(eventData.amount).toFixed(2)}\n`;
           }
-          description += `DATA: ${formatDateTime(eventDate)}\n`;
+          description += `FREQUENZA: ${contract.billing_frequency || 'N/D'}\n`;
+          description += `LINK: ${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}/contracts/${contract.id}`;
+
+          // Evento di un giorno intero (usa 'date' invece di 'dateTime')
+          const eventDateStr = eventDate.toISOString().split('T')[0]; // YYYY-MM-DD
 
           const event = {
             summary: `Contratto: ${contract.title} - ${eventData.description || eventData.title || 'Fatturazione'}`,
             description: description,
             start: {
-              dateTime: eventDate.toISOString(),
+              date: eventDateStr,
               timeZone: 'Europe/Rome'
             },
             end: {
-              dateTime: eventEndDate.toISOString(),
+              date: eventDateStr,
               timeZone: 'Europe/Rome'
             },
             colorId: '5', // Giallo per contratti
             source: {
               title: 'TicketApp - Contratto',
-              url: `${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}`
+              url: `${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}/contracts/${contract.id}`
             }
           };
 
@@ -1086,6 +1088,20 @@ module.exports = (pool) => {
               sendUpdates: 'none',
               conferenceDataVersion: 0
             });
+            
+            if (result.data?.id && eventData.id) {
+              // Salva l'ID dell'evento Google Calendar nel database
+              try {
+                await pool.query(
+                  'UPDATE contract_events SET googlecalendareventid = $1 WHERE id = $2',
+                  [result.data.id, eventData.id]
+                );
+                console.log(`✅ ID evento Google Calendar salvato per evento contratto #${eventData.id}: ${result.data.id}`);
+              } catch (dbErr) {
+                console.log('⚠️ Errore salvataggio ID evento Google Calendar:', dbErr.message);
+              }
+            }
+            
             createdEvents.push(result.data.id);
             console.log(`✅ Evento contratto creato: ${result.data.id}`);
           } catch (eventErr) {
