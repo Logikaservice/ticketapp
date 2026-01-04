@@ -97,19 +97,24 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
         }
 
         // Genera le fatture partendo dalla data di inizio esatta (senza normalizzazione)
-        let current = new Date(startDate);
+        // Usa un metodo più affidabile per calcolare le date successive
+        const startYear = startDate.getFullYear();
+        const startMonth = startDate.getMonth();
+        const startDay = startDate.getDate();
+        
         for (let i = 0; i < numberOfInvoices; i++) {
+            // Calcola la data aggiungendo i mesi usando il costruttore Date
+            const invoiceYear = startYear + Math.floor((startMonth + (i * incrementMonths)) / 12);
+            const invoiceMonth = (startMonth + (i * incrementMonths)) % 12;
+            const invoiceDate = new Date(invoiceYear, invoiceMonth, startDay);
+            
             events.push({
-                date: new Date(current).toISOString().split('T')[0],
+                date: invoiceDate.toISOString().split('T')[0],
                 type: 'invoice',
                 title: 'Fattura Periodica',
                 description: `Fatturazione ${formData.billing_frequency}`,
                 amount: amountPerInvoice.toFixed(2)
             });
-
-            if (i < numberOfInvoices - 1) { // Non incrementare dopo l'ultima fattura
-                current.setMonth(current.getMonth() + incrementMonths);
-            }
         }
 
         setGeneratedEvents(events);
