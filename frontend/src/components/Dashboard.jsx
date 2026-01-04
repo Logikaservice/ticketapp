@@ -510,7 +510,8 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       };
       fetchContracts();
     }
-  }, [currentUser, getAuthHeader]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id, getAuthHeader]);
 
   // --- END CONTRACTS LOGIC --- 
 

@@ -769,7 +769,7 @@ export default function TicketApp() {
         }
 
         // Funzione helper per verificare se un ticket è visibile all'utente (uguale a quella del polling)
-        const getAppliesToUserInitial = (ticket) => {
+        const getAppliesToUserInitial = (ticket, usersList = users) => {
           if (currentUser.ruolo === 'tecnico') {
             return true; // I tecnici vedono tutti i ticket
           }
@@ -794,9 +794,9 @@ export default function TicketApp() {
               // Prima prova a usare l'azienda dal ticket (se è stata aggiunta dal backend)
               if (ticket.cliente_azienda) {
                 ticketAzienda = ticket.cliente_azienda;
-              } else if (users && users.length > 0) {
+              } else if (usersList && usersList.length > 0) {
                 // Altrimenti cerca in users
-                const ticketClient = users.find(u => Number(u.id) === ticketClienteId);
+                const ticketClient = usersList.find(u => Number(u.id) === ticketClienteId);
                 if (ticketClient && ticketClient.azienda) {
                   ticketAzienda = ticketClient.azienda;
                 }
@@ -912,7 +912,7 @@ export default function TicketApp() {
               const newlyNotifiedAfterUsers = [];
 
               filteredTicketsWithForniture.forEach(t => {
-                const appliesToUser = getAppliesToUserInitial(t);
+                const appliesToUser = getAppliesToUserInitial(t, usersData);
                 // Verifica se il ticket è stato già letto dall'utente corrente
                 const isRead = currentUser.ruolo === 'cliente'
                   ? t.last_read_by_client
@@ -933,7 +933,7 @@ export default function TicketApp() {
 
               // Aggiorna tickets con flag isNew corretto (solo se non sono stati ancora letti)
               const updatedTickets = filteredTicketsWithForniture.map(t => {
-                const appliesToUser = getAppliesToUserInitial(t);
+                const appliesToUser = getAppliesToUserInitial(t, usersData);
                 // Verifica se il ticket è stato già letto dall'utente corrente
                 const isRead = currentUser.ruolo === 'cliente'
                   ? t.last_read_by_client
@@ -960,7 +960,8 @@ export default function TicketApp() {
       }
     };
     if (isLoggedIn) fetchData();
-  }, [isLoggedIn, currentUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, currentUser?.id, currentUser?.ruolo, JSON.stringify(currentUser?.admin_companies)]);
 
 
   // Riceve eventi per glow/frecce della dashboard (senza cambiare vista)

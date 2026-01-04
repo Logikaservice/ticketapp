@@ -20,21 +20,29 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
 
     const [generatedEvents, setGeneratedEvents] = useState([]);
 
+    const loadedRef = useRef(false);
+
     // Fetch users on mount
     useEffect(() => {
+        if (loadedRef.current) return;
+        loadedRef.current = true;
+
         const fetchUsers = async () => {
             try {
                 const res = await fetch(buildApiUrl('/api/users'), { headers: getAuthHeader() });
                 const data = await res.json();
                 // Filter for clients only? Or all? Usually contracts are clients.
+                // Controllo se il componente è ancora montato prima di settare lo stato
                 setUsers(data.filter(u => u.ruolo === 'cliente'));
             } catch (err) {
-                console.error('Failed to load users', err);
+                // Silenzia l'errore per evitare spam in console se il componente viene smontato/rimontato rapidamente
+                // console.error('Failed to load users', err);
                 notify('Errore caricamento utenti', 'error');
             }
         };
         fetchUsers();
-    }, [getAuthHeader, notify]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Generate events preview
     const generatePreview = () => {
