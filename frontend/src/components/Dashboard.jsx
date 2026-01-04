@@ -20,21 +20,21 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, car
         : 'ring-pulse-green'
     : '';
 
-  // Mappa colori per ogni stato (colori del pannello rapido, senza gradazione - sfondo molto chiaro)
+  // Mappa colori per ogni stato (colori del pannello rapido - sfondo bianco pulito e solo bordo superiore)
   const colorMap = {
-    'aperto': { border: 'border-top-emerald', bg: 'bg-emerald-very-light' }, // Nuove funzionalità
-    'in_lavorazione': { border: 'border-top-cyan', bg: 'bg-cyan-very-light' }, // Gestione Clienti
-    'risolto': { border: 'border-top-sky', bg: 'bg-sky-very-light' }, // Sky (colore simile)
-    'chiuso': { border: 'border-top-purple', bg: 'bg-purple-very-light' }, // Analytics
-    'inviato': { border: 'border-top-amber', bg: 'bg-amber-very-light' }, // Impostazioni
-    'fatturato': { border: 'border-top-orange', bg: 'bg-orange-very-light' } // Log accessi
+    'aperto': { border: 'border-top-emerald' }, // Nuove funzionalità
+    'in_lavorazione': { border: 'border-top-cyan' }, // Gestione Clienti
+    'risolto': { border: 'border-top-sky' }, // Sky (colore simile)
+    'chiuso': { border: 'border-top-purple' }, // Analytics
+    'inviato': { border: 'border-top-amber' }, // Impostazioni
+    'fatturato': { border: 'border-top-orange' } // Log accessi
   };
 
-  const colors = cardKey && colorMap[cardKey] ? colorMap[cardKey] : { border: '', bg: '' };
+  const colors = cardKey && colorMap[cardKey] ? colorMap[cardKey] : { border: '' };
 
   return (
     <button onClick={onClick} disabled={disabled} className={`card-hover text-center w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
-      <div className={`p-5 rounded-xl border border-gray-200 relative overflow-hidden ${colors.border} ${colors.bg || 'bg-white'} shadow-sm hover:shadow-lg ${ringClass}`}>
+      <div className={`p-5 rounded-xl relative overflow-hidden ${colors.border} bg-white shadow-md hover:shadow-xl transition-shadow ${ringClass}`}>
         <div className="text-sm font-medium text-gray-600 mb-3 flex items-center justify-center gap-2">{icon}<span>{title}</span></div>
         <div className="text-5xl font-extrabold gradient-text animate-pulse-strong leading-none">{value}</div>
         {/* Frecce rimosse su richiesta */}
