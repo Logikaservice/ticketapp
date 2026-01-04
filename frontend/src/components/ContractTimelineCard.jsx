@@ -25,15 +25,24 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
     const nextEvent = contract.next_event;
     const daysToNextEvent = nextEvent ? getDaysRemaining(nextEvent.event_date) : 0;
 
-    // Calculate progress for the timeline bar (always full year: start to end)
+    // Calculate progress for the timeline bar: from start to next event (or end if no next event)
     const startDate = new Date(contract.start_date).getTime();
     const endDate = new Date(contract.end_date || new Date().setFullYear(new Date().getFullYear() + 1)).getTime();
     const today = new Date().getTime();
 
-    let progress = 0;
-    if (endDate > startDate) {
-        progress = ((today - startDate) / (endDate - startDate)) * 100;
+    // Se c'è un prossimo evento, calcola il progresso dall'inizio fino a quel punto
+    // Altrimenti usa la data di fine come riferimento
+    let targetDate = endDate;
+    if (nextEvent && nextEvent.event_date) {
+        targetDate = new Date(nextEvent.event_date).getTime();
     }
+
+    let progress = 0;
+    if (targetDate > startDate) {
+        // Calcola quanto siamo vicini alla prossima fatturazione (o alla fine)
+        progress = ((today - startDate) / (targetDate - startDate)) * 100;
+    }
+    // Limita il progresso al 100% (non oltre la prossima fatturazione)
     progress = Math.max(0, Math.min(100, progress));
 
     // Find the first non-processed event for yellow color
