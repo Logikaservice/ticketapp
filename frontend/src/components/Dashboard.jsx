@@ -492,12 +492,10 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
   const fetchContracts = React.useCallback(async () => {
     if (!currentUser) return;
-    // Only fetch own contracts for Client, or maybe all active for Technician?
-    // Actually, technician usually views contracts per client.
-    // For now, let's load contracts for the Current User if they are a Client.
-    if (currentUser.ruolo === 'cliente') {
+    // Solo i tecnici (amministratori) possono vedere i contratti sulla dashboard
+    if (currentUser.ruolo === 'tecnico') {
       try {
-        const res = await fetch(buildApiUrl(`/api/contracts/user/${currentUser.id}`), { headers: getAuthHeader() });
+        const res = await fetch(buildApiUrl('/api/contracts'), { headers: getAuthHeader() });
         if (res.ok) {
           const data = await res.json();
           setContracts(data);
@@ -507,7 +505,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser?.id, getAuthHeader]);
+  }, [currentUser?.ruolo, getAuthHeader]);
 
   React.useEffect(() => {
     fetchContracts();
