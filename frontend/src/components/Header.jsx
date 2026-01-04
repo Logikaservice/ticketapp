@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText } from 'lucide-react';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openManageContracts, isOrariDomain = false }) => {
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, isOrariDomain = false }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [expandedAction, setExpandedAction] = useState(null);
@@ -36,7 +36,6 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       else if (action === 'analytics') openAnalytics();
       else if (action === 'settings') openSettings();
       else if (action === 'accessLogs') openAccessLogs();
-      else if (action === 'contracts') openManageContracts();
       setShowQuickActions(false);
       setExpandedAction(null);
     }
@@ -75,8 +74,12 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       label: 'Gestione Contratti',
       icon: FileText,
       color: 'teal',
-      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openManageContracts,
-      onClick: () => handleQuickActionClick('contracts')
+      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico',
+      hasSubActions: true,
+      subActions: [
+        { label: 'Nuovo Contratto', icon: Plus, color: 'emerald', onClick: openCreateContract },
+        { label: 'Lista Contratti', icon: List, color: 'sky', onClick: openContractsList }
+      ]
     },
     {
       id: 'importKeepass',

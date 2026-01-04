@@ -15,6 +15,7 @@ import UnreadMessagesModal from './components/UnreadMessagesModal';
 import TicketPhotosModal from './components/Modals/TicketPhotosModal';
 import InactivityTimerModal from './components/Modals/InactivityTimerModal';
 import ManageContractsModal from './components/Modals/ManageContractsModal';
+import ContractsListModal from './components/Modals/ContractsListModal';
 import { useAuth } from './hooks/useAuth';
 import { useClients } from './hooks/useClients';
 import { useTickets } from './hooks/useTickets';
@@ -217,6 +218,7 @@ export default function TicketApp() {
   // Timer di inattività (solo per clienti)
   const [showInactivityTimerDialog, setShowInactivityTimerDialog] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
+  const [showContractsListModal, setShowContractsListModal] = useState(false);
   const [inactivityTimeout, setInactivityTimeout] = useState(() => {
     // Carica da localStorage, default 3 minuti
     const saved = localStorage.getItem('inactivityTimeout');
@@ -2876,7 +2878,8 @@ export default function TicketApp() {
               openVivaldi: () => { setShowVivaldi(true); setShowDashboard(false); setShowOrariTurni(false); },
               openPackVision: () => setShowPackVision(true),
             }}
-            openManageContracts={() => setShowContractModal(true)}
+            openCreateContract={() => setShowContractModal(true)}
+            openContractsList={() => setShowContractsListModal(true)}
             isOrariDomain={isOrariDomain}
           />
         )}

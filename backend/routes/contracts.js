@@ -38,6 +38,38 @@ module.exports = (pool, upload) => {
         return events;
     };
 
+    // GET /api/contracts - Get all active contracts (for admin)
+    router.get('/', async (req, res) => {
+        try {
+            const client = await pool.connect();
+            const result = await client.query(`
+                SELECT c.*, u.nome, u.cognome, u.azienda 
+                FROM contracts c
+                LEFT JOIN users u ON c.user_id = u.id
+                WHERE c.active = true 
+                ORDER BY c.created_at DESC
+            `);
+
+            // Fetch next events for all
+            const contracts = result.rows;
+            for (let contract of contracts) {
+                const eventRes = await client.query(`
+                    SELECT * FROM contract_events 
+                    WHERE contract_id = $1 AND event_date >= CURRENT_DATE 
+                    ORDER BY event_date ASC 
+                    LIMIT 1
+                `, [contract.id]);
+                contract.next_event = eventRes.rows[0] || null;
+            }
+
+            client.release();
+            res.json(contracts);
+        } catch (err) {
+            console.error('Error fetching all contracts:', err);
+            res.status(500).json({ error: 'Server error' });
+        }
+    });
+
     // GET /api/contracts/user/:userId - Get all active contracts for a user
     router.get('/user/:userId', async (req, res) => {
         const { userId } = req.params;
