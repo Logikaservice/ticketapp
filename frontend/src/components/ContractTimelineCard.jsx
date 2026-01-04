@@ -83,13 +83,13 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
             </div>
 
             {/* Timeline Visual */}
-            <div className="relative py-8 mb-5 px-12">
+            <div className="relative py-8 mb-5 px-6">
                 {/* Line */}
-                <div className="absolute top-1/2 left-12 right-12 h-1 bg-gray-200 rounded-full -translate-y-1/2"></div>
-                <div className="absolute top-1/2 left-12 h-1 bg-teal-400 rounded-full -translate-y-1/2 transition-all duration-1000" style={{ width: `calc((100% - 96px) * ${progress / 100})` }}></div>
+                <div className="absolute top-1/2 left-6 right-6 h-1 bg-gray-200 rounded-full -translate-y-1/2"></div>
+                <div className="absolute top-1/2 left-6 h-1 bg-teal-400 rounded-full -translate-y-1/2 transition-all duration-1000" style={{ width: `calc((100% - 48px) * ${progress / 100})` }}></div>
 
                 {/* Current Point (Today) */}
-                <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `calc(48px + ((100% - 96px) * ${progress / 100}))` }}>
+                <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `calc(24px + ((100% - 48px) * ${progress / 100}))` }}>
                     <div className="relative -ml-1.5">
                         <div className="w-3 h-3 rounded-full bg-teal-500 border-2 border-white z-10 relative"></div>
                         <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-teal-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded whitespace-nowrap">
@@ -152,7 +152,7 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                         <div 
                             key={event.id || index} 
                             className="absolute top-1/2 -translate-y-1/2" 
-                            style={{ left: `calc(48px + ((100% - 96px) * ${eventPercent / 100}))` }}
+                            style={{ left: `calc(24px + ((100% - 48px) * ${eventPercent / 100}))` }}
                         >
                             <div className={`w-5 h-5 rounded-full ${bgColor} border-2 ${borderColor} flex items-center justify-center -ml-2.5 z-0`}>
                                 {isRenewal ? (
