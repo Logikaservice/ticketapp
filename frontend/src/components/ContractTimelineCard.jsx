@@ -83,7 +83,14 @@ const ContractTimelineCard = ({ contract }) => {
                             <AlertCircle size={14} />
                         </div>
                         <div className="absolute top-8 left-0 -translate-x-1/2 text-center w-32">
-                            <div className="text-xs font-bold text-amber-400">{nextEvent.description}</div>
+                            <div className="text-xs font-bold text-amber-400">
+                                {nextEvent.description
+                                    .replace(/quarterly/gi, 'trimestrale')
+                                    .replace(/monthly/gi, 'mensile')
+                                    .replace(/annual/gi, 'annuale')
+                                    .replace(/semiannual/gi, 'semestrale')
+                                }
+                            </div>
                             <div className="text-[10px] text-slate-400">{formatDate(nextEvent.event_date)}</div>
                         </div>
                     </div>
@@ -93,7 +100,7 @@ const ContractTimelineCard = ({ contract }) => {
                 <div className="absolute top-1/2 right-0 -translate-y-1/2 -mr-1">
                     <div className="w-4 h-4 rounded-full bg-slate-900 border-2 border-slate-600"></div>
                     <div className="absolute top-6 right-0 translate-x-1/2 text-xs text-slate-500 whitespace-nowrap">
-                        Scadenza: {formatDate(contract.end_date)}
+                        {formatDate(contract.end_date)}
                     </div>
                 </div>
             </div>
