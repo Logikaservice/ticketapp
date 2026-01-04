@@ -33,23 +33,14 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
     const endDate = firstYearEndDate.getTime(); // Sempre 1 anno
     const today = new Date().getTime();
 
-    // Se c'è un prossimo evento nel primo anno, calcola il progresso dall'inizio fino a quel punto
-    // Altrimenti usa la fine del primo anno come riferimento
-    let targetDate = endDate;
-    if (nextEvent && nextEvent.event_date) {
-        const nextEventDate = new Date(nextEvent.event_date).getTime();
-        // Usa il prossimo evento solo se è entro il primo anno
-        if (nextEventDate <= endDate) {
-            targetDate = nextEventDate;
-        }
-    }
-
+    // Calcola il progresso basato sulla data di oggi rispetto al primo anno (sempre 1 anno)
+    // Il punto "OGGI" deve sempre essere posizionato in base alla data corrente, indipendentemente dagli eventi
     let progress = 0;
-    if (targetDate > startDate) {
-        // Calcola quanto siamo vicini alla prossima fatturazione (o alla fine del primo anno)
-        progress = ((today - startDate) / (targetDate - startDate)) * 100;
+    if (endDate > startDate) {
+        // Calcola la percentuale di avanzamento dell'anno (da startDate a endDate)
+        progress = ((today - startDate) / (endDate - startDate)) * 100;
     }
-    // Limita il progresso al 100% (non oltre la fine del primo anno)
+    // Limita il progresso tra 0% e 100% (sempre entro il primo anno)
     progress = Math.max(0, Math.min(100, progress));
 
     // Filtra eventi del primo anno per la timeline (escludi eventi oltre il primo anno e eventi di rinnovo)
