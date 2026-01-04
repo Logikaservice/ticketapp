@@ -1456,12 +1456,25 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         <div className="lg:col-span-2 space-y-6">
 
 
-          {/* VISUALIZZAZIONE CONTRATTI (WIDGET UTENTE) */}
+          {/* CONTRATTI ATTIVI */}
           {contracts.length > 0 && (
             <div className="mb-6">
-              {contracts.map(contract => (
-                <ContractTimelineCard key={contract.id} contract={contract} />
-              ))}
+              <div className="bg-white rounded-xl border">
+                <div className="p-4 border-b flex items-center justify-between">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <FileText size={18} />
+                    Contratti Attivi
+                  </h3>
+                  <div className="text-xs text-gray-500">
+                    {contracts.length} {contracts.length === 1 ? 'contratto' : 'contratti'}
+                  </div>
+                </div>
+                <div className="p-4 space-y-4">
+                  {contracts.map(contract => (
+                    <ContractTimelineCard key={contract.id} contract={contract} />
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
