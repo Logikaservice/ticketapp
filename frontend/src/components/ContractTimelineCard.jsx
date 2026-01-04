@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Download, FileText, Clock, AlertCircle, CheckCircle, Edit } from 'lucide-react';
 
 const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) => {
@@ -26,22 +26,25 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
     const daysToNextEvent = nextEvent ? getDaysRemaining(nextEvent.event_date) : 0;
 
     // Calculate progress for the timeline bar: la barra rappresenta SEMPRE 1 anno
-    const startDate = new Date(contract.start_date).getTime();
-    // Calcola la fine del primo anno (sempre 1 anno dalla data di inizio)
-    const firstYearEndDate = new Date(contract.start_date);
-    firstYearEndDate.setFullYear(firstYearEndDate.getFullYear() + 1);
-    const endDate = firstYearEndDate.getTime(); // Sempre 1 anno
-    const today = new Date().getTime();
+    // Usa useMemo per evitare ricalcoli quando solo gli eventi cambiano (non start_date)
+    const progress = useMemo(() => {
+        const startDate = new Date(contract.start_date).getTime();
+        // Calcola la fine del primo anno (sempre 1 anno dalla data di inizio)
+        const firstYearEndDate = new Date(contract.start_date);
+        firstYearEndDate.setFullYear(firstYearEndDate.getFullYear() + 1);
+        const endDate = firstYearEndDate.getTime(); // Sempre 1 anno
+        const today = new Date().getTime();
 
-    // Calcola il progresso basato sulla data di oggi rispetto al primo anno (sempre 1 anno)
-    // Il punto "OGGI" deve sempre essere posizionato in base alla data corrente, indipendentemente dagli eventi
-    let progress = 0;
-    if (endDate > startDate) {
-        // Calcola la percentuale di avanzamento dell'anno (da startDate a endDate)
-        progress = ((today - startDate) / (endDate - startDate)) * 100;
-    }
-    // Limita il progresso tra 0% e 100% (sempre entro il primo anno)
-    progress = Math.max(0, Math.min(100, progress));
+        // Calcola il progresso basato sulla data di oggi rispetto al primo anno (sempre 1 anno)
+        // Il punto "OGGI" deve sempre essere posizionato in base alla data corrente, indipendentemente dagli eventi
+        let calculatedProgress = 0;
+        if (endDate > startDate) {
+            // Calcola la percentuale di avanzamento dell'anno (da startDate a endDate)
+            calculatedProgress = ((today - startDate) / (endDate - startDate)) * 100;
+        }
+        // Limita il progresso tra 0% e 100% (sempre entro il primo anno)
+        return Math.max(0, Math.min(100, calculatedProgress));
+    }, [contract.start_date]); // Solo ricalcola se start_date cambia
 
     // Filtra eventi del primo anno per la timeline (escludi eventi oltre il primo anno e eventi di rinnovo)
     const firstYearEnd = new Date(contract.start_date);
