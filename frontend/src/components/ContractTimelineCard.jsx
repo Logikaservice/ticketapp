@@ -93,7 +93,24 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
             <div className="relative py-8 mb-5 px-6">
                 {/* Line */}
                 <div className="absolute top-1/2 left-6 right-6 h-1 bg-gray-200 rounded-full -translate-y-1/2"></div>
-                <div className="absolute top-1/2 left-6 h-1 bg-teal-400 rounded-full -translate-y-1/2 transition-all duration-1000" style={{ width: `calc((100% - 48px) * ${progress / 100})` }}></div>
+                
+                {/* Progress bar - parte dalla posizione di inizio contratto */}
+                {visibleEvents.length > 0 && (() => {
+                    const firstEventDate = new Date(visibleEvents[0].event_date).getTime();
+                    const firstEventPercent = ((firstEventDate - startDate) / (endDate - startDate)) * 100;
+                    const progressStartPercent = Math.max(0, Math.min(100, firstEventPercent));
+                    const progressWidthPercent = Math.max(0, Math.min(100 - progressStartPercent, progress - progressStartPercent));
+                    
+                    return (
+                        <div 
+                            className="absolute top-1/2 h-1 bg-teal-400 rounded-full -translate-y-1/2 transition-all duration-1000" 
+                            style={{ 
+                                left: `calc(24px + ((100% - 48px) * ${progressStartPercent / 100}))`,
+                                width: `calc((100% - 48px) * ${progressWidthPercent / 100})`
+                            }}
+                        ></div>
+                    );
+                })()}
 
                 {/* Current Point (Today) */}
                 <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `calc(24px + ((100% - 48px) * ${progress / 100}))` }}>
