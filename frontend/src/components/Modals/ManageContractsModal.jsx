@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Calendar, User, FileText, CheckCircle, Upload, Plus, Trash2 } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
 
