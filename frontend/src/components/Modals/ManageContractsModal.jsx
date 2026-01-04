@@ -108,9 +108,12 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
             const totalMonths = startMonth + (i * incrementMonths);
             const invoiceYear = startYear + Math.floor(totalMonths / 12);
             const invoiceMonth = totalMonths % 12;
+            
+            // Crea la data in local time (non UTC)
             const invoiceDate = new Date(invoiceYear, invoiceMonth, startDay);
             
-            // Formatta la data come YYYY-MM-DD
+            // Formatta la data come YYYY-MM-DD usando i metodi local time
+            // Usa getFullYear(), getMonth(), getDate() che restituiscono valori in local time
             const year = invoiceDate.getFullYear();
             const month = String(invoiceDate.getMonth() + 1).padStart(2, '0');
             const day = String(invoiceDate.getDate()).padStart(2, '0');
