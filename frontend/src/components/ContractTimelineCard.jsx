@@ -60,53 +60,64 @@ const ContractTimelineCard = ({ contract }) => {
             </div>
 
             {/* Timeline Visual */}
-            <div className="relative py-6 px-2 mb-5">
+            <div className="relative py-8 mb-5" style={{ paddingLeft: '60px', paddingRight: '60px' }}>
                 {/* Line */}
-                <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-200 rounded-full -translate-y-1/2"></div>
-                <div className="absolute top-1/2 left-0 h-1 bg-teal-400 rounded-full -translate-y-1/2 transition-all duration-1000" style={{ width: `${progress}%` }}></div>
+                <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-200 rounded-full -translate-y-1/2" style={{ left: '60px', right: '60px' }}></div>
+                <div className="absolute top-1/2 h-1 bg-teal-400 rounded-full -translate-y-1/2 transition-all duration-1000" style={{ left: '60px', width: `calc(100% - 120px)`, maxWidth: `calc((100% - 120px) * ${progress / 100})` }}></div>
 
                 {/* Start Point */}
-                <div className="absolute top-1/2 left-0 -translate-y-1/2 -ml-1">
-                    <div className="w-3 h-3 rounded-full bg-white border-2 border-teal-500"></div>
-                    <div className="absolute top-5 left-0 -translate-x-1/2 text-xs text-gray-500 whitespace-nowrap">
+                <div className="absolute top-1/2 left-0 -translate-y-1/2" style={{ left: '60px' }}>
+                    <div className="w-3 h-3 rounded-full bg-white border-2 border-teal-500 -ml-1.5"></div>
+                    <div className="absolute top-5 left-1/2 -translate-x-1/2 text-xs text-gray-500 whitespace-nowrap">
                         {formatDate(contract.start_date)}
                     </div>
                 </div>
 
                 {/* Current Point (Today) */}
-                <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `${progress}%` }}>
-                    <div className="relative">
-                        <div className="w-3 h-3 rounded-full bg-teal-500 border-2 border-white z-10 relative"></div>
-                        <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-teal-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded whitespace-nowrap">
-                            OGGI
+                {(() => {
+                    const timelineWidth = 100 - (120 / (typeof window !== 'undefined' ? window.innerWidth : 800) * 100);
+                    const currentLeft = 60 + (timelineWidth * progress / 100);
+                    return (
+                        <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `${currentLeft}px` }}>
+                            <div className="relative -ml-1.5">
+                                <div className="w-3 h-3 rounded-full bg-teal-500 border-2 border-white z-10 relative"></div>
+                                <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-teal-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded whitespace-nowrap">
+                                    OGGI
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
+                    );
+                })()}
 
                 {/* Next Invoice/Event Point */}
-                {nextEvent && (
-                    <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `${((new Date(nextEvent.event_date) - startDate) / (endDate - startDate)) * 100}%` }}>
-                        <div className="w-6 h-6 rounded-full bg-white border-2 border-amber-400 flex items-center justify-center -ml-3 z-0">
-                            <AlertCircle size={12} className="text-amber-500" />
-                        </div>
-                        <div className="absolute top-7 left-0 -translate-x-1/2 text-center w-32">
-                            <div className="text-xs font-semibold text-amber-600">
-                                {nextEvent.description
-                                    .replace(/quarterly/gi, 'trimestrale')
-                                    .replace(/monthly/gi, 'mensile')
-                                    .replace(/annual/gi, 'annuale')
-                                    .replace(/semiannual/gi, 'semestrale')
-                                }
+                {nextEvent && (() => {
+                    const eventPercent = ((new Date(nextEvent.event_date) - startDate) / (endDate - startDate)) * 100;
+                    const timelineWidth = 100 - (120 / (typeof window !== 'undefined' ? window.innerWidth : 800) * 100);
+                    const eventLeft = 60 + (timelineWidth * eventPercent / 100);
+                    return (
+                        <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `${eventLeft}px` }}>
+                            <div className="w-6 h-6 rounded-full bg-white border-2 border-amber-400 flex items-center justify-center -ml-3 z-0">
+                                <AlertCircle size={12} className="text-amber-500" />
                             </div>
-                            <div className="text-[10px] text-gray-400">{formatDate(nextEvent.event_date)}</div>
+                            <div className="absolute top-7 left-1/2 -translate-x-1/2 text-center w-32">
+                                <div className="text-xs font-semibold text-amber-600">
+                                    {nextEvent.description
+                                        .replace(/quarterly/gi, 'trimestrale')
+                                        .replace(/monthly/gi, 'mensile')
+                                        .replace(/annual/gi, 'annuale')
+                                        .replace(/semiannual/gi, 'semestrale')
+                                    }
+                                </div>
+                                <div className="text-[10px] text-gray-400">{formatDate(nextEvent.event_date)}</div>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
 
                 {/* End Point */}
-                <div className="absolute top-1/2 right-0 -translate-y-1/2 -mr-1">
-                    <div className="w-3 h-3 rounded-full bg-white border-2 border-gray-400"></div>
-                    <div className="absolute top-5 right-0 translate-x-1/2 text-xs text-gray-500 whitespace-nowrap">
+                <div className="absolute top-1/2 right-0 -translate-y-1/2" style={{ right: '60px' }}>
+                    <div className="w-3 h-3 rounded-full bg-white border-2 border-gray-400 mr-1.5"></div>
+                    <div className="absolute top-5 right-1/2 translate-x-1/2 text-xs text-gray-500 whitespace-nowrap">
                         {formatDate(contract.end_date)}
                     </div>
                 </div>
