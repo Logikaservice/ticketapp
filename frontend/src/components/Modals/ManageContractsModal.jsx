@@ -11,10 +11,8 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
         user_id: '',
         title: '',
         start_date: new Date().toISOString().split('T')[0],
-        end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
         billing_frequency: 'monthly',
         amount: '',
-        notes: '',
         contractPdf: null
     });
 
@@ -46,31 +44,58 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
 
     // Generate events preview
     const generatePreview = () => {
-        if (!formData.start_date) return;
+        if (!formData.start_date || !formData.amount) return;
 
         const events = [];
-        let current = new Date(formData.start_date);
-        const end = formData.end_date ? new Date(formData.end_date) : new Date(new Date().setFullYear(current.getFullYear() + 3));
+        const startDate = new Date(formData.start_date);
+        const endDate = new Date(startDate);
+        endDate.setFullYear(endDate.getFullYear() + 1); // Un anno dopo la data di inizio
 
-        // Safety break
-        let limit = 0;
-        while (current <= end && limit < 50) {
+        // Calcola il numero di fatture nell'anno in base alla frequenza
+        let numberOfInvoices = 0;
+        let incrementMonths = 0;
+        switch (formData.billing_frequency) {
+            case 'monthly':
+                numberOfInvoices = 12;
+                incrementMonths = 1;
+                break;
+            case 'quarterly':
+                numberOfInvoices = 4;
+                incrementMonths = 3;
+                break;
+            case 'semiannual':
+                numberOfInvoices = 2;
+                incrementMonths = 6;
+                break;
+            case 'annual':
+                numberOfInvoices = 1;
+                incrementMonths = 12;
+                break;
+            default:
+                numberOfInvoices = 12;
+                incrementMonths = 1;
+        }
+
+        // Calcola l'importo per fattura (importo totale diviso per il numero di fatture)
+        const totalAmount = parseFloat(formData.amount) || 0;
+        const amountPerInvoice = totalAmount / numberOfInvoices;
+
+        // Genera le fatture per esattamente un anno
+        let current = new Date(startDate);
+        for (let i = 0; i < numberOfInvoices; i++) {
             events.push({
-                date: current.toISOString().split('T')[0],
+                date: new Date(current).toISOString().split('T')[0],
                 type: 'invoice',
                 title: 'Fattura Periodica',
                 description: `Fatturazione ${formData.billing_frequency}`,
-                amount: formData.amount
+                amount: amountPerInvoice.toFixed(2)
             });
 
-            if (formData.billing_frequency === 'monthly') current.setMonth(current.getMonth() + 1);
-            else if (formData.billing_frequency === 'quarterly') current.setMonth(current.getMonth() + 3);
-            else if (formData.billing_frequency === 'semiannual') current.setMonth(current.getMonth() + 6);
-            else if (formData.billing_frequency === 'annual') current.setFullYear(current.getFullYear() + 1);
-            else break; // Custom implies manual add only?
-
-            limit++;
+            if (i < numberOfInvoices - 1) { // Non incrementare dopo l'ultima fattura
+                current.setMonth(current.getMonth() + incrementMonths);
+            }
         }
+
         setGeneratedEvents(events);
     };
 
@@ -103,17 +128,14 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
             return;
         }
 
-        if (formData.end_date) {
-            const endDate = new Date(formData.end_date);
-            if (endDate <= startDate) {
-                notify('La data di fine deve essere successiva alla data di inizio', 'warning');
-                return;
-            }
+        // Validazione importo (obbligatorio e deve essere positivo)
+        if (!formData.amount || formData.amount.trim() === '') {
+            notify('Inserisci l\'importo totale del contratto', 'warning');
+            return;
         }
 
-        // Validazione importo (se presente, deve essere positivo)
-        if (formData.amount && parseFloat(formData.amount) < 0) {
-            notify('L\'importo non può essere negativo', 'warning');
+        if (parseFloat(formData.amount) <= 0) {
+            notify('L\'importo deve essere maggiore di zero', 'warning');
             return;
         }
 
@@ -137,10 +159,17 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
 
         setLoading(true);
         try {
+            // Calcola la data di fine automaticamente (un anno dopo la data di inizio)
+            const startDate = new Date(formData.start_date);
+            const endDate = new Date(startDate);
+            endDate.setFullYear(endDate.getFullYear() + 1);
+
             // 1. Create Contract & Events
             const payload = {
                 ...formData,
+                end_date: endDate.toISOString().split('T')[0],
                 amount: formData.amount ? parseFloat(formData.amount) : null,
+                notes: null, // Notes rimosso
                 client_name: users.find(u => u.id === parseInt(formData.user_id))?.azienda || 'Cliente',
                 events: generatedEvents.map(ev => ({
                     ...ev,
@@ -250,25 +279,18 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                                     />
                                 </div>
 
-                                {/* Dates */}
+                                {/* Date */}
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Data Inizio *</label>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Data Prima Fattura *</label>
                                     <input
                                         type="date"
                                         className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg"
                                         value={formData.start_date}
                                         onChange={e => setFormData({ ...formData, start_date: e.target.value })}
                                     />
+                                    <p className="text-xs text-slate-500 mt-1">La data di fine sarà calcolata automaticamente (un anno dopo)</p>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Data Fine (Opzionale)</label>
-                                    <input
-                                        type="date"
-                                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg"
-                                        value={formData.end_date}
-                                        onChange={e => setFormData({ ...formData, end_date: e.target.value })}
-                                    />
-                                </div>
+                                <div></div>
 
                                 {/* Billing */}
                                 <div>
@@ -286,25 +308,17 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Importo (€)</label>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Importo Totale Annuo (€) *</label>
                                     <input
                                         type="number"
+                                        step="0.01"
                                         className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg"
                                         placeholder="0.00"
                                         value={formData.amount}
                                         onChange={e => setFormData({ ...formData, amount: e.target.value })}
                                     />
+                                    <p className="text-xs text-slate-500 mt-1">L'importo verrà suddiviso in base alla frequenza selezionata</p>
                                 </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Note (Visibile al cliente)</label>
-                                <textarea
-                                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg h-24"
-                                    placeholder="Dettagli aggiuntivi..."
-                                    value={formData.notes}
-                                    onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                                ></textarea>
                             </div>
                         </div>
                     ) : (

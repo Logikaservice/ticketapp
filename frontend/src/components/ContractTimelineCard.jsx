@@ -41,7 +41,6 @@ const ContractTimelineCard = ({ contract }) => {
             <div className="flex justify-between items-start mb-5">
                 <div>
                     <h3 className="text-lg font-bold text-gray-800 mb-1">{contract.title}</h3>
-                    {contract.notes && <p className="text-gray-500 text-sm">{contract.notes}</p>}
                     {contract.client_name && (
                         <p className="text-gray-400 text-xs mt-1">Cliente: {contract.client_name}</p>
                     )}
