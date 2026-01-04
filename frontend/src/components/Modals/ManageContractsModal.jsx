@@ -210,7 +210,14 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
         }
 
         // Validazione che tutti gli eventi abbiano una data valida
-        const invalidEvents = generatedEvents.filter(ev => !ev.date || !ev.description || !ev.amount);
+        // Gli eventi di tipo 'renewal' non necessitano di importo
+        const invalidEvents = generatedEvents.filter(ev => {
+            if (!ev.date || !ev.description) return true;
+            // Gli eventi di rinnovo non richiedono importo
+            if (ev.type === 'renewal') return false;
+            // Gli altri eventi richiedono importo
+            return !ev.amount;
+        });
         if (invalidEvents.length > 0) {
             notify('Alcune scadenze non sono complete. Completa tutti i campi obbligatori', 'warning');
             return;
