@@ -13,7 +13,12 @@ const ContractsListModal = ({ onClose, getAuthHeader }) => {
             try {
                 const res = await fetch(buildApiUrl('/api/contracts'), { headers: getAuthHeader() });
                 const data = await res.json();
-                setContracts(data);
+                if (Array.isArray(data)) {
+                    setContracts(data);
+                } else {
+                    console.error('Invalid contracts data:', data);
+                    setContracts([]);
+                }
             } catch (err) {
                 console.error('Error fetching contracts:', err);
             } finally {
