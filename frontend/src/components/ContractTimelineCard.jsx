@@ -94,8 +94,8 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                     </div>
                 </div>
 
-                {/* All Event Points */}
-                {events.map((event, index) => {
+                {/* All Event Points - mostra solo eventi del primo anno */}
+                {visibleEvents.map((event, index) => {
                     const eventDate = new Date(event.event_date).getTime();
                     const eventPercent = ((eventDate - startDate) / (endDate - startDate)) * 100;
                     const isProcessed = event.is_processed === true;
