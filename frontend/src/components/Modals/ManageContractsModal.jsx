@@ -108,9 +108,25 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                 incrementMonths = 1;
         }
 
-        // Calcola l'importo per fattura (importo totale diviso per il numero di fatture)
-        const totalAmount = parseFloat(formData.amount) || 0;
-        const amountPerInvoice = totalAmount / numberOfInvoices;
+        // Calcola l'importo per fattura in base all'importo mensile
+        const monthlyAmount = parseFloat(formData.amount) || 0;
+        let amountPerInvoice = 0;
+        switch (formData.billing_frequency) {
+            case 'monthly':
+                amountPerInvoice = monthlyAmount; // Importo mensile
+                break;
+            case 'quarterly':
+                amountPerInvoice = monthlyAmount * 3; // Importo mensile * 3 mesi
+                break;
+            case 'semiannual':
+                amountPerInvoice = monthlyAmount * 6; // Importo mensile * 6 mesi
+                break;
+            case 'annual':
+                amountPerInvoice = monthlyAmount * 12; // Importo mensile * 12 mesi
+                break;
+            default:
+                amountPerInvoice = monthlyAmount;
+        }
 
         // Genera le fatture per esattamente un anno partendo dalla data normalizzata
         let current = new Date(firstInvoiceDate);
@@ -152,7 +168,7 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
 
         // Validazione importo (obbligatorio e deve essere positivo)
         if (!formData.amount || formData.amount.trim() === '') {
-            notify('Inserisci l\'importo totale del contratto', 'warning');
+            notify('Inserisci l\'importo mensile', 'warning');
             return;
         }
 
@@ -330,7 +346,7 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Importo Totale Annuo (€) *</label>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Importo Mensile (€) *</label>
                                     <input
                                         type="number"
                                         step="0.01"
@@ -339,7 +355,7 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                                         value={formData.amount}
                                         onChange={e => setFormData({ ...formData, amount: e.target.value })}
                                     />
-                                    <p className="text-xs text-slate-500 mt-1">L'importo verrà suddiviso in base alla frequenza selezionata</p>
+                                    <p className="text-xs text-slate-500 mt-1">L'importo per fattura verrà calcolato in base alla frequenza selezionata</p>
                                 </div>
                             </div>
                         </div>
