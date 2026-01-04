@@ -1496,8 +1496,10 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               users={users || []}
               setModalState={setModalState}
             />
+          </div>
 
-            {/* Sezione Forniture Temporanee - per tutti gli utenti */}
+          {/* Sezione Forniture Temporanee - per tutti gli utenti */}
+          <div className="mb-6">
             <TemporarySuppliesPanel
               temporarySupplies={temporarySupplies || []}
               loading={temporarySuppliesLoading}
