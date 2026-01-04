@@ -60,13 +60,13 @@ const ContractTimelineCard = ({ contract }) => {
             </div>
 
             {/* Timeline Visual */}
-            <div className="relative py-8 mb-5 px-16">
+            <div className="relative py-8 mb-5 px-12">
                 {/* Line */}
-                <div className="absolute top-1/2 left-16 right-16 h-1 bg-gray-200 rounded-full -translate-y-1/2"></div>
-                <div className="absolute top-1/2 left-16 h-1 bg-teal-400 rounded-full -translate-y-1/2 transition-all duration-1000" style={{ width: `calc((100% - 128px) * ${progress / 100})` }}></div>
+                <div className="absolute top-1/2 left-12 right-12 h-1 bg-gray-200 rounded-full -translate-y-1/2"></div>
+                <div className="absolute top-1/2 left-12 h-1 bg-teal-400 rounded-full -translate-y-1/2 transition-all duration-1000" style={{ width: `calc((100% - 96px) * ${progress / 100})` }}></div>
 
                 {/* Start Point */}
-                <div className="absolute top-1/2 left-16 -translate-y-1/2 -ml-1.5">
+                <div className="absolute top-1/2 left-12 -translate-y-1/2 -ml-1.5">
                     <div className="w-3 h-3 rounded-full bg-white border-2 border-teal-500"></div>
                     <div className="absolute top-5 left-1/2 -translate-x-1/2 text-xs text-gray-500 whitespace-nowrap">
                         {formatDate(contract.start_date)}
@@ -74,7 +74,7 @@ const ContractTimelineCard = ({ contract }) => {
                 </div>
 
                 {/* Current Point (Today) */}
-                <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `calc(64px + ((100% - 128px) * ${progress / 100}))` }}>
+                <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `calc(48px + ((100% - 96px) * ${progress / 100}))` }}>
                     <div className="relative -ml-1.5">
                         <div className="w-3 h-3 rounded-full bg-teal-500 border-2 border-white z-10 relative"></div>
                         <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-teal-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded whitespace-nowrap">
@@ -87,7 +87,7 @@ const ContractTimelineCard = ({ contract }) => {
                 {nextEvent && (() => {
                     const eventPercent = ((new Date(nextEvent.event_date) - startDate) / (endDate - startDate)) * 100;
                     return (
-                        <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `calc(64px + ((100% - 128px) * ${eventPercent / 100}))` }}>
+                        <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `calc(48px + ((100% - 96px) * ${eventPercent / 100}))` }}>
                             <div className="w-6 h-6 rounded-full bg-white border-2 border-amber-400 flex items-center justify-center -ml-3 z-0">
                                 <AlertCircle size={12} className="text-amber-500" />
                             </div>
@@ -107,7 +107,7 @@ const ContractTimelineCard = ({ contract }) => {
                 })()}
 
                 {/* End Point */}
-                <div className="absolute top-1/2 right-16 -translate-y-1/2 mr-1.5">
+                <div className="absolute top-1/2 right-12 -translate-y-1/2 mr-1.5">
                     <div className="w-3 h-3 rounded-full bg-white border-2 border-gray-400"></div>
                     <div className="absolute top-5 right-1/2 translate-x-1/2 text-xs text-gray-500 whitespace-nowrap">
                         {formatDate(contract.end_date)}
