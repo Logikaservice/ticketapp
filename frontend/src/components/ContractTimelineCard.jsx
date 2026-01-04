@@ -1,7 +1,7 @@
 import React from 'react';
-import { Download, FileText, Clock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Download, FileText, Clock, AlertCircle, CheckCircle, Edit } from 'lucide-react';
 
-const ContractTimelineCard = ({ contract }) => {
+const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) => {
     if (!contract) return null;
 
     // Helpers
@@ -20,11 +20,12 @@ const ContractTimelineCard = ({ contract }) => {
         return Math.ceil(diff / (1000 * 60 * 60 * 24));
     };
 
+    // Get all events (sorted by date)
+    const events = contract.events || [];
     const nextEvent = contract.next_event;
     const daysToNextEvent = nextEvent ? getDaysRemaining(nextEvent.event_date) : 0;
-    const daysToEnd = getDaysRemaining(contract.end_date);
 
-    // Calculate progress for the timeline bar
+    // Calculate progress for the timeline bar (always full year: start to end)
     const startDate = new Date(contract.start_date).getTime();
     const endDate = new Date(contract.end_date || new Date().setFullYear(new Date().getFullYear() + 1)).getTime();
     const today = new Date().getTime();
@@ -34,6 +35,9 @@ const ContractTimelineCard = ({ contract }) => {
         progress = ((today - startDate) / (endDate - startDate)) * 100;
     }
     progress = Math.max(0, Math.min(100, progress));
+
+    // Find the first non-processed event for yellow color
+    const firstNonProcessedIndex = events.findIndex(e => !e.is_processed);
 
     return (
         <div className="bg-white border border-gray-200 rounded-lg p-5 relative">
@@ -82,28 +86,58 @@ const ContractTimelineCard = ({ contract }) => {
                     </div>
                 </div>
 
-                {/* Next Invoice/Event Point */}
-                {nextEvent && (() => {
-                    const eventPercent = ((new Date(nextEvent.event_date) - startDate) / (endDate - startDate)) * 100;
+                {/* All Event Points */}
+                {events.map((event, index) => {
+                    const eventDate = new Date(event.event_date).getTime();
+                    const eventPercent = ((eventDate - startDate) / (endDate - startDate)) * 100;
+                    const isProcessed = event.is_processed === true;
+                    const isFirstNonProcessed = index === firstNonProcessedIndex && !isProcessed;
+                    
+                    // Color logic: green (processed), yellow (first non-processed), gray (others)
+                    let borderColor = 'border-gray-400';
+                    let bgColor = 'bg-white';
+                    let textColor = 'text-gray-600';
+                    let iconColor = 'text-gray-500';
+                    
+                    if (isProcessed) {
+                        borderColor = 'border-green-500';
+                        bgColor = 'bg-green-50';
+                        textColor = 'text-green-700';
+                        iconColor = 'text-green-600';
+                    } else if (isFirstNonProcessed) {
+                        borderColor = 'border-amber-400';
+                        bgColor = 'bg-white';
+                        textColor = 'text-amber-600';
+                        iconColor = 'text-amber-500';
+                    } else {
+                        borderColor = 'border-gray-400';
+                        bgColor = 'bg-white';
+                        textColor = 'text-gray-600';
+                        iconColor = 'text-gray-400';
+                    }
+
                     return (
-                        <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `calc(48px + ((100% - 96px) * ${eventPercent / 100}))` }}>
-                            <div className="w-6 h-6 rounded-full bg-white border-2 border-amber-400 flex items-center justify-center -ml-3 z-0">
-                                <AlertCircle size={12} className="text-amber-500" />
+                        <div 
+                            key={event.id || index} 
+                            className="absolute top-1/2 -translate-y-1/2" 
+                            style={{ left: `calc(48px + ((100% - 96px) * ${eventPercent / 100}))` }}
+                        >
+                            <div className={`w-5 h-5 rounded-full ${bgColor} border-2 ${borderColor} flex items-center justify-center -ml-2.5 z-0`}>
+                                {isProcessed ? (
+                                    <CheckCircle size={12} className={iconColor} />
+                                ) : (
+                                    <AlertCircle size={12} className={iconColor} />
+                                )}
                             </div>
                             <div className="absolute top-7 left-1/2 -translate-x-1/2 text-center w-32">
-                                <div className="text-xs font-semibold text-amber-600">
-                                    {nextEvent.description
-                                        .replace(/quarterly/gi, 'trimestrale')
-                                        .replace(/monthly/gi, 'mensile')
-                                        .replace(/annual/gi, 'annuale')
-                                        .replace(/semiannual/gi, 'semestrale')
-                                    }
+                                <div className={`text-xs font-semibold ${textColor}`}>
+                                    {event.description || 'Fattura'}
                                 </div>
-                                <div className="text-[10px] text-gray-400">{formatDate(nextEvent.event_date)}</div>
+                                <div className="text-[10px] text-gray-400">{formatDate(event.event_date)}</div>
                             </div>
                         </div>
                     );
-                })()}
+                })}
 
                 {/* End Point */}
                 <div className="absolute top-1/2 right-12 -translate-y-1/2 mr-1.5">
@@ -125,15 +159,28 @@ const ContractTimelineCard = ({ contract }) => {
                     )}
                 </div>
 
-                {contract.contract_file_path && (
-                    <button
-                        onClick={() => window.open(contract.contract_file_path.startsWith('http') ? contract.contract_file_path : `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${contract.contract_file_path}`, '_blank')}
-                        className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-700 px-4 py-2 rounded-lg transition-colors text-sm border border-gray-300"
-                    >
-                        <Download size={16} />
-                        Scarica Contratto
-                    </button>
-                )}
+                <div className="flex items-center gap-3">
+                    {/* Edit button (only for technicians) */}
+                    {currentUser?.ruolo === 'tecnico' && onEdit && (
+                        <button
+                            onClick={() => onEdit(contract)}
+                            className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg transition-colors text-sm border border-blue-300"
+                        >
+                            <Edit size={16} />
+                            Modifica
+                        </button>
+                    )}
+
+                    {contract.contract_file_path && (
+                        <button
+                            onClick={() => window.open(contract.contract_file_path.startsWith('http') ? contract.contract_file_path : `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${contract.contract_file_path}`, '_blank')}
+                            className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-700 px-4 py-2 rounded-lg transition-colors text-sm border border-gray-300"
+                        >
+                            <Download size={16} />
+                            Scarica Contratto
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );

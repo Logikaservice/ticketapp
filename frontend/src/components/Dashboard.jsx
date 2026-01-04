@@ -1512,7 +1512,13 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                 </div>
                 <div className="p-4 space-y-4">
                   {contracts.map(contract => (
-                    <ContractTimelineCard key={contract.id} contract={contract} />
+                    <ContractTimelineCard 
+                      key={contract.id} 
+                      contract={contract} 
+                      currentUser={currentUser}
+                      getAuthHeader={getAuthHeader}
+                      onEdit={(contract) => setModalState({ type: 'editContract', data: contract })}
+                    />
                   ))}
                 </div>
               </div>

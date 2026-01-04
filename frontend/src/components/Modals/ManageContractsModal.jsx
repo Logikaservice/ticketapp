@@ -119,11 +119,30 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
             const day = String(invoiceDate.getDate()).padStart(2, '0');
             const dateString = `${year}-${month}-${day}`;
             
+            // Genera descrizione in base alla frequenza
+            let description = '';
+            switch (formData.billing_frequency) {
+                case 'monthly':
+                    description = `${i + 1}° mese`;
+                    break;
+                case 'quarterly':
+                    description = `${i + 1}° trimestre`;
+                    break;
+                case 'semiannual':
+                    description = `${i + 1}° semestre`;
+                    break;
+                case 'annual':
+                    description = `Anno ${new Date(invoiceYear, invoiceMonth, startDay).getFullYear()}`;
+                    break;
+                default:
+                    description = `Fatturazione ${formData.billing_frequency}`;
+            }
+            
             events.push({
                 date: dateString,
                 type: 'invoice',
                 title: 'Fattura Periodica',
-                description: `Fatturazione ${formData.billing_frequency}`,
+                description: description,
                 amount: amountPerInvoice.toFixed(2)
             });
         }

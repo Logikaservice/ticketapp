@@ -50,16 +50,17 @@ module.exports = (pool, upload) => {
                 ORDER BY c.created_at DESC
             `);
 
-            // Fetch next events for all
+            // Fetch all events for all contracts (ordered by date)
             const contracts = result.rows;
             for (let contract of contracts) {
                 const eventRes = await client.query(`
                     SELECT * FROM contract_events 
-                    WHERE contract_id = $1 AND event_date >= CURRENT_DATE 
-                    ORDER BY event_date ASC 
-                    LIMIT 1
+                    WHERE contract_id = $1 
+                    ORDER BY event_date ASC
                 `, [contract.id]);
-                contract.next_event = eventRes.rows[0] || null;
+                contract.events = eventRes.rows || [];
+                // Keep next_event for backward compatibility (first non-processed event)
+                contract.next_event = eventRes.rows.find(e => !e.is_processed && new Date(e.event_date) >= new Date()) || null;
             }
 
             client.release();
@@ -84,15 +85,16 @@ module.exports = (pool, upload) => {
 
             const contracts = contractsRes.rows;
 
-            // For each contract, get next upcoming event
+            // For each contract, get all events (ordered by date)
             for (let contract of contracts) {
                 const eventRes = await client.query(`
                     SELECT * FROM contract_events 
-                    WHERE contract_id = $1 AND event_date >= CURRENT_DATE 
-                    ORDER BY event_date ASC 
-                    LIMIT 1
+                    WHERE contract_id = $1 
+                    ORDER BY event_date ASC
                 `, [contract.id]);
-                contract.next_event = eventRes.rows[0] || null;
+                contract.events = eventRes.rows || [];
+                // Keep next_event for backward compatibility (first non-processed event)
+                contract.next_event = eventRes.rows.find(e => !e.is_processed && new Date(e.event_date) >= new Date()) || null;
             }
 
             client.release();
@@ -201,6 +203,46 @@ module.exports = (pool, upload) => {
             res.json(result.rows);
         } catch (err) {
             res.status(500).json({ error: 'Server error' });
+        }
+    });
+
+    // PUT /api/contracts/:contractId/events/:eventId - Mark event as executed/not executed
+    router.put('/:contractId/events/:eventId', async (req, res) => {
+        const { contractId, eventId } = req.params;
+        const { is_processed } = req.body;
+        
+        try {
+            const client = await pool.connect();
+            
+            // Verify event belongs to contract
+            const checkRes = await client.query(`
+                SELECT id FROM contract_events 
+                WHERE id = $1 AND contract_id = $2
+            `, [eventId, contractId]);
+            
+            if (checkRes.rows.length === 0) {
+                client.release();
+                return res.status(404).json({ error: 'Evento non trovato' });
+            }
+            
+            // Update event
+            const result = await client.query(`
+                UPDATE contract_events 
+                SET is_processed = $1
+                WHERE id = $2 AND contract_id = $3
+                RETURNING *
+            `, [is_processed === true, eventId, contractId]);
+            
+            client.release();
+            
+            if (result.rowCount > 0) {
+                res.json({ success: true, event: result.rows[0] });
+            } else {
+                res.status(404).json({ error: 'Evento non trovato' });
+            }
+        } catch (err) {
+            console.error('Error updating event:', err);
+            res.status(500).json({ error: 'Errore durante l\'aggiornamento dell\'evento' });
         }
     });
 
