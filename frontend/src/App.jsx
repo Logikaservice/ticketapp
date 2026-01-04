@@ -646,12 +646,9 @@ export default function TicketApp() {
       // OTTIMIZZAZIONE: Avvia il caricamento utenti in parallelo (non bloccante)
       // Questo permette di popolare la lista aziende mentre si caricano ancora i ticket/forniture
       let usersPromise = null;
-      const isAdmin = currentUser.ruolo === 'cliente' &&
-        currentUser.admin_companies &&
-        Array.isArray(currentUser.admin_companies) &&
-        currentUser.admin_companies.length > 0;
-
-      if (currentUser.ruolo === 'tecnico' || isAdmin) {
+      // Carica sempre gli utenti per i tecnici
+      // Per i clienti, carica sempre (serve per aggiornare currentUser con admin_companies dopo refresh)
+      if (currentUser.ruolo === 'tecnico' || currentUser.ruolo === 'cliente') {
         usersPromise = fetch(buildApiUrl('/api/users'), {
           headers: getAuthHeader()
         })
@@ -662,6 +659,21 @@ export default function TicketApp() {
           .then(data => {
             // Aggiorna lo stato appena i dati sono pronti
             setUsers(data);
+            
+            // Aggiorna currentUser con i dati completi (incluso admin_companies) se presente nella lista
+            if (currentUser?.id && data && Array.isArray(data)) {
+              const fullUserData = data.find(u => Number(u.id) === Number(currentUser.id));
+              if (fullUserData && fullUserData.admin_companies !== undefined) {
+                // Aggiorna currentUser solo se admin_companies non è già presente o è diverso
+                if (!currentUser.admin_companies || JSON.stringify(currentUser.admin_companies) !== JSON.stringify(fullUserData.admin_companies)) {
+                  setCurrentUser({
+                    ...currentUser,
+                    admin_companies: fullUserData.admin_companies
+                  });
+                }
+              }
+            }
+            
             return data;
           })
           .catch(err => {

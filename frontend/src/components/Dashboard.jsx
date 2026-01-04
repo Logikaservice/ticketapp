@@ -581,7 +581,12 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     }
     
     // Esegui fetchContracts quando currentUser è disponibile
-    fetchContracts();
+    // Usa un piccolo delay per assicurarsi che currentUser sia completamente caricato
+    const timeoutId = setTimeout(() => {
+      fetchContracts();
+    }, 100);
+    
+    return () => clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, currentUser?.ruolo, JSON.stringify(currentUser?.admin_companies || [])]);
 
