@@ -566,16 +566,24 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         } catch (err) {
           console.error('Failed to load contracts', err);
         }
+      } else {
+        // Se non è amministratore, non mostra contratti
+        setContracts([]);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser?.ruolo, currentUser?.admin_companies, getAuthHeader]);
+  }, [currentUser?.ruolo, currentUser?.admin_companies, currentUser?.id, getAuthHeader]);
 
   React.useEffect(() => {
-    if (currentUser) {
-      fetchContracts();
+    if (!currentUser) {
+      setContracts([]);
+      return;
     }
-  }, [currentUser, fetchContracts]);
+    
+    // Esegui fetchContracts quando currentUser è disponibile
+    fetchContracts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id, currentUser?.ruolo, JSON.stringify(currentUser?.admin_companies || [])]);
 
   // Listener per refresh automatico quando viene creato, eliminato o modificato un contratto
   React.useEffect(() => {
