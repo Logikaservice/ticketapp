@@ -13,6 +13,7 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
         start_date: new Date().toISOString().split('T')[0],
         billing_frequency: 'monthly',
         amount: '',
+        duration: '1', // 1, 2, 3 anni o 'custom'
         contractPdf: null
     });
 
@@ -47,32 +48,38 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
         if (!formData.start_date || !formData.amount) return;
 
         const events = [];
-        const startDate = new Date(formData.start_date);
-        const endDate = new Date(startDate);
-        endDate.setFullYear(endDate.getFullYear() + 1); // Un anno dopo la data di inizio
+        
+        // Calcola la durata del contratto
+        const durationYears = formData.duration === 'custom' ? 1 : parseInt(formData.duration, 10);
+        
+        // Parsa la data manualmente per evitare problemi di fuso orario
+        const dateParts = formData.start_date.split('-');
+        const startYear = parseInt(dateParts[0], 10);
+        const startMonth = parseInt(dateParts[1], 10) - 1; // JavaScript months are 0-based
+        const startDay = parseInt(dateParts[2], 10);
 
         // Calcola il numero di fatture nell'anno e il periodo tra le fatture
-        let numberOfInvoices = 0;
+        let numberOfInvoicesPerYear = 0;
         let incrementMonths = 0;
         switch (formData.billing_frequency) {
             case 'monthly':
-                numberOfInvoices = 12;
+                numberOfInvoicesPerYear = 12;
                 incrementMonths = 1;
                 break;
             case 'quarterly':
-                numberOfInvoices = 4;
+                numberOfInvoicesPerYear = 4;
                 incrementMonths = 3;
                 break;
             case 'semiannual':
-                numberOfInvoices = 2;
+                numberOfInvoicesPerYear = 2;
                 incrementMonths = 6;
                 break;
             case 'annual':
-                numberOfInvoices = 1;
+                numberOfInvoicesPerYear = 1;
                 incrementMonths = 12;
                 break;
             default:
-                numberOfInvoices = 12;
+                numberOfInvoicesPerYear = 12;
                 incrementMonths = 1;
         }
 
@@ -96,14 +103,10 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                 amountPerInvoice = monthlyAmount;
         }
 
-        // Genera le fatture partendo dalla data di inizio esatta (senza normalizzazione)
-        // Parsa la data manualmente per evitare problemi di fuso orario
-        const dateParts = formData.start_date.split('-');
-        const startYear = parseInt(dateParts[0], 10);
-        const startMonth = parseInt(dateParts[1], 10) - 1; // JavaScript months are 0-based
-        const startDay = parseInt(dateParts[2], 10);
+        // Genera le fatture per tutti gli anni della durata
+        const totalInvoices = numberOfInvoicesPerYear * durationYears;
         
-        for (let i = 0; i < numberOfInvoices; i++) {
+        for (let i = 0; i < totalInvoices; i++) {
             // Calcola la data aggiungendo i mesi usando il costruttore Date (local time)
             const totalMonths = startMonth + (i * incrementMonths);
             const invoiceYear = startYear + Math.floor(totalMonths / 12);
@@ -113,7 +116,6 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
             const invoiceDate = new Date(invoiceYear, invoiceMonth, startDay);
             
             // Formatta la data come YYYY-MM-DD usando i metodi local time
-            // Usa getFullYear(), getMonth(), getDate() che restituiscono valori in local time
             const year = invoiceDate.getFullYear();
             const month = String(invoiceDate.getMonth() + 1).padStart(2, '0');
             const day = String(invoiceDate.getDate()).padStart(2, '0');
@@ -144,6 +146,22 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                 title: 'Fattura Periodica',
                 description: description,
                 amount: amountPerInvoice.toFixed(2)
+            });
+        }
+
+        // Se la durata non è personalizzata, aggiungi l'evento "Rinnovo" alla fine
+        if (formData.duration !== 'custom') {
+            const renewalYear = startYear + durationYears;
+            const renewalMonth = String(startMonth + 1).padStart(2, '0');
+            const renewalDay = String(startDay).padStart(2, '0');
+            const renewalDateString = `${renewalYear}-${renewalMonth}-${renewalDay}`;
+            
+            events.push({
+                date: renewalDateString,
+                type: 'renewal',
+                title: 'Rinnovo',
+                description: 'Rinnovo',
+                amount: null
             });
         }
 
@@ -200,15 +218,20 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
 
         setLoading(true);
         try {
-            // Calcola la data di fine automaticamente (un anno dopo la data di inizio)
+            // Calcola la data di fine/rinnovo in base alla durata
             const startDate = new Date(formData.start_date);
-            const endDate = new Date(startDate);
-            endDate.setFullYear(endDate.getFullYear() + 1);
+            let endDate = null;
+            
+            if (formData.duration !== 'custom') {
+                const durationYears = parseInt(formData.duration, 10);
+                endDate = new Date(startDate);
+                endDate.setFullYear(endDate.getFullYear() + durationYears);
+            }
 
             // 1. Create Contract & Events
             const payload = {
                 ...formData,
-                end_date: endDate.toISOString().split('T')[0],
+                end_date: endDate ? endDate.toISOString().split('T')[0] : null,
                 amount: formData.amount ? parseFloat(formData.amount) : null,
                 notes: null, // Notes rimosso
                 client_name: users.find(u => u.id === parseInt(formData.user_id))?.azienda || 'Cliente',
@@ -329,9 +352,21 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                                         value={formData.start_date}
                                         onChange={e => setFormData({ ...formData, start_date: e.target.value })}
                                     />
-                                    <p className="text-xs text-slate-500 mt-1">La data di fine sarà calcolata automaticamente (un anno dopo)</p>
                                 </div>
-                                <div></div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Durata Contratto</label>
+                                    <select
+                                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg"
+                                        value={formData.duration}
+                                        onChange={e => setFormData({ ...formData, duration: e.target.value })}
+                                    >
+                                        <option value="1">1 Anno</option>
+                                        <option value="2">2 Anni</option>
+                                        <option value="3">3 Anni</option>
+                                        <option value="custom">Personalizzata</option>
+                                    </select>
+                                    <p className="text-xs text-slate-500 mt-1">La data di rinnovo verrà calcolata automaticamente</p>
+                                </div>
 
                                 {/* Billing */}
                                 <div>

@@ -94,13 +94,19 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                     const isProcessed = event.is_processed === true;
                     const isFirstNonProcessed = index === firstNonProcessedIndex && !isProcessed;
                     
-                    // Color logic: green (processed), yellow (first non-processed), gray (others)
+                    // Color logic: blue (renewal), green (processed), yellow (first non-processed), gray (others)
                     let borderColor = 'border-gray-400';
                     let bgColor = 'bg-white';
                     let textColor = 'text-gray-600';
                     let iconColor = 'text-gray-500';
+                    const isRenewal = event.event_type === 'renewal' || event.type === 'renewal';
                     
-                    if (isProcessed) {
+                    if (isRenewal) {
+                        borderColor = 'border-blue-500';
+                        bgColor = 'bg-blue-50';
+                        textColor = 'text-blue-700';
+                        iconColor = 'text-blue-600';
+                    } else if (isProcessed) {
                         borderColor = 'border-green-500';
                         bgColor = 'bg-green-50';
                         textColor = 'text-green-700';
@@ -119,7 +125,9 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
 
                     // Converti la descrizione dell'evento per rimuovere i numeri progressivi
                     let displayDescription = event.description || 'Fattura';
-                    if (contract.billing_frequency === 'monthly') {
+                    if (isRenewal) {
+                        displayDescription = 'Rinnovo';
+                    } else if (contract.billing_frequency === 'monthly') {
                         displayDescription = 'Mensile';
                     } else if (contract.billing_frequency === 'quarterly') {
                         displayDescription = 'Trimestre';
@@ -136,7 +144,9 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                             style={{ left: `calc(48px + ((100% - 96px) * ${eventPercent / 100}))` }}
                         >
                             <div className={`w-5 h-5 rounded-full ${bgColor} border-2 ${borderColor} flex items-center justify-center -ml-2.5 z-0`}>
-                                {isProcessed ? (
+                                {isRenewal ? (
+                                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                ) : isProcessed ? (
                                     <CheckCircle size={12} className={iconColor} />
                                 ) : (
                                     <AlertCircle size={12} className={iconColor} />
