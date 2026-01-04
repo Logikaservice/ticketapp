@@ -48,14 +48,19 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
         return Math.max(0, Math.min(100, calculatedProgress));
     }, [contract.start_date, startDate, endDate]); // Solo ricalcola se start_date cambia
 
-    // Filtra eventi del primo anno per la timeline (escludi eventi oltre il primo anno e eventi di rinnovo)
+    // Filtra eventi del primo anno per la timeline (includi rinnovo solo se è nel primo anno)
     const firstYearEnd = new Date(contract.start_date);
     firstYearEnd.setFullYear(firstYearEnd.getFullYear() + 1);
     const visibleEvents = events.filter(event => {
         const eventDate = new Date(event.event_date);
         const isRenewal = event.event_type === 'renewal' || event.type === 'renewal';
-        // Mostra solo eventi del primo anno (escludi rinnovo se non è nel primo anno)
-        return eventDate <= firstYearEnd && !isRenewal;
+        // Mostra eventi del primo anno (includi rinnovo se è entro il primo anno)
+        if (isRenewal) {
+            // Mostra rinnovo solo se è entro il primo anno (durata = 1 anno)
+            return eventDate <= firstYearEnd;
+        }
+        // Mostra tutti gli altri eventi del primo anno
+        return eventDate <= firstYearEnd;
     });
     
     // Find the first non-processed event for yellow color (solo tra gli eventi visibili)
