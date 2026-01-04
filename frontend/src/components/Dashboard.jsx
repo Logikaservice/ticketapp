@@ -581,12 +581,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     }
     
     // Esegui fetchContracts quando currentUser è disponibile
-    // Usa un piccolo delay per assicurarsi che currentUser sia completamente caricato
-    const timeoutId = setTimeout(() => {
-      fetchContracts();
-    }, 100);
-    
-    return () => clearTimeout(timeoutId);
+    fetchContracts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, currentUser?.ruolo, JSON.stringify(currentUser?.admin_companies || [])]);
 
@@ -1514,6 +1509,24 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
 
+          {/* AVVISI IMPORTANTI */}
+          <div className="mb-6">
+            <AlertsPanel
+              alerts={alerts}
+              onDelete={currentUser?.ruolo === 'tecnico' ? deleteAlert : undefined}
+              isEditable={currentUser?.ruolo === 'tecnico'}
+              onOpenTicket={(t) => {
+                if (!t || !t.id) return;
+                // Integrazione futura: handlers.handleSelectTicket
+              }}
+              onCreateTicketFromAlert={onCreateTicketFromAlert}
+              onManageAlerts={() => setModalState({ type: 'manageAlerts', data: null })}
+              onEditAlert={handleEditAlertClick}
+              currentUser={currentUser}
+              users={users || []}
+              setModalState={setModalState}
+            />
+          </div>
 
           {/* CONTRATTI ATTIVI */}
           {contracts.length > 0 && (
@@ -1542,26 +1555,6 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               </div>
             </div>
           )}
-
-          {/* AVVISI IMPORTANTI */}
-          {/* AVVISI IMPORTANTI */}
-          <div className="mb-6">
-            <AlertsPanel
-              alerts={alerts}
-              onDelete={currentUser?.ruolo === 'tecnico' ? deleteAlert : undefined}
-              isEditable={currentUser?.ruolo === 'tecnico'}
-              onOpenTicket={(t) => {
-                if (!t || !t.id) return;
-                // Integrazione futura: handlers.handleSelectTicket
-              }}
-              onCreateTicketFromAlert={onCreateTicketFromAlert}
-              onManageAlerts={() => setModalState({ type: 'manageAlerts', data: null })}
-              onEditAlert={handleEditAlertClick}
-              currentUser={currentUser}
-              users={users || []}
-              setModalState={setModalState}
-            />
-          </div>
 
           {/* Sezione Forniture Temporanee - per tutti gli utenti */}
           <div className="mb-6">
