@@ -492,7 +492,8 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
   const fetchContracts = React.useCallback(async () => {
     if (!currentUser) return;
-    // Solo i tecnici (amministratori) possono vedere i contratti sulla dashboard
+    
+    // Tecnici vedono tutti i contratti
     if (currentUser.ruolo === 'tecnico') {
       try {
         const res = await fetch(buildApiUrl('/api/contracts'), { headers: getAuthHeader() });
@@ -504,8 +505,32 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         console.error('Failed to load contracts', err);
       }
     }
+    // Clienti amministratori vedono i contratti delle loro aziende
+    else if (currentUser.ruolo === 'cliente') {
+      // Verifica se è amministratore
+      const isAdmin = currentUser.admin_companies &&
+        Array.isArray(currentUser.admin_companies) &&
+        currentUser.admin_companies.length > 0;
+
+      if (isAdmin) {
+        try {
+          const res = await fetch(buildApiUrl('/api/contracts'), { headers: getAuthHeader() });
+          if (res.ok) {
+            const allContracts = await res.json();
+            // Filtra i contratti per le aziende di cui è amministratore
+            const companyNames = currentUser.admin_companies;
+            const filteredContracts = allContracts.filter(contract => 
+              contract.azienda && companyNames.includes(contract.azienda)
+            );
+            setContracts(filteredContracts);
+          }
+        } catch (err) {
+          console.error('Failed to load contracts', err);
+        }
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser?.ruolo, getAuthHeader]);
+  }, [currentUser?.ruolo, currentUser?.admin_companies, getAuthHeader]);
 
   React.useEffect(() => {
     fetchContracts();
