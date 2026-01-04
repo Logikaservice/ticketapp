@@ -1,7 +1,7 @@
 // src/components/Header.jsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText } from 'lucide-react';
+import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table } from 'lucide-react';
 
 const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, isOrariDomain = false }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
@@ -78,7 +78,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       hasSubActions: true,
       subActions: [
         { label: 'Nuovo Contratto', icon: Plus, color: 'emerald', onClick: openCreateContract },
-        { label: 'Lista Contratti', icon: List, color: 'sky', onClick: openContractsList }
+        { label: 'Lista Contratti', icon: Table, color: 'sky', onClick: openContractsList }
       ]
     },
     {
