@@ -490,28 +490,44 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   // --- CONTRACTS LOGIC ---
   const [contracts, setContracts] = React.useState([]);
 
-
-  React.useEffect(() => {
+  const fetchContracts = React.useCallback(async () => {
     if (!currentUser) return;
     // Only fetch own contracts for Client, or maybe all active for Technician?
     // Actually, technician usually views contracts per client.
     // For now, let's load contracts for the Current User if they are a Client.
     if (currentUser.ruolo === 'cliente') {
-      const fetchContracts = async () => {
-        try {
-          const res = await fetch(buildApiUrl(`/api/contracts/user/${currentUser.id}`), { headers: getAuthHeader() });
-          if (res.ok) {
-            const data = await res.json();
-            setContracts(data);
-          }
-        } catch (err) {
-          console.error('Failed to load contracts', err);
+      try {
+        const res = await fetch(buildApiUrl(`/api/contracts/user/${currentUser.id}`), { headers: getAuthHeader() });
+        if (res.ok) {
+          const data = await res.json();
+          setContracts(data);
         }
-      };
-      fetchContracts();
+      } catch (err) {
+        console.error('Failed to load contracts', err);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, getAuthHeader]);
+
+  React.useEffect(() => {
+    fetchContracts();
+  }, [fetchContracts]);
+
+  // Listener per refresh automatico quando viene creato o eliminato un contratto
+  React.useEffect(() => {
+    const handleContractCreated = () => {
+      fetchContracts();
+    };
+    const handleContractDeleted = () => {
+      fetchContracts();
+    };
+    window.addEventListener('contractCreated', handleContractCreated);
+    window.addEventListener('contractDeleted', handleContractDeleted);
+    return () => {
+      window.removeEventListener('contractCreated', handleContractCreated);
+      window.removeEventListener('contractDeleted', handleContractDeleted);
+    };
+  }, [fetchContracts]);
 
   // --- END CONTRACTS LOGIC --- 
 

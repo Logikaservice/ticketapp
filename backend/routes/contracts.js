@@ -136,10 +136,12 @@ module.exports = (pool, upload) => {
             // 2. Create Events (if provided from preview)
             if (events && Array.isArray(events)) {
                 for (let event of events) {
+                    // Usa l'amount dell'evento se presente, altrimenti usa l'amount del contratto
+                    const eventAmount = event.amount !== undefined && event.amount !== null ? event.amount : amount;
                     await client.query(`
                         INSERT INTO contract_events (contract_id, event_date, event_type, title, description, amount)
                         VALUES ($1, $2, $3, $4, $5, $6)
-                    `, [contractId, event.date, event.type || 'invoice', event.title || 'Scadenza', event.description, amount]);
+                    `, [contractId, event.date, event.type || 'invoice', event.title || 'Scadenza', event.description || `Fatturazione ${billing_frequency}`, eventAmount]);
                 }
             } else {
                 // Auto-generate if not provided
@@ -148,7 +150,7 @@ module.exports = (pool, upload) => {
                     await client.query(`
                         INSERT INTO contract_events (contract_id, event_date, event_type, title, description, amount)
                         VALUES ($1, $2, $3, $4, $5, $6)
-                    `, [contractId, event.date, 'invoice', 'Fattura Periodica', `Fatturazione ${billing_frequency}`, amount]);
+                    `, [contractId, event.date.toISOString().split('T')[0], 'invoice', 'Fattura Periodica', `Fatturazione ${billing_frequency}`, amount]);
                 }
             }
 
@@ -199,6 +201,34 @@ module.exports = (pool, upload) => {
             res.json(result.rows);
         } catch (err) {
             res.status(500).json({ error: 'Server error' });
+        }
+    });
+
+    // DELETE /api/contracts/:id - Delete (deactivate) a contract
+    router.delete('/:id', async (req, res) => {
+        const { id } = req.params;
+        try {
+            const client = await pool.connect();
+            
+            // Soft delete: set active = false instead of actually deleting
+            const result = await client.query(`
+                UPDATE contracts 
+                SET active = false, updated_at = CURRENT_TIMESTAMP
+                WHERE id = $1
+                RETURNING *
+            `, [id]);
+            
+            client.release();
+            
+            if (result.rowCount > 0) {
+                console.log(`✅ Contratto ${id} disattivato con successo`);
+                res.json({ success: true, message: 'Contratto disattivato con successo' });
+            } else {
+                res.status(404).json({ error: 'Contratto non trovato' });
+            }
+        } catch (err) {
+            console.error('Error deleting contract:', err);
+            res.status(500).json({ error: 'Errore durante la disattivazione del contratto' });
         }
     });
 

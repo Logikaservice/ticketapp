@@ -218,7 +218,8 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
               orange: 'bg-orange-50 text-orange-700 hover:bg-orange-100',
               sky: 'bg-sky-50 text-sky-700 hover:bg-sky-100',
               blue: 'bg-blue-50 text-blue-700 hover:bg-blue-100',
-              violet: 'bg-violet-50 text-violet-700 hover:bg-violet-100'
+              violet: 'bg-violet-50 text-violet-700 hover:bg-violet-100',
+              teal: 'bg-teal-50 text-teal-700 hover:bg-teal-100'
             };
 
             const getIconBgClass = (color) => {
@@ -231,7 +232,8 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                 orange: 'bg-orange-100 text-orange-600',
                 sky: 'bg-sky-100 text-sky-600',
                 blue: 'bg-blue-100 text-blue-600',
-                violet: 'bg-violet-100 text-violet-600'
+                violet: 'bg-violet-100 text-violet-600',
+                teal: 'bg-teal-100 text-teal-600'
               };
               return classes[color] || 'bg-gray-100 text-gray-600';
             };
@@ -246,7 +248,8 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                 orange: 'text-orange-600',
                 sky: 'text-sky-600',
                 blue: 'text-blue-600',
-                violet: 'text-violet-600'
+                violet: 'text-violet-600',
+                teal: 'text-teal-600'
               };
               return classes[color] || 'text-gray-600';
             };

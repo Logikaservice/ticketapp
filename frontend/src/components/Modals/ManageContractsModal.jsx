@@ -75,22 +75,77 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
     };
 
     const handleNext = () => {
-        if (!formData.user_id || !formData.title || !formData.start_date) {
-            notify('Compila i campi obbligatori', 'warning');
+        // Validazione campi obbligatori
+        if (!formData.user_id) {
+            notify('Seleziona un cliente', 'warning');
             return;
         }
+        if (!formData.title || formData.title.trim().length === 0) {
+            notify('Inserisci un titolo per il contratto', 'warning');
+            return;
+        }
+        if (formData.title.trim().length < 3) {
+            notify('Il titolo deve contenere almeno 3 caratteri', 'warning');
+            return;
+        }
+        if (!formData.start_date) {
+            notify('Seleziona una data di inizio', 'warning');
+            return;
+        }
+
+        // Validazione date
+        const startDate = new Date(formData.start_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (startDate < today) {
+            notify('La data di inizio non può essere nel passato', 'warning');
+            return;
+        }
+
+        if (formData.end_date) {
+            const endDate = new Date(formData.end_date);
+            if (endDate <= startDate) {
+                notify('La data di fine deve essere successiva alla data di inizio', 'warning');
+                return;
+            }
+        }
+
+        // Validazione importo (se presente, deve essere positivo)
+        if (formData.amount && parseFloat(formData.amount) < 0) {
+            notify('L\'importo non può essere negativo', 'warning');
+            return;
+        }
+
         generatePreview();
         setStep(2);
     };
 
     const handleSubmit = async () => {
+        // Validazione finale degli eventi
+        if (generatedEvents.length === 0) {
+            notify('Aggiungi almeno una scadenza al contratto', 'warning');
+            return;
+        }
+
+        // Validazione che tutti gli eventi abbiano una data valida
+        const invalidEvents = generatedEvents.filter(ev => !ev.date || !ev.description || !ev.amount);
+        if (invalidEvents.length > 0) {
+            notify('Alcune scadenze non sono complete. Completa tutti i campi obbligatori', 'warning');
+            return;
+        }
+
         setLoading(true);
         try {
             // 1. Create Contract & Events
             const payload = {
                 ...formData,
+                amount: formData.amount ? parseFloat(formData.amount) : null,
                 client_name: users.find(u => u.id === parseInt(formData.user_id))?.azienda || 'Cliente',
-                events: generatedEvents
+                events: generatedEvents.map(ev => ({
+                    ...ev,
+                    amount: ev.amount ? parseFloat(ev.amount) : null
+                }))
             };
 
             const res = await fetch(buildApiUrl('/api/contracts'), {
@@ -102,32 +157,50 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                 body: JSON.stringify(payload)
             });
 
-            if (!res.ok) throw new Error('Failed to create contract');
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                const errorMessage = errorData.error || 'Errore durante la creazione del contratto';
+                throw new Error(errorMessage);
+            }
 
             const { contractId } = await res.json();
 
             // 2. Upload PDF if present
             if (formData.contractPdf) {
-                const formDataUpload = new FormData();
-                formDataUpload.append('contractPdf', formData.contractPdf);
+                try {
+                    const formDataUpload = new FormData();
+                    formDataUpload.append('contractPdf', formData.contractPdf);
 
-                await fetch(buildApiUrl(`/api/contracts/${contractId}/upload`), {
-                    method: 'POST',
-                    headers: {
-                        ...getAuthHeader(),
-                        // No Content-Type for FormData, browser sets it
-                    },
-                    body: formDataUpload
-                });
+                    const uploadRes = await fetch(buildApiUrl(`/api/contracts/${contractId}/upload`), {
+                        method: 'POST',
+                        headers: {
+                            ...getAuthHeader(),
+                            // No Content-Type for FormData, browser sets it
+                        },
+                        body: formDataUpload
+                    });
+
+                    if (!uploadRes.ok) {
+                        throw new Error('Errore durante il caricamento del PDF');
+                    }
+                } catch (uploadErr) {
+                    console.error('Upload PDF error:', uploadErr);
+                    notify('Contratto creato ma errore nel caricamento del PDF: ' + uploadErr.message, 'warning');
+                }
             }
 
             notify('Contratto creato con successo!', 'success');
+            
+            // Dispatch evento personalizzato per refresh automatico
+            window.dispatchEvent(new CustomEvent('contractCreated', { detail: { contractId } }));
+            
             onSuccess();
             onClose();
 
         } catch (err) {
-            console.error(err);
-            notify('Errore salvataggio contratto', 'error');
+            console.error('Error creating contract:', err);
+            const errorMessage = err.message || 'Errore durante il salvataggio del contratto. Riprova.';
+            notify(errorMessage, 'error');
         } finally {
             setLoading(false);
         }

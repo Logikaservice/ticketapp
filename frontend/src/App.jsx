@@ -3217,6 +3217,27 @@ export default function TicketApp() {
           currentUser={currentUser}
         />
       )}
+
+      {showContractModal && (
+        <ManageContractsModal
+          onClose={() => setShowContractModal(false)}
+          onSuccess={() => {
+            // Il contratto è stato creato con successo
+            // I contratti vengono ricaricati automaticamente quando necessario
+            // (ad esempio nella Dashboard quando si ricarica la pagina)
+          }}
+          notify={notify}
+          getAuthHeader={getAuthHeader}
+        />
+      )}
+
+      {showContractsListModal && (
+        <ContractsListModal
+          onClose={() => setShowContractsListModal(false)}
+          getAuthHeader={getAuthHeader}
+          notify={notify}
+        />
+      )}
     </div>
   );
 }
