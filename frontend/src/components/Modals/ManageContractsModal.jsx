@@ -118,16 +118,6 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
             return;
         }
 
-        // Validazione date
-        const startDate = new Date(formData.start_date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        if (startDate < today) {
-            notify('La data di inizio non può essere nel passato', 'warning');
-            return;
-        }
-
         // Validazione importo (obbligatorio e deve essere positivo)
         if (!formData.amount || formData.amount.trim() === '') {
             notify('Inserisci l\'importo totale del contratto', 'warning');
