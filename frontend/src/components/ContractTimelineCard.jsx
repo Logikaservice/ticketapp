@@ -94,12 +94,17 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                 {/* Line */}
                 <div className="absolute top-1/2 left-6 right-6 h-1 bg-gray-200 rounded-full -translate-y-1/2"></div>
                 
-                {/* Progress bar - parte dalla posizione di inizio contratto */}
-                {visibleEvents.length > 0 && (() => {
+                {/* Progress bar - parte dalla posizione di inizio contratto (primo evento) */}
+                {visibleEvents.length > 0 && progress > 0 && (() => {
                     const firstEventDate = new Date(visibleEvents[0].event_date).getTime();
                     const firstEventPercent = ((firstEventDate - startDate) / (endDate - startDate)) * 100;
                     const progressStartPercent = Math.max(0, Math.min(100, firstEventPercent));
-                    const progressWidthPercent = Math.max(0, Math.min(100 - progressStartPercent, progress - progressStartPercent));
+                    // La larghezza è la differenza tra progress e progressStartPercent, ma solo se progress > progressStartPercent
+                    const progressWidthPercent = progress > progressStartPercent 
+                        ? Math.max(0, Math.min(100 - progressStartPercent, progress - progressStartPercent))
+                        : 0;
+                    
+                    if (progressWidthPercent <= 0) return null;
                     
                     return (
                         <div 
