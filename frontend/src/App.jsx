@@ -14,6 +14,7 @@ import FornitureModal from './components/Modals/FornitureModal';
 import UnreadMessagesModal from './components/UnreadMessagesModal';
 import TicketPhotosModal from './components/Modals/TicketPhotosModal';
 import InactivityTimerModal from './components/Modals/InactivityTimerModal';
+import ManageContractsModal from './components/Modals/ManageContractsModal';
 import { useAuth } from './hooks/useAuth';
 import { useClients } from './hooks/useClients';
 import { useTickets } from './hooks/useTickets';
@@ -214,6 +215,8 @@ export default function TicketApp() {
   const isChangingStatusRef = useRef(false);
   const [pendingAlertData, setPendingAlertData] = useState(null);
   // Timer di inattività (solo per clienti)
+  const [showInactivityTimerDialog, setShowInactivityTimerDialog] = useState(false);
+  const [showContractModal, setShowContractModal] = useState(false);
   const [inactivityTimeout, setInactivityTimeout] = useState(() => {
     // Carica da localStorage, default 3 minuti
     const saved = localStorage.getItem('inactivityTimeout');
@@ -828,7 +831,7 @@ export default function TicketApp() {
               ? t.last_read_by_client
               : t.last_read_by_tecnico;
 
-            // Aggiungi a unseen solo se è aperto, non è già in unseen, e non è stato ancora letto
+            // Aggiungi a unseen only if it's open, not already in unseen, and not yet read
             if (appliesToUser && t.stato === 'aperto' && !unseen.has(t.id) && !isRead) {
               // Aggiungi a unseen
               unseen.add(t.id);
@@ -2872,8 +2875,9 @@ export default function TicketApp() {
               openOrariTurni: () => { setShowOrariTurni(true); setShowDashboard(false); setShowVivaldi(false); },
               openVivaldi: () => { setShowVivaldi(true); setShowDashboard(false); setShowOrariTurni(false); },
               openPackVision: () => setShowPackVision(true),
-              isOrariDomain: isOrariDomain
             }}
+            openManageContracts={() => setShowContractModal(true)}
+            isOrariDomain={isOrariDomain}
           />
         )}
 

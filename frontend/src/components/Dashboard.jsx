@@ -6,7 +6,7 @@ import TicketListContainer from './TicketListContainer';
 import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
 import ContractTimelineCard from './ContractTimelineCard';
-import ManageContractsModal from './Modals/ManageContractsModal';
+
 
 import { formatDate } from '../utils/formatters';
 import { buildApiUrl } from '../utils/apiConfig';
@@ -489,7 +489,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
   // --- CONTRACTS LOGIC ---
   const [contracts, setContracts] = React.useState([]);
-  const [showContractModal, setShowContractModal] = React.useState(false);
+
 
   React.useEffect(() => {
     if (!currentUser) return;
@@ -1415,18 +1415,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* PULSANTE GESTIONE CONTRATTI (SOLO TECNICO) */}
-          {currentUser?.ruolo === 'tecnico' && (
-            <div className="mb-4 flex justify-end">
-              <button
-                onClick={() => setShowContractModal(true)}
-                className="px-4 py-2 bg-slate-800 text-cyan-400 border border-slate-600 rounded-lg hover:bg-slate-700 hover:text-cyan-300 transition-colors flex items-center gap-2 shadow-sm"
-              >
-                <FileText size={16} />
-                Gestione Contratti
-              </button>
-            </div>
-          )}
+
 
           {/* VISUALIZZAZIONE CONTRATTI (WIDGET UTENTE) */}
           {contracts.length > 0 && (
@@ -1735,16 +1724,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         </div>
       </div>
 
-      {showContractModal && (
-        <ManageContractsModal
-          onClose={() => setShowContractModal(false)}
-          getAuthHeader={getAuthHeader}
-          notify={notify || ((msg) => console.log(msg))}
-          onSuccess={() => {
-            window.location.reload();
-          }}
-        />
-      )}
+
     </div>
   );
 };
