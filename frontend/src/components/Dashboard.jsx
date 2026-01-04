@@ -533,8 +533,10 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   }, [currentUser?.ruolo, currentUser?.admin_companies, getAuthHeader]);
 
   React.useEffect(() => {
-    fetchContracts();
-  }, [fetchContracts]);
+    if (currentUser) {
+      fetchContracts();
+    }
+  }, [currentUser, fetchContracts]);
 
   // Listener per refresh automatico quando viene creato o eliminato un contratto
   React.useEffect(() => {
