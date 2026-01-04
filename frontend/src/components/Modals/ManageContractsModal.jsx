@@ -30,9 +30,22 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
             try {
                 const res = await fetch(buildApiUrl('/api/users'), { headers: getAuthHeader() });
                 const data = await res.json();
-                // Filter for clients only? Or all? Usually contracts are clients.
-                // Controllo se il componente è ancora montato prima di settare lo stato
-                setUsers(data.filter(u => u.ruolo === 'cliente'));
+                // Filter for clients only, remove duplicates, and sort alphabetically
+                const clientUsers = data.filter(u => u.ruolo === 'cliente');
+                
+                // Remove duplicates based on user ID
+                const uniqueUsers = Array.from(
+                    new Map(clientUsers.map(user => [user.id, user])).values()
+                );
+                
+                // Sort alphabetically by name (nome + cognome) or azienda
+                uniqueUsers.sort((a, b) => {
+                    const nameA = (a.azienda || `${a.nome || ''} ${a.cognome || ''}`).trim().toLowerCase();
+                    const nameB = (b.azienda || `${b.nome || ''} ${b.cognome || ''}`).trim().toLowerCase();
+                    return nameA.localeCompare(nameB, 'it');
+                });
+                
+                setUsers(uniqueUsers);
             } catch (err) {
                 // Silenzia l'errore per evitare spam in console se il componente viene smontato/rimontato rapidamente
                 // console.error('Failed to load users', err);
