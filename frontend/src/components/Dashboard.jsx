@@ -595,11 +595,27 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     
     // Funzione helper per verificare se un contratto ha eventi non processati
     const hasUnprocessedEvents = (contract) => {
-      if (!contract.events || !Array.isArray(contract.events)) return false;
+      if (!contract.events || !Array.isArray(contract.events) || contract.events.length === 0) {
+        return false;
+      }
+      
       // Escludi gli eventi di rinnovo dal controllo
-      return contract.events.some(event => {
+      // Controlla se ci sono eventi di fatturazione (non rinnovo) non processati
+      const billingEvents = contract.events.filter(event => {
         const isRenewal = event.event_type === 'renewal' || event.type === 'renewal';
-        return !isRenewal && event.is_processed !== true;
+        return !isRenewal;
+      });
+      
+      // Se non ci sono eventi di fatturazione, considera il contratto come processato
+      if (billingEvents.length === 0) {
+        return false;
+      }
+      
+      // Verifica se almeno un evento di fatturazione non è processato
+      // Gestisci sia booleano che null/undefined
+      return billingEvents.some(event => {
+        const isProcessed = event.is_processed === true || event.is_processed === 'true';
+        return !isProcessed;
       });
     };
     
@@ -610,10 +626,10 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       
       // Prima priorità: contratti con eventi non processati vanno prima
       if (hasUnprocessedA && !hasUnprocessedB) {
-        return -1; // A va prima
+        return -1; // A va prima (A ha eventi non processati, B no)
       }
       if (!hasUnprocessedA && hasUnprocessedB) {
-        return 1; // B va prima
+        return 1; // B va prima (B ha eventi non processati, A no)
       }
       
       // Se entrambi hanno lo stesso stato (entrambi con o senza eventi non processati),
