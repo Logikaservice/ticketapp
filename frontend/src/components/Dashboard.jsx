@@ -620,19 +620,8 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                            event.is_processed === 'true' || 
                            event.is_processed === 1 ||
                            event.is_processed === '1';
-        const notProcessed = !isProcessed;
-        
-        // Debug log per vedere cosa sta succedendo
-        if (contract.title && contract.title.includes('BACKUP')) {
-          console.log(`🔍 Contract ${contract.title} - Event ${event.event_date}: is_processed=${event.is_processed}, type=${typeof event.is_processed}, notProcessed=${notProcessed}`);
-        }
-        
-        return notProcessed;
+        return !isProcessed;
       });
-      
-      if (contract.title && contract.title.includes('BACKUP')) {
-        console.log(`🔍 Contract ${contract.title} - hasUnprocessedEvents: ${hasUnprocessed}, billingEvents: ${billingEvents.length}`);
-      }
       
       return hasUnprocessed;
     };
@@ -710,15 +699,6 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       // Se nessuno ha scadenza, mantieni l'ordine originale
       return 0;
     });
-    
-    // Debug: log dell'ordinamento finale
-    console.log('🔍 Contratti ordinati:', sorted.map(c => ({
-      title: c.title,
-      client: c.client_name,
-      hasUnprocessed: hasUnprocessedEvents(c),
-      unprocessedCount: countUnprocessedEvents(c),
-      events: c.events?.map(e => ({ date: e.event_date, is_processed: e.is_processed })) || []
-    })));
     
     return sorted;
   }, [contracts]);
