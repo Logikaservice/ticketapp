@@ -612,11 +612,17 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       }
       
       // Verifica se almeno un evento di fatturazione non è processato
-      // Gestisci sia booleano che null/undefined
-      return billingEvents.some(event => {
-        const isProcessed = event.is_processed === true || event.is_processed === 'true';
+      // Gestisci sia booleano che null/undefined/stringa
+      const hasUnprocessed = billingEvents.some(event => {
+        // Controlla se l'evento è processato in vari modi
+        const isProcessed = event.is_processed === true || 
+                           event.is_processed === 'true' || 
+                           event.is_processed === 1 ||
+                           event.is_processed === '1';
         return !isProcessed;
       });
+      
+      return hasUnprocessed;
     };
     
     // Ordina i contratti
@@ -624,12 +630,13 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       const hasUnprocessedA = hasUnprocessedEvents(a);
       const hasUnprocessedB = hasUnprocessedEvents(b);
       
-      // Prima priorità: contratti con eventi non processati vanno prima
+      // Prima priorità: contratti con eventi non processati vanno PRIMA (in cima)
+      // Contratti con tutti gli eventi processati vanno DOPO (in fondo)
       if (hasUnprocessedA && !hasUnprocessedB) {
-        return -1; // A va prima (A ha eventi non processati, B no)
+        return -1; // A va prima (A ha eventi non processati, B ha tutti processati)
       }
       if (!hasUnprocessedA && hasUnprocessedB) {
-        return 1; // B va prima (B ha eventi non processati, A no)
+        return 1; // B va prima (B ha eventi non processati, A ha tutti processati)
       }
       
       // Se entrambi hanno lo stesso stato (entrambi con o senza eventi non processati),
