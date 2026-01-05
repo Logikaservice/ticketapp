@@ -637,6 +637,30 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       return hasUnprocessed;
     };
     
+    // Funzione helper per calcolare il numero di eventi non processati
+    const countUnprocessedEvents = (contract) => {
+      if (!contract.events || !Array.isArray(contract.events) || contract.events.length === 0) {
+        return 0;
+      }
+      
+      const billingEvents = contract.events.filter(event => {
+        const isRenewal = event.event_type === 'renewal' || event.type === 'renewal';
+        return !isRenewal;
+      });
+      
+      if (billingEvents.length === 0) {
+        return 0;
+      }
+      
+      return billingEvents.filter(event => {
+        const isProcessed = event.is_processed === true || 
+                           event.is_processed === 'true' || 
+                           event.is_processed === 1 ||
+                           event.is_processed === '1';
+        return !isProcessed;
+      }).length;
+    };
+    
     // Ordina i contratti
     sorted.sort((a, b) => {
       const hasUnprocessedA = hasUnprocessedEvents(a);
@@ -649,6 +673,16 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       }
       if (!hasUnprocessedA && hasUnprocessedB) {
         return 1; // B va prima (B ha eventi non processati, A ha tutti processati)
+      }
+      
+      // Se entrambi hanno eventi non processati, ordina per numero di eventi non processati
+      // (più eventi non processati = maggiore priorità)
+      if (hasUnprocessedA && hasUnprocessedB) {
+        const countA = countUnprocessedEvents(a);
+        const countB = countUnprocessedEvents(b);
+        if (countA !== countB) {
+          return countB - countA; // Più eventi non processati = prima
+        }
       }
       
       // Se entrambi hanno lo stesso stato (entrambi con o senza eventi non processati),
@@ -682,6 +716,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       title: c.title,
       client: c.client_name,
       hasUnprocessed: hasUnprocessedEvents(c),
+      unprocessedCount: countUnprocessedEvents(c),
       events: c.events?.map(e => ({ date: e.event_date, is_processed: e.is_processed })) || []
     })));
     
