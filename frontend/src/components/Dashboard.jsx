@@ -585,17 +585,41 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, currentUser?.ruolo, JSON.stringify(currentUser?.admin_companies || [])]);
 
-  // Ordina i contratti per scadenza prossima (solo per tecnici)
+  // Ordina i contratti: prima quelli con pagamenti da fare, poi quelli completati
+  // All'interno di ogni gruppo, ordina per scadenza prossima
   const sortedContracts = React.useMemo(() => {
     if (!contracts || contracts.length === 0) return [];
     
     // Crea una copia dell'array per non mutare l'originale
     const sorted = [...contracts];
     
-    // Ordina per data di scadenza (end_date)
-    // I contratti con scadenza più vicina vanno in cima
-    // I contratti senza scadenza vanno in fondo
+    // Funzione helper per verificare se un contratto ha eventi non processati
+    const hasUnprocessedEvents = (contract) => {
+      if (!contract.events || !Array.isArray(contract.events)) return false;
+      // Escludi gli eventi di rinnovo dal controllo
+      return contract.events.some(event => {
+        const isRenewal = event.event_type === 'renewal' || event.type === 'renewal';
+        return !isRenewal && event.is_processed !== true;
+      });
+    };
+    
+    // Ordina i contratti
     sorted.sort((a, b) => {
+      const hasUnprocessedA = hasUnprocessedEvents(a);
+      const hasUnprocessedB = hasUnprocessedEvents(b);
+      
+      // Prima priorità: contratti con eventi non processati vanno prima
+      if (hasUnprocessedA && !hasUnprocessedB) {
+        return -1; // A va prima
+      }
+      if (!hasUnprocessedA && hasUnprocessedB) {
+        return 1; // B va prima
+      }
+      
+      // Se entrambi hanno lo stesso stato (entrambi con o senza eventi non processati),
+      // ordina per data di scadenza (end_date)
+      // I contratti con scadenza più vicina vanno in cima
+      // I contratti senza scadenza vanno in fondo
       const dateA = a.end_date ? new Date(a.end_date).getTime() : Infinity;
       const dateB = b.end_date ? new Date(b.end_date).getTime() : Infinity;
       
