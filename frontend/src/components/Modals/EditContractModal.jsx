@@ -56,6 +56,9 @@ const EditContractModal = ({ contract, onClose, getAuthHeader, notify, onSuccess
 
             notify('Stato evento aggiornato con successo', 'success');
             
+            // Emetti evento per ricaricare i contratti nella dashboard
+            window.dispatchEvent(new CustomEvent('contractUpdated', { detail: { contractId: contract.id } }));
+            
             // Trigger refresh
             if (onSuccess) {
                 onSuccess();

@@ -615,12 +615,24 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       // Gestisci sia booleano che null/undefined/stringa
       const hasUnprocessed = billingEvents.some(event => {
         // Controlla se l'evento è processato in vari modi
+        // Se is_processed è null, undefined, false, 'false', 0, '0', o stringa vuota, NON è processato
         const isProcessed = event.is_processed === true || 
                            event.is_processed === 'true' || 
                            event.is_processed === 1 ||
                            event.is_processed === '1';
-        return !isProcessed;
+        const notProcessed = !isProcessed;
+        
+        // Debug log per vedere cosa sta succedendo
+        if (contract.title && contract.title.includes('BACKUP')) {
+          console.log(`🔍 Contract ${contract.title} - Event ${event.event_date}: is_processed=${event.is_processed}, type=${typeof event.is_processed}, notProcessed=${notProcessed}`);
+        }
+        
+        return notProcessed;
       });
+      
+      if (contract.title && contract.title.includes('BACKUP')) {
+        console.log(`🔍 Contract ${contract.title} - hasUnprocessedEvents: ${hasUnprocessed}, billingEvents: ${billingEvents.length}`);
+      }
       
       return hasUnprocessed;
     };
@@ -664,6 +676,14 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       // Se nessuno ha scadenza, mantieni l'ordine originale
       return 0;
     });
+    
+    // Debug: log dell'ordinamento finale
+    console.log('🔍 Contratti ordinati:', sorted.map(c => ({
+      title: c.title,
+      client: c.client_name,
+      hasUnprocessed: hasUnprocessedEvents(c),
+      events: c.events?.map(e => ({ date: e.event_date, is_processed: e.is_processed })) || []
+    })));
     
     return sorted;
   }, [contracts]);
