@@ -111,12 +111,12 @@ const NewTicketModal = ({
   }, [selectedClientFromRichiedente, selectedClientForNewTicket, setSelectedClientForNewTicket]);
 
   const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
+    const newFiles = Array.from(e.target.files || []);
+    if (newFiles.length === 0) return;
 
     // Verifica dimensione per file singolo (massimo 10MB per file)
     const maxFileSize = 10 * 1024 * 1024; // 10MB in bytes
-    const oversizedFiles = files.filter(file => file.size > maxFileSize);
+    const oversizedFiles = newFiles.filter(file => file.size > maxFileSize);
     
     if (oversizedFiles.length > 0) {
       const fileNames = oversizedFiles.map(f => `${f.name} (${(f.size / (1024 * 1024)).toFixed(2)}MB)`).join(', ');
@@ -128,9 +128,13 @@ const NewTicketModal = ({
       return;
     }
     
+    // Combina i file esistenti con i nuovi file
+    const existingFiles = photos || [];
+    const allFiles = [...existingFiles, ...newFiles];
+    
     // Verifica dimensione totale (massimo 10MB totali)
     const maxTotalSize = 10 * 1024 * 1024; // 10MB in bytes
-    const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+    const totalSize = allFiles.reduce((sum, file) => sum + file.size, 0);
     
     if (totalSize > maxTotalSize) {
       const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
@@ -142,7 +146,24 @@ const NewTicketModal = ({
       return;
     }
     
-    setPhotos(files);
+    // Evita duplicati basandosi sul nome e dimensione del file
+    const uniqueFiles = [];
+    const fileKeys = new Set();
+    
+    allFiles.forEach(file => {
+      const key = `${file.name}-${file.size}-${file.lastModified}`;
+      if (!fileKeys.has(key)) {
+        fileKeys.add(key);
+        uniqueFiles.push(file);
+      }
+    });
+    
+    setPhotos(uniqueFiles);
+    
+    // Reset input per permettere di selezionare gli stessi file di nuovo se necessario
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const removePhoto = (index) => {
