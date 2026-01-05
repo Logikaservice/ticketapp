@@ -113,6 +113,79 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                                 <Edit size={16} />
                             </button>
                         )}
+                        {/* Allegati - spostato qui */}
+                        {(() => {
+                            // Gestisci sia formato vecchio (stringa) che nuovo (array JSON)
+                            let files = [];
+                            if (contract.contract_file_path) {
+                                try {
+                                    const parsed = JSON.parse(contract.contract_file_path);
+                                    if (Array.isArray(parsed)) {
+                                        files = parsed;
+                                    } else {
+                                        // Retrocompatibilità: stringa singola
+                                        files = [{ path: contract.contract_file_path }];
+                                    }
+                                } catch (e) {
+                                    // Non è JSON, è una stringa singola (retrocompatibilità)
+                                    files = [{ path: contract.contract_file_path }];
+                                }
+                            }
+                            
+                            if (files.length === 0) return null;
+                            
+                            const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+                            
+                            return (
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setShowFilesMenu(!showFilesMenu)}
+                                        className="p-1.5 hover:bg-gray-100 rounded transition-colors text-gray-600 hover:text-gray-700 relative"
+                                        title={`${files.length} allegato${files.length !== 1 ? 'i' : ''}`}
+                                    >
+                                        <Paperclip size={16} />
+                                        {files.length > 1 && (
+                                            <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                                                {files.length}
+                                            </span>
+                                        )}
+                                    </button>
+                                    
+                                    {showFilesMenu && (
+                                        <>
+                                            {/* Overlay per chiudere il menu cliccando fuori */}
+                                            <div 
+                                                className="fixed inset-0 z-10" 
+                                                onClick={() => setShowFilesMenu(false)}
+                                            ></div>
+                                            
+                                            {/* Menu dropdown */}
+                                            <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-[200px] py-1">
+                                                {files.map((file, index) => {
+                                                    const filePath = typeof file === 'string' ? file : file.path;
+                                                    const fileName = typeof file === 'string' 
+                                                        ? file.split('/').pop() 
+                                                        : (file.filename || file.path?.split('/').pop() || `File ${index + 1}`);
+                                                    return (
+                                                        <button
+                                                            key={index}
+                                                            onClick={() => {
+                                                                window.open(filePath.startsWith('http') ? filePath : `${apiUrl}${filePath}`, '_blank');
+                                                                setShowFilesMenu(false);
+                                                            }}
+                                                            className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-50 text-left text-sm text-gray-700 transition-colors"
+                                                        >
+                                                            <Download size={14} className="text-gray-400" />
+                                                            <span className="truncate flex-1">{fileName}</span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
                 </div>
             </div>
@@ -221,91 +294,16 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
             </div>
 
             {/* Bottom Actions */}
-            <div className="flex justify-between items-center border-t border-gray-200 pt-4">
-                <div className="flex gap-4">
-                    {nextEvent && daysToNextEvent <= 30 && (
+            {nextEvent && daysToNextEvent <= 30 && (
+                <div className="flex justify-between items-center border-t border-gray-200 pt-4">
+                    <div className="flex gap-4">
                         <div className={`flex items-center gap-2 text-sm ${daysToNextEvent <= 7 ? 'text-red-600 font-medium' : 'text-amber-600'}`}>
                             <Clock size={16} />
                             <span>Prossima scadenza tra {daysToNextEvent} {daysToNextEvent === 1 ? 'giorno' : 'giorni'}</span>
                         </div>
-                    )}
+                    </div>
                 </div>
-
-                <div className="flex items-center gap-3">
-                    {(() => {
-                        // Gestisci sia formato vecchio (stringa) che nuovo (array JSON)
-                        let files = [];
-                        if (contract.contract_file_path) {
-                            try {
-                                const parsed = JSON.parse(contract.contract_file_path);
-                                if (Array.isArray(parsed)) {
-                                    files = parsed;
-                                } else {
-                                    // Retrocompatibilità: stringa singola
-                                    files = [{ path: contract.contract_file_path }];
-                                }
-                            } catch (e) {
-                                // Non è JSON, è una stringa singola (retrocompatibilità)
-                                files = [{ path: contract.contract_file_path }];
-                            }
-                        }
-                        
-                        if (files.length === 0) return null;
-                        
-                        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-                        
-                        return (
-                            <div className="relative">
-                                <button
-                                    onClick={() => setShowFilesMenu(!showFilesMenu)}
-                                    className="p-2 hover:bg-gray-100 rounded transition-colors text-gray-600 hover:text-gray-700 relative"
-                                    title={`${files.length} allegato${files.length !== 1 ? 'i' : ''}`}
-                                >
-                                    <Paperclip size={18} />
-                                    {files.length > 1 && (
-                                        <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                                            {files.length}
-                                        </span>
-                                    )}
-                                </button>
-                                
-                                {showFilesMenu && (
-                                    <>
-                                        {/* Overlay per chiudere il menu cliccando fuori */}
-                                        <div 
-                                            className="fixed inset-0 z-10" 
-                                            onClick={() => setShowFilesMenu(false)}
-                                        ></div>
-                                        
-                                        {/* Menu dropdown */}
-                                        <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-[200px] py-1">
-                                            {files.map((file, index) => {
-                                                const filePath = typeof file === 'string' ? file : file.path;
-                                                const fileName = typeof file === 'string' 
-                                                    ? file.split('/').pop() 
-                                                    : (file.filename || file.path?.split('/').pop() || `File ${index + 1}`);
-                                                return (
-                                                    <button
-                                                        key={index}
-                                                        onClick={() => {
-                                                            window.open(filePath.startsWith('http') ? filePath : `${apiUrl}${filePath}`, '_blank');
-                                                            setShowFilesMenu(false);
-                                                        }}
-                                                        className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-50 text-left text-sm text-gray-700 transition-colors"
-                                                    >
-                                                        <Download size={14} className="text-gray-400" />
-                                                        <span className="truncate flex-1">{fileName}</span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        );
-                    })()}
-                </div>
-            </div>
+            )}
         </div>
     );
 };
