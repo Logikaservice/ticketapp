@@ -253,9 +253,9 @@ const NewTicketModal = ({
                           const clientiCount = clientiAttivi.filter(c => (c.azienda || 'Senza azienda') === azienda).length;
                           
                           return (
-                            <button
+                              <button
                               key={azienda}
-                              type="button"
+                                type="button"
                               onClick={() => handleSelectAzienda(azienda)}
                               className={`w-full px-4 py-3 text-left hover:bg-blue-50 transition flex items-center gap-3 border-b border-gray-100 last:border-b-0 ${
                                 isSelected ? 'bg-blue-50' : ''
@@ -263,19 +263,19 @@ const NewTicketModal = ({
                             >
                               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                                 {azienda === 'Senza azienda' ? <Building size={16} /> : azienda.charAt(0).toUpperCase()}
-                              </div>
-                              <div className="flex-1 min-w-0">
+                                  </div>
+                                  <div className="flex-1 min-w-0">
                                 <div className="text-sm font-medium text-gray-900">
                                   {azienda === 'Senza azienda' ? 'Senza azienda' : azienda}
                                 </div>
                                 <div className="text-xs text-gray-600">
                                   {clientiCount} {clientiCount === 1 ? 'cliente' : 'clienti'}
-                                </div>
-                              </div>
-                              {isSelected && (
-                                <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
-                              )}
-                            </button>
+                                          </div>
+                                        </div>
+                                        {isSelected && (
+                                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                        )}
+                                      </button>
                           );
                         })
                       )}
@@ -460,14 +460,14 @@ const NewTicketModal = ({
                 </div>
               </div>
             ) : (
-              <input
-                type="text"
-                value={newTicketData.nomerichiedente}
-                onChange={(e) => setNewTicketData({ ...newTicketData, nomerichiedente: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Nome del richiedente"
-                required
-              />
+            <input
+              type="text"
+              value={newTicketData.nomerichiedente}
+              onChange={(e) => setNewTicketData({ ...newTicketData, nomerichiedente: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Nome del richiedente"
+              required
+            />
             )}
           </div>
 

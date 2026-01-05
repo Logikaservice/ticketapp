@@ -626,42 +626,42 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
                 
                 // Gestisci ticket normali e interventi
                 return (
-                  <div
-                    key={`${ticket.id}-${ticket.isIntervento ? 'intervento' : 'ticket'}`}
-                    className={`p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
-                      getPriorityColor(ticket.isIntervento ? 'intervento' : ticket.priorita).replace('bg-', 'border-l-4 border-l-')
-                    }`}
-                    onClick={() => handleTicketClick(ticket)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm">#{ticket.numero}</span>
-                          <span className={`px-2 py-1 text-xs rounded-full text-white ${getPriorityColor(ticket.isIntervento ? 'intervento' : ticket.priorita)}`}>
-                            {ticket.isIntervento ? 'Intervento' : getPriorityName(ticket.priorita)}
+                <div
+                  key={`${ticket.id}-${ticket.isIntervento ? 'intervento' : 'ticket'}`}
+                  className={`p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
+                    getPriorityColor(ticket.isIntervento ? 'intervento' : ticket.priorita).replace('bg-', 'border-l-4 border-l-')
+                  }`}
+                  onClick={() => handleTicketClick(ticket)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">#{ticket.numero}</span>
+                        <span className={`px-2 py-1 text-xs rounded-full text-white ${getPriorityColor(ticket.isIntervento ? 'intervento' : ticket.priorita)}`}>
+                          {ticket.isIntervento ? 'Intervento' : getPriorityName(ticket.priorita)}
+                        </span>
+                        {ticket.isIntervento && ticket.timelogModalita && (
+                          <span className="text-xs text-gray-600 italic">
+                            ({ticket.timelogModalita})
                           </span>
-                          {ticket.isIntervento && ticket.timelogModalita && (
-                            <span className="text-xs text-gray-600 italic">
-                              ({ticket.timelogModalita})
-                            </span>
-                          )}
-                          {ticket.photos && ticket.photos.length > 0 && (
-                            <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700 font-medium flex items-center gap-1" title={`${ticket.photos.length} file allegato${ticket.photos.length !== 1 ? 'i' : ''}`}>
-                              <Paperclip size={11} />
-                              {ticket.photos.length}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-700 mt-1">{ticket.titolo}</div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {ticket.isIntervento ? 'Intervento eseguito' : `Cliente: ${ticket.cliente} • Stato: ${ticket.stato}`}
-                        </div>
+                        )}
+                        {ticket.photos && ticket.photos.length > 0 && (
+                          <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700 font-medium flex items-center gap-1" title={`${ticket.photos.length} file allegato${ticket.photos.length !== 1 ? 'i' : ''}`}>
+                            <Paperclip size={11} />
+                            {ticket.photos.length}
+                          </span>
+                        )}
                       </div>
-                      <div className="text-xs text-gray-400">
-                        Click per aprire
+                      <div className="text-sm text-gray-700 mt-1">{ticket.titolo}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {ticket.isIntervento ? 'Intervento eseguito' : `Cliente: ${ticket.cliente} • Stato: ${ticket.stato}`}
                       </div>
                     </div>
+                    <div className="text-xs text-gray-400">
+                      Click per aprire
+                    </div>
                   </div>
+                </div>
                 );
               })}
             </div>

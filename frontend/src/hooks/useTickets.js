@@ -40,10 +40,29 @@ export const useTickets = (
     }
     
     isCreatingRef.current = true;
-    const clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
-    if (currentUser.ruolo === 'tecnico' && !clienteId) {
-      return showNotification('Devi selezionare un\'azienda e un richiedente.', 'error');
+    
+    // Se è tecnico, gestisci clienteId
+    let clienteId;
+    if (currentUser.ruolo === 'tecnico') {
+      // Se c'è un cliente selezionato, usalo
+      if (selectedClientForNewTicket && selectedClientForNewTicket.trim() !== '') {
+        clienteId = parseInt(selectedClientForNewTicket);
+        // Se la conversione fallisce, usa null (permette inserimento manuale)
+        if (isNaN(clienteId)) {
+          clienteId = null;
+        }
+      } else {
+        // Se non c'è cliente selezionato ma c'è un nome richiedente inserito manualmente, usa null
+        // Il backend gestirà il caso con clienteId null
+        clienteId = null;
+      }
+    } else {
+      // Se è cliente, usa il suo ID
+      clienteId = currentUser.id;
     }
+    
+    // Validazione: se è tecnico, deve avere almeno un'azienda selezionata (verificato nel modal)
+    // Non richiediamo più clienteId obbligatorio perché può essere inserito manualmente
     const ticketDaInviare = {
       ...newTicketData,
       clienteid: clienteId,
@@ -228,10 +247,28 @@ export const useTickets = (
     
     isUpdatingRef.current = true;
     
-    const clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
-    if (currentUser.ruolo === 'tecnico' && !clienteId) {
-      return showNotification('Devi selezionare un\'azienda e un richiedente.', 'error');
+    // Se è tecnico, gestisci clienteId
+    let clienteId;
+    if (currentUser.ruolo === 'tecnico') {
+      // Se c'è un cliente selezionato, usalo
+      if (selectedClientForNewTicket && selectedClientForNewTicket.trim() !== '') {
+        clienteId = parseInt(selectedClientForNewTicket);
+        // Se la conversione fallisce, usa null (permette inserimento manuale)
+        if (isNaN(clienteId)) {
+          clienteId = null;
+        }
+      } else {
+        // Se non c'è cliente selezionato ma c'è un nome richiedente inserito manualmente, usa null
+        // Il backend gestirà il caso con clienteId null
+        clienteId = null;
+      }
+    } else {
+      // Se è cliente, usa il suo ID
+      clienteId = currentUser.id;
     }
+    
+    // Validazione: se è tecnico, deve avere almeno un'azienda selezionata (verificato nel modal)
+    // Non richiediamo più clienteId obbligatorio perché può essere inserito manualmente
     
     const ticketAggiornato = {
       titolo: newTicketData.titolo,
