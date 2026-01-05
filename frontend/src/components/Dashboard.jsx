@@ -585,6 +585,42 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, currentUser?.ruolo, JSON.stringify(currentUser?.admin_companies || [])]);
 
+  // Ordina i contratti per scadenza prossima (solo per tecnici)
+  const sortedContracts = React.useMemo(() => {
+    if (!contracts || contracts.length === 0) return [];
+    
+    // Crea una copia dell'array per non mutare l'originale
+    const sorted = [...contracts];
+    
+    // Ordina per data di scadenza (end_date)
+    // I contratti con scadenza più vicina vanno in cima
+    // I contratti senza scadenza vanno in fondo
+    sorted.sort((a, b) => {
+      const dateA = a.end_date ? new Date(a.end_date).getTime() : Infinity;
+      const dateB = b.end_date ? new Date(b.end_date).getTime() : Infinity;
+      
+      // Se entrambi hanno scadenza, ordina per data crescente (più vicina prima)
+      if (dateA !== Infinity && dateB !== Infinity) {
+        return dateA - dateB;
+      }
+      
+      // Se solo A ha scadenza, A va prima
+      if (dateA !== Infinity && dateB === Infinity) {
+        return -1;
+      }
+      
+      // Se solo B ha scadenza, B va prima
+      if (dateA === Infinity && dateB !== Infinity) {
+        return 1;
+      }
+      
+      // Se nessuno ha scadenza, mantieni l'ordine originale
+      return 0;
+    });
+    
+    return sorted;
+  }, [contracts]);
+
   // Listener per refresh automatico quando viene creato, eliminato o modificato un contratto
   React.useEffect(() => {
     const handleContractCreated = () => {
@@ -1529,7 +1565,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           </div>
 
           {/* CONTRATTI ATTIVI */}
-          {contracts.length > 0 && (
+          {sortedContracts.length > 0 && (
             <div className="mb-6">
               <div className="bg-white rounded-xl border">
                 <div className="p-4 border-b flex items-center justify-between">
@@ -1538,11 +1574,11 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                     Contratti Attivi
                   </h3>
                   <div className="text-xs text-gray-500">
-                    {contracts.length} {contracts.length === 1 ? 'contratto' : 'contratti'}
+                    {sortedContracts.length} {sortedContracts.length === 1 ? 'contratto' : 'contratti'}
                   </div>
                 </div>
                 <div className="p-4 space-y-4">
-                  {contracts.map(contract => (
+                  {sortedContracts.map(contract => (
                     <ContractTimelineCard 
                       key={contract.id} 
                       contract={contract} 
