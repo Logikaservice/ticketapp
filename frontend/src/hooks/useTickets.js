@@ -42,7 +42,7 @@ export const useTickets = (
     isCreatingRef.current = true;
     const clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
     if (currentUser.ruolo === 'tecnico' && !clienteId) {
-      return showNotification('Devi selezionare un cliente.', 'error');
+      return showNotification('Devi selezionare un\'azienda e un richiedente.', 'error');
     }
     const ticketDaInviare = {
       ...newTicketData,
@@ -230,7 +230,7 @@ export const useTickets = (
     
     const clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
     if (currentUser.ruolo === 'tecnico' && !clienteId) {
-      return showNotification('Devi selezionare un cliente.', 'error');
+      return showNotification('Devi selezionare un\'azienda e un richiedente.', 'error');
     }
     
     const ticketAggiornato = {

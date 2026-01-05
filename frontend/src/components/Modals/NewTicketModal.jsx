@@ -14,11 +14,10 @@ const NewTicketModal = ({
   selectedClientForNewTicket,
   setSelectedClientForNewTicket
 }) => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [expandedCompanies, setExpandedCompanies] = useState(() => {
-    // Aziende collassate di default (vuoto = tutte collassate)
-    return new Set();
-  });
+  const [isAziendaDropdownOpen, setIsAziendaDropdownOpen] = useState(false);
+  const [selectedAzienda, setSelectedAzienda] = useState('');
+  const [isRichiedenteDropdownOpen, setIsRichiedenteDropdownOpen] = useState(false);
+  const [richiedenteInputMode, setRichiedenteInputMode] = useState('dropdown'); // 'dropdown' o 'manual'
   const [photos, setPhotos] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef(null);
@@ -30,68 +29,86 @@ const NewTicketModal = ({
     return cliente.admin_companies.includes(azienda);
   };
 
-  // Raggruppa clienti per azienda, con amministratori per primi
-  const clientiPerAzienda = useMemo(() => {
-    const grouped = {};
+  // Ottieni lista unica di aziende
+  const aziendeUniche = useMemo(() => {
+    const aziende = new Set();
     clientiAttivi.forEach(cliente => {
       const azienda = cliente.azienda || 'Senza azienda';
-      if (!grouped[azienda]) {
-        grouped[azienda] = [];
+      if (azienda) {
+        aziende.add(azienda);
       }
-      grouped[azienda].push(cliente);
     });
-    
-    // Ordina i clienti dentro ogni azienda: prima gli amministratori, poi gli altri
-    Object.keys(grouped).forEach(azienda => {
-      grouped[azienda].sort((a, b) => {
+    return Array.from(aziende).sort((a, b) => {
+      if (a === 'Senza azienda') return 1;
+      if (b === 'Senza azienda') return -1;
+      return a.toLowerCase().localeCompare(b.toLowerCase());
+    });
+  }, [clientiAttivi]);
+
+  // Ottieni clienti dell'azienda selezionata
+  const clientiAziendaSelezionata = useMemo(() => {
+    if (!selectedAzienda) return [];
+    return clientiAttivi
+      .filter(cliente => (cliente.azienda || 'Senza azienda') === selectedAzienda)
+      .sort((a, b) => {
         const aIsAdmin = isAdminOfCompany(a);
         const bIsAdmin = isAdminOfCompany(b);
-        
-        // Prima gli amministratori
         if (aIsAdmin && !bIsAdmin) return -1;
         if (!aIsAdmin && bIsAdmin) return 1;
-        
-        // Poi ordina per nome
         const nomeA = `${a.nome || ''} ${a.cognome || ''}`.trim().toLowerCase();
         const nomeB = `${b.nome || ''} ${b.cognome || ''}`.trim().toLowerCase();
         return nomeA.localeCompare(nomeB);
       });
-    });
-    
-    // Ordina le aziende alfabeticamente
-    return Object.keys(grouped)
-      .sort((a, b) => {
-        if (a === 'Senza azienda') return 1;
-        if (b === 'Senza azienda') return -1;
-        return a.toLowerCase().localeCompare(b.toLowerCase());
-      })
-      .reduce((acc, azienda) => {
-        acc[azienda] = grouped[azienda];
-        return acc;
-      }, {});
-  }, [clientiAttivi]);
+  }, [selectedAzienda, clientiAttivi]);
 
-  const toggleCompany = (azienda) => {
-    setExpandedCompanies(prev => {
-      const next = new Set(prev);
-      if (next.has(azienda)) {
-        next.delete(azienda);
-      } else {
-        next.add(azienda);
-      }
-      return next;
-    });
+  const handleSelectAzienda = (azienda) => {
+    setSelectedAzienda(azienda);
+    setIsAziendaDropdownOpen(false);
+    // Reset cliente selezionato e nome richiedente quando si cambia azienda
+    setSelectedClientForNewTicket('');
+    setNewTicketData({ ...newTicketData, nomerichiedente: '' });
+    setRichiedenteInputMode('dropdown');
   };
 
-  const handleSelectClient = (clientId) => {
-    setSelectedClientForNewTicket(clientId.toString());
-    setIsDropdownOpen(false);
+  const handleSelectRichiedente = (cliente) => {
+    // Se si seleziona un cliente dal dropdown, usa il suo nome completo e email
+    const nomeCompleto = `${cliente.nome || ''} ${cliente.cognome || ''}`.trim();
+    const displayName = cliente.email ? `${nomeCompleto} (${cliente.email})` : nomeCompleto;
+    setNewTicketData({ ...newTicketData, nomerichiedente: displayName });
+    setSelectedClientForNewTicket(cliente.id.toString());
+    setIsRichiedenteDropdownOpen(false);
+    setRichiedenteInputMode('dropdown');
   };
 
-  const selectedClient = clientiAttivi.find(c => c.id.toString() === selectedClientForNewTicket);
-  const selectedClientName = selectedClient 
-    ? `${selectedClient.azienda || 'Senza azienda'}${selectedClient.email ? ` - ${selectedClient.email}` : ''}`
-    : 'Seleziona un cliente';
+  const handleRichiedenteManualInput = (value) => {
+    setNewTicketData({ ...newTicketData, nomerichiedente: value });
+    // Se si inserisce manualmente, non selezionare un cliente specifico
+    if (value && !clientiAziendaSelezionata.some(c => {
+      const nomeCompleto = `${c.nome || ''} ${c.cognome || ''}`.trim();
+      const displayName = c.email ? `${nomeCompleto} (${c.email})` : nomeCompleto;
+      return displayName === value;
+    })) {
+      setSelectedClientForNewTicket('');
+      setRichiedenteInputMode('manual');
+    }
+  };
+
+  // Trova il cliente selezionato in base al nome richiedente
+  const selectedClientFromRichiedente = useMemo(() => {
+    if (!newTicketData.nomerichiedente || !selectedAzienda) return null;
+    return clientiAziendaSelezionata.find(c => {
+      const nomeCompleto = `${c.nome || ''} ${c.cognome || ''}`.trim();
+      const displayName = c.email ? `${nomeCompleto} (${c.email})` : nomeCompleto;
+      return displayName === newTicketData.nomerichiedente;
+    });
+  }, [newTicketData.nomerichiedente, selectedAzienda, clientiAziendaSelezionata]);
+
+  // Aggiorna selectedClientForNewTicket quando si seleziona un cliente dal dropdown
+  useEffect(() => {
+    if (selectedClientFromRichiedente && selectedClientFromRichiedente.id.toString() !== selectedClientForNewTicket) {
+      setSelectedClientForNewTicket(selectedClientFromRichiedente.id.toString());
+    }
+  }, [selectedClientFromRichiedente, selectedClientForNewTicket, setSelectedClientForNewTicket]);
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files || []);
@@ -182,121 +199,62 @@ const NewTicketModal = ({
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {currentUser.ruolo === 'tecnico' && (
             <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Azienda <span className="text-red-500">*</span></label>
               <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  onClick={() => setIsAziendaDropdownOpen(!isAziendaDropdownOpen)}
                   className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition"
                 >
-                  <span className={selectedClient ? 'text-gray-900' : 'text-gray-500'}>
-                    {selectedClient ? (
-                      <span className="flex items-center gap-2">
-                        {isAdminOfCompany(selectedClient) && <Crown size={16} className="text-yellow-500" />}
-                        {selectedClientName}
-                      </span>
-                    ) : selectedClientName}
+                  <span className={selectedAzienda ? 'text-gray-900' : 'text-gray-500'}>
+                    {selectedAzienda || 'Seleziona un\'azienda'}
                   </span>
                   <ChevronDown 
                     size={20} 
-                    className={`text-gray-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} 
+                    className={`text-gray-400 transition-transform ${isAziendaDropdownOpen ? 'rotate-180' : ''}`} 
                   />
                 </button>
 
-                {isDropdownOpen && (
+                {isAziendaDropdownOpen && (
                   <>
                     <div 
                       className="fixed inset-0 z-10" 
-                      onClick={() => setIsDropdownOpen(false)}
+                      onClick={() => setIsAziendaDropdownOpen(false)}
                     ></div>
                     <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto">
-                      {Object.keys(clientiPerAzienda).length === 0 ? (
+                      {aziendeUniche.length === 0 ? (
                         <div className="p-4 text-center text-gray-500">
-                          Nessun cliente disponibile
+                          Nessuna azienda disponibile
                         </div>
                       ) : (
-                        Object.entries(clientiPerAzienda).map(([azienda, clientiAzienda]) => {
-                          const isExpanded = expandedCompanies.has(azienda);
-                          const isNoCompany = azienda === 'Senza azienda';
+                        aziendeUniche.map((azienda) => {
+                          const isSelected = azienda === selectedAzienda;
+                          const clientiCount = clientiAttivi.filter(c => (c.azienda || 'Senza azienda') === azienda).length;
                           
                           return (
-                            <div key={azienda} className="border-b border-gray-100 last:border-b-0">
-                              {/* Header Azienda - Espandibile */}
-                              <button
-                                type="button"
-                                onClick={() => toggleCompany(azienda)}
-                                className="w-full px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all flex items-center justify-between text-left"
-                              >
-                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                  <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                    {isNoCompany ? <Building size={12} /> : azienda.charAt(0).toUpperCase()}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <h3 className="text-sm font-bold text-gray-800 truncate">
-                                      {isNoCompany ? 'Senza azienda' : azienda}
-                                    </h3>
-                                    <p className="text-xs text-gray-600">
-                                      {clientiAzienda.length} {clientiAzienda.length === 1 ? 'cliente' : 'clienti'}
-                                    </p>
-                                  </div>
+                            <button
+                              key={azienda}
+                              type="button"
+                              onClick={() => handleSelectAzienda(azienda)}
+                              className={`w-full px-4 py-3 text-left hover:bg-blue-50 transition flex items-center gap-3 border-b border-gray-100 last:border-b-0 ${
+                                isSelected ? 'bg-blue-50' : ''
+                              }`}
+                            >
+                              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                                {azienda === 'Senza azienda' ? <Building size={16} /> : azienda.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {azienda === 'Senza azienda' ? 'Senza azienda' : azienda}
                                 </div>
-                                {isExpanded ? (
-                                  <ChevronDown size={16} className="text-gray-500 flex-shrink-0" />
-                                ) : (
-                                  <ChevronRight size={16} className="text-gray-500 flex-shrink-0" />
-                                )}
-                              </button>
-                              
-                              {/* Clienti dell'azienda - Espansi/Collassati */}
-                              {isExpanded && (
-                                <div className="bg-gray-50">
-                                  {clientiAzienda.map((cliente) => {
-                                    const isAdmin = isAdminOfCompany(cliente);
-                                    const isSelected = cliente.id.toString() === selectedClientForNewTicket;
-                                    
-                                    return (
-                                      <button
-                                        key={cliente.id}
-                                        type="button"
-                                        onClick={() => handleSelectClient(cliente.id)}
-                                        className={`w-full px-4 py-2.5 text-left hover:bg-blue-50 transition flex items-center gap-3 border-l-2 ${
-                                          isSelected 
-                                            ? 'bg-blue-50 border-blue-500' 
-                                            : 'border-transparent'
-                                        }`}
-                                      >
-                                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                                          {/* Spazio fisso per la corona: sempre presente, visibile solo se admin */}
-                                          <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
-                                            {isAdmin && (
-                                              <Crown size={16} className="text-yellow-500" />
-                                            )}
-                                          </div>
-                                          <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                              <span className={`text-sm font-medium ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>
-                                                {cliente.nome} {cliente.cognome}
-                                              </span>
-                                            </div>
-                                            {cliente.email && (
-                                              <div className="flex items-center gap-1 mt-0.5">
-                                                <Mail size={12} className="text-gray-400" />
-                                                <span className="text-xs text-gray-600 truncate">
-                                                  {cliente.email}
-                                                </span>
-                                              </div>
-                                            )}
-                                          </div>
-                                        </div>
-                                        {isSelected && (
-                                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
-                                        )}
-                                      </button>
-                                    );
-                                  })}
+                                <div className="text-xs text-gray-600">
+                                  {clientiCount} {clientiCount === 1 ? 'cliente' : 'clienti'}
                                 </div>
+                              </div>
+                              {isSelected && (
+                                <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
                               )}
-                            </div>
+                            </button>
                           );
                         })
                       )}
@@ -357,16 +315,139 @@ const NewTicketModal = ({
             </div>
           </div>
 
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1">Richiedente <span className="text-red-500">*</span></label>
-            <input
-              type="text"
-              value={newTicketData.nomerichiedente}
-              onChange={(e) => setNewTicketData({ ...newTicketData, nomerichiedente: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Nome del richiedente"
-              required
-            />
+            {currentUser.ruolo === 'tecnico' && selectedAzienda ? (
+              <div className="space-y-2">
+                <div className="relative">
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      {richiedenteInputMode === 'dropdown' ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setIsRichiedenteDropdownOpen(!isRichiedenteDropdownOpen)}
+                            className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition"
+                          >
+                            <span className={newTicketData.nomerichiedente ? 'text-gray-900' : 'text-gray-500'}>
+                              {newTicketData.nomerichiedente || 'Seleziona un richiedente'}
+                            </span>
+                            <ChevronDown 
+                              size={20} 
+                              className={`text-gray-400 transition-transform ${isRichiedenteDropdownOpen ? 'rotate-180' : ''}`} 
+                            />
+                          </button>
+                          {isRichiedenteDropdownOpen && (
+                            <>
+                              <div 
+                                className="fixed inset-0 z-10" 
+                                onClick={() => setIsRichiedenteDropdownOpen(false)}
+                              ></div>
+                              <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                                {clientiAziendaSelezionata.length === 0 ? (
+                                  <div className="p-4 text-center text-gray-500">
+                                    Nessun cliente disponibile per questa azienda
+                                  </div>
+                                ) : (
+                                  <>
+                                    {clientiAziendaSelezionata.map((cliente) => {
+                                      const nomeCompleto = `${cliente.nome || ''} ${cliente.cognome || ''}`.trim();
+                                      const displayName = cliente.email ? `${nomeCompleto} (${cliente.email})` : nomeCompleto;
+                                      const isSelected = newTicketData.nomerichiedente === displayName;
+                                      
+                                      return (
+                                        <button
+                                          key={cliente.id}
+                                          type="button"
+                                          onClick={() => handleSelectRichiedente(cliente)}
+                                          className={`w-full px-4 py-2.5 text-left hover:bg-blue-50 transition flex items-center gap-3 border-l-2 ${
+                                            isSelected 
+                                              ? 'bg-blue-50 border-blue-500' 
+                                              : 'border-transparent'
+                                          }`}
+                                        >
+                                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                                            <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                                              {isAdminOfCompany(cliente) && (
+                                                <Crown size={16} className="text-yellow-500" />
+                                              )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                              <div className="text-sm font-medium text-gray-900">
+                                                {nomeCompleto}
+                                              </div>
+                                              {cliente.email && (
+                                                <div className="flex items-center gap-1 mt-0.5">
+                                                  <Mail size={12} className="text-gray-400" />
+                                                  <span className="text-xs text-gray-600 truncate">
+                                                    {cliente.email}
+                                                  </span>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                          {isSelected && (
+                                            <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                    <div className="border-t border-gray-200">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setRichiedenteInputMode('manual');
+                                          setIsRichiedenteDropdownOpen(false);
+                                          setNewTicketData({ ...newTicketData, nomerichiedente: '' });
+                                        }}
+                                        className="w-full px-4 py-2.5 text-left hover:bg-gray-50 transition text-sm text-gray-600"
+                                      >
+                                        Inserisci manualmente...
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={newTicketData.nomerichiedente}
+                            onChange={(e) => handleRichiedenteManualInput(e.target.value)}
+                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Inserisci il nome del richiedente"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRichiedenteInputMode('dropdown');
+                              setNewTicketData({ ...newTicketData, nomerichiedente: '' });
+                              setSelectedClientForNewTicket('');
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-800"
+                          >
+                            ← Torna alla selezione da lista
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={newTicketData.nomerichiedente}
+                onChange={(e) => setNewTicketData({ ...newTicketData, nomerichiedente: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Nome del richiedente"
+                required
+              />
+            )}
           </div>
 
           {currentUser.ruolo === 'tecnico' && (
