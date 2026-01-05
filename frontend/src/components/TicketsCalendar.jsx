@@ -588,44 +588,82 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
             </div>
             
             <div className="space-y-2 max-h-60 overflow-y-auto">
-              {selectedDateTickets.map((ticket) => (
-                <div
-                  key={`${ticket.id}-${ticket.isIntervento ? 'intervento' : 'ticket'}`}
-                  className={`p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
-                    getPriorityColor(ticket.isIntervento ? 'intervento' : ticket.priorita).replace('bg-', 'border-l-4 border-l-')
-                  }`}
-                  onClick={() => handleTicketClick(ticket)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">#{ticket.numero}</span>
-                        <span className={`px-2 py-1 text-xs rounded-full text-white ${getPriorityColor(ticket.isIntervento ? 'intervento' : ticket.priorita)}`}>
-                          {ticket.isIntervento ? 'Intervento' : getPriorityName(ticket.priorita)}
-                        </span>
-                        {ticket.isIntervento && ticket.timelogModalita && (
-                          <span className="text-xs text-gray-600 italic">
-                            ({ticket.timelogModalita})
-                          </span>
-                        )}
-                        {ticket.photos && ticket.photos.length > 0 && (
-                          <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700 font-medium flex items-center gap-1" title={`${ticket.photos.length} file allegato${ticket.photos.length !== 1 ? 'i' : ''}`}>
-                            <Paperclip size={11} />
-                            {ticket.photos.length}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-700 mt-1">{ticket.titolo}</div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {ticket.isIntervento ? 'Intervento eseguito' : `Cliente: ${ticket.cliente} • Stato: ${ticket.stato}`}
+              {selectedDateTickets.map((ticket) => {
+                // Gestisci eventi contratto diversamente dai ticket normali
+                if (ticket.isContratto) {
+                  return (
+                    <div
+                      key={`contract-${ticket.contract_id}-${ticket.id}`}
+                      className={`p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
+                        getPriorityColor('contratto').replace('bg-', 'border-l-4 border-l-')
+                      }`}
+                      onClick={() => {
+                        // Per i contratti, non apriamo un ticket ma potremmo aprire il contratto
+                        // Per ora, non facciamo nulla o possiamo navigare al contratto
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">Contratto</span>
+                            <span className={`px-2 py-1 text-xs rounded-full text-white ${getPriorityColor('contratto')}`}>
+                              Contratto
+                            </span>
+                          </div>
+                          <div className="text-sm text-gray-700 mt-1">{ticket.contract_title || ticket.description || 'Evento contratto'}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {ticket.contract_client_name ? `Cliente: ${ticket.contract_client_name}` : 'Cliente: N/D'} • {ticket.description || 'Fatturazione'}
+                            {ticket.amount && ` • Importo: € ${parseFloat(ticket.amount).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          Evento contratto
+                        </div>
                       </div>
                     </div>
-                    <div className="text-xs text-gray-400">
-                      Click per aprire
+                  );
+                }
+                
+                // Gestisci ticket normali e interventi
+                return (
+                  <div
+                    key={`${ticket.id}-${ticket.isIntervento ? 'intervento' : 'ticket'}`}
+                    className={`p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
+                      getPriorityColor(ticket.isIntervento ? 'intervento' : ticket.priorita).replace('bg-', 'border-l-4 border-l-')
+                    }`}
+                    onClick={() => handleTicketClick(ticket)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">#{ticket.numero}</span>
+                          <span className={`px-2 py-1 text-xs rounded-full text-white ${getPriorityColor(ticket.isIntervento ? 'intervento' : ticket.priorita)}`}>
+                            {ticket.isIntervento ? 'Intervento' : getPriorityName(ticket.priorita)}
+                          </span>
+                          {ticket.isIntervento && ticket.timelogModalita && (
+                            <span className="text-xs text-gray-600 italic">
+                              ({ticket.timelogModalita})
+                            </span>
+                          )}
+                          {ticket.photos && ticket.photos.length > 0 && (
+                            <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700 font-medium flex items-center gap-1" title={`${ticket.photos.length} file allegato${ticket.photos.length !== 1 ? 'i' : ''}`}>
+                              <Paperclip size={11} />
+                              {ticket.photos.length}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-700 mt-1">{ticket.titolo}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {ticket.isIntervento ? 'Intervento eseguito' : `Cliente: ${ticket.cliente} • Stato: ${ticket.stato}`}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        Click per aprire
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

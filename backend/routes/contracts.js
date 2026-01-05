@@ -173,46 +173,136 @@ module.exports = (pool, upload) => {
                     `, [contractId]);
                     const contractEvents = eventsResult.rows;
 
-                    // Chiama l'endpoint di sincronizzazione Google Calendar
-                    const apiUrl = process.env.API_URL || `http://localhost:${process.env.PORT || 3001}`;
-                    const syncUrl = `${apiUrl}/api/sync-contract-google-calendar`;
-                    
-                    const syncPayload = JSON.stringify({
-                        contract: contract,
-                        events: contractEvents
-                    });
-
-                    const url = new URL(syncUrl);
-                    const options = {
-                        hostname: url.hostname,
-                        port: url.port || (url.protocol === 'https:' ? 443 : 80),
-                        path: url.pathname,
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Content-Length': Buffer.byteLength(syncPayload),
-                            'Authorization': req.headers.authorization || ''
+                    // Chiama direttamente la funzione di sincronizzazione Google Calendar
+                    // Estrai la logica di sincronizzazione in una funzione riutilizzabile
+                    const syncContractToGoogleCalendar = async (contract, events) => {
+                        try {
+                            const { google } = require('googleapis');
+                            
+                            // Verifica che le credenziali Service Account siano configurate
+                            if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
+                                console.log('⚠️ Credenziali Google Service Account non configurate');
+                                return;
+                            }
+                            
+                            // Configura Google Auth
+                            const auth = new google.auth.GoogleAuth({
+                                credentials: {
+                                    type: "service_account",
+                                    project_id: process.env.GOOGLE_PROJECT_ID || "ticketapp-b2a2a",
+                                    private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
+                                    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+                                    client_email: process.env.GOOGLE_CLIENT_EMAIL,
+                                    client_id: process.env.GOOGLE_CLIENT_ID,
+                                    auth_uri: "https://accounts.google.com/o/oauth2/auth",
+                                    token_uri: "https://oauth2.googleapis.com/token",
+                                    auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+                                    client_x509_cert_url: process.env.GOOGLE_CLIENT_X509_CERT_URL,
+                                    universe_domain: "googleapis.com"
+                                },
+                                scopes: ['https://www.googleapis.com/auth/calendar']
+                            });
+                            
+                            const authClient = await auth.getClient();
+                            const calendar = google.calendar({ version: 'v3', auth: authClient });
+                            
+                            // Trova il calendario corretto
+                            let calendarId = 'primary';
+                            try {
+                                const calendarList = await calendar.calendarList.list();
+                                const ticketAppCalendar = calendarList.data.items?.find(cal => cal.summary === 'TicketApp Test Calendar');
+                                if (ticketAppCalendar) {
+                                    calendarId = ticketAppCalendar.id;
+                                } else if (calendarList.data.items && calendarList.data.items.length > 0) {
+                                    calendarId = calendarList.data.items[0].id;
+                                }
+                            } catch (calErr) {
+                                console.log('⚠️ Errore ricerca calendario, uso primary:', calErr.message);
+                            }
+                            
+                            // Crea eventi per ogni evento del contratto
+                            let createdCount = 0;
+                            if (events && Array.isArray(events)) {
+                                for (const eventData of events) {
+                                    if (!eventData.event_date) {
+                                        continue;
+                                    }
+                                    
+                                    // Gestisci la data - eventi di un giorno intero
+                                    let eventDate;
+                                    if (eventData.event_date.includes('T')) {
+                                        eventDate = new Date(eventData.event_date);
+                                    } else {
+                                        eventDate = new Date(eventData.event_date + 'T00:00:00+02:00');
+                                    }
+                                    
+                                    if (isNaN(eventDate.getTime())) {
+                                        continue;
+                                    }
+                                    
+                                    const eventDateStr = eventDate.toISOString().split('T')[0]; // YYYY-MM-DD
+                                    
+                                    // Costruisci la descrizione
+                                    let description = `CONTRATTO: ${contract.title}\n`;
+                                    description += `CLIENTE: ${contract.client_name || 'N/D'}\n`;
+                                    description += `DESCRIZIONE: ${eventData.description || eventData.title || 'Fatturazione'}\n`;
+                                    if (eventData.amount) {
+                                        description += `IMPORTO: € ${parseFloat(eventData.amount).toFixed(2)}\n`;
+                                    }
+                                    description += `FREQUENZA: ${contract.billing_frequency || 'N/D'}\n`;
+                                    description += `LINK: ${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}/contracts/${contract.id}`;
+                                    
+                                    const event = {
+                                        summary: `Contratto: ${contract.title} - ${eventData.description || eventData.title || 'Fatturazione'}`,
+                                        description: description,
+                                        start: {
+                                            date: eventDateStr,
+                                            timeZone: 'Europe/Rome'
+                                        },
+                                        end: {
+                                            date: eventDateStr,
+                                            timeZone: 'Europe/Rome'
+                                        },
+                                        colorId: '5', // Giallo per contratti
+                                        source: {
+                                            title: 'TicketApp - Contratto',
+                                            url: `${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}/contracts/${contract.id}`
+                                        }
+                                    };
+                                    
+                                    try {
+                                        const result = await calendar.events.insert({
+                                            calendarId: calendarId,
+                                            resource: event,
+                                            sendUpdates: 'none',
+                                            conferenceDataVersion: 0
+                                        });
+                                        
+                                        if (result.data?.id && eventData.id) {
+                                            // Salva l'ID dell'evento Google Calendar nel database
+                                            await client.query(
+                                                'UPDATE contract_events SET googlecalendareventid = $1 WHERE id = $2',
+                                                [result.data.id, eventData.id]
+                                            );
+                                        }
+                                        
+                                        createdCount++;
+                                    } catch (eventErr) {
+                                        console.error(`⚠️ Errore creazione evento contratto:`, eventErr.message);
+                                    }
+                                }
+                            }
+                            
+                            if (createdCount > 0) {
+                                console.log(`✅ ${createdCount} eventi contratto sincronizzati con Google Calendar`);
+                            }
+                        } catch (err) {
+                            console.error('❌ Errore sincronizzazione contratto Google Calendar:', err.message);
                         }
                     };
-
-                    const syncReq = http.request(options, (syncRes) => {
-                        let data = '';
-                        syncRes.on('data', (chunk) => { data += chunk; });
-                        syncRes.on('end', () => {
-                            if (syncRes.statusCode === 200) {
-                                console.log('✅ Contratto sincronizzato con Google Calendar');
-                            } else {
-                                console.log('⚠️ Errore sincronizzazione Google Calendar:', data);
-                            }
-                        });
-                    });
-
-                    syncReq.on('error', (err) => {
-                        console.error('⚠️ Errore chiamata sincronizzazione Google Calendar:', err.message);
-                    });
-
-                    syncReq.write(syncPayload);
-                    syncReq.end();
+                    
+                    // Chiama la funzione di sincronizzazione
+                    await syncContractToGoogleCalendar(contract, contractEvents);
                 } catch (syncErr) {
                     // Non bloccare la risposta se la sincronizzazione fallisce
                     console.error('⚠️ Errore sincronizzazione Google Calendar (non bloccante):', syncErr.message);
