@@ -1,7 +1,9 @@
-import React, { useMemo } from 'react';
-import { Download, FileText, Clock, AlertCircle, CheckCircle, Edit } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Download, FileText, Clock, AlertCircle, CheckCircle, Edit, Paperclip } from 'lucide-react';
 
 const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) => {
+    const [showFilesMenu, setShowFilesMenu] = useState(false);
+    
     if (!contract) return null;
 
     // Helpers
@@ -100,6 +102,16 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                         </div>
                         {contract.end_date && (
                             <span className="text-xs text-gray-600 font-medium">Scadenza: {formatDate(contract.end_date)}</span>
+                        )}
+                        {/* Edit button (only for technicians) - spostato qui */}
+                        {currentUser?.ruolo === 'tecnico' && onEdit && (
+                            <button
+                                onClick={() => onEdit(contract)}
+                                className="p-1.5 hover:bg-blue-50 rounded transition-colors text-blue-600 hover:text-blue-700"
+                                title="Modifica contratto"
+                            >
+                                <Edit size={16} />
+                            </button>
                         )}
                     </div>
                 </div>
@@ -220,17 +232,6 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                 </div>
 
                 <div className="flex items-center gap-3">
-                    {/* Edit button (only for technicians) */}
-                    {currentUser?.ruolo === 'tecnico' && onEdit && (
-                        <button
-                            onClick={() => onEdit(contract)}
-                            className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg transition-colors text-sm border border-blue-300"
-                        >
-                            <Edit size={16} />
-                            Modifica
-                        </button>
-                    )}
-
                     {(() => {
                         // Gestisci sia formato vecchio (stringa) che nuovo (array JSON)
                         let files = [];
@@ -253,42 +254,55 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                         
                         const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
                         
-                        if (files.length === 1) {
-                            // Un solo file: mostra un pulsante
-                            const file = files[0];
-                            const filePath = typeof file === 'string' ? file : file.path;
-                            return (
+                        return (
+                            <div className="relative">
                                 <button
-                                    onClick={() => window.open(filePath.startsWith('http') ? filePath : `${apiUrl}${filePath}`, '_blank')}
-                                    className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-700 px-4 py-2 rounded-lg transition-colors text-sm border border-gray-300"
+                                    onClick={() => setShowFilesMenu(!showFilesMenu)}
+                                    className="p-2 hover:bg-gray-100 rounded transition-colors text-gray-600 hover:text-gray-700 relative"
+                                    title={`${files.length} allegato${files.length !== 1 ? 'i' : ''}`}
                                 >
-                                    <Download size={16} />
-                                    Scarica Contratto
+                                    <Paperclip size={18} />
+                                    {files.length > 1 && (
+                                        <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                                            {files.length}
+                                        </span>
+                                    )}
                                 </button>
-                            );
-                        } else {
-                            // Più file: mostra un menu dropdown o lista
-                            return (
-                                <div className="flex flex-col gap-1">
-                                    {files.map((file, index) => {
-                                        const filePath = typeof file === 'string' ? file : file.path;
-                                        const fileName = typeof file === 'string' 
-                                            ? file.split('/').pop() 
-                                            : (file.filename || file.path?.split('/').pop() || `File ${index + 1}`);
-                                        return (
-                                            <button
-                                                key={index}
-                                                onClick={() => window.open(filePath.startsWith('http') ? filePath : `${apiUrl}${filePath}`, '_blank')}
-                                                className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-700 px-4 py-2 rounded-lg transition-colors text-sm border border-gray-300"
-                                            >
-                                                <Download size={16} />
-                                                {fileName}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            );
-                        }
+                                
+                                {showFilesMenu && (
+                                    <>
+                                        {/* Overlay per chiudere il menu cliccando fuori */}
+                                        <div 
+                                            className="fixed inset-0 z-10" 
+                                            onClick={() => setShowFilesMenu(false)}
+                                        ></div>
+                                        
+                                        {/* Menu dropdown */}
+                                        <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-[200px] py-1">
+                                            {files.map((file, index) => {
+                                                const filePath = typeof file === 'string' ? file : file.path;
+                                                const fileName = typeof file === 'string' 
+                                                    ? file.split('/').pop() 
+                                                    : (file.filename || file.path?.split('/').pop() || `File ${index + 1}`);
+                                                return (
+                                                    <button
+                                                        key={index}
+                                                        onClick={() => {
+                                                            window.open(filePath.startsWith('http') ? filePath : `${apiUrl}${filePath}`, '_blank');
+                                                            setShowFilesMenu(false);
+                                                        }}
+                                                        className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-50 text-left text-sm text-gray-700 transition-colors"
+                                                    >
+                                                        <Download size={14} className="text-gray-400" />
+                                                        <span className="truncate flex-1">{fileName}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        );
                     })()}
                 </div>
             </div>
