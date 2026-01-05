@@ -13,9 +13,10 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
         start_date: new Date().toISOString().split('T')[0],
         billing_frequency: 'monthly',
         amount: '',
-        duration: '1', // 1, 2, 3 anni o 'custom'
-        contractPdf: null
+        duration: '1' // 1, 2, 3 anni o 'custom'
     });
+    const [contractFiles, setContractFiles] = useState([]);
+    const fileInputRef = useRef(null);
 
     const [generatedEvents, setGeneratedEvents] = useState([]);
 
@@ -299,11 +300,13 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
 
             const { contractId } = await res.json();
 
-            // 2. Upload PDF if present
-            if (formData.contractPdf) {
+            // 2. Upload PDF files if present
+            if (contractFiles && contractFiles.length > 0) {
                 try {
                     const formDataUpload = new FormData();
-                    formDataUpload.append('contractPdf', formData.contractPdf);
+                    contractFiles.forEach((file, index) => {
+                        formDataUpload.append('contractPdf', file);
+                    });
 
                     const uploadRes = await fetch(buildApiUrl(`/api/contracts/${contractId}/upload`), {
                         method: 'POST',
@@ -315,11 +318,11 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                     });
 
                     if (!uploadRes.ok) {
-                        throw new Error('Errore durante il caricamento del PDF');
+                        throw new Error('Errore durante il caricamento dei file');
                     }
                 } catch (uploadErr) {
                     console.error('Upload PDF error:', uploadErr);
-                    notify('Contratto creato ma errore nel caricamento del PDF: ' + uploadErr.message, 'warning');
+                    notify('Contratto creato ma errore nel caricamento dei file: ' + uploadErr.message, 'warning');
                 }
             }
 
@@ -441,21 +444,93 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                     ) : (
                         <div className="space-y-6">
                             {/* PDF Upload */}
-                            <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-50 transition">
-                                <input
-                                    type="file"
-                                    className="hidden"
-                                    id="contract-pdf"
-                                    accept=".pdf"
-                                    onChange={e => setFormData({ ...formData, contractPdf: e.target.files[0] })}
-                                />
-                                <label htmlFor="contract-pdf" className="cursor-pointer flex flex-col items-center">
-                                    <Upload size={48} className="text-slate-400 mb-2" />
-                                    <span className="font-semibold text-slate-600">
-                                        {formData.contractPdf ? formData.contractPdf.name : 'Carica il Contratto Firmato (PDF)'}
-                                    </span>
-                                    <span className="text-sm text-slate-400 mt-1">Clicca o trascina qui</span>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                    Allegato al contratto
                                 </label>
+                                <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-50 transition">
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        className="hidden"
+                                        id="contract-pdf"
+                                        accept=".pdf"
+                                        multiple
+                                        onChange={(e) => {
+                                            const newFiles = Array.from(e.target.files || []);
+                                            if (newFiles.length === 0) return;
+
+                                            // Verifica dimensione per file singolo (massimo 20MB per file)
+                                            const maxFileSize = 20 * 1024 * 1024; // 20MB in bytes
+                                            const oversizedFiles = newFiles.filter(file => file.size > maxFileSize);
+                                            
+                                            if (oversizedFiles.length > 0) {
+                                                const fileNames = oversizedFiles.map(f => `${f.name} (${(f.size / (1024 * 1024)).toFixed(2)}MB)`).join(', ');
+                                                notify(`I seguenti file superano il limite di 20MB per file:\n${fileNames}`, 'warning');
+                                                if (fileInputRef.current) {
+                                                    fileInputRef.current.value = '';
+                                                }
+                                                return;
+                                            }
+                                            
+                                            // Combina i file esistenti con i nuovi file
+                                            const existingFiles = contractFiles || [];
+                                            const allFiles = [...existingFiles, ...newFiles];
+                                            
+                                            // Evita duplicati basandosi sul nome, dimensione e data di modifica
+                                            const uniqueFiles = [];
+                                            const fileKeys = new Set();
+                                            
+                                            allFiles.forEach(file => {
+                                                const key = `${file.name}-${file.size}-${file.lastModified}`;
+                                                if (!fileKeys.has(key)) {
+                                                    fileKeys.add(key);
+                                                    uniqueFiles.push(file);
+                                                }
+                                            });
+                                            
+                                            setContractFiles(uniqueFiles);
+                                            
+                                            // Reset input per permettere di selezionare gli stessi file di nuovo se necessario
+                                            if (fileInputRef.current) {
+                                                fileInputRef.current.value = '';
+                                            }
+                                        }}
+                                    />
+                                    <label htmlFor="contract-pdf" className="cursor-pointer flex flex-col items-center">
+                                        <Upload size={48} className="text-slate-400 mb-2" />
+                                        <span className="font-semibold text-slate-600">
+                                            {contractFiles.length > 0 
+                                                ? `${contractFiles.length} file selezionati` 
+                                                : 'Carica il Contratto Firmato (PDF)'}
+                                        </span>
+                                        <span className="text-sm text-slate-400 mt-1">Clicca o trascina qui</span>
+                                    </label>
+                                </div>
+                                {contractFiles.length > 0 && (
+                                    <div className="mt-3 space-y-2">
+                                        {contractFiles.map((file, index) => (
+                                            <div key={index} className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200">
+                                                <FileText size={16} className="text-slate-600" />
+                                                <span className="text-sm text-slate-700 flex-1 truncate">{file.name}</span>
+                                                <span className="text-xs text-slate-500">
+                                                    ({(file.size / (1024 * 1024)).toFixed(2)} MB)
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const newFiles = contractFiles.filter((_, i) => i !== index);
+                                                        setContractFiles(newFiles);
+                                                    }}
+                                                    className="text-red-600 hover:text-red-800 text-sm flex items-center gap-1"
+                                                >
+                                                    <Trash2 size={14} />
+                                                    Rimuovi
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Schedule Preview */}

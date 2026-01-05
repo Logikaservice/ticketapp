@@ -320,23 +320,60 @@ module.exports = (pool, upload) => {
         }
     });
 
-    // POST /api/contracts/:id/upload - Upload PDF
-    router.post('/:id/upload', upload.single('contractPdf'), async (req, res) => {
+    // POST /api/contracts/:id/upload - Upload PDF (supporta più file)
+    router.post('/:id/upload', upload.array('contractPdf', 10), async (req, res) => {
         const { id } = req.params;
-        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-
-        // Generate relative path for DB
-        const relativePath = `/uploads/contracts/${req.file.filename}`;
+        if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
 
         try {
             const client = await pool.connect();
+            
+            // Recupera i file esistenti
+            const existingResult = await client.query(`
+                SELECT contract_file_path FROM contracts WHERE id = $1
+            `, [id]);
+            
+            let existingFiles = [];
+            if (existingResult.rows.length > 0 && existingResult.rows[0].contract_file_path) {
+                try {
+                    // Prova a parsare come JSON (se è un array)
+                    const parsed = JSON.parse(existingResult.rows[0].contract_file_path);
+                    if (Array.isArray(parsed)) {
+                        existingFiles = parsed;
+                    } else {
+                        // Se è una stringa singola (retrocompatibilità), convertila in array
+                        existingFiles = [existingResult.rows[0].contract_file_path];
+                    }
+                } catch (e) {
+                    // Se non è JSON, è una stringa singola (retrocompatibilità)
+                    existingFiles = [existingResult.rows[0].contract_file_path];
+                }
+            }
+            
+            // Aggiungi i nuovi file
+            const newFiles = req.files.map(file => ({
+                filename: file.filename,
+                path: `/uploads/contracts/${file.filename}`,
+                size: file.size,
+                mimetype: file.mimetype,
+                uploadedAt: new Date().toISOString()
+            }));
+            
+            const allFiles = [...existingFiles, ...newFiles];
+            
+            // Salva come JSON array
             await client.query(`
                 UPDATE contracts SET contract_file_path = $1 WHERE id = $2
-            `, [relativePath, id]);
+            `, [JSON.stringify(allFiles), id]);
+            
             client.release();
-            res.json({ success: true, filePath: relativePath });
+            res.json({ 
+                success: true, 
+                files: allFiles,
+                message: `${req.files.length} file caricati con successo`
+            });
         } catch (err) {
-            console.error('Error updating contract file:', err);
+            console.error('Error updating contract files:', err);
             res.status(500).json({ error: 'Database update failed' });
         }
     });

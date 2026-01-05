@@ -231,15 +231,65 @@ const ContractTimelineCard = ({ contract, currentUser, getAuthHeader, onEdit }) 
                         </button>
                     )}
 
-                    {contract.contract_file_path && (
-                        <button
-                            onClick={() => window.open(contract.contract_file_path.startsWith('http') ? contract.contract_file_path : `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${contract.contract_file_path}`, '_blank')}
-                            className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-700 px-4 py-2 rounded-lg transition-colors text-sm border border-gray-300"
-                        >
-                            <Download size={16} />
-                            Scarica Contratto
-                        </button>
-                    )}
+                    {(() => {
+                        // Gestisci sia formato vecchio (stringa) che nuovo (array JSON)
+                        let files = [];
+                        if (contract.contract_file_path) {
+                            try {
+                                const parsed = JSON.parse(contract.contract_file_path);
+                                if (Array.isArray(parsed)) {
+                                    files = parsed;
+                                } else {
+                                    // Retrocompatibilità: stringa singola
+                                    files = [{ path: contract.contract_file_path }];
+                                }
+                            } catch (e) {
+                                // Non è JSON, è una stringa singola (retrocompatibilità)
+                                files = [{ path: contract.contract_file_path }];
+                            }
+                        }
+                        
+                        if (files.length === 0) return null;
+                        
+                        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+                        
+                        if (files.length === 1) {
+                            // Un solo file: mostra un pulsante
+                            const file = files[0];
+                            const filePath = typeof file === 'string' ? file : file.path;
+                            return (
+                                <button
+                                    onClick={() => window.open(filePath.startsWith('http') ? filePath : `${apiUrl}${filePath}`, '_blank')}
+                                    className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-700 px-4 py-2 rounded-lg transition-colors text-sm border border-gray-300"
+                                >
+                                    <Download size={16} />
+                                    Scarica Contratto
+                                </button>
+                            );
+                        } else {
+                            // Più file: mostra un menu dropdown o lista
+                            return (
+                                <div className="flex flex-col gap-1">
+                                    {files.map((file, index) => {
+                                        const filePath = typeof file === 'string' ? file : file.path;
+                                        const fileName = typeof file === 'string' 
+                                            ? file.split('/').pop() 
+                                            : (file.filename || file.path?.split('/').pop() || `File ${index + 1}`);
+                                        return (
+                                            <button
+                                                key={index}
+                                                onClick={() => window.open(filePath.startsWith('http') ? filePath : `${apiUrl}${filePath}`, '_blank')}
+                                                className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-700 px-4 py-2 rounded-lg transition-colors text-sm border border-gray-300"
+                                            >
+                                                <Download size={16} />
+                                                {fileName}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        }
+                    })()}
                 </div>
             </div>
         </div>
