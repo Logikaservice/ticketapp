@@ -28,11 +28,29 @@ const TimeLoggerModal = ({
 }) => {
   // Stato locale per gestire la modalità editing
   const [isEditing, setIsEditing] = useState(false);
+  
+  // Stato per gestire la visibilità delle sezioni collassabili per ogni intervento
+  const [expandedSections, setExpandedSections] = useState({});
 
   // console.debug: rimosso per evitare rumore in console
 
   // Determina se i campi sono modificabili
   const fieldsDisabled = readOnly && !isEditing;
+  
+  // Funzione per gestire l'espansione/collasso delle sezioni
+  const toggleSection = (logId, section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [`${logId}-${section}`]: !prev[`${logId}-${section}`]
+    }));
+  };
+  
+  // Verifica se una sezione è espansa o se ha dati da mostrare
+  const isSectionExpanded = (logId, section, hasData = false) => {
+    const key = `${logId}-${section}`;
+    // Se ha dati, mostra sempre; altrimenti controlla lo stato
+    return hasData || expandedSections[key] || false;
+  };
 
   return (
     <div className="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[85vh] overflow-y-auto">
@@ -199,138 +217,192 @@ const TimeLoggerModal = ({
                 />
 
                 <div className="mt-5 border-t pt-4">
-                  <h4 className="text-sm font-bold mb-3">Costo Manodopera</h4>
-                  <div className="grid sm:grid-cols-5 gap-4 items-end">
-                    <div>
-                      <label className="block text-xs mb-1">Ore</label>
-                      <input
-                        type="number"
-                        step="0.25"
-                        value={log.oreIntervento}
-                        onChange={(e) => handleTimeLogChange(log.id, 'oreIntervento', e.target.value)}
-                        disabled={fieldsDisabled}
-                        className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs mb-1">Costo Unit.(€)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={log.costoUnitario}
-                        onChange={(e) => handleTimeLogChange(log.id, 'costoUnitario', e.target.value)}
-                        disabled={fieldsDisabled}
-                        className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs mb-1">Sconto(%)</label>
-                      <input
-                        type="number"
-                        value={log.sconto}
-                        onChange={(e) => handleTimeLogChange(log.id, 'sconto', e.target.value)}
-                        disabled={fieldsDisabled}
-                        className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs mb-1">Costo Scontato</label>
-                      <div className="p-2.5 bg-gray-100 rounded-lg font-bold">
-                        {(costPerHour * (1 - (discount / 100))).toFixed(2)}€
+                  {isSectionExpanded(log.id, 'manodopera', hours > 0 || costPerHour > 0 || discount > 0) ? (
+                    <>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-bold">Costo Manodopera</h4>
+                        {!fieldsDisabled && (
+                          <button
+                            onClick={() => toggleSection(log.id, 'manodopera')}
+                            className="text-gray-500 hover:text-gray-700 text-xs"
+                          >
+                            Nascondi
+                          </button>
+                        )}
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs mb-1">Totale</label>
-                      <div className="p-2.5 bg-blue-100 rounded-lg font-bold text-blue-800">
-                        {total.toFixed(2)}€
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-5 border-t pt-4">
-                  <h4 className="text-sm font-bold mb-3 flex items-center gap-2">
-                    <Users size={16} />
-                    Materiali
-                  </h4>
-                  <div className="space-y-3">
-                    {log.materials && log.materials.map(m => (
-                      <div key={m.id} className="grid grid-cols-6 gap-3 items-center p-2 bg-gray-50 rounded-lg border">
-                        <div className="col-span-2">
-                          <label className="block text-xs mb-1">Materiale</label>
-                          <input
-                            type="text"
-                            value={m.nome}
-                            onChange={(e) => handleMaterialChange(log.id, m.id, 'nome', e.target.value)}
-                            disabled={fieldsDisabled}
-                            className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                          />
-                        </div>
-
-                        <div className="col-span-1">
-                          <label className="block text-xs mb-1">Qta</label>
+                      <div className="grid sm:grid-cols-5 gap-4 items-end">
+                        <div>
+                          <label className="block text-xs mb-1">Ore</label>
                           <input
                             type="number"
-                            min="0"
-                            value={m.quantita === 0 || m.quantita === '0' ? '' : (m.quantita || '')}
-                            onChange={(e) => handleMaterialChange(log.id, m.id, 'quantita', e.target.value)}
+                            step="0.25"
+                            value={log.oreIntervento}
+                            onChange={(e) => handleTimeLogChange(log.id, 'oreIntervento', e.target.value)}
                             disabled={fieldsDisabled}
-                            className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                            placeholder=""
+                            className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                           />
                         </div>
 
-                        <div className="col-span-1">
-                          <label className="block text-xs mb-1">Costo (€)</label>
+                        <div>
+                          <label className="block text-xs mb-1">Costo Unit.(€)</label>
                           <input
                             type="number"
                             step="0.01"
-                            value={m.costo === 0 || m.costo === '0' || m.costo === 0.00 ? '' : (m.costo || '')}
-                            onChange={(e) => handleMaterialChange(log.id, m.id, 'costo', e.target.value)}
+                            value={log.costoUnitario}
+                            onChange={(e) => handleTimeLogChange(log.id, 'costoUnitario', e.target.value)}
                             disabled={fieldsDisabled}
-                            className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                            placeholder=""
+                            className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                           />
                         </div>
 
-                        <div className="col-span-1">
-                          <label className="block text-xs mb-1">Totale (€)</label>
-                          <div className="p-2 bg-purple-100 rounded-lg font-bold text-purple-800 text-right">
-                            {(() => {
-                              const qta = m.quantita === '' || m.quantita === null || m.quantita === undefined ? 0 : parseFloat(m.quantita) || 0;
-                              const costo = m.costo === '' || m.costo === null || m.costo === undefined ? 0 : parseFloat(m.costo) || 0;
-                              return (qta * costo).toFixed(2);
-                            })()}
+                        <div>
+                          <label className="block text-xs mb-1">Sconto(%)</label>
+                          <input
+                            type="number"
+                            value={log.sconto}
+                            onChange={(e) => handleTimeLogChange(log.id, 'sconto', e.target.value)}
+                            disabled={fieldsDisabled}
+                            className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs mb-1">Costo Scontato</label>
+                          <div className="p-2.5 bg-gray-100 rounded-lg font-bold">
+                            {(costPerHour * (1 - (discount / 100))).toFixed(2)}€
                           </div>
                         </div>
 
-                        <div className="col-span-1 pt-4 text-right">
-                          {!fieldsDisabled && log.materials.length > 1 && (
-                            <button
-                              onClick={() => handleRemoveMaterial(log.id, m.id)}
-                              className="text-red-500 p-1"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          )}
+                        <div>
+                          <label className="block text-xs mb-1">Totale</label>
+                          <div className="p-2.5 bg-blue-100 rounded-lg font-bold text-blue-800">
+                            {total.toFixed(2)}€
+                          </div>
                         </div>
                       </div>
-                    ))}
-
-                    {!fieldsDisabled && (
+                    </>
+                  ) : (
+                    !fieldsDisabled && (
                       <button
-                        onClick={() => handleAddMaterial(log.id)}
-                        className="w-full text-blue-500 text-xs font-medium flex items-center justify-center gap-1 mt-2 p-1"
+                        onClick={() => toggleSection(log.id, 'manodopera')}
+                        className="w-full text-blue-500 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-blue-300 rounded-lg hover:bg-blue-50"
                       >
-                        <Plus size={14} />
+                        <Plus size={16} />
+                        Aggiungi Costo Manodopera
+                      </button>
+                    )
+                  )}
+                </div>
+
+                <div className="mt-5 border-t pt-4">
+                  {isSectionExpanded(log.id, 'materiali', log.materials && log.materials.length > 0) ? (
+                    <>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-bold flex items-center gap-2">
+                          <Users size={16} />
+                          Materiali
+                        </h4>
+                        {!fieldsDisabled && (
+                          <button
+                            onClick={() => toggleSection(log.id, 'materiali')}
+                            className="text-gray-500 hover:text-gray-700 text-xs"
+                          >
+                            Nascondi
+                          </button>
+                        )}
+                      </div>
+                      <div className="space-y-3">
+                        {log.materials && log.materials.map(m => (
+                          <div key={m.id} className="grid grid-cols-6 gap-3 items-center p-2 bg-gray-50 rounded-lg border">
+                            <div className="col-span-2">
+                              <label className="block text-xs mb-1">Materiale</label>
+                              <input
+                                type="text"
+                                value={m.nome}
+                                onChange={(e) => handleMaterialChange(log.id, m.id, 'nome', e.target.value)}
+                                disabled={fieldsDisabled}
+                                className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              />
+                            </div>
+
+                            <div className="col-span-1">
+                              <label className="block text-xs mb-1">Qta</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={m.quantita === 0 || m.quantita === '0' ? '' : (m.quantita || '')}
+                                onChange={(e) => handleMaterialChange(log.id, m.id, 'quantita', e.target.value)}
+                                disabled={fieldsDisabled}
+                                className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                placeholder=""
+                              />
+                            </div>
+
+                            <div className="col-span-1">
+                              <label className="block text-xs mb-1">Costo (€)</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={m.costo === 0 || m.costo === '0' || m.costo === 0.00 ? '' : (m.costo || '')}
+                                onChange={(e) => handleMaterialChange(log.id, m.id, 'costo', e.target.value)}
+                                disabled={fieldsDisabled}
+                                className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                placeholder=""
+                              />
+                            </div>
+
+                            <div className="col-span-1">
+                              <label className="block text-xs mb-1">Totale (€)</label>
+                              <div className="p-2 bg-purple-100 rounded-lg font-bold text-purple-800 text-right">
+                                {(() => {
+                                  const qta = m.quantita === '' || m.quantita === null || m.quantita === undefined ? 0 : parseFloat(m.quantita) || 0;
+                                  const costo = m.costo === '' || m.costo === null || m.costo === undefined ? 0 : parseFloat(m.costo) || 0;
+                                  return (qta * costo).toFixed(2);
+                                })()}
+                              </div>
+                            </div>
+
+                            <div className="col-span-1 pt-4 text-right">
+                              {!fieldsDisabled && log.materials.length > 1 && (
+                                <button
+                                  onClick={() => handleRemoveMaterial(log.id, m.id)}
+                                  className="text-red-500 p-1"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+
+                        {!fieldsDisabled && (
+                          <button
+                            onClick={() => handleAddMaterial(log.id)}
+                            className="w-full text-blue-500 text-xs font-medium flex items-center justify-center gap-1 mt-2 p-1"
+                          >
+                            <Plus size={14} />
+                            Aggiungi Materiale
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    !fieldsDisabled && (
+                      <button
+                        onClick={() => {
+                          toggleSection(log.id, 'materiali');
+                          // Se non ci sono materiali, aggiungine uno automaticamente
+                          if (!log.materials || log.materials.length === 0) {
+                            handleAddMaterial(log.id);
+                          }
+                        }}
+                        className="w-full text-blue-500 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-blue-300 rounded-lg hover:bg-blue-50"
+                      >
+                        <Plus size={16} />
                         Aggiungi Materiale
                       </button>
-                    )}
-                  </div>
+                    )
+                  )}
                 </div>
 
                 {/* Sezione Come da Offerta - LEGATA A QUESTO INTERVENTO */}
