@@ -45,11 +45,24 @@ const TimeLoggerModal = ({
     }));
   };
   
-  // Verifica se una sezione è espansa o se ha dati da mostrare
-  const isSectionExpanded = (logId, section, hasData = false) => {
+  // Verifica se una sezione è espansa
+  const isSectionExpanded = (logId, section) => {
     const key = `${logId}-${section}`;
-    // Se ha dati, mostra sempre; altrimenti controlla lo stato
-    return hasData || expandedSections[key] || false;
+    return expandedSections[key] || false;
+  };
+  
+  // Verifica se una sezione ha dati (per mostrare i dati anche se collassata)
+  const hasSectionData = (log, section) => {
+    if (section === 'manodopera') {
+      const hours = parseFloat(log.oreIntervento) || 0;
+      const costPerHour = parseFloat(log.costoUnitario) || 0;
+      const discount = parseFloat(log.sconto) || 0;
+      return hours > 0 || costPerHour > 0 || discount > 0;
+    }
+    if (section === 'materiali') {
+      return log.materials && log.materials.length > 0;
+    }
+    return false;
   };
 
   return (
@@ -217,7 +230,7 @@ const TimeLoggerModal = ({
                 />
 
                 <div className="mt-5 border-t pt-4">
-                  {isSectionExpanded(log.id, 'manodopera', hours > 0 || costPerHour > 0 || discount > 0) ? (
+                  {isSectionExpanded(log.id, 'manodopera') ? (
                     <>
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="text-sm font-bold">Costo Manodopera</h4>
@@ -282,20 +295,27 @@ const TimeLoggerModal = ({
                       </div>
                     </>
                   ) : (
-                    !fieldsDisabled && (
-                      <button
-                        onClick={() => toggleSection(log.id, 'manodopera')}
-                        className="w-full text-blue-500 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-blue-300 rounded-lg hover:bg-blue-50"
-                      >
-                        <Plus size={16} />
-                        Aggiungi Costo Manodopera
-                      </button>
-                    )
+                    <>
+                      {!fieldsDisabled && (
+                        <button
+                          onClick={() => toggleSection(log.id, 'manodopera')}
+                          className="w-full text-blue-500 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-blue-300 rounded-lg hover:bg-blue-50"
+                        >
+                          <Plus size={16} />
+                          Aggiungi Costo Manodopera
+                        </button>
+                      )}
+                      {hasSectionData(log, 'manodopera') && !fieldsDisabled && (
+                        <div className="mt-2 text-xs text-gray-500 text-center">
+                          (Hai già inserito dati - clicca per visualizzare)
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
                 <div className="mt-5 border-t pt-4">
-                  {isSectionExpanded(log.id, 'materiali', log.materials && log.materials.length > 0) ? (
+                  {isSectionExpanded(log.id, 'materiali') ? (
                     <>
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="text-sm font-bold flex items-center gap-2">
