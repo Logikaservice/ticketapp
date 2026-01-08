@@ -22,6 +22,25 @@ const NewTicketModal = ({
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Quando si modifica un ticket, carica l'azienda del cliente associato (se esiste)
+  useEffect(() => {
+    if (isEditingTicket && selectedClientForNewTicket) {
+      const clienteId = parseInt(selectedClientForNewTicket);
+      if (!isNaN(clienteId)) {
+        const cliente = clientiAttivi.find(c => c.id === clienteId);
+        if (cliente && cliente.azienda) {
+          setSelectedAzienda(cliente.azienda);
+        } else {
+          // Se il cliente non ha un'azienda, lascia vuoto o "Senza azienda"
+          setSelectedAzienda('');
+        }
+      }
+    } else if (!isEditingTicket) {
+      // Quando si crea un nuovo ticket, resetta l'azienda
+      setSelectedAzienda('');
+    }
+  }, [isEditingTicket, selectedClientForNewTicket, clientiAttivi]);
+
   // Helper per verificare se un cliente è admin della sua azienda
   const isAdminOfCompany = (cliente) => {
     if (!cliente.admin_companies || !Array.isArray(cliente.admin_companies)) return false;
@@ -184,7 +203,12 @@ const NewTicketModal = ({
     }
     setIsSaving(true);
     try {
-      await onSave(photos, selectedAzienda);
+      // Passa selectedAzienda sia per creazione che per modifica
+      if (isEditingTicket) {
+        await onSave(photos, selectedAzienda);
+      } else {
+        await onSave(photos, selectedAzienda);
+      }
       // Se il salvataggio ha successo, la modale si chiuderà e isSaving verrà resettato dal cleanup
     } catch (error) {
       console.error('Errore durante il salvataggio:', error);
@@ -220,7 +244,13 @@ const NewTicketModal = ({
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {currentUser.ruolo === 'tecnico' && (
             <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Azienda <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Azienda 
+                {!isEditingTicket && <span className="text-red-500">*</span>}
+                {isEditingTicket && !selectedAzienda && (
+                  <span className="text-xs text-orange-600 ml-2">(Nessuna azienda associata)</span>
+                )}
+              </label>
               <div className="relative">
                 <button
                   type="button"

@@ -236,7 +236,8 @@ export const useTickets = (
     newTicketData,
     isEditingTicket,
     selectedClientForNewTicket,
-    sendEmail = true
+    sendEmail = true,
+    selectedAzienda = ''
   ) => {
     // Protezione contro chiamate duplicate
     if (isUpdatingRef.current) {
@@ -281,7 +282,8 @@ export const useTickets = (
       nomerichiedente: newTicketData.nomerichiedente,
       clienteid: clienteId,
       dataapertura: newTicketData.dataapertura,
-      sendEmail: sendEmail
+      sendEmail: sendEmail,
+      azienda: selectedAzienda || '' // Passa l'azienda anche quando si modifica
     };
     
     console.log('🔍 DEBUG FRONTEND UPDATE: ticketAggiornato =', JSON.stringify(ticketAggiornato, null, 2));

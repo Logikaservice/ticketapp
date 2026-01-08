@@ -427,7 +427,8 @@ export default function TicketApp() {
     setNewTicketData,
     setIsEditingTicket,
     setSelectedClientForNewTicket,
-    setFornitureModalTicket
+    setFornitureModalTicket,
+    users
   );
 
   // ====================================================================
@@ -2334,12 +2335,13 @@ export default function TicketApp() {
     }
   };
 
-  const wrappedHandleUpdateTicket = () => {
+  const wrappedHandleUpdateTicket = (selectedAzienda = '') => {
     // Per le modifiche dei dettagli del ticket (non cambi di stato), 
     // aggiorna direttamente senza modal di conferma email
     console.log('🔍 DEBUG: Modifica dettagli ticket - currentUser.ruolo =', currentUser.ruolo);
     console.log('🔍 DEBUG: Aggiornamento diretto senza modal email');
-    updateTicket(newTicketData, isEditingTicket, selectedClientForNewTicket, false);
+    console.log('🔍 DEBUG: selectedAzienda =', selectedAzienda);
+    updateTicket(newTicketData, isEditingTicket, selectedClientForNewTicket, false, selectedAzienda);
   };
 
   // Funzione per determinare la card corrente

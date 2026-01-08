@@ -525,7 +525,7 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
   // ENDPOINT: Modifica un ticket completo
   router.put('/:id', async (req, res) => {
     const { id } = req.params;
-    let { titolo, descrizione, categoria, priorita, nomerichiedente, clienteid, dataapertura, sendEmail } = req.body;
+    let { titolo, descrizione, categoria, priorita, nomerichiedente, clienteid, dataapertura, sendEmail, azienda } = req.body;
 
     // Log di debug per la data di apertura
     console.log('🔍 DEBUG BACKEND UPDATE: dataapertura ricevuta =', dataapertura, 'tipo:', typeof dataapertura);
@@ -540,6 +540,58 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
 
     try {
       const client = await pool.connect();
+
+      // Se clienteid è null ma abbiamo nomerichiedente e azienda, cerca o crea un cliente
+      if (!clienteid && nomerichiedente && azienda && azienda.trim() !== '' && azienda !== 'Senza azienda') {
+        console.log(`🔍 Modifica ticket: cercando cliente con nome "${nomerichiedente}" nell'azienda "${azienda}"`);
+        
+        // Estrai nome e cognome dal nomerichiedente
+        const nomeParts = nomerichiedente.trim().split(' ');
+        const nome = nomeParts[0] || nomerichiedente;
+        const cognome = nomeParts.slice(1).join(' ') || '';
+        
+        // Cerca un cliente esistente con quel nome nell'azienda specificata
+        let clienteQuery = `
+          SELECT id FROM users 
+          WHERE ruolo = 'cliente' 
+          AND azienda = $1 
+          AND (
+            (nome = $2 AND cognome = $3) OR
+            (nome || ' ' || COALESCE(cognome, '') = $4) OR
+            (nome = $4)
+          )
+          LIMIT 1
+        `;
+        let clienteResult = await client.query(clienteQuery, [azienda, nome, cognome, nomerichiedente.trim()]);
+        
+        if (clienteResult.rows.length > 0) {
+          // Cliente trovato
+          clienteid = clienteResult.rows[0].id;
+          console.log(`✅ Cliente trovato con ID: ${clienteid}`);
+        } else {
+          // Cliente non trovato, creane uno nuovo
+          console.log(`📝 Creando nuovo cliente per "${nomerichiedente}" nell'azienda "${azienda}"`);
+          const emailCliente = `temp_${Date.now()}@${azienda.toLowerCase().replace(/\s+/g, '_')}.local`;
+          const passwordCliente = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+          
+          const insertClienteQuery = `
+            INSERT INTO users (email, password, azienda, ruolo, nome, cognome) 
+            VALUES ($1, $2, $3, 'cliente', $4, $5) 
+            RETURNING id
+          `;
+          const insertClienteResult = await client.query(insertClienteQuery, [
+            emailCliente,
+            passwordCliente,
+            azienda,
+            nome,
+            cognome
+          ]);
+          
+          clienteid = insertClienteResult.rows[0].id;
+          console.log(`✅ Nuovo cliente creato con ID: ${clienteid}`);
+        }
+      }
+
       const query = `
         UPDATE tickets 
         SET titolo = $1, descrizione = $2, categoria = $3, priorita = $4, nomerichiedente = $5, clienteid = $6, dataapertura = $7

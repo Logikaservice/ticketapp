@@ -8,7 +8,8 @@ export const useModals = (
   setNewTicketData,
   setIsEditingTicket,
   setSelectedClientForNewTicket,
-  setFornitureModalTicket
+  setFornitureModalTicket,
+  users = []
 ) => {
   
   const handleOpenTimeLogger = (ticket) => {
@@ -18,7 +19,7 @@ export const useModals = (
     setModalState({ type: 'timeLogger', data: ticket });
   };
   
-  const handleOpenEditModal = (ticket) => {
+  const handleOpenEditModal = (ticket, users = []) => {
     setNewTicketData({
       titolo: ticket.titolo,
       descrizione: ticket.descrizione,
@@ -28,7 +29,15 @@ export const useModals = (
       dataapertura: ticket.dataapertura
     });
     setIsEditingTicket(ticket.id);
-    setSelectedClientForNewTicket(ticket.clienteid.toString());
+    
+    // Se il ticket ha un clienteid, usa quello
+    if (ticket.clienteid) {
+      setSelectedClientForNewTicket(ticket.clienteid.toString());
+    } else {
+      // Se non ha clienteid, non selezionare nessun cliente
+      setSelectedClientForNewTicket('');
+    }
+    
     setModalState({ type: 'newTicket', data: ticket });
   };
   
