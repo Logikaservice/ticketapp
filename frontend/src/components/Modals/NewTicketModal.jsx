@@ -184,7 +184,7 @@ const NewTicketModal = ({
     }
     setIsSaving(true);
     try {
-      await onSave(photos);
+      await onSave(photos, selectedAzienda);
       // Se il salvataggio ha successo, la modale si chiuderà e isSaving verrà resettato dal cleanup
     } catch (error) {
       console.error('Errore durante il salvataggio:', error);

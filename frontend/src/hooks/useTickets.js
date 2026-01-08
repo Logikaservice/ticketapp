@@ -22,7 +22,8 @@ export const useTickets = (
     handleUpdateTicket,
     selectedClientForNewTicket,
     sendEmail = true,
-    photos = []
+    photos = [],
+    selectedAzienda = ''
   ) => {
     if (isEditingTicket) {
       handleUpdateTicket();
@@ -71,7 +72,8 @@ export const useTickets = (
       // Flag per distinguere se il ticket è creato dal cliente stesso
       createdBy: currentUser.ruolo,
       selfCreated: currentUser.ruolo === 'cliente' && clienteId === currentUser.id,
-      sendEmail: sendEmail
+      sendEmail: sendEmail,
+      azienda: selectedAzienda || '' // Passa l'azienda selezionata per associare il ticket
     };
     
     console.log('🔍 DEBUG FRONTEND: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
@@ -95,6 +97,7 @@ export const useTickets = (
         formData.append('categoria', ticketDaInviare.categoria || 'assistenza');
         formData.append('dataapertura', ticketDaInviare.dataapertura || '');
         formData.append('sendEmail', sendEmail ? 'true' : 'false');
+        formData.append('azienda', ticketDaInviare.azienda || '');
         
         // Aggiungi le foto
         photos.forEach((photo, index) => {

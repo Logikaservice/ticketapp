@@ -2082,7 +2082,9 @@ export default function TicketApp() {
 
     // Recupera le foto dal modalState se presenti
     const photos = modalState.data?.photos || [];
+    const selectedAzienda = modalState.data?.selectedAzienda || '';
     console.log('🔍 DEBUG: handleConfirmUrgentCreation - photos recuperate:', photos.length);
+    console.log('🔍 DEBUG: handleConfirmUrgentCreation - selectedAzienda:', selectedAzienda);
 
     // Per i tecnici, mostra il modal di conferma email anche per priorità urgente
     if (currentUser.ruolo === 'tecnico') {
@@ -2095,7 +2097,8 @@ export default function TicketApp() {
         data: newTicketData,
         isEditing: isEditingTicket,
         selectedClient: selectedClientForNewTicket,
-        photos: photos // Passa le foto al pending action
+        photos: photos, // Passa le foto al pending action
+        selectedAzienda: selectedAzienda // Passa l'azienda selezionata
       });
       setModalState({
         type: 'emailConfirm',
@@ -2108,7 +2111,7 @@ export default function TicketApp() {
     }
 
     // Per i clienti, crea direttamente il ticket con invio email obbligatorio
-    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true, photos);
+    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true, photos, selectedAzienda);
     resetNewTicketData();
     setModalState({ type: null, data: null });
   };
@@ -2117,12 +2120,14 @@ export default function TicketApp() {
     // L'utente ha confermato di voler procedere senza descrizione
     // Recupera le foto dal modalState se presenti
     const photos = modalState.data?.photos || [];
+    const selectedAzienda = modalState.data?.selectedAzienda || '';
     console.log('🔍 DEBUG: handleConfirmEmptyDescription - photos recuperate:', photos.length);
+    console.log('🔍 DEBUG: handleConfirmEmptyDescription - selectedAzienda:', selectedAzienda);
 
     // Controlla se è anche URGENTE
     if (!isEditingTicket && newTicketData.priorita === 'urgente') {
       // Passa le foto al prossimo modal
-      setModalState({ type: 'urgentConfirm', data: { photos } });
+      setModalState({ type: 'urgentConfirm', data: { photos, selectedAzienda } });
       return;
     }
 
@@ -2137,7 +2142,8 @@ export default function TicketApp() {
         data: newTicketData,
         isEditing: isEditingTicket,
         selectedClient: selectedClientForNewTicket,
-        photos: photos // Passa le foto al pending action
+        photos: photos, // Passa le foto al pending action
+        selectedAzienda: selectedAzienda // Passa l'azienda selezionata
       });
       setModalState({
         type: 'emailConfirm',
@@ -2267,24 +2273,25 @@ export default function TicketApp() {
     }
   };
 
-  const wrappedHandleCreateTicket = async (photos = []) => {
+  const wrappedHandleCreateTicket = async (photos = [], selectedAzienda = '') => {
     console.log('🔍 DEBUG: wrappedHandleCreateTicket chiamata');
     console.log('🔍 DEBUG: currentUser.ruolo =', currentUser.ruolo);
     console.log('🔍 DEBUG: isEditingTicket =', isEditingTicket);
     console.log('🔍 DEBUG: photos ricevute =', photos.length, 'foto');
+    console.log('🔍 DEBUG: selectedAzienda =', selectedAzienda);
 
     // Se descrizione vuota, chiedi conferma
     if (!newTicketData.descrizione || newTicketData.descrizione.trim() === '') {
       console.log('🔍 DEBUG: Descrizione vuota, mostrando modal conferma');
       // Passa le foto nel data del modalState
-      setModalState({ type: 'emptyDescriptionConfirm', data: { photos } });
+      setModalState({ type: 'emptyDescriptionConfirm', data: { photos, selectedAzienda } });
       return;
     }
     // Se priorità URGENTE e stiamo creando (non edit), mostra conferma
     if (!isEditingTicket && newTicketData.priorita === 'urgente') {
       console.log('🔍 DEBUG: Priorità urgente, mostrando modal conferma');
       // Passa le foto nel data del modalState
-      setModalState({ type: 'urgentConfirm', data: { photos } });
+      setModalState({ type: 'urgentConfirm', data: { photos, selectedAzienda } });
       return;
     }
 
@@ -2301,7 +2308,8 @@ export default function TicketApp() {
         data: newTicketData,
         isEditing: isEditingTicket,
         selectedClient: selectedClientForNewTicket,
-        photos: photos // Salva le foto nel pending action
+        photos: photos, // Salva le foto nel pending action
+        selectedAzienda: selectedAzienda // Salva l'azienda selezionata
       });
       setModalState({
         type: 'emailConfirm',
@@ -2319,7 +2327,7 @@ export default function TicketApp() {
     console.log('🔍 DEBUG: Cliente - creazione ticket con email obbligatoria');
     console.log('🔍 DEBUG: Cliente - photos =', photos.length, 'foto');
     try {
-      await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true, photos);
+      await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true, photos, selectedAzienda);
     } catch (error) {
       console.error('Errore creazione ticket:', error);
       // La modale rimane aperta in caso di errore, l'errore viene mostrato dalla funzione createTicket
@@ -2374,8 +2382,10 @@ export default function TicketApp() {
       if (type === 'create') {
         // Crea ticket con invio email
         const photos = pendingTicketAction?.photos || [];
+        const selectedAzienda = pendingTicketAction?.selectedAzienda || '';
         console.log('🔍 DEBUG handleConfirmEmail: photos =', photos.length, 'file');
-        await createTicket(data, isEditing, wrappedHandleUpdateTicket, selectedClient, true, photos);
+        console.log('🔍 DEBUG handleConfirmEmail: selectedAzienda =', selectedAzienda);
+        await createTicket(data, isEditing, wrappedHandleUpdateTicket, selectedClient, true, photos, selectedAzienda);
       } else if (type === 'update') {
         // Aggiorna ticket con invio email
         await updateTicket(data, isEditing, selectedClient, true);

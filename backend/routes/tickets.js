@@ -169,6 +169,7 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
     let categoria = req.body.categoria;
     let dataapertura = req.body.dataapertura;
     let sendEmail = req.body.sendEmail;
+    let azienda = req.body.azienda; // Azienda selezionata dal tecnico
     const uploadedFiles = req.files || [];
 
     // Se clienteid è una stringa, convertila a numero
@@ -223,6 +224,58 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       }
 
       console.log(`✅ ID ticket generato: ${numero}`);
+
+      // Se clienteid è null ma abbiamo nomerichiedente e azienda, cerca o crea un cliente
+      if (!clienteid && nomerichiedente && azienda && azienda.trim() !== '' && azienda !== 'Senza azienda') {
+        console.log(`🔍 Cercando cliente con nome "${nomerichiedente}" nell'azienda "${azienda}"`);
+        
+        // Cerca un cliente esistente con quel nome nell'azienda specificata
+        // Estrai nome e cognome dal nomerichiedente (potrebbe essere "Nome Cognome" o solo "Nome")
+        const nomeParts = nomerichiedente.trim().split(' ');
+        const nome = nomeParts[0] || nomerichiedente;
+        const cognome = nomeParts.slice(1).join(' ') || '';
+        
+        // Cerca prima per nome completo nell'azienda
+        let clienteQuery = `
+          SELECT id FROM users 
+          WHERE ruolo = 'cliente' 
+          AND azienda = $1 
+          AND (
+            (nome = $2 AND cognome = $3) OR
+            (nome || ' ' || COALESCE(cognome, '') = $4) OR
+            (nome = $4)
+          )
+          LIMIT 1
+        `;
+        let clienteResult = await client.query(clienteQuery, [azienda, nome, cognome, nomerichiedente.trim()]);
+        
+        if (clienteResult.rows.length > 0) {
+          // Cliente trovato
+          clienteid = clienteResult.rows[0].id;
+          console.log(`✅ Cliente trovato con ID: ${clienteid}`);
+        } else {
+          // Cliente non trovato, creane uno nuovo
+          console.log(`📝 Creando nuovo cliente per "${nomerichiedente}" nell'azienda "${azienda}"`);
+          const emailCliente = `temp_${Date.now()}@${azienda.toLowerCase().replace(/\s+/g, '_')}.local`;
+          const passwordCliente = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+          
+          const insertClienteQuery = `
+            INSERT INTO users (email, password, azienda, ruolo, nome, cognome) 
+            VALUES ($1, $2, $3, 'cliente', $4, $5) 
+            RETURNING id
+          `;
+          const insertClienteResult = await client.query(insertClienteQuery, [
+            emailCliente,
+            passwordCliente,
+            azienda,
+            nome,
+            cognome
+          ]);
+          
+          clienteid = insertClienteResult.rows[0].id;
+          console.log(`✅ Nuovo cliente creato con ID: ${clienteid}`);
+        }
+      }
 
       // Gestisci dataapertura: valida e usa se fornita, altrimenti usa data corrente
       let dataAperturaValue;
