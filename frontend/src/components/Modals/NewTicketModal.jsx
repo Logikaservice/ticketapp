@@ -407,10 +407,10 @@ const NewTicketModal = ({
                           {isRichiedenteDropdownOpen && (
                             <>
                               <div 
-                                className="fixed inset-0 z-10" 
+                                className="fixed inset-0 z-40" 
                                 onClick={() => setIsRichiedenteDropdownOpen(false)}
                               ></div>
-                              <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-64 overflow-y-auto">
                                 {clientiAziendaSelezionata.length === 0 ? (
                                   <div className="p-4 text-center text-gray-500">
                                     Nessun cliente disponibile per questa azienda
