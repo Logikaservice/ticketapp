@@ -273,78 +273,84 @@ const TimeLoggerModal = ({
                       className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                     />
                   </div>
-                </div>
 
-                {/* Intervalli di tempo */}
-                <div className="mb-4 space-y-3">
-                  {intervals.map((interval, intervalIndex) => (
-                    <div key={interval.id} className="grid md:grid-cols-5 gap-4 items-end p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <div className="col-span-1">
-                        <label className="block text-xs mb-1">
-                          Intervallo {intervalIndex + 1} - Inizio
-                        </label>
-                        <input
-                          type="time"
-                          value={interval.start || ''}
-                          step="900"
-                          onChange={(e) => handleUpdateTimeInterval(normalizedLog.id, interval.id, 'start', e.target.value)}
-                          disabled={fieldsDisabled || normalizedLog.eventoGiornaliero}
-                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                        />
-                      </div>
+                  <div>
+                    <label className="block text-xs mb-1">Ora Inizio</label>
+                    <input
+                      type="time"
+                      value={intervals[0]?.start || ''}
+                      step="900"
+                      onChange={(e) => {
+                        const start = e.target.value;
+                        if (intervals[0]) {
+                          handleUpdateTimeInterval(normalizedLog.id, intervals[0].id, 'start', start);
+                        } else {
+                          // Se non c'è ancora un intervallo, crealo
+                          handleAddTimeInterval(normalizedLog.id);
+                          setTimeout(() => {
+                            const newIntervals = normalizedLog.timeIntervals || [];
+                            if (newIntervals[0]) {
+                              handleUpdateTimeInterval(normalizedLog.id, newIntervals[0].id, 'start', start);
+                            }
+                          }, 0);
+                        }
+                      }}
+                      disabled={fieldsDisabled || normalizedLog.eventoGiornaliero}
+                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    />
+                  </div>
 
-                      <div className="col-span-1">
-                        <label className="block text-xs mb-1">
-                          Intervallo {intervalIndex + 1} - Fine
-                        </label>
-                        <input
-                          type="time"
-                          value={interval.end || ''}
-                          step="900"
-                          onChange={(e) => handleUpdateTimeInterval(normalizedLog.id, interval.id, 'end', e.target.value)}
-                          disabled={fieldsDisabled || normalizedLog.eventoGiornaliero}
-                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                        />
-                      </div>
+                  <div>
+                    <label className="block text-xs mb-1">Ora Fine</label>
+                    <input
+                      type="time"
+                      value={intervals[0]?.end || ''}
+                      step="900"
+                      onChange={(e) => {
+                        const end = e.target.value;
+                        if (intervals[0]) {
+                          handleUpdateTimeInterval(normalizedLog.id, intervals[0].id, 'end', end);
+                        } else {
+                          // Se non c'è ancora un intervallo, crealo
+                          handleAddTimeInterval(normalizedLog.id);
+                          setTimeout(() => {
+                            const newIntervals = normalizedLog.timeIntervals || [];
+                            if (newIntervals[0]) {
+                              handleUpdateTimeInterval(normalizedLog.id, newIntervals[0].id, 'end', end);
+                            }
+                          }, 0);
+                        }
+                      }}
+                      disabled={fieldsDisabled || normalizedLog.eventoGiornaliero}
+                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    />
+                  </div>
 
-                      <div className="col-span-2">
-                        <div className="text-xs text-gray-600">
-                          Durata: {interval.start && interval.end 
-                            ? `${calculateDurationHours(interval.start, interval.end).toFixed(2)} ore`
-                            : '0.00 ore'}
-                        </div>
-                      </div>
-
-                      <div className="col-span-1 flex justify-end">
-                        {!fieldsDisabled && !normalizedLog.eventoGiornaliero && intervals.length > 1 && (
-                          <button
-                            onClick={() => handleRemoveTimeInterval(normalizedLog.id, interval.id)}
-                            className="text-red-500 p-2 hover:bg-red-50 rounded transition-colors"
-                            title="Rimuovi intervallo"
-                          >
-                            <Minus size={16} />
-                          </button>
-                        )}
+                  <div className="flex items-end">
+                    <div className="w-full">
+                      <div className="text-xs text-gray-600 mb-1">Durata</div>
+                      <div className="text-sm font-semibold text-gray-700">
+                        {intervals[0]?.start && intervals[0]?.end 
+                          ? `${calculateDurationHours(intervals[0].start, intervals[0].end).toFixed(2)} ore`
+                          : '0.00 ore'}
                       </div>
                     </div>
-                  ))}
-
-                  {/* Pulsante per aggiungere nuovo intervallo */}
-                  {!fieldsDisabled && !normalizedLog.eventoGiornaliero && (
-                    <button
-                      onClick={() => handleAddTimeInterval(normalizedLog.id)}
-                      className="w-full text-blue-500 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
-                    >
-                      <Plus size={16} />
-                      Aggiungi Intervallo di Tempo
-                    </button>
-                  )}
-
-                  {/* Totale ore */}
-                  <div className="text-sm font-semibold text-gray-700 text-right">
-                    Totale: {hours.toFixed(2)} ore
                   </div>
                 </div>
+
+                {/* Pulsante per aggiungere nuovo intervento sopra Evento giornaliero */}
+                {!fieldsDisabled && (
+                  <div className="mb-4 flex justify-end">
+                    <button
+                      onClick={handleAddTimeLog}
+                      className="text-blue-500 text-xs font-medium flex items-center gap-1 px-2 py-1 hover:bg-blue-50 rounded transition-colors"
+                      title="Aggiungi nuovo intervento"
+                    >
+                      <Plus size={14} />
+                      Aggiungi Intervento
+                    </button>
+                  </div>
+                )}
 
                 {/* Evento giornaliero */}
                 <div className="mb-4">
@@ -749,7 +755,7 @@ const TimeLoggerModal = ({
             className="w-full px-4 py-2 border border-blue-500 text-blue-600 rounded-lg flex items-center justify-center gap-2"
           >
             <Plus size={18} />
-            Aggiungi Intervallo
+            Aggiungi Intervento
           </button>
         )}
 
