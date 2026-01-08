@@ -113,8 +113,10 @@ const NewTicketModal = ({
   };
 
   const handleRichiedenteManualInput = (value) => {
+    console.log('🔍 DEBUG handleRichiedenteManualInput - selectedAzienda:', selectedAzienda);
     setNewTicketData({ ...newTicketData, nomerichiedente: value });
     // Se si inserisce manualmente, non selezionare un cliente specifico
+    // MA mantieni selectedAzienda - è critico per associare il ticket all'azienda corretta
     if (value && !clientiAziendaSelezionata.some(c => {
       const nomeCompleto = `${c.nome || ''} ${c.cognome || ''}`.trim();
       const displayName = c.email ? `${nomeCompleto} (${c.email})` : nomeCompleto;
@@ -122,6 +124,8 @@ const NewTicketModal = ({
     })) {
       setSelectedClientForNewTicket('');
       setRichiedenteInputMode('manual');
+      // IMPORTANTE: NON resettare selectedAzienda - deve rimanere selezionata!
+      console.log('🔍 DEBUG handleRichiedenteManualInput - Mantenendo selectedAzienda:', selectedAzienda);
     }
   };
 
