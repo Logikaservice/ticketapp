@@ -219,20 +219,30 @@ const NewTicketModal = ({
       console.log('⚠️ Salvataggio già in corso, ignoro il click');
       return;
     }
+    
+    // VALIDAZIONE: Verifica che l'azienda sia selezionata per i tecnici
+    if (currentUser.ruolo === 'tecnico' && !selectedAzienda) {
+      console.error('❌ ERRORE: Nessuna azienda selezionata!');
+      alert('Devi selezionare un\'azienda prima di creare il ticket.');
+      return;
+    }
+    
     setIsSaving(true);
     try {
       // Passa selectedAzienda sia per creazione che per modifica
       // Per la modifica, onSave è wrappedHandleUpdateTicket che accetta solo selectedAzienda
       // Per la creazione, onSave è wrappedHandleCreateTicket che accetta (photos, selectedAzienda)
       console.log('🔍 DEBUG NewTicketModal - Prima di salvare:', {
-        selectedAzienda,
+        selectedAzienda: selectedAzienda || 'VUOTO!',
         nomerichiedente: newTicketData.nomerichiedente,
-        isEditingTicket
+        isEditingTicket,
+        photosCount: photos.length
       });
       
       if (isEditingTicket) {
         await onSave(selectedAzienda || '');
       } else {
+        console.log('🔍 DEBUG NewTicketModal - Chiamata onSave con:', { photos: photos.length, selectedAzienda: selectedAzienda || 'VUOTO!' });
         await onSave(photos, selectedAzienda || '');
       }
       // Se il salvataggio ha successo, la modale si chiuderà e isSaving verrà resettato dal cleanup
