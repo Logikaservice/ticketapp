@@ -89,10 +89,19 @@ const NewTicketModal = ({
     setRichiedenteInputMode('dropdown');
   };
 
+  // Helper per verificare se un'email è temporanea
+  const isTempEmail = (email) => {
+    if (!email) return false;
+    return email.startsWith('temp_') && email.endsWith('.local');
+  };
+
   const handleSelectRichiedente = (cliente) => {
-    // Se si seleziona un cliente dal dropdown, usa il suo nome completo e email
+    // Se si seleziona un cliente dal dropdown, usa il suo nome completo
+    // Non mostrare l'email se è temporanea
     const nomeCompleto = `${cliente.nome || ''} ${cliente.cognome || ''}`.trim();
-    const displayName = cliente.email ? `${nomeCompleto} (${cliente.email})` : nomeCompleto;
+    const displayName = (cliente.email && !isTempEmail(cliente.email)) 
+      ? `${nomeCompleto} (${cliente.email})` 
+      : nomeCompleto;
     setNewTicketData({ ...newTicketData, nomerichiedente: displayName });
     setSelectedClientForNewTicket(cliente.id.toString());
     setIsRichiedenteDropdownOpen(false);
@@ -117,8 +126,13 @@ const NewTicketModal = ({
     if (!newTicketData.nomerichiedente || !selectedAzienda) return null;
     return clientiAziendaSelezionata.find(c => {
       const nomeCompleto = `${c.nome || ''} ${c.cognome || ''}`.trim();
-      const displayName = c.email ? `${nomeCompleto} (${c.email})` : nomeCompleto;
-      return displayName === newTicketData.nomerichiedente;
+      const isTemp = isTempEmail(c.email);
+      const displayName = (c.email && !isTemp) 
+        ? `${nomeCompleto} (${c.email})` 
+        : nomeCompleto;
+      // Confronta sia con displayName che con solo nome (per email temporanee)
+      return displayName === newTicketData.nomerichiedente || 
+        (isTemp && nomeCompleto === newTicketData.nomerichiedente);
     });
   }, [newTicketData.nomerichiedente, selectedAzienda, clientiAziendaSelezionata]);
 
@@ -405,8 +419,12 @@ const NewTicketModal = ({
                                   <>
                                     {clientiAziendaSelezionata.map((cliente) => {
                                       const nomeCompleto = `${cliente.nome || ''} ${cliente.cognome || ''}`.trim();
-                                      const displayName = cliente.email ? `${nomeCompleto} (${cliente.email})` : nomeCompleto;
-                                      const isSelected = newTicketData.nomerichiedente === displayName;
+                                      const isTemp = isTempEmail(cliente.email);
+                                      const displayName = (cliente.email && !isTemp) 
+                                        ? `${nomeCompleto} (${cliente.email})` 
+                                        : nomeCompleto;
+                                      const isSelected = newTicketData.nomerichiedente === displayName || 
+                                        (isTemp && newTicketData.nomerichiedente === nomeCompleto);
                                       
                                       return (
                                         <button
@@ -429,7 +447,7 @@ const NewTicketModal = ({
                                               <div className="text-sm font-medium text-gray-900">
                                                 {nomeCompleto}
                                               </div>
-                                              {cliente.email && (
+                                              {cliente.email && !isTemp && (
                                                 <div className="flex items-center gap-1 mt-0.5">
                                                   <Mail size={12} className="text-gray-400" />
                                                   <span className="text-xs text-gray-600 truncate">
