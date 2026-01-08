@@ -204,10 +204,12 @@ const NewTicketModal = ({
     setIsSaving(true);
     try {
       // Passa selectedAzienda sia per creazione che per modifica
+      // Per la modifica, onSave è wrappedHandleUpdateTicket che accetta solo selectedAzienda
+      // Per la creazione, onSave è wrappedHandleCreateTicket che accetta (photos, selectedAzienda)
       if (isEditingTicket) {
-        await onSave(photos, selectedAzienda);
+        await onSave(selectedAzienda || '');
       } else {
-        await onSave(photos, selectedAzienda);
+        await onSave(photos, selectedAzienda || '');
       }
       // Se il salvataggio ha successo, la modale si chiuderà e isSaving verrà resettato dal cleanup
     } catch (error) {
