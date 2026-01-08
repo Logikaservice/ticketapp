@@ -426,15 +426,26 @@ const TimeLoggerModal = ({
                               : '0.00 ore'}
                           </div>
                         </div>
-                        {!fieldsDisabled && !normalizedLog.eventoGiornaliero && workPhases.length > 1 && (
-                          <button
-                            onClick={() => handleRemoveWorkPhase(normalizedLog.id, phase.id)}
-                            className="text-red-500 p-1 hover:bg-red-50 rounded transition-colors"
-                            title="Rimuovi fase"
-                          >
-                            <Minus size={16} />
-                          </button>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {!fieldsDisabled && !normalizedLog.eventoGiornaliero && workPhases.length > 1 && (
+                            <button
+                              onClick={() => handleRemoveWorkPhase(normalizedLog.id, phase.id)}
+                              className="text-red-500 p-1 hover:bg-red-50 rounded transition-colors"
+                              title="Rimuovi fase"
+                            >
+                              <Minus size={16} />
+                            </button>
+                          )}
+                          {!fieldsDisabled && !normalizedLog.eventoGiornaliero && phaseIndex === workPhases.length - 1 && (
+                            <button
+                              onClick={() => handleAddWorkPhase(normalizedLog.id)}
+                              className="text-blue-500 p-1 hover:bg-blue-50 rounded transition-colors"
+                              title="Aggiungi fase"
+                            >
+                              <Plus size={16} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -444,20 +455,6 @@ const TimeLoggerModal = ({
                 <div className="mb-4 text-sm font-semibold text-gray-700 text-right">
                   Totale: {hours.toFixed(2)} ore
                 </div>
-
-                {/* Pulsante per aggiungere nuova fase lavorativa sopra Evento giornaliero */}
-                {!fieldsDisabled && !normalizedLog.eventoGiornaliero && (
-                  <div className="mb-4 flex justify-end">
-                    <button
-                      onClick={() => handleAddWorkPhase(normalizedLog.id)}
-                      className="text-blue-500 text-xs font-medium flex items-center gap-1 px-2 py-1 hover:bg-blue-50 rounded transition-colors"
-                      title="Aggiungi fase lavorativa"
-                    >
-                      <Plus size={14} />
-                      Aggiungi Fase
-                    </button>
-                  </div>
-                )}
 
                 {/* Evento giornaliero */}
                 <div className="mb-4">
