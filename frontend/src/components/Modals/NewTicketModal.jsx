@@ -224,6 +224,12 @@ const NewTicketModal = ({
       // Passa selectedAzienda sia per creazione che per modifica
       // Per la modifica, onSave è wrappedHandleUpdateTicket che accetta solo selectedAzienda
       // Per la creazione, onSave è wrappedHandleCreateTicket che accetta (photos, selectedAzienda)
+      console.log('🔍 DEBUG NewTicketModal - Prima di salvare:', {
+        selectedAzienda,
+        nomerichiedente: newTicketData.nomerichiedente,
+        isEditingTicket
+      });
+      
       if (isEditingTicket) {
         await onSave(selectedAzienda || '');
       } else {
@@ -477,9 +483,11 @@ const NewTicketModal = ({
                                       <button
                                         type="button"
                                         onClick={() => {
+                                          console.log('🔍 DEBUG: Cliccato "Inserisci manualmente" - selectedAzienda:', selectedAzienda);
                                           setRichiedenteInputMode('manual');
                                           setIsRichiedenteDropdownOpen(false);
                                           setNewTicketData({ ...newTicketData, nomerichiedente: '' });
+                                          // NON resettare selectedAzienda - deve rimanere selezionata!
                                         }}
                                         className="w-full px-4 py-2.5 text-left hover:bg-gray-50 transition text-sm text-gray-600"
                                       >
