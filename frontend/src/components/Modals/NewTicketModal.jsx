@@ -24,21 +24,19 @@ const NewTicketModal = ({
 
   // Quando si modifica un ticket, carica l'azienda del cliente associato (se esiste)
   useEffect(() => {
+    // Solo per la modifica di ticket esistenti
     if (isEditingTicket && selectedClientForNewTicket) {
       const clienteId = parseInt(selectedClientForNewTicket);
       if (!isNaN(clienteId)) {
         const cliente = clientiAttivi.find(c => c.id === clienteId);
-        if (cliente && cliente.azienda) {
+        if (cliente && cliente.azienda && !selectedAzienda) {
+          // Imposta l'azienda solo se non è già impostata (evita reset dopo selezione manuale)
+          console.log('🔍 DEBUG: useEffect - impostando azienda da cliente:', cliente.azienda);
           setSelectedAzienda(cliente.azienda);
-        } else {
-          // Se il cliente non ha un'azienda, lascia vuoto o "Senza azienda"
-          setSelectedAzienda('');
         }
       }
-    } else if (!isEditingTicket) {
-      // Quando si crea un nuovo ticket, resetta l'azienda
-      setSelectedAzienda('');
     }
+    // Non resettare l'azienda per nuovi ticket - lascia che l'utente la selezioni
   }, [isEditingTicket, selectedClientForNewTicket, clientiAttivi]);
 
   // Helper per verificare se un cliente è admin della sua azienda
@@ -85,12 +83,14 @@ const NewTicketModal = ({
       e.preventDefault();
       e.stopPropagation();
     }
+    console.log('🔍 DEBUG: handleSelectAzienda chiamato con azienda:', azienda);
     setSelectedAzienda(azienda);
     setIsAziendaDropdownOpen(false);
     // Reset cliente selezionato e nome richiedente quando si cambia azienda
     setSelectedClientForNewTicket('');
-    setNewTicketData({ ...newTicketData, nomerichiedente: '' });
+    setNewTicketData(prev => ({ ...prev, nomerichiedente: '' }));
     setRichiedenteInputMode('dropdown');
+    console.log('🔍 DEBUG: selectedAzienda impostato a:', azienda);
   };
 
   // Helper per verificare se un'email è temporanea
