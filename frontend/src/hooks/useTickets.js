@@ -78,6 +78,8 @@ export const useTickets = (
     
     console.log('🔍 DEBUG FRONTEND: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
     console.log('🔍 DEBUG FRONTEND: photos =', photos.length, 'foto');
+    console.log('🔍 DEBUG FRONTEND: selectedAzienda =', selectedAzienda);
+    console.log('🔍 DEBUG FRONTEND: ticketDaInviare =', JSON.stringify(ticketDaInviare, null, 2));
     
     try {
       // Se ci sono foto, usa FormData, altrimenti JSON

@@ -172,6 +172,15 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
     let azienda = req.body.azienda; // Azienda selezionata dal tecnico
     const uploadedFiles = req.files || [];
 
+    // Log per debug
+    console.log('🔍 DEBUG CREAZIONE TICKET - dati ricevuti:', {
+      clienteid,
+      azienda: azienda || 'non fornita',
+      nomerichiedente,
+      titolo,
+      hasFiles: uploadedFiles.length > 0
+    });
+
     // Se clienteid è una stringa, convertila a numero
     if (clienteid && typeof clienteid === 'string') {
       clienteid = parseInt(clienteid);
@@ -316,6 +325,15 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
         }
       }
 
+      // Log finale prima di creare il ticket
+      console.log(`🔍 DEBUG CREAZIONE TICKET:`, {
+        numero,
+        clienteid,
+        azienda: azienda || 'non fornita',
+        nomerichiedente,
+        titolo
+      });
+      
       const query = `
         INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, last_read_by_client, last_read_by_tecnico, photos) 
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW(), $10) 
@@ -323,6 +341,11 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       `;
       const photosJson = photosArray.length > 0 ? JSON.stringify(photosArray) : null;
       const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria || 'assistenza', dataAperturaValue, photosJson];
+      
+      console.log(`🔍 DEBUG VALUES INSERT:`, values.map((v, i) => {
+        const paramNames = ['numero', 'clienteid', 'titolo', 'descrizione', 'stato', 'priorita', 'nomerichiedente', 'categoria', 'dataapertura', 'photos'];
+        return `${paramNames[i]}: ${v}`;
+      }));
 
       const result = await client.query(query, values);
       if (client) client.release();
