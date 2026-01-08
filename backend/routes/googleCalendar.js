@@ -5,6 +5,30 @@ const { google } = require('googleapis');
 
 module.exports = (pool) => {
   const router = express.Router();
+  
+  // Helper function per formattare gli intervalli di tempo
+  const formatTimeIntervals = (log) => {
+    // Se ha timeIntervals, usali
+    if (log.timeIntervals && Array.isArray(log.timeIntervals) && log.timeIntervals.length > 0) {
+      const validIntervals = log.timeIntervals.filter(interval => interval.start && interval.end);
+      if (validIntervals.length > 0) {
+        return validIntervals.map(interval => `${interval.start}-${interval.end}`).join(', ');
+      }
+    }
+    
+    // Fallback a oraInizio/oraFine per retrocompatibilità
+    if (log.oraInizio && log.oraFine) {
+      return `${log.oraInizio}-${log.oraFine}`;
+    }
+    if (log.oraInizio) {
+      return log.oraInizio;
+    }
+    if (log.oraFine) {
+      return log.oraFine;
+    }
+    
+    return '';
+  };
 
   // Configurazione Google Calendar API con Service Account (lazy loading)
   let auth = null;
@@ -179,8 +203,7 @@ module.exports = (pool) => {
           timelogs.forEach((log, idx) => {
             const modalita = log.modalita || '';
             const dataLog = log.data || '';
-            const oraInizio = log.oraInizio || '';
-            const oraFine = log.oraFine || '';
+            const timeIntervalsFormatted = formatTimeIntervals(log);
             const desc = (log.descrizione || '').replace(/\n/g, ' ');
             const ore = parseFloat(log.oreIntervento) || 0;
             const costoUnit = parseFloat(log.costoUnitario) || 0;
@@ -211,7 +234,7 @@ module.exports = (pool) => {
 
             const totaleLog = lavoroTot + matsTot + offerteTot;
 
-            description += `#${idx + 1} ${modalita} — ${dataLog} ${oraInizio ? `(${oraInizio}` : ''}${oraFine ? `-${oraFine})` : (oraInizio ? ')' : '')}\n`;
+            description += `#${idx + 1} ${modalita} — ${dataLog}${timeIntervalsFormatted ? ` (${timeIntervalsFormatted})` : ''}\n`;
             if (desc) description += `  Descrizione: ${desc}\n`;
             description += `  Lavoro: ${ore}h x ${(costoUnit || 0).toFixed(2)}€ (-${(sconto || 0)}%) = ${lavoroTot.toFixed(2)}€\n`;
             if (matsStr) description += `  Materiali: ${matsStr} — Tot: ${matsTot.toFixed(2)}€\n`;
@@ -486,8 +509,10 @@ module.exports = (pool) => {
               descInterventoText += `DETTAGLI INTERVENTO:\n`;
               descInterventoText += `───────────────────────────────────\n`;
               descInterventoText += `📅 Data: ${log.data}\n`;
-              if (log.oraInizio) descInterventoText += `⏰ Ora Inizio: ${log.oraInizio}\n`;
-              if (log.oraFine) descInterventoText += `⏰ Ora Fine: ${log.oraFine}\n`;
+              const timeIntervalsFormatted = formatTimeIntervals(log);
+              if (timeIntervalsFormatted) {
+                descInterventoText += `⏰ Orari: ${timeIntervalsFormatted}\n`;
+              }
               descInterventoText += `🔧 Modalità: ${modalita}\n`;
               descInterventoText += `⏱️ Ore: ${oreIntervento}h\n`;
               if (descIntervento) {
@@ -1527,8 +1552,7 @@ module.exports = (pool) => {
               timelogs.forEach((log, idx) => {
                 const modalita = log.modalita || '';
                 const dataLog = log.data || '';
-                const oraInizio = log.oraInizio || '';
-                const oraFine = log.oraFine || '';
+                const timeIntervalsFormatted = formatTimeIntervals(log);
                 const desc = (log.descrizione || '').replace(/\n/g, ' ');
                 const ore = parseFloat(log.oreIntervento) || 0;
                 const costoUnit = parseFloat(log.costoUnitario) || 0;
@@ -1557,7 +1581,7 @@ module.exports = (pool) => {
 
                 const totaleLog = lavoroTot + matsTot + offerteTot;
 
-                description += `#${idx + 1} ${modalita} — ${dataLog} ${oraInizio ? `(${oraInizio}` : ''}${oraFine ? `-${oraFine})` : (oraInizio ? ')' : '')}\n`;
+                description += `#${idx + 1} ${modalita} — ${dataLog}${timeIntervalsFormatted ? ` (${timeIntervalsFormatted})` : ''}\n`;
                 if (desc) description += `  Descrizione: ${desc}\n`;
                 description += `  Lavoro: ${ore}h x ${(costoUnit || 0).toFixed(2)}€ (-${(sconto || 0)}%) = ${lavoroTot.toFixed(2)}€\n`;
                 if (matsStr) description += `  Materiali: ${matsStr} — Tot: ${matsTot.toFixed(2)}€\n`;
@@ -2189,11 +2213,10 @@ module.exports = (pool) => {
               timelogs.forEach((log, idx) => {
                 const modalita = log.modalita || '';
                 const dataLog = log.data || '';
-                const oraInizio = log.oraInizio || '';
-                const oraFine = log.oraFine || '';
+                const timeIntervalsFormatted = formatTimeIntervals(log);
                 const desc = (log.descrizione || '').replace(/\n/g, ' ');
                 const ore = parseFloat(log.oreIntervento) || 0;
-                description += `#${idx + 1} ${modalita} — ${dataLog} ${oraInizio ? `(${oraInizio}` : ''}${oraFine ? `-${oraFine})` : (oraInizio ? ')' : '')}\n`;
+                description += `#${idx + 1} ${modalita} — ${dataLog}${timeIntervalsFormatted ? ` (${timeIntervalsFormatted})` : ''}\n`;
                 if (desc) description += `  Descrizione: ${desc}\n`;
                 description += `  Ore: ${ore}h\n`;
               });
