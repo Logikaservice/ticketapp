@@ -80,7 +80,11 @@ const NewTicketModal = ({
       });
   }, [selectedAzienda, clientiAttivi]);
 
-  const handleSelectAzienda = (azienda) => {
+  const handleSelectAzienda = (azienda, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setSelectedAzienda(azienda);
     setIsAziendaDropdownOpen(false);
     // Reset cliente selezionato e nome richiedente quando si cambia azienda
@@ -288,7 +292,10 @@ const NewTicketModal = ({
                       className="fixed inset-0 z-40" 
                       onClick={() => setIsAziendaDropdownOpen(false)}
                     ></div>
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto">
+                    <div 
+                      className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {aziendeUniche.length === 0 ? (
                         <div className="p-4 text-center text-gray-500">
                           Nessuna azienda disponibile
@@ -302,7 +309,7 @@ const NewTicketModal = ({
                               <button
                               key={azienda}
                                 type="button"
-                              onClick={() => handleSelectAzienda(azienda)}
+                              onClick={(e) => handleSelectAzienda(azienda, e)}
                               className={`w-full px-4 py-3 text-left hover:bg-blue-50 transition flex items-center gap-3 border-b border-gray-100 last:border-b-0 ${
                                 isSelected ? 'bg-blue-50' : ''
                               }`}
@@ -410,7 +417,10 @@ const NewTicketModal = ({
                                 className="fixed inset-0 z-40" 
                                 onClick={() => setIsRichiedenteDropdownOpen(false)}
                               ></div>
-                              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                              <div 
+                                className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-64 overflow-y-auto"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 {clientiAziendaSelezionata.length === 0 ? (
                                   <div className="p-4 text-center text-gray-500">
                                     Nessun cliente disponibile per questa azienda
