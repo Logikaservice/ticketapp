@@ -12,7 +12,8 @@ const NewTicketModal = ({
   currentUser,
   clientiAttivi,
   selectedClientForNewTicket,
-  setSelectedClientForNewTicket
+  setSelectedClientForNewTicket,
+  editingTicket = null // Passa il ticket completo quando si modifica
 }) => {
   const [isAziendaDropdownOpen, setIsAziendaDropdownOpen] = useState(false);
   const [selectedAzienda, setSelectedAzienda] = useState('');
@@ -22,22 +23,56 @@ const NewTicketModal = ({
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Quando si modifica un ticket, carica l'azienda del cliente associato (se esiste)
+  // Quando si modifica un ticket, carica l'azienda del cliente associato o dal ticket stesso (se esiste)
   useEffect(() => {
     // Solo per la modifica di ticket esistenti
-    if (isEditingTicket && selectedClientForNewTicket) {
-      const clienteId = parseInt(selectedClientForNewTicket);
-      if (!isNaN(clienteId)) {
-        const cliente = clientiAttivi.find(c => c.id === clienteId);
-        if (cliente && cliente.azienda && !selectedAzienda) {
-          // Imposta l'azienda solo se non è già impostata (evita reset dopo selezione manuale)
-          console.log('🔍 DEBUG: useEffect - impostando azienda da cliente:', cliente.azienda);
-          setSelectedAzienda(cliente.azienda);
+    if (isEditingTicket && !selectedAzienda) {
+      // Primo tentativo: recupera l'azienda dal cliente associato
+      if (selectedClientForNewTicket) {
+        const clienteId = parseInt(selectedClientForNewTicket);
+        if (!isNaN(clienteId)) {
+          const cliente = clientiAttivi.find(c => c.id === clienteId);
+          if (cliente && cliente.azienda) {
+            console.log('🔍 DEBUG: useEffect - impostando azienda da cliente:', cliente.azienda);
+            setSelectedAzienda(cliente.azienda);
+            return;
+          }
+        }
+      }
+      
+      // Secondo tentativo: recupera l'azienda dal ticket stesso (cliente_azienda)
+      if (editingTicket && editingTicket.cliente_azienda) {
+        console.log('🔍 DEBUG: useEffect - impostando azienda da ticket.cliente_azienda:', editingTicket.cliente_azienda);
+        setSelectedAzienda(editingTicket.cliente_azienda);
+        return;
+      }
+      
+      // Terzo tentativo: cerca un cliente con lo stesso nome richiedente nell'elenco dei clienti
+      if (newTicketData.nomerichiedente) {
+        const nomeRichiedente = newTicketData.nomerichiedente.trim();
+        // Rimuovi email se presente (es. "Nome Cognome (email@example.com)" -> "Nome Cognome")
+        const nomeSenzaEmail = nomeRichiedente.split('(')[0].trim();
+        const nomeParts = nomeSenzaEmail.split(' ');
+        const nome = nomeParts[0] || nomeSenzaEmail;
+        const cognome = nomeParts.slice(1).join(' ') || '';
+        
+        const clienteTrovato = clientiAttivi.find(c => {
+          const nomeCompleto = `${c.nome || ''} ${c.cognome || ''}`.trim();
+          return nomeCompleto === nomeSenzaEmail || 
+                 (c.nome === nome && c.cognome === cognome) ||
+                 c.nome === nomeSenzaEmail;
+        });
+        
+        if (clienteTrovato && clienteTrovato.azienda) {
+          console.log('🔍 DEBUG: useEffect - impostando azienda da cliente trovato con nome richiedente:', clienteTrovato.azienda);
+          setSelectedAzienda(clienteTrovato.azienda);
+          // Imposta anche il cliente selezionato
+          setSelectedClientForNewTicket(clienteTrovato.id.toString());
         }
       }
     }
     // Non resettare l'azienda per nuovi ticket - lascia che l'utente la selezioni
-  }, [isEditingTicket, selectedClientForNewTicket, clientiAttivi]);
+  }, [isEditingTicket, selectedClientForNewTicket, clientiAttivi, editingTicket, newTicketData.nomerichiedente]);
 
   // Helper per verificare se un cliente è admin della sua azienda
   const isAdminOfCompany = (cliente) => {

@@ -178,7 +178,12 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
           const companyClientIds = companyClients.map(c => c.id);
           filtered = tickets.filter(t => {
             const ticketClientId = Number(t.clienteid);
-            return companyClientIds.some(id => Number(id) === ticketClientId);
+            // Include il ticket se:
+            // 1. Il clienteid del ticket corrisponde a un cliente dell'azienda, OPPURE
+            // 2. Il ticket ha cliente_azienda che corrisponde all'azienda selezionata (per ticket vecchi o senza cliente associato)
+            const matchesByClientId = companyClientIds.some(id => Number(id) === ticketClientId);
+            const matchesByAzienda = t.cliente_azienda === companyName;
+            return matchesByClientId || matchesByAzienda;
           });
         } else if (selectedClientFilter !== 'all') {
           // Filtro per cliente specifico

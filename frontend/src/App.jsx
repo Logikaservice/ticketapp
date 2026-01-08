@@ -3186,6 +3186,7 @@ export default function TicketApp() {
           clientiAttivi={users.filter(u => u.ruolo === 'cliente')}
           selectedClientForNewTicket={selectedClientForNewTicket}
           setSelectedClientForNewTicket={setSelectedClientForNewTicket}
+          editingTicket={isEditingTicket ? tickets.find(t => t.id === isEditingTicket) || modalState.data : null}
         />
       )}
 
