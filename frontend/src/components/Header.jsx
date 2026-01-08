@@ -61,7 +61,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       id: 'clients',
       label: 'Gestione Clienti',
       icon: Users,
-      color: 'cyan',
+      color: 'blue',
       visible: !isOrariDomain && currentUser?.ruolo === 'tecnico',
       hasSubActions: true,
       subActions: [
@@ -73,7 +73,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       id: 'contracts',
       label: 'Gestione Contratti',
       icon: FileText,
-      color: 'teal',
+      color: 'rose',
       visible: !isOrariDomain && currentUser?.ruolo === 'tecnico',
       hasSubActions: true,
       subActions: [
@@ -85,7 +85,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       id: 'importKeepass',
       label: 'Importa KeePass',
       icon: Key,
-      color: 'indigo',
+      color: 'amber',
       visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openImportKeepass,
       onClick: () => handleQuickActionClick('importKeepass')
     },
@@ -101,7 +101,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       id: 'inactivityTimer',
       label: 'Timer Inattività',
       icon: Clock,
-      color: 'blue',
+      color: 'sky',
       visible: !isOrariDomain && currentUser?.ruolo === 'cliente' && openInactivityTimer,
       onClick: () => {
         if (openInactivityTimer) {
@@ -115,7 +115,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       id: 'settings',
       label: 'Impostazioni',
       icon: Settings,
-      color: 'amber',
+      color: 'slate',
       visible: true,
       onClick: () => handleQuickActionClick('settings')
     },
@@ -131,13 +131,13 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       id: 'progetti',
       label: 'Progetti',
       icon: FolderOpen,
-      color: 'violet',
+      color: 'indigo',
       visible: !isOrariDomain && currentUser?.ruolo === 'tecnico',
       hasSubActions: true,
       subActions: [
-        { label: 'Orari e Turni', icon: Calendar, color: 'violet', onClick: openOrariTurni },
-        { label: 'Vivaldi', icon: Volume2, color: 'violet', onClick: openVivaldi || (() => window.location.href = '/?domain=vivaldi') },
-        { label: 'PackVision', icon: Monitor, color: 'violet', onClick: openPackVision }
+        { label: 'Orari e Turni', icon: Calendar, color: 'indigo', onClick: openOrariTurni },
+        { label: 'Vivaldi', icon: Volume2, color: 'indigo', onClick: openVivaldi || (() => window.location.href = '/?domain=vivaldi') },
+        { label: 'PackVision', icon: Monitor, color: 'indigo', onClick: openPackVision }
       ]
     }
   ].filter(action => action.visible);
@@ -219,7 +219,9 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
               sky: 'bg-sky-50 text-sky-700 hover:bg-sky-100',
               blue: 'bg-blue-50 text-blue-700 hover:bg-blue-100',
               violet: 'bg-violet-50 text-violet-700 hover:bg-violet-100',
-              teal: 'bg-teal-50 text-teal-700 hover:bg-teal-100'
+              teal: 'bg-teal-50 text-teal-700 hover:bg-teal-100',
+              rose: 'bg-rose-50 text-rose-700 hover:bg-rose-100',
+              slate: 'bg-slate-50 text-slate-700 hover:bg-slate-100'
             };
 
             const getIconBgClass = (color) => {
@@ -233,7 +235,9 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                 sky: 'bg-sky-100 text-sky-600',
                 blue: 'bg-blue-100 text-blue-600',
                 violet: 'bg-violet-100 text-violet-600',
-                teal: 'bg-teal-100 text-teal-600'
+                teal: 'bg-teal-100 text-teal-600',
+                rose: 'bg-rose-100 text-rose-600',
+                slate: 'bg-slate-100 text-slate-600'
               };
               return classes[color] || 'bg-gray-100 text-gray-600';
             };
@@ -249,7 +253,9 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                 sky: 'text-sky-600',
                 blue: 'text-blue-600',
                 violet: 'text-violet-600',
-                teal: 'text-teal-600'
+                teal: 'text-teal-600',
+                rose: 'text-rose-600',
+                slate: 'text-slate-600'
               };
               return classes[color] || 'text-gray-600';
             };
