@@ -581,11 +581,6 @@ const TimeLoggerModal = ({
                           Aggiungi Costo Manodopera
                         </button>
                       )}
-                      {hasSectionData(normalizedLog, 'manodopera') && !fieldsDisabled && (
-                        <div className="mt-2 text-xs text-gray-500 text-center">
-                          (Hai già inserito dati - clicca per visualizzare)
-                        </div>
-                      )}
                     </>
                   )}
                 </div>
