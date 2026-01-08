@@ -88,10 +88,12 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
               <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <span className="text-sm font-mono text-gray-500 font-semibold">{ticket.numero}</span>
                 
-                {currentUser.ruolo === 'tecnico' && cliente && (
+                {currentUser.ruolo === 'tecnico' && (
+                  (cliente && cliente.azienda) || ticket.cliente_azienda
+                ) && (
                   <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800 flex items-center gap-1">
                     <User size={12} />
-                    {cliente.azienda}
+                    {cliente?.azienda || ticket.cliente_azienda || 'Senza azienda'}
                   </span>
                 )}
                 

@@ -590,6 +590,21 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
           clienteid = insertClienteResult.rows[0].id;
           console.log(`✅ Nuovo cliente creato con ID: ${clienteid}`);
         }
+      } else if (clienteid === null && azienda && azienda.trim() !== '' && azienda !== 'Senza azienda') {
+        // Se il ticket non ha clienteid ma abbiamo un'azienda, cerca se esiste già un cliente con quell'azienda
+        // Questo può succedere se il ticket è stato creato prima dell'implementazione della logica di associazione
+        console.log(`🔍 Ticket senza clienteid ma con azienda "${azienda}" - cercando cliente esistente`);
+        const existingClientQuery = `
+          SELECT id FROM users 
+          WHERE ruolo = 'cliente' 
+          AND azienda = $1 
+          LIMIT 1
+        `;
+        const existingClientResult = await client.query(existingClientQuery, [azienda]);
+        if (existingClientResult.rows.length > 0) {
+          clienteid = existingClientResult.rows[0].id;
+          console.log(`✅ Cliente esistente trovato con ID: ${clienteid} per azienda "${azienda}"`);
+        }
       }
 
       const query = `
