@@ -205,6 +205,26 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
   // Calendario disponibile per tutti (tecnici e clienti)
   // I clienti vedranno solo i loro ticket
 
+  // Funzione helper per ottenere il nome dell'azienda dal ticket
+  const getTicketAzienda = (ticket) => {
+    // Prima prova a usare l'azienda dal ticket (se è stata aggiunta dal backend)
+    if (ticket.cliente_azienda) {
+      return ticket.cliente_azienda;
+    }
+    
+    // Altrimenti cerca in users
+    if (ticket.clienteid && users && users.length > 0) {
+      const ticketClienteId = Number(ticket.clienteid);
+      const ticketClient = users.find(u => Number(u.id) === ticketClienteId);
+      if (ticketClient && ticketClient.azienda) {
+        return ticketClient.azienda;
+      }
+    }
+    
+    // Fallback: usa "Senza azienda" se non trovato
+    return 'Senza azienda';
+  };
+
   // Funzione helper per verificare se un ticket è visibile all'utente
   const getAppliesToUser = (ticket) => {
     if (currentUser.ruolo === 'tecnico') {
@@ -225,21 +245,10 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
                      currentUser.admin_companies.length > 0;
       
       if (isAdmin) {
-        // Usa l'azienda del cliente direttamente dal ticket (se disponibile) o cerca in users
-        let ticketAzienda = null;
+        // Usa la funzione helper per ottenere l'azienda
+        const ticketAzienda = getTicketAzienda(ticket);
         
-        // Prima prova a usare l'azienda dal ticket (se è stata aggiunta dal backend)
-        if (ticket.cliente_azienda) {
-          ticketAzienda = ticket.cliente_azienda;
-        } else if (users && users.length > 0) {
-          // Altrimenti cerca in users
-          const ticketClient = users.find(u => Number(u.id) === ticketClienteId);
-          if (ticketClient && ticketClient.azienda) {
-            ticketAzienda = ticketClient.azienda;
-          }
-        }
-        
-        if (ticketAzienda) {
+        if (ticketAzienda && ticketAzienda !== 'Senza azienda') {
           // Verifica se l'azienda del ticket è tra quelle di cui è amministratore
           return currentUser.admin_companies.includes(ticketAzienda);
         }
@@ -654,7 +663,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
                       </div>
                       <div className="text-sm text-gray-700 mt-1">{ticket.titolo}</div>
                       <div className="text-xs text-gray-500 mt-1">
-                        {ticket.isIntervento ? 'Intervento eseguito' : `Cliente: ${ticket.cliente} • Stato: ${ticket.stato}`}
+                        {ticket.isIntervento ? 'Intervento eseguito' : `Cliente: ${getTicketAzienda(ticket)} • Stato: ${ticket.stato}`}
                       </div>
                     </div>
                     <div className="text-xs text-gray-400">
