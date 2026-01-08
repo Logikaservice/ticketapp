@@ -1,6 +1,7 @@
 // src/utils/reportGenerator.js
 
 import { formatDate } from './formatters';
+import { formatTimeIntervals } from './helpers';
 
 // Funzione helper per formattare date in italiano
 const formatDateItalian = (dateString) => {
@@ -261,12 +262,11 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
         totaleTicket += costoManodopera + costoMaterialiLog + costoOfferteLog;
 
         const dataItaliana = formatDateItalian(log.data);
-        const oraInizio = log.oraInizio || 'N/A';
-        const oraFine = log.oraFine || 'N/A';
+        const timeIntervalsFormatted = formatTimeIntervals(log);
 
         html += `
                 <tr>
-                    <td>${logIndex + 1}. ${log.modalita} - ${dataItaliana} ${oraInizio} - ${dataItaliana} ${oraFine}</td>
+                    <td>${logIndex + 1}. ${log.modalita} - ${dataItaliana} (${timeIntervalsFormatted})</td>
                     <td style="text-align: center;">${log.oreIntervento}h</td>
                     <td style="text-align: center;">€${parseFloat(log.costoUnitario).toFixed(0)}</td>
                     <td style="text-align: center;">${parseFloat(log.sconto).toFixed(0)}%</td>
@@ -473,11 +473,10 @@ export const generateSingleTicketHTML = (ticket, options = {}) => {
 
     ticket.timelogs.forEach((log) => {
       const dataIt = formatDateItalian(log.data);
-      const oraInizio = log.oraInizio || '';
-      const oraFine = log.oraFine || '';
+      const timeIntervalsFormatted = formatTimeIntervals(log);
       html += `
         <tr>
-          <td style="font-size: 9pt;">${dataIt} ${oraInizio}${oraFine ? ' - ' + oraFine : ''}</td>
+          <td style="font-size: 9pt;">${dataIt} (${timeIntervalsFormatted})</td>
           <td style="font-size: 9pt;">${log.modalita || ''}</td>
           <td style="font-size: 9pt; text-align: center;">${log.oreIntervento || ''}</td>
           <td class="descrizione-cell" style="font-size: 10pt;">${(log.descrizione || '').replace(/\n/g,'<br>')}</td>

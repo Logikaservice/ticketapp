@@ -10,6 +10,31 @@ export const calculateDurationHours = (start, end) => {
   }
 };
 
+// Formatta gli intervalli di tempo per la visualizzazione nei report
+export const formatTimeIntervals = (log) => {
+  // Normalizza il log per assicurarsi di avere timeIntervals
+  const normalized = normalizeTimeLog(log);
+  const intervals = normalized.timeIntervals || [];
+  
+  if (intervals.length === 0) {
+    // Fallback a oraInizio/oraFine se non ci sono intervalli
+    if (log.oraInizio && log.oraFine) {
+      return `${log.oraInizio} - ${log.oraFine}`;
+    }
+    return log.oraInizio || log.oraFine || 'N/A';
+  }
+  
+  // Filtra solo gli intervalli con start e end validi
+  const validIntervals = intervals.filter(interval => interval.start && interval.end);
+  
+  if (validIntervals.length === 0) {
+    return 'N/A';
+  }
+  
+  // Formatta come "09:00-12:00, 14:00-17:00"
+  return validIntervals.map(interval => `${interval.start}-${interval.end}`).join(', ');
+};
+
 export const getInitialMaterial = () => ({
   id: Date.now() + Math.random(),
   nome: '',

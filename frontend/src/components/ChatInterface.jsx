@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, MessageSquare, Check, AlertTriangle, Clock, Calendar, Trash2, Edit2, Save, X as XIcon, Crown } from 'lucide-react';
 import { formatDate, formatTimeLogDate } from '../utils/formatters';
+import { formatTimeIntervals, normalizeTimeLog, calculateTotalHoursFromIntervals } from '../utils/helpers';
 
 const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessage, handleDeleteMessage, handleUpdateMessage, handleChangeStatus, users = [] }) => {
   const [newMessage, setNewMessage] = useState('');
@@ -172,8 +173,19 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
             </h4>
             <div className="space-y-3">
               {ticket.timeLogs.map((log, index) => {
+                // Normalizza il log per supportare timeIntervals
+                const normalizedLog = normalizeTimeLog(log);
+                const intervals = normalizedLog.timeIntervals || [];
+                
+                // Calcola durata totale da tutti gli intervalli
                 let duration = '--';
-                if (log.oraInizio && log.oraFine) {
+                const totalHours = calculateTotalHoursFromIntervals(intervals);
+                if (totalHours > 0) {
+                  const totalMinutes = Math.round(totalHours * 60);
+                  const hours = Math.floor(totalMinutes / 60);
+                  duration = hours + 'h ' + (totalMinutes % 60) + 'm';
+                } else if (log.oraInizio && log.oraFine) {
+                  // Fallback per retrocompatibilità
                   const start = new Date('2000/01/01 ' + log.oraInizio);
                   const end = new Date('2000/01/01 ' + log.oraFine);
                   const minutes = Math.round((end - start) / 60000);
@@ -186,6 +198,9 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                 const costPerHour = parseFloat(log.costoUnitario) || 0;
                 const discount = parseFloat(log.sconto) || 0;
                 const laborCost = (costPerHour * (1 - (discount / 100))) * hours;
+                
+                // Formatta gli intervalli per la visualizzazione
+                const timeIntervalsFormatted = formatTimeIntervals(log);
 
                 return (
                   <div key={index} className="bg-white p-3 rounded-lg border">
@@ -194,9 +209,9 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                         <Calendar size={14} />
                         {formatTimeLogDate(log.data)}
                       </span>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold bg-gray-100 px-2 py-1 rounded-full text-sm">
-                          {log.oraInizio}-{log.oraFine}
+                          {timeIntervalsFormatted}
                         </span>
                         <span className="font-bold bg-gray-100 px-2 py-1 rounded-full text-sm">
                           Durata: {duration}
