@@ -2468,8 +2468,10 @@ export default function TicketApp() {
       if (type === 'create') {
         // Crea ticket senza invio email
         const photos = pendingTicketAction?.photos || [];
+        const selectedAzienda = pendingTicketAction?.selectedAzienda || '';
         console.log('🔍 DEBUG handleCancelEmail: photos =', photos.length, 'file');
-        await createTicket(data, isEditing, wrappedHandleUpdateTicket, selectedClient, false, photos);
+        console.log('🔍 DEBUG handleCancelEmail: selectedAzienda =', selectedAzienda);
+        await createTicket(data, isEditing, wrappedHandleUpdateTicket, selectedClient, false, photos, selectedAzienda);
       } else if (type === 'update') {
         // Aggiorna ticket senza invio email
         await updateTicket(data, isEditing, selectedClient, false);
