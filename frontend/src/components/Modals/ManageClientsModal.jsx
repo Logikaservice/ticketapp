@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { X, Edit2, Save, Trash2, Mail, Phone, Building, Lock, ChevronRight, ChevronDown, Crown, FolderOpen } from 'lucide-react';
+import { buildApiUrl } from '../../utils/apiConfig';
 
-const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }) => {
+const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient, getAuthHeader }) => {
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({});
   const [expandedCompanies, setExpandedCompanies] = useState(() => new Set());
@@ -60,7 +61,7 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
     return cliente.admin_companies.includes(azienda);
   };
 
-  const handleStartEdit = (cliente) => {
+  const handleStartEdit = async (cliente) => {
     setEditingId(cliente.id);
     // Gestisci enabled_projects: default ['ticket'] se non presente
     let enabledProjects = ['ticket'];
@@ -76,13 +77,29 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
       }
     }
     
+    // Se la password non è presente o è vuota, caricala dal backend
+    let passwordToUse = cliente.password || '';
+    if (!passwordToUse && getAuthHeader) {
+      try {
+        const response = await fetch(buildApiUrl(`/api/users/${cliente.id}`), {
+          headers: getAuthHeader()
+        });
+        if (response.ok) {
+          const userData = await response.json();
+          passwordToUse = userData.password || '';
+        }
+      } catch (error) {
+        console.error('Errore nel caricare la password:', error);
+      }
+    }
+    
     setEditData({
       nome: cliente.nome || '',
       cognome: cliente.cognome || '',
       email: cliente.email || '',
       telefono: cliente.telefono || '',
       azienda: cliente.azienda || '',
-      password: cliente.password || '', // Password attuale editabile
+      password: passwordToUse, // Password attuale editabile
       isAdmin: isAdminOfCompany(cliente, cliente.azienda || ''),
       admin_companies: cliente.admin_companies || [],
       enabled_projects: enabledProjects

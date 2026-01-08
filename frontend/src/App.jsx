@@ -3147,6 +3147,7 @@ export default function TicketApp() {
           onClose={closeModal}
           onUpdateClient={handleUpdateClient}
           onDeleteClient={handleDeleteClient}
+          getAuthHeader={getAuthHeader}
         />
       )}
 

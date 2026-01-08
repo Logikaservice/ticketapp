@@ -201,7 +201,12 @@ module.exports = (pool) => {
       
       if (result.rows.length > 0) {
         console.log(`✅ Cliente aggiornato: ID ${id}`);
-        res.json(result.rows[0]);
+        // Assicurati che la password sia sempre presente nella risposta
+        const userData = {
+          ...result.rows[0],
+          password: result.rows[0].password || ''
+        };
+        res.json(userData);
       } else {
         res.status(404).json({ error: 'Cliente non trovato' });
       }
