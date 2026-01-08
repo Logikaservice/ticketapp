@@ -70,17 +70,26 @@ const TimeLoggerModal = ({
     if (timeLogs && Array.isArray(timeLogs)) {
       const normalized = timeLogs.map(log => {
         const normalizedLog = normalizeTimeLog(log);
-        // Se il log originale non aveva timeIntervals, aggiornalo
-        if (!log.timeIntervals || !Array.isArray(log.timeIntervals) || log.timeIntervals.length === 0) {
-          return normalizedLog;
+        
+        // Inizializza workPhases se non esiste
+        if (!normalizedLog.workPhases || !Array.isArray(normalizedLog.workPhases) || normalizedLog.workPhases.length === 0) {
+          const intervals = normalizedLog.timeIntervals || [];
+          normalizedLog.workPhases = [{
+            id: Date.now() + Math.random(),
+            modalita: normalizedLog.modalita || 'Telefonica',
+            data: normalizedLog.data || new Date().toISOString().substring(0, 10),
+            oraInizio: intervals[0]?.start || normalizedLog.oraInizio || '09:00',
+            oraFine: intervals[0]?.end || normalizedLog.oraFine || '10:00'
+          }];
         }
-        return log; // Altrimenti mantieni l'originale
+        
+        return normalizedLog;
       });
       
       // Controlla se ci sono differenze
       const hasChanges = normalized.some((log, idx) => {
         const original = timeLogs[idx];
-        return !original.timeIntervals || JSON.stringify(log.timeIntervals) !== JSON.stringify(original.timeIntervals);
+        return !original.workPhases || JSON.stringify(log.workPhases) !== JSON.stringify(original.workPhases);
       });
       
       if (hasChanges) {
@@ -89,25 +98,119 @@ const TimeLoggerModal = ({
     }
   }, [timeLogs?.length]); // Solo quando cambia il numero di log (non ad ogni render)
 
-  // Funzione per aggiungere un nuovo intervallo di tempo
-  const handleAddTimeInterval = (logId) => {
+  // Funzione per aggiungere una nuova fase lavorativa (riga con Modalità, Data, Ora Inizio, Ora Fine)
+  const handleAddWorkPhase = (logId) => {
     setTimeLogs(prev => prev.map(log => {
       if (log.id === logId) {
-        const newInterval = {
+        // Se non esiste workPhases, crealo dal primo intervallo o dai dati esistenti
+        if (!log.workPhases || !Array.isArray(log.workPhases)) {
+          const firstPhase = {
+            id: Date.now() + Math.random(),
+            modalita: log.modalita || 'Telefonica',
+            data: log.data || new Date().toISOString().substring(0, 10),
+            oraInizio: intervals[0]?.start || log.oraInizio || '09:00',
+            oraFine: intervals[0]?.end || log.oraFine || '10:00'
+          };
+          log.workPhases = [firstPhase];
+        }
+        
+        // Aggiungi una nuova fase con i valori della fase precedente (o default)
+        const lastPhase = log.workPhases[log.workPhases.length - 1];
+        const newPhase = {
           id: Date.now() + Math.random(),
-          start: '09:00',
-          end: '10:00'
+          modalita: lastPhase?.modalita || log.modalita || 'Telefonica',
+          data: lastPhase?.data || log.data || new Date().toISOString().substring(0, 10),
+          oraInizio: '09:00',
+          oraFine: '10:00'
         };
-        const updatedIntervals = [...(log.timeIntervals || []), newInterval];
-        const totalHours = calculateTotalHoursFromIntervals(updatedIntervals);
+        
+        const updatedPhases = [...log.workPhases, newPhase];
+        
+        // Calcola ore totali da tutte le fasi
+        const totalHours = updatedPhases.reduce((sum, phase) => {
+          if (phase.oraInizio && phase.oraFine) {
+            return sum + calculateDurationHours(phase.oraInizio, phase.oraFine);
+          }
+          return sum;
+        }, 0);
         
         return {
           ...log,
-          timeIntervals: updatedIntervals,
+          workPhases: updatedPhases,
           oreIntervento: totalHours.toFixed(2),
-          // Sincronizza il primo intervallo con oraInizio/oraFine per retrocompatibilità
-          oraInizio: updatedIntervals[0]?.start || log.oraInizio || '',
-          oraFine: updatedIntervals[updatedIntervals.length - 1]?.end || log.oraFine || ''
+          // Mantieni retrocompatibilità con il primo intervallo
+          modalita: updatedPhases[0]?.modalita || log.modalita,
+          data: updatedPhases[0]?.data || log.data,
+          oraInizio: updatedPhases[0]?.oraInizio || '',
+          oraFine: updatedPhases[0]?.oraFine || ''
+        };
+      }
+      return log;
+    }));
+  };
+
+  // Funzione per rimuovere una fase lavorativa
+  const handleRemoveWorkPhase = (logId, phaseId) => {
+    setTimeLogs(prev => prev.map(log => {
+      if (log.id === logId && log.workPhases && Array.isArray(log.workPhases)) {
+        const updatedPhases = log.workPhases.filter(phase => phase.id !== phaseId);
+        
+        // Non permettere di rimuovere l'ultima fase
+        if (updatedPhases.length === 0) {
+          return log;
+        }
+        
+        // Calcola ore totali
+        const totalHours = updatedPhases.reduce((sum, phase) => {
+          if (phase.oraInizio && phase.oraFine) {
+            return sum + calculateDurationHours(phase.oraInizio, phase.oraFine);
+          }
+          return sum;
+        }, 0);
+        
+        return {
+          ...log,
+          workPhases: updatedPhases,
+          oreIntervento: totalHours.toFixed(2),
+          // Aggiorna retrocompatibilità
+          modalita: updatedPhases[0]?.modalita || log.modalita,
+          data: updatedPhases[0]?.data || log.data,
+          oraInizio: updatedPhases[0]?.oraInizio || '',
+          oraFine: updatedPhases[0]?.oraFine || ''
+        };
+      }
+      return log;
+    }));
+  };
+
+  // Funzione per aggiornare una fase lavorativa
+  const handleUpdateWorkPhase = (logId, phaseId, field, value) => {
+    setTimeLogs(prev => prev.map(log => {
+      if (log.id === logId && log.workPhases && Array.isArray(log.workPhases)) {
+        const updatedPhases = log.workPhases.map(phase => {
+          if (phase.id === phaseId) {
+            return { ...phase, [field]: value };
+          }
+          return phase;
+        });
+        
+        // Calcola ore totali
+        const totalHours = updatedPhases.reduce((sum, phase) => {
+          if (phase.oraInizio && phase.oraFine) {
+            return sum + calculateDurationHours(phase.oraInizio, phase.oraFine);
+          }
+          return sum;
+        }, 0);
+        
+        return {
+          ...log,
+          workPhases: updatedPhases,
+          oreIntervento: totalHours.toFixed(2),
+          // Aggiorna retrocompatibilità con la prima fase
+          modalita: updatedPhases[0]?.modalita || log.modalita,
+          data: updatedPhases[0]?.data || log.data,
+          oraInizio: updatedPhases[0]?.oraInizio || '',
+          oraFine: updatedPhases[0]?.oraFine || ''
         };
       }
       return log;
@@ -208,6 +311,19 @@ const TimeLoggerModal = ({
           const normalizedLog = normalizeTimeLog(log);
           const intervals = normalizedLog.timeIntervals || [];
           
+          // Inizializza workPhases se non esiste (migrazione da struttura vecchia)
+          if (!normalizedLog.workPhases || !Array.isArray(normalizedLog.workPhases)) {
+            normalizedLog.workPhases = [{
+              id: Date.now() + Math.random(),
+              modalita: normalizedLog.modalita || 'Telefonica',
+              data: normalizedLog.data || new Date().toISOString().substring(0, 10),
+              oraInizio: intervals[0]?.start || normalizedLog.oraInizio || '09:00',
+              oraFine: intervals[0]?.end || normalizedLog.oraFine || '10:00'
+            }];
+          }
+          
+          const workPhases = normalizedLog.workPhases || [];
+          
           const hours = parseFloat(normalizedLog.oreIntervento) || 0;
           const costPerHour = parseFloat(normalizedLog.costoUnitario) || 0;
           const discount = parseFloat(normalizedLog.sconto) || 0;
@@ -247,107 +363,98 @@ const TimeLoggerModal = ({
               {/* Sezione Intervento racchiusa */}
               <div className="p-4 bg-white rounded-lg border border-blue-200">
 
-                <div className="grid md:grid-cols-5 gap-4 mb-4">
-                  <div>
-                    <label className="block text-xs mb-1">Modalità</label>
-                    <select
-                      value={normalizedLog.modalita}
-                      onChange={(e) => handleTimeLogChange(normalizedLog.id, 'modalita', e.target.value)}
-                      disabled={fieldsDisabled}
-                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    >
-                      <option>Telefonica</option>
-                      <option>Teleassistenza</option>
-                      <option>Presso il Cliente</option>
-                      <option>In laboratorio</option>
-                    </select>
-                  </div>
+                {/* Fasi lavorative */}
+                <div className="mb-4 space-y-3">
+                  {workPhases.map((phase, phaseIndex) => (
+                    <div key={phase.id} className="grid md:grid-cols-5 gap-4 items-end">
+                      <div>
+                        <label className="block text-xs mb-1">Modalità</label>
+                        <select
+                          value={phase.modalita || 'Telefonica'}
+                          onChange={(e) => handleUpdateWorkPhase(normalizedLog.id, phase.id, 'modalita', e.target.value)}
+                          disabled={fieldsDisabled}
+                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        >
+                          <option>Telefonica</option>
+                          <option>Teleassistenza</option>
+                          <option>Presso il Cliente</option>
+                          <option>In laboratorio</option>
+                        </select>
+                      </div>
 
-                  <div>
-                    <label className="block text-xs mb-1">Data</label>
-                    <input
-                      type="date"
-                      value={normalizedLog.data}
-                      onChange={(e) => handleTimeLogChange(normalizedLog.id, 'data', e.target.value)}
-                      disabled={fieldsDisabled}
-                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    />
-                  </div>
+                      <div>
+                        <label className="block text-xs mb-1">Data</label>
+                        <input
+                          type="date"
+                          value={phase.data || ''}
+                          onChange={(e) => handleUpdateWorkPhase(normalizedLog.id, phase.id, 'data', e.target.value)}
+                          disabled={fieldsDisabled}
+                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        />
+                      </div>
 
-                  <div>
-                    <label className="block text-xs mb-1">Ora Inizio</label>
-                    <input
-                      type="time"
-                      value={intervals[0]?.start || ''}
-                      step="900"
-                      onChange={(e) => {
-                        const start = e.target.value;
-                        if (intervals[0]) {
-                          handleUpdateTimeInterval(normalizedLog.id, intervals[0].id, 'start', start);
-                        } else {
-                          // Se non c'è ancora un intervallo, crealo
-                          handleAddTimeInterval(normalizedLog.id);
-                          setTimeout(() => {
-                            const newIntervals = normalizedLog.timeIntervals || [];
-                            if (newIntervals[0]) {
-                              handleUpdateTimeInterval(normalizedLog.id, newIntervals[0].id, 'start', start);
-                            }
-                          }, 0);
-                        }
-                      }}
-                      disabled={fieldsDisabled || normalizedLog.eventoGiornaliero}
-                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    />
-                  </div>
+                      <div>
+                        <label className="block text-xs mb-1">Ora Inizio</label>
+                        <input
+                          type="time"
+                          value={phase.oraInizio || ''}
+                          step="900"
+                          onChange={(e) => handleUpdateWorkPhase(normalizedLog.id, phase.id, 'oraInizio', e.target.value)}
+                          disabled={fieldsDisabled || normalizedLog.eventoGiornaliero}
+                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        />
+                      </div>
 
-                  <div>
-                    <label className="block text-xs mb-1">Ora Fine</label>
-                    <input
-                      type="time"
-                      value={intervals[0]?.end || ''}
-                      step="900"
-                      onChange={(e) => {
-                        const end = e.target.value;
-                        if (intervals[0]) {
-                          handleUpdateTimeInterval(normalizedLog.id, intervals[0].id, 'end', end);
-                        } else {
-                          // Se non c'è ancora un intervallo, crealo
-                          handleAddTimeInterval(normalizedLog.id);
-                          setTimeout(() => {
-                            const newIntervals = normalizedLog.timeIntervals || [];
-                            if (newIntervals[0]) {
-                              handleUpdateTimeInterval(normalizedLog.id, newIntervals[0].id, 'end', end);
-                            }
-                          }, 0);
-                        }
-                      }}
-                      disabled={fieldsDisabled || normalizedLog.eventoGiornaliero}
-                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    />
-                  </div>
+                      <div>
+                        <label className="block text-xs mb-1">Ora Fine</label>
+                        <input
+                          type="time"
+                          value={phase.oraFine || ''}
+                          step="900"
+                          onChange={(e) => handleUpdateWorkPhase(normalizedLog.id, phase.id, 'oraFine', e.target.value)}
+                          disabled={fieldsDisabled || normalizedLog.eventoGiornaliero}
+                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        />
+                      </div>
 
-                  <div className="flex items-end">
-                    <div className="w-full">
-                      <div className="text-xs text-gray-600 mb-1">Durata</div>
-                      <div className="text-sm font-semibold text-gray-700">
-                        {intervals[0]?.start && intervals[0]?.end 
-                          ? `${calculateDurationHours(intervals[0].start, intervals[0].end).toFixed(2)} ore`
-                          : '0.00 ore'}
+                      <div className="flex items-end gap-2">
+                        <div className="flex-1">
+                          <div className="text-xs text-gray-600 mb-1">Durata</div>
+                          <div className="text-sm font-semibold text-gray-700">
+                            {phase.oraInizio && phase.oraFine 
+                              ? `${calculateDurationHours(phase.oraInizio, phase.oraFine).toFixed(2)} ore`
+                              : '0.00 ore'}
+                          </div>
+                        </div>
+                        {!fieldsDisabled && !normalizedLog.eventoGiornaliero && workPhases.length > 1 && (
+                          <button
+                            onClick={() => handleRemoveWorkPhase(normalizedLog.id, phase.id)}
+                            className="text-red-500 p-1 hover:bg-red-50 rounded transition-colors"
+                            title="Rimuovi fase"
+                          >
+                            <Minus size={16} />
+                          </button>
+                        )}
                       </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
 
-                {/* Pulsante per aggiungere nuovo intervento sopra Evento giornaliero */}
-                {!fieldsDisabled && (
+                {/* Totale ore di tutte le fasi */}
+                <div className="mb-4 text-sm font-semibold text-gray-700 text-right">
+                  Totale: {hours.toFixed(2)} ore
+                </div>
+
+                {/* Pulsante per aggiungere nuova fase lavorativa sopra Evento giornaliero */}
+                {!fieldsDisabled && !normalizedLog.eventoGiornaliero && (
                   <div className="mb-4 flex justify-end">
                     <button
-                      onClick={handleAddTimeLog}
+                      onClick={() => handleAddWorkPhase(normalizedLog.id)}
                       className="text-blue-500 text-xs font-medium flex items-center gap-1 px-2 py-1 hover:bg-blue-50 rounded transition-colors"
-                      title="Aggiungi nuovo intervento"
+                      title="Aggiungi fase lavorativa"
                     >
                       <Plus size={14} />
-                      Aggiungi Intervento
+                      Aggiungi Fase
                     </button>
                   </div>
                 )}
