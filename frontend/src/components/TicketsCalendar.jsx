@@ -668,9 +668,6 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
                           : `Azienda: ${getTicketAzienda(ticket)} • Stato: ${ticket.stato}`}
                       </div>
                     </div>
-                    <div className="text-xs text-gray-400">
-                      Click per aprire
-                    </div>
                   </div>
                 </div>
                 );
