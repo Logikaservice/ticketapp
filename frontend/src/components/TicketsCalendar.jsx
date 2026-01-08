@@ -664,7 +664,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
                       <div className="text-sm text-gray-700 mt-1">{ticket.titolo}</div>
                       <div className="text-xs text-gray-500 mt-1">
                         {ticket.isIntervento 
-                          ? `Intervento eseguito • Azienda: ${getTicketAzienda(ticket)}` 
+                          ? `Azienda: ${getTicketAzienda(ticket)} • Intervento eseguito` 
                           : `Azienda: ${getTicketAzienda(ticket)} • Stato: ${ticket.stato}`}
                       </div>
                     </div>
