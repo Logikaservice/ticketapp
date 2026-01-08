@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { X, Clock, Check, Plus, Copy, Trash2, Users, Eye, Edit, Save, Wrench } from 'lucide-react';
-import { calculateDurationHours } from '../../utils/helpers';
+import React, { useState, useEffect } from 'react';
+import { X, Clock, Check, Plus, Copy, Trash2, Users, Eye, Edit, Save, Wrench, Minus } from 'lucide-react';
+import { calculateDurationHours, normalizeTimeLog, calculateTotalHoursFromIntervals } from '../../utils/helpers';
 import { buildApiUrl } from '../../utils/apiConfig';
 
 const TimeLoggerModal = ({
@@ -65,6 +65,123 @@ const TimeLoggerModal = ({
     return false;
   };
 
+  // Normalizza i timelogs quando vengono caricati (retrocompatibilità)
+  useEffect(() => {
+    if (timeLogs && Array.isArray(timeLogs)) {
+      const normalized = timeLogs.map(log => {
+        const normalizedLog = normalizeTimeLog(log);
+        // Se il log originale non aveva timeIntervals, aggiornalo
+        if (!log.timeIntervals || !Array.isArray(log.timeIntervals) || log.timeIntervals.length === 0) {
+          return normalizedLog;
+        }
+        return log; // Altrimenti mantieni l'originale
+      });
+      
+      // Controlla se ci sono differenze
+      const hasChanges = normalized.some((log, idx) => {
+        const original = timeLogs[idx];
+        return !original.timeIntervals || JSON.stringify(log.timeIntervals) !== JSON.stringify(original.timeIntervals);
+      });
+      
+      if (hasChanges) {
+        setTimeLogs(normalized);
+      }
+    }
+  }, [timeLogs?.length]); // Solo quando cambia il numero di log (non ad ogni render)
+
+  // Funzione per aggiungere un nuovo intervallo di tempo
+  const handleAddTimeInterval = (logId) => {
+    setTimeLogs(prev => prev.map(log => {
+      if (log.id === logId) {
+        const newInterval = {
+          id: Date.now() + Math.random(),
+          start: '09:00',
+          end: '10:00'
+        };
+        const updatedIntervals = [...(log.timeIntervals || []), newInterval];
+        const totalHours = calculateTotalHoursFromIntervals(updatedIntervals);
+        
+        return {
+          ...log,
+          timeIntervals: updatedIntervals,
+          oreIntervento: totalHours.toFixed(2),
+          // Sincronizza il primo intervallo con oraInizio/oraFine per retrocompatibilità
+          oraInizio: updatedIntervals[0]?.start || log.oraInizio || '',
+          oraFine: updatedIntervals[updatedIntervals.length - 1]?.end || log.oraFine || ''
+        };
+      }
+      return log;
+    }));
+  };
+
+  // Funzione per rimuovere un intervallo di tempo
+  const handleRemoveTimeInterval = (logId, intervalId) => {
+    setTimeLogs(prev => prev.map(log => {
+      if (log.id === logId) {
+        const updatedIntervals = (log.timeIntervals || []).filter(interval => interval.id !== intervalId);
+        
+        // Non permettere di rimuovere l'ultimo intervallo
+        if (updatedIntervals.length === 0) {
+          return log;
+        }
+        
+        const totalHours = calculateTotalHoursFromIntervals(updatedIntervals);
+        
+        return {
+          ...log,
+          timeIntervals: updatedIntervals,
+          oreIntervento: totalHours.toFixed(2),
+          // Sincronizza il primo intervallo con oraInizio/oraFine per retrocompatibilità
+          oraInizio: updatedIntervals[0]?.start || '',
+          oraFine: updatedIntervals[updatedIntervals.length - 1]?.end || ''
+        };
+      }
+      return log;
+    }));
+  };
+
+  // Funzione per aggiornare un intervallo di tempo
+  const handleUpdateTimeInterval = (logId, intervalId, field, value) => {
+    setTimeLogs(prev => prev.map(log => {
+      if (log.id === logId) {
+        const updatedIntervals = (log.timeIntervals || []).map(interval => {
+          if (interval.id === intervalId) {
+            const updated = { ...interval, [field]: value };
+            
+            // Se si aggiorna start o end, ricalcola la durata dell'intervallo
+            if (field === 'start' || field === 'end') {
+              const start = field === 'start' ? value : interval.start;
+              const end = field === 'end' ? value : interval.end;
+              if (start && end) {
+                // Verifica che end sia dopo start
+                const duration = calculateDurationHours(start, end);
+                if (duration < 0) {
+                  // Se end è prima di start, non aggiornare
+                  return interval;
+                }
+              }
+            }
+            
+            return updated;
+          }
+          return interval;
+        });
+        
+        const totalHours = calculateTotalHoursFromIntervals(updatedIntervals);
+        
+        return {
+          ...log,
+          timeIntervals: updatedIntervals,
+          oreIntervento: totalHours.toFixed(2),
+          // Sincronizza il primo intervallo con oraInizio/oraFine per retrocompatibilità
+          oraInizio: updatedIntervals[0]?.start || '',
+          oraFine: updatedIntervals[updatedIntervals.length - 1]?.end || ''
+        };
+      }
+      return log;
+    }));
+  };
+
   return (
     <div className="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[85vh] overflow-y-auto">
       <div className="flex items-center justify-between mb-6 border-b pb-3">
@@ -87,9 +204,13 @@ const TimeLoggerModal = ({
         </div>
 
         {Array.isArray(timeLogs) && timeLogs.map((log, index) => {
-          const hours = parseFloat(log.oreIntervento) || 0;
-          const costPerHour = parseFloat(log.costoUnitario) || 0;
-          const discount = parseFloat(log.sconto) || 0;
+          // Assicurati che il log abbia timeIntervals normalizzati
+          const normalizedLog = normalizeTimeLog(log);
+          const intervals = normalizedLog.timeIntervals || [];
+          
+          const hours = parseFloat(normalizedLog.oreIntervento) || 0;
+          const costPerHour = parseFloat(normalizedLog.costoUnitario) || 0;
+          const discount = parseFloat(normalizedLog.sconto) || 0;
           const total = (costPerHour * (1 - (discount / 100))) * hours;
 
           return (
@@ -130,8 +251,8 @@ const TimeLoggerModal = ({
                   <div>
                     <label className="block text-xs mb-1">Modalità</label>
                     <select
-                      value={log.modalita}
-                      onChange={(e) => handleTimeLogChange(log.id, 'modalita', e.target.value)}
+                      value={normalizedLog.modalita}
+                      onChange={(e) => handleTimeLogChange(normalizedLog.id, 'modalita', e.target.value)}
                       disabled={fieldsDisabled}
                       className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
@@ -146,71 +267,116 @@ const TimeLoggerModal = ({
                     <label className="block text-xs mb-1">Data</label>
                     <input
                       type="date"
-                      value={log.data}
-                      onChange={(e) => handleTimeLogChange(log.id, 'data', e.target.value)}
+                      value={normalizedLog.data}
+                      onChange={(e) => handleTimeLogChange(normalizedLog.id, 'data', e.target.value)}
                       disabled={fieldsDisabled}
                       className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                     />
                   </div>
+                </div>
 
-                  <div>
-                    <label className="block text-xs mb-1">Ora Inizio</label>
+                {/* Intervalli di tempo */}
+                <div className="mb-4 space-y-3">
+                  {intervals.map((interval, intervalIndex) => (
+                    <div key={interval.id} className="grid md:grid-cols-5 gap-4 items-end p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="col-span-1">
+                        <label className="block text-xs mb-1">
+                          Intervallo {intervalIndex + 1} - Inizio
+                        </label>
+                        <input
+                          type="time"
+                          value={interval.start || ''}
+                          step="900"
+                          onChange={(e) => handleUpdateTimeInterval(normalizedLog.id, interval.id, 'start', e.target.value)}
+                          disabled={fieldsDisabled || normalizedLog.eventoGiornaliero}
+                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div className="col-span-1">
+                        <label className="block text-xs mb-1">
+                          Intervallo {intervalIndex + 1} - Fine
+                        </label>
+                        <input
+                          type="time"
+                          value={interval.end || ''}
+                          step="900"
+                          onChange={(e) => handleUpdateTimeInterval(normalizedLog.id, interval.id, 'end', e.target.value)}
+                          disabled={fieldsDisabled || normalizedLog.eventoGiornaliero}
+                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div className="col-span-2">
+                        <div className="text-xs text-gray-600">
+                          Durata: {interval.start && interval.end 
+                            ? `${calculateDurationHours(interval.start, interval.end).toFixed(2)} ore`
+                            : '0.00 ore'}
+                        </div>
+                      </div>
+
+                      <div className="col-span-1 flex justify-end">
+                        {!fieldsDisabled && !normalizedLog.eventoGiornaliero && intervals.length > 1 && (
+                          <button
+                            onClick={() => handleRemoveTimeInterval(normalizedLog.id, interval.id)}
+                            className="text-red-500 p-2 hover:bg-red-50 rounded transition-colors"
+                            title="Rimuovi intervallo"
+                          >
+                            <Minus size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Pulsante per aggiungere nuovo intervallo */}
+                  {!fieldsDisabled && !normalizedLog.eventoGiornaliero && (
+                    <button
+                      onClick={() => handleAddTimeInterval(normalizedLog.id)}
+                      className="w-full text-blue-500 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+                    >
+                      <Plus size={16} />
+                      Aggiungi Intervallo di Tempo
+                    </button>
+                  )}
+
+                  {/* Totale ore */}
+                  <div className="text-sm font-semibold text-gray-700 text-right">
+                    Totale: {hours.toFixed(2)} ore
+                  </div>
+                </div>
+
+                {/* Evento giornaliero */}
+                <div className="mb-4">
+                  <label className="inline-flex items-center gap-2 text-sm">
                     <input
-                      type="time"
-                      value={log.oraInizio}
-                      step="900"
-                      onChange={(e) => {
-                        const start = e.target.value;
-                        const duration = calculateDurationHours(start, log.oraFine);
-                        setTimeLogs(p => p.map(l => l.id === log.id ? { ...l, oraInizio: start, oreIntervento: duration.toFixed(2) } : l));
-                      }}
-                      disabled={fieldsDisabled || log.eventoGiornaliero}
-                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      type="checkbox"
+                      checked={!!normalizedLog.eventoGiornaliero}
+                      onChange={(e) => setTimeLogs(p => p.map(l => l.id === normalizedLog.id ? {
+                        ...l,
+                        eventoGiornaliero: e.target.checked,
+                        // se diventa giornaliero, azzero gli orari per non inviarli
+                        ...(e.target.checked ? { 
+                          timeIntervals: l.timeIntervals?.map(interval => ({ ...interval, start: '', end: '' })) || [],
+                          oraInizio: '', 
+                          oraFine: '', 
+                          oreIntervento: 0 
+                        } : {})
+                      } : l))}
+                      className="accent-blue-600"
                     />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs mb-1">Ora Fine</label>
-                    <input
-                      type="time"
-                      value={log.oraFine}
-                      step="900"
-                      onChange={(e) => {
-                        const end = e.target.value;
-                        const duration = calculateDurationHours(log.oraInizio, end);
-                        setTimeLogs(p => p.map(l => l.id === log.id ? { ...l, oraFine: end, oreIntervento: duration.toFixed(2) } : l));
-                      }}
-                      disabled={fieldsDisabled || log.eventoGiornaliero}
-                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    />
-                  </div>
-
-                  <div className="flex items-end">
-                    <label className="inline-flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={!!log.eventoGiornaliero}
-                        onChange={(e) => setTimeLogs(p => p.map(l => l.id === log.id ? {
-                          ...l,
-                          eventoGiornaliero: e.target.checked,
-                          // se diventa giornaliero, azzero gli orari per non inviarli
-                          ...(e.target.checked ? { oraInizio: '', oraFine: '', oreIntervento: 0 } : {})
-                        } : l))}
-                        className="accent-blue-600"
-                      />
-                      Evento giornaliero
-                    </label>
-                  </div>
+                    Evento giornaliero
+                  </label>
                 </div>
 
                 <textarea
                   rows="3"
-                  value={log.descrizione}
+                  value={normalizedLog.descrizione}
                   onChange={(e) => {
                     // Auto-resize textarea on input
                     e.currentTarget.style.height = 'auto';
                     e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
-                    handleTimeLogChange(log.id, 'descrizione', e.target.value);
+                    handleTimeLogChange(normalizedLog.id, 'descrizione', e.target.value);
                   }}
                   onInput={(e) => {
                     // Ensure height adjusts also on paste/undo
@@ -236,7 +402,7 @@ const TimeLoggerModal = ({
                         <h4 className="text-sm font-bold">Costo Manodopera</h4>
                         {!fieldsDisabled && (
                           <button
-                            onClick={() => toggleSection(log.id, 'manodopera')}
+                            onClick={() => toggleSection(normalizedLog.id, 'manodopera')}
                             className="text-gray-500 hover:text-gray-700 text-xs"
                           >
                             Nascondi
@@ -249,8 +415,8 @@ const TimeLoggerModal = ({
                           <input
                             type="number"
                             step="0.25"
-                            value={log.oreIntervento}
-                            onChange={(e) => handleTimeLogChange(log.id, 'oreIntervento', e.target.value)}
+                            value={normalizedLog.oreIntervento}
+                            onChange={(e) => handleTimeLogChange(normalizedLog.id, 'oreIntervento', e.target.value)}
                             disabled={fieldsDisabled}
                             className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                           />
@@ -261,8 +427,8 @@ const TimeLoggerModal = ({
                           <input
                             type="number"
                             step="0.01"
-                            value={log.costoUnitario}
-                            onChange={(e) => handleTimeLogChange(log.id, 'costoUnitario', e.target.value)}
+                            value={normalizedLog.costoUnitario}
+                            onChange={(e) => handleTimeLogChange(normalizedLog.id, 'costoUnitario', e.target.value)}
                             disabled={fieldsDisabled}
                             className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                           />
@@ -272,8 +438,8 @@ const TimeLoggerModal = ({
                           <label className="block text-xs mb-1">Sconto(%)</label>
                           <input
                             type="number"
-                            value={log.sconto}
-                            onChange={(e) => handleTimeLogChange(log.id, 'sconto', e.target.value)}
+                            value={normalizedLog.sconto}
+                            onChange={(e) => handleTimeLogChange(normalizedLog.id, 'sconto', e.target.value)}
                             disabled={fieldsDisabled}
                             className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                           />
@@ -298,14 +464,14 @@ const TimeLoggerModal = ({
                     <>
                       {!fieldsDisabled && (
                         <button
-                          onClick={() => toggleSection(log.id, 'manodopera')}
+                          onClick={() => toggleSection(normalizedLog.id, 'manodopera')}
                           className="w-full text-blue-500 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-blue-300 rounded-lg hover:bg-blue-50"
                         >
                           <Plus size={16} />
                           Aggiungi Costo Manodopera
                         </button>
                       )}
-                      {hasSectionData(log, 'manodopera') && !fieldsDisabled && (
+                      {hasSectionData(normalizedLog, 'manodopera') && !fieldsDisabled && (
                         <div className="mt-2 text-xs text-gray-500 text-center">
                           (Hai già inserito dati - clicca per visualizzare)
                         </div>
@@ -315,7 +481,7 @@ const TimeLoggerModal = ({
                 </div>
 
                 <div className="mt-5 border-t pt-4">
-                  {isSectionExpanded(log.id, 'materiali') ? (
+                  {isSectionExpanded(normalizedLog.id, 'materiali') ? (
                     <>
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="text-sm font-bold flex items-center gap-2">
@@ -324,7 +490,7 @@ const TimeLoggerModal = ({
                         </h4>
                         {!fieldsDisabled && (
                           <button
-                            onClick={() => toggleSection(log.id, 'materiali')}
+                            onClick={() => toggleSection(normalizedLog.id, 'materiali')}
                             className="text-gray-500 hover:text-gray-700 text-xs"
                           >
                             Nascondi
@@ -332,14 +498,14 @@ const TimeLoggerModal = ({
                         )}
                       </div>
                       <div className="space-y-3">
-                        {log.materials && log.materials.map(m => (
+                        {normalizedLog.materials && normalizedLog.materials.map(m => (
                           <div key={m.id} className="grid grid-cols-6 gap-3 items-center p-2 bg-gray-50 rounded-lg border">
                             <div className="col-span-2">
                               <label className="block text-xs mb-1">Materiale</label>
                               <input
                                 type="text"
                                 value={m.nome}
-                                onChange={(e) => handleMaterialChange(log.id, m.id, 'nome', e.target.value)}
+                                onChange={(e) => handleMaterialChange(normalizedLog.id, m.id, 'nome', e.target.value)}
                                 disabled={fieldsDisabled}
                                 className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                               />
@@ -351,7 +517,7 @@ const TimeLoggerModal = ({
                                 type="number"
                                 min="0"
                                 value={m.quantita === 0 || m.quantita === '0' ? '' : (m.quantita || '')}
-                                onChange={(e) => handleMaterialChange(log.id, m.id, 'quantita', e.target.value)}
+                                onChange={(e) => handleMaterialChange(normalizedLog.id, m.id, 'quantita', e.target.value)}
                                 disabled={fieldsDisabled}
                                 className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                                 placeholder=""
@@ -364,7 +530,7 @@ const TimeLoggerModal = ({
                                 type="number"
                                 step="0.01"
                                 value={m.costo === 0 || m.costo === '0' || m.costo === 0.00 ? '' : (m.costo || '')}
-                                onChange={(e) => handleMaterialChange(log.id, m.id, 'costo', e.target.value)}
+                                onChange={(e) => handleMaterialChange(normalizedLog.id, m.id, 'costo', e.target.value)}
                                 disabled={fieldsDisabled}
                                 className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                                 placeholder=""
@@ -383,9 +549,9 @@ const TimeLoggerModal = ({
                             </div>
 
                             <div className="col-span-1 pt-4 text-right">
-                              {!fieldsDisabled && log.materials.length > 1 && (
+                              {!fieldsDisabled && normalizedLog.materials.length > 1 && (
                                 <button
-                                  onClick={() => handleRemoveMaterial(log.id, m.id)}
+                                  onClick={() => handleRemoveMaterial(normalizedLog.id, m.id)}
                                   className="text-red-500 p-1"
                                 >
                                   <Trash2 size={18} />
@@ -397,7 +563,7 @@ const TimeLoggerModal = ({
 
                         {!fieldsDisabled && (
                           <button
-                            onClick={() => handleAddMaterial(log.id)}
+                            onClick={() => handleAddMaterial(normalizedLog.id)}
                             className="w-full text-blue-500 text-xs font-medium flex items-center justify-center gap-1 mt-2 p-1"
                           >
                             <Plus size={14} />
@@ -410,10 +576,10 @@ const TimeLoggerModal = ({
                     !fieldsDisabled && (
                       <button
                         onClick={() => {
-                          toggleSection(log.id, 'materiali');
+                          toggleSection(normalizedLog.id, 'materiali');
                           // Se non ci sono materiali, aggiungine uno automaticamente
-                          if (!log.materials || log.materials.length === 0) {
-                            handleAddMaterial(log.id);
+                          if (!normalizedLog.materials || normalizedLog.materials.length === 0) {
+                            handleAddMaterial(normalizedLog.id);
                           }
                         }}
                         className="w-full text-blue-500 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-blue-300 rounded-lg hover:bg-blue-50"
@@ -426,7 +592,7 @@ const TimeLoggerModal = ({
                 </div>
 
                 {/* Sezione Come da Offerta - LEGATA A QUESTO INTERVENTO */}
-                {log.offerte && log.offerte.length > 0 && (
+                {normalizedLog.offerte && normalizedLog.offerte.length > 0 && (
                   <div className="mt-5 p-4 border rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50">
                   <h3 className="text-lg font-bold text-purple-800 mb-4 flex items-center gap-2">
                     <Users size={20} />
@@ -434,13 +600,13 @@ const TimeLoggerModal = ({
                   </h3>
 
                   <div className="space-y-4">
-                    {log.offerte.map((offerta, offertaIndex) => (
+                    {normalizedLog.offerte.map((offerta, offertaIndex) => (
                       <div key={offerta.id} className="p-4 bg-white rounded-lg border border-purple-200">
                         <div className="flex justify-between items-center mb-3">
                           <h4 className="font-semibold text-purple-700">Offerta #{offertaIndex + 1}</h4>
                           {!fieldsDisabled && (
                             <button
-                              onClick={() => handleRemoveOfferta(log.id, offerta.id)}
+                              onClick={() => handleRemoveOfferta(normalizedLog.id, offerta.id)}
                               className="text-red-500 p-1 hover:bg-red-50 rounded"
                               title="Elimina offerta"
                             >
@@ -455,7 +621,7 @@ const TimeLoggerModal = ({
                             <input
                               type="text"
                               value={offerta.numeroOfferta}
-                              onChange={(e) => handleOffertaChange(log.id, offerta.id, 'numeroOfferta', e.target.value)}
+                              onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'numeroOfferta', e.target.value)}
                               placeholder="OFF-001"
                               disabled={fieldsDisabled}
                               className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -467,7 +633,7 @@ const TimeLoggerModal = ({
                             <input
                               type="date"
                               value={offerta.dataOfferta}
-                              onChange={(e) => handleOffertaChange(log.id, offerta.id, 'dataOfferta', e.target.value)}
+                              onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'dataOfferta', e.target.value)}
                               disabled={fieldsDisabled}
                               className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
                             />
@@ -480,7 +646,7 @@ const TimeLoggerModal = ({
                               min="1"
                               step="0.25"
                               value={offerta.qta}
-                              onChange={(e) => handleOffertaChange(log.id, offerta.id, 'qta', e.target.value)}
+                              onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'qta', e.target.value)}
                               disabled={fieldsDisabled}
                               className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
                             />
@@ -493,7 +659,7 @@ const TimeLoggerModal = ({
                               min="0"
                               step="0.01"
                               value={offerta.costoUnitario || 0}
-                              onChange={(e) => handleOffertaChange(log.id, offerta.id, 'costoUnitario', e.target.value)}
+                              onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'costoUnitario', e.target.value)}
                               disabled={fieldsDisabled}
                               className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
                             />
@@ -507,7 +673,7 @@ const TimeLoggerModal = ({
                               max="100"
                               step="0.01"
                               value={offerta.sconto}
-                              onChange={(e) => handleOffertaChange(log.id, offerta.id, 'sconto', e.target.value)}
+                              onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'sconto', e.target.value)}
                               disabled={fieldsDisabled}
                               className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
                             />
@@ -552,7 +718,7 @@ const TimeLoggerModal = ({
 
                     {!fieldsDisabled && (
                       <button
-                        onClick={() => handleAddOfferta(log.id)}
+                        onClick={() => handleAddOfferta(normalizedLog.id)}
                         className="w-full text-purple-600 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-purple-300 rounded-lg hover:bg-purple-50"
                       >
                         <Plus size={16} />
