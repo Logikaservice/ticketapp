@@ -290,6 +290,48 @@ module.exports = (pool, io) => {
     }
   });
 
+  // GET /api/network-monitoring/agent/config
+  // Ottieni configurazione agent via API Key (per installer)
+  router.get('/agent/config', async (req, res) => {
+    try {
+      const apiKey = req.query.api_key || req.headers['x-api-key'];
+      
+      if (!apiKey) {
+        return res.status(400).json({ error: 'API Key richiesta' });
+      }
+
+      await ensureTables();
+      
+      const result = await pool.query(
+        `SELECT id, agent_name, network_ranges, scan_interval_minutes, enabled 
+         FROM network_agents 
+         WHERE api_key = $1`,
+        [apiKey]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'API Key non valida' });
+      }
+
+      const agent = result.rows[0];
+      
+      if (!agent.enabled) {
+        return res.status(403).json({ error: 'Agent disabilitato' });
+      }
+
+      // Restituisci configurazione per l'installer
+      res.json({
+        api_key: apiKey, // Restituisci la stessa API key per comodità
+        agent_name: agent.agent_name,
+        network_ranges: agent.network_ranges || [],
+        scan_interval_minutes: agent.scan_interval_minutes || 15
+      });
+    } catch (err) {
+      console.error('❌ Errore recupero configurazione agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // POST /api/network-monitoring/agent/heartbeat
   // Agent invia heartbeat per segnalare che è online
   router.post('/agent/heartbeat', authenticateAgent, async (req, res) => {
