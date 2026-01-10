@@ -474,15 +474,29 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
         </div>
       )}
 
-      {/* Modal creazione agent */}
+      {/* Modal creazione agent - key stabile per evitare remount durante refresh */}
       {showCreateAgentModal && (
         <CreateAgentModal
+          key="create-agent-modal" // Key stabile per evitare remount
           isOpen={showCreateAgentModal}
-          onClose={() => {
+          onClose={(shouldRefresh = true) => {
             setShowCreateAgentModal(false);
-            // Ricarica dati dopo creazione agent
-            loadDevices();
-            loadChanges();
+            // Ricarica dati solo quando il modal viene chiuso manualmente
+            if (shouldRefresh) {
+              // Piccolo delay per assicurarsi che il modal sia chiuso prima di aggiornare
+              setTimeout(() => {
+                loadDevices();
+                loadChanges();
+              }, 100);
+            }
+          }}
+          onAgentCreated={(agent) => {
+            // Quando l'agent viene creato, aggiorna i dati senza chiudere il modal
+            // Usa un timeout per evitare interferenze con lo stato del modal
+            setTimeout(() => {
+              loadDevices();
+              loadChanges();
+            }, 500);
           }}
           getAuthHeader={getAuthHeader}
         />

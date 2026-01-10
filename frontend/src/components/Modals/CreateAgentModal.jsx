@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Download, Copy, CheckCircle, AlertCircle, Wifi, Building, Server, Clock, ChevronRight, Loader } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
 
-const CreateAgentModal = ({ isOpen, onClose, getAuthHeader }) => {
+const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated }) => {
   const [step, setStep] = useState(1); // 1: Informazioni, 2: Configurazione, 3: Download
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -27,9 +27,12 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader }) => {
     }
   }, [isOpen]);
 
-  // Reset form quando si chiude il modal
+  // Reset form SOLO quando il modal viene effettivamente chiuso (isOpen diventa false)
+  // Non resettare se il modal è ancora aperto
+  const prevIsOpenRef = React.useRef(isOpen);
   useEffect(() => {
-    if (!isOpen) {
+    // Se il modal viene chiuso (da true a false), resetta tutto
+    if (prevIsOpenRef.current && !isOpen) {
       setStep(1);
       setFormData({
         agent_name: '',
@@ -42,6 +45,7 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader }) => {
       setError(null);
       setCopied(false);
     }
+    prevIsOpenRef.current = isOpen;
   }, [isOpen]);
 
   const loadCompanies = async () => {
@@ -181,6 +185,11 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader }) => {
 
       setConfigJson(config);
       setStep(3);
+      
+      // Notifica il componente padre che l'agent è stato creato (senza chiudere il modal)
+      if (onAgentCreated) {
+        onAgentCreated(data.agent);
+      }
     } catch (err) {
       console.error('Errore creazione agent:', err);
       setError(err.message || 'Errore creazione agent');
@@ -509,7 +518,15 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader }) => {
             )}
             {step === 3 && (
               <button
-                onClick={onClose}
+                onClick={() => {
+                  // Passa true per indicare che il modal viene chiuso manualmente
+                  // e quindi bisogna aggiornare i dati della dashboard
+                  if (typeof onClose === 'function') {
+                    onClose(true);
+                  } else {
+                    onClose();
+                  }
+                }}
                 className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
               >
                 Chiudi
