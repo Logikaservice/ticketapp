@@ -726,7 +726,7 @@ module.exports = (pool, io) => {
         `SELECT 
           na.id, na.agent_name, na.status, na.last_heartbeat, 
           na.version, na.network_ranges, na.scan_interval_minutes, na.enabled,
-          na.created_at, na.azienda_id,
+          na.created_at, na.azienda_id, na.api_key,
           u.azienda
          FROM network_agents na
          LEFT JOIN users u ON na.azienda_id = u.id
@@ -736,6 +736,48 @@ module.exports = (pool, io) => {
       res.json(result.rows);
     } catch (err) {
       console.error('❌ Errore recupero agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/agent/:id/config
+  // Ottieni configurazione completa agent per download (solo tecnici/admin)
+  router.get('/agent/:id/config', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
+      
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
+
+      await ensureTables();
+      
+      const result = await pool.query(
+        `SELECT 
+          na.id, na.agent_name, na.api_key, na.network_ranges, 
+          na.scan_interval_minutes, na.created_at
+         FROM network_agents na
+         WHERE na.id = $1`,
+        [agentId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato' });
+      }
+
+      const agent = result.rows[0];
+      
+      // Restituisci configurazione per download
+      res.json({
+        agent_id: agent.id,
+        api_key: agent.api_key,
+        agent_name: agent.agent_name,
+        network_ranges: agent.network_ranges || [],
+        scan_interval_minutes: agent.scan_interval_minutes || 15,
+        created_at: agent.created_at
+      });
+    } catch (err) {
+      console.error('❌ Errore recupero configurazione agent:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });

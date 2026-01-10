@@ -5,7 +5,7 @@ import {
   Wifi, WifiOff, Monitor, Server, Printer, Router, 
   AlertCircle, CheckCircle, Clock, RefreshCw, 
   Activity, TrendingUp, TrendingDown, Search,
-  Filter, X, Loader, Plus
+  Filter, X, Loader, Plus, Download, Server as ServerIcon
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
@@ -21,6 +21,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [showCreateAgentModal, setShowCreateAgentModal] = useState(false);
+  const [agents, setAgents] = useState([]);
+  const [showAgentsList, setShowAgentsList] = useState(false);
 
   // Carica dispositivi
   const loadDevices = useCallback(async () => {
@@ -65,11 +67,70 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
     }
   }, [getAuthHeader]);
 
+  // Carica lista agent
+  const loadAgents = useCallback(async () => {
+    try {
+      const response = await fetch(buildApiUrl('/api/network-monitoring/agents'), {
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore caricamento agent');
+      }
+
+      const data = await response.json();
+      setAgents(data);
+    } catch (err) {
+      console.error('Errore caricamento agent:', err);
+    }
+  }, [getAuthHeader]);
+
+  // Scarica configurazione agent
+  const downloadAgentConfig = async (agentId) => {
+    try {
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/agent/${agentId}/config`), {
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore recupero configurazione');
+      }
+
+      const config = await response.json();
+      
+      // Genera config.json come nella creazione
+      const serverUrl = window.location.origin;
+      const configJson = {
+        server_url: serverUrl,
+        api_key: config.api_key,
+        agent_name: config.agent_name,
+        version: "1.0.0",
+        network_ranges: config.network_ranges,
+        scan_interval_minutes: config.scan_interval_minutes
+      };
+
+      // Download file
+      const blob = new Blob([JSON.stringify(configJson, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `config-${config.agent_name.replace(/\s+/g, '-')}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Errore download configurazione:', err);
+      alert('Errore scaricamento configurazione: ' + err.message);
+    }
+  };
+
   // Carica dati iniziali
   useEffect(() => {
     loadDevices();
     loadChanges();
-  }, [loadDevices, loadChanges]);
+    loadAgents();
+  }, [loadDevices, loadChanges, loadAgents]);
 
   // Auto-refresh ogni 30 secondi - DISABILITATO se il modal di creazione è aperto
   useEffect(() => {
@@ -245,6 +306,17 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
         
         <div className="flex items-center gap-3">
           <button
+            onClick={() => {
+              setShowAgentsList(!showAgentsList);
+              if (!showAgentsList) loadAgents();
+            }}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+          >
+            <ServerIcon size={18} />
+            Agent Esistenti ({agents.length})
+          </button>
+          
+          <button
             onClick={() => setShowCreateAgentModal(true)}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
           >
@@ -282,6 +354,65 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
           <AlertCircle className="w-5 h-5 inline mr-2" />
           {error}
+        </div>
+      )}
+
+      {/* Lista Agent Esistenti */}
+      {showAgentsList && (
+        <div className="mb-6 bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <ServerIcon size={24} className="text-purple-600" />
+              Agent Registrati
+            </h2>
+            <button
+              onClick={() => setShowAgentsList(false)}
+              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+            >
+              <X size={20} />
+            </button>
+          </div>
+          
+          {agents.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">Nessun agent registrato</p>
+          ) : (
+            <div className="space-y-3">
+              {agents.map((agent) => (
+                <div key={agent.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <h3 className="font-semibold text-gray-900">{agent.agent_name || `Agent #${agent.id}`}</h3>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          agent.status === 'online' ? 'bg-green-100 text-green-800' :
+                          agent.status === 'offline' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {agent.status || 'unknown'}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-sm text-gray-600 space-y-1">
+                        <p><strong>Azienda:</strong> {agent.azienda || 'N/A'}</p>
+                        <p><strong>Reti:</strong> {(agent.network_ranges || []).join(', ') || 'Nessuna'}</p>
+                        <p><strong>Intervallo:</strong> {agent.scan_interval_minutes || 15} minuti</p>
+                        <p><strong>Ultimo heartbeat:</strong> {agent.last_heartbeat ? formatDate(new Date(agent.last_heartbeat)) : 'Mai'}</p>
+                      </div>
+                    </div>
+                    <div className="ml-4">
+                      <button
+                        onClick={() => downloadAgentConfig(agent.id)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                        title="Scarica configurazione (config.json + API Key)"
+                      >
+                        <Download size={18} />
+                        Scarica Config
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
