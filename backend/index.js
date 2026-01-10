@@ -812,10 +812,16 @@ const contractsRoutes = require('./routes/contracts')(pool, uploadContracts);
 const vivaldiRoutes = poolVivaldi ? require('./routes/vivaldi')(poolVivaldi) : null;
 const packvisionRoutes = require('./routes/packvision')(poolPackVision, io);
 
+// Route per Network Monitoring
+const networkMonitoringRoutes = require('./routes/networkMonitoring')(pool, io);
+
 
 app.use('/api/packvision', packvisionRoutes);
 
 app.use('/api/contracts', contractsRoutes);
+
+// Route Network Monitoring (agent usa API Key, quindi senza JWT. Frontend routes protette dopo)
+app.use('/api/network-monitoring', networkMonitoringRoutes);
 
 
 
@@ -1987,6 +1993,37 @@ const startServer = async () => {
       }
     } catch (schedulerErr) {
       console.warn("⚠️ Avviso: Vivaldi Scheduler non avviato:", schedulerErr.message);
+    }
+
+    // Inizializza tabelle Network Monitoring se non esistono
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const sqlPath = path.join(__dirname, 'scripts/init-network-monitoring.sql');
+      
+      if (fs.existsSync(sqlPath)) {
+        const sql = fs.readFileSync(sqlPath, 'utf8');
+        const statements = sql.split(';').filter(s => s.trim().length > 0 && !s.trim().startsWith('--'));
+        
+        for (const statement of statements) {
+          const trimmed = statement.trim();
+          if (trimmed) {
+            try {
+              await pool.query(trimmed);
+            } catch (err) {
+              // Ignora errori "already exists" - tabelle potrebbero già esistere
+              if (!err.message.includes('already exists') && !err.message.includes('duplicate') && !err.message.includes('does not exist')) {
+                console.warn('⚠️ Errore inizializzazione network monitoring:', err.message);
+              }
+            }
+          }
+        }
+        console.log("✅ Tabelle Network Monitoring inizializzate");
+      } else {
+        console.warn("⚠️ Script SQL network monitoring non trovato:", sqlPath);
+      }
+    } catch (networkMonitoringErr) {
+      console.warn("⚠️ Avviso: Inizializzazione Network Monitoring non completata:", networkMonitoringErr.message);
     }
 
     server.listen(PORT, () => {

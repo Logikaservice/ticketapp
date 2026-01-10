@@ -30,6 +30,7 @@ import TimesheetManager from './components/TimesheetManager';
 import VivaldiManager from './components/VivaldiManager';
 import PackVisionWithAuth from './components/PackVisionWithAuth';
 import PackVision from './components/PackVision';
+import NetworkMonitoringDashboard from './components/NetworkMonitoringDashboard';
 import { buildApiUrl } from './utils/apiConfig';
 
 const INITIAL_NEW_CLIENT_DATA = {
@@ -182,6 +183,11 @@ export default function TicketApp() {
     if (isPackVisionHostname) {
       return true;
     }
+    return false;
+  });
+
+  const [showNetworkMonitoring, setShowNetworkMonitoring] = useState(() => {
+    return false;
     const params = new URLSearchParams(window.location.search);
     return params.get('mode') === 'display';
   });
@@ -1351,15 +1357,22 @@ export default function TicketApp() {
     notify(`Ticket ${ticketNumber} cancellato`, 'error', 5000, ticketNumber);
   }, [selectedTicket, showNotification]);
 
+  // Callback per network monitoring updates
+  const handleNetworkMonitoringUpdate = React.useCallback((data) => {
+    console.log('📡 Network monitoring update ricevuto:', data);
+    // La dashboard gestirà il refresh dei dati tramite WebSocket
+  }, []);
+
   // Hook WebSocket
-  const { isConnected } = useWebSocket({
+  const { isConnected, socket } = useWebSocket({
     getAuthHeader,
     currentUser,
     onTicketCreated: handleTicketCreated,
     onTicketUpdated: handleTicketUpdated,
     onTicketStatusChanged: handleTicketStatusChanged,
     onNewMessage: handleNewMessage,
-    onTicketDeleted: handleTicketDeleted
+    onTicketDeleted: handleTicketDeleted,
+    onNetworkMonitoringUpdate: handleNetworkMonitoringUpdate
   });
 
   // ====================================================================
@@ -2900,9 +2913,10 @@ export default function TicketApp() {
               openAnalytics,
               openAccessLogs,
               openInactivityTimer,
-              openOrariTurni: () => { setShowOrariTurni(true); setShowDashboard(false); setShowVivaldi(false); },
-              openVivaldi: () => { setShowVivaldi(true); setShowDashboard(false); setShowOrariTurni(false); },
+              openOrariTurni: () => { setShowOrariTurni(true); setShowDashboard(false); setShowVivaldi(false); setShowNetworkMonitoring(false); },
+              openVivaldi: () => { setShowVivaldi(true); setShowDashboard(false); setShowOrariTurni(false); setShowNetworkMonitoring(false); },
               openPackVision: () => setShowPackVision(true),
+              openNetworkMonitoring: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); },
             }}
             openCreateContract={() => setShowContractModal(true)}
             openContractsList={() => setShowContractsListModal(true)}
@@ -2928,7 +2942,16 @@ export default function TicketApp() {
           </div>
         )}
 
-        {!showDashboard && !showOrariTurni && !showVivaldi && !showPackVision && (
+        {showNetworkMonitoring && !isOrariHostname && !isVivaldiHostname && !isPackVisionHostname && (
+          <div
+            className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200"
+            onClick={() => { setShowDashboard(true); setShowNetworkMonitoring(false); }}
+          >
+            Torna alla Dashboard
+          </div>
+        )}
+
+        {!showDashboard && !showOrariTurni && !showVivaldi && !showPackVision && !showNetworkMonitoring && (
           <div
             className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200"
             onClick={() => { setShowDashboard(true); }}
@@ -2981,6 +3004,39 @@ export default function TicketApp() {
                         </button>
                       )}
                     </div>
+                  </div>
+                </div>
+              </div>
+            )
+          ) : showNetworkMonitoring ? (
+            // Verifica accesso al network monitoring (solo tecnici/admin)
+            (currentUser?.ruolo === 'admin' || currentUser?.ruolo === 'tecnico') ? (
+              <div className="animate-slideInRight">
+                <NetworkMonitoringDashboard getAuthHeader={getAuthHeader} socket={socket} />
+              </div>
+            ) : (
+              // Messaggio di accesso negato
+              <div className="min-h-[60vh] flex items-center justify-center">
+                <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border-2 border-red-200">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-2xl font-bold text-red-600 mb-3">Accesso Negato</h2>
+                    <p className="text-gray-700 mb-3 text-base">
+                      Non hai i permessi per accedere al Monitoraggio Rete.
+                    </p>
+                    <p className="text-gray-600 text-sm mb-6">
+                      Solo tecnici e amministratori possono accedere a questo modulo.
+                    </p>
+                    <button
+                      onClick={() => { setShowDashboard(true); setShowNetworkMonitoring(false); }}
+                      className="w-full bg-gray-200 text-gray-700 py-2.5 rounded-lg hover:bg-gray-300 transition font-semibold"
+                    >
+                      Torna alla Dashboard
+                    </button>
                   </div>
                 </div>
               </div>

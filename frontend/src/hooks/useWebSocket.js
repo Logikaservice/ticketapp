@@ -11,7 +11,8 @@ export const useWebSocket = ({
   onTicketUpdated,
   onTicketStatusChanged,
   onNewMessage,
-  onTicketDeleted
+  onTicketDeleted,
+  onNetworkMonitoringUpdate
 }) => {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef(null);
@@ -26,7 +27,8 @@ export const useWebSocket = ({
     onTicketUpdated,
     onTicketStatusChanged,
     onNewMessage,
-    onTicketDeleted
+    onTicketDeleted,
+    onNetworkMonitoringUpdate
   });
   
   // Aggiorna le callback senza causare ri-render
@@ -36,9 +38,10 @@ export const useWebSocket = ({
       onTicketUpdated,
       onTicketStatusChanged,
       onNewMessage,
-      onTicketDeleted
+      onTicketDeleted,
+      onNetworkMonitoringUpdate
     };
-  }, [onTicketCreated, onTicketUpdated, onTicketStatusChanged, onNewMessage, onTicketDeleted]);
+  }, [onTicketCreated, onTicketUpdated, onTicketStatusChanged, onNewMessage, onTicketDeleted, onNetworkMonitoringUpdate]);
 
   useEffect(() => {
     // Controlla se dobbiamo connettere
@@ -190,6 +193,14 @@ export const useWebSocket = ({
         }
       });
 
+      // Eventi network monitoring
+      socket.on('network-monitoring-update', (data) => {
+        console.log('📡 WebSocket: Network monitoring update', data);
+        if (callbacksRef.current.onNetworkMonitoringUpdate) {
+          callbacksRef.current.onNetworkMonitoringUpdate(data);
+        }
+      });
+
       // Ping periodico per mantenere la connessione attiva
       pingIntervalRef.current = setInterval(() => {
         if (socket.connected) {
@@ -219,6 +230,6 @@ export const useWebSocket = ({
     };
   }, [currentUser?.id]); // SOLO currentUser.id come dipendenza - getAuthHeader viene chiamato dentro
 
-  return { isConnected };
+  return { isConnected, socket: socketRef.current };
 };
 

@@ -1,9 +1,9 @@
 // src/components/Header.jsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table } from 'lucide-react';
+import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table, Wifi } from 'lucide-react';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, isOrariDomain = false }) => {
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, openNetworkMonitoring, isOrariDomain = false }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [expandedAction, setExpandedAction] = useState(null);
@@ -137,7 +137,8 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       subActions: [
         { label: 'Orari e Turni', icon: Calendar, color: 'indigo', onClick: openOrariTurni },
         { label: 'Vivaldi', icon: Volume2, color: 'indigo', onClick: openVivaldi || (() => window.location.href = '/?domain=vivaldi') },
-        { label: 'PackVision', icon: Monitor, color: 'indigo', onClick: openPackVision }
+        { label: 'PackVision', icon: Monitor, color: 'indigo', onClick: openPackVision },
+        { label: 'Monitoraggio Rete', icon: Wifi, color: 'indigo', onClick: openNetworkMonitoring }
       ]
     }
   ].filter(action => action.visible);
