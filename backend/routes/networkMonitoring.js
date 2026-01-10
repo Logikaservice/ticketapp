@@ -9,24 +9,84 @@ module.exports = (pool, io) => {
   // Funzione helper per inizializzare le tabelle se non esistono
   const initTables = async () => {
     try {
+      // Verifica se le tabelle esistono già
+      const checkResult = await pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'network_agents'
+        );
+      `);
+
+      if (checkResult.rows[0].exists) {
+        console.log('✅ Tabelle network monitoring già esistenti');
+        return;
+      }
+
       // Carica e esegui lo script SQL
       const fs = require('fs');
       const path = require('path');
       const sqlPath = path.join(__dirname, '../scripts/init-network-monitoring.sql');
       const sql = fs.readFileSync(sqlPath, 'utf8');
       
-      // Esegui ogni statement separatamente (PostgreSQL non supporta multipli statement in una query)
-      const statements = sql.split(';').filter(s => s.trim().length > 0);
+      // Rimuovi commenti e divide per statement (gestendo correttamente $$)
+      let cleanedSql = sql.replace(/--.*$/gm, ''); // Rimuovi commenti inline
       
+      // Esegui lo script completo (PostgreSQL supporta multipli statement se separati correttamente)
+      // Dividi solo per ; che non sono dentro $$
+      const statements = [];
+      let currentStatement = '';
+      let inDollarQuote = false;
+      let dollarTag = '';
+      
+      for (let i = 0; i < cleanedSql.length; i++) {
+        const char = cleanedSql[i];
+        const nextChars = cleanedSql.substring(i, i + 2);
+        
+        if (nextChars === '$$') {
+          inDollarQuote = !inDollarQuote;
+          if (inDollarQuote) {
+            // Trova il tag dopo $$
+            const tagMatch = cleanedSql.substring(i + 2).match(/^([a-zA-Z0-9_]*)\$/);
+            if (tagMatch) {
+              dollarTag = tagMatch[1];
+              currentStatement += '$$' + dollarTag;
+              i += 2 + dollarTag.length;
+              continue;
+            }
+          } else {
+            dollarTag = '';
+          }
+          currentStatement += '$$';
+          i++;
+        } else if (!inDollarQuote && char === ';') {
+          const trimmed = currentStatement.trim();
+          if (trimmed && trimmed.length > 0) {
+            statements.push(trimmed);
+          }
+          currentStatement = '';
+        } else {
+          currentStatement += char;
+        }
+      }
+      
+      // Aggiungi l'ultimo statement se presente
+      if (currentStatement.trim().length > 0) {
+        statements.push(currentStatement.trim());
+      }
+      
+      // Esegui ogni statement
       for (const statement of statements) {
-        const trimmed = statement.trim();
-        if (trimmed && !trimmed.startsWith('--')) {
+        if (statement.trim() && statement.trim().length > 0) {
           try {
-            await pool.query(trimmed);
+            await pool.query(statement);
           } catch (err) {
             // Ignora errori "already exists" - tabelle potrebbero già esistere
-            if (!err.message.includes('already exists') && !err.message.includes('duplicate')) {
+            if (!err.message.includes('already exists') && 
+                !err.message.includes('duplicate') &&
+                !err.message.includes('does not exist')) {
               console.warn('⚠️ Errore esecuzione statement:', err.message);
+              console.warn('⚠️ Statement:', statement.substring(0, 100) + '...');
             }
           }
         }

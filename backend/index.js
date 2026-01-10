@@ -1997,33 +1997,25 @@ const startServer = async () => {
 
     // Inizializza tabelle Network Monitoring se non esistono
     try {
-      const fs = require('fs');
-      const path = require('path');
-      const sqlPath = path.join(__dirname, 'scripts/init-network-monitoring.sql');
-      
-      if (fs.existsSync(sqlPath)) {
-        const sql = fs.readFileSync(sqlPath, 'utf8');
-        const statements = sql.split(';').filter(s => s.trim().length > 0 && !s.trim().startsWith('--'));
-        
-        for (const statement of statements) {
-          const trimmed = statement.trim();
-          if (trimmed) {
-            try {
-              await pool.query(trimmed);
-            } catch (err) {
-              // Ignora errori "already exists" - tabelle potrebbero già esistere
-              if (!err.message.includes('already exists') && !err.message.includes('duplicate') && !err.message.includes('does not exist')) {
-                console.warn('⚠️ Errore inizializzazione network monitoring:', err.message);
-              }
-            }
-          }
-        }
-        console.log("✅ Tabelle Network Monitoring inizializzate");
+      // Verifica se le tabelle esistono già
+      const checkResult = await pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'network_agents'
+        );
+      `);
+
+      if (checkResult.rows[0].exists) {
+        console.log("✅ Tabelle Network Monitoring già esistenti");
       } else {
-        console.warn("⚠️ Script SQL network monitoring non trovato:", sqlPath);
+        // Le tabelle verranno create automaticamente al primo accesso alle API
+        // Questo evita problemi con parsing complesso delle funzioni PostgreSQL
+        console.log("ℹ️ Tabelle Network Monitoring verranno create al primo accesso alle API");
       }
     } catch (networkMonitoringErr) {
-      console.warn("⚠️ Avviso: Inizializzazione Network Monitoring non completata:", networkMonitoringErr.message);
+      console.warn("⚠️ Avviso: Verifica tabelle Network Monitoring non completata:", networkMonitoringErr.message);
+      console.log("ℹ️ Le tabelle verranno create automaticamente al primo accesso alle API");
     }
 
     server.listen(PORT, () => {
