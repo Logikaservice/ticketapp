@@ -71,9 +71,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
     loadChanges();
   }, [loadDevices, loadChanges]);
 
-  // Auto-refresh ogni 30 secondi
+  // Auto-refresh ogni 30 secondi - DISABILITATO se il modal di creazione è aperto
   useEffect(() => {
-    if (!autoRefresh) return;
+    if (!autoRefresh || showCreateAgentModal) return; // Non aggiornare se il modal è aperto
 
     const interval = setInterval(() => {
       loadDevices();
@@ -81,18 +81,20 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
     }, 30000); // 30 secondi
 
     return () => clearInterval(interval);
-  }, [autoRefresh, loadDevices, loadChanges]);
+  }, [autoRefresh, loadDevices, loadChanges, showCreateAgentModal]);
 
-  // Ascolta eventi WebSocket per aggiornamenti real-time
+  // Ascolta eventi WebSocket per aggiornamenti real-time - DISABILITATO se il modal di creazione è aperto
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || showCreateAgentModal) return; // Non aggiornare se il modal è aperto
 
     const handleNetworkUpdate = (data) => {
       console.log('📡 Network monitoring update ricevuto:', data);
       
-      // Ricarica dati quando arriva un aggiornamento
-      loadDevices();
-      loadChanges();
+      // Ricarica dati quando arriva un aggiornamento SOLO se il modal non è aperto
+      if (!showCreateAgentModal) {
+        loadDevices();
+        loadChanges();
+      }
     };
 
     socket.on('network-monitoring-update', handleNetworkUpdate);
@@ -100,7 +102,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
     return () => {
       socket.off('network-monitoring-update', handleNetworkUpdate);
     };
-  }, [socket, loadDevices, loadChanges]);
+  }, [socket, loadDevices, loadChanges, showCreateAgentModal]);
 
   // Icona dispositivo per tipo
   const getDeviceIcon = (deviceType) => {

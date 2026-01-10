@@ -20,21 +20,25 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
   const [configJson, setConfigJson] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  // Carica lista aziende al mount
+  // Carica lista aziende al mount - solo se non già caricate
+  const companiesLoadedRef = useRef(false);
   useEffect(() => {
-    if (isOpen && companies.length === 0) {
+    if (isOpen && !companiesLoadedRef.current) {
       loadCompanies();
+      companiesLoadedRef.current = true;
+    } else if (!isOpen) {
+      companiesLoadedRef.current = false;
     }
   }, [isOpen]);
 
   // Usa localStorage per persistere lo stato durante i refresh
   const STORAGE_KEY = 'createAgentModal_state';
   
-  // Salva lo stato in localStorage quando raggiungi lo step 3
+  // Salva lo stato SEMPRE quando cambia (non solo step 3) per prevenire perdita durante refresh
   useEffect(() => {
-    if (step === 3 && createdAgent && configJson) {
+    if (isOpen) {
       const stateToSave = {
-        step: 3,
+        step,
         createdAgent,
         configJson,
         formData,
@@ -46,27 +50,46 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
         console.error('Errore salvataggio stato:', e);
       }
     }
-  }, [step, createdAgent, configJson, formData]);
+  }, [isOpen, step, createdAgent, configJson, formData]);
 
-  // Ripristina lo stato da localStorage quando il modal si apre (solo se lo stato è stato perso)
-  const hasRestoredStateRef = useRef(false);
+  // Ripristina SEMPRE lo stato da localStorage quando il modal si apre
+  const prevIsOpenRef = useRef(isOpen);
+  
   useEffect(() => {
-    if (isOpen && !hasRestoredStateRef.current) {
+    // Quando il modal si apre (da false a true) O quando si riapre dopo un refresh
+    if (isOpen) {
       try {
         const savedState = localStorage.getItem(STORAGE_KEY);
         if (savedState) {
           const parsed = JSON.parse(savedState);
           // Ripristina solo se salvato meno di 1 ora fa (evita stati vecchi)
           if (parsed.timestamp && Date.now() - parsed.timestamp < 3600000) {
-            // Ripristina solo se lo stato attuale è vuoto (step 1, no agent)
-            if (step === 1 && !createdAgent) {
-              setStep(parsed.step || 1);
+            // Se siamo nello step 3 e abbiamo un agent salvato, ripristina SEMPRE
+            // (anche se lo stato attuale è vuoto a causa di un refresh)
+            if (parsed.step === 3 && parsed.createdAgent && (!createdAgent || step !== 3)) {
+              console.log('🔄 Ripristino stato step 3 da localStorage dopo refresh');
+              setStep(3);
               setCreatedAgent(parsed.createdAgent);
               setConfigJson(parsed.configJson);
               if (parsed.formData) {
                 setFormData(parsed.formData);
               }
-              hasRestoredStateRef.current = true;
+            } 
+            // Se siamo in uno step precedente e lo stato salvato è più avanzato, ripristinalo
+            else if (parsed.step > step && parsed.step === 3 && parsed.createdAgent) {
+              console.log('🔄 Ripristino stato avanzato da localStorage');
+              setStep(parsed.step);
+              setCreatedAgent(parsed.createdAgent);
+              setConfigJson(parsed.configJson);
+              if (parsed.formData) {
+                setFormData(parsed.formData);
+              }
+            }
+            // Se lo stato salvato corrisponde allo step corrente ma i dati sono vuoti, ripristinali
+            else if (parsed.step === step && step === 3 && !createdAgent && parsed.createdAgent) {
+              console.log('🔄 Ripristino dati mancanti da localStorage');
+              setCreatedAgent(parsed.createdAgent);
+              setConfigJson(parsed.configJson);
             }
           } else {
             // Stato troppo vecchio, rimuovilo
@@ -77,11 +100,14 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
         console.error('Errore ripristino stato:', e);
         localStorage.removeItem(STORAGE_KEY);
       }
-    } else if (!isOpen) {
-      // Reset flag quando il modal viene chiuso
-      hasRestoredStateRef.current = false;
+    } 
+    // Quando il modal si chiude (da true a false), pulisci localStorage solo se non siamo allo step 3
+    else if (prevIsOpenRef.current && !isOpen && step !== 3) {
+      localStorage.removeItem(STORAGE_KEY);
     }
-  }, [isOpen, step, createdAgent]);
+    
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen]); // Solo quando isOpen cambia - NON dipendere da step/createdAgent per evitare loop
 
   // Reset form quando il modal viene chiuso (gestito da handleCloseModal)
   // Non resettare automaticamente qui per evitare perdita di stato durante refresh
@@ -233,10 +259,8 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
       }
 
       const data = await response.json();
-      setCreatedAgent(data.agent);
-
-      // Genera config.json
-      // Usa l'URL corrente come base (funziona sia per localhost che per produzione)
+      
+      // Salva immediatamente in localStorage per evitare perdita durante eventuali refresh
       const serverUrl = window.location.origin;
       const config = {
         server_url: serverUrl,
@@ -247,13 +271,27 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
         scan_interval_minutes: parseInt(formData.scan_interval_minutes)
       };
 
+      // Aggiorna stato in batch per evitare re-render multipli
+      setCreatedAgent(data.agent);
       setConfigJson(config);
       setStep(3);
       
-      // Notifica il componente padre che l'agent è stato creato (senza chiudere il modal)
-      if (onAgentCreated) {
-        onAgentCreated(data.agent);
+      // Salva immediatamente in localStorage
+      const stateToSave = {
+        step: 3,
+        createdAgent: data.agent,
+        configJson: config,
+        formData,
+        timestamp: Date.now()
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+      } catch (e) {
+        console.error('Errore salvataggio stato:', e);
       }
+      
+      // NON chiamare onAgentCreated qui per evitare qualsiasi refresh
+      // I dati verranno aggiornati solo quando il modal viene chiuso
     } catch (err) {
       console.error('Errore creazione agent:', err);
       setError(err.message || 'Errore creazione agent');
