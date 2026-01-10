@@ -19,79 +19,130 @@ module.exports = (pool, io) => {
       `);
 
       if (checkResult.rows[0].exists) {
-        console.log('✅ Tabelle network monitoring già esistenti');
+        // Tabelle già esistenti, non fare nulla
         return;
       }
 
-      // Carica e esegui lo script SQL
-      const fs = require('fs');
-      const path = require('path');
-      const sqlPath = path.join(__dirname, '../scripts/init-network-monitoring.sql');
-      const sql = fs.readFileSync(sqlPath, 'utf8');
-      
-      // Rimuovi commenti e divide per statement (gestendo correttamente $$)
-      let cleanedSql = sql.replace(/--.*$/gm, ''); // Rimuovi commenti inline
-      
-      // Esegui lo script completo (PostgreSQL supporta multipli statement se separati correttamente)
-      // Dividi solo per ; che non sono dentro $$
-      const statements = [];
-      let currentStatement = '';
-      let inDollarQuote = false;
-      let dollarTag = '';
-      
-      for (let i = 0; i < cleanedSql.length; i++) {
-        const char = cleanedSql[i];
-        const nextChars = cleanedSql.substring(i, i + 2);
-        
-        if (nextChars === '$$') {
-          inDollarQuote = !inDollarQuote;
-          if (inDollarQuote) {
-            // Trova il tag dopo $$
-            const tagMatch = cleanedSql.substring(i + 2).match(/^([a-zA-Z0-9_]*)\$/);
-            if (tagMatch) {
-              dollarTag = tagMatch[1];
-              currentStatement += '$$' + dollarTag;
-              i += 2 + dollarTag.length;
-              continue;
-            }
-          } else {
-            dollarTag = '';
+      // Se le tabelle non esistono, creale usando query dirette (più affidabile)
+      // Crea tabella network_agents
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS network_agents (
+          id SERIAL PRIMARY KEY,
+          azienda_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          api_key VARCHAR(255) UNIQUE NOT NULL,
+          agent_name VARCHAR(255),
+          installed_on TIMESTAMP DEFAULT NOW(),
+          last_heartbeat TIMESTAMP,
+          status VARCHAR(20) DEFAULT 'offline' CHECK (status IN ('online', 'offline', 'error')),
+          version VARCHAR(50),
+          network_ranges TEXT[],
+          scan_interval_minutes INTEGER DEFAULT 15,
+          enabled BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        );
+      `);
+
+      // Crea tabella network_devices
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS network_devices (
+          id SERIAL PRIMARY KEY,
+          agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
+          ip_address VARCHAR(45) NOT NULL,
+          mac_address VARCHAR(17),
+          hostname VARCHAR(255),
+          vendor VARCHAR(255),
+          device_type VARCHAR(100),
+          status VARCHAR(20) DEFAULT 'online' CHECK (status IN ('online', 'offline')),
+          first_seen TIMESTAMP DEFAULT NOW(),
+          last_seen TIMESTAMP DEFAULT NOW(),
+          UNIQUE(agent_id, ip_address, mac_address)
+        );
+      `);
+
+      // Crea tabella network_changes
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS network_changes (
+          id SERIAL PRIMARY KEY,
+          device_id INTEGER REFERENCES network_devices(id) ON DELETE CASCADE,
+          agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
+          change_type VARCHAR(50) NOT NULL CHECK (change_type IN ('new_device', 'device_offline', 'device_online', 'ip_changed', 'mac_changed', 'hostname_changed', 'vendor_changed')),
+          old_value TEXT,
+          new_value TEXT,
+          detected_at TIMESTAMP DEFAULT NOW(),
+          notified BOOLEAN DEFAULT false,
+          notification_ip VARCHAR(45),
+          ticket_id INTEGER REFERENCES tickets(id) ON DELETE SET NULL
+        );
+      `);
+
+      // Crea tabella network_notification_config
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS network_notification_config (
+          id SERIAL PRIMARY KEY,
+          agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
+          ip_address VARCHAR(45) NOT NULL,
+          enabled BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT NOW(),
+          UNIQUE(agent_id, ip_address)
+        );
+      `);
+
+      // Crea indici
+      const indexes = [
+        'CREATE INDEX IF NOT EXISTS idx_network_agents_azienda ON network_agents(azienda_id);',
+        'CREATE INDEX IF NOT EXISTS idx_network_agents_api_key ON network_agents(api_key);',
+        'CREATE INDEX IF NOT EXISTS idx_network_agents_status ON network_agents(status);',
+        'CREATE INDEX IF NOT EXISTS idx_network_devices_agent ON network_devices(agent_id);',
+        'CREATE INDEX IF NOT EXISTS idx_network_devices_ip ON network_devices(ip_address);',
+        'CREATE INDEX IF NOT EXISTS idx_network_devices_mac ON network_devices(mac_address);',
+        'CREATE INDEX IF NOT EXISTS idx_network_devices_last_seen ON network_devices(last_seen);',
+        'CREATE INDEX IF NOT EXISTS idx_network_devices_status ON network_devices(status);',
+        'CREATE INDEX IF NOT EXISTS idx_network_changes_agent ON network_changes(agent_id);',
+        'CREATE INDEX IF NOT EXISTS idx_network_changes_detected ON network_changes(detected_at DESC);',
+        'CREATE INDEX IF NOT EXISTS idx_network_changes_notified ON network_changes(notified);',
+        'CREATE INDEX IF NOT EXISTS idx_network_changes_change_type ON network_changes(change_type);',
+        'CREATE INDEX IF NOT EXISTS idx_network_notification_config_agent ON network_notification_config(agent_id);',
+        'CREATE INDEX IF NOT EXISTS idx_network_notification_config_ip ON network_notification_config(ip_address);'
+      ];
+
+      for (const indexSql of indexes) {
+        try {
+          await pool.query(indexSql);
+        } catch (err) {
+          // Ignora errori "already exists"
+          if (!err.message.includes('already exists') && !err.message.includes('duplicate')) {
+            console.warn('⚠️ Errore creazione indice:', err.message);
           }
-          currentStatement += '$$';
-          i++;
-        } else if (!inDollarQuote && char === ';') {
-          const trimmed = currentStatement.trim();
-          if (trimmed && trimmed.length > 0) {
-            statements.push(trimmed);
-          }
-          currentStatement = '';
-        } else {
-          currentStatement += char;
         }
       }
-      
-      // Aggiungi l'ultimo statement se presente
-      if (currentStatement.trim().length > 0) {
-        statements.push(currentStatement.trim());
-      }
-      
-      // Esegui ogni statement
-      for (const statement of statements) {
-        if (statement.trim() && statement.trim().length > 0) {
-          try {
-            await pool.query(statement);
-          } catch (err) {
-            // Ignora errori "already exists" - tabelle potrebbero già esistere
-            if (!err.message.includes('already exists') && 
-                !err.message.includes('duplicate') &&
-                !err.message.includes('does not exist')) {
-              console.warn('⚠️ Errore esecuzione statement:', err.message);
-              console.warn('⚠️ Statement:', statement.substring(0, 100) + '...');
-            }
-          }
+
+      // Crea funzione e trigger (solo se non esistono)
+      try {
+        await pool.query(`
+          CREATE OR REPLACE FUNCTION update_network_agents_updated_at()
+          RETURNS TRIGGER AS $$
+          BEGIN
+            NEW.updated_at = NOW();
+            RETURN NEW;
+          END;
+          $$ LANGUAGE plpgsql;
+        `);
+
+        await pool.query(`
+          DROP TRIGGER IF EXISTS trigger_update_network_agents_updated_at ON network_agents;
+          CREATE TRIGGER trigger_update_network_agents_updated_at
+            BEFORE UPDATE ON network_agents
+            FOR EACH ROW
+            EXECUTE FUNCTION update_network_agents_updated_at();
+        `);
+      } catch (err) {
+        // Ignora errori se funzione/trigger esistono già
+        if (!err.message.includes('already exists') && !err.message.includes('duplicate')) {
+          console.warn('⚠️ Errore creazione funzione/trigger:', err.message);
         }
       }
-      
+
       console.log('✅ Tabelle network monitoring inizializzate');
     } catch (err) {
       console.error('❌ Errore inizializzazione tabelle network monitoring:', err.message);
