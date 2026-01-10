@@ -5,9 +5,10 @@ import {
   Wifi, WifiOff, Monitor, Server, Printer, Router, 
   AlertCircle, CheckCircle, Clock, RefreshCw, 
   Activity, TrendingUp, TrendingDown, Search,
-  Filter, X, Loader
+  Filter, X, Loader, Plus
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
+import CreateAgentModal from './Modals/CreateAgentModal';
 
 const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
   const [devices, setDevices] = useState([]);
@@ -19,6 +20,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
   const [sortBy, setSortBy] = useState('last_seen'); // last_seen, ip_address, hostname
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [showCreateAgentModal, setShowCreateAgentModal] = useState(false);
 
   // Carica dispositivi
   const loadDevices = useCallback(async () => {
@@ -241,6 +243,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
         
         <div className="flex items-center gap-3">
           <button
+            onClick={() => setShowCreateAgentModal(true)}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+          >
+            <Plus size={18} />
+            Crea Agent
+          </button>
+          
+          <button
             onClick={() => setAutoRefresh(!autoRefresh)}
             className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
               autoRefresh 
@@ -462,6 +472,20 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal creazione agent */}
+      {showCreateAgentModal && (
+        <CreateAgentModal
+          isOpen={showCreateAgentModal}
+          onClose={() => {
+            setShowCreateAgentModal(false);
+            // Ricarica dati dopo creazione agent
+            loadDevices();
+            loadChanges();
+          }}
+          getAuthHeader={getAuthHeader}
+        />
       )}
     </div>
   );

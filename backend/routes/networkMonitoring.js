@@ -4,6 +4,7 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
+const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
 
 module.exports = (pool, io) => {
   // Funzione helper per inizializzare le tabelle se non esistono
@@ -255,7 +256,7 @@ module.exports = (pool, io) => {
 
   // POST /api/network-monitoring/agent/register
   // Registra un nuovo agent (richiede autenticazione tecnico/admin)
-  router.post('/agent/register', async (req, res) => {
+  router.post('/agent/register', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       await ensureTables();
       
@@ -628,6 +629,50 @@ module.exports = (pool, io) => {
       res.json(result.rows);
     } catch (err) {
       console.error('❌ Errore recupero tutti cambiamenti:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/companies
+  // Ottieni lista aziende per dropdown selezione (solo tecnici/admin)
+  router.get('/companies', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT DISTINCT u.id, u.azienda, COUNT(na.id) as agents_count
+         FROM users u
+         LEFT JOIN network_agents na ON u.id = na.azienda_id
+         WHERE u.azienda IS NOT NULL AND u.azienda != ''
+         GROUP BY u.id, u.azienda
+         ORDER BY u.azienda ASC`
+      );
+
+      res.json(result.rows);
+    } catch (err) {
+      console.error('❌ Errore recupero aziende:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/agents
+  // Ottieni lista agent registrati (solo tecnici/admin)
+  router.get('/agents', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      
+      const result = await pool.query(
+        `SELECT 
+          na.id, na.agent_name, na.status, na.last_heartbeat, 
+          na.version, na.network_ranges, na.scan_interval_minutes, na.enabled,
+          na.created_at, na.azienda_id,
+          u.azienda
+         FROM network_agents na
+         LEFT JOIN users u ON na.azienda_id = u.id
+         ORDER BY na.created_at DESC`
+      );
+
+      res.json(result.rows);
+    } catch (err) {
+      console.error('❌ Errore recupero agent:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });
