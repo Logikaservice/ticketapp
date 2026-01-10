@@ -152,28 +152,51 @@ module.exports = (pool, io) => {
 
   // Inizializza tabelle al primo accesso (cache per evitare chiamate multiple)
   let tablesCheckDone = false;
+  let tablesCheckInProgress = false;
   const ensureTables = async () => {
-    if (!tablesCheckDone) {
-      try {
-        // Verifica rapida se le tabelle esistono già (più veloce che eseguire initTables)
-        const checkResult = await pool.query(`
-          SELECT EXISTS (
-            SELECT FROM information_schema.tables 
-            WHERE table_schema = 'public' 
-            AND table_name = 'network_agents'
-          );
-        `);
-        
-        if (!checkResult.rows[0].exists) {
-          // Solo se non esistono, inizializza
-          await initTables();
-        }
-        tablesCheckDone = true;
-      } catch (err) {
-        // Ignora errori di verifica - le tabelle verranno create al primo accesso
-        console.warn('⚠️ Verifica tabelle network monitoring fallita:', err.message);
-        tablesCheckDone = true; // Evita loop infiniti
+    // Se già verificato, esci subito
+    if (tablesCheckDone) {
+      return;
+    }
+    
+    // Se una verifica è già in corso, aspetta
+    if (tablesCheckInProgress) {
+      // Aspetta fino a 5 secondi che la verifica finisca
+      let waitCount = 0;
+      while (tablesCheckInProgress && waitCount < 50) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        waitCount++;
       }
+      return;
+    }
+    
+    tablesCheckInProgress = true;
+    try {
+      // Verifica rapida se le tabelle esistono già (più veloce che eseguire initTables)
+      const checkResult = await pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'network_agents'
+        );
+      `);
+      
+      if (checkResult.rows[0].exists) {
+        // Tabelle già esistenti, non fare nulla
+        tablesCheckDone = true;
+        tablesCheckInProgress = false;
+        return;
+      }
+      
+      // Solo se non esistono, inizializza
+      await initTables();
+      tablesCheckDone = true;
+    } catch (err) {
+      // Ignora errori di verifica - le tabelle verranno create al primo accesso
+      console.warn('⚠️ Verifica tabelle network monitoring fallita:', err.message);
+      tablesCheckDone = true; // Evita loop infiniti
+    } finally {
+      tablesCheckInProgress = false;
     }
   };
 
