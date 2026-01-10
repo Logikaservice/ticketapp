@@ -150,12 +150,30 @@ module.exports = (pool, io) => {
     }
   };
 
-  // Inizializza tabelle al primo accesso
-  let tablesInitialized = false;
+  // Inizializza tabelle al primo accesso (cache per evitare chiamate multiple)
+  let tablesCheckDone = false;
   const ensureTables = async () => {
-    if (!tablesInitialized) {
-      await initTables();
-      tablesInitialized = true;
+    if (!tablesCheckDone) {
+      try {
+        // Verifica rapida se le tabelle esistono già (più veloce che eseguire initTables)
+        const checkResult = await pool.query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = 'network_agents'
+          );
+        `);
+        
+        if (!checkResult.rows[0].exists) {
+          // Solo se non esistono, inizializza
+          await initTables();
+        }
+        tablesCheckDone = true;
+      } catch (err) {
+        // Ignora errori di verifica - le tabelle verranno create al primo accesso
+        console.warn('⚠️ Verifica tabelle network monitoring fallita:', err.message);
+        tablesCheckDone = true; // Evita loop infiniti
+      }
     }
   };
 
