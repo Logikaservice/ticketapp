@@ -428,17 +428,48 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader }) => {
                     {copied ? 'Copiato!' : 'Copia'}
                   </button>
                 </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  ⚠️ <strong>Nota:</strong> Scarica anche <code className="bg-gray-100 px-1 rounded">NetworkMonitor.ps1</code> e <code className="bg-gray-100 px-1 rounded">NetworkMonitorInstaller.ps1</code> dalla cartella <code className="bg-gray-100 px-1 rounded">agent/</code> del progetto
+                </p>
               </div>
 
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h3 className="font-semibold text-blue-900 mb-2">Prossimi passi:</h3>
-                <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                  <li>Scarica il file <code className="bg-blue-100 px-1 rounded">config.json</code></li>
-                  <li>Scarica lo script <code className="bg-blue-100 px-1 rounded">NetworkMonitor.ps1</code> dalla cartella <code className="bg-blue-100 px-1 rounded">agent/</code></li>
-                  <li>Copia entrambi i file nella stessa cartella sul server Windows</li>
-                  <li>Esegui <code className="bg-blue-100 px-1 rounded">.\NetworkMonitor.ps1 -TestMode</code> per testare</li>
-                  <li>Se funziona, configura l'esecuzione automatica con Scheduled Task</li>
-                </ol>
+                <h3 className="font-semibold text-blue-900 mb-2">📦 Pacchetto di installazione:</h3>
+                <p className="text-sm text-blue-800 mb-3">
+                  Per installare l'agent sul PC Windows, hai bisogno di 3 file:
+                </p>
+                <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside mb-3">
+                  <li><code className="bg-blue-100 px-1 rounded">config.json</code> (scaricato sopra ✅)</li>
+                  <li><code className="bg-blue-100 px-1 rounded">NetworkMonitor.ps1</code> (dalla cartella <code className="bg-blue-100 px-1 rounded">agent/</code> del progetto)</li>
+                  <li><code className="bg-blue-100 px-1 rounded">NetworkMonitorInstaller.ps1</code> (dalla cartella <code className="bg-blue-100 px-1 rounded">agent/</code> del progetto)</li>
+                </ul>
+                
+                <div className="mt-4 p-3 bg-white border border-blue-200 rounded-lg">
+                  <h4 className="font-semibold text-blue-900 mb-2">🚀 Installazione automatica:</h4>
+                  <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                    <li>Copia tutti e 3 i file nella stessa cartella sul PC Windows</li>
+                    <li>
+                      <strong>Esegui l'installer come amministratore:</strong>
+                      <div className="bg-gray-100 px-3 py-2 rounded mt-1 font-mono text-xs border border-gray-300">
+                        .\NetworkMonitorInstaller.ps1
+                      </div>
+                      Oppure usa il file <code className="bg-blue-100 px-1 rounded">Installa-Agent.bat</code> (doppio click)
+                    </li>
+                    <li>L'installer configurerà tutto automaticamente, incluso il Scheduled Task</li>
+                  </ol>
+                </div>
+
+                <div className="mt-3 p-3 bg-white border border-blue-200 rounded-lg">
+                  <h4 className="font-semibold text-blue-900 mb-2">🔧 Installazione manuale:</h4>
+                  <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                    <li>Testa l'agent: <code className="bg-gray-100 px-1 rounded">.\NetworkMonitor.ps1 -TestMode</code></li>
+                    <li>Se funziona, configura il Scheduled Task manualmente seguendo il README.md</li>
+                  </ol>
+                </div>
+
+                <p className="text-xs text-blue-600 mt-3">
+                  💡 <strong>Suggerimento:</strong> Il file <code className="bg-blue-100 px-1 rounded">Installa-Agent.bat</code> può essere convertito in .exe usando strumenti come "Bat To Exe Converter" per creare un installer Windows standard.
+                </p>
               </div>
             </div>
           )}

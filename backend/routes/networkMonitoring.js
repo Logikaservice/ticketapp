@@ -634,19 +634,40 @@ module.exports = (pool, io) => {
   });
 
   // GET /api/network-monitoring/companies
-  // Ottieni lista aziende per dropdown selezione (solo tecnici/admin)
+  // Ottieni lista aziende uniche dal progetto ticket (solo tecnici/admin)
   router.get('/companies', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
-      const result = await pool.query(
-        `SELECT DISTINCT u.id, u.azienda, COUNT(na.id) as agents_count
+      // Recupera tutte le aziende distinte dalla tabella users del progetto ticket
+      // Query semplificata compatibile con tutte le versioni PostgreSQL
+      const companiesResult = await pool.query(
+        `SELECT DISTINCT 
+          u.azienda,
+          MIN(u.id) as id
          FROM users u
-         LEFT JOIN network_agents na ON u.id = na.azienda_id
-         WHERE u.azienda IS NOT NULL AND u.azienda != ''
-         GROUP BY u.id, u.azienda
+         WHERE u.azienda IS NOT NULL AND u.azienda != '' AND u.azienda != 'Senza azienda'
+         GROUP BY u.azienda
          ORDER BY u.azienda ASC`
       );
-
-      res.json(result.rows);
+      
+      // Per ogni azienda, conta gli agent associati
+      const companiesWithAgents = await Promise.all(
+        companiesResult.rows.map(async (row) => {
+          const agentCount = await pool.query(
+            `SELECT COUNT(*) as count 
+             FROM network_agents na
+             INNER JOIN users u ON na.azienda_id = u.id
+             WHERE u.azienda = $1`,
+            [row.azienda]
+          );
+          return {
+            id: row.id,
+            azienda: row.azienda,
+            agents_count: parseInt(agentCount.rows[0].count) || 0
+          };
+        })
+      );
+      
+      res.json(companiesWithAgents);
     } catch (err) {
       console.error('❌ Errore recupero aziende:', err);
       res.status(500).json({ error: 'Errore interno del server' });
