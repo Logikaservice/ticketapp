@@ -118,17 +118,31 @@ module.exports = (pool, io) => {
       }
 
       // Crea funzione e trigger (solo se non esistono)
+      // Prima verifica se la funzione esiste già
       try {
-        await pool.query(`
-          CREATE OR REPLACE FUNCTION update_network_agents_updated_at()
-          RETURNS TRIGGER AS $$
-          BEGIN
-            NEW.updated_at = NOW();
-            RETURN NEW;
-          END;
-          $$ LANGUAGE plpgsql;
+        const functionExists = await pool.query(`
+          SELECT EXISTS (
+            SELECT FROM pg_proc p
+            JOIN pg_namespace n ON p.pronamespace = n.oid
+            WHERE n.nspname = 'public'
+            AND p.proname = 'update_network_agents_updated_at'
+          );
         `);
 
+        if (!functionExists.rows[0].exists) {
+          // Solo se la funzione non esiste, creala
+          await pool.query(`
+            CREATE FUNCTION update_network_agents_updated_at()
+            RETURNS TRIGGER AS $func$
+            BEGIN
+              NEW.updated_at = NOW();
+              RETURN NEW;
+            END;
+            $func$ LANGUAGE plpgsql;
+          `);
+        }
+
+        // Crea trigger (sempre con IF NOT EXISTS equivalente)
         await pool.query(`
           DROP TRIGGER IF EXISTS trigger_update_network_agents_updated_at ON network_agents;
           CREATE TRIGGER trigger_update_network_agents_updated_at
@@ -137,8 +151,10 @@ module.exports = (pool, io) => {
             EXECUTE FUNCTION update_network_agents_updated_at();
         `);
       } catch (err) {
-        // Ignora errori se funzione/trigger esistono già
-        if (!err.message.includes('already exists') && !err.message.includes('duplicate')) {
+        // Ignora errori se funzione/trigger esistono già o altri errori non critici
+        if (!err.message.includes('already exists') && 
+            !err.message.includes('duplicate') &&
+            !err.message.includes('does not exist')) {
           console.warn('⚠️ Errore creazione funzione/trigger:', err.message);
         }
       }
