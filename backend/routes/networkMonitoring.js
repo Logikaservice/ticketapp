@@ -181,8 +181,8 @@ module.exports = (pool, io) => {
         );
       `);
       
-      if (checkResult.rows[0].exists) {
-        // Tabelle già esistenti, non fare nulla
+      if (checkResult.rows && checkResult.rows[0] && checkResult.rows[0].exists) {
+        // Tabelle già esistenti, non fare nulla - NON chiamare initTables
         tablesCheckDone = true;
         tablesCheckInProgress = false;
         return;
@@ -193,7 +193,10 @@ module.exports = (pool, io) => {
       tablesCheckDone = true;
     } catch (err) {
       // Ignora errori di verifica - le tabelle verranno create al primo accesso
-      console.warn('⚠️ Verifica tabelle network monitoring fallita:', err.message);
+      // Non loggare come errore se è solo un problema di verifica
+      if (!err.message.includes('network_agents')) {
+        console.warn('⚠️ Verifica tabelle network monitoring fallita:', err.message);
+      }
       tablesCheckDone = true; // Evita loop infiniti
     } finally {
       tablesCheckInProgress = false;
