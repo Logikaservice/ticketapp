@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Download, Copy, CheckCircle, AlertCircle, Wifi, Building, Server, Clock, ChevronRight, Loader } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
 
-const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated }) => {
+const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setShowCreateAgentModal }) => {
   const [step, setStep] = useState(1); // 1: Informazioni, 2: Configurazione, 3: Download
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -27,26 +27,90 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated }) =>
     }
   }, [isOpen]);
 
-  // Reset form SOLO quando il modal viene effettivamente chiuso (isOpen diventa false)
-  // Non resettare se il modal è ancora aperto
-  const prevIsOpenRef = React.useRef(isOpen);
+  // Usa localStorage per persistere lo stato durante i refresh
+  const STORAGE_KEY = 'createAgentModal_state';
+  
+  // Salva lo stato in localStorage quando raggiungi lo step 3
   useEffect(() => {
-    // Se il modal viene chiuso (da true a false), resetta tutto
-    if (prevIsOpenRef.current && !isOpen) {
-      setStep(1);
-      setFormData({
-        agent_name: '',
-        azienda_id: '',
-        network_ranges: ['192.168.1.0/24'],
-        scan_interval_minutes: 15
-      });
-      setCreatedAgent(null);
-      setConfigJson(null);
-      setError(null);
-      setCopied(false);
+    if (step === 3 && createdAgent && configJson) {
+      const stateToSave = {
+        step: 3,
+        createdAgent,
+        configJson,
+        formData,
+        timestamp: Date.now()
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+      } catch (e) {
+        console.error('Errore salvataggio stato:', e);
+      }
     }
-    prevIsOpenRef.current = isOpen;
-  }, [isOpen]);
+  }, [step, createdAgent, configJson, formData]);
+
+  // Ripristina lo stato da localStorage quando il modal si apre (solo se lo stato è stato perso)
+  const hasRestoredStateRef = useRef(false);
+  useEffect(() => {
+    if (isOpen && !hasRestoredStateRef.current) {
+      try {
+        const savedState = localStorage.getItem(STORAGE_KEY);
+        if (savedState) {
+          const parsed = JSON.parse(savedState);
+          // Ripristina solo se salvato meno di 1 ora fa (evita stati vecchi)
+          if (parsed.timestamp && Date.now() - parsed.timestamp < 3600000) {
+            // Ripristina solo se lo stato attuale è vuoto (step 1, no agent)
+            if (step === 1 && !createdAgent) {
+              setStep(parsed.step || 1);
+              setCreatedAgent(parsed.createdAgent);
+              setConfigJson(parsed.configJson);
+              if (parsed.formData) {
+                setFormData(parsed.formData);
+              }
+              hasRestoredStateRef.current = true;
+            }
+          } else {
+            // Stato troppo vecchio, rimuovilo
+            localStorage.removeItem(STORAGE_KEY);
+          }
+        }
+      } catch (e) {
+        console.error('Errore ripristino stato:', e);
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    } else if (!isOpen) {
+      // Reset flag quando il modal viene chiuso
+      hasRestoredStateRef.current = false;
+    }
+  }, [isOpen, step, createdAgent]);
+
+  // Reset form quando il modal viene chiuso (gestito da handleCloseModal)
+  // Non resettare automaticamente qui per evitare perdita di stato durante refresh
+
+  // Funzione per chiudere il modal esplicitamente
+  const handleCloseModal = (shouldRefresh = false) => {
+    // Pulisci localStorage e resetta tutto
+    localStorage.removeItem(STORAGE_KEY);
+    setStep(1);
+    setFormData({
+      agent_name: '',
+      azienda_id: '',
+      network_ranges: ['192.168.1.0/24'],
+      scan_interval_minutes: 15
+    });
+    setCreatedAgent(null);
+    setConfigJson(null);
+    setError(null);
+    setCopied(false);
+    
+    if (setShowCreateAgentModal) {
+      setShowCreateAgentModal(false);
+    }
+    if (shouldRefresh && typeof onClose === 'function') {
+      setTimeout(() => onClose(true), 200);
+    } else if (typeof onClose === 'function') {
+      onClose(false);
+    }
+  };
 
   const loadCompanies = async () => {
     try {
@@ -248,7 +312,10 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated }) =>
               </p>
             </div>
             <button
-              onClick={onClose}
+              onClick={() => {
+                // Chiama handleCloseModal che gestisce il reset
+                handleCloseModal(step === 3 && createdAgent);
+              }}
               className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition"
             >
               <X size={24} />
@@ -518,15 +585,7 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated }) =>
             )}
             {step === 3 && (
               <button
-                onClick={() => {
-                  // Passa true per indicare che il modal viene chiuso manualmente
-                  // e quindi bisogna aggiornare i dati della dashboard
-                  if (typeof onClose === 'function') {
-                    onClose(true);
-                  } else {
-                    onClose();
-                  }
-                }}
+                onClick={() => handleCloseModal(true)}
                 className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
               >
                 Chiudi
