@@ -575,7 +575,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       const changeDate = new Date(c.detected_at);
       const hoursAgo = (Date.now() - changeDate.getTime()) / 3600000;
       return hoursAgo < 24;
-    }).length
+    }).length,
+    agentsTotal: agents.length,
+    agentsOnline: agents.filter(a => a.status === 'online').length,
+    agentsOffline: agents.filter(a => a.status === 'offline').length
   };
 
   if (loading && devices.length === 0) {
