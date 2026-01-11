@@ -1378,12 +1378,21 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
         
         // nssm.exe (incluso nel pacchetto - non serve download esterno)
         const nssmPath = path.join(agentDir, 'nssm.exe');
+        console.log('🔍 Verifica nssm.exe:', nssmPath);
+        console.log('   Esiste:', fs.existsSync(nssmPath));
         if (fs.existsSync(nssmPath)) {
-          const nssmContent = fs.readFileSync(nssmPath);
-          archive.append(nssmContent, { name: 'nssm.exe' });
-          console.log('✅ Aggiunto nssm.exe');
+          try {
+            const nssmContent = fs.readFileSync(nssmPath);
+            archive.append(nssmContent, { name: 'nssm.exe' });
+            console.log('✅ Aggiunto nssm.exe al ZIP');
+          } catch (nssmErr) {
+            console.error('❌ Errore lettura nssm.exe:', nssmErr);
+            console.warn('⚠️  nssm.exe non aggiunto al ZIP a causa di errore');
+          }
         } else {
-          console.warn('⚠️  nssm.exe non trovato! Assicurati che sia presente in agent/nssm.exe');
+          console.warn('⚠️  nssm.exe non trovato in:', nssmPath);
+          console.warn('   Agent dir:', agentDir);
+          console.warn('   Assicurati che nssm.exe sia presente in agent/nssm.exe sul server');
         }
       } catch (serviceErr) {
         console.error('❌ Errore aggiunta file servizio allo ZIP:', serviceErr);
