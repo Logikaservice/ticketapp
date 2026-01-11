@@ -1375,6 +1375,16 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
           archive.append(disinstallaTuttoBatContent, { name: 'Disinstalla-Tutto.bat' });
           console.log('✅ Aggiunto Disinstalla-Tutto.bat');
         }
+        
+        // nssm.exe (incluso nel pacchetto - non serve download esterno)
+        const nssmPath = path.join(agentDir, 'nssm.exe');
+        if (fs.existsSync(nssmPath)) {
+          const nssmContent = fs.readFileSync(nssmPath);
+          archive.append(nssmContent, { name: 'nssm.exe' });
+          console.log('✅ Aggiunto nssm.exe');
+        } else {
+          console.warn('⚠️  nssm.exe non trovato! Assicurati che sia presente in agent/nssm.exe');
+        }
       } catch (serviceErr) {
         console.error('❌ Errore aggiunta file servizio allo ZIP:', serviceErr);
         // Non bloccare se i file servizio non sono disponibili (compatibilità)
