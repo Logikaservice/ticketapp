@@ -964,29 +964,55 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             </div>
           ) : (
             <div className="space-y-3">
-              {changes.slice(0, 50).map((change) => (
-                <div key={change.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                  <div className="flex items-center gap-4 flex-1">
-                    <ChangeTypeBadge changeType={change.change_type} />
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-gray-900">
-                        {change.ip_address} {change.hostname && `(${change.hostname})`}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        <span className="font-medium">{change.azienda || 'N/A'}</span> • {change.agent_name || 'Agent'}
-                      </div>
-                      {change.old_value && change.new_value && (
-                        <div className="text-xs text-gray-400 mt-1 font-mono">
-                          {change.old_value} → {change.new_value}
+              {changes.slice(0, 50).map((change) => {
+                const isStatic = change.is_static === true;
+                return (
+                  <div 
+                    key={change.id} 
+                    className={`flex items-center justify-between p-4 rounded-lg hover:bg-gray-100 transition ${
+                      isStatic ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4 flex-1">
+                      <ChangeTypeBadge changeType={change.change_type} />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-medium text-gray-900">
+                            {change.ip_address}
+                            {isStatic && (
+                              <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-200 text-blue-800 font-semibold">
+                                STATICO
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      )}
+                        <div className="text-xs text-gray-600 mt-1 space-y-0.5">
+                          {change.hostname && (
+                            <div><span className="font-medium">Hostname:</span> {change.hostname}</div>
+                          )}
+                          {change.mac_address && (
+                            <div><span className="font-medium">MAC:</span> <span className="font-mono">{change.mac_address}</span></div>
+                          )}
+                          {change.device_type && (
+                            <div><span className="font-medium">Tipo:</span> {change.device_type}</div>
+                          )}
+                          <div>
+                            <span className="font-medium">Azienda:</span> {change.azienda || 'N/A'} • {change.agent_name || 'Agent'}
+                          </div>
+                        </div>
+                        {change.old_value && change.new_value && (
+                          <div className="text-xs text-gray-400 mt-1 font-mono">
+                            {change.old_value} → {change.new_value}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 whitespace-nowrap ml-4">
+                      {formatDate(change.detected_at)}
                     </div>
                   </div>
-                  <div className="text-xs text-gray-500 whitespace-nowrap ml-4">
-                    {formatDate(change.detected_at)}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {changes.length > 50 && (
                 <div className="text-center py-4 text-sm text-gray-500">
                   Mostrati i primi 50 cambiamenti di {changes.length} totali

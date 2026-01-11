@@ -903,7 +903,7 @@ module.exports = (pool, io) => {
       const result = await pool.query(
         `SELECT 
           nc.id, nc.change_type, nc.old_value, nc.new_value, nc.detected_at, nc.notified,
-          nd.ip_address, nd.mac_address, nd.hostname, nd.vendor,
+          nd.ip_address, nd.mac_address, nd.hostname, nd.vendor, nd.device_type, nd.is_static,
           na.agent_name, na.azienda_id,
           u.azienda
          FROM network_changes nc
