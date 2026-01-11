@@ -1095,7 +1095,11 @@ module.exports = (pool, io) => {
       const servicePath = path.join(agentDir, 'NetworkMonitorService.ps1');
       const installServicePath = path.join(agentDir, 'Installa-Servizio.ps1');
       const removeServicePath = path.join(agentDir, 'Rimuovi-Servizio.ps1');
+      const installAutoPath = path.join(agentDir, 'Installa-Automatico.ps1');
+      const installBatPath = path.join(agentDir, 'Installa.bat');
       const readmeServicePath = path.join(agentDir, 'README_SERVICE.md');
+      const guidaInstallazionePath = path.join(agentDir, 'GUIDA_INSTALLAZIONE_SERVIZIO.md');
+      const diagnosticaPath = path.join(agentDir, 'Diagnostica-Agent.ps1');
 
       console.log('📦 Download pacchetto agent - Path ricerca file:');
       console.log('  __dirname:', __dirname);
