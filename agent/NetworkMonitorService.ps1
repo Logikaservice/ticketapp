@@ -283,7 +283,12 @@ function Get-NetworkDevices {
                 # Salva IP trovati con MAC in batch (una sola volta invece che per ogni IP)
                 try {
                     $ipDataArray = @()
-                    foreach ($ip in ($foundIPs | Sort-Object -Unique)) {
+                    # Ordina IP numericamente invece che alfabeticamente
+                    $sortedIPs = $foundIPs | Sort-Object -Unique | Sort-Object {
+                        $parts = $_ -split '\.'
+                        [int]$parts[0] * 16777216 + [int]$parts[1] * 65536 + [int]$parts[2] * 256 + [int]$parts[3]
+                    }
+                    foreach ($ip in $sortedIPs) {
                         $macAddress = if ($arpTable.ContainsKey($ip)) { $arpTable[$ip] } else { $null }
                         $ipDataArray += @{
                             ip = $ip

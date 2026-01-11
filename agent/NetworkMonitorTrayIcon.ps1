@@ -261,18 +261,38 @@ function Show-StatusWindow {
     $script:statusWindow.BringToFront()
 }
 
-# Aggiorna lista IP trovati nella finestra (con MAC)
+# Funzione helper per ordinare IP numericamente
+function Sort-IPAddresses {
+    param([array]$IPs)
+    
+    # Converte ogni IP in un array di numeri per ordinamento numerico
+    $sorted = $IPs | Sort-Object {
+        if ($_.ip) {
+            $ip = $_.ip
+        } else {
+            $ip = $_.ToString()
+        }
+        $parts = $ip -split '\.'
+        [int]$parts[0] * 16777216 + [int]$parts[1] * 65536 + [int]$parts[2] * 256 + [int]$parts[3]
+    }
+    return $sorted
+}
+
+# Aggiorna lista IP trovati nella finestra (con MAC, ordinati numericamente)
 function Update-FoundIPsList {
     if (-not $script:statusWindowListBox) { return }
     if (-not $script:statusWindow -or -not $script:statusWindow.Visible) { return }
     
     $currentIPs = Get-CurrentScanIPs
     
+    # Ordina IP numericamente
+    $sortedIPs = Sort-IPAddresses -IPs $currentIPs
+    
     # Aggiorna thread-safe
     if ($script:statusWindow.InvokeRequired) {
         $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
             $script:statusWindowListBox.Items.Clear()
-            foreach ($item in $currentIPs) {
+            foreach ($item in $sortedIPs) {
                 $displayText = if ($item.mac) { "$($item.ip) - $($item.mac)" } else { $item.ip }
                 $script:statusWindowListBox.Items.Add($displayText)
             }
@@ -282,7 +302,7 @@ function Update-FoundIPsList {
         })
     } else {
         $script:statusWindowListBox.Items.Clear()
-        foreach ($item in $currentIPs) {
+        foreach ($item in $sortedIPs) {
             $displayText = if ($item.mac) { "$($item.ip) - $($item.mac)" } else { $item.ip }
             $script:statusWindowListBox.Items.Add($displayText)
         }
