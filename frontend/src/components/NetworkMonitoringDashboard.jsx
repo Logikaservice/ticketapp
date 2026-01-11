@@ -255,6 +255,57 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     }
   };
 
+  // Apri modal modifica agent
+  const handleEditAgent = (agent) => {
+    setEditAgentData({
+      agent_name: agent.agent_name || '',
+      network_ranges: agent.network_ranges || [],
+      scan_interval_minutes: agent.scan_interval_minutes || 15
+    });
+    setEditingAgentId(agent.id);
+  };
+
+  // Chiudi modal modifica agent
+  const handleCancelEditAgent = () => {
+    setEditingAgentId(null);
+    setEditAgentData({
+      agent_name: '',
+      network_ranges: [],
+      scan_interval_minutes: 15
+    });
+  };
+
+  // Salva modifiche agent
+  const handleSaveAgent = useCallback(async () => {
+    if (!editingAgentId) return;
+
+    try {
+      setError(null);
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/agent/${editingAgentId}`), {
+        method: 'PUT',
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(editAgentData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Errore aggiornamento agent');
+      }
+
+      const result = await response.json();
+      alert(`✅ ${result.message || 'Configurazione agent aggiornata con successo. Le modifiche saranno applicate al prossimo heartbeat dell\'agent.'}`);
+      
+      handleCancelEditAgent();
+      loadAgents(); // Ricarica lista agent
+    } catch (err) {
+      console.error('Errore aggiornamento agent:', err);
+      setError(err.message);
+    }
+  }, [editingAgentId, editAgentData, getAuthHeader, loadAgents]);
+
   // Carica dispositivi per un'azienda specifica
   const loadCompanyDevices = useCallback(async (aziendaId) => {
     try {
