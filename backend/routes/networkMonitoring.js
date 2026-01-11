@@ -826,42 +826,46 @@ module.exports = (pool, io) => {
       console.log('  InstallerCompleto.ps1:', installerPath);
       console.log('    exists:', fs.existsSync(installerPath));
 
-      // Verifica che i file esistano
-      if (!fs.existsSync(networkMonitorPath)) {
-        const errorMsg = `File NetworkMonitor.ps1 non trovato. Path cercato: ${networkMonitorPath}`;
-        console.error('❌', errorMsg);
-        // Prova anche con path alternativo (process.cwd)
-        const altPath = path.join(process.cwd(), 'agent', 'NetworkMonitor.ps1');
-        console.log('  Tentativo path alternativo:', altPath, 'exists:', fs.existsSync(altPath));
-        return res.status(500).json({ error: errorMsg });
-      }
-      if (!fs.existsSync(installerPath)) {
-        const errorMsg = `File InstallerCompleto.ps1 non trovato. Path cercato: ${installerPath}`;
-        console.error('❌', errorMsg);
-        // Prova anche con path alternativo
-        const altPath = path.join(process.cwd(), 'agent', 'InstallerCompleto.ps1');
-        console.log('  Tentativo path alternativo:', altPath, 'exists:', fs.existsSync(altPath));
-        return res.status(500).json({ error: errorMsg });
-      }
+      // Prova multiple path per trovare i file (fallback robusto)
+      const possiblePaths = [
+        { network: networkMonitorPath, installer: installerPath, label: 'path __dirname (default)' },
+        { network: path.join(process.cwd(), 'agent', 'NetworkMonitor.ps1'), installer: path.join(process.cwd(), 'agent', 'InstallerCompleto.ps1'), label: 'path process.cwd()' },
+        { network: path.join(projectRoot, 'agent', 'NetworkMonitor.ps1'), installer: path.join(projectRoot, 'agent', 'InstallerCompleto.ps1'), label: 'path projectRoot' }
+      ];
 
-      console.log('✅ Entrambi i file trovati, procedo con la creazione dello ZIP...');
-
-      // Leggi contenuto file
       let networkMonitorContent, installerContent;
-      try {
-        networkMonitorContent = fs.readFileSync(networkMonitorPath, 'utf8');
-        installerContent = fs.readFileSync(installerPath, 'utf8');
-      } catch (readErr) {
-        console.error('❌ Errore lettura file agent:', readErr);
-        return res.status(500).json({ 
-          error: `Errore lettura file agent: ${readErr.message}`,
-          details: {
-            networkMonitorPath,
-            installerPath,
-            projectRoot,
-            agentDir
+      let filesFound = false;
+      let usedPath = null;
+
+      for (const pathSet of possiblePaths) {
+        console.log(`🔍 Tentativo path: ${pathSet.label}`);
+        console.log(`   NetworkMonitor: ${pathSet.network} (exists: ${fs.existsSync(pathSet.network)})`);
+        console.log(`   InstallerCompleto: ${pathSet.installer} (exists: ${fs.existsSync(pathSet.installer)})`);
+        
+        if (fs.existsSync(pathSet.network) && fs.existsSync(pathSet.installer)) {
+          try {
+            console.log(`✅ File trovati usando: ${pathSet.label}`);
+            networkMonitorContent = fs.readFileSync(pathSet.network, 'utf8');
+            installerContent = fs.readFileSync(pathSet.installer, 'utf8');
+            filesFound = true;
+            usedPath = pathSet.label;
+            console.log(`✅ File letti con successo: NetworkMonitor.ps1 (${networkMonitorContent.length} caratteri), InstallerCompleto.ps1 (${installerContent.length} caratteri)`);
+            break;
+          } catch (readErr) {
+            console.error(`❌ Errore lettura file da ${pathSet.label}:`, readErr.message);
+            continue;
           }
+        }
+      }
+
+      if (!filesFound) {
+        const errorMsg = `File agent non trovati in nessuno dei path provati. Verifica che i file NetworkMonitor.ps1 e InstallerCompleto.ps1 siano presenti nella cartella agent/ del progetto.`;
+        console.error('❌', errorMsg);
+        console.error('  Path provati:');
+        possiblePaths.forEach(p => {
+          console.error(`    - ${p.label}: NetworkMonitor=${fs.existsSync(p.network)}, Installer=${fs.existsSync(p.installer)}`);
         });
+        return res.status(500).json({ error: errorMsg });
       }
 
       // Crea config.json
