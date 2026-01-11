@@ -1290,6 +1290,79 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
 3. Cancella la directory di installazione
 `;
       archive.append(readmeContent, { name: 'README.txt' });
+      console.log('✅ Aggiunto README.txt');
+
+      // File servizio Windows (NUOVO) - Aggiungi dopo README per non interrompere il flusso
+      try {
+        // NetworkMonitorService.ps1
+        if (fs.existsSync(servicePath)) {
+          const serviceContent = fs.readFileSync(servicePath, 'utf8');
+          archive.append(serviceContent, { name: 'NetworkMonitorService.ps1' });
+          console.log('✅ Aggiunto NetworkMonitorService.ps1');
+        } else {
+          console.warn('⚠️  NetworkMonitorService.ps1 non trovato!');
+        }
+
+        // Installa-Servizio.ps1
+        if (fs.existsSync(installServicePath)) {
+          const installServiceContent = fs.readFileSync(installServicePath, 'utf8');
+          archive.append(installServiceContent, { name: 'Installa-Servizio.ps1' });
+          console.log('✅ Aggiunto Installa-Servizio.ps1');
+        } else {
+          console.warn('⚠️  Installa-Servizio.ps1 non trovato!');
+        }
+
+        // Rimuovi-Servizio.ps1
+        if (fs.existsSync(removeServicePath)) {
+          const removeServiceContent = fs.readFileSync(removeServicePath, 'utf8');
+          archive.append(removeServiceContent, { name: 'Rimuovi-Servizio.ps1' });
+          console.log('✅ Aggiunto Rimuovi-Servizio.ps1');
+        } else {
+          console.warn('⚠️  Rimuovi-Servizio.ps1 non trovato!');
+        }
+
+        // Installa-Automatico.ps1 (INSTALLER AUTOMATICO)
+        if (fs.existsSync(installAutoPath)) {
+          const installAutoContent = fs.readFileSync(installAutoPath, 'utf8');
+          archive.append(installAutoContent, { name: 'Installa-Automatico.ps1' });
+          console.log('✅ Aggiunto Installa-Automatico.ps1');
+        } else {
+          console.warn('⚠️  Installa-Automatico.ps1 non trovato!');
+        }
+
+        // Installa.bat (INSTALLER BATCH - DOPPIO CLICK)
+        if (fs.existsSync(installBatPath)) {
+          const installBatContent = fs.readFileSync(installBatPath, 'utf8');
+          archive.append(installBatContent, { name: 'Installa.bat' });
+          console.log('✅ Aggiunto Installa.bat');
+        } else {
+          console.warn('⚠️  Installa.bat non trovato!');
+        }
+
+        // README_SERVICE.md
+        if (fs.existsSync(readmeServicePath)) {
+          const readmeServiceContent = fs.readFileSync(readmeServicePath, 'utf8');
+          archive.append(readmeServiceContent, { name: 'README_SERVICE.md' });
+          console.log('✅ Aggiunto README_SERVICE.md');
+        }
+
+        // GUIDA_INSTALLAZIONE_SERVIZIO.md
+        if (fs.existsSync(guidaInstallazionePath)) {
+          const guidaContent = fs.readFileSync(guidaInstallazionePath, 'utf8');
+          archive.append(guidaContent, { name: 'GUIDA_INSTALLAZIONE_SERVIZIO.md' });
+          console.log('✅ Aggiunto GUIDA_INSTALLAZIONE_SERVIZIO.md');
+        }
+
+        // Diagnostica-Agent.ps1
+        if (fs.existsSync(diagnosticaPath)) {
+          const diagnosticaContent = fs.readFileSync(diagnosticaPath, 'utf8');
+          archive.append(diagnosticaContent, { name: 'Diagnostica-Agent.ps1' });
+          console.log('✅ Aggiunto Diagnostica-Agent.ps1');
+        }
+      } catch (serviceErr) {
+        console.error('❌ Errore aggiunta file servizio allo ZIP:', serviceErr);
+        // Non bloccare se i file servizio non sono disponibili (compatibilità)
+      }
 
       // Finalizza ZIP
       await archive.finalize();
