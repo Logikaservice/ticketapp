@@ -1,14 +1,14 @@
-# NetworkMonitorService.ps1
+﻿# NetworkMonitorService.ps1
 # Servizio Windows permanente per Network Monitor Agent
 # Rimane sempre attivo e esegue scansioni periodicamente
 # Gestisce tutto internamente senza dipendere da Scheduled Task
 
 param(
     [string]$ConfigPath = "config.json",
-    [switch]$ServiceMode = $false  # Modalità servizio (senza GUI)
+    [switch]$ServiceMode = $false  # ModalitÃ  servizio (senza GUI)
 )
 
-# Aggiungi Windows Forms per la tray icon (solo se non in modalità servizio)
+# Aggiungi Windows Forms per la tray icon (solo se non in modalitÃ  servizio)
 if (-not $ServiceMode) {
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
@@ -50,10 +50,10 @@ function Write-Log {
     $logPath = Join-Path $script:scriptDir "NetworkMonitorService.log"
     
     if ($ServiceMode) {
-        # In modalità servizio, salva solo su file
+        # In modalitÃ  servizio, salva solo su file
         $logMessage | Out-File -FilePath $logPath -Append -Encoding UTF8
     } else {
-        # In modalità app, mostra anche a console
+        # In modalitÃ  app, mostra anche a console
         Write-Host $logMessage
         $logMessage | Out-File -FilePath $logPath -Append -Encoding UTF8
     }
@@ -123,12 +123,12 @@ function Get-NetworkDevices {
                 $startIP = if ($range -match '\.(\d+)/') { [int]$matches[1] } else { 1 }
                 $endIP = if ($subnetMask -eq 24) { 254 } else { $numHosts }
                 
-                # Aggiungi sempre l'IP locale se è nel range configurato
+                # Aggiungi sempre l'IP locale se Ã¨ nel range configurato
                 $localIPInRange = $false
                 if ($localIP -and $localIP -like "$baseIP.*") {
                     $localIPInRange = $true
                     $localIPOctet = [int]($localIP -split '\.')[3]
-                    Write-Log "IP locale ($localIP) è nel range configurato" "DEBUG"
+                    Write-Log "IP locale ($localIP) Ã¨ nel range configurato" "DEBUG"
                 }
                 
                 # Scansiona IP range (aumentato a 254 per includere tutti gli IP in una /24)
@@ -136,7 +136,7 @@ function Get-NetworkDevices {
                 for ($i = 1; $i -le $maxIP; $i++) {
                     $ip = "$baseIP.$i"
                     
-                    # Se è l'IP locale, aggiungilo sempre (anche se il ping fallisce)
+                    # Se Ã¨ l'IP locale, aggiungilo sempre (anche se il ping fallisce)
                     if ($localIPInRange -and $i -eq $localIPOctet) {
                         Write-Log "Aggiungendo IP locale: $ip" "DEBUG"
                         
@@ -193,7 +193,7 @@ function Get-NetworkDevices {
                                 $macAddress = $arpEntry.LinkLayerAddress
                             }
                         } catch {
-                            # Metodo 2: arp.exe (compatibilità)
+                            # Metodo 2: arp.exe (compatibilitÃ )
                             try {
                                 $arpOutput = arp -a $ip 2>$null
                                 if ($arpOutput -match '([0-9A-F]{2}[:-]){5}([0-9A-F]{2})') {
@@ -291,7 +291,7 @@ function Send-ScanResults {
                 }
             }
             
-            # Dispositivi offline (non più nella scansione)
+            # Dispositivi offline (non piÃ¹ nella scansione)
             foreach ($oldDevice in $lastScan) {
                 $exists = $Devices | Where-Object { $_.ip_address -eq $oldDevice.ip_address }
                 if (-not $exists) {
@@ -402,13 +402,13 @@ function Send-Heartbeat {
         
         Write-Log "Heartbeat inviato con successo" "DEBUG"
         
-        # Recupera configurazione dal server per verificare se scan_interval_minutes è cambiato
+        # Recupera configurazione dal server per verificare se scan_interval_minutes Ã¨ cambiato
         try {
             $serverConfigResult = Get-ServerConfig -ServerUrl $ServerUrl -ApiKey $ApiKey
             if ($serverConfigResult.success -and $serverConfigResult.config.scan_interval_minutes) {
                 $serverInterval = $serverConfigResult.config.scan_interval_minutes
                 
-                # Se l'intervallo è diverso, aggiornalo solo in memoria (il servizio lo usa direttamente)
+                # Se l'intervallo Ã¨ diverso, aggiornalo solo in memoria (il servizio lo usa direttamente)
                 if ($serverInterval -ne $script:scanIntervalMinutes) {
                     Write-Log "Rilevato cambio intervallo scansione: $($script:scanIntervalMinutes) -> $serverInterval minuti" "INFO"
                     $script:scanIntervalMinutes = $serverInterval
@@ -420,7 +420,7 @@ function Send-Heartbeat {
                         $localConfig.scan_interval_minutes = $serverInterval
                         $localConfig | ConvertTo-Json -Depth 10 | Out-File -FilePath $configPath -Encoding UTF8 -Force
                         Write-Log "Config.json locale aggiornato con nuovo intervallo ($serverInterval minuti)" "INFO"
-                        Write-Log "Il nuovo intervallo sarà applicato dalla prossima scansione" "INFO"
+                        Write-Log "Il nuovo intervallo sarÃ  applicato dalla prossima scansione" "INFO"
                     }
                 }
             }
@@ -437,7 +437,161 @@ function Send-Heartbeat {
 }
 
 # ============================================
-# FUNZIONI TRAY ICON (solo se non in modalità servizio)
+# FUNZIONI TRAY ICON (solo se non in modalitÃ  servizio)
+# ============================================
+# FUNZIONI FINESTRA STATO (solo se non in modalitÃ  servizio)
+# ============================================
+
+function Show-StatusWindow {
+    param([object]$ConfigData)
+    
+    # Se la finestra Ã¨ giÃ  aperta, portala in primo piano
+    if ($script:statusWindow -and $script:statusWindow.Visible) {
+        $script:statusWindow.Activate()
+        $script:statusWindow.BringToFront()
+        return
+    }
+    
+    # Usa config passato o quello globale
+    if (-not $ConfigData) {
+        if ($script:config) {
+            $ConfigData = $script:config
+        } else {
+            Write-Log "Errore: Config non disponibile per finestra stato" "WARN"
+            return
+        }
+    }
+    
+    # Crea nuova finestra
+    $script:statusWindow = New-Object System.Windows.Forms.Form
+    $script:statusWindow.Text = "Network Monitor Agent"
+    $script:statusWindow.Size = New-Object System.Drawing.Size(800, 600)
+    $script:statusWindow.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
+    $script:statusWindow.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedSingle
+    $script:statusWindow.MaximizeBox = $false
+    $script:statusWindow.MinimizeBox = $true
+    $script:statusWindow.TopMost = $false
+    
+    # Label titolo
+    $titleLabel = New-Object System.Windows.Forms.Label
+    $titleLabel.Text = "Monitoraggio Rete - $($ConfigData.network_ranges -join ', ')"
+    $titleLabel.Location = New-Object System.Drawing.Point(10, 10)
+    $titleLabel.Size = New-Object System.Drawing.Size(760, 25)
+    $titleLabel.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 10, [System.Drawing.FontStyle]::Bold)
+    $script:statusWindow.Controls.Add($titleLabel)
+    
+    # Label per IP configurati
+    $configLabel = New-Object System.Windows.Forms.Label
+    $configLabel.Text = "IP Configurati nella Classe:"
+    $configLabel.Location = New-Object System.Drawing.Point(10, 45)
+    $configLabel.Size = New-Object System.Drawing.Size(380, 20)
+    $configLabel.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 9, [System.Drawing.FontStyle]::Bold)
+    $script:statusWindow.Controls.Add($configLabel)
+    
+    # ListBox per IP configurati (sinistra)
+    $configListBox = New-Object System.Windows.Forms.ListBox
+    $configListBox.Location = New-Object System.Drawing.Point(10, 70)
+    $configListBox.Size = New-Object System.Drawing.Size(380, 450)
+    $configListBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $configListBox.SelectionMode = [System.Windows.Forms.SelectionMode]::None
+    $script:statusWindow.Controls.Add($configListBox)
+    
+    # Popola lista IP configurati
+    $configIPsList = @()
+    foreach ($range in $ConfigData.network_ranges) {
+        if ($range -match '^(\d+\.\d+\.\d+)\.(\d+)/(\d+)$') {
+            $baseIP = $matches[1]
+            $subnetMask = [int]$matches[3]
+            if ($subnetMask -ge 24) {
+                $maxIP = if ($subnetMask -eq 24) { 254 } else { [Math]::Pow(2, 32 - $subnetMask) - 2 }
+                for ($i = 1; $i -le $maxIP; $i++) {
+                    $configIPsList += "$baseIP.$i"
+                }
+            }
+        }
+    }
+    $script:configIPs = $configIPsList
+    $configListBox.Items.AddRange($configIPsList)
+    
+    # Label per IP trovati
+    $foundLabel = New-Object System.Windows.Forms.Label
+    $foundLabel.Text = "IP Trovati durante Scansione:"
+    $foundLabel.Location = New-Object System.Drawing.Point(400, 45)
+    $foundLabel.Size = New-Object System.Drawing.Size(380, 20)
+    $foundLabel.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 9, [System.Drawing.FontStyle]::Bold)
+    $script:statusWindow.Controls.Add($foundLabel)
+    
+    # ListBox per IP trovati (destra)
+    $script:statusWindowListBox = New-Object System.Windows.Forms.ListBox
+    $script:statusWindowListBox.Location = New-Object System.Drawing.Point(400, 70)
+    $script:statusWindowListBox.Size = New-Object System.Drawing.Size(380, 450)
+    $script:statusWindowListBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $script:statusWindowListBox.SelectionMode = [System.Windows.Forms.SelectionMode]::None
+    $script:statusWindow.Controls.Add($script:statusWindowListBox)
+    
+    # Pulsante chiudi
+    $closeButton = New-Object System.Windows.Forms.Button
+    $closeButton.Text = "Chiudi"
+    $closeButton.Location = New-Object System.Drawing.Point(710, 530)
+    $closeButton.Size = New-Object System.Drawing.Size(70, 30)
+    $closeButton.Add_Click({
+        $script:statusWindow.Hide()
+    })
+    $script:statusWindow.Controls.Add($closeButton)
+    
+    # Handler chiusura finestra
+    $script:statusWindow.Add_FormClosing({
+        $_.Cancel = $true
+        $script:statusWindow.Hide()
+    })
+    
+    # Mostra finestra
+    $script:statusWindow.Show()
+    $script:statusWindow.BringToFront()
+}
+
+function Update-StatusWindowIPs {
+    param([array]$IPs)
+    
+    if (-not $script:statusWindowListBox) { return }
+    if (-not $script:statusWindow -or -not $script:statusWindow.Visible) { return }
+    
+    # Invoca aggiornamento UI sul thread corretto
+    if ($script:statusWindow.InvokeRequired) {
+        $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
+            $script:statusWindowListBox.Items.Clear()
+            foreach ($ip in $IPs) {
+                $script:statusWindowListBox.Items.Add($ip)
+            }
+            if ($script:statusWindowListBox.Items.Count -gt 0) {
+                $script:statusWindowListBox.TopIndex = $script:statusWindowListBox.Items.Count - 1
+            }
+        })
+    } else {
+        $script:statusWindowListBox.Items.Clear()
+        foreach ($ip in $IPs) {
+            $script:statusWindowListBox.Items.Add($ip)
+        }
+        if ($script:statusWindowListBox.Items.Count -gt 0) {
+            $script:statusWindowListBox.TopIndex = $script:statusWindowListBox.Items.Count - 1
+        }
+    }
+}
+
+function Reset-StatusWindowScan {
+    if (-not $script:statusWindowListBox) { return }
+    if (-not $script:statusWindow -or -not $script:statusWindow.Visible) { return }
+    
+    $script:currentScanIPs = @()
+    if ($script:statusWindow.InvokeRequired) {
+        $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
+            $script:statusWindowListBox.Items.Clear()
+        })
+    } else {
+        $script:statusWindowListBox.Items.Clear()
+    }
+}
+# FUNZIONI TRAY ICON (solo se non in modalitÃ  servizio)
 # ============================================
 
 function Show-TrayIcon {
@@ -496,25 +650,20 @@ function Show-TrayIcon {
     
     $script:trayIcon.ContextMenuStrip = $contextMenu
     
-    # Doppio click sull'icona mostra informazioni
-    $script:trayIcon.Add_DoubleClick({
-        $statusInfo = @{
-            Status = "In esecuzione"
-            LastScan = if ($script:lastScanTime) { $script:lastScanTime.ToString("HH:mm:ss") } else { "Mai" }
-            DevicesFound = $script:lastScanDevices
-            Interval = "$script:scanIntervalMinutes minuti"
+    # Voce "Mostra Finestra Stato" nel menu
+    $showWindowItem = New-Object System.Windows.Forms.ToolStripMenuItem
+    $showWindowItem.Text = "Mostra Finestra Stato"
+    $showWindowItem.Add_Click({
+        Show-StatusWindow -ConfigData $script:config
+    })
+    $contextMenu.Items.Insert(1, (New-Object System.Windows.Forms.ToolStripSeparator))
+    $contextMenu.Items.Insert(2, $showWindowItem)
+    
+    # Click singolo sull'icona apre finestra stato
+    $script:trayIcon.Add_Click({
+        if ($_.Button -eq [System.Windows.Forms.MouseButtons]::Left) {
+            Show-StatusWindow -ConfigData $script:config
         }
-        
-        [System.Windows.Forms.MessageBox]::Show(
-            "Network Monitor Agent`n`n" +
-            "Stato: $($statusInfo.Status)`n" +
-            "Ultima scansione: $($statusInfo.LastScan)`n" +
-            "Dispositivi trovati: $($statusInfo.DevicesFound)`n" +
-            "Intervallo scansione: $($statusInfo.Interval)",
-            "Network Monitor Agent",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Information
-        )
     })
     
     # Aggiorna tooltip periodicamente (massimo 64 caratteri per Windows)
@@ -582,7 +731,7 @@ function Update-TrayIconStatus {
 # ============================================
 
 Write-Log "=== Network Monitor Service Avviato ==="
-Write-Log "Modalità: $(if ($ServiceMode) { 'Servizio' } else { 'Applicazione con Tray Icon' })"
+Write-Log "ModalitÃ : $(if ($ServiceMode) { 'Servizio' } else { 'Applicazione con Tray Icon' })"
 
 # Carica configurazione
 if (-not (Test-Path $ConfigPath)) {
@@ -629,7 +778,7 @@ Write-Log "Scan interval: $script:scanIntervalMinutes minuti"
 # Inizializza status
 Update-StatusFile -Status "running" -Message "Servizio avviato"
 
-# Se non in modalità servizio, mostra tray icon
+# Se non in modalitÃ  servizio, mostra tray icon
 if (-not $ServiceMode) {
     # Crea application context per la tray icon
     [System.Windows.Forms.Application]::EnableVisualStyles()
@@ -677,7 +826,7 @@ while ($script:isRunning) {
             $nextHeartbeatTime = $now.AddMinutes(5)
         }
         
-        # Controlla se è il momento di eseguire una scansione
+        # Controlla se Ã¨ il momento di eseguire una scansione
         if ($now -ge $nextScanTime) {
             Write-Log "Esecuzione scansione programmata..."
             Update-TrayIconStatus -Status "scanning"
