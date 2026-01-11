@@ -835,6 +835,9 @@ while ($script:isRunning) {
             Update-TrayIconStatus -Status "scanning"
             Update-StatusFile -Status "scanning" -Message "Scansione in corso..."
             
+            # Reset lista IP trovati nella finestra stato
+            Reset-StatusWindowScan
+            
             try {
                 # 1. Scan rete
                 Write-Log "Avvio scansione rete..."
