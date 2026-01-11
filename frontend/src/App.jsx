@@ -191,6 +191,7 @@ export default function TicketApp() {
     const params = new URLSearchParams(window.location.search);
     return params.get('mode') === 'display';
   });
+  const [networkMonitoringInitialView, setNetworkMonitoringInitialView] = useState(null); // 'agents' o 'create'
 
 
   // Controlla se siamo in modalità display PackVision (riutilizza urlParams già dichiarato alla riga 63)
