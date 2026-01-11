@@ -15,13 +15,24 @@ if (-not $ServiceMode) {
 }
 
 # Variabili globali
+# Determina directory script (funziona anche come servizio)
+$script:scriptDir = $null
+if ($MyInvocation.MyCommand.Path) {
+    $script:scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+} elseif ($PSScriptRoot) {
+    $script:scriptDir = $PSScriptRoot
+} else {
+    # Fallback: usa directory di lavoro corrente (NSSM configura AppDirectory)
+    $script:scriptDir = Get-Location | Select-Object -ExpandProperty Path
+}
+
 $script:isRunning = $true
 $script:trayIcon = $null
 $script:lastScanTime = $null
 $script:lastScanDevices = 0
 $script:scanIntervalMinutes = 15
-$script:statusFile = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) ".agent_status.json"
-$script:lastScanPath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "last_scan.json"
+$script:statusFile = Join-Path $script:scriptDir ".agent_status.json"
+$script:lastScanPath = Join-Path $script:scriptDir "last_scan.json"
 
 # ============================================
 # FUNZIONI HELPER
@@ -32,7 +43,7 @@ function Write-Log {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logMessage = "[$timestamp] [$Level] $Message"
     
-    $logPath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "NetworkMonitorService.log"
+    $logPath = Join-Path $script:scriptDir "NetworkMonitorService.log"
     
     if ($ServiceMode) {
         # In modalità servizio, salva solo su file
