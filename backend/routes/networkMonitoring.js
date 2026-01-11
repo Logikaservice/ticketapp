@@ -803,7 +803,11 @@ module.exports = (pool, io) => {
         }
       }
       
-      const { aziendaId } = req.params;
+      const aziendaId = parseInt(req.params.aziendaId);
+      
+      if (!aziendaId || isNaN(aziendaId)) {
+        return res.status(400).json({ error: 'ID azienda non valido' });
+      }
 
       const result = await pool.query(
         `SELECT 

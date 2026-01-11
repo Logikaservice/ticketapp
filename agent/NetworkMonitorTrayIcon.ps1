@@ -325,13 +325,16 @@ function Update-Countdown {
             $dateStr = $status.last_scan.ToString()
             
             # Prova formato "yyyy-MM-dd HH:mm:ss"
-            if ([DateTime]::TryParseExact($dateStr, "yyyy-MM-dd HH:mm:ss", $null, [System.Globalization.DateTimeStyles]::None, [ref]$lastScanTime)) {
-                # OK, usa questo formato
-            } elseif ([DateTime]::TryParse($dateStr, [ref]$lastScanTime)) {
-                # OK, parsing automatico
-            } else {
-                # Fallback: usa Get-Date corrente
-                $lastScanTime = Get-Date
+            try {
+                $lastScanTime = [DateTime]::ParseExact($dateStr, "yyyy-MM-dd HH:mm:ss", $null)
+            } catch {
+                # Prova parsing automatico
+                try {
+                    $lastScanTime = [DateTime]::Parse($dateStr)
+                } catch {
+                    # Fallback: usa Get-Date corrente
+                    $lastScanTime = Get-Date
+                }
             }
             
             $intervalMinutes = if ($status.scan_interval_minutes) { [int]$status.scan_interval_minutes } else { 15 }
@@ -342,7 +345,7 @@ function Update-Countdown {
             if ($timeRemaining.TotalSeconds -gt 0) {
                 $minutes = [Math]::Floor($timeRemaining.TotalMinutes)
                 $seconds = [Math]::Floor($timeRemaining.TotalSeconds % 60)
-                $countdownText = "Prossima scansione: {0:D2}:{1:D2}" -f $minutes, $seconds
+                $countdownText = "Prossima scansione: $($minutes.ToString('00')):$($seconds.ToString('00'))"
             } else {
                 $countdownText = "Scansione in corso..."
             }
