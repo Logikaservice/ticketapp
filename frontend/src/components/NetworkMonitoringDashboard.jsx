@@ -86,6 +86,56 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
     }
   }, [getAuthHeader]);
 
+  // Disabilita agent (blocca ricezione dati, ma NON disinstalla)
+  const disableAgent = useCallback(async (agentId, agentName) => {
+    if (!confirm(`Vuoi disabilitare l'agent "${agentName}"?\n\nL'agent smetterà di inviare dati al server, ma rimarrà installato sul client. Potrai riabilitarlo in futuro.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/agent/${agentId}/disable`), {
+        method: 'PUT',
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Errore disabilitazione agent');
+      }
+
+      alert('Agent disabilitato con successo. I dati non verranno più accettati, ma l\'agent rimane installato sul client.');
+      loadAgents(); // Ricarica lista
+    } catch (err) {
+      console.error('Errore disabilitazione agent:', err);
+      alert(`Errore disabilitazione agent: ${err.message}`);
+    }
+  }, [getAuthHeader, loadAgents]);
+
+  // Elimina agent (disinstalla dal client, ma mantiene i dati nel database)
+  const deleteAgent = useCallback(async (agentId, agentName) => {
+    if (!confirm(`Vuoi eliminare l'agent "${agentName}"?\n\nL'agent verrà disinstallato dal client, ma tutti i dati verranno mantenuti nel database (per i ticket associati).`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/agent/${agentId}`), {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Errore eliminazione agent');
+      }
+
+      alert('Agent eliminato con successo. I dati sono stati mantenuti. L\'agent si disinstallerà automaticamente dal client al prossimo heartbeat.');
+      loadAgents(); // Ricarica lista
+    } catch (err) {
+      console.error('Errore eliminazione agent:', err);
+      alert(`Errore eliminazione agent: ${err.message}`);
+    }
+  }, [getAuthHeader, loadAgents]);
+
   // Scarica pacchetto completo agent (ZIP con tutti i file)
   const downloadAgentPackage = async (agentId, agentName) => {
     try {
