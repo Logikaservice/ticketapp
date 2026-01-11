@@ -27,7 +27,6 @@ if (-not $isAdmin) {
 if (-not $Force) {
     Write-Host "Questo script disinstallera completamente Network Monitor Agent:" -ForegroundColor Yellow
     Write-Host "  - Ferma e rimuove il servizio Windows" -ForegroundColor White
-    Write-Host "  - Rimuove il Scheduled Task (se presente)" -ForegroundColor White
     Write-Host "  - Rimuove tutti i file e la directory di installazione" -ForegroundColor White
     Write-Host ""
     Write-Host "Vuoi continuare? (S/N)" -ForegroundColor Cyan
@@ -44,7 +43,6 @@ if (-not $Force) {
 }
 
 $ServiceName = "NetworkMonitorService"
-$TaskName = "NetworkMonitorAgent"
 $InstallDir = "C:\ProgramData\NetworkMonitorAgent"
 $NssmPath = Join-Path $InstallDir "nssm.exe"
 
@@ -89,34 +87,7 @@ try {
 }
 Write-Host ""
 
-Write-Host "2. Rimuovo Scheduled Task..." -ForegroundColor Yellow
-
-try {
-    $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-    if ($task) {
-        Write-Host "   Fermo Scheduled Task..." -ForegroundColor Gray
-        Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-        
-        Write-Host "   Rimozione Scheduled Task..." -ForegroundColor Gray
-        Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
-        
-        Start-Sleep -Seconds 1
-        
-        $taskAfter = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-        if (-not $taskAfter) {
-            Write-Host "   Scheduled Task rimosso con successo!" -ForegroundColor Green
-        } else {
-            Write-Host "   ATTENZIONE: Scheduled Task ancora presente" -ForegroundColor Yellow
-        }
-    } else {
-        Write-Host "   Scheduled Task non trovato (gia' rimosso)" -ForegroundColor Gray
-    }
-} catch {
-    Write-Host "   ERRORE rimozione Scheduled Task: $_" -ForegroundColor Red
-}
-Write-Host ""
-
-Write-Host "3. Termino processi in esecuzione..." -ForegroundColor Yellow
+Write-Host "2. Termino processi in esecuzione..." -ForegroundColor Yellow
 
 try {
     # Cerca processi PowerShell che eseguono NetworkMonitorService.ps1
@@ -144,7 +115,7 @@ try {
 }
 Write-Host ""
 
-Write-Host "4. Rimuovo directory di installazione..." -ForegroundColor Yellow
+Write-Host "3. Rimuovo directory di installazione..." -ForegroundColor Yellow
 
 if (Test-Path $InstallDir) {
     Write-Host "   Directory trovata: $InstallDir" -ForegroundColor Gray
@@ -207,7 +178,7 @@ if (Test-Path $InstallDir) {
 }
 Write-Host ""
 
-Write-Host "5. Verifica rimozione completa..." -ForegroundColor Yellow
+Write-Host "4. Verifica rimozione completa..." -ForegroundColor Yellow
 
 $allRemoved = $true
 
@@ -218,15 +189,6 @@ if ($serviceCheck) {
     $allRemoved = $false
 } else {
     Write-Host "   Servizio: rimosso" -ForegroundColor Green
-}
-
-# Verifica Scheduled Task
-$taskCheck = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-if ($taskCheck) {
-    Write-Host "   ATTENZIONE: Scheduled Task ancora presente!" -ForegroundColor Yellow
-    $allRemoved = $false
-} else {
-    Write-Host "   Scheduled Task: rimosso" -ForegroundColor Green
 }
 
 # Verifica directory
