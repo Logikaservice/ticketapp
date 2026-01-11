@@ -605,7 +605,12 @@ module.exports = (pool, io) => {
           const values = [];
           let paramIndex = 1;
 
+          // Aggiorna MAC se disponibile e diverso (anche se era NULL prima)
           if (macAddressStr && macAddressStr !== existingDevice.mac_address) {
+            updates.push(`mac_address = $${paramIndex++}`);
+            values.push(macAddressStr);
+          } else if (macAddressStr && !existingDevice.mac_address) {
+            // Se il dispositivo non aveva MAC e ora lo abbiamo, aggiornalo
             updates.push(`mac_address = $${paramIndex++}`);
             values.push(macAddressStr);
           }
