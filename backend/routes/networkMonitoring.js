@@ -605,14 +605,37 @@ module.exports = (pool, io) => {
           const values = [];
           let paramIndex = 1;
 
+          // Normalizza MAC address (stessa logica di INSERT per coerenza)
+          let normalizedMac = null;
+          if (macAddressStr) {
+            // Rimuovi spazi, virgole, e converti in maiuscolo
+            normalizedMac = macAddressStr.replace(/\s+/g, '').replace(/,/g, '').toUpperCase();
+            // Se contiene duplicati separati (es: "60-83-E7-BF-4C-AF60-83-E7-BF-4C-AF"), prendi solo i primi 17 caratteri
+            if (normalizedMac.length > 17) {
+              // Prendi solo i primi 17 caratteri (formato standard MAC: XX-XX-XX-XX-XX-XX)
+              normalizedMac = normalizedMac.substring(0, 17);
+            }
+            // Se non ha il formato corretto, prova a convertirlo
+            if (normalizedMac.length === 12 && !normalizedMac.includes('-') && !normalizedMac.includes(':')) {
+              // Formato senza separatori, aggiungi trattini ogni 2 caratteri
+              normalizedMac = normalizedMac.replace(/(..)(..)(..)(..)(..)(..)/, '$1-$2-$3-$4-$5-$6');
+            }
+            // Verifica che sia un MAC valido (17 caratteri con trattini)
+            if (normalizedMac.length !== 17 || !/^([0-9A-F]{2}-){5}[0-9A-F]{2}$/i.test(normalizedMac)) {
+              normalizedMac = null;
+            }
+          }
+
           // Aggiorna MAC se disponibile e diverso (anche se era NULL prima)
-          if (macAddressStr && macAddressStr !== existingDevice.mac_address) {
+          if (normalizedMac && normalizedMac !== existingDevice.mac_address) {
+            console.log(`  🔄 Aggiornamento MAC per ${ip_address}: ${existingDevice.mac_address || 'NULL'} -> ${normalizedMac}`);
             updates.push(`mac_address = $${paramIndex++}`);
-            values.push(macAddressStr);
-          } else if (macAddressStr && !existingDevice.mac_address) {
+            values.push(normalizedMac);
+          } else if (normalizedMac && !existingDevice.mac_address) {
             // Se il dispositivo non aveva MAC e ora lo abbiamo, aggiornalo
+            console.log(`  ➕ Aggiunta MAC per ${ip_address}: NULL -> ${normalizedMac}`);
             updates.push(`mac_address = $${paramIndex++}`);
-            values.push(macAddressStr);
+            values.push(normalizedMac);
           }
           if (hostname && hostname !== existingDevice.hostname) {
             updates.push(`hostname = $${paramIndex++}`);
