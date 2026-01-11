@@ -594,6 +594,127 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         </div>
       )}
 
+      {/* Gestione Tipi Dispositivi */}
+      {showDeviceTypes && (
+        <div className="mb-6 bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Settings size={24} className="text-cyan-600" />
+              Tipi Dispositivi
+            </h2>
+            <button
+              onClick={() => setShowDeviceTypes(false)}
+              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          {/* Form nuovo tipo */}
+          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+            <h3 className="font-semibold text-gray-700 mb-3">Aggiungi Nuovo Tipo</h3>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                placeholder="Nome tipo (es: workstation, server, router...)"
+                value={newTypeName}
+                onChange={(e) => setNewTypeName(e.target.value)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                onKeyPress={(e) => e.key === 'Enter' && createDeviceType()}
+              />
+              <input
+                type="text"
+                placeholder="Descrizione (opzionale)"
+                value={newTypeDescription}
+                onChange={(e) => setNewTypeDescription(e.target.value)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                onKeyPress={(e) => e.key === 'Enter' && createDeviceType()}
+              />
+              <button
+                onClick={createDeviceType}
+                className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 flex items-center gap-2"
+              >
+                <Plus size={18} />
+                Aggiungi
+              </button>
+            </div>
+          </div>
+
+          {/* Lista tipi */}
+          {loadingDeviceTypes ? (
+            <div className="p-8 flex items-center justify-center">
+              <Loader className="w-8 h-8 animate-spin text-cyan-600" />
+              <span className="ml-3 text-gray-600">Caricamento tipi...</span>
+            </div>
+          ) : deviceTypes.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">Nessun tipo dispositivo definito</p>
+          ) : (
+            <div className="space-y-2">
+              {deviceTypes.map((type) => (
+                <div key={type.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                  {editingTypeId === type.id ? (
+                    <div className="flex gap-3 items-center">
+                      <input
+                        type="text"
+                        defaultValue={type.name}
+                        id={`edit-name-${type.id}`}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                      <input
+                        type="text"
+                        defaultValue={type.description || ''}
+                        id={`edit-desc-${type.id}`}
+                        placeholder="Descrizione"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                      <button
+                        onClick={() => {
+                          const nameInput = document.getElementById(`edit-name-${type.id}`);
+                          const descInput = document.getElementById(`edit-desc-${type.id}`);
+                          updateDeviceType(type.id, nameInput.value, descInput.value);
+                        }}
+                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                      >
+                        Salva
+                      </button>
+                      <button
+                        onClick={() => setEditingTypeId(null)}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                      >
+                        Annulla
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-gray-900">{type.name}</h3>
+                        {type.description && (
+                          <p className="text-sm text-gray-600 mt-1">{type.description}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setEditingTypeId(type.id)}
+                          className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+                        >
+                          Modifica
+                        </button>
+                        <button
+                          onClick={() => deleteDeviceType(type.id)}
+                          className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-sm"
+                        >
+                          Elimina
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Lista Agent Esistenti */}
       {showAgentsList && (
         <div className="mb-6 bg-white rounded-lg shadow p-6">
