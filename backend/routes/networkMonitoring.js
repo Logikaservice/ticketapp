@@ -712,9 +712,16 @@ module.exports = (pool, io) => {
           [agentId]
         );
 
-        const devicesToMarkOffline = allAgentDevices.rows.filter(device => 
-          !receivedIPs.has(device.ip_address) && device.status === 'online'
-        );
+        // Normalizza gli IP ricevuti per il confronto (rimuovi caratteri JSON)
+        const normalizedReceivedIPs = new Set();
+        receivedIPs.forEach(ip => {
+          normalizedReceivedIPs.add(ip.replace(/[{}"]/g, '').trim());
+        });
+        
+        const devicesToMarkOffline = allAgentDevices.rows.filter(device => {
+          const normalizedDeviceIp = (device.ip_address || '').replace(/[{}"]/g, '').trim();
+          return !normalizedReceivedIPs.has(normalizedDeviceIp) && device.status === 'online';
+        });
 
         if (devicesToMarkOffline.length > 0) {
           console.log(`  ⚠️ Marcatura ${devicesToMarkOffline.length} dispositivi come offline (non trovati nella scansione)`);
