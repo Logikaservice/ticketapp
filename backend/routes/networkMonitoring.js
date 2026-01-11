@@ -821,6 +821,46 @@ module.exports = (pool, io) => {
         }
       }
       
+      // Migrazione: pulisci IP nel formato JSON errato e rimuovi duplicati
+      try {
+        // 1. Pulisci IP nel formato errato {"192.168.100.2"} -> 192.168.100.2
+        await pool.query(`
+          UPDATE network_devices 
+          SET ip_address = REGEXP_REPLACE(ip_address, '[{}"]', '', 'g')
+          WHERE ip_address ~ '[{}"]';
+        `);
+        
+        // 2. Rimuovi duplicati: mantieni il dispositivo più recente o quello con più dati
+        await pool.query(`
+          DELETE FROM network_devices nd1
+          WHERE EXISTS (
+            SELECT 1 FROM network_devices nd2
+            WHERE nd2.agent_id = nd1.agent_id
+              AND REGEXP_REPLACE(nd2.ip_address, '[{}"]', '', 'g') = REGEXP_REPLACE(nd1.ip_address, '[{}"]', '', 'g')
+              AND nd2.id > nd1.id
+              AND (
+                nd2.last_seen > nd1.last_seen
+                OR (nd2.last_seen = nd1.last_seen AND nd2.id > nd1.id)
+                OR (nd2.mac_address IS NOT NULL AND nd1.mac_address IS NULL)
+                OR (nd2.hostname IS NOT NULL AND nd1.hostname IS NULL)
+              )
+          );
+        `);
+        
+        // 3. Rimuovi eventuali duplicati rimanenti mantenendo solo quello con ID maggiore
+        await pool.query(`
+          DELETE FROM network_devices nd1
+          WHERE EXISTS (
+            SELECT 1 FROM network_devices nd2
+            WHERE nd2.agent_id = nd1.agent_id
+              AND nd2.ip_address = nd1.ip_address
+              AND nd2.id > nd1.id
+          );
+        `);
+      } catch (migrationErr) {
+        console.warn('⚠️ Avviso pulizia IP duplicati:', migrationErr.message);
+      }
+      
       const aziendaIdParam = req.params.aziendaId;
       console.log('🔍 Route /clients/:aziendaId/devices - aziendaIdParam:', aziendaIdParam, 'type:', typeof aziendaIdParam);
       const aziendaId = parseInt(aziendaIdParam, 10);
