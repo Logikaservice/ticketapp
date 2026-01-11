@@ -85,43 +85,31 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
     }
   }, [getAuthHeader]);
 
-  // Scarica configurazione agent
-  const downloadAgentConfig = async (agentId) => {
+  // Scarica pacchetto completo agent (ZIP con tutti i file)
+  const downloadAgentPackage = async (agentId, agentName) => {
     try {
-      const response = await fetch(buildApiUrl(`/api/network-monitoring/agent/${agentId}/config`), {
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/agent/${agentId}/download`), {
         headers: getAuthHeader()
       });
 
       if (!response.ok) {
-        throw new Error('Errore recupero configurazione');
+        const errorData = await response.json().catch(() => ({ error: 'Errore download pacchetto' }));
+        throw new Error(errorData.error || 'Errore download pacchetto');
       }
 
-      const config = await response.json();
-      
-      // Genera config.json come nella creazione
-      const serverUrl = window.location.origin;
-      const configJson = {
-        server_url: serverUrl,
-        api_key: config.api_key,
-        agent_name: config.agent_name,
-        version: "1.0.0",
-        network_ranges: config.network_ranges,
-        scan_interval_minutes: config.scan_interval_minutes
-      };
-
-      // Download file
-      const blob = new Blob([JSON.stringify(configJson, null, 2)], { type: 'application/json' });
+      // Download ZIP
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `config-${config.agent_name.replace(/\s+/g, '-')}.json`;
+      a.download = `NetworkMonitor-Agent-${agentName.replace(/\s+/g, '-')}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Errore download configurazione:', err);
-      alert('Errore scaricamento configurazione: ' + err.message);
+      console.error('Errore download pacchetto:', err);
+      alert('Errore scaricamento pacchetto: ' + err.message);
     }
   };
 
@@ -400,12 +388,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
                     </div>
                     <div className="ml-4">
                       <button
-                        onClick={() => downloadAgentConfig(agent.id)}
+                        onClick={() => downloadAgentPackage(agent.id, agent.agent_name)}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                        title="Scarica configurazione (config.json + API Key)"
+                        title="Scarica pacchetto completo (ZIP con config.json, NetworkMonitor.ps1, InstallerCompleto.ps1)"
                       >
                         <Download size={18} />
-                        Scarica Config
+                        Scarica Pacchetto Completo
                       </button>
                     </div>
                   </div>

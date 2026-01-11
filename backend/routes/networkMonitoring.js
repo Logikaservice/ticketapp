@@ -782,5 +782,127 @@ module.exports = (pool, io) => {
     }
   });
 
+  // GET /api/network-monitoring/agent/:id/download
+  // Scarica pacchetto completo (ZIP con config.json + script .ps1)
+  router.get('/agent/:id/download', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
+      
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
+
+      await ensureTables();
+      
+      const result = await pool.query(
+        `SELECT 
+          na.id, na.agent_name, na.api_key, na.network_ranges, 
+          na.scan_interval_minutes
+         FROM network_agents na
+         WHERE na.id = $1`,
+        [agentId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato' });
+      }
+
+      const agent = result.rows[0];
+      
+      // Path dei file agent (relativo alla root del progetto)
+      const projectRoot = path.resolve(__dirname, '..');
+      const agentDir = path.join(projectRoot, 'agent');
+      const networkMonitorPath = path.join(agentDir, 'NetworkMonitor.ps1');
+      const installerPath = path.join(agentDir, 'InstallerCompleto.ps1');
+
+      // Verifica che i file esistano
+      if (!fs.existsSync(networkMonitorPath)) {
+        return res.status(500).json({ error: 'File NetworkMonitor.ps1 non trovato sul server' });
+      }
+      if (!fs.existsSync(installerPath)) {
+        return res.status(500).json({ error: 'File InstallerCompleto.ps1 non trovato sul server' });
+      }
+
+      // Leggi contenuto file
+      const networkMonitorContent = fs.readFileSync(networkMonitorPath, 'utf8');
+      const installerContent = fs.readFileSync(installerPath, 'utf8');
+
+      // Crea config.json
+      const configJson = {
+        server_url: req.protocol + '://' + req.get('host'),
+        api_key: agent.api_key,
+        agent_name: agent.agent_name,
+        version: "1.0.0",
+        network_ranges: agent.network_ranges || [],
+        scan_interval_minutes: agent.scan_interval_minutes || 15
+      };
+
+      // Nome file ZIP
+      const zipFileName = `NetworkMonitor-Agent-${agent.agent_name.replace(/\s+/g, '-')}.zip`;
+
+      // Configura headers per download ZIP
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
+
+      // Crea ZIP
+      const archive = archiver('zip', {
+        zlib: { level: 9 } // Massima compressione
+      });
+
+      // Gestisci errori
+      archive.on('error', (err) => {
+        console.error('❌ Errore creazione ZIP:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Errore creazione pacchetto' });
+        }
+      });
+
+      // Pipe ZIP alla risposta
+      archive.pipe(res);
+
+      // Aggiungi file al ZIP
+      archive.append(JSON.stringify(configJson, null, 2), { name: 'config.json' });
+      archive.append(networkMonitorContent, { name: 'NetworkMonitor.ps1' });
+      archive.append(installerContent, { name: 'InstallerCompleto.ps1' });
+
+      // Aggiungi README
+      const readmeContent = `# Network Monitor Agent - Installazione
+
+## File inclusi:
+- config.json: Configurazione agent (API Key, reti, intervallo scansione)
+- NetworkMonitor.ps1: Script principale agent
+- InstallerCompleto.ps1: Installer automatico
+
+## Installazione:
+
+1. Estrarre tutti i file nella stessa cartella
+2. Tasto destro su "InstallerCompleto.ps1" → "Esegui con PowerShell"
+3. Inserire l'API Key quando richiesto (già presente in config.json, ma l'installer la richiederà per verifica)
+4. L'installer configurerà tutto automaticamente
+
+Oppure:
+1. Estrarre tutti i file nella stessa cartella
+2. Modificare config.json se necessario
+3. Eseguire: .\\NetworkMonitor.ps1 -TestMode (per test)
+4. Configurare Scheduled Task manualmente
+
+## Configurazione Agent:
+- Nome: ${agent.agent_name}
+- Reti: ${(agent.network_ranges || []).join(', ')}
+- Intervallo scansione: ${agent.scan_interval_minutes || 15} minuti
+`;
+      archive.append(readmeContent, { name: 'README.txt' });
+
+      // Finalizza ZIP
+      await archive.finalize();
+
+    } catch (err) {
+      console.error('❌ Errore download pacchetto agent:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    }
+  });
+
   return router;
 };
