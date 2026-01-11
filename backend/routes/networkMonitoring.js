@@ -833,8 +833,22 @@ module.exports = (pool, io) => {
       }
 
       // Leggi contenuto file
-      const networkMonitorContent = fs.readFileSync(networkMonitorPath, 'utf8');
-      const installerContent = fs.readFileSync(installerPath, 'utf8');
+      let networkMonitorContent, installerContent;
+      try {
+        networkMonitorContent = fs.readFileSync(networkMonitorPath, 'utf8');
+        installerContent = fs.readFileSync(installerPath, 'utf8');
+      } catch (readErr) {
+        console.error('❌ Errore lettura file agent:', readErr);
+        return res.status(500).json({ 
+          error: `Errore lettura file agent: ${readErr.message}`,
+          details: {
+            networkMonitorPath,
+            installerPath,
+            projectRoot,
+            agentDir
+          }
+        });
+      }
 
       // Crea config.json
       const configJson = {
@@ -862,8 +876,14 @@ module.exports = (pool, io) => {
       archive.on('error', (err) => {
         console.error('❌ Errore creazione ZIP:', err);
         if (!res.headersSent) {
-          res.status(500).json({ error: 'Errore creazione pacchetto' });
+          res.status(500).json({ error: `Errore creazione pacchetto: ${err.message}` });
         }
+      });
+
+      // Gestisci errori di risposta
+      res.on('error', (err) => {
+        console.error('❌ Errore invio risposta:', err);
+        archive.abort();
       });
 
       // Pipe ZIP alla risposta
