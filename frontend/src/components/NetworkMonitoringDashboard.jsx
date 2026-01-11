@@ -639,7 +639,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-500">{formatDate(device.last_seen)}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
