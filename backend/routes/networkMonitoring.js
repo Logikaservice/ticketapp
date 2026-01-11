@@ -589,6 +589,34 @@ module.exports = (pool, io) => {
         }
       }
 
+      // Marca come offline i dispositivi dell'agent che non sono nella lista ricevuta
+      // (cioè non sono stati rilevati nella scansione corrente)
+      try {
+        const allAgentDevices = await pool.query(
+          'SELECT id, ip_address, status FROM network_devices WHERE agent_id = $1',
+          [agentId]
+        );
+
+        const devicesToMarkOffline = allAgentDevices.rows.filter(device => 
+          !receivedIPs.has(device.ip_address) && device.status === 'online'
+        );
+
+        if (devicesToMarkOffline.length > 0) {
+          console.log(`  ⚠️ Marcatura ${devicesToMarkOffline.length} dispositivi come offline (non trovati nella scansione)`);
+          
+          for (const device of devicesToMarkOffline) {
+            await pool.query(
+              'UPDATE network_devices SET status = $1 WHERE id = $2',
+              ['offline', device.id]
+            );
+            console.log(`    📴 Dispositivo ${device.ip_address} marcato come offline`);
+          }
+        }
+      } catch (offlineErr) {
+        console.error('❌ Errore durante marcatura dispositivi offline:', offlineErr);
+        // Non interrompere il processo, continua con i cambiamenti
+      }
+
       // Gestisci cambiamenti (se forniti dall'agent)
       let changeResults = [];
       if (changes && Array.isArray(changes)) {
