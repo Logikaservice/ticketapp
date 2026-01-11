@@ -419,19 +419,28 @@ module.exports = (pool, io) => {
       const agentId = req.agent.id;
       const { devices, changes } = req.body; // devices: array, changes: array (opzionale)
 
+      console.log(`📥 Scan results ricevuti da agent ${agentId}: ${devices?.length || 0} dispositivi, ${changes?.length || 0} cambiamenti`);
+
       if (!devices || !Array.isArray(devices)) {
+        console.error('❌ devices non è un array:', typeof devices, devices);
         return res.status(400).json({ error: 'devices deve essere un array' });
       }
 
       // Aggiorna/inserisci dispositivi
       const deviceResults = [];
       
-      for (const device of devices) {
+      for (let i = 0; i < devices.length; i++) {
+        const device = devices[i];
         const { ip_address, mac_address, hostname, vendor, device_type, status } = device;
         
         if (!ip_address) {
-          console.warn('⚠️ Dispositivo senza IP, saltato');
+          console.warn(`⚠️ Dispositivo ${i + 1}/${devices.length} senza IP, saltato:`, JSON.stringify(device));
           continue;
+        }
+
+        // Log dettagliato per debug
+        if (i === 0 || i === devices.length - 1) {
+          console.log(`  📱 Dispositivo ${i + 1}/${devices.length}: IP=${ip_address}, MAC=${mac_address || 'N/A'}, Hostname=${hostname || 'N/A'}`);
         }
 
         // Cerca dispositivo esistente (per IP+MAC o solo IP se MAC non disponibile)
@@ -496,6 +505,17 @@ module.exports = (pool, io) => {
           // Inserisci nuovo dispositivo
           // Nota: ON CONFLICT non funziona bene con mac_address NULL, quindi gestiamo manualmente
           try {
+            // Normalizza MAC address: rimuovi spazi e converti in formato standard
+            let normalizedMac = null;
+            if (mac_address && mac_address.trim() !== '' && mac_address.trim() !== '00-00-00-00-00-00') {
+              normalizedMac = mac_address.trim().replace(/\s+/g, '').toUpperCase();
+              // Se non ha il formato corretto, prova a convertirlo
+              if (normalizedMac.length === 12 && !normalizedMac.includes('-') && !normalizedMac.includes(':')) {
+                // Formato senza separatori, aggiungi trattini ogni 2 caratteri
+                normalizedMac = normalizedMac -replace '(..)(..)(..)(..)(..)(..)', '$1-$2-$3-$4-$5-$6'
+              }
+            }
+
             const insertResult = await pool.query(
               `INSERT INTO network_devices (agent_id, ip_address, mac_address, hostname, vendor, device_type, status)
                VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -503,18 +523,19 @@ module.exports = (pool, io) => {
               [
                 agentId,
                 ip_address,
-                mac_address || null,
-                hostname || null,
-                vendor || null,
+                normalizedMac,
+                (hostname && hostname.trim() !== '') ? hostname.trim() : null,
+                (vendor && vendor.trim() !== '') ? vendor.trim() : null,
                 device_type || 'unknown',
                 status || 'online'
               ]
             );
 
-          deviceResults.push({ action: 'created', id: insertResult.rows[0].id, ip: ip_address });
+            deviceResults.push({ action: 'created', id: insertResult.rows[0].id, ip: ip_address });
           } catch (insertErr) {
             // Se fallisce per conflitto, prova a fare UPDATE
             if (insertErr.code === '23505' || insertErr.message.includes('duplicate')) {
+              console.log(`  ℹ️ Dispositivo ${ip_address} già esistente, aggiorno...`);
               const updateResult = await pool.query(
                 `UPDATE network_devices 
                  SET last_seen = NOW(), status = $1 
@@ -526,7 +547,11 @@ module.exports = (pool, io) => {
                 deviceResults.push({ action: 'updated', id: updateResult.rows[0].id, ip: ip_address });
               }
             } else {
-              console.warn(`⚠️ Errore inserimento dispositivo ${ip_address}:`, insertErr.message);
+              console.error(`❌ Errore inserimento dispositivo ${ip_address}:`, insertErr.message);
+              console.error(`   Codice errore: ${insertErr.code}`);
+              console.error(`   Dettagli: ${insertErr.detail}`);
+              console.error(`   Stack: ${insertErr.stack}`);
+              // Non interrompere il loop, continua con gli altri dispositivi
             }
           }
         }
@@ -584,7 +609,7 @@ module.exports = (pool, io) => {
         });
       }
 
-      console.log(`✅ Scan results ricevuti: ${deviceResults.length} dispositivi, ${changeResults.length} cambiamenti`);
+      console.log(`✅ Scan results processati: ${deviceResults.length} dispositivi, ${changeResults.length} cambiamenti`);
       res.json({ 
         success: true, 
         devices_processed: deviceResults.length,
@@ -592,6 +617,12 @@ module.exports = (pool, io) => {
       });
     } catch (err) {
       console.error('❌ Errore ricezione scan results:', err);
+      console.error('   Messaggio:', err.message);
+      console.error('   Codice:', err.code);
+      console.error('   Dettagli:', err.detail);
+      console.error('   Stack:', err.stack);
+      console.error('   Agent ID:', req.agent?.id);
+      console.error('   Devices count:', req.body?.devices?.length);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });
