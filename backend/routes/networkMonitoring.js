@@ -518,11 +518,29 @@ module.exports = (pool, io) => {
       
       for (let i = 0; i < devices.length; i++) {
         const device = devices[i];
-        const { ip_address, mac_address, hostname, vendor, status } = device;
+        let { ip_address, mac_address, hostname, vendor, status } = device;
         // device_type non viene più inviato dall'agent, sarà gestito manualmente
         
-        if (!ip_address) {
-          console.warn(`⚠️ Dispositivo ${i + 1}/${devices.length} senza IP, saltato:`, JSON.stringify(device));
+        // Normalizza ip_address: potrebbe essere stringa, array, o oggetto JSON
+        if (ip_address) {
+          if (typeof ip_address === 'string') {
+            ip_address = ip_address.trim();
+          } else if (Array.isArray(ip_address)) {
+            // Se è un array, prendi il primo elemento valido
+            ip_address = ip_address.find(ip => ip && typeof ip === 'string' && ip.trim() !== '')?.trim() || null;
+          } else if (typeof ip_address === 'object') {
+            // Se è un oggetto, prova a convertirlo in stringa o prendi il primo valore
+            const firstValue = Object.values(ip_address)[0];
+            if (firstValue && typeof firstValue === 'string') {
+              ip_address = firstValue.trim();
+            } else {
+              ip_address = String(ip_address).trim();
+            }
+          }
+        }
+        
+        if (!ip_address || ip_address === '') {
+          console.warn(`⚠️ Dispositivo ${i + 1}/${devices.length} senza IP valido, saltato:`, JSON.stringify(device));
           continue;
         }
 
