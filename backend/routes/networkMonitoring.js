@@ -578,20 +578,23 @@ module.exports = (pool, io) => {
           }
         }
         
+        // Normalizza anche l'IP per la ricerca (rimuovi caratteri JSON se presenti)
+        const normalizedIpForSearch = ip_address.replace(/[{}"]/g, '').trim();
+        
         if (macAddressStr && macAddressStr !== '') {
           const existing = await pool.query(
             `SELECT id, ip_address, mac_address, hostname, vendor, status 
              FROM network_devices 
-             WHERE agent_id = $1 AND (ip_address = $2 OR mac_address = $3)`,
-            [agentId, ip_address, macAddressStr]
+             WHERE agent_id = $1 AND (REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2 OR mac_address = $3)`,
+            [agentId, normalizedIpForSearch, macAddressStr]
           );
           existingDevice = existing.rows[0];
         } else {
           const existing = await pool.query(
             `SELECT id, ip_address, mac_address, hostname, vendor, status 
              FROM network_devices 
-             WHERE agent_id = $1 AND ip_address = $2 AND (mac_address IS NULL OR mac_address = '')`,
-            [agentId, ip_address]
+             WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2 AND (mac_address IS NULL OR mac_address = '')`,
+            [agentId, normalizedIpForSearch]
           );
           existingDevice = existing.rows[0];
         }
