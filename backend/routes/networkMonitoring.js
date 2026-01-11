@@ -816,21 +816,35 @@ module.exports = (pool, io) => {
       const networkMonitorPath = path.join(agentDir, 'NetworkMonitor.ps1');
       const installerPath = path.join(agentDir, 'InstallerCompleto.ps1');
 
-      console.log('📦 Path ricerca file agent:');
+      console.log('📦 Download pacchetto agent - Path ricerca file:');
+      console.log('  __dirname:', __dirname);
+      console.log('  process.cwd():', process.cwd());
       console.log('  Project root:', projectRoot);
       console.log('  Agent dir:', agentDir);
-      console.log('  NetworkMonitor.ps1:', networkMonitorPath, 'exists:', fs.existsSync(networkMonitorPath));
-      console.log('  InstallerCompleto.ps1:', installerPath, 'exists:', fs.existsSync(installerPath));
+      console.log('  NetworkMonitor.ps1:', networkMonitorPath);
+      console.log('    exists:', fs.existsSync(networkMonitorPath));
+      console.log('  InstallerCompleto.ps1:', installerPath);
+      console.log('    exists:', fs.existsSync(installerPath));
 
       // Verifica che i file esistano
       if (!fs.existsSync(networkMonitorPath)) {
-        console.error('❌ File NetworkMonitor.ps1 non trovato in:', networkMonitorPath);
-        return res.status(500).json({ error: `File NetworkMonitor.ps1 non trovato sul server. Path cercato: ${networkMonitorPath}` });
+        const errorMsg = `File NetworkMonitor.ps1 non trovato. Path cercato: ${networkMonitorPath}`;
+        console.error('❌', errorMsg);
+        // Prova anche con path alternativo (process.cwd)
+        const altPath = path.join(process.cwd(), 'agent', 'NetworkMonitor.ps1');
+        console.log('  Tentativo path alternativo:', altPath, 'exists:', fs.existsSync(altPath));
+        return res.status(500).json({ error: errorMsg });
       }
       if (!fs.existsSync(installerPath)) {
-        console.error('❌ File InstallerCompleto.ps1 non trovato in:', installerPath);
-        return res.status(500).json({ error: `File InstallerCompleto.ps1 non trovato sul server. Path cercato: ${installerPath}` });
+        const errorMsg = `File InstallerCompleto.ps1 non trovato. Path cercato: ${installerPath}`;
+        console.error('❌', errorMsg);
+        // Prova anche con path alternativo
+        const altPath = path.join(process.cwd(), 'agent', 'InstallerCompleto.ps1');
+        console.log('  Tentativo path alternativo:', altPath, 'exists:', fs.existsSync(altPath));
+        return res.status(500).json({ error: errorMsg });
       }
+
+      console.log('✅ Entrambi i file trovati, procedo con la creazione dello ZIP...');
 
       // Leggi contenuto file
       let networkMonitorContent, installerContent;
@@ -863,6 +877,8 @@ module.exports = (pool, io) => {
       // Nome file ZIP
       const zipFileName = `NetworkMonitor-Agent-${agent.agent_name.replace(/\s+/g, '-')}.zip`;
 
+      console.log('📦 Creazione ZIP:', zipFileName);
+
       // Configura headers per download ZIP
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
@@ -871,6 +887,8 @@ module.exports = (pool, io) => {
       const archive = archiver('zip', {
         zlib: { level: 9 } // Massima compressione
       });
+
+      console.log('✅ Archivio creato, aggiungo file...');
 
       // Gestisci errori
       archive.on('error', (err) => {
@@ -890,9 +908,21 @@ module.exports = (pool, io) => {
       archive.pipe(res);
 
       // Aggiungi file al ZIP
-      archive.append(JSON.stringify(configJson, null, 2), { name: 'config.json' });
-      archive.append(networkMonitorContent, { name: 'NetworkMonitor.ps1' });
-      archive.append(installerContent, { name: 'InstallerCompleto.ps1' });
+      try {
+        archive.append(JSON.stringify(configJson, null, 2), { name: 'config.json' });
+        console.log('✅ Aggiunto config.json');
+        
+        archive.append(networkMonitorContent, { name: 'NetworkMonitor.ps1' });
+        console.log('✅ Aggiunto NetworkMonitor.ps1');
+        
+        archive.append(installerContent, { name: 'InstallerCompleto.ps1' });
+        console.log('✅ Aggiunto InstallerCompleto.ps1');
+      } catch (appendErr) {
+        console.error('❌ Errore aggiunta file allo ZIP:', appendErr);
+        if (!res.headersSent) {
+          return res.status(500).json({ error: `Errore creazione ZIP: ${appendErr.message}` });
+        }
+      }
 
       // Aggiungi README
       const readmeContent = `# Network Monitor Agent - Installazione
