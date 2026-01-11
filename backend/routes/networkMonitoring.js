@@ -4,6 +4,9 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
+const archiver = require('archiver');
+const path = require('path');
+const fs = require('fs');
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
 
 module.exports = (pool, io) => {
