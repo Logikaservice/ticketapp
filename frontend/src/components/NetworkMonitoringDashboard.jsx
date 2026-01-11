@@ -68,6 +68,58 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
     }
   }, [getAuthHeader]);
 
+  // Disabilita agent
+  const disableAgent = useCallback(async (agentId, agentName) => {
+    if (!confirm(`Vuoi disabilitare l'agent "${agentName}"?\n\nL'agent si disinstallerà automaticamente al prossimo heartbeat.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/agent/${agentId}/disable`), {
+        method: 'PUT',
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Errore disabilitazione agent');
+      }
+
+      alert('Agent disabilitato con successo. L\'agent si disinstallerà automaticamente al prossimo heartbeat.');
+      loadAgents(); // Ricarica lista
+    } catch (err) {
+      console.error('Errore disabilitazione agent:', err);
+      alert(`Errore disabilitazione agent: ${err.message}`);
+    }
+  }, [getAuthHeader]);
+
+  // Elimina agent
+  const deleteAgent = useCallback(async (agentId, agentName) => {
+    if (!confirm(`Vuoi ELIMINARE definitivamente l'agent "${agentName}"?\n\nQuesta operazione non può essere annullata. I dati associati verranno eliminati.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/agent/${agentId}`), {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Errore eliminazione agent');
+      }
+
+      alert('Agent eliminato con successo.');
+      loadAgents(); // Ricarica lista
+      loadDevices(); // Ricarica dispositivi (potrebbero essere cambiati)
+      loadChanges(); // Ricarica cambiamenti
+    } catch (err) {
+      console.error('Errore eliminazione agent:', err);
+      alert(`Errore eliminazione agent: ${err.message}`);
+    }
+  }, [getAuthHeader, loadAgents, loadDevices, loadChanges]);
+
   // Carica lista agent
   const loadAgents = useCallback(async () => {
     try {
@@ -387,14 +439,30 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
                         <p><strong>Ultimo heartbeat:</strong> {agent.last_heartbeat ? formatDate(new Date(agent.last_heartbeat)) : 'Mai'}</p>
                       </div>
                     </div>
-                    <div className="ml-4">
+                    <div className="ml-4 flex flex-col gap-2">
                       <button
                         onClick={() => downloadAgentPackage(agent.id, agent.agent_name)}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
                         title="Scarica pacchetto completo (ZIP con config.json, NetworkMonitor.ps1, InstallerCompleto.ps1)"
                       >
                         <Download size={18} />
-                        Scarica Pacchetto Completo
+                        Scarica Pacchetto
+                      </button>
+                      <button
+                        onClick={() => disableAgent(agent.id, agent.agent_name)}
+                        className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"
+                        title="Disabilita agent (disinstallazione remota al prossimo heartbeat)"
+                      >
+                        <PowerOff size={18} />
+                        Disabilita
+                      </button>
+                      <button
+                        onClick={() => deleteAgent(agent.id, agent.agent_name)}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                        title="Elimina agent definitivamente"
+                      >
+                        <Trash2 size={18} />
+                        Elimina
                       </button>
                     </div>
                   </div>
