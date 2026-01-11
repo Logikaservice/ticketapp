@@ -297,41 +297,70 @@ function Get-ServerConfig {
 
 function Update-ScheduledTaskInterval {
     param(
-        [int]$IntervalMinutes
+        [int]$IntervalMinutes,
+        [string]$AgentScript = "",
+        [string]$InstallDir = ""
     )
     
     $TaskName = "NetworkMonitorAgent"
     
     try {
-        $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-        if (-not $task) {
-            Write-Log "Scheduled Task non trovato, impossibile aggiornare intervallo" "WARN"
+        # Ottieni percorso script corrente se non specificato
+        if (-not $AgentScript) {
+            $AgentScript = $MyInvocation.PSCommandPath
+        }
+        if (-not $InstallDir) {
+            $InstallDir = Split-Path -Parent $AgentScript
+        }
+        
+        Write-Log "Rilevato cambio intervallo scansione a $IntervalMinutes minuti. Aggiorno Scheduled Task..." "INFO"
+        
+        # Rimuovi task esistente
+        try {
+            $existingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+            if ($existingTask) {
+                Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction Stop
+                Write-Log "Scheduled Task '$TaskName' rimosso." "DEBUG"
+            }
+        } catch {
+            Write-Log "Errore rimozione Scheduled Task '$TaskName': $_" "ERROR"
             return $false
         }
         
-        # Ottieni trigger esistente
-        $triggers = $task.Triggers
-        if ($triggers.Count -eq 0) {
-            Write-Log "Nessun trigger trovato nel Scheduled Task" "WARN"
-            return $false
-        }
+        # Crea azione
+        $action = New-ScheduledTaskAction `
+            -Execute "powershell.exe" `
+            -Argument "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$AgentScript`"" `
+            -WorkingDirectory $InstallDir
         
-        $trigger = $triggers[0]
+        # Crea trigger con il nuovo intervallo
+        $trigger = New-ScheduledTaskTrigger `
+            -Once `
+            -At (Get-Date) `
+            -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes)
         
-        # Verifica se l'intervallo è diverso
-        $currentInterval = $trigger.Repetition.Interval.Minutes
-        if ($currentInterval -eq $IntervalMinutes) {
-            Write-Log "Intervallo Scheduled Task già corretto ($IntervalMinutes minuti)" "DEBUG"
+        # Crea settings
+        $settings = New-ScheduledTaskSettingsSet `
+            -AllowStartIfOnBatteries `
+            -DontStopIfGoingOnBatteries `
+            -StartWhenAvailable `
+            -RunOnlyIfNetworkAvailable `
+            -ExecutionTimeLimit (New-TimeSpan -Minutes 10) `
+            -RestartCount 3 `
+            -RestartInterval (New-TimeSpan -Minutes 1)
+        
+        # Registra nuovo task
+        try {
+            Register-ScheduledTask `
+                -TaskName $TaskName `
+                -Action $action `
+                -Trigger $trigger `
+                -Settings $settings `
+                -Description "Network Monitor Agent - Scansione rete automatica ogni $IntervalMinutes minuti" `
+                -User "SYSTEM" `
+                -RunLevel Highest -ErrorAction Stop | Out-Null
+            Write-Log "Scheduled Task '$TaskName' ricreato con successo per ogni $IntervalMinutes minuti." "INFO"
             return $true
-        }
-        
-        Write-Log "Aggiornamento intervallo Scheduled Task da $currentInterval a $IntervalMinutes minuti" "INFO"
-        
-        # Crea nuovo trigger con intervallo aggiornato
-        $newTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes)
-        
-        # Aggiorna task
-        Set-ScheduledTask -TaskName $TaskName -Trigger $newTrigger -ErrorAction Stop
         
         Write-Log "Scheduled Task aggiornato con successo (nuovo intervallo: $IntervalMinutes minuti)" "INFO"
         return $true
@@ -345,7 +374,8 @@ function Send-Heartbeat {
     param(
         [string]$ServerUrl,
         [string]$ApiKey,
-        [string]$Version = "1.0.0"
+        [string]$Version = "1.0.0",
+        [string]$ConfigPath = ""
     )
     
     try {
@@ -368,6 +398,38 @@ function Send-Heartbeat {
         }
         
         Write-Log "Heartbeat inviato con successo" "DEBUG"
+        
+        # Recupera configurazione dal server per verificare se scan_interval_minutes è cambiato
+        if ($ConfigPath) {
+            try {
+                $serverConfigResult = Get-ServerConfig -ServerUrl $ServerUrl -ApiKey $ApiKey
+                if ($serverConfigResult.success -and $serverConfigResult.config.scan_interval_minutes) {
+                    $serverInterval = $serverConfigResult.config.scan_interval_minutes
+                    
+                    # Leggi config locale
+                    if (Test-Path $ConfigPath) {
+                        $localConfig = Get-Content $ConfigPath -Raw | ConvertFrom-Json
+                        $localInterval = if ($localConfig.scan_interval_minutes) { $localConfig.scan_interval_minutes } else { 15 }
+                        
+                        # Se l'intervallo è diverso, aggiorna il Scheduled Task
+                        if ($serverInterval -ne $localInterval) {
+                            Write-Log "Rilevato cambio intervallo scansione: $localInterval -> $serverInterval minuti" "INFO"
+                            $updateResult = Update-ScheduledTaskInterval -IntervalMinutes $serverInterval
+                            if ($updateResult) {
+                                # Aggiorna config.json locale
+                                $localConfig.scan_interval_minutes = $serverInterval
+                                $localConfig | ConvertTo-Json -Depth 10 | Out-File -FilePath $ConfigPath -Encoding UTF8 -Force
+                                Write-Log "Config.json locale aggiornato con nuovo intervallo ($serverInterval minuti)" "INFO"
+                            }
+                        }
+                    }
+                }
+            } catch {
+                Write-Log "Errore verifica configurazione server: $_" "DEBUG"
+                # Non bloccare l'esecuzione se il controllo configurazione fallisce
+            }
+        }
+        
         return @{ success = $true; uninstall = $false }
     } catch {
         Write-Log "Errore heartbeat: $_" "WARN"
