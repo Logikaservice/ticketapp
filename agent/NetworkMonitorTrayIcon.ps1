@@ -337,7 +337,9 @@ Show-TrayIcon
 # Questo permette al menu contestuale e ai click di funzionare correttamente
 try {
     [System.Windows.Forms.Application]::Run()
+} catch {
+    # Gestisci eventuali errori
 } finally {
-    # Cleanup
+    # Cleanup sempre
     Exit-Application
 }
