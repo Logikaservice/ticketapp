@@ -245,12 +245,45 @@ function Send-Heartbeat {
         $url = "$ServerUrl/api/network-monitoring/agent/heartbeat"
         $response = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $payload -ErrorAction Stop
         
+        # Verifica se il server ha richiesto la disinstallazione
+        if ($response.uninstall -eq $true) {
+            Write-Log "Server ha richiesto disinstallazione: $($response.message)" "WARN"
+            return @{ success = $false; uninstall = $true; message = $response.message }
+        }
+        
         Write-Log "Heartbeat inviato con successo" "DEBUG"
-        return $true
+        return @{ success = $true; uninstall = $false }
     } catch {
         Write-Log "Errore heartbeat: $_" "WARN"
-        return $false
+        return @{ success = $false; uninstall = $false; error = $_.Exception.Message }
     }
+}
+
+function Uninstall-Agent {
+    param(
+        [string]$ScriptDir
+    )
+    
+    Write-Log "=== Avvio disinstallazione agent ===" "WARN"
+    
+    $TaskName = "NetworkMonitorAgent"
+    
+    # Rimuovi Scheduled Task
+    try {
+        $existingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+        if ($existingTask) {
+            Write-Log "Rimozione Scheduled Task: $TaskName" "WARN"
+            Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction Stop
+            Write-Log "Scheduled Task rimosso con successo" "INFO"
+        } else {
+            Write-Log "Scheduled Task non trovato (già rimosso?)" "WARN"
+        }
+    } catch {
+        Write-Log "Errore rimozione Scheduled Task: $_" "ERROR"
+    }
+    
+    Write-Log "=== Disinstallazione completata ===" "WARN"
+    Write-Log "L'agent è stato disinstallato. Puoi eliminare manualmente la directory: $ScriptDir" "INFO"
 }
 
 # === MAIN SCRIPT ===
@@ -315,7 +348,16 @@ Write-Log "=== Esecuzione scansione ==="
 try {
     # 1. Heartbeat (indica che l'agent è online)
     Write-Log "Invio heartbeat..."
-    Send-Heartbeat -ServerUrl $config.server_url -ApiKey $config.api_key -Version $config.version
+    $heartbeatResult = Send-Heartbeat -ServerUrl $config.server_url -ApiKey $config.api_key -Version $config.version
+    
+    # Verifica se il server ha richiesto la disinstallazione
+    if ($heartbeatResult.uninstall -eq $true) {
+        Write-Log "Server ha richiesto disinstallazione: $($heartbeatResult.message)" "WARN"
+        $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+        Uninstall-Agent -ScriptDir $scriptDir
+        Write-Log "Agent disinstallato. Uscita." "WARN"
+        exit 0
+    }
     
     # 2. Scan rete
     Write-Log "Avvio scansione rete..."

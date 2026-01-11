@@ -5,7 +5,8 @@ import {
   Wifi, WifiOff, Monitor, Server, Printer, Router, 
   AlertCircle, CheckCircle, Clock, RefreshCw, 
   Activity, TrendingUp, TrendingDown, Search,
-  Filter, X, Loader, Plus, Download, Server as ServerIcon
+  Filter, X, Loader, Plus, Download, Server as ServerIcon,
+  Trash2, PowerOff
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';

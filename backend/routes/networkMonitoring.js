@@ -337,11 +337,40 @@ module.exports = (pool, io) => {
 
   // POST /api/network-monitoring/agent/heartbeat
   // Agent invia heartbeat per segnalare che è online
+  // Se l'agent è disabilitato, restituisce comando di disinstallazione
   router.post('/agent/heartbeat', authenticateAgent, async (req, res) => {
     try {
       const agentId = req.agent.id;
       const { version } = req.body;
 
+      // Verifica se l'agent è ancora abilitato
+      const agentCheck = await pool.query(
+        'SELECT enabled FROM network_agents WHERE id = $1',
+        [agentId]
+      );
+
+      if (agentCheck.rows.length === 0) {
+        // Agent non esiste più -> comando disinstallazione
+        return res.json({ 
+          success: false, 
+          uninstall: true,
+          message: 'Agent non trovato nel database'
+        });
+      }
+
+      const agentEnabled = agentCheck.rows[0].enabled;
+
+      if (!agentEnabled) {
+        // Agent disabilitato -> comando disinstallazione
+        console.log(`🔴 Agent ${agentId} disabilitato - comando disinstallazione`);
+        return res.json({ 
+          success: false, 
+          uninstall: true,
+          message: 'Agent disabilitato dal server'
+        });
+      }
+
+      // Agent abilitato -> aggiorna heartbeat normalmente
       await pool.query(
         `UPDATE network_agents 
          SET last_heartbeat = NOW(), status = 'online', version = COALESCE($1, version)
@@ -349,7 +378,7 @@ module.exports = (pool, io) => {
         [version, agentId]
       );
 
-      res.json({ success: true, timestamp: new Date().toISOString() });
+      res.json({ success: true, timestamp: new Date().toISOString(), uninstall: false });
     } catch (err) {
       console.error('❌ Errore heartbeat:', err);
       res.status(500).json({ error: 'Errore interno del server' });
@@ -967,6 +996,71 @@ Oppure:
       if (!res.headersSent) {
         res.status(500).json({ error: 'Errore interno del server' });
       }
+    }
+  });
+
+  // PUT /api/network-monitoring/agent/:id/disable
+  // Disabilita un agent (soft delete - l'agent si disinstallerà automaticamente al prossimo heartbeat)
+  router.put('/agent/:id/disable', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
+      
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
+
+      await ensureTables();
+      
+      const result = await pool.query(
+        `UPDATE network_agents 
+         SET enabled = false, status = 'offline', updated_at = NOW()
+         WHERE id = $1
+         RETURNING id, agent_name, enabled`,
+        [agentId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato' });
+      }
+
+      console.log(`🔴 Agent ${agentId} disabilitato`);
+      res.json({ success: true, agent: result.rows[0], message: 'Agent disabilitato. L\'agent si disinstallerà automaticamente al prossimo heartbeat.' });
+    } catch (err) {
+      console.error('❌ Errore disabilitazione agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // DELETE /api/network-monitoring/agent/:id
+  // Elimina un agent (hard delete - rimuove completamente dal database)
+  router.delete('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
+      
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
+
+      await ensureTables();
+      
+      // Verifica che l'agent esista
+      const checkResult = await pool.query(
+        'SELECT id, agent_name FROM network_agents WHERE id = $1',
+        [agentId]
+      );
+
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato' });
+      }
+
+      // Elimina agent (CASCADE elimina anche dispositivi e cambiamenti associati)
+      await pool.query('DELETE FROM network_agents WHERE id = $1', [agentId]);
+
+      console.log(`🗑️ Agent ${agentId} eliminato`);
+      res.json({ success: true, message: 'Agent eliminato con successo' });
+    } catch (err) {
+      console.error('❌ Errore eliminazione agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
   });
 
