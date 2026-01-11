@@ -525,16 +525,21 @@ module.exports = (pool, io) => {
         if (ip_address) {
           if (typeof ip_address === 'string') {
             ip_address = ip_address.trim();
+            // Rimuovi caratteri JSON errati se presenti (es: {"192.168.100.2"} -> 192.168.100.2)
+            ip_address = ip_address.replace(/[{}"]/g, '').trim();
           } else if (Array.isArray(ip_address)) {
             // Se è un array, prendi il primo elemento valido
             ip_address = ip_address.find(ip => ip && typeof ip === 'string' && ip.trim() !== '')?.trim() || null;
+            if (ip_address) {
+              ip_address = ip_address.replace(/[{}"]/g, '').trim();
+            }
           } else if (typeof ip_address === 'object') {
             // Se è un oggetto, prova a convertirlo in stringa o prendi il primo valore
             const firstValue = Object.values(ip_address)[0];
             if (firstValue && typeof firstValue === 'string') {
-              ip_address = firstValue.trim();
+              ip_address = firstValue.trim().replace(/[{}"]/g, '').trim();
             } else {
-              ip_address = String(ip_address).trim();
+              ip_address = String(ip_address).replace(/[{}"]/g, '').trim();
             }
           }
         }
