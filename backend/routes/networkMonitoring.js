@@ -428,6 +428,7 @@ module.exports = (pool, io) => {
 
       // Aggiorna/inserisci dispositivi
       const deviceResults = [];
+      const receivedIPs = new Set(); // Traccia gli IP ricevuti in questa scansione
       
       for (let i = 0; i < devices.length; i++) {
         const device = devices[i];
@@ -437,6 +438,9 @@ module.exports = (pool, io) => {
           console.warn(`⚠️ Dispositivo ${i + 1}/${devices.length} senza IP, saltato:`, JSON.stringify(device));
           continue;
         }
+
+        // Traccia IP ricevuto
+        receivedIPs.add(ip_address);
 
         // Log dettagliato per debug
         if (i === 0 || i === devices.length - 1) {
