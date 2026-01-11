@@ -76,9 +76,11 @@ function Get-NetworkDevices {
     param([string[]]$NetworkRanges)
     
     $devices = @()
+    $foundIPs = [System.Collections.Generic.List[string]]::new()
     
     # Ottieni IP locale del PC dove gira l'agent
     $localIP = $null
+    $localIPOctet = $null
     try {
         $networkAdapters = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { 
             $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" 
@@ -89,6 +91,29 @@ function Get-NetworkDevices {
         }
     } catch {
         Write-Log "Impossibile ottenere IP locale: $_" "WARN"
+    }
+    
+    # Carica tabella ARP una volta per tutte (più veloce di lookup singoli)
+    $arpTable = @{}
+    try {
+        $arpEntries = Get-NetNeighbor -ErrorAction SilentlyContinue | Where-Object { $_.State -eq "Reachable" -or $_.State -eq "Stale" }
+        foreach ($entry in $arpEntries) {
+            if ($entry.IPAddress -and $entry.LinkLayerAddress) {
+                $arpTable[$entry.IPAddress] = $entry.LinkLayerAddress
+            }
+        }
+    } catch {
+        # Fallback: arp.exe
+        try {
+            $arpOutput = arp -a 2>$null
+            $arpOutput | ForEach-Object {
+                if ($_ -match '^\s*(\d+\.\d+\.\d+\.\d+)\s+([0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2})') {
+                    $arpTable[$matches[1]] = $matches[2]
+                }
+            }
+        } catch {
+            # Ignora errori
+        }
     }
     
     foreach ($range in $NetworkRanges) {
@@ -116,39 +141,17 @@ function Get-NetworkDevices {
                     Write-Log "IP locale ($localIP) è nel range configurato" "DEBUG"
                 }
                 
-                # Scansiona IP range (aumentato a 254 per includere tutti gli IP in una /24)
+                # Scansiona IP range (ottimizzato con parallelizzazione)
                 $maxIP = [Math]::Min(254, $endIP)
+                $ipListToScan = @()
+                
+                # Prepara lista IP da scansionare (escludendo IP locale)
                 for ($i = 1; $i -le $maxIP; $i++) {
                     $ip = "$baseIP.$i"
                     
                     # Se è l'IP locale, aggiungilo sempre (anche se il ping fallisce)
                     if ($localIPInRange -and $i -eq $localIPOctet) {
                         Write-Log "Aggiungendo IP locale: $ip" "DEBUG"
-                        
-                        # Salva IP locale per la tray icon
-                        try {
-                            $currentIPs = @()
-                            if (Test-Path $script:currentScanIPsFile) {
-                                try {
-                                    $content = Get-Content $script:currentScanIPsFile -Raw
-                                    if ($content) {
-                                        $parsed = $content | ConvertFrom-Json
-                                        # ConvertFrom-Json può ritornare array o stringa
-                                        if ($parsed -is [System.Array]) {
-                                            $currentIPs = $parsed
-                                        } else {
-                                            $currentIPs = @($parsed)
-                                        }
-                                    }
-                                } catch { }
-                            }
-                            if ($currentIPs -notcontains $ip) {
-                                $currentIPs = @($currentIPs) + @($ip)
-                                $currentIPs | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
-                            }
-                        } catch {
-                            # Ignora errori salvataggio IP per tray icon
-                        }
                         
                         # Ottieni MAC address locale
                         $macAddress = $null
@@ -173,78 +176,89 @@ function Get-NetworkDevices {
                         }
                         
                         $devices += $device
-                        continue  # Skip ping per IP locale
+                        $foundIPs.Add($ip)
+                    } else {
+                        $ipListToScan += $ip
+                    }
+                }
+                
+                # Parallelizza scansione IP usando RunspacePool (molto più veloce)
+                if ($ipListToScan.Count -gt 0) {
+                    $runspacePool = [runspacefactory]::CreateRunspacePool(1, 100)
+                    $runspacePool.Open()
+                    $jobs = New-Object System.Collections.ArrayList
+                    
+                    # ScriptBlock per ping parallelo
+                    $pingScriptBlock = {
+                        param($targetIP, $timeoutMs)
+                        
+                        $ping = $null
+                        try {
+                            $ping = New-Object System.Net.NetworkInformation.Ping
+                            $reply = $ping.Send($targetIP, $timeoutMs)
+                            if ($reply.Status -eq 'Success') {
+                                return $targetIP
+                            }
+                        } catch {
+                            # Ignora errori ping
+                        } finally {
+                            if ($ping) {
+                                $ping.Dispose()
+                            }
+                        }
+                        return $null
                     }
                     
-                    # Ping test
-                    $pingResult = Test-Connection -ComputerName $ip -Count 1 -Quiet -ErrorAction SilentlyContinue
+                    # Avvia ping paralleli
+                    foreach ($ip in $ipListToScan) {
+                        $job = [powershell]::Create().AddScript($pingScriptBlock).AddArgument($ip).AddArgument(150)
+                        $job.RunspacePool = $runspacePool
+                        $asyncResult = $job.BeginInvoke()
+                        [void]$jobs.Add(@{
+                            Job = $job
+                            AsyncResult = $asyncResult
+                            IP = $ip
+                        })
+                    }
                     
-                    if ($pingResult) {
+                    # Raccogli risultati
+                    $activeIPs = New-Object System.Collections.ArrayList
+                    foreach ($jobInfo in $jobs) {
+                        try {
+                            $resultIP = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
+                            if ($resultIP) {
+                                [void]$activeIPs.Add($resultIP)
+                            }
+                        } catch {
+                            # Ignora errori
+                        } finally {
+                            $jobInfo.Job.Dispose()
+                        }
+                    }
+                    
+                    $runspacePool.Close()
+                    $runspacePool.Dispose()
+                    
+                    # Processa IP attivi trovati
+                    foreach ($ip in $activeIPs) {
                         Write-Log "Dispositivo rilevato: $ip" "DEBUG"
+                        $foundIPs.Add($ip)
                         
-                        # Salva IP trovato per la tray icon (in tempo reale)
-                        try {
-                            $currentIPs = @()
-                            if (Test-Path $script:currentScanIPsFile) {
-                                try {
-                                    $content = Get-Content $script:currentScanIPsFile -Raw
-                                    if ($content) {
-                                        $parsed = $content | ConvertFrom-Json
-                                        # ConvertFrom-Json può ritornare array o stringa
-                                        if ($parsed -is [System.Array]) {
-                                            $currentIPs = $parsed
-                                        } else {
-                                            $currentIPs = @($parsed)
-                                        }
-                                    }
-                                } catch { }
-                            }
-                            if ($currentIPs -notcontains $ip) {
-                                $currentIPs = @($currentIPs) + @($ip)
-                                $currentIPs | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
-                            }
-                        } catch {
-                            # Ignora errori salvataggio IP per tray icon
-                        }
-                        
-                        # Ottieni MAC address dalla tabella ARP
+                        # Ottieni MAC address dalla tabella ARP pre-caricata
                         $macAddress = $null
-                        try {
-                            # Metodo 1: Get-NetNeighbor (Windows 8+)
-                            $arpEntry = Get-NetNeighbor -IPAddress $ip -ErrorAction SilentlyContinue
-                            if ($arpEntry) {
-                                $macAddress = $arpEntry.LinkLayerAddress
-                            }
-                        } catch {
-                            # Metodo 2: arp.exe (compatibilità)
-                            try {
-                                $arpOutput = arp -a $ip 2>$null
-                                if ($arpOutput -match '([0-9A-F]{2}[:-]){5}([0-9A-F]{2})') {
-                                    $macAddress = $matches[0]
-                                }
-                            } catch {
-                                # Ignora se anche questo fallisce
-                            }
+                        if ($arpTable.ContainsKey($ip)) {
+                            $macAddress = $arpTable[$ip]
                         }
                         
-                        # Prova risoluzione hostname
+                        # Prova risoluzione hostname (opzionale, può essere lento - la saltiamo per velocità)
                         $hostname = $null
-                        try {
-                            $dnsResult = Resolve-DnsName -Name $ip -ErrorAction SilentlyContinue
-                            if ($dnsResult) {
-                                $hostname = $dnsResult.NameHost
-                            }
-                        } catch {
-                            # Se DNS fallisce, prova WMI (solo per Windows devices)
-                            try {
-                                $wmiResult = Get-WmiObject -Class Win32_ComputerSystem -ComputerName $ip -ErrorAction SilentlyContinue
-                                if ($wmiResult) {
-                                    $hostname = $wmiResult.Name
-                                }
-                            } catch {
-                                # Ignora errori
-                            }
-                        }
+                        # Commentato per velocità - può essere riattivato se necessario
+                        # try {
+                        #     $dnsResult = Resolve-DnsName -Name $ip -ErrorAction SilentlyContinue -TimeoutSec 1
+                        #     if ($dnsResult) {
+                        #         $hostname = $dnsResult.NameHost
+                        #     }
+                        # } catch { }
                         
                         # Vendor lookup da MAC (se disponibile)
                         $vendor = $null
@@ -264,9 +278,14 @@ function Get-NetworkDevices {
                         
                         $devices += $device
                     }
-                    
-                    # Piccola pausa per non sovraccaricare la rete
-                    Start-Sleep -Milliseconds 50
+                }
+                
+                # Salva IP trovati in batch (una sola volta invece che per ogni IP)
+                try {
+                    $ipArray = @($foundIPs | Sort-Object -Unique)
+                    $ipArray | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
+                } catch {
+                    # Ignora errori salvataggio IP per tray icon
                 }
             } else {
                 Write-Log "Subnet mask troppo grande per scansione completa: $range" "WARN"
