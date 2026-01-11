@@ -14,7 +14,7 @@ Write-Host ""
 # Verifica privilegi amministratore
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
-    Write-Host "❌ ERRORE: Questo script richiede privilegi di Amministratore!" -ForegroundColor Red
+    Write-Host "ERRORE: Questo script richiede privilegi di Amministratore!" -ForegroundColor Red
     Write-Host "Esegui PowerShell come Amministratore e riprova." -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Premi un tasto per uscire..."
@@ -29,13 +29,13 @@ $NssmPath = Join-Path $InstallDir "nssm.exe"
 
 # Verifica che NetworkMonitorService.ps1 esista
 if (-not (Test-Path $ScriptPath)) {
-    Write-Host "❌ ERRORE: NetworkMonitorService.ps1 non trovato in: $InstallDir" -ForegroundColor Red
+    Write-Host "ERRORE: NetworkMonitorService.ps1 non trovato in: $InstallDir" -ForegroundColor Red
     exit 1
 }
 
 # Verifica config.json
 if (-not (Test-Path $ConfigPath)) {
-    Write-Host "⚠️  ATTENZIONE: config.json non trovato!" -ForegroundColor Yellow
+    Write-Host "ATTENZIONE: config.json non trovato!" -ForegroundColor Yellow
     Write-Host "Crea un file config.json prima di installare il servizio." -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Premi un tasto per uscire..."
@@ -54,12 +54,12 @@ if (-not (Test-Path $NssmPath)) {
         Invoke-WebRequest -Uri $nssmUrl -OutFile $nssmZip -UseBasicParsing
         
         # Estrai nssm.exe dalla zip
-        Expand-Archive -Path $nssmZip -DestinationPath $env:TEMP\NSSM -Force
+        Expand-Archive -Path $nssmZip -DestinationPath "$env:TEMP\NSSM" -Force
         $nssmSource = Join-Path $env:TEMP "NSSM\nssm-2.24\win64\nssm.exe"
         
         if (Test-Path $nssmSource) {
             Copy-Item $nssmSource -Destination $NssmPath -Force
-            Write-Host "✅ NSSM scaricato e installato" -ForegroundColor Green
+            Write-Host "NSSM scaricato e installato" -ForegroundColor Green
         } else {
             throw "NSSM non trovato nell'archivio"
         }
@@ -69,7 +69,7 @@ if (-not (Test-Path $NssmPath)) {
         Remove-Item "$env:TEMP\NSSM" -Recurse -Force -ErrorAction SilentlyContinue
         
     } catch {
-        Write-Host "❌ Errore download NSSM: $_" -ForegroundColor Red
+        Write-Host "Errore download NSSM: $_" -ForegroundColor Red
         Write-Host ""
         Write-Host "Download manuale:" -ForegroundColor Yellow
         Write-Host "1. Vai su https://nssm.cc/download" -ForegroundColor White
@@ -90,12 +90,12 @@ if ($RemoveOldTask) {
         $existingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
         if ($existingTask) {
             Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
-            Write-Host "✅ Scheduled Task rimosso" -ForegroundColor Green
+            Write-Host "Scheduled Task rimosso" -ForegroundColor Green
         } else {
-            Write-Host "ℹ️  Scheduled Task non trovato" -ForegroundColor Gray
+            Write-Host "Scheduled Task non trovato" -ForegroundColor Gray
         }
     } catch {
-        Write-Host "⚠️  Impossibile rimuovere Scheduled Task: $_" -ForegroundColor Yellow
+        Write-Host "Impossibile rimuovere Scheduled Task: $_" -ForegroundColor Yellow
     }
     Write-Host ""
 }
@@ -105,9 +105,9 @@ Write-Host "Verifica servizio esistente..." -ForegroundColor Yellow
 try {
     $existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
     if ($existingService) {
-        Write-Host "⚠️  Servizio esistente trovato. Rimozione..." -ForegroundColor Yellow
+        Write-Host "Servizio esistente trovato. Rimozione..." -ForegroundColor Yellow
         
-        # Ferma il servizio se è in esecuzione
+        # Ferma il servizio se e' in esecuzione
         if ($existingService.Status -eq "Running") {
             Stop-Service -Name $ServiceName -Force
             Start-Sleep -Seconds 2
@@ -117,10 +117,10 @@ try {
         & $NssmPath remove $ServiceName confirm
         Start-Sleep -Seconds 2
         
-        Write-Host "✅ Servizio esistente rimosso" -ForegroundColor Green
+        Write-Host "Servizio esistente rimosso" -ForegroundColor Green
     }
 } catch {
-    Write-Host "ℹ️  Nessun servizio esistente trovato" -ForegroundColor Gray
+    Write-Host "Nessun servizio esistente trovato" -ForegroundColor Gray
 }
 Write-Host ""
 
@@ -159,7 +159,7 @@ try {
     & $NssmPath set $ServiceName AppRotateSeconds 86400  # 1 giorno
     & $NssmPath set $ServiceName AppRotateBytes 10485760  # 10 MB
     
-    Write-Host "✅ Servizio installato con successo!" -ForegroundColor Green
+    Write-Host "Servizio installato con successo!" -ForegroundColor Green
     Write-Host ""
     
     # Avvia servizio
@@ -169,9 +169,9 @@ try {
     
     $serviceStatus = Get-Service -Name $ServiceName
     if ($serviceStatus.Status -eq "Running") {
-        Write-Host "✅ Servizio avviato con successo!" -ForegroundColor Green
+        Write-Host "Servizio avviato con successo!" -ForegroundColor Green
     } else {
-        Write-Host "⚠️  Servizio installato ma non è riuscito ad avviarsi" -ForegroundColor Yellow
+        Write-Host "Servizio installato ma non e' riuscito ad avviarsi" -ForegroundColor Yellow
         Write-Host "   Stato: $($serviceStatus.Status)" -ForegroundColor Yellow
         Write-Host "   Controlla i log per dettagli: $stdoutLog" -ForegroundColor Yellow
     }
@@ -185,10 +185,10 @@ try {
     Write-Host "Stato: $($serviceStatus.Status)" -ForegroundColor White
     Write-Host ""
     Write-Host "Comandi utili:" -ForegroundColor Yellow
-    Write-Host "  • Avvia:   Start-Service -Name '$ServiceName'" -ForegroundColor Gray
-    Write-Host "  • Ferma:   Stop-Service -Name '$ServiceName'" -ForegroundColor Gray
-    Write-Host "  • Stato:   Get-Service -Name '$ServiceName'" -ForegroundColor Gray
-    Write-Host "  • Rimuovi: .\Rimuovi-Servizio.ps1" -ForegroundColor Gray
+    Write-Host "  - Avvia:   Start-Service -Name '$ServiceName'" -ForegroundColor Gray
+    Write-Host "  - Ferma:   Stop-Service -Name '$ServiceName'" -ForegroundColor Gray
+    Write-Host "  - Stato:   Get-Service -Name '$ServiceName'" -ForegroundColor Gray
+    Write-Host "  - Rimuovi: .\Rimuovi-Servizio.ps1" -ForegroundColor Gray
     Write-Host ""
     
     # Suggerimento per tray icon
@@ -201,7 +201,7 @@ try {
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     
 } catch {
-    Write-Host "❌ ERRORE installazione servizio: $_" -ForegroundColor Red
+    Write-Host "ERRORE installazione servizio: $_" -ForegroundColor Red
     Write-Host ""
     Write-Host "Premi un tasto per uscire..."
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
