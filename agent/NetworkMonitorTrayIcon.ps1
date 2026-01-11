@@ -207,16 +207,18 @@ function Show-StatusWindow {
         $script:statusWindow.Hide()
     })
     
-    # Timer per aggiornare IP trovati ogni secondo
+    # Timer per aggiornare IP trovati e countdown ogni secondo
     $script:updateTimer = New-Object System.Windows.Forms.Timer
     $script:updateTimer.Interval = 1000  # 1 secondo
     $script:updateTimer.Add_Tick({
         Update-FoundIPsList
+        Update-Countdown
     })
     $script:updateTimer.Start()
     
     # Aggiorna subito
     Update-FoundIPsList
+    Update-Countdown
     
     # Mostra finestra
     $script:statusWindow.Show()
