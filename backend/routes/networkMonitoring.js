@@ -1243,11 +1243,11 @@ Se cancelli questi file, l'agent smetterà di funzionare.
 2. **Fai doppio click su "Installa.bat"**
 3. Clicca "Sì" quando Windows chiede autorizzazioni amministratore
 4. Segui le istruzioni a schermo (premi invio quando richiesto)
-5. Fine! Il servizio è installato in `C:\ProgramData\NetworkMonitorAgent\` automaticamente
+5. Fine! Il servizio è installato in C:\\ProgramData\\NetworkMonitorAgent\\ automaticamente
 
 **Cosa fa automaticamente:**
 - ✅ Richiede privilegi admin (automatico)
-- ✅ Copia tutti i file in `C:\ProgramData\NetworkMonitorAgent\`
+- ✅ Copia tutti i file in C:\\ProgramData\\NetworkMonitorAgent\\
 - ✅ Rimuove il vecchio Scheduled Task (se presente)
 - ✅ Installa e avvia il servizio Windows
 - ✅ Tutto senza aprire PowerShell manualmente!
