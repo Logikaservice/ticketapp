@@ -471,21 +471,32 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         </div>
       )}
 
-      {/* Statistica principale: Cambiamenti */}
-      <div className="mb-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Activity size={24} className="text-blue-600" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Cambiamenti Recenti (24h)</h2>
-                <p className="text-sm text-gray-500">Monitoraggio attività di rete</p>
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-blue-600">{stats.recentChanges}</div>
+      {/* Statistiche */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="text-sm text-gray-600 mb-1">Totale Dispositivi</div>
+          <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+            <CheckCircle size={16} className="text-green-600" />
+            Online
           </div>
+          <div className="text-3xl font-bold text-green-600">{stats.online}</div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+            <WifiOff size={16} className="text-red-600" />
+            Offline
+          </div>
+          <div className="text-3xl font-bold text-red-600">{stats.offline}</div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+            <Activity size={16} className="text-blue-600" />
+            Cambiamenti (24h)
+          </div>
+          <div className="text-3xl font-bold text-blue-600">{stats.recentChanges}</div>
         </div>
       </div>
 
