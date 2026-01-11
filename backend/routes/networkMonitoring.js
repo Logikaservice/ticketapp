@@ -1317,6 +1317,79 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
     }
   });
 
+  // PUT /api/network-monitoring/agent/:id
+  // Aggiorna configurazione agent (nome, reti, intervallo scansione)
+  router.put('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
+      
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
+
+      await ensureTables();
+      
+      const { agent_name, network_ranges, scan_interval_minutes } = req.body;
+
+      // Costruisci query dinamica per aggiornare solo i campi forniti
+      const updateFields = [];
+      const updateValues = [];
+      let paramIndex = 1;
+
+      if (agent_name !== undefined) {
+        updateFields.push(`agent_name = $${paramIndex++}`);
+        updateValues.push(agent_name);
+      }
+
+      if (network_ranges !== undefined) {
+        // Assicurati che network_ranges sia un array
+        const rangesArray = Array.isArray(network_ranges) ? network_ranges : [];
+        updateFields.push(`network_ranges = $${paramIndex++}`);
+        updateValues.push(rangesArray);
+      }
+
+      if (scan_interval_minutes !== undefined) {
+        const interval = parseInt(scan_interval_minutes);
+        if (isNaN(interval) || interval < 1) {
+          return res.status(400).json({ error: 'Intervallo scansione deve essere un numero positivo' });
+        }
+        updateFields.push(`scan_interval_minutes = $${paramIndex++}`);
+        updateValues.push(interval);
+      }
+
+      if (updateFields.length === 0) {
+        return res.status(400).json({ error: 'Nessun campo da aggiornare fornito' });
+      }
+
+      // Aggiungi updated_at
+      updateFields.push(`updated_at = NOW()`);
+      updateValues.push(agentId);
+
+      const query = `
+        UPDATE network_agents 
+        SET ${updateFields.join(', ')}
+        WHERE id = $${paramIndex} AND deleted_at IS NULL
+        RETURNING id, agent_name, network_ranges, scan_interval_minutes, enabled, status, updated_at
+      `;
+
+      const result = await pool.query(query, updateValues);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato o eliminato' });
+      }
+
+      console.log(`✅ Agent ${agentId} aggiornato: ${updateFields.join(', ')}`);
+      res.json({ 
+        success: true, 
+        agent: result.rows[0], 
+        message: 'Configurazione agent aggiornata. Le modifiche saranno applicate al prossimo heartbeat dell\'agent.' 
+      });
+    } catch (err) {
+      console.error('❌ Errore aggiornamento agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // DELETE /api/network-monitoring/agent/:id
   // Elimina un agent (soft delete - marca come eliminato, mantiene dati, invia comando disinstallazione)
   router.delete('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {

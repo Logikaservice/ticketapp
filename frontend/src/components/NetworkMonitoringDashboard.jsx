@@ -6,7 +6,7 @@ import {
   AlertCircle, CheckCircle, Clock, RefreshCw, 
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
-  Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings
+  Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
@@ -36,6 +36,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [editingTypeId, setEditingTypeId] = useState(null);
   const [newTypeName, setNewTypeName] = useState('');
   const [newTypeDescription, setNewTypeDescription] = useState('');
+  const [editingAgentId, setEditingAgentId] = useState(null);
+  const [editAgentData, setEditAgentData] = useState({
+    agent_name: '',
+    network_ranges: [],
+    scan_interval_minutes: 15
+  });
 
   // Gestisci initialView dal menu
   useEffect(() => {
@@ -758,30 +764,59 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                       </div>
                     </div>
                     <div className="ml-4 flex flex-col gap-2">
-                      <button
-                        onClick={() => downloadAgentPackage(agent.id, agent.agent_name)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                        title="Scarica pacchetto completo (ZIP con config.json, NetworkMonitor.ps1, InstallerCompleto.ps1)"
-                      >
-                        <Download size={18} />
-                        Scarica Pacchetto
-                      </button>
-                      <button
-                        onClick={() => disableAgent(agent.id, agent.agent_name)}
-                        className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"
-                        title="Disabilita agent (disinstallazione remota al prossimo heartbeat)"
-                      >
-                        <PowerOff size={18} />
-                        Disabilita
-                      </button>
-                      <button
-                        onClick={() => deleteAgent(agent.id, agent.agent_name)}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
-                        title="Elimina agent definitivamente"
-                      >
-                        <Trash2 size={18} />
-                        Elimina
-                      </button>
+                      {editingAgentId === agent.id ? (
+                        <>
+                          <button
+                            onClick={handleSaveAgent}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+                          >
+                            <CheckCircle size={18} />
+                            Salva
+                          </button>
+                          <button
+                            onClick={handleCancelEditAgent}
+                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
+                          >
+                            <X size={18} />
+                            Annulla
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleEditAgent(agent)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                            title="Modifica configurazione agent (nome, reti, intervallo scansione)"
+                          >
+                            <Edit size={18} />
+                            Modifica
+                          </button>
+                          <button
+                            onClick={() => downloadAgentPackage(agent.id, agent.agent_name)}
+                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+                            title="Scarica pacchetto completo (ZIP con config.json, NetworkMonitor.ps1, InstallerCompleto.ps1)"
+                          >
+                            <Download size={18} />
+                            Scarica Pacchetto
+                          </button>
+                          <button
+                            onClick={() => disableAgent(agent.id, agent.agent_name)}
+                            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"
+                            title="Disabilita agent (disinstallazione remota al prossimo heartbeat)"
+                          >
+                            <PowerOff size={18} />
+                            Disabilita
+                          </button>
+                          <button
+                            onClick={() => deleteAgent(agent.id, agent.agent_name)}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                            title="Elimina agent definitivamente"
+                          >
+                            <Trash2 size={18} />
+                            Elimina
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
