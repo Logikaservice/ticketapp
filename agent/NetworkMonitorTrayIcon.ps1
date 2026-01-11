@@ -75,7 +75,11 @@ function Get-CurrentScanIPs {
                 $ipPattern = '\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b'
                 $matches = [regex]::Matches($ips, $ipPattern)
                 if ($matches.Count -gt 0) {
-                    return @($matches | ForEach-Object { $_.Groups[1].Value })
+                    $ipList = @()
+                    foreach ($match in $matches) {
+                        $ipList += $match.Groups[1].Value
+                    }
+                    return $ipList
                 }
                 return @()
             } else {
