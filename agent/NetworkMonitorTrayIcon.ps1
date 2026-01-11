@@ -318,10 +318,23 @@ function Update-Countdown {
     if (-not $script:statusWindow -or -not $script:statusWindow.Visible) { return }
     
     $status = Get-Status
-    if ($status -and $status.last_scan -and $status.scan_interval_minutes) {
+    if ($status -and $status.last_scan) {
         try {
-            $lastScanTime = [DateTime]::Parse($status.last_scan)
-            $intervalMinutes = [int]$status.scan_interval_minutes
+            # Prova diversi formati di data
+            $lastScanTime = $null
+            $dateStr = $status.last_scan.ToString()
+            
+            # Prova formato "yyyy-MM-dd HH:mm:ss"
+            if ([DateTime]::TryParseExact($dateStr, "yyyy-MM-dd HH:mm:ss", $null, [System.Globalization.DateTimeStyles]::None, [ref]$lastScanTime)) {
+                # OK, usa questo formato
+            } elseif ([DateTime]::TryParse($dateStr, [ref]$lastScanTime)) {
+                # OK, parsing automatico
+            } else {
+                # Fallback: usa Get-Date corrente
+                $lastScanTime = Get-Date
+            }
+            
+            $intervalMinutes = if ($status.scan_interval_minutes) { [int]$status.scan_interval_minutes } else { 15 }
             $nextScanTime = $lastScanTime.AddMinutes($intervalMinutes)
             $now = Get-Date
             $timeRemaining = $nextScanTime - $now
@@ -343,7 +356,15 @@ function Update-Countdown {
                 $script:countdownLabel.Text = $countdownText
             }
         } catch {
-            # Ignora errori parsing
+            # In caso di errore, mostra messaggio generico
+            $countdownText = "Prossima scansione: --:--"
+            if ($script:statusWindow.InvokeRequired) {
+                $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
+                    $script:countdownLabel.Text = $countdownText
+                })
+            } else {
+                $script:countdownLabel.Text = $countdownText
+            }
         }
     } else {
         $countdownText = "Prossima scansione: --:--"
