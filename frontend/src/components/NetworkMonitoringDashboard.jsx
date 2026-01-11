@@ -809,9 +809,50 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                       </div>
                       <div className="mt-2 text-sm text-gray-600 space-y-1">
                         <p><strong>Azienda:</strong> {agent.azienda || 'N/A'}</p>
-                        <p><strong>Reti:</strong> {(agent.network_ranges || []).join(', ') || 'Nessuna'}</p>
-                        <p><strong>Intervallo:</strong> {agent.scan_interval_minutes || 15} minuti</p>
-                        <p><strong>Ultimo heartbeat:</strong> {agent.last_heartbeat ? formatDate(new Date(agent.last_heartbeat)) : 'Mai'}</p>
+                        {editingAgentId === agent.id ? (
+                          <div className="space-y-2 mt-2">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Nome Agent:</label>
+                              <input
+                                type="text"
+                                value={editAgentData.agent_name}
+                                onChange={(e) => setEditAgentData({ ...editAgentData, agent_name: e.target.value })}
+                                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="Nome agent"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Reti (una per riga, formato: 192.168.1.0/24):</label>
+                              <textarea
+                                value={editAgentData.network_ranges.join('\n')}
+                                onChange={(e) => {
+                                  const ranges = e.target.value.split('\n').filter(r => r.trim());
+                                  setEditAgentData({ ...editAgentData, network_ranges: ranges });
+                                }}
+                                rows={3}
+                                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                                placeholder="192.168.1.0/24&#10;10.0.0.0/16"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Intervallo Scansione (minuti):</label>
+                              <input
+                                type="number"
+                                min="1"
+                                max="1440"
+                                value={editAgentData.scan_interval_minutes}
+                                onChange={(e) => setEditAgentData({ ...editAgentData, scan_interval_minutes: parseInt(e.target.value) || 15 })}
+                                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <p><strong>Reti:</strong> {(agent.network_ranges || []).join(', ') || 'Nessuna'}</p>
+                            <p><strong>Intervallo:</strong> {agent.scan_interval_minutes || 15} minuti</p>
+                            <p><strong>Ultimo heartbeat:</strong> {agent.last_heartbeat ? formatDate(new Date(agent.last_heartbeat)) : 'Mai'}</p>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="ml-4 flex flex-col gap-2">
