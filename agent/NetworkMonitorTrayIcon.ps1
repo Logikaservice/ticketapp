@@ -17,8 +17,6 @@ $script:trayIcon = $null
 $script:isRunning = $true
 $script:statusFile = $StatusFilePath
 $script:configPath = $ConfigPath
-$script:statusWindow = $null
-$script:statusWindowListBox = $null
 $script:config = $null
 
 # Carica configurazione
@@ -47,7 +45,7 @@ function Get-Status {
     return $null
 }
 
-# Funzione per aprire finestra stato (se supportata dal servizio)
+# Funzione per aprire finestra stato (mostra informazioni base)
 function Show-StatusWindow {
     if (-not $script:config) {
         if (-not (Load-Config)) {
@@ -61,7 +59,7 @@ function Show-StatusWindow {
         }
     }
     
-    # Mostra informazioni base (la finestra completa deve essere gestita dal servizio)
+    # Mostra informazioni base
     $status = Get-Status
     if ($status) {
         $message = "Network Monitor Agent`n`n"
@@ -82,7 +80,7 @@ function Show-StatusWindow {
         )
     } else {
         [System.Windows.Forms.MessageBox]::Show(
-            "Servizio in avvio o non disponibile",
+            "Servizio in avvio o non disponibile`n`nL'icona della system tray e' attiva.`nIl servizio potrebbe essere ancora in avvio.",
             "Network Monitor Agent",
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Information
@@ -132,12 +130,13 @@ function Show-TrayIcon {
             $script:trayIcon.Visible = $false
             $script:trayIcon.Dispose()
         }
+        [System.Windows.Forms.Application]::Exit()
     })
     $contextMenu.Items.Add($exitItem)
     
     $script:trayIcon.ContextMenuStrip = $contextMenu
     
-    # Click singolo sull'icona mostra stato
+    # Click sinistro sull'icona mostra stato
     $script:trayIcon.Add_Click({
         if ($_.Button -eq [System.Windows.Forms.MouseButtons]::Left) {
             Show-StatusWindow
@@ -198,8 +197,8 @@ if (-not (Load-Config)) {
 # Mostra tray icon
 Show-TrayIcon
 
-# Loop principale
+# Loop principale - Processa messaggi Windows
 while ($script:isRunning) {
     [System.Windows.Forms.Application]::DoEvents()
-    Start-Sleep -Milliseconds 500
+    Start-Sleep -Milliseconds 100
 }
