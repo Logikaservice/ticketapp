@@ -125,12 +125,11 @@ function Show-TrayIcon {
     $exitItem = New-Object System.Windows.Forms.ToolStripMenuItem
     $exitItem.Text = "Esci"
     $exitItem.Add_Click({
-        $script:isRunning = $false
         if ($script:trayIcon) {
             $script:trayIcon.Visible = $false
             $script:trayIcon.Dispose()
         }
-        [System.Windows.Forms.Application]::Exit()
+        [System.Windows.Forms.Application]::ExitThread()
     })
     $contextMenu.Items.Add($exitItem)
     
