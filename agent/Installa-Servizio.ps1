@@ -42,71 +42,19 @@ if (-not (Test-Path $ConfigPath)) {
     exit 1
 }
 
-# Download NSSM se non presente
+# Verifica che nssm.exe sia presente (deve essere incluso nel pacchetto)
 if (-not (Test-Path $NssmPath)) {
-    Write-Host "Download NSSM (Non-Sucking Service Manager)..." -ForegroundColor Yellow
-    
-    $nssmZip = Join-Path $env:TEMP "nssm.zip"
-    $downloadSuccess = $false
-    
-    # Prova prima l'URL originale di nssm.cc
-    # Nota: GitHub releases non sono disponibili per NSSM ufficiale
-    # Se nssm.cc non è disponibile, sarà necessario download manuale
-    $nssmUrls = @(
-        "https://nssm.cc/release/nssm-2.24.zip"
-    )
-    
-    foreach ($nssmUrl in $nssmUrls) {
-        try {
-            Write-Host "Tentativo download da: $nssmUrl" -ForegroundColor Gray
-            Invoke-WebRequest -Uri $nssmUrl -OutFile $nssmZip -UseBasicParsing -ErrorAction Stop
-            
-            # Estrai nssm.exe dalla zip
-            Expand-Archive -Path $nssmZip -DestinationPath "$env:TEMP\NSSM" -Force
-            $nssmSource = Join-Path $env:TEMP "NSSM\nssm-2.24\win64\nssm.exe"
-            
-            if (-not (Test-Path $nssmSource)) {
-                # Prova percorso alternativo (alcune versioni hanno struttura diversa)
-                $nssmSource = Get-ChildItem -Path "$env:TEMP\NSSM" -Filter "nssm.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-                if ($nssmSource) {
-                    $nssmSource = $nssmSource.FullName
-                }
-            }
-            
-            if (Test-Path $nssmSource) {
-                Copy-Item $nssmSource -Destination $NssmPath -Force
-                Write-Host "NSSM scaricato e installato" -ForegroundColor Green
-                $downloadSuccess = $true
-                
-                # Pulisci file temporanei
-                Remove-Item $nssmZip -Force -ErrorAction SilentlyContinue
-                Remove-Item "$env:TEMP\NSSM" -Recurse -Force -ErrorAction SilentlyContinue
-                break
-            } else {
-                throw "NSSM non trovato nell'archivio"
-            }
-            
-        } catch {
-            Write-Host "Errore download da $nssmUrl : $_" -ForegroundColor Yellow
-            # Pulisci file temporanei prima di riprovare
-            Remove-Item $nssmZip -Force -ErrorAction SilentlyContinue
-            Remove-Item "$env:TEMP\NSSM" -Recurse -Force -ErrorAction SilentlyContinue
-            continue
-        }
-    }
-    
-    if (-not $downloadSuccess) {
-        Write-Host "Errore: Impossibile scaricare NSSM da tutti gli URL provati" -ForegroundColor Red
-        Write-Host ""
-        Write-Host "Download manuale:" -ForegroundColor Yellow
-        Write-Host "1. Vai su https://github.com/winlibs/nssm/releases/download/v2.24/nssm-2.24.zip" -ForegroundColor White
-        Write-Host "2. Scarica nssm-2.24.zip" -ForegroundColor White
-        Write-Host "3. Estrai win64\nssm.exe nella directory dell'agent: $InstallDir" -ForegroundColor White
-        Write-Host ""
-        Write-Host "Premi un tasto per uscire..."
-        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        exit 1
-    }
+    Write-Host "ERRORE: nssm.exe non trovato in: $InstallDir" -ForegroundColor Red
+    Write-Host "nssm.exe deve essere incluso nel pacchetto dell'agent." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Assicurati che nssm.exe sia nella stessa directory degli altri file dell'agent." -ForegroundColor Yellow
+    Write-Host "Il pacchetto ZIP deve includere nssm.exe insieme agli altri file." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Premi un tasto per uscire..."
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    exit 1
+} else {
+    Write-Host "nssm.exe trovato (incluso nel pacchetto)" -ForegroundColor Green
 }
 
 # Rimuovi servizio esistente se presente
