@@ -95,21 +95,14 @@ function Get-NetworkDevices {
                             # Per ora lasciamo null
                         }
                         
-                        # Determina tipo dispositivo (semplificato)
-                        $deviceType = "unknown"
-                        if ($hostname) {
-                            if ($hostname -match 'router|gateway|switch') { $deviceType = "router" }
-                            elseif ($hostname -match 'server|srv') { $deviceType = "server" }
-                            elseif ($hostname -match 'printer|print') { $deviceType = "printer" }
-                            else { $deviceType = "workstation" }
-                        }
+                        # device_type non viene più determinato automaticamente
+                        # Sarà gestito manualmente dall'utente nel dashboard
                         
                         $device = @{
                             ip_address = $ip
                             mac_address = $macAddress
                             hostname = $hostname
                             vendor = $vendor
-                            device_type = $deviceType
                             status = "online"
                         }
                         

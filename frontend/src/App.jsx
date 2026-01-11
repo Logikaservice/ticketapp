@@ -2920,6 +2920,7 @@ export default function TicketApp() {
               openNetworkMonitoring: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setNetworkMonitoringInitialView(null); },
               openNetworkMonitoringAgents: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setNetworkMonitoringInitialView('agents'); },
               openNetworkMonitoringCreateAgent: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setNetworkMonitoringInitialView('create'); },
+              openNetworkMonitoringDeviceTypes: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setNetworkMonitoringInitialView('deviceTypes'); },
             }}
             openCreateContract={() => setShowContractModal(true)}
             openContractsList={() => setShowContractsListModal(true)}

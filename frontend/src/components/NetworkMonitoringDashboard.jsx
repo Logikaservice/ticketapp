@@ -6,7 +6,7 @@ import {
   AlertCircle, CheckCircle, Clock, RefreshCw, 
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
-  Trash2, PowerOff, Building, ArrowLeft, ChevronRight
+  Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
@@ -30,6 +30,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [loadingCompanyDevices, setLoadingCompanyDevices] = useState(false);
   const [selectedStaticIPs, setSelectedStaticIPs] = useState(new Set()); // IP selezionati come statici
 
+  const [showDeviceTypes, setShowDeviceTypes] = useState(false);
+  const [deviceTypes, setDeviceTypes] = useState([]);
+  const [loadingDeviceTypes, setLoadingDeviceTypes] = useState(false);
+  const [editingTypeId, setEditingTypeId] = useState(null);
+  const [newTypeName, setNewTypeName] = useState('');
+  const [newTypeDescription, setNewTypeDescription] = useState('');
+
   // Gestisci initialView dal menu
   useEffect(() => {
     if (initialView === 'agents') {
@@ -41,6 +48,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       }
     } else if (initialView === 'create') {
       setShowCreateAgentModal(true);
+      // Reset dopo un breve delay per permettere al componente di renderizzare
+      if (onViewReset) {
+        setTimeout(() => onViewReset(), 100);
+      }
+    } else if (initialView === 'deviceTypes') {
+      setShowDeviceTypes(true);
+      loadDeviceTypes();
       // Reset dopo un breve delay per permettere al componente di renderizzare
       if (onViewReset) {
         setTimeout(() => onViewReset(), 100);
@@ -127,6 +141,113 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       console.error('Errore caricamento aziende:', err);
     }
   }, [getAuthHeader]);
+
+  // Carica lista tipi dispositivi
+  const loadDeviceTypes = useCallback(async () => {
+    try {
+      setLoadingDeviceTypes(true);
+      const response = await fetch(buildApiUrl('/api/network-monitoring/device-types'), {
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore caricamento tipi dispositivi');
+      }
+
+      const data = await response.json();
+      setDeviceTypes(data);
+    } catch (err) {
+      console.error('Errore caricamento tipi dispositivi:', err);
+    } finally {
+      setLoadingDeviceTypes(false);
+    }
+  }, [getAuthHeader]);
+
+  // Crea nuovo tipo dispositivo
+  const createDeviceType = async () => {
+    if (!newTypeName.trim()) {
+      alert('Inserisci un nome per il tipo dispositivo');
+      return;
+    }
+
+    try {
+      const response = await fetch(buildApiUrl('/api/network-monitoring/device-types'), {
+        method: 'POST',
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: newTypeName.trim(),
+          description: newTypeDescription.trim() || null
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Errore creazione tipo dispositivo');
+      }
+
+      setNewTypeName('');
+      setNewTypeDescription('');
+      loadDeviceTypes();
+    } catch (err) {
+      console.error('Errore creazione tipo dispositivo:', err);
+      alert(`Errore: ${err.message}`);
+    }
+  };
+
+  // Aggiorna tipo dispositivo
+  const updateDeviceType = async (id, name, description) => {
+    try {
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/device-types/${id}`), {
+        method: 'PUT',
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          description: description?.trim() || null
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Errore aggiornamento tipo dispositivo');
+      }
+
+      setEditingTypeId(null);
+      loadDeviceTypes();
+    } catch (err) {
+      console.error('Errore aggiornamento tipo dispositivo:', err);
+      alert(`Errore: ${err.message}`);
+    }
+  };
+
+  // Elimina tipo dispositivo
+  const deleteDeviceType = async (id) => {
+    if (!confirm('Vuoi eliminare questo tipo dispositivo?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/device-types/${id}`), {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Errore eliminazione tipo dispositivo');
+      }
+
+      loadDeviceTypes();
+    } catch (err) {
+      console.error('Errore eliminazione tipo dispositivo:', err);
+      alert(`Errore: ${err.message}`);
+    }
+  };
 
   // Carica dispositivi per un'azienda specifica
   const loadCompanyDevices = useCallback(async (aziendaId) => {
@@ -633,7 +754,46 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                       <td className="py-3 px-4 text-sm font-mono text-gray-600">{device.mac_address || '-'}</td>
                       <td className="py-3 px-4 text-sm text-gray-900">{device.hostname || '-'}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">{device.vendor || '-'}</td>
-                      <td className="py-3 px-4 text-sm text-gray-600">{device.device_type || 'unknown'}</td>
+                      <td className="py-3 px-4">
+                        <select
+                          value={device.device_type || ''}
+                          onChange={async (e) => {
+                            const newType = e.target.value || null;
+                            try {
+                              const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/type`), {
+                                method: 'PATCH',
+                                headers: {
+                                  ...getAuthHeader(),
+                                  'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ device_type: newType })
+                              });
+
+                              if (!response.ok) {
+                                const errorData = await response.json();
+                                throw new Error(errorData.error || 'Errore aggiornamento tipo');
+                              }
+
+                              // Aggiorna il dispositivo nella lista locale
+                              setCompanyDevices(prev => prev.map(d => 
+                                d.id === device.id ? { ...d, device_type: newType } : d
+                              ));
+                            } catch (err) {
+                              console.error('Errore aggiornamento tipo dispositivo:', err);
+                              alert(`Errore: ${err.message}`);
+                              e.target.value = device.device_type || '';
+                            }
+                          }}
+                          className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-white"
+                        >
+                          <option value="">-- Nessuno --</option>
+                          {deviceTypes.map(type => (
+                            <option key={type.id} value={type.name}>
+                              {type.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
                       <td className="py-3 px-4">
                         <StatusBadge status={device.status} />
                       </td>

@@ -106,6 +106,37 @@ module.exports = (pool, io) => {
         );
       `);
 
+      // Crea tabella network_device_types (tipi personalizzati dispositivi)
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS network_device_types (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(100) UNIQUE NOT NULL,
+          description TEXT,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        );
+      `);
+
+      // Inserisci tipi di default se la tabella è vuota
+      const typesCheck = await pool.query('SELECT COUNT(*) FROM network_device_types');
+      if (parseInt(typesCheck.rows[0].count) === 0) {
+        const defaultTypes = [
+          { name: 'workstation', description: 'Computer desktop o laptop' },
+          { name: 'server', description: 'Server' },
+          { name: 'router', description: 'Router o gateway' },
+          { name: 'switch', description: 'Switch di rete' },
+          { name: 'printer', description: 'Stampante di rete' },
+          { name: 'camera', description: 'Telecamera IP' },
+          { name: 'unknown', description: 'Tipo sconosciuto' }
+        ];
+        for (const type of defaultTypes) {
+          await pool.query(
+            'INSERT INTO network_device_types (name, description) VALUES ($1, $2)',
+            [type.name, type.description]
+          );
+        }
+      }
+
       // Crea indici
       const indexes = [
         'CREATE INDEX IF NOT EXISTS idx_network_agents_azienda ON network_agents(azienda_id);',
@@ -432,7 +463,8 @@ module.exports = (pool, io) => {
       
       for (let i = 0; i < devices.length; i++) {
         const device = devices[i];
-        const { ip_address, mac_address, hostname, vendor, device_type, status } = device;
+        const { ip_address, mac_address, hostname, vendor, status } = device;
+        // device_type non viene più inviato dall'agent, sarà gestito manualmente
         
         if (!ip_address) {
           console.warn(`⚠️ Dispositivo ${i + 1}/${devices.length} senza IP, saltato:`, JSON.stringify(device));
@@ -504,10 +536,7 @@ module.exports = (pool, io) => {
             updates.push(`vendor = $${paramIndex++}`);
             values.push(vendor || null);
           }
-          if (device_type && device_type !== existingDevice.device_type) {
-            updates.push(`device_type = $${paramIndex++}`);
-            values.push(device_type || null);
-          }
+          // device_type non viene più aggiornato automaticamente dall'agent
 
           updates.push(`last_seen = NOW()`);
           updates.push(`status = $${paramIndex++}`);
@@ -558,7 +587,7 @@ module.exports = (pool, io) => {
                 normalizedMac,
                 (hostname && hostname.trim() !== '') ? hostname.trim() : null,
                 (vendor && vendor.trim() !== '') ? vendor.trim() : null,
-                device_type || 'unknown',
+                'unknown', // Tipo di default, gestito manualmente dall'utente
                 status || 'online'
               ]
             );
@@ -1245,6 +1274,158 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
       res.json({ success: true, message: 'Agent eliminato. I dati sono stati mantenuti. L\'agent si disinstallerà automaticamente dal client al prossimo heartbeat.' });
     } catch (err) {
       console.error('❌ Errore eliminazione agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // ========================================
+  // API TIPI DISPOSITIVI (Device Types)
+  // ========================================
+
+  // GET /api/network-monitoring/device-types
+  // Ottieni lista tipi dispositivi
+  router.get('/device-types', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      const result = await pool.query(
+        'SELECT id, name, description, created_at, updated_at FROM network_device_types ORDER BY name ASC'
+      );
+      res.json(result.rows);
+    } catch (err) {
+      console.error('❌ Errore recupero tipi dispositivi:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // POST /api/network-monitoring/device-types
+  // Crea nuovo tipo dispositivo
+  router.post('/device-types', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      const { name, description } = req.body;
+      
+      if (!name || name.trim() === '') {
+        return res.status(400).json({ error: 'Nome tipo richiesto' });
+      }
+
+      const result = await pool.query(
+        'INSERT INTO network_device_types (name, description) VALUES ($1, $2) RETURNING id, name, description, created_at, updated_at',
+        [name.trim(), description?.trim() || null]
+      );
+
+      res.status(201).json(result.rows[0]);
+    } catch (err) {
+      if (err.code === '23505') { // Unique violation
+        return res.status(409).json({ error: 'Tipo dispositivo già esistente' });
+      }
+      console.error('❌ Errore creazione tipo dispositivo:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // PUT /api/network-monitoring/device-types/:id
+  // Aggiorna tipo dispositivo
+  router.put('/device-types/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      const { id } = req.params;
+      const { name, description } = req.body;
+      
+      if (!name || name.trim() === '') {
+        return res.status(400).json({ error: 'Nome tipo richiesto' });
+      }
+
+      const result = await pool.query(
+        'UPDATE network_device_types SET name = $1, description = $2, updated_at = NOW() WHERE id = $3 RETURNING id, name, description, created_at, updated_at',
+        [name.trim(), description?.trim() || null, id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Tipo dispositivo non trovato' });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      if (err.code === '23505') { // Unique violation
+        return res.status(409).json({ error: 'Tipo dispositivo già esistente' });
+      }
+      console.error('❌ Errore aggiornamento tipo dispositivo:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // DELETE /api/network-monitoring/device-types/:id
+  // Elimina tipo dispositivo
+  router.delete('/device-types/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      const { id } = req.params;
+
+      // Verifica se il tipo è usato da qualche dispositivo
+      const devicesCheck = await pool.query(
+        'SELECT COUNT(*) FROM network_devices WHERE device_type = (SELECT name FROM network_device_types WHERE id = $1)',
+        [id]
+      );
+
+      if (parseInt(devicesCheck.rows[0].count) > 0) {
+        return res.status(409).json({ error: 'Impossibile eliminare: tipo in uso da dispositivi' });
+      }
+
+      const result = await pool.query(
+        'DELETE FROM network_device_types WHERE id = $1 RETURNING id',
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Tipo dispositivo non trovato' });
+      }
+
+      res.json({ success: true, message: 'Tipo dispositivo eliminato' });
+    } catch (err) {
+      console.error('❌ Errore eliminazione tipo dispositivo:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // PATCH /api/network-monitoring/devices/:id/type
+  // Aggiorna tipo dispositivo per un dispositivo specifico
+  router.patch('/devices/:id/type', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      const { id } = req.params;
+      const { device_type } = req.body;
+
+      // Verifica che il dispositivo esista
+      const deviceCheck = await pool.query(
+        'SELECT id FROM network_devices WHERE id = $1',
+        [id]
+      );
+
+      if (deviceCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato' });
+      }
+
+      // Se device_type è specificato, verifica che esista nella tabella tipi
+      if (device_type && device_type.trim() !== '') {
+        const typeCheck = await pool.query(
+          'SELECT id FROM network_device_types WHERE name = $1',
+          [device_type.trim()]
+        );
+
+        if (typeCheck.rows.length === 0) {
+          return res.status(400).json({ error: 'Tipo dispositivo non valido' });
+        }
+      }
+
+      // Aggiorna il dispositivo
+      const result = await pool.query(
+        'UPDATE network_devices SET device_type = $1 WHERE id = $2 RETURNING id, ip_address, device_type',
+        [device_type?.trim() || null, id]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error('❌ Errore aggiornamento tipo dispositivo:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });
