@@ -534,15 +534,15 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     
     // Tecnici vedono tutti i contratti
     if (currentUser.ruolo === 'tecnico') {
-      try {
+        try {
         const res = await fetch(buildApiUrl('/api/contracts'), { headers: getAuthHeader() });
-        if (res.ok) {
-          const data = await res.json();
-          setContracts(data);
+          if (res.ok) {
+            const data = await res.json();
+            setContracts(data);
+          }
+        } catch (err) {
+          console.error('Failed to load contracts', err);
         }
-      } catch (err) {
-        console.error('Failed to load contracts', err);
-      }
     }
     // Clienti amministratori vedono i contratti delle loro aziende
     else if (currentUser.ruolo === 'cliente') {
@@ -1674,7 +1674,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             </div>
           )}
 
-          {/* Sezione Forniture Temporanee - per tutti gli utenti */}
+            {/* Sezione Forniture Temporanee - per tutti gli utenti */}
           <div className="mb-6">
             <TemporarySuppliesPanel
               temporarySupplies={filteredTemporarySupplies || []}

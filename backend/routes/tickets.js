@@ -333,7 +333,7 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
         nomerichiedente,
         titolo
       });
-      
+
       const query = `
         INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, last_read_by_client, last_read_by_tecnico, photos) 
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW(), $10) 

@@ -367,55 +367,55 @@ const TimeLoggerModal = ({
                 <div className="mb-4 space-y-3">
                   {workPhases.map((phase, phaseIndex) => (
                     <div key={phase.id} className="grid md:grid-cols-5 gap-4 items-end">
-                      <div>
-                        <label className="block text-xs mb-1">Modalità</label>
-                        <select
+                  <div>
+                    <label className="block text-xs mb-1">Modalità</label>
+                    <select
                           value={phase.modalita || 'Telefonica'}
                           onChange={(e) => handleUpdateWorkPhase(normalizedLog.id, phase.id, 'modalita', e.target.value)}
-                          disabled={fieldsDisabled}
-                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                        >
-                          <option>Telefonica</option>
-                          <option>Teleassistenza</option>
-                          <option>Presso il Cliente</option>
-                          <option>In laboratorio</option>
-                        </select>
-                      </div>
+                      disabled={fieldsDisabled}
+                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option>Telefonica</option>
+                      <option>Teleassistenza</option>
+                      <option>Presso il Cliente</option>
+                      <option>In laboratorio</option>
+                    </select>
+                  </div>
 
-                      <div>
-                        <label className="block text-xs mb-1">Data</label>
-                        <input
-                          type="date"
+                  <div>
+                    <label className="block text-xs mb-1">Data</label>
+                    <input
+                      type="date"
                           value={phase.data || ''}
                           onChange={(e) => handleUpdateWorkPhase(normalizedLog.id, phase.id, 'data', e.target.value)}
-                          disabled={fieldsDisabled}
-                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                        />
-                      </div>
+                      disabled={fieldsDisabled}
+                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    />
+                  </div>
 
-                      <div>
-                        <label className="block text-xs mb-1">Ora Inizio</label>
-                        <input
-                          type="time"
+                  <div>
+                    <label className="block text-xs mb-1">Ora Inizio</label>
+                    <input
+                      type="time"
                           value={phase.oraInizio || ''}
-                          step="900"
+                      step="900"
                           onChange={(e) => handleUpdateWorkPhase(normalizedLog.id, phase.id, 'oraInizio', e.target.value)}
                           disabled={fieldsDisabled || normalizedLog.eventoGiornaliero}
-                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                        />
-                      </div>
+                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    />
+                  </div>
 
-                      <div>
-                        <label className="block text-xs mb-1">Ora Fine</label>
-                        <input
-                          type="time"
+                  <div>
+                    <label className="block text-xs mb-1">Ora Fine</label>
+                    <input
+                      type="time"
                           value={phase.oraFine || ''}
-                          step="900"
+                      step="900"
                           onChange={(e) => handleUpdateWorkPhase(normalizedLog.id, phase.id, 'oraFine', e.target.value)}
                           disabled={fieldsDisabled || normalizedLog.eventoGiornaliero}
-                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                        />
-                      </div>
+                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    />
+                  </div>
 
                       <div className="flex items-end gap-2">
                         <div className="flex-1">
@@ -458,25 +458,25 @@ const TimeLoggerModal = ({
 
                 {/* Evento giornaliero */}
                 <div className="mb-4">
-                  <label className="inline-flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
+                    <label className="inline-flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
                       checked={!!normalizedLog.eventoGiornaliero}
                       onChange={(e) => setTimeLogs(p => p.map(l => l.id === normalizedLog.id ? {
-                        ...l,
-                        eventoGiornaliero: e.target.checked,
-                        // se diventa giornaliero, azzero gli orari per non inviarli
+                          ...l,
+                          eventoGiornaliero: e.target.checked,
+                          // se diventa giornaliero, azzero gli orari per non inviarli
                         ...(e.target.checked ? { 
                           timeIntervals: l.timeIntervals?.map(interval => ({ ...interval, start: '', end: '' })) || [],
                           oraInizio: '', 
                           oraFine: '', 
                           oreIntervento: 0 
                         } : {})
-                      } : l))}
-                      className="accent-blue-600"
-                    />
-                    Evento giornaliero
-                  </label>
+                        } : l))}
+                        className="accent-blue-600"
+                      />
+                      Evento giornaliero
+                    </label>
                 </div>
 
                 <textarea
@@ -519,56 +519,56 @@ const TimeLoggerModal = ({
                           </button>
                         )}
                       </div>
-                      <div className="grid sm:grid-cols-5 gap-4 items-end">
-                        <div>
-                          <label className="block text-xs mb-1">Ore</label>
-                          <input
-                            type="number"
-                            step="0.25"
+                  <div className="grid sm:grid-cols-5 gap-4 items-end">
+                    <div>
+                      <label className="block text-xs mb-1">Ore</label>
+                      <input
+                        type="number"
+                        step="0.25"
                             value={normalizedLog.oreIntervento}
                             onChange={(e) => handleTimeLogChange(normalizedLog.id, 'oreIntervento', e.target.value)}
-                            disabled={fieldsDisabled}
-                            className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                          />
-                        </div>
+                        disabled={fieldsDisabled}
+                        className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      />
+                    </div>
 
-                        <div>
-                          <label className="block text-xs mb-1">Costo Unit.(€)</label>
-                          <input
-                            type="number"
-                            step="0.01"
+                    <div>
+                      <label className="block text-xs mb-1">Costo Unit.(€)</label>
+                      <input
+                        type="number"
+                        step="0.01"
                             value={normalizedLog.costoUnitario}
                             onChange={(e) => handleTimeLogChange(normalizedLog.id, 'costoUnitario', e.target.value)}
-                            disabled={fieldsDisabled}
-                            className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                          />
-                        </div>
+                        disabled={fieldsDisabled}
+                        className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      />
+                    </div>
 
-                        <div>
-                          <label className="block text-xs mb-1">Sconto(%)</label>
-                          <input
-                            type="number"
+                    <div>
+                      <label className="block text-xs mb-1">Sconto(%)</label>
+                      <input
+                        type="number"
                             value={normalizedLog.sconto}
                             onChange={(e) => handleTimeLogChange(normalizedLog.id, 'sconto', e.target.value)}
-                            disabled={fieldsDisabled}
-                            className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                          />
-                        </div>
+                        disabled={fieldsDisabled}
+                        className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      />
+                    </div>
 
-                        <div>
-                          <label className="block text-xs mb-1">Costo Scontato</label>
-                          <div className="p-2.5 bg-gray-100 rounded-lg font-bold">
-                            {(costPerHour * (1 - (discount / 100))).toFixed(2)}€
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs mb-1">Totale</label>
-                          <div className="p-2.5 bg-blue-100 rounded-lg font-bold text-blue-800">
-                            {total.toFixed(2)}€
-                          </div>
-                        </div>
+                    <div>
+                      <label className="block text-xs mb-1">Costo Scontato</label>
+                      <div className="p-2.5 bg-gray-100 rounded-lg font-bold">
+                        {(costPerHour * (1 - (discount / 100))).toFixed(2)}€
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs mb-1">Totale</label>
+                      <div className="p-2.5 bg-blue-100 rounded-lg font-bold text-blue-800">
+                        {total.toFixed(2)}€
+                      </div>
+                    </div>
+                  </div>
                     </>
                   ) : (
                     <>
@@ -590,9 +590,9 @@ const TimeLoggerModal = ({
                     <>
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="text-sm font-bold flex items-center gap-2">
-                          <Users size={16} />
-                          Materiali
-                        </h4>
+                    <Users size={16} />
+                    Materiali
+                  </h4>
                         {!fieldsDisabled && (
                           <button
                             onClick={() => toggleSection(normalizedLog.id, 'materiali')}
@@ -602,80 +602,80 @@ const TimeLoggerModal = ({
                           </button>
                         )}
                       </div>
-                      <div className="space-y-3">
+                  <div className="space-y-3">
                         {normalizedLog.materials && normalizedLog.materials.map(m => (
-                          <div key={m.id} className="grid grid-cols-6 gap-3 items-center p-2 bg-gray-50 rounded-lg border">
-                            <div className="col-span-2">
-                              <label className="block text-xs mb-1">Materiale</label>
-                              <input
-                                type="text"
-                                value={m.nome}
+                      <div key={m.id} className="grid grid-cols-6 gap-3 items-center p-2 bg-gray-50 rounded-lg border">
+                        <div className="col-span-2">
+                          <label className="block text-xs mb-1">Materiale</label>
+                          <input
+                            type="text"
+                            value={m.nome}
                                 onChange={(e) => handleMaterialChange(normalizedLog.id, m.id, 'nome', e.target.value)}
-                                disabled={fieldsDisabled}
-                                className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                              />
-                            </div>
+                            disabled={fieldsDisabled}
+                            className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          />
+                        </div>
 
-                            <div className="col-span-1">
-                              <label className="block text-xs mb-1">Qta</label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={m.quantita === 0 || m.quantita === '0' ? '' : (m.quantita || '')}
+                        <div className="col-span-1">
+                          <label className="block text-xs mb-1">Qta</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={m.quantita === 0 || m.quantita === '0' ? '' : (m.quantita || '')}
                                 onChange={(e) => handleMaterialChange(normalizedLog.id, m.id, 'quantita', e.target.value)}
-                                disabled={fieldsDisabled}
-                                className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                placeholder=""
-                              />
-                            </div>
+                            disabled={fieldsDisabled}
+                            className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            placeholder=""
+                          />
+                        </div>
 
-                            <div className="col-span-1">
-                              <label className="block text-xs mb-1">Costo (€)</label>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={m.costo === 0 || m.costo === '0' || m.costo === 0.00 ? '' : (m.costo || '')}
+                        <div className="col-span-1">
+                          <label className="block text-xs mb-1">Costo (€)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={m.costo === 0 || m.costo === '0' || m.costo === 0.00 ? '' : (m.costo || '')}
                                 onChange={(e) => handleMaterialChange(normalizedLog.id, m.id, 'costo', e.target.value)}
-                                disabled={fieldsDisabled}
-                                className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                placeholder=""
-                              />
-                            </div>
+                            disabled={fieldsDisabled}
+                            className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            placeholder=""
+                          />
+                        </div>
 
-                            <div className="col-span-1">
-                              <label className="block text-xs mb-1">Totale (€)</label>
-                              <div className="p-2 bg-purple-100 rounded-lg font-bold text-purple-800 text-right">
-                                {(() => {
-                                  const qta = m.quantita === '' || m.quantita === null || m.quantita === undefined ? 0 : parseFloat(m.quantita) || 0;
-                                  const costo = m.costo === '' || m.costo === null || m.costo === undefined ? 0 : parseFloat(m.costo) || 0;
-                                  return (qta * costo).toFixed(2);
-                                })()}
-                              </div>
-                            </div>
-
-                            <div className="col-span-1 pt-4 text-right">
-                              {!fieldsDisabled && normalizedLog.materials.length > 1 && (
-                                <button
-                                  onClick={() => handleRemoveMaterial(normalizedLog.id, m.id)}
-                                  className="text-red-500 p-1"
-                                >
-                                  <Trash2 size={18} />
-                                </button>
-                              )}
-                            </div>
+                        <div className="col-span-1">
+                          <label className="block text-xs mb-1">Totale (€)</label>
+                          <div className="p-2 bg-purple-100 rounded-lg font-bold text-purple-800 text-right">
+                            {(() => {
+                              const qta = m.quantita === '' || m.quantita === null || m.quantita === undefined ? 0 : parseFloat(m.quantita) || 0;
+                              const costo = m.costo === '' || m.costo === null || m.costo === undefined ? 0 : parseFloat(m.costo) || 0;
+                              return (qta * costo).toFixed(2);
+                            })()}
                           </div>
-                        ))}
+                        </div>
 
-                        {!fieldsDisabled && (
-                          <button
-                            onClick={() => handleAddMaterial(normalizedLog.id)}
-                            className="w-full text-blue-500 text-xs font-medium flex items-center justify-center gap-1 mt-2 p-1"
-                          >
-                            <Plus size={14} />
-                            Aggiungi Materiale
-                          </button>
-                        )}
+                        <div className="col-span-1 pt-4 text-right">
+                              {!fieldsDisabled && normalizedLog.materials.length > 1 && (
+                            <button
+                                  onClick={() => handleRemoveMaterial(normalizedLog.id, m.id)}
+                              className="text-red-500 p-1"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          )}
+                        </div>
                       </div>
+                    ))}
+
+                    {!fieldsDisabled && (
+                      <button
+                            onClick={() => handleAddMaterial(normalizedLog.id)}
+                        className="w-full text-blue-500 text-xs font-medium flex items-center justify-center gap-1 mt-2 p-1"
+                      >
+                        <Plus size={14} />
+                        Aggiungi Materiale
+                      </button>
+                    )}
+                  </div>
                     </>
                   ) : (
                     !fieldsDisabled && (
