@@ -271,6 +271,76 @@ function Send-ScanResults {
     }
 }
 
+function Get-ServerConfig {
+    param(
+        [string]$ServerUrl,
+        [string]$ApiKey
+    )
+    
+    try {
+        $headers = @{
+            "X-API-Key" = $ApiKey
+        }
+        
+        $url = "$ServerUrl/api/network-monitoring/agent/config?api_key=$ApiKey"
+        $response = Invoke-RestMethod -Uri $url -Method GET -Headers $headers -ErrorAction Stop
+        
+        return @{
+            success = $true
+            config = $response
+        }
+    } catch {
+        Write-Log "Errore recupero configurazione server: $_" "WARN"
+        return @{ success = $false; error = $_.Exception.Message }
+    }
+}
+
+function Update-ScheduledTaskInterval {
+    param(
+        [int]$IntervalMinutes
+    )
+    
+    $TaskName = "NetworkMonitorAgent"
+    
+    try {
+        $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+        if (-not $task) {
+            Write-Log "Scheduled Task non trovato, impossibile aggiornare intervallo" "WARN"
+            return $false
+        }
+        
+        # Ottieni trigger esistente
+        $triggers = $task.Triggers
+        if ($triggers.Count -eq 0) {
+            Write-Log "Nessun trigger trovato nel Scheduled Task" "WARN"
+            return $false
+        }
+        
+        $trigger = $triggers[0]
+        
+        # Verifica se l'intervallo è diverso
+        $currentInterval = $trigger.Repetition.Interval.Minutes
+        if ($currentInterval -eq $IntervalMinutes) {
+            Write-Log "Intervallo Scheduled Task già corretto ($IntervalMinutes minuti)" "DEBUG"
+            return $true
+        }
+        
+        Write-Log "Aggiornamento intervallo Scheduled Task da $currentInterval a $IntervalMinutes minuti" "INFO"
+        
+        # Crea nuovo trigger con intervallo aggiornato
+        $newTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes)
+        
+        # Aggiorna task
+        Set-ScheduledTask -TaskName $TaskName -Trigger $newTrigger -ErrorAction Stop
+        
+        Write-Log "Scheduled Task aggiornato con successo (nuovo intervallo: $IntervalMinutes minuti)" "INFO"
+        return $true
+    } catch {
+        Write-Log "Errore aggiornamento Scheduled Task: $_" "WARN"
+        return $false
+    }
+}
+
 function Send-Heartbeat {
     param(
         [string]$ServerUrl,
