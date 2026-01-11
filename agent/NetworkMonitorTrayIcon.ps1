@@ -117,7 +117,7 @@ function Show-StatusWindow {
     # Crea nuova finestra
     $script:statusWindow = New-Object System.Windows.Forms.Form
     $script:statusWindow.Text = "Network Monitor Agent - Stato"
-    $script:statusWindow.Size = New-Object System.Drawing.Size(800, 600)
+    $script:statusWindow.Size = New-Object System.Drawing.Size(800, 640)
     $script:statusWindow.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
     $script:statusWindow.MinimizeBox = $false
     $script:statusWindow.MaximizeBox = $false
