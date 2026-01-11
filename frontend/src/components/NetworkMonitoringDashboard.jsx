@@ -355,7 +355,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     loadChanges();
     loadAgents();
     loadCompanies();
-  }, [loadDevices, loadChanges, loadAgents, loadCompanies]);
+    loadDeviceTypes(); // Carica anche i tipi dispositivi (serve per il dropdown)
+  }, [loadDevices, loadChanges, loadAgents, loadCompanies, loadDeviceTypes]);
 
   // Auto-refresh ogni 30 secondi - DISABILITATO se il modal di creazione è aperto
   useEffect(() => {
