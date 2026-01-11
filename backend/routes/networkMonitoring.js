@@ -822,13 +822,16 @@ module.exports = (pool, io) => {
       }
       
       const aziendaIdParam = req.params.aziendaId;
-      const aziendaId = parseInt(aziendaIdParam);
+      console.log('🔍 Route /clients/:aziendaId/devices - aziendaIdParam:', aziendaIdParam, 'type:', typeof aziendaIdParam);
+      const aziendaId = parseInt(aziendaIdParam, 10);
+      console.log('🔍 Route /clients/:aziendaId/devices - aziendaId parsed:', aziendaId, 'type:', typeof aziendaId, 'isNaN:', isNaN(aziendaId));
       
       if (isNaN(aziendaId) || aziendaId <= 0) {
         console.error('❌ ID azienda non valido:', aziendaIdParam, 'parsed:', aziendaId);
         return res.status(400).json({ error: 'ID azienda non valido' });
       }
 
+      console.log('🔍 Eseguendo query con aziendaId:', aziendaId);
       const result = await pool.query(
         `SELECT 
           nd.id, nd.ip_address, nd.mac_address, nd.hostname, nd.vendor, 
