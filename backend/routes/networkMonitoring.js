@@ -1230,11 +1230,29 @@ Se cancelli questi file, l'agent smetterà di funzionare.
 - NetworkMonitorService.ps1: Script servizio Windows (NUOVO)
 - Installa-Servizio.ps1: Installer servizio Windows (NUOVO - consigliato)
 - Rimuovi-Servizio.ps1: Disinstaller servizio Windows (NUOVO)
+- Installa-Automatico.ps1: Installer automatico completo (NUOVO)
+- Installa.bat: Installer batch (doppio click - NUOVO)
 - README_SERVICE.md: Documentazione servizio Windows (NUOVO)
 
-## Installazione (2 metodi):
+## Installazione (3 metodi):
 
-### Metodo 1: Servizio Windows (CONSIGLIATO - Nuovo)
+### Metodo 1: Installazione Automatica (PIÙ SEMPLICE - NUOVO! 🎉)
+**Fai solo doppio click e segui le istruzioni!**
+
+1. Estrai il ZIP in una directory (anche Desktop va bene)
+2. **Fai doppio click su "Installa.bat"**
+3. Clicca "Sì" quando Windows chiede autorizzazioni amministratore
+4. Segui le istruzioni a schermo (premi invio quando richiesto)
+5. Fine! Il servizio è installato in `C:\ProgramData\NetworkMonitorAgent\` automaticamente
+
+**Cosa fa automaticamente:**
+- ✅ Richiede privilegi admin (automatico)
+- ✅ Copia tutti i file in `C:\ProgramData\NetworkMonitorAgent\`
+- ✅ Rimuove il vecchio Scheduled Task (se presente)
+- ✅ Installa e avvia il servizio Windows
+- ✅ Tutto senza aprire PowerShell manualmente!
+
+### Metodo 2: Servizio Windows (Manuale)
 Il servizio rimane sempre attivo, anche dopo riavvio, con icona nella system tray.
 
 1. Estrarre tutti i file in una directory permanente (es: C:\\ProgramData\\NetworkMonitorAgent\\)
@@ -1245,7 +1263,7 @@ Il servizio rimane sempre attivo, anche dopo riavvio, con icona nella system tra
 
 Vedi README_SERVICE.md per dettagli completi.
 
-### Metodo 2: Scheduled Task (Vecchio metodo)
+### Metodo 3: Scheduled Task (Vecchio metodo - non consigliato)
 Per compatibilità con installazioni esistenti.
 
 1. Estrarre tutti i file in una directory permanente (es: C:\\ProgramData\\NetworkMonitorAgent\\)
