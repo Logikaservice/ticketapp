@@ -542,6 +542,140 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         </div>
       </div>
 
+      {/* Pulsante Lista Aziende */}
+      {!showCompaniesList && !selectedCompanyId && (
+        <div className="mb-6">
+          <button
+            onClick={() => setShowCompaniesList(true)}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+          >
+            <Building size={18} />
+            Lista Aziende
+          </button>
+        </div>
+      )}
+
+      {/* Vista Lista Aziende */}
+      {showCompaniesList && !selectedCompanyId && (
+        <div className="mb-6 bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Building size={24} className="text-purple-600" />
+              Aziende Monitorate
+            </h2>
+            <button
+              onClick={() => setShowCompaniesList(false)}
+              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <div className="space-y-3">
+            {companies.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">Nessuna azienda monitorata</p>
+            ) : (
+              companies.map((company) => {
+                // Conta dispositivi online/offline per questa azienda dai dispositivi caricati
+                const companyDevicesCount = devices.filter(d => d.azienda === company.azienda);
+                const onlineCount = companyDevicesCount.filter(d => d.status === 'online').length;
+                const offlineCount = companyDevicesCount.filter(d => d.status === 'offline').length;
+                
+                return (
+                  <div
+                    key={company.id}
+                    onClick={() => {
+                      setSelectedCompanyId(company.id);
+                      loadCompanyDevices(company.id);
+                    }}
+                    className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">{company.azienda}</h3>
+                        <div className="mt-2 flex items-center gap-4 text-sm text-gray-600">
+                          <span className="flex items-center gap-1">
+                            <CheckCircle size={14} className="text-green-600" />
+                            Online: {onlineCount}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <WifiOff size={14} className="text-red-600" />
+                            Offline: {offlineCount}
+                          </span>
+                          <span>Totale: {onlineCount + offlineCount}</span>
+                        </div>
+                      </div>
+                      <ChevronRight size={20} className="text-gray-400" />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Vista Dettaglio Dispositivi Azienda */}
+      {selectedCompanyId && (
+        <div className="mb-6 bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setSelectedCompanyId(null);
+                  setCompanyDevices([]);
+                }}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+              >
+                <ArrowLeft size={20} />
+              </button>
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Building size={24} className="text-purple-600" />
+                {companies.find(c => c.id === selectedCompanyId)?.azienda || 'Dispositivi'}
+              </h2>
+            </div>
+          </div>
+          {loadingCompanyDevices ? (
+            <div className="p-8 flex items-center justify-center">
+              <Loader className="w-8 h-8 animate-spin text-blue-600" />
+              <span className="ml-3 text-gray-600">Caricamento dispositivi...</span>
+            </div>
+          ) : companyDevices.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">Nessun dispositivo trovato per questa azienda</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Vendor</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Ultimo Visto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {companyDevices.map((device) => (
+                    <tr key={device.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4 text-sm font-mono text-gray-900">{device.ip_address}</td>
+                      <td className="py-3 px-4 text-sm font-mono text-gray-600">{device.mac_address || '-'}</td>
+                      <td className="py-3 px-4 text-sm text-gray-900">{device.hostname || '-'}</td>
+                      <td className="py-3 px-4 text-sm text-gray-600">{device.vendor || '-'}</td>
+                      <td className="py-3 px-4 text-sm text-gray-600">{device.device_type || 'unknown'}</td>
+                      <td className="py-3 px-4">
+                        <StatusBadge status={device.status} />
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-500">{formatDate(device.last_seen)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Sezione cambiamenti recenti - PRIORITARIA */}
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
