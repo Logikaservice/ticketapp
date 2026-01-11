@@ -42,6 +42,18 @@ Write-Host "URL del server TicketApp (premi INVIO per usare il default):" -Foreg
 $inputUrl = Read-Host "Server URL"
 if (-not [string]::IsNullOrWhiteSpace($inputUrl)) {
     $ServerUrl = $inputUrl
+    # Verifica che inizi con https://
+    if ($ServerUrl -notlike "https://*") {
+        Write-Host "⚠️  ATTENZIONE: L'URL dovrebbe iniziare con 'https://'" -ForegroundColor Yellow
+        if ($ServerUrl -like "http://*") {
+            Write-Host "    Correggo automaticamente da http:// a https://" -ForegroundColor Yellow
+            $ServerUrl = $ServerUrl -replace "^http://", "https://"
+        } else {
+            Write-Host "    Aggiungo automaticamente https://" -ForegroundColor Yellow
+            $ServerUrl = "https://" + $ServerUrl.TrimStart('/')
+        }
+        Write-Host "    URL corretto: $ServerUrl" -ForegroundColor Gray
+    }
 }
 
 Write-Host ""
@@ -82,6 +94,17 @@ if ([string]::IsNullOrWhiteSpace($InstallDir)) {
 }
 
 Write-Host "Directory installazione: $InstallDir" -ForegroundColor Gray
+Write-Host "⚠️  IMPORTANTE: I file devono rimanere in questa directory!" -ForegroundColor Yellow
+if ($InstallDir -like "*Downloads*" -or $InstallDir -like "*Download*") {
+    Write-Host "⚠️  ATTENZIONE: Stai installando nella cartella Download!" -ForegroundColor Red
+    Write-Host "    Consigliato: sposta i file in una directory permanente (es: C:\ProgramData\NetworkMonitorAgent\)" -ForegroundColor Yellow
+    Write-Host ""
+    $continue = Read-Host "Vuoi continuare comunque? (S/N)"
+    if ($continue -ne "S" -and $continue -ne "s" -and $continue -ne "Y" -and $continue -ne "y") {
+        Write-Host "Installazione annullata." -ForegroundColor Yellow
+        exit 0
+    }
+}
 Write-Host ""
 
 # Crea config.json
@@ -187,8 +210,28 @@ try {
 Write-Host ""
 Write-Host "Test connessione..." -ForegroundColor Yellow
 try {
-    & $agentScript -TestMode
-    Write-Host "✅ Test completato con successo!" -ForegroundColor Green
+    # Esegui test nella directory di installazione (dove si trova config.json)
+    Push-Location $InstallDir
+    try {
+        & $agentScript -TestMode 2>&1 | ForEach-Object {
+            if ($_ -match "ERROR") {
+                Write-Host $_ -ForegroundColor Red
+            } elseif ($_ -match "WARN") {
+                Write-Host $_ -ForegroundColor Yellow
+            } else {
+                Write-Host $_
+            }
+        }
+        # Verifica exit code
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "✅ Test completato con successo!" -ForegroundColor Green
+        } else {
+            Write-Host "⚠️  Test completato con errori (exit code: $LASTEXITCODE)" -ForegroundColor Yellow
+            Write-Host "   Verifica manualmente con: .\NetworkMonitor.ps1 -TestMode" -ForegroundColor Yellow
+        }
+    } finally {
+        Pop-Location
+    }
 } catch {
     Write-Host "⚠️  Errore durante test: $_" -ForegroundColor Yellow
     Write-Host "   Verifica manualmente con: .\NetworkMonitor.ps1 -TestMode" -ForegroundColor Yellow
