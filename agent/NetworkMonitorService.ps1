@@ -280,10 +280,17 @@ function Get-NetworkDevices {
                     }
                 }
                 
-                # Salva IP trovati in batch (una sola volta invece che per ogni IP)
+                # Salva IP trovati con MAC in batch (una sola volta invece che per ogni IP)
                 try {
-                    $ipArray = @($foundIPs | Sort-Object -Unique)
-                    $ipArray | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
+                    $ipDataArray = @()
+                    foreach ($ip in ($foundIPs | Sort-Object -Unique)) {
+                        $macAddress = if ($arpTable.ContainsKey($ip)) { $arpTable[$ip] } else { $null }
+                        $ipDataArray += @{
+                            ip = $ip
+                            mac = $macAddress
+                        }
+                    }
+                    $ipDataArray | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
                 } catch {
                     # Ignora errori salvataggio IP per tray icon
                 }

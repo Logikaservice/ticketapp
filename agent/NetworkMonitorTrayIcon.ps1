@@ -225,7 +225,7 @@ function Show-StatusWindow {
     $script:statusWindow.BringToFront()
 }
 
-# Aggiorna lista IP trovati nella finestra
+# Aggiorna lista IP trovati nella finestra (con MAC)
 function Update-FoundIPsList {
     if (-not $script:statusWindowListBox) { return }
     if (-not $script:statusWindow -or -not $script:statusWindow.Visible) { return }
@@ -236,8 +236,9 @@ function Update-FoundIPsList {
     if ($script:statusWindow.InvokeRequired) {
         $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
             $script:statusWindowListBox.Items.Clear()
-            foreach ($ip in $currentIPs) {
-                $script:statusWindowListBox.Items.Add($ip)
+            foreach ($item in $currentIPs) {
+                $displayText = if ($item.mac) { "$($item.ip) - $($item.mac)" } else { $item.ip }
+                $script:statusWindowListBox.Items.Add($displayText)
             }
             if ($script:statusWindowListBox.Items.Count -gt 0) {
                 $script:statusWindowListBox.TopIndex = $script:statusWindowListBox.Items.Count - 1
@@ -245,8 +246,9 @@ function Update-FoundIPsList {
         })
     } else {
         $script:statusWindowListBox.Items.Clear()
-        foreach ($ip in $currentIPs) {
-            $script:statusWindowListBox.Items.Add($ip)
+        foreach ($item in $currentIPs) {
+            $displayText = if ($item.mac) { "$($item.ip) - $($item.mac)" } else { $item.ip }
+            $script:statusWindowListBox.Items.Add($displayText)
         }
         if ($script:statusWindowListBox.Items.Count -gt 0) {
             $script:statusWindowListBox.TopIndex = $script:statusWindowListBox.Items.Count - 1
