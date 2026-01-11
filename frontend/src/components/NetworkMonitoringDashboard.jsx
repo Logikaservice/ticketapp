@@ -472,11 +472,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       )}
 
       {/* Statistiche */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600 mb-1">Totale Dispositivi</div>
-          <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
             <CheckCircle size={16} className="text-green-600" />
