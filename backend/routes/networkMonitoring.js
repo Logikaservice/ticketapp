@@ -446,12 +446,30 @@ module.exports = (pool, io) => {
         // Cerca dispositivo esistente (per IP+MAC o solo IP se MAC non disponibile)
         let existingDevice;
         
-        if (mac_address && mac_address.trim() !== '') {
+        // Normalizza mac_address: potrebbe essere stringa, array, o altro
+        let macAddressStr = null;
+        if (mac_address) {
+          if (typeof mac_address === 'string') {
+            macAddressStr = mac_address.trim();
+          } else if (Array.isArray(mac_address)) {
+            // Se è un array, prendi il primo elemento valido
+            macAddressStr = mac_address.find(m => m && typeof m === 'string' && m.trim() !== '')?.trim() || null;
+          } else if (typeof mac_address === 'object') {
+            // Se è un oggetto, prova a convertirlo in stringa
+            macAddressStr = String(mac_address).trim();
+          }
+          // Rimuovi stringhe vuote o MAC invalidi
+          if (macAddressStr === '' || macAddressStr === '00-00-00-00-00-00') {
+            macAddressStr = null;
+          }
+        }
+        
+        if (macAddressStr && macAddressStr !== '') {
           const existing = await pool.query(
             `SELECT id, ip_address, mac_address, hostname, vendor, status 
              FROM network_devices 
              WHERE agent_id = $1 AND (ip_address = $2 OR mac_address = $3)`,
-            [agentId, ip_address, mac_address]
+            [agentId, ip_address, macAddressStr]
           );
           existingDevice = existing.rows[0];
         } else {
@@ -470,9 +488,9 @@ module.exports = (pool, io) => {
           const values = [];
           let paramIndex = 1;
 
-          if (mac_address && mac_address !== existingDevice.mac_address) {
+          if (macAddressStr && macAddressStr !== existingDevice.mac_address) {
             updates.push(`mac_address = $${paramIndex++}`);
-            values.push(mac_address || null);
+            values.push(macAddressStr);
           }
           if (hostname && hostname !== existingDevice.hostname) {
             updates.push(`hostname = $${paramIndex++}`);
@@ -505,14 +523,24 @@ module.exports = (pool, io) => {
           // Inserisci nuovo dispositivo
           // Nota: ON CONFLICT non funziona bene con mac_address NULL, quindi gestiamo manualmente
           try {
-            // Normalizza MAC address: rimuovi spazi e converti in formato standard
+            // Normalizza MAC address usando macAddressStr già processato
             let normalizedMac = null;
-            if (mac_address && mac_address.trim() !== '' && mac_address.trim() !== '00-00-00-00-00-00') {
-              normalizedMac = mac_address.trim().replace(/\s+/g, '').toUpperCase();
+            if (macAddressStr) {
+              // Rimuovi spazi, virgole, e converti in maiuscolo
+              normalizedMac = macAddressStr.replace(/\s+/g, '').replace(/,/g, '').toUpperCase();
+              // Se contiene duplicati separati (es: "60-83-E7-BF-4C-AF60-83-E7-BF-4C-AF"), prendi solo i primi 17 caratteri
+              if (normalizedMac.length > 17) {
+                // Prendi solo i primi 17 caratteri (formato standard MAC: XX-XX-XX-XX-XX-XX)
+                normalizedMac = normalizedMac.substring(0, 17);
+              }
               // Se non ha il formato corretto, prova a convertirlo
               if (normalizedMac.length === 12 && !normalizedMac.includes('-') && !normalizedMac.includes(':')) {
                 // Formato senza separatori, aggiungi trattini ogni 2 caratteri
                 normalizedMac = normalizedMac.replace(/(..)(..)(..)(..)(..)(..)/, '$1-$2-$3-$4-$5-$6');
+              }
+              // Verifica che sia un MAC valido (17 caratteri con trattini)
+              if (normalizedMac.length !== 17 || !/^([0-9A-F]{2}-){5}[0-9A-F]{2}$/i.test(normalizedMac)) {
+                normalizedMac = null;
               }
             }
 
