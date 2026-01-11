@@ -1,6 +1,6 @@
 // src/components/NetworkMonitoringDashboard.jsx
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Wifi, WifiOff, Monitor, Server, Printer, Router, 
   AlertCircle, CheckCircle, Clock, RefreshCw, 
@@ -42,6 +42,20 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     network_ranges: [],
     scan_interval_minutes: 15
   });
+  const [showNetworkMenu, setShowNetworkMenu] = useState(false);
+  const networkMenuRef = useRef(null);
+
+  // Chiudi menu quando si clicca fuori
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (networkMenuRef.current && !networkMenuRef.current.contains(event.target)) {
+        setShowNetworkMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Gestisci initialView dal menu
   useEffect(() => {
@@ -577,14 +591,67 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <Wifi className="w-8 h-8 text-blue-600" />
-            Monitoraggio Rete
-          </h1>
-          <p className="text-gray-500 mt-1">
-            {lastUpdate && `Ultimo aggiornamento: ${formatDate(lastUpdate)}`}
-          </p>
+        <div className="flex items-center gap-3">
+          {/* Menu hamburger */}
+          <div className="relative" ref={networkMenuRef}>
+            <button
+              onClick={() => setShowNetworkMenu(!showNetworkMenu)}
+              className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
+              title="Menu Monitoraggio Rete"
+            >
+              <Menu size={24} />
+            </button>
+            
+            {/* Dropdown menu */}
+            {showNetworkMenu && (
+              <div className="absolute left-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                <div className="py-1">
+                  <button
+                    onClick={() => {
+                      setShowAgentsList(true);
+                      loadAgents();
+                      setShowNetworkMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                  >
+                    <ServerIcon size={18} className="text-cyan-600" />
+                    Agent Esistenti
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowCreateAgentModal(true);
+                      setShowNetworkMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                  >
+                    <Plus size={18} className="text-cyan-600" />
+                    Crea Agent
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDeviceTypes(true);
+                      loadDeviceTypes();
+                      setShowNetworkMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                  >
+                    <Settings size={18} className="text-cyan-600" />
+                    Tipi Dispositivi
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+              <Wifi className="w-8 h-8 text-blue-600" />
+              Monitoraggio Rete
+            </h1>
+            <p className="text-gray-500 mt-1">
+              {lastUpdate && `Ultimo aggiornamento: ${formatDate(lastUpdate)}`}
+            </p>
+          </div>
         </div>
         
         <div className="flex items-center gap-3">
