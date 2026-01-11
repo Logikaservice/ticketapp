@@ -74,6 +74,7 @@ if not "%SCRIPT_DIR%"=="%INSTALL_DIR%\" (
     if exist "Diagnostica-Agent.ps1" copy /Y "Diagnostica-Agent.ps1" "%INSTALL_DIR%\"
     if exist "README_SERVICE.md" copy /Y "README_SERVICE.md" "%INSTALL_DIR%\"
     if exist "GUIDA_INSTALLAZIONE_SERVIZIO.md" copy /Y "GUIDA_INSTALLAZIONE_SERVIZIO.md" "%INSTALL_DIR%\"
+    if exist "nssm.exe" copy /Y "nssm.exe" "%INSTALL_DIR%\"
     
     echo File copiati con successo!
     echo.
