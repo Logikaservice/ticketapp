@@ -6,7 +6,7 @@ import {
   AlertCircle, CheckCircle, Clock, RefreshCw, 
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
-  Trash2, PowerOff
+  Trash2, PowerOff, Building, ArrowLeft, ChevronRight
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
@@ -24,6 +24,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [showCreateAgentModal, setShowCreateAgentModal] = useState(false);
   const [agents, setAgents] = useState([]);
   const [showAgentsList, setShowAgentsList] = useState(false);
+  const [showCompaniesList, setShowCompaniesList] = useState(false);
+  const [companies, setCompanies] = useState([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
+  const [companyDevices, setCompanyDevices] = useState([]);
+  const [loadingCompanyDevices, setLoadingCompanyDevices] = useState(false);
 
   // Gestisci initialView dal menu
   useEffect(() => {
@@ -188,7 +193,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     loadDevices();
     loadChanges();
     loadAgents();
-  }, [loadDevices, loadChanges, loadAgents]);
+    loadCompanies();
+  }, [loadDevices, loadChanges, loadAgents, loadCompanies]);
 
   // Auto-refresh ogni 30 secondi - DISABILITATO se il modal di creazione è aperto
   useEffect(() => {
