@@ -144,9 +144,8 @@ try {
     & $NssmPath set $ServiceName Start SERVICE_AUTO_START
     
     # Configura restart automatico in caso di crash
-    & $NssmPath set $ServiceName AppRestartDelay 60000  # 60 secondi
-    & $NssmPath set $ServiceName AppRestartDelay 0 Restart
-    & $NssmPath set $ServiceName AppExit Default Restart
+    & $NssmPath set $ServiceName AppRestartDelay 60000  # 60 secondi di attesa prima di riavviare
+    & $NssmPath set $ServiceName AppExit Default Restart  # Riavvia se esce con codice default
     & $NssmPath set $ServiceName AppStopMethodSkip 0
     
     # Configura output e error log
