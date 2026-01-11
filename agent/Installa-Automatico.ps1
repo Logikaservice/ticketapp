@@ -170,7 +170,8 @@ if ($scriptDir -ne $installDir) {
         "InstallerCompleto.ps1",
         "Diagnostica-Agent.ps1",
         "README_SERVICE.md",
-        "GUIDA_INSTALLAZIONE_SERVIZIO.md"
+        "GUIDA_INSTALLAZIONE_SERVIZIO.md",
+        "nssm.exe"
     )
     
     foreach ($file in $filesToCopy) {
