@@ -22,7 +22,6 @@ $script:currentScanIPsPath = $CurrentScanIPsPath
 $script:config = $null
 $script:statusWindow = $null
 $script:statusWindowListBox = $null
-$script:configListBox = $null
 $script:updateTimer = $null
 
 # Carica configurazione
