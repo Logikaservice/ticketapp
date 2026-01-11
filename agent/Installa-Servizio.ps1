@@ -50,9 +50,10 @@ if (-not (Test-Path $NssmPath)) {
     $downloadSuccess = $false
     
     # Prova prima l'URL originale di nssm.cc
+    # Nota: GitHub releases non sono disponibili per NSSM ufficiale
+    # Se nssm.cc non è disponibile, sarà necessario download manuale
     $nssmUrls = @(
-        "https://nssm.cc/release/nssm-2.24.zip",
-        "https://github.com/winlibs/nssm/releases/download/v2.24/nssm-2.24.zip"
+        "https://nssm.cc/release/nssm-2.24.zip"
     )
     
     foreach ($nssmUrl in $nssmUrls) {
