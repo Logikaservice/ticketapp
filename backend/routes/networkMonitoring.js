@@ -900,6 +900,19 @@ module.exports = (pool, io) => {
       
       const limit = parseInt(req.query.limit) || 200;
 
+      // Assicurati che la colonna is_static esista (migrazione)
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;
+        `);
+      } catch (migrationErr) {
+        // Ignora errore se colonna esiste già
+        if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna is_static in all/changes:', migrationErr.message);
+        }
+      }
+
       const result = await pool.query(
         `SELECT 
           nc.id, nc.change_type, nc.old_value, nc.new_value, nc.detected_at, nc.notified,
