@@ -408,6 +408,34 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         </div>
         
         <div className="flex items-center gap-3">
+          {/* Dropdown selezione azienda */}
+          <div className="relative">
+            <select
+              value={selectedCompanyId || ''}
+              onChange={(e) => {
+                const companyId = e.target.value ? parseInt(e.target.value) : null;
+                setSelectedCompanyId(companyId);
+                if (companyId) {
+                  loadCompanyDevices(companyId);
+                } else {
+                  setCompanyDevices([]);
+                }
+              }}
+              className="px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer min-w-[200px]"
+            >
+              <option value="">Tutte le Aziende</option>
+              {companies.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.azienda}
+                </option>
+              ))}
+            </select>
+            <Building 
+              size={18} 
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" 
+            />
+          </div>
+
           <button
             onClick={() => setAutoRefresh(!autoRefresh)}
             className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
@@ -424,6 +452,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             onClick={() => {
               loadDevices();
               loadChanges();
+              if (selectedCompanyId) {
+                loadCompanyDevices(selectedCompanyId);
+              }
             }}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
             disabled={loading}
