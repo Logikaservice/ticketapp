@@ -361,9 +361,6 @@ function Update-ScheduledTaskInterval {
                 -RunLevel Highest -ErrorAction Stop | Out-Null
             Write-Log "Scheduled Task '$TaskName' ricreato con successo per ogni $IntervalMinutes minuti." "INFO"
             return $true
-        
-        Write-Log "Scheduled Task aggiornato con successo (nuovo intervallo: $IntervalMinutes minuti)" "INFO"
-        return $true
     } catch {
         Write-Log "Errore aggiornamento Scheduled Task: $_" "WARN"
         return $false
