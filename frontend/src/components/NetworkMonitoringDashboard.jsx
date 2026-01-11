@@ -963,20 +963,32 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               <p className="text-gray-400 text-sm mt-2">I cambiamenti di rete verranno visualizzati qui</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {changes.slice(0, 50).map((change) => {
-                const isStatic = change.is_static === true;
-                return (
-                  <div 
-                    key={change.id} 
-                    className={`flex items-center justify-between p-4 rounded-lg hover:bg-gray-100 transition ${
-                      isStatic ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-4 flex-1">
-                      <ChangeTypeBadge changeType={change.change_type} />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo Dispositivo</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Azienda</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Agente</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Data</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {changes.slice(0, 50).map((change) => {
+                    const isStatic = change.is_static === true;
+                    return (
+                      <tr 
+                        key={change.id} 
+                        className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
+                      >
+                        <td className="py-3 px-4">
+                          <ChangeTypeBadge changeType={change.change_type} />
+                        </td>
+                        <td className="py-3 px-4">
                           <div className="text-sm font-medium text-gray-900">
                             {change.ip_address}
                             {isStatic && (
@@ -985,36 +997,32 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                               </span>
                             )}
                           </div>
-                        </div>
-                        <div className="text-xs text-gray-600 mt-1 space-y-0.5">
-                          {change.hostname && (
-                            <div><span className="font-medium">Hostname:</span> {change.hostname}</div>
-                          )}
-                          {change.mac_address && (
-                            <div><span className="font-medium">MAC:</span> <span className="font-mono">{change.mac_address}</span></div>
-                          )}
-                          {change.device_type && (
-                            <div><span className="font-medium">Tipo:</span> {change.device_type}</div>
-                          )}
-                          <div>
-                            <span className="font-medium">Azienda:</span> {change.azienda || 'N/A'} • {change.agent_name || 'Agent'}
-                          </div>
-                        </div>
-                        {change.old_value && change.new_value && (
-                          <div className="text-xs text-gray-400 mt-1 font-mono">
-                            {change.old_value} → {change.new_value}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-xs text-gray-500 whitespace-nowrap ml-4">
-                      {formatDate(change.detected_at)}
-                    </div>
-                  </div>
-                );
-              })}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600 font-mono">
+                          {change.mac_address || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {change.hostname || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {change.device_type || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {change.azienda || 'N/A'}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {change.agent_name || 'Agent'}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-500">
+                          {formatDate(change.detected_at)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
               {changes.length > 50 && (
-                <div className="text-center py-4 text-sm text-gray-500">
+                <div className="text-center py-4 text-sm text-gray-500 border-t border-gray-200">
                   Mostrati i primi 50 cambiamenti di {changes.length} totali
                 </div>
               )}
