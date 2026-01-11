@@ -11,7 +11,7 @@ import {
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
 
-const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
+const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null }) => {
   const [devices, setDevices] = useState([]);
   const [changes, setChanges] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +24,18 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
   const [showCreateAgentModal, setShowCreateAgentModal] = useState(false);
   const [agents, setAgents] = useState([]);
   const [showAgentsList, setShowAgentsList] = useState(false);
+
+  // Gestisci initialView dal menu
+  useEffect(() => {
+    if (initialView === 'agents') {
+      setShowAgentsList(true);
+      loadAgents();
+      if (onViewReset) onViewReset();
+    } else if (initialView === 'create') {
+      setShowCreateAgentModal(true);
+      if (onViewReset) onViewReset();
+    }
+  }, [initialView]);
 
   // Carica dispositivi
   const loadDevices = useCallback(async () => {
@@ -344,25 +356,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
         </div>
         
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              setShowAgentsList(!showAgentsList);
-              if (!showAgentsList) loadAgents();
-            }}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
-          >
-            <ServerIcon size={18} />
-            Agent Esistenti ({agents.length})
-          </button>
-          
-          <button
-            onClick={() => setShowCreateAgentModal(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-          >
-            <Plus size={18} />
-            Crea Agent
-          </button>
-          
           <button
             onClick={() => setAutoRefresh(!autoRefresh)}
             className={`px-4 py-2 rounded-lg flex items-center gap-2 ${

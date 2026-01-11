@@ -2916,7 +2916,9 @@ export default function TicketApp() {
               openOrariTurni: () => { setShowOrariTurni(true); setShowDashboard(false); setShowVivaldi(false); setShowNetworkMonitoring(false); },
               openVivaldi: () => { setShowVivaldi(true); setShowDashboard(false); setShowOrariTurni(false); setShowNetworkMonitoring(false); },
               openPackVision: () => setShowPackVision(true),
-              openNetworkMonitoring: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); },
+              openNetworkMonitoring: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setNetworkMonitoringInitialView(null); },
+              openNetworkMonitoringAgents: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setNetworkMonitoringInitialView('agents'); },
+              openNetworkMonitoringCreateAgent: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setNetworkMonitoringInitialView('create'); },
             }}
             openCreateContract={() => setShowContractModal(true)}
             openContractsList={() => setShowContractsListModal(true)}
@@ -3012,7 +3014,12 @@ export default function TicketApp() {
             // Verifica accesso al network monitoring (solo tecnici/admin)
             (currentUser?.ruolo === 'admin' || currentUser?.ruolo === 'tecnico') ? (
               <div className="animate-slideInRight">
-                <NetworkMonitoringDashboard getAuthHeader={getAuthHeader} socket={socket} />
+                <NetworkMonitoringDashboard 
+                  getAuthHeader={getAuthHeader} 
+                  socket={socket}
+                  initialView={networkMonitoringInitialView}
+                  onViewReset={() => setNetworkMonitoringInitialView(null)}
+                />
               </div>
             ) : (
               // Messaggio di accesso negato

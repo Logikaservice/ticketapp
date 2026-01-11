@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table, Wifi } from 'lucide-react';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, openNetworkMonitoring, isOrariDomain = false }) => {
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, openNetworkMonitoring, openNetworkMonitoringAgents, openNetworkMonitoringCreateAgent, isOrariDomain = false }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [expandedAction, setExpandedAction] = useState(null);
@@ -140,7 +140,11 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       icon: Wifi,
       color: 'cyan',
       visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openNetworkMonitoring,
-      onClick: () => handleQuickActionClick('networkMonitoring')
+      hasSubActions: true,
+      subActions: [
+        { label: 'Agent Esistenti', icon: ServerIcon, color: 'cyan', onClick: openNetworkMonitoringAgents || (() => {}) },
+        { label: 'Crea Agent', icon: Plus, color: 'cyan', onClick: openNetworkMonitoringCreateAgent || (() => {}) }
+      ]
     },
     {
       id: 'progetti',
