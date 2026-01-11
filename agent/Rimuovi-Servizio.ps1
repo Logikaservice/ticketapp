@@ -36,6 +36,19 @@ try {
     } else {
         Write-Host "ℹ️  Servizio non trovato" -ForegroundColor Gray
     }
+    
+    # Rimuovi avvio automatico tray icon
+    Write-Host "Rimozione avvio automatico tray icon..." -ForegroundColor Yellow
+    try {
+        $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+        $regName = "NetworkMonitorTrayIcon"
+        if (Test-Path $regPath) {
+            Remove-ItemProperty -Path $regPath -Name $regName -ErrorAction SilentlyContinue
+            Write-Host "✅ Avvio automatico tray icon rimosso" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "⚠️  Impossibile rimuovere avvio automatico tray icon (potrebbe non essere configurato)" -ForegroundColor Yellow
+    }
 } catch {
     Write-Host "❌ ERRORE rimozione servizio: $_" -ForegroundColor Red
     exit 1

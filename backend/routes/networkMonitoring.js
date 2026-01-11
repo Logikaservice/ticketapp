@@ -1100,6 +1100,7 @@ module.exports = (pool, io) => {
       const networkMonitorPath = path.join(agentDir, 'NetworkMonitor.ps1');
       const installerPath = path.join(agentDir, 'InstallerCompleto.ps1');
       const servicePath = path.join(agentDir, 'NetworkMonitorService.ps1');
+      const trayIconPath = path.join(agentDir, 'NetworkMonitorTrayIcon.ps1');
       const installServicePath = path.join(agentDir, 'Installa-Servizio.ps1');
       const removeServicePath = path.join(agentDir, 'Rimuovi-Servizio.ps1');
       const installAutoPath = path.join(agentDir, 'Installa-Automatico.ps1');

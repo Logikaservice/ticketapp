@@ -296,49 +296,9 @@ if (Test-Path $installerPath) {
             Write-Host "Directory installazione: $installDir" -ForegroundColor Gray
             Write-Host "Log servizio: $installDir\NetworkMonitorService.log" -ForegroundColor Gray
             Write-Host ""
-            
-            # Chiedi se vuoi avviare la tray icon
+            Write-Host "Tray icon configurata per avvio automatico all'accesso utente" -ForegroundColor Green
+            Write-Host "L'icona sara' visibile nella system tray (vicino all'orologio) al prossimo accesso." -ForegroundColor Gray
             Write-Host ""
-            Write-Host "Vuoi avviare l'icona nella system tray (vicino all'orologio)?" -ForegroundColor Cyan
-            Write-Host "L'icona permette di vedere lo stato del servizio e aprire i log facilmente." -ForegroundColor Gray
-            Write-Host ""
-            Write-Host "1) Si, avvia l'icona nella system tray (consigliato)" -ForegroundColor White
-            Write-Host "2) No, il servizio e' sufficiente" -ForegroundColor White
-            Write-Host ""
-            
-            $trayChoice = Read-Host "Scegli (1/2)"
-            
-            if ($trayChoice -eq "1") {
-                Write-Host ""
-                Write-Host "Avvio icona system tray..." -ForegroundColor Yellow
-                
-                $serviceScriptPath = Join-Path $installDir "NetworkMonitorService.ps1"
-                if (Test-Path $serviceScriptPath) {
-                    try {
-                        # Avvia la tray icon in background
-                        Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$serviceScriptPath`" -ConfigPath `"$configPath`"" -WindowStyle Hidden
-                        Write-Host "Icona system tray avviata!" -ForegroundColor Green
-                        Write-Host "Cerca l'icona nella system tray (vicino all'orologio) per monitorare il servizio." -ForegroundColor Gray
-                        Write-Host ""
-                    } catch {
-                        Write-Host "ATTENZIONE: Impossibile avviare l'icona system tray automaticamente." -ForegroundColor Yellow
-                        Write-Host "Puoi avviarla manualmente eseguendo:" -ForegroundColor Gray
-                        Write-Host "  cd $installDir" -ForegroundColor White
-                        Write-Host "  .\NetworkMonitorService.ps1 -ConfigPath config.json" -ForegroundColor White
-                        Write-Host ""
-                    }
-                } else {
-                    Write-Host "ATTENZIONE: NetworkMonitorService.ps1 non trovato per avviare la tray icon." -ForegroundColor Yellow
-                    Write-Host ""
-                }
-            } else {
-                Write-Host ""
-                Write-Host "Per avviare l'icona system tray in futuro, esegui:" -ForegroundColor Cyan
-                Write-Host "  cd $installDir" -ForegroundColor White
-                Write-Host "  .\NetworkMonitorService.ps1 -ConfigPath config.json" -ForegroundColor White
-                Write-Host ""
-            }
-            
             Write-Host "Verifica stato servizio:" -ForegroundColor Cyan
             Write-Host "  Get-Service -Name NetworkMonitorService" -ForegroundColor White
             Write-Host ""

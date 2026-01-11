@@ -133,6 +133,26 @@ try {
     }
     
     Write-Host ""
+    
+    # Configura avvio automatico tray icon (solo per utente corrente)
+    Write-Host "Configurazione avvio automatico tray icon..." -ForegroundColor Yellow
+    try {
+        $trayIconScript = Join-Path $InstallDir "NetworkMonitorTrayIcon.ps1"
+        if (Test-Path $trayIconScript) {
+            $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+            $regName = "NetworkMonitorTrayIcon"
+            $regValue = "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$trayIconScript`""
+            
+            Set-ItemProperty -Path $regPath -Name $regName -Value $regValue -ErrorAction Stop
+            Write-Host "Tray icon configurata per avvio automatico all'accesso utente" -ForegroundColor Green
+        } else {
+            Write-Host "ATTENZIONE: NetworkMonitorTrayIcon.ps1 non trovato, tray icon non configurata" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "ATTENZIONE: Impossibile configurare avvio automatico tray icon: $_" -ForegroundColor Yellow
+    }
+    Write-Host ""
+    
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host "Installazione completata!" -ForegroundColor Cyan
     Write-Host "========================================" -ForegroundColor Cyan
@@ -145,12 +165,6 @@ try {
     Write-Host "  - Ferma:   Stop-Service -Name '$ServiceName'" -ForegroundColor Gray
     Write-Host "  - Stato:   Get-Service -Name '$ServiceName'" -ForegroundColor Gray
     Write-Host "  - Rimuovi: .\Rimuovi-Servizio.ps1" -ForegroundColor Gray
-    Write-Host ""
-    
-    # Suggerimento per tray icon
-    Write-Host "Per mostrare l'icona nella system tray:" -ForegroundColor Yellow
-    Write-Host "  Esegui: .\NetworkMonitorService.ps1 -ConfigPath `"$ConfigPath`"" -ForegroundColor Gray
-    Write-Host "  (Questo avvia l'applicazione con tray icon senza installare come servizio)" -ForegroundColor Gray
     Write-Host ""
     
     Write-Host "Premi un tasto per uscire..."
