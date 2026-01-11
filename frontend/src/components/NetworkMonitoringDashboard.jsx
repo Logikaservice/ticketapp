@@ -110,6 +110,46 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     }
   }, [getAuthHeader]);
 
+  // Carica lista aziende
+  const loadCompanies = useCallback(async () => {
+    try {
+      const response = await fetch(buildApiUrl('/api/network-monitoring/companies'), {
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore caricamento aziende');
+      }
+
+      const data = await response.json();
+      setCompanies(data);
+    } catch (err) {
+      console.error('Errore caricamento aziende:', err);
+    }
+  }, [getAuthHeader]);
+
+  // Carica dispositivi per un'azienda specifica
+  const loadCompanyDevices = useCallback(async (aziendaId) => {
+    try {
+      setLoadingCompanyDevices(true);
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaId}/devices`), {
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore caricamento dispositivi azienda');
+      }
+
+      const data = await response.json();
+      setCompanyDevices(data);
+    } catch (err) {
+      console.error('Errore caricamento dispositivi azienda:', err);
+      setError(err.message);
+    } finally {
+      setLoadingCompanyDevices(false);
+    }
+  }, [getAuthHeader]);
+
   // Disabilita agent (blocca ricezione dati, ma NON disinstalla)
   const disableAgent = useCallback(async (agentId, agentName) => {
     if (!confirm(`Vuoi disabilitare l'agent "${agentName}"?\n\nL'agent smetterà di inviare dati al server, ma rimarrà installato sul client. Potrai riabilitarlo in futuro.`)) {
