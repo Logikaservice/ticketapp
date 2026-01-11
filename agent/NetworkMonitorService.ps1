@@ -59,7 +59,7 @@ function Update-StatusFile {
     param(
         [string]$Status,  # "running", "stopping", "error", "scanning"
         [int]$DevicesFound = 0,
-        [AllowNull()][datetime]$LastScan = $null,
+        [object]$LastScan = $null,
         [string]$Message = ""
     )
     
