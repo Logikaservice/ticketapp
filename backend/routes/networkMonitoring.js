@@ -1092,6 +1092,10 @@ module.exports = (pool, io) => {
       const agentDir = path.join(projectRoot, 'agent');
       const networkMonitorPath = path.join(agentDir, 'NetworkMonitor.ps1');
       const installerPath = path.join(agentDir, 'InstallerCompleto.ps1');
+      const servicePath = path.join(agentDir, 'NetworkMonitorService.ps1');
+      const installServicePath = path.join(agentDir, 'Installa-Servizio.ps1');
+      const removeServicePath = path.join(agentDir, 'Rimuovi-Servizio.ps1');
+      const readmeServicePath = path.join(agentDir, 'README_SERVICE.md');
 
       console.log('📦 Download pacchetto agent - Path ricerca file:');
       console.log('  __dirname:', __dirname);
@@ -1190,6 +1194,7 @@ module.exports = (pool, io) => {
 
       // Aggiungi file al ZIP
       try {
+        // File principali (obbligatori)
         archive.append(JSON.stringify(configJson, null, 2), { name: 'config.json' });
         console.log('✅ Aggiunto config.json');
         
@@ -1220,10 +1225,28 @@ Se cancelli questi file, l'agent smetterà di funzionare.
 
 ## File inclusi:
 - config.json: Configurazione agent (API Key, reti, intervallo scansione)
-- NetworkMonitor.ps1: Script principale agent
-- InstallerCompleto.ps1: Installer automatico
+- NetworkMonitor.ps1: Script principale agent (compatibilità)
+- InstallerCompleto.ps1: Installer automatico (Scheduled Task - metodo vecchio)
+- NetworkMonitorService.ps1: Script servizio Windows (NUOVO)
+- Installa-Servizio.ps1: Installer servizio Windows (NUOVO - consigliato)
+- Rimuovi-Servizio.ps1: Disinstaller servizio Windows (NUOVO)
+- README_SERVICE.md: Documentazione servizio Windows (NUOVO)
 
-## Installazione:
+## Installazione (2 metodi):
+
+### Metodo 1: Servizio Windows (CONSIGLIATO - Nuovo)
+Il servizio rimane sempre attivo, anche dopo riavvio, con icona nella system tray.
+
+1. Estrarre tutti i file in una directory permanente (es: C:\\ProgramData\\NetworkMonitorAgent\\)
+2. Esegui PowerShell come Amministratore
+3. Esegui: .\\Installa-Servizio.ps1 -RemoveOldTask
+4. Il servizio verrà installato e avviato automaticamente
+5. (Opzionale) Per mostrare l'icona nella system tray: .\\NetworkMonitorService.ps1
+
+Vedi README_SERVICE.md per dettagli completi.
+
+### Metodo 2: Scheduled Task (Vecchio metodo)
+Per compatibilità con installazioni esistenti.
 
 1. Estrarre tutti i file in una directory permanente (es: C:\\ProgramData\\NetworkMonitorAgent\\)
 2. Tasto destro su "InstallerCompleto.ps1" → "Esegui con PowerShell"
