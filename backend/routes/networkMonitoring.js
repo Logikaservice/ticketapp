@@ -1402,6 +1402,37 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
     }
   });
 
+  // PATCH /api/network-monitoring/devices/:id/static
+  // Aggiorna stato statico per un dispositivo specifico
+  router.patch('/devices/:id/static', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      const { id } = req.params;
+      const { is_static } = req.body;
+
+      // Verifica che il dispositivo esista
+      const deviceCheck = await pool.query(
+        'SELECT id FROM network_devices WHERE id = $1',
+        [id]
+      );
+
+      if (deviceCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato' });
+      }
+
+      // Aggiorna il dispositivo
+      const result = await pool.query(
+        'UPDATE network_devices SET is_static = $1 WHERE id = $2 RETURNING id, ip_address, is_static',
+        [is_static === true || is_static === 'true', id]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error('❌ Errore aggiornamento stato statico:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // PATCH /api/network-monitoring/devices/:id/type
   // Aggiorna tipo dispositivo per un dispositivo specifico
   router.patch('/devices/:id/type', authenticateToken, requireRole('tecnico'), async (req, res) => {
