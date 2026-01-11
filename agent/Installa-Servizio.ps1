@@ -141,10 +141,22 @@ try {
         if (Test-Path $trayIconScript) {
             $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
             $regName = "NetworkMonitorTrayIcon"
-            $regValue = "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$trayIconScript`""
+            # Includi i parametri necessari per la tray icon
+            $regValue = "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -NoProfile -File `"$trayIconScript`" -ConfigPath `"$ConfigPath`""
             
             Set-ItemProperty -Path $regPath -Name $regName -Value $regValue -ErrorAction Stop
             Write-Host "Tray icon configurata per avvio automatico all'accesso utente" -ForegroundColor Green
+            
+            # Avvia immediatamente la tray icon (non aspettare il prossimo accesso)
+            Write-Host "Avvio tray icon..." -ForegroundColor Yellow
+            try {
+                Start-Process powershell.exe -ArgumentList "-WindowStyle Hidden -ExecutionPolicy Bypass -NoProfile -File `"$trayIconScript`" -ConfigPath `"$ConfigPath`"" -ErrorAction Stop
+                Start-Sleep -Seconds 2
+                Write-Host "Tray icon avviata!" -ForegroundColor Green
+            } catch {
+                Write-Host "ATTENZIONE: Impossibile avviare tray icon immediatamente: $_" -ForegroundColor Yellow
+                Write-Host "   La tray icon si avviera' al prossimo accesso utente." -ForegroundColor Gray
+            }
         } else {
             Write-Host "ATTENZIONE: NetworkMonitorTrayIcon.ps1 non trovato, tray icon non configurata" -ForegroundColor Yellow
         }
