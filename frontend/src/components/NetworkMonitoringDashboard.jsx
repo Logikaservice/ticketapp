@@ -1,9 +1,9 @@
 // src/components/NetworkMonitoringDashboard.jsx
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Wifi, WifiOff, Monitor, Server, Printer, Router, 
-  AlertCircle, CheckCircle, Clock, RefreshCw, 
+import {
+  Wifi, WifiOff, Monitor, Server, Printer, Router,
+  AlertCircle, CheckCircle, Clock, RefreshCw,
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
   Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit, Menu
@@ -80,7 +80,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         setTimeout(() => onViewReset(), 100);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialView]);
 
   // Carica dispositivi
@@ -319,7 +319,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
       const result = await response.json();
       alert(`✅ ${result.message || 'Configurazione agent aggiornata con successo. Le modifiche saranno applicate al prossimo heartbeat dell\'agent.'}`);
-      
+
       handleCancelEditAgent();
       loadAgents(); // Ricarica lista agent
     } catch (err) {
@@ -329,9 +329,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   }, [editingAgentId, editAgentData, getAuthHeader, loadAgents]);
 
   // Carica dispositivi per un'azienda specifica
-  const loadCompanyDevices = useCallback(async (aziendaId) => {
+  const loadCompanyDevices = useCallback(async (aziendaId, silent = false) => {
     try {
-      setLoadingCompanyDevices(true);
+      if (!silent) {
+        setLoadingCompanyDevices(true);
+      }
       const response = await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaId}/devices`), {
         headers: getAuthHeader()
       });
@@ -344,9 +346,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       setCompanyDevices(data);
     } catch (err) {
       console.error('Errore caricamento dispositivi azienda:', err);
-      setError(err.message);
+      if (!silent) {
+        setError(err.message);
+      }
     } finally {
-      setLoadingCompanyDevices(false);
+      if (!silent) {
+        setLoadingCompanyDevices(false);
+      }
     }
   }, [getAuthHeader]);
 
@@ -447,7 +453,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       loadChanges(true);
       // Se un'azienda è selezionata, ricarica anche i dispositivi dell'azienda (già silenzioso)
       if (selectedCompanyId) {
-        loadCompanyDevices(selectedCompanyId);
+        loadCompanyDevices(selectedCompanyId, true);
       }
     }, 30000); // 30 secondi
 
@@ -460,7 +466,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
     const handleNetworkUpdate = (data) => {
       console.log('📡 Network monitoring update ricevuto:', data);
-      
+
       // Ricarica dati quando arriva un aggiornamento SOLO se il modal non è aperto
       // Usa modalità "silent" per evitare flicker (gli aggiornamenti WebSocket sono già real-time)
       if (!showCreateAgentModal) {
@@ -468,7 +474,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         loadChanges(true);
         // Se un'azienda è selezionata, ricarica anche i dispositivi dell'azienda (già silenzioso)
         if (selectedCompanyId) {
-          loadCompanyDevices(selectedCompanyId);
+          loadCompanyDevices(selectedCompanyId, true);
         }
       }
     };
@@ -535,7 +541,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return 'N/A';
-    
+
     const now = new Date();
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / 60000);
@@ -546,7 +552,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     if (diffMins < 60) return `${diffMins} min fa`;
     if (diffHours < 24) return `${diffHours} ore fa`;
     if (diffDays < 7) return `${diffDays} giorni fa`;
-    
+
     return date.toLocaleDateString('it-IT', {
       day: '2-digit',
       month: '2-digit',
@@ -560,7 +566,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const filteredDevices = devices
     .filter(device => {
       // Filtro ricerca
-      const matchesSearch = !searchTerm || 
+      const matchesSearch = !searchTerm ||
         device.ip_address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         device.hostname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         device.mac_address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -628,682 +634,680 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         </div>
       )}
       <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {/* Menu hamburger */}
-          <div className="relative" ref={networkMenuRef}>
-            <button
-              onClick={() => setShowNetworkMenu(!showNetworkMenu)}
-              className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
-              title="Menu Monitoraggio Rete"
-            >
-              <Menu size={24} />
-            </button>
-            
-            {/* Dropdown menu */}
-            {showNetworkMenu && (
-              <div className="absolute left-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                <div className="py-1">
-                  <button
-                    onClick={() => {
-                      setShowAgentsList(true);
-                      loadAgents();
-                      setShowNetworkMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                  >
-                    <ServerIcon size={18} className="text-cyan-600" />
-                    Agent Esistenti
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowCreateAgentModal(true);
-                      setShowNetworkMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                  >
-                    <Plus size={18} className="text-cyan-600" />
-                    Crea Agent
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowDeviceTypes(true);
-                      loadDeviceTypes();
-                      setShowNetworkMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                  >
-                    <Settings size={18} className="text-cyan-600" />
-                    Tipi Dispositivi
-                  </button>
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Menu hamburger */}
+            <div className="relative" ref={networkMenuRef}>
+              <button
+                onClick={() => setShowNetworkMenu(!showNetworkMenu)}
+                className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                title="Menu Monitoraggio Rete"
+              >
+                <Menu size={24} />
+              </button>
+
+              {/* Dropdown menu */}
+              {showNetworkMenu && (
+                <div className="absolute left-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setShowAgentsList(true);
+                        loadAgents();
+                        setShowNetworkMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    >
+                      <ServerIcon size={18} className="text-cyan-600" />
+                      Agent Esistenti
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowCreateAgentModal(true);
+                        setShowNetworkMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    >
+                      <Plus size={18} className="text-cyan-600" />
+                      Crea Agent
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowDeviceTypes(true);
+                        loadDeviceTypes();
+                        setShowNetworkMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    >
+                      <Settings size={18} className="text-cyan-600" />
+                      Tipi Dispositivi
+                    </button>
+                  </div>
                 </div>
+              )}
+            </div>
+
+            {!onClose && (
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                  <Wifi className="w-8 h-8 text-blue-600" />
+                  Monitoraggio Rete
+                </h1>
+                <p className="text-gray-500 mt-1">
+                  {lastUpdate && `Ultimo aggiornamento: ${formatDate(lastUpdate)}`}
+                </p>
               </div>
             )}
           </div>
-          
-          {!onClose && (
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                <Wifi className="w-8 h-8 text-blue-600" />
-                Monitoraggio Rete
-              </h1>
-              <p className="text-gray-500 mt-1">
-                {lastUpdate && `Ultimo aggiornamento: ${formatDate(lastUpdate)}`}
-              </p>
+
+          <div className="flex items-center gap-3">
+            {/* Dropdown selezione azienda */}
+            <div className="relative">
+              <select
+                value={selectedCompanyId || ''}
+                onChange={(e) => {
+                  const companyId = e.target.value ? parseInt(e.target.value) : null;
+                  setSelectedCompanyId(companyId);
+                  if (companyId) {
+                    loadCompanyDevices(companyId);
+                  } else {
+                    setCompanyDevices([]);
+                  }
+                }}
+                className="px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer min-w-[200px]"
+              >
+                <option value="">Tutte le Aziende</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.azienda}
+                  </option>
+                ))}
+              </select>
+              <Building
+                size={18}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
+              />
             </div>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-3">
-          {/* Dropdown selezione azienda */}
-          <div className="relative">
-            <select
-              value={selectedCompanyId || ''}
-              onChange={(e) => {
-                const companyId = e.target.value ? parseInt(e.target.value) : null;
-                setSelectedCompanyId(companyId);
-                if (companyId) {
-                  loadCompanyDevices(companyId);
-                } else {
-                  setCompanyDevices([]);
+
+            <button
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${autoRefresh
+                  ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+            >
+              <Activity size={18} />
+              Auto-refresh {autoRefresh ? 'ON' : 'OFF'}
+            </button>
+
+            <button
+              onClick={() => {
+                loadDevices();
+                loadChanges();
+                if (selectedCompanyId) {
+                  loadCompanyDevices(selectedCompanyId);
                 }
               }}
-              className="px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer min-w-[200px]"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              disabled={loading}
             >
-              <option value="">Tutte le Aziende</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.azienda}
-                </option>
-              ))}
-            </select>
-            <Building 
-              size={18} 
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" 
-            />
-          </div>
-
-          <button
-            onClick={() => setAutoRefresh(!autoRefresh)}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-              autoRefresh 
-                ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            <Activity size={18} />
-            Auto-refresh {autoRefresh ? 'ON' : 'OFF'}
-          </button>
-          
-          <button
-            onClick={() => {
-              loadDevices();
-              loadChanges();
-              if (selectedCompanyId) {
-                loadCompanyDevices(selectedCompanyId);
-              }
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-            disabled={loading}
-          >
-            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-            Aggiorna
-          </button>
-        </div>
-      </div>
-
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
-          <AlertCircle className="w-5 h-5 inline mr-2" />
-          {error}
-        </div>
-      )}
-
-      {/* Gestione Tipi Dispositivi */}
-      {showDeviceTypes && (
-        <div className="mb-6 bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <Settings size={24} className="text-cyan-600" />
-              Tipi Dispositivi
-            </h2>
-            <button
-              onClick={() => setShowDeviceTypes(false)}
-              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
-            >
-              <X size={20} />
+              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+              Aggiorna
             </button>
           </div>
+        </div>
 
-          {/* Form nuovo tipo */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <h3 className="font-semibold text-gray-700 mb-3">Aggiungi Nuovo Tipo</h3>
-            <div className="flex gap-3">
-              <input
-                type="text"
-                placeholder="Nome tipo (es: workstation, server, router...)"
-                value={newTypeName}
-                onChange={(e) => setNewTypeName(e.target.value)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                onKeyPress={(e) => e.key === 'Enter' && createDeviceType()}
-              />
-              <input
-                type="text"
-                placeholder="Descrizione (opzionale)"
-                value={newTypeDescription}
-                onChange={(e) => setNewTypeDescription(e.target.value)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                onKeyPress={(e) => e.key === 'Enter' && createDeviceType()}
-              />
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+            <AlertCircle className="w-5 h-5 inline mr-2" />
+            {error}
+          </div>
+        )}
+
+        {/* Gestione Tipi Dispositivi */}
+        {showDeviceTypes && (
+          <div className="mb-6 bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Settings size={24} className="text-cyan-600" />
+                Tipi Dispositivi
+              </h2>
               <button
-                onClick={createDeviceType}
-                className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 flex items-center gap-2"
+                onClick={() => setShowDeviceTypes(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
               >
-                <Plus size={18} />
-                Aggiungi
+                <X size={20} />
               </button>
             </div>
-          </div>
 
-          {/* Lista tipi */}
-          {loadingDeviceTypes ? (
-            <div className="p-8 flex items-center justify-center">
-              <Loader className="w-8 h-8 animate-spin text-cyan-600" />
-              <span className="ml-3 text-gray-600">Caricamento tipi...</span>
+            {/* Form nuovo tipo */}
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <h3 className="font-semibold text-gray-700 mb-3">Aggiungi Nuovo Tipo</h3>
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  placeholder="Nome tipo (es: workstation, server, router...)"
+                  value={newTypeName}
+                  onChange={(e) => setNewTypeName(e.target.value)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  onKeyPress={(e) => e.key === 'Enter' && createDeviceType()}
+                />
+                <input
+                  type="text"
+                  placeholder="Descrizione (opzionale)"
+                  value={newTypeDescription}
+                  onChange={(e) => setNewTypeDescription(e.target.value)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  onKeyPress={(e) => e.key === 'Enter' && createDeviceType()}
+                />
+                <button
+                  onClick={createDeviceType}
+                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 flex items-center gap-2"
+                >
+                  <Plus size={18} />
+                  Aggiungi
+                </button>
+              </div>
             </div>
-          ) : deviceTypes.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">Nessun tipo dispositivo definito</p>
-          ) : (
-            <div className="space-y-2">
-              {deviceTypes.map((type) => (
-                <div key={type.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-                  {editingTypeId === type.id ? (
-                    <div className="flex gap-3 items-center">
-                      <input
-                        type="text"
-                        defaultValue={type.name}
-                        id={`edit-name-${type.id}`}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                      />
-                      <input
-                        type="text"
-                        defaultValue={type.description || ''}
-                        id={`edit-desc-${type.id}`}
-                        placeholder="Descrizione"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                      />
-                      <button
-                        onClick={() => {
-                          const nameInput = document.getElementById(`edit-name-${type.id}`);
-                          const descInput = document.getElementById(`edit-desc-${type.id}`);
-                          updateDeviceType(type.id, nameInput.value, descInput.value);
-                        }}
-                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                      >
-                        Salva
-                      </button>
-                      <button
-                        onClick={() => setEditingTypeId(null)}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                      >
-                        Annulla
-                      </button>
-                    </div>
-                  ) : (
+
+            {/* Lista tipi */}
+            {loadingDeviceTypes ? (
+              <div className="p-8 flex items-center justify-center">
+                <Loader className="w-8 h-8 animate-spin text-cyan-600" />
+                <span className="ml-3 text-gray-600">Caricamento tipi...</span>
+              </div>
+            ) : deviceTypes.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">Nessun tipo dispositivo definito</p>
+            ) : (
+              <div className="space-y-2">
+                {deviceTypes.map((type) => (
+                  <div key={type.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                    {editingTypeId === type.id ? (
+                      <div className="flex gap-3 items-center">
+                        <input
+                          type="text"
+                          defaultValue={type.name}
+                          id={`edit-name-${type.id}`}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        />
+                        <input
+                          type="text"
+                          defaultValue={type.description || ''}
+                          id={`edit-desc-${type.id}`}
+                          placeholder="Descrizione"
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        />
+                        <button
+                          onClick={() => {
+                            const nameInput = document.getElementById(`edit-name-${type.id}`);
+                            const descInput = document.getElementById(`edit-desc-${type.id}`);
+                            updateDeviceType(type.id, nameInput.value, descInput.value);
+                          }}
+                          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                        >
+                          Salva
+                        </button>
+                        <button
+                          onClick={() => setEditingTypeId(null)}
+                          className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                        >
+                          Annulla
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{type.name}</h3>
+                          {type.description && (
+                            <p className="text-sm text-gray-600 mt-1">{type.description}</p>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setEditingTypeId(type.id)}
+                            className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+                          >
+                            Modifica
+                          </button>
+                          <button
+                            onClick={() => deleteDeviceType(type.id)}
+                            className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-sm"
+                          >
+                            Elimina
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Lista Agent Esistenti */}
+        {showAgentsList && (
+          <div className="mb-6 bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <ServerIcon size={24} className="text-purple-600" />
+                Agent Registrati
+              </h2>
+              <button
+                onClick={() => setShowAgentsList(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {agents.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">Nessun agent registrato</p>
+            ) : (
+              <div className="space-y-3">
+                {agents.map((agent) => (
+                  <div key={agent.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{type.name}</h3>
-                        {type.description && (
-                          <p className="text-sm text-gray-600 mt-1">{type.description}</p>
-                        )}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-semibold text-gray-900">{agent.agent_name || `Agent #${agent.id}`}</h3>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${agent.status === 'online' ? 'bg-green-100 text-green-800' :
+                              agent.status === 'offline' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                            }`}>
+                            {agent.status || 'unknown'}
+                          </span>
+                        </div>
+                        <div className="mt-2 text-sm text-gray-600 space-y-1">
+                          <p><strong>Azienda:</strong> {agent.azienda || 'N/A'}</p>
+                          {editingAgentId === agent.id ? (
+                            <div className="space-y-2 mt-2">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Nome Agent:</label>
+                                <input
+                                  type="text"
+                                  value={editAgentData.agent_name}
+                                  onChange={(e) => setEditAgentData({ ...editAgentData, agent_name: e.target.value })}
+                                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  placeholder="Nome agent"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Reti (una per riga, formato: 192.168.1.0/24):</label>
+                                <textarea
+                                  value={editAgentData.network_ranges.join('\n')}
+                                  onChange={(e) => {
+                                    const ranges = e.target.value.split('\n').filter(r => r.trim());
+                                    setEditAgentData({ ...editAgentData, network_ranges: ranges });
+                                  }}
+                                  rows={3}
+                                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                                  placeholder="192.168.1.0/24&#10;10.0.0.0/16"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Intervallo Scansione (minuti):</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="1440"
+                                  value={editAgentData.scan_interval_minutes}
+                                  onChange={(e) => setEditAgentData({ ...editAgentData, scan_interval_minutes: parseInt(e.target.value) || 15 })}
+                                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p><strong>Reti:</strong> {(agent.network_ranges || []).join(', ') || 'Nessuna'}</p>
+                              <p><strong>Intervallo:</strong> {agent.scan_interval_minutes || 15} minuti</p>
+                              <p><strong>Ultimo heartbeat:</strong> {agent.last_heartbeat ? formatDate(new Date(agent.last_heartbeat)) : 'Mai'}</p>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setEditingTypeId(type.id)}
-                          className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
-                        >
-                          Modifica
-                        </button>
-                        <button
-                          onClick={() => deleteDeviceType(type.id)}
-                          className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-sm"
-                        >
-                          Elimina
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Lista Agent Esistenti */}
-      {showAgentsList && (
-        <div className="mb-6 bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <ServerIcon size={24} className="text-purple-600" />
-              Agent Registrati
-            </h2>
-            <button
-              onClick={() => setShowAgentsList(false)}
-              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          
-          {agents.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">Nessun agent registrato</p>
-          ) : (
-            <div className="space-y-3">
-              {agents.map((agent) => (
-                <div key={agent.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-semibold text-gray-900">{agent.agent_name || `Agent #${agent.id}`}</h3>
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          agent.status === 'online' ? 'bg-green-100 text-green-800' :
-                          agent.status === 'offline' ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {agent.status || 'unknown'}
-                        </span>
-                      </div>
-                      <div className="mt-2 text-sm text-gray-600 space-y-1">
-                        <p><strong>Azienda:</strong> {agent.azienda || 'N/A'}</p>
+                      <div className="ml-4 flex flex-col gap-2">
                         {editingAgentId === agent.id ? (
-                          <div className="space-y-2 mt-2">
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Nome Agent:</label>
-                              <input
-                                type="text"
-                                value={editAgentData.agent_name}
-                                onChange={(e) => setEditAgentData({ ...editAgentData, agent_name: e.target.value })}
-                                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="Nome agent"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Reti (una per riga, formato: 192.168.1.0/24):</label>
-                              <textarea
-                                value={editAgentData.network_ranges.join('\n')}
-                                onChange={(e) => {
-                                  const ranges = e.target.value.split('\n').filter(r => r.trim());
-                                  setEditAgentData({ ...editAgentData, network_ranges: ranges });
-                                }}
-                                rows={3}
-                                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
-                                placeholder="192.168.1.0/24&#10;10.0.0.0/16"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Intervallo Scansione (minuti):</label>
-                              <input
-                                type="number"
-                                min="1"
-                                max="1440"
-                                value={editAgentData.scan_interval_minutes}
-                                onChange={(e) => setEditAgentData({ ...editAgentData, scan_interval_minutes: parseInt(e.target.value) || 15 })}
-                                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              />
-                            </div>
-                          </div>
+                          <>
+                            <button
+                              onClick={handleSaveAgent}
+                              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+                            >
+                              <CheckCircle size={18} />
+                              Salva
+                            </button>
+                            <button
+                              onClick={handleCancelEditAgent}
+                              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
+                            >
+                              <X size={18} />
+                              Annulla
+                            </button>
+                          </>
                         ) : (
                           <>
-                            <p><strong>Reti:</strong> {(agent.network_ranges || []).join(', ') || 'Nessuna'}</p>
-                            <p><strong>Intervallo:</strong> {agent.scan_interval_minutes || 15} minuti</p>
-                            <p><strong>Ultimo heartbeat:</strong> {agent.last_heartbeat ? formatDate(new Date(agent.last_heartbeat)) : 'Mai'}</p>
+                            <button
+                              onClick={() => handleEditAgent(agent)}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                              title="Modifica configurazione agent (nome, reti, intervallo scansione)"
+                            >
+                              <Edit size={18} />
+                              Modifica
+                            </button>
+                            <button
+                              onClick={() => downloadAgentPackage(agent.id, agent.agent_name)}
+                              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+                              title="Scarica pacchetto completo (ZIP con config.json, NetworkMonitor.ps1, InstallerCompleto.ps1)"
+                            >
+                              <Download size={18} />
+                              Scarica Pacchetto
+                            </button>
+                            <button
+                              onClick={() => disableAgent(agent.id, agent.agent_name)}
+                              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"
+                              title="Disabilita agent (disinstallazione remota al prossimo heartbeat)"
+                            >
+                              <PowerOff size={18} />
+                              Disabilita
+                            </button>
+                            <button
+                              onClick={() => deleteAgent(agent.id, agent.agent_name)}
+                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                              title="Elimina agent definitivamente"
+                            >
+                              <Trash2 size={18} />
+                              Elimina
+                            </button>
                           </>
                         )}
                       </div>
                     </div>
-                    <div className="ml-4 flex flex-col gap-2">
-                      {editingAgentId === agent.id ? (
-                        <>
-                          <button
-                            onClick={handleSaveAgent}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-                          >
-                            <CheckCircle size={18} />
-                            Salva
-                          </button>
-                          <button
-                            onClick={handleCancelEditAgent}
-                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
-                          >
-                            <X size={18} />
-                            Annulla
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => handleEditAgent(agent)}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                            title="Modifica configurazione agent (nome, reti, intervallo scansione)"
-                          >
-                            <Edit size={18} />
-                            Modifica
-                          </button>
-                          <button
-                            onClick={() => downloadAgentPackage(agent.id, agent.agent_name)}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
-                            title="Scarica pacchetto completo (ZIP con config.json, NetworkMonitor.ps1, InstallerCompleto.ps1)"
-                          >
-                            <Download size={18} />
-                            Scarica Pacchetto
-                          </button>
-                          <button
-                            onClick={() => disableAgent(agent.id, agent.agent_name)}
-                            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"
-                            title="Disabilita agent (disinstallazione remota al prossimo heartbeat)"
-                          >
-                            <PowerOff size={18} />
-                            Disabilita
-                          </button>
-                          <button
-                            onClick={() => deleteAgent(agent.id, agent.agent_name)}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
-                            title="Elimina agent definitivamente"
-                          >
-                            <Trash2 size={18} />
-                            Elimina
-                          </button>
-                        </>
-                      )}
-                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Statistiche */}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+              <CheckCircle size={16} className="text-green-600" />
+              Online
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Statistiche */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
-            <CheckCircle size={16} className="text-green-600" />
-            Online
+            <div className="text-3xl font-bold text-green-600">{stats.online}</div>
           </div>
-          <div className="text-3xl font-bold text-green-600">{stats.online}</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
-            <WifiOff size={16} className="text-red-600" />
-            Offline
-          </div>
-          <div className="text-3xl font-bold text-red-600">{stats.offline}</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
-            <Activity size={16} className="text-blue-600" />
-            Cambiamenti (24h)
-          </div>
-          <div className="text-3xl font-bold text-blue-600">{stats.recentChanges}</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
-            <ServerIcon size={16} className="text-blue-600" />
-            Agent Online
-          </div>
-          <div className="text-3xl font-bold text-blue-600">{stats.agentsOnline}</div>
-          <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
-            <WifiOff size={16} className="text-orange-600" />
-            Agent Offline
-          </div>
-          <div className="text-3xl font-bold text-orange-600">{stats.agentsOffline}</div>
-          <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
-        </div>
-      </div>
-
-      {/* Vista Dettaglio Dispositivi Azienda (mostrata solo se un'azienda è selezionata) */}
-      {selectedCompanyId && (
-        <div className="mb-6 bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <Building size={24} className="text-purple-600" />
-              {companies.find(c => c.id === selectedCompanyId)?.azienda || 'Dispositivi'}
-            </h2>
-          </div>
-          {loadingCompanyDevices ? (
-            <div className="p-8 flex items-center justify-center">
-              <Loader className="w-8 h-8 animate-spin text-blue-600" />
-              <span className="ml-3 text-gray-600">Caricamento dispositivi...</span>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+              <WifiOff size={16} className="text-red-600" />
+              Offline
             </div>
-          ) : companyDevices.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">Nessun dispositivo trovato per questa azienda</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12"></th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Vendor</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Ultimo Visto</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {companyDevices.map((device) => {
-                    const isStatic = device.is_static === true;
-                    return (
-                      <tr 
-                        key={device.id} 
-                        className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
-                      >
-                        <td className="py-3 px-4">
-                          <input
-                            type="checkbox"
-                            checked={isStatic}
-                            onChange={async (e) => {
-                              const newIsStatic = e.target.checked;
-                              try {
-                                const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/static`), {
-                                  method: 'PATCH',
-                                  headers: {
-                                    ...getAuthHeader(),
-                                    'Content-Type': 'application/json'
-                                  },
-                                  body: JSON.stringify({ is_static: newIsStatic })
-                                });
+            <div className="text-3xl font-bold text-red-600">{stats.offline}</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+              <Activity size={16} className="text-blue-600" />
+              Cambiamenti (24h)
+            </div>
+            <div className="text-3xl font-bold text-blue-600">{stats.recentChanges}</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+              <ServerIcon size={16} className="text-blue-600" />
+              Agent Online
+            </div>
+            <div className="text-3xl font-bold text-blue-600">{stats.agentsOnline}</div>
+            <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+              <WifiOff size={16} className="text-orange-600" />
+              Agent Offline
+            </div>
+            <div className="text-3xl font-bold text-orange-600">{stats.agentsOffline}</div>
+            <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
+          </div>
+        </div>
 
-                                if (!response.ok) {
-                                  const errorData = await response.json();
-                                  throw new Error(errorData.error || 'Errore aggiornamento stato statico');
-                                }
-
-                                // Aggiorna il dispositivo nella lista locale
-                                setCompanyDevices(prev => prev.map(d => 
-                                  d.id === device.id ? { ...d, is_static: newIsStatic } : d
-                                ));
-                              } catch (err) {
-                                console.error('Errore aggiornamento stato statico:', err);
-                                alert(`Errore: ${err.message}`);
-                                // Ripristina lo stato precedente
-                                e.target.checked = !newIsStatic;
-                              }
-                            }}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
-                            title="IP Statico"
-                          />
-                        </td>
-                        <td className="py-3 px-4 text-sm font-mono text-gray-900">{device.ip_address}</td>
-                      <td className="py-3 px-4 text-sm font-mono text-gray-600">{device.mac_address || '-'}</td>
-                      <td className="py-3 px-4 text-sm text-gray-900">{device.hostname || '-'}</td>
-                      <td className="py-3 px-4 text-sm text-gray-600">{device.vendor || '-'}</td>
-                      <td className="py-3 px-4">
-                        <select
-                          value={device.device_type || ''}
-                          onChange={async (e) => {
-                            const newType = e.target.value || null;
-                            try {
-                              const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/type`), {
-                                method: 'PATCH',
-                                headers: {
-                                  ...getAuthHeader(),
-                                  'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({ device_type: newType })
-                              });
-
-                              if (!response.ok) {
-                                const errorData = await response.json();
-                                throw new Error(errorData.error || 'Errore aggiornamento tipo');
-                              }
-
-                              // Aggiorna il dispositivo nella lista locale
-                              setCompanyDevices(prev => prev.map(d => 
-                                d.id === device.id ? { ...d, device_type: newType } : d
-                              ));
-                            } catch (err) {
-                              console.error('Errore aggiornamento tipo dispositivo:', err);
-                              alert(`Errore: ${err.message}`);
-                              e.target.value = device.device_type || '';
-                            }
-                          }}
-                          className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-white"
-                        >
-                          <option value="">-- Nessuno --</option>
-                          {deviceTypes.map(type => (
-                            <option key={type.id} value={type.name}>
-                              {type.name}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-3 px-4">
-                        <StatusBadge status={device.status} />
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-500">{formatDate(device.last_seen)}</td>
+        {/* Vista Dettaglio Dispositivi Azienda (mostrata solo se un'azienda è selezionata) */}
+        {selectedCompanyId && (
+          <div className="mb-6 bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Building size={24} className="text-purple-600" />
+                {companies.find(c => c.id === selectedCompanyId)?.azienda || 'Dispositivi'}
+              </h2>
+            </div>
+            {loadingCompanyDevices ? (
+              <div className="p-8 flex items-center justify-center">
+                <Loader className="w-8 h-8 animate-spin text-blue-600" />
+                <span className="ml-3 text-gray-600">Caricamento dispositivi...</span>
+              </div>
+            ) : companyDevices.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">Nessun dispositivo trovato per questa azienda</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12"></th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Vendor</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Ultimo Visto</th>
                     </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+                  </thead>
+                  <tbody>
+                    {companyDevices.map((device) => {
+                      const isStatic = device.is_static === true;
+                      return (
+                        <tr
+                          key={device.id}
+                          className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
+                        >
+                          <td className="py-3 px-4">
+                            <input
+                              type="checkbox"
+                              checked={isStatic}
+                              onChange={async (e) => {
+                                const newIsStatic = e.target.checked;
+                                try {
+                                  const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/static`), {
+                                    method: 'PATCH',
+                                    headers: {
+                                      ...getAuthHeader(),
+                                      'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ is_static: newIsStatic })
+                                  });
 
-      {/* Sezione cambiamenti recenti - PRIORITARIA */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">Cambiamenti Rilevati</h2>
-          <span className="text-sm text-gray-500">{changes.length} totali</span>
-        </div>
-        <div className="p-6">
-          {changes.length === 0 ? (
-            <div className="text-center py-12">
-              <Activity className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg">Nessun cambiamento rilevato</p>
-              <p className="text-gray-400 text-sm mt-2">I cambiamenti di rete verranno visualizzati qui</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo Dispositivo</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Azienda</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Agente</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Data</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {changes.slice(0, 50).map((change) => {
-                    const isStatic = change.is_static === true;
-                    return (
-                      <tr 
-                        key={change.id} 
-                        className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
-                      >
-                        <td className="py-3 px-4">
-                          <ChangeTypeBadge changeType={change.change_type} />
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {change.ip_address}
-                            {isStatic && (
-                              <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-200 text-blue-800 font-semibold">
-                                STATICO
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600 font-mono">
-                          {change.mac_address || '-'}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {change.hostname || '-'}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {change.device_type || '-'}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {change.azienda || 'N/A'}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {change.agent_name || 'Agent'}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-500">
-                          {formatDate(change.detected_at)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {changes.length > 50 && (
-                <div className="text-center py-4 text-sm text-gray-500 border-t border-gray-200">
-                  Mostrati i primi 50 cambiamenti di {changes.length} totali
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+                                  if (!response.ok) {
+                                    const errorData = await response.json();
+                                    throw new Error(errorData.error || 'Errore aggiornamento stato statico');
+                                  }
 
-      {/* Modal creazione agent - NON aggiornare dati durante creazione */}
-      {showCreateAgentModal && (
-        <CreateAgentModal
-          key="create-agent-modal"
-          isOpen={showCreateAgentModal}
-          setShowCreateAgentModal={setShowCreateAgentModal}
-          onClose={(shouldRefresh = false) => {
-            // Ricarica dati SOLO quando il modal viene chiuso esplicitamente
-            if (shouldRefresh) {
-              setTimeout(() => {
-                loadDevices();
-                loadChanges();
-              }, 200);
-            }
-          }}
-          onAgentCreated={(agent) => {
-            // NON fare nulla qui - evita qualsiasi refresh
-            console.log('✅ Agent creato con successo:', agent);
-          }}
-          getAuthHeader={getAuthHeader}
-        />
-      )}
+                                  // Aggiorna il dispositivo nella lista locale
+                                  setCompanyDevices(prev => prev.map(d =>
+                                    d.id === device.id ? { ...d, is_static: newIsStatic } : d
+                                  ));
+                                } catch (err) {
+                                  console.error('Errore aggiornamento stato statico:', err);
+                                  alert(`Errore: ${err.message}`);
+                                  // Ripristina lo stato precedente
+                                  e.target.checked = !newIsStatic;
+                                }
+                              }}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                              title="IP Statico"
+                            />
+                          </td>
+                          <td className="py-3 px-4 text-sm font-mono text-gray-900">{device.ip_address}</td>
+                          <td className="py-3 px-4 text-sm font-mono text-gray-600">{device.mac_address || '-'}</td>
+                          <td className="py-3 px-4 text-sm text-gray-900">{device.hostname || '-'}</td>
+                          <td className="py-3 px-4 text-sm text-gray-600">{device.vendor || '-'}</td>
+                          <td className="py-3 px-4">
+                            <select
+                              value={device.device_type || ''}
+                              onChange={async (e) => {
+                                const newType = e.target.value || null;
+                                try {
+                                  const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/type`), {
+                                    method: 'PATCH',
+                                    headers: {
+                                      ...getAuthHeader(),
+                                      'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ device_type: newType })
+                                  });
+
+                                  if (!response.ok) {
+                                    const errorData = await response.json();
+                                    throw new Error(errorData.error || 'Errore aggiornamento tipo');
+                                  }
+
+                                  // Aggiorna il dispositivo nella lista locale
+                                  setCompanyDevices(prev => prev.map(d =>
+                                    d.id === device.id ? { ...d, device_type: newType } : d
+                                  ));
+                                } catch (err) {
+                                  console.error('Errore aggiornamento tipo dispositivo:', err);
+                                  alert(`Errore: ${err.message}`);
+                                  e.target.value = device.device_type || '';
+                                }
+                              }}
+                              className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-white"
+                            >
+                              <option value="">-- Nessuno --</option>
+                              {deviceTypes.map(type => (
+                                <option key={type.id} value={type.name}>
+                                  {type.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="py-3 px-4">
+                            <StatusBadge status={device.status} />
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-500">{formatDate(device.last_seen)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Sezione cambiamenti recenti - PRIORITARIA */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">Cambiamenti Rilevati</h2>
+            <span className="text-sm text-gray-500">{changes.length} totali</span>
+          </div>
+          <div className="p-6">
+            {changes.length === 0 ? (
+              <div className="text-center py-12">
+                <Activity className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg">Nessun cambiamento rilevato</p>
+                <p className="text-gray-400 text-sm mt-2">I cambiamenti di rete verranno visualizzati qui</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo Dispositivo</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Azienda</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Agente</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Data</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {changes.slice(0, 50).map((change) => {
+                      const isStatic = change.is_static === true;
+                      return (
+                        <tr
+                          key={change.id}
+                          className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
+                        >
+                          <td className="py-3 px-4">
+                            <ChangeTypeBadge changeType={change.change_type} />
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {change.ip_address}
+                              {isStatic && (
+                                <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-200 text-blue-800 font-semibold">
+                                  STATICO
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600 font-mono">
+                            {change.mac_address || '-'}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {change.hostname || '-'}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {change.device_type || '-'}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {change.azienda || 'N/A'}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {change.agent_name || 'Agent'}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-500">
+                            {formatDate(change.detected_at)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {changes.length > 50 && (
+                  <div className="text-center py-4 text-sm text-gray-500 border-t border-gray-200">
+                    Mostrati i primi 50 cambiamenti di {changes.length} totali
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Modal creazione agent - NON aggiornare dati durante creazione */}
+        {showCreateAgentModal && (
+          <CreateAgentModal
+            key="create-agent-modal"
+            isOpen={showCreateAgentModal}
+            setShowCreateAgentModal={setShowCreateAgentModal}
+            onClose={(shouldRefresh = false) => {
+              // Ricarica dati SOLO quando il modal viene chiuso esplicitamente
+              if (shouldRefresh) {
+                setTimeout(() => {
+                  loadDevices();
+                  loadChanges();
+                }, 200);
+              }
+            }}
+            onAgentCreated={(agent) => {
+              // NON fare nulla qui - evita qualsiasi refresh
+              console.log('✅ Agent creato con successo:', agent);
+            }}
+            getAuthHeader={getAuthHeader}
+          />
+        )}
       </div>
     </div>
   );

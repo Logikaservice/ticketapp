@@ -581,23 +581,30 @@ module.exports = (pool, io) => {
         // Normalizza anche l'IP per la ricerca (rimuovi caratteri JSON se presenti)
         const normalizedIpForSearch = ip_address.replace(/[{}"]/g, '').trim();
         
+        // Cerca dispositivo esistente: sempre per IP, opzionalmente anche per MAC se disponibile
+        let existingQuery;
+        let existingParams;
+        
         if (macAddressStr && macAddressStr !== '') {
-          const existing = await pool.query(
-            `SELECT id, ip_address, mac_address, hostname, vendor, status 
-             FROM network_devices 
-             WHERE agent_id = $1 AND (REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2 OR mac_address = $3)`,
-            [agentId, normalizedIpForSearch, macAddressStr]
-          );
-          existingDevice = existing.rows[0];
+          // Se abbiamo MAC, cerca per IP O MAC (per gestire cambi di IP)
+          existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status 
+                           FROM network_devices 
+                           WHERE agent_id = $1 AND (REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2 OR mac_address = $3)
+                           ORDER BY CASE WHEN REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2 THEN 1 ELSE 2 END
+                           LIMIT 1`;
+          existingParams = [agentId, normalizedIpForSearch, macAddressStr];
         } else {
-          const existing = await pool.query(
-            `SELECT id, ip_address, mac_address, hostname, vendor, status 
-             FROM network_devices 
-             WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2 AND (mac_address IS NULL OR mac_address = '')`,
-            [agentId, normalizedIpForSearch]
-          );
-          existingDevice = existing.rows[0];
+          // Se non abbiamo MAC, cerca SOLO per IP (senza vincolo su mac_address)
+          // Questo evita di perdere dispositivi che avevano MAC prima ma ora non vengono trovati
+          existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status 
+                           FROM network_devices 
+                           WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2
+                           LIMIT 1`;
+          existingParams = [agentId, normalizedIpForSearch];
         }
+        
+        const existing = await pool.query(existingQuery, existingParams);
+        existingDevice = existing.rows[0];
 
         if (existingDevice) {
           // Aggiorna dispositivo esistente
