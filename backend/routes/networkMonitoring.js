@@ -23,7 +23,47 @@ module.exports = (pool, io) => {
       `);
 
       if (checkResult.rows[0].exists) {
-        // Tabelle già esistenti, non fare nulla
+        // Tabelle già esistenti, ma verifica che network_device_types esista (per migrazione)
+        try {
+          const deviceTypesCheck = await pool.query(`
+            SELECT EXISTS (
+              SELECT FROM information_schema.tables 
+              WHERE table_schema = 'public' 
+              AND table_name = 'network_device_types'
+            );
+          `);
+          if (!deviceTypesCheck.rows[0].exists) {
+            // Crea solo network_device_types se non esiste
+            await pool.query(`
+              CREATE TABLE IF NOT EXISTS network_device_types (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100) UNIQUE NOT NULL,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+              );
+            `);
+            // Inserisci tipi di default
+            const defaultTypes = [
+              { name: 'workstation', description: 'Computer desktop o laptop' },
+              { name: 'server', description: 'Server' },
+              { name: 'router', description: 'Router o gateway' },
+              { name: 'switch', description: 'Switch di rete' },
+              { name: 'printer', description: 'Stampante di rete' },
+              { name: 'camera', description: 'Telecamera IP' },
+              { name: 'unknown', description: 'Tipo sconosciuto' }
+            ];
+            for (const type of defaultTypes) {
+              await pool.query(
+                'INSERT INTO network_device_types (name, description) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING',
+                [type.name, type.description]
+              );
+            }
+            console.log('✅ Tabella network_device_types creata (migrazione)');
+          }
+        } catch (migrationErr) {
+          console.warn('⚠️ Errore migrazione network_device_types:', migrationErr.message);
+        }
         return;
       }
 
