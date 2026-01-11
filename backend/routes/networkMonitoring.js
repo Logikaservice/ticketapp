@@ -1359,6 +1359,22 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
           archive.append(diagnosticaContent, { name: 'Diagnostica-Agent.ps1' });
           console.log('✅ Aggiunto Diagnostica-Agent.ps1');
         }
+        
+        // Disinstalla-Tutto.ps1 e .bat
+        const disinstallaTuttoPath = path.join(agentDir, 'Disinstalla-Tutto.ps1');
+        const disinstallaTuttoBatPath = path.join(agentDir, 'Disinstalla-Tutto.bat');
+        
+        if (fs.existsSync(disinstallaTuttoPath)) {
+          const disinstallaTuttoContent = fs.readFileSync(disinstallaTuttoPath, 'utf8');
+          archive.append(disinstallaTuttoContent, { name: 'Disinstalla-Tutto.ps1' });
+          console.log('✅ Aggiunto Disinstalla-Tutto.ps1');
+        }
+        
+        if (fs.existsSync(disinstallaTuttoBatPath)) {
+          const disinstallaTuttoBatContent = fs.readFileSync(disinstallaTuttoBatPath, 'utf8');
+          archive.append(disinstallaTuttoBatContent, { name: 'Disinstalla-Tutto.bat' });
+          console.log('✅ Aggiunto Disinstalla-Tutto.bat');
+        }
       } catch (serviceErr) {
         console.error('❌ Errore aggiunta file servizio allo ZIP:', serviceErr);
         // Non bloccare se i file servizio non sono disponibili (compatibilità)
