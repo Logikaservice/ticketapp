@@ -1006,7 +1006,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       )}
 
       {/* Statistiche */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
             <CheckCircle size={16} className="text-green-600" />
@@ -1027,6 +1027,22 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             Cambiamenti (24h)
           </div>
           <div className="text-3xl font-bold text-blue-600">{stats.recentChanges}</div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+            <ServerIcon size={16} className="text-blue-600" />
+            Agent Online
+          </div>
+          <div className="text-3xl font-bold text-blue-600">{stats.agentsOnline}</div>
+          <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+            <WifiOff size={16} className="text-orange-600" />
+            Agent Offline
+          </div>
+          <div className="text-3xl font-bold text-orange-600">{stats.agentsOffline}</div>
+          <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
         </div>
       </div>
 
