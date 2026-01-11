@@ -512,7 +512,7 @@ module.exports = (pool, io) => {
               // Se non ha il formato corretto, prova a convertirlo
               if (normalizedMac.length === 12 && !normalizedMac.includes('-') && !normalizedMac.includes(':')) {
                 // Formato senza separatori, aggiungi trattini ogni 2 caratteri
-                normalizedMac = normalizedMac -replace '(..)(..)(..)(..)(..)(..)', '$1-$2-$3-$4-$5-$6'
+                normalizedMac = normalizedMac.replace(/(..)(..)(..)(..)(..)(..)/, '$1-$2-$3-$4-$5-$6');
               }
             }
 
