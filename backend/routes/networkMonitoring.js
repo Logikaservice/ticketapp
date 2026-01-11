@@ -790,17 +790,30 @@ module.exports = (pool, io) => {
     try {
       await ensureTables();
       
+      // Assicurati che la colonna is_static esista (migrazione)
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;
+        `);
+      } catch (migrationErr) {
+        // Ignora errore se colonna esiste già
+        if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna is_static in clients/:aziendaId/devices:', migrationErr.message);
+        }
+      }
+      
       const { aziendaId } = req.params;
 
       const result = await pool.query(
         `SELECT 
           nd.id, nd.ip_address, nd.mac_address, nd.hostname, nd.vendor, 
-          nd.device_type, nd.status, nd.first_seen, nd.last_seen,
+          nd.device_type, nd.status, nd.is_static, nd.first_seen, nd.last_seen,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
          WHERE na.azienda_id = $1
-         ORDER BY nd.last_seen DESC`,
+         ORDER BY nd.ip_address ASC`,
         [aziendaId]
       );
 
