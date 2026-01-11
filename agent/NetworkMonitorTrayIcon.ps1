@@ -5,7 +5,8 @@
 
 param(
     [string]$ConfigPath = "$env:ProgramData\NetworkMonitorAgent\config.json",
-    [string]$StatusFilePath = "$env:ProgramData\NetworkMonitorAgent\.agent_status.json"
+    [string]$StatusFilePath = "$env:ProgramData\NetworkMonitorAgent\.agent_status.json",
+    [string]$CurrentScanIPsPath = "$env:ProgramData\NetworkMonitorAgent\.current_scan_ips.json"
 )
 
 # Aggiungi Windows Forms
@@ -17,7 +18,12 @@ $script:trayIcon = $null
 $script:isRunning = $true
 $script:statusFile = $StatusFilePath
 $script:configPath = $ConfigPath
+$script:currentScanIPsPath = $CurrentScanIPsPath
 $script:config = $null
+$script:statusWindow = $null
+$script:statusWindowListBox = $null
+$script:configListBox = $null
+$script:updateTimer = $null
 
 # Carica configurazione
 function Load-Config {
@@ -45,7 +51,20 @@ function Get-Status {
     return $null
 }
 
-# Funzione per aprire finestra stato (mostra informazioni base)
+# Leggi IP trovati durante la scansione corrente
+function Get-CurrentScanIPs {
+    if (Test-Path $script:currentScanIPsPath) {
+        try {
+            $ips = Get-Content $script:currentScanIPsPath -Raw | ConvertFrom-Json
+            return @($ips)
+        } catch {
+            return @()
+        }
+    }
+    return @()
+}
+
+# Funzione per aprire finestra stato (mostra IP configurati e trovati)
 function Show-StatusWindow {
     if (-not $script:config) {
         if (-not (Load-Config)) {
@@ -59,32 +78,136 @@ function Show-StatusWindow {
         }
     }
     
-    # Mostra informazioni base
-    $status = Get-Status
-    if ($status) {
-        $message = "Network Monitor Agent`n`n"
-        $message += "Stato: $($status.status)`n"
-        if ($status.last_scan) {
-            $message += "Ultima scansione: $($status.last_scan)`n"
+    # Se la finestra è già aperta, portala in primo piano
+    if ($script:statusWindow -and $script:statusWindow.Visible) {
+        $script:statusWindow.Activate()
+        $script:statusWindow.BringToFront()
+        return
+    }
+    
+    # Crea nuova finestra
+    $script:statusWindow = New-Object System.Windows.Forms.Form
+    $script:statusWindow.Text = "Network Monitor Agent - Stato"
+    $script:statusWindow.Size = New-Object System.Drawing.Size(800, 600)
+    $script:statusWindow.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
+    $script:statusWindow.MinimizeBox = $false
+    $script:statusWindow.MaximizeBox = $false
+    $script:statusWindow.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedSingle
+    
+    # Label titolo
+    $titleLabel = New-Object System.Windows.Forms.Label
+    $titleLabel.Text = "Monitoraggio Rete - $($script:config.network_ranges -join ', ')"
+    $titleLabel.Location = New-Object System.Drawing.Point(10, 10)
+    $titleLabel.Size = New-Object System.Drawing.Size(760, 25)
+    $titleLabel.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 10, [System.Drawing.FontStyle]::Bold)
+    $script:statusWindow.Controls.Add($titleLabel)
+    
+    # Label per IP configurati
+    $configLabel = New-Object System.Windows.Forms.Label
+    $configLabel.Text = "IP configurati nella classe:"
+    $configLabel.Location = New-Object System.Drawing.Point(10, 45)
+    $configLabel.Size = New-Object System.Drawing.Size(370, 20)
+    $configLabel.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 9, [System.Drawing.FontStyle]::Bold)
+    $script:statusWindow.Controls.Add($configLabel)
+    
+    # ListBox per IP configurati (sinistra)
+    $script:configListBox = New-Object System.Windows.Forms.ListBox
+    $script:configListBox.Location = New-Object System.Drawing.Point(10, 70)
+    $script:configListBox.Size = New-Object System.Drawing.Size(370, 490)
+    $script:configListBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $script:configListBox.SelectionMode = [System.Windows.Forms.SelectionMode]::None
+    $script:statusWindow.Controls.Add($script:configListBox)
+    
+    # Popola lista IP configurati
+    $configIPsList = @()
+    foreach ($range in $script:config.network_ranges) {
+        if ($range -match '^(\d+\.\d+\.\d+)\.(\d+)/(\d+)$') {
+            $baseIP = $matches[1]
+            $subnetMask = [int]$matches[3]
+            if ($subnetMask -ge 24) {
+                $maxIP = if ($subnetMask -eq 24) { 254 } else { [Math]::Pow(2, 32 - $subnetMask) - 2 }
+                for ($i = 1; $i -le $maxIP; $i++) {
+                    $configIPsList += "$baseIP.$i"
+                }
+            }
         }
-        $message += "Dispositivi trovati: $($status.devices_found)`n"
-        if ($status.scan_interval_minutes) {
-            $message += "Intervallo: $($status.scan_interval_minutes) minuti"
-        }
-        
-        [System.Windows.Forms.MessageBox]::Show(
-            $message,
-            "Network Monitor Agent",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Information
-        )
+    }
+    $script:configListBox.Items.AddRange($configIPsList)
+    
+    # Label per IP trovati
+    $foundLabel = New-Object System.Windows.Forms.Label
+    $foundLabel.Text = "IP trovati durante la scansione:"
+    $foundLabel.Location = New-Object System.Drawing.Point(400, 45)
+    $foundLabel.Size = New-Object System.Drawing.Size(370, 20)
+    $foundLabel.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 9, [System.Drawing.FontStyle]::Bold)
+    $script:statusWindow.Controls.Add($foundLabel)
+    
+    # ListBox per IP trovati (destra) - aggiornato in tempo reale
+    $script:statusWindowListBox = New-Object System.Windows.Forms.ListBox
+    $script:statusWindowListBox.Location = New-Object System.Drawing.Point(400, 70)
+    $script:statusWindowListBox.Size = New-Object System.Drawing.Size(370, 490)
+    $script:statusWindowListBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $script:statusWindowListBox.SelectionMode = [System.Windows.Forms.SelectionMode]::None
+    $script:statusWindow.Controls.Add($script:statusWindowListBox)
+    
+    # Pulsante Chiudi
+    $closeButton = New-Object System.Windows.Forms.Button
+    $closeButton.Text = "Chiudi"
+    $closeButton.Location = New-Object System.Drawing.Point(710, 530)
+    $closeButton.Size = New-Object System.Drawing.Size(70, 30)
+    $closeButton.Add_Click({
+        $script:statusWindow.Hide()
+    })
+    $script:statusWindow.Controls.Add($closeButton)
+    
+    # Handler chiusura finestra
+    $script:statusWindow.Add_FormClosing({
+        $_.Cancel = $true
+        $script:statusWindow.Hide()
+    })
+    
+    # Timer per aggiornare IP trovati ogni secondo
+    $script:updateTimer = New-Object System.Windows.Forms.Timer
+    $script:updateTimer.Interval = 1000  # 1 secondo
+    $script:updateTimer.Add_Tick({
+        Update-FoundIPsList
+    })
+    $script:updateTimer.Start()
+    
+    # Aggiorna subito
+    Update-FoundIPsList
+    
+    # Mostra finestra
+    $script:statusWindow.Show()
+    $script:statusWindow.BringToFront()
+}
+
+# Aggiorna lista IP trovati nella finestra
+function Update-FoundIPsList {
+    if (-not $script:statusWindowListBox) { return }
+    if (-not $script:statusWindow -or -not $script:statusWindow.Visible) { return }
+    
+    $currentIPs = Get-CurrentScanIPs
+    
+    # Aggiorna thread-safe
+    if ($script:statusWindow.InvokeRequired) {
+        $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
+            $script:statusWindowListBox.Items.Clear()
+            foreach ($ip in $currentIPs) {
+                $script:statusWindowListBox.Items.Add($ip)
+            }
+            if ($script:statusWindowListBox.Items.Count -gt 0) {
+                $script:statusWindowListBox.TopIndex = $script:statusWindowListBox.Items.Count - 1
+            }
+        })
     } else {
-        [System.Windows.Forms.MessageBox]::Show(
-            "Servizio in avvio o non disponibile`n`nL'icona della system tray e' attiva.`nIl servizio potrebbe essere ancora in avvio.",
-            "Network Monitor Agent",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Information
-        )
+        $script:statusWindowListBox.Items.Clear()
+        foreach ($ip in $currentIPs) {
+            $script:statusWindowListBox.Items.Add($ip)
+        }
+        if ($script:statusWindowListBox.Items.Count -gt 0) {
+            $script:statusWindowListBox.TopIndex = $script:statusWindowListBox.Items.Count - 1
+        }
     }
 }
 
@@ -125,11 +248,7 @@ function Show-TrayIcon {
     $exitItem = New-Object System.Windows.Forms.ToolStripMenuItem
     $exitItem.Text = "Esci"
     $exitItem.Add_Click({
-        if ($script:trayIcon) {
-            $script:trayIcon.Visible = $false
-            $script:trayIcon.Dispose()
-        }
-        [System.Windows.Forms.Application]::ExitThread()
+        Exit-Application
     })
     $contextMenu.Items.Add($exitItem)
     
@@ -179,6 +298,24 @@ function Show-TrayIcon {
     & $updateTooltip
 }
 
+# Funzione per chiudere l'applicazione
+function Exit-Application {
+    if ($script:updateTimer) {
+        $script:updateTimer.Stop()
+        $script:updateTimer.Dispose()
+    }
+    if ($script:statusWindow) {
+        $script:statusWindow.Close()
+        $script:statusWindow.Dispose()
+    }
+    if ($script:trayIcon) {
+        $script:trayIcon.Visible = $false
+        $script:trayIcon.Dispose()
+    }
+    $script:isRunning = $false
+    [System.Windows.Forms.Application]::ExitThread()
+}
+
 # Main
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
@@ -196,8 +333,11 @@ if (-not (Load-Config)) {
 # Mostra tray icon
 Show-TrayIcon
 
-# Loop principale - Processa messaggi Windows
-while ($script:isRunning) {
-    [System.Windows.Forms.Application]::DoEvents()
-    Start-Sleep -Milliseconds 100
+# Usa Application.Run per gestire correttamente i messaggi Windows
+# Questo permette al menu contestuale e ai click di funzionare correttamente
+try {
+    [System.Windows.Forms.Application]::Run()
+} finally {
+    # Cleanup
+    Exit-Application
 }

@@ -27,6 +27,7 @@ $script:lastScanDevices = 0
 $script:scanIntervalMinutes = 15
 $script:statusFile = Join-Path $script:scriptDir ".agent_status.json"
 $script:lastScanPath = Join-Path $script:scriptDir "last_scan.json"
+$script:currentScanIPsFile = Join-Path $script:scriptDir ".current_scan_ips.json"
 
 # ============================================
 # FUNZIONI HELPER
@@ -123,6 +124,22 @@ function Get-NetworkDevices {
                     if ($localIPInRange -and $i -eq $localIPOctet) {
                         Write-Log "Aggiungendo IP locale: $ip" "DEBUG"
                         
+                        # Salva IP locale per la tray icon
+                        try {
+                            $currentIPs = @()
+                            if (Test-Path $script:currentScanIPsFile) {
+                                try {
+                                    $currentIPs = Get-Content $script:currentScanIPsFile -Raw | ConvertFrom-Json
+                                } catch { }
+                            }
+                            if ($currentIPs -notcontains $ip) {
+                                $currentIPs += $ip
+                                $currentIPs | ConvertTo-Json | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
+                            }
+                        } catch {
+                            # Ignora errori salvataggio IP per tray icon
+                        }
+                        
                         # Ottieni MAC address locale
                         $macAddress = $null
                         try {
@@ -154,6 +171,22 @@ function Get-NetworkDevices {
                     
                     if ($pingResult) {
                         Write-Log "Dispositivo rilevato: $ip" "DEBUG"
+                        
+                        # Salva IP trovato per la tray icon (in tempo reale)
+                        try {
+                            $currentIPs = @()
+                            if (Test-Path $script:currentScanIPsFile) {
+                                try {
+                                    $currentIPs = Get-Content $script:currentScanIPsFile -Raw | ConvertFrom-Json
+                                } catch { }
+                            }
+                            if ($currentIPs -notcontains $ip) {
+                                $currentIPs += $ip
+                                $currentIPs | ConvertTo-Json | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
+                            }
+                        } catch {
+                            # Ignora errori salvataggio IP per tray icon
+                        }
                         
                         # Ottieni MAC address dalla tabella ARP
                         $macAddress = $null
@@ -490,6 +523,13 @@ while ($script:isRunning) {
         if ($now -ge $nextScanTime) {
             Write-Log "Esecuzione scansione programmata..."
             Update-StatusFile -Status "scanning" -Message "Scansione in corso..."
+            
+            # Reset lista IP trovati per la tray icon
+            try {
+                @() | ConvertTo-Json | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
+            } catch {
+                # Ignora errori reset file IP
+            }
             
             try {
                 # 1. Scan rete
