@@ -1368,6 +1368,15 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
           console.log('✅ Aggiunto Diagnostica-Agent.ps1');
         }
         
+        // NetworkMonitorTrayIcon.ps1 (tray icon separata per avvio automatico)
+        if (fs.existsSync(trayIconPath)) {
+          const trayIconContent = fs.readFileSync(trayIconPath, 'utf8');
+          archive.append(trayIconContent, { name: 'NetworkMonitorTrayIcon.ps1' });
+          console.log('✅ Aggiunto NetworkMonitorTrayIcon.ps1');
+        } else {
+          console.warn('⚠️  NetworkMonitorTrayIcon.ps1 non trovato!');
+        }
+        
         // Disinstalla-Tutto.ps1 e .bat
         const disinstallaTuttoPath = path.join(agentDir, 'Disinstalla-Tutto.ps1');
         const disinstallaTuttoBatPath = path.join(agentDir, 'Disinstalla-Tutto.bat');
