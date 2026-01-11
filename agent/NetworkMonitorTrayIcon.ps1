@@ -22,7 +22,9 @@ $script:currentScanIPsPath = $CurrentScanIPsPath
 $script:config = $null
 $script:statusWindow = $null
 $script:statusWindowListBox = $null
+$script:countdownLabel = $null
 $script:updateTimer = $null
+$script:countdownTimer = $null
 
 # Carica configurazione
 function Load-Config {
@@ -130,18 +132,28 @@ function Show-StatusWindow {
     $titleLabel.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 10, [System.Drawing.FontStyle]::Bold)
     $script:statusWindow.Controls.Add($titleLabel)
     
+    # Label conto alla rovescia (grande, a sinistra)
+    $script:countdownLabel = New-Object System.Windows.Forms.Label
+    $script:countdownLabel.Text = "Prossima scansione: --:--"
+    $script:countdownLabel.Location = New-Object System.Drawing.Point(10, 45)
+    $script:countdownLabel.Size = New-Object System.Drawing.Size(280, 50)
+    $script:countdownLabel.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 18, [System.Drawing.FontStyle]::Bold)
+    $script:countdownLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 123, 255)
+    $script:countdownLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $script:statusWindow.Controls.Add($script:countdownLabel)
+    
     # Label per IP trovati
     $foundLabel = New-Object System.Windows.Forms.Label
     $foundLabel.Text = "IP trovati durante la scansione:"
-    $foundLabel.Location = New-Object System.Drawing.Point(10, 45)
+    $foundLabel.Location = New-Object System.Drawing.Point(10, 100)
     $foundLabel.Size = New-Object System.Drawing.Size(300, 20)
     $foundLabel.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 9, [System.Drawing.FontStyle]::Bold)
     $script:statusWindow.Controls.Add($foundLabel)
     
     # ListBox per IP trovati (sinistra) - aggiornato in tempo reale
     $script:statusWindowListBox = New-Object System.Windows.Forms.ListBox
-    $script:statusWindowListBox.Location = New-Object System.Drawing.Point(10, 70)
-    $script:statusWindowListBox.Size = New-Object System.Drawing.Size(300, 460)
+    $script:statusWindowListBox.Location = New-Object System.Drawing.Point(10, 125)
+    $script:statusWindowListBox.Size = New-Object System.Drawing.Size(300, 405)
     $script:statusWindowListBox.Font = New-Object System.Drawing.Font("Consolas", 9)
     $script:statusWindowListBox.SelectionMode = [System.Windows.Forms.SelectionMode]::None
     $script:statusWindow.Controls.Add($script:statusWindowListBox)
@@ -236,6 +248,51 @@ function Update-FoundIPsList {
         }
         if ($script:statusWindowListBox.Items.Count -gt 0) {
             $script:statusWindowListBox.TopIndex = $script:statusWindowListBox.Items.Count - 1
+        }
+    }
+}
+
+# Aggiorna conto alla rovescia prossima scansione
+function Update-Countdown {
+    if (-not $script:countdownLabel) { return }
+    if (-not $script:statusWindow -or -not $script:statusWindow.Visible) { return }
+    
+    $status = Get-Status
+    if ($status -and $status.last_scan -and $status.scan_interval_minutes) {
+        try {
+            $lastScanTime = [DateTime]::Parse($status.last_scan)
+            $intervalMinutes = [int]$status.scan_interval_minutes
+            $nextScanTime = $lastScanTime.AddMinutes($intervalMinutes)
+            $now = Get-Date
+            $timeRemaining = $nextScanTime - $now
+            
+            if ($timeRemaining.TotalSeconds -gt 0) {
+                $minutes = [Math]::Floor($timeRemaining.TotalMinutes)
+                $seconds = [Math]::Floor($timeRemaining.TotalSeconds % 60)
+                $countdownText = "Prossima scansione: {0:D2}:{1:D2}" -f $minutes, $seconds
+            } else {
+                $countdownText = "Scansione in corso..."
+            }
+            
+            # Aggiorna thread-safe
+            if ($script:statusWindow.InvokeRequired) {
+                $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
+                    $script:countdownLabel.Text = $countdownText
+                })
+            } else {
+                $script:countdownLabel.Text = $countdownText
+            }
+        } catch {
+            # Ignora errori parsing
+        }
+    } else {
+        $countdownText = "Prossima scansione: --:--"
+        if ($script:statusWindow.InvokeRequired) {
+            $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
+                $script:countdownLabel.Text = $countdownText
+            })
+        } else {
+            $script:countdownLabel.Text = $countdownText
         }
     }
 }
