@@ -810,17 +810,26 @@ module.exports = (pool, io) => {
       const agent = result.rows[0];
       
       // Path dei file agent (relativo alla root del progetto)
-      const projectRoot = path.resolve(__dirname, '..');
+      // __dirname è backend/routes, quindi risaliamo di 2 livelli per arrivare alla root
+      const projectRoot = path.resolve(__dirname, '..', '..');
       const agentDir = path.join(projectRoot, 'agent');
       const networkMonitorPath = path.join(agentDir, 'NetworkMonitor.ps1');
       const installerPath = path.join(agentDir, 'InstallerCompleto.ps1');
 
+      console.log('📦 Path ricerca file agent:');
+      console.log('  Project root:', projectRoot);
+      console.log('  Agent dir:', agentDir);
+      console.log('  NetworkMonitor.ps1:', networkMonitorPath, 'exists:', fs.existsSync(networkMonitorPath));
+      console.log('  InstallerCompleto.ps1:', installerPath, 'exists:', fs.existsSync(installerPath));
+
       // Verifica che i file esistano
       if (!fs.existsSync(networkMonitorPath)) {
-        return res.status(500).json({ error: 'File NetworkMonitor.ps1 non trovato sul server' });
+        console.error('❌ File NetworkMonitor.ps1 non trovato in:', networkMonitorPath);
+        return res.status(500).json({ error: `File NetworkMonitor.ps1 non trovato sul server. Path cercato: ${networkMonitorPath}` });
       }
       if (!fs.existsSync(installerPath)) {
-        return res.status(500).json({ error: 'File InstallerCompleto.ps1 non trovato sul server' });
+        console.error('❌ File InstallerCompleto.ps1 non trovato in:', installerPath);
+        return res.status(500).json({ error: `File InstallerCompleto.ps1 non trovato sul server. Path cercato: ${installerPath}` });
       }
 
       // Leggi contenuto file
