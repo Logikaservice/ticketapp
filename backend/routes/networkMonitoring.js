@@ -1001,12 +1001,19 @@ module.exports = (pool, io) => {
       
       const result = await pool.query(
         `SELECT 
-          na.id, na.agent_name, na.status, na.last_heartbeat, 
+          na.id, na.agent_name, 
+          CASE 
+            WHEN na.last_heartbeat IS NULL THEN 'offline'
+            WHEN na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online'
+            ELSE 'offline'
+          END as status,
+          na.last_heartbeat, 
           na.version, na.network_ranges, na.scan_interval_minutes, na.enabled,
           na.created_at, na.azienda_id, na.api_key,
           u.azienda
          FROM network_agents na
          LEFT JOIN users u ON na.azienda_id = u.id
+         WHERE na.deleted_at IS NULL
          ORDER BY na.created_at DESC`
       );
 
