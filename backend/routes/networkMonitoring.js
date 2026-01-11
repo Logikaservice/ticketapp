@@ -600,6 +600,19 @@ module.exports = (pool, io) => {
           if (deviceResult.rows.length > 0) {
             const deviceId = deviceResult.rows[0].id;
             
+            // Aggiorna status del dispositivo se il cambiamento è device_offline o device_online
+            if (change_type === 'device_offline') {
+              await pool.query(
+                'UPDATE network_devices SET status = $1 WHERE id = $2',
+                ['offline', deviceId]
+              );
+            } else if (change_type === 'device_online') {
+              await pool.query(
+                'UPDATE network_devices SET status = $1, last_seen = NOW() WHERE id = $2',
+                ['online', deviceId]
+              );
+            }
+            
             // Verifica se questo IP è configurato per notifiche
             const notificationConfig = await pool.query(
               'SELECT enabled FROM network_notification_config WHERE agent_id = $1 AND ip_address = $2',
