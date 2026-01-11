@@ -987,8 +987,18 @@ module.exports = (pool, io) => {
         }
       }
 
-      // Aggiungi README
-      const readmeContent = `# Network Monitor Agent - Installazione
+               // Aggiungi README
+               const readmeContent = `# Network Monitor Agent - Installazione
+
+## ⚠️ IMPORTANTE: Directory Installazione
+
+I file devono rimanere nella directory di installazione dopo l'installazione!
+Se cancelli questi file, l'agent smetterà di funzionare.
+
+### Consigli:
+- Estrai lo ZIP in una directory PERMANENTE (es: C:\\ProgramData\\NetworkMonitorAgent\\)
+- NON nella cartella Download (viene spesso pulita automaticamente)
+- Dopo l'installazione, NON cancellare i file
 
 ## File inclusi:
 - config.json: Configurazione agent (API Key, reti, intervallo scansione)
@@ -997,21 +1007,24 @@ module.exports = (pool, io) => {
 
 ## Installazione:
 
-1. Estrarre tutti i file nella stessa cartella
+1. Estrarre tutti i file in una directory permanente (es: C:\\ProgramData\\NetworkMonitorAgent\\)
 2. Tasto destro su "InstallerCompleto.ps1" → "Esegui con PowerShell"
 3. Inserire l'API Key quando richiesto (già presente in config.json, ma l'installer la richiederà per verifica)
 4. L'installer configurerà tutto automaticamente
 
-Oppure:
-1. Estrarre tutti i file nella stessa cartella
-2. Modificare config.json se necessario
-3. Eseguire: .\\NetworkMonitor.ps1 -TestMode (per test)
-4. Configurare Scheduled Task manualmente
+⚠️ NON cancellare i file dopo l'installazione! Devono rimanere nella directory.
 
 ## Configurazione Agent:
 - Nome: ${agent.agent_name}
 - Reti: ${(agent.network_ranges || []).join(', ')}
 - Intervallo scansione: ${agent.scan_interval_minutes || 15} minuti
+
+## Disinstallazione:
+
+Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
+1. Apri PowerShell come Amministratore
+2. Esegui: Unregister-ScheduledTask -TaskName "NetworkMonitorAgent" -Confirm:$false
+3. Cancella la directory di installazione
 `;
       archive.append(readmeContent, { name: 'README.txt' });
 
