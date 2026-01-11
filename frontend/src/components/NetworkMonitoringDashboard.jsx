@@ -84,9 +84,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   }, [initialView]);
 
   // Carica dispositivi
-  const loadDevices = useCallback(async () => {
+  const loadDevices = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       setError(null);
 
       const response = await fetch(buildApiUrl('/api/network-monitoring/all/devices'), {
@@ -102,14 +104,18 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       setLastUpdate(new Date());
     } catch (err) {
       console.error('Errore caricamento dispositivi:', err);
-      setError(err.message);
+      if (!silent) {
+        setError(err.message);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [getAuthHeader]);
 
   // Carica cambiamenti
-  const loadChanges = useCallback(async () => {
+  const loadChanges = useCallback(async (silent = false) => {
     try {
       const response = await fetch(buildApiUrl('/api/network-monitoring/all/changes?limit=100'), {
         headers: getAuthHeader()
@@ -122,7 +128,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       const data = await response.json();
       setChanges(data);
     } catch (err) {
-      console.error('Errore caricamento cambiamenti:', err);
+      if (!silent) {
+        console.error('Errore caricamento cambiamenti:', err);
+      }
     }
   }, [getAuthHeader]);
 
@@ -434,9 +442,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     if (!autoRefresh || showCreateAgentModal) return; // Non aggiornare se il modal è aperto
 
     const interval = setInterval(() => {
-      loadDevices();
-      loadChanges();
-      // Se un'azienda è selezionata, ricarica anche i dispositivi dell'azienda
+      // Usa modalità "silent" per evitare flicker durante auto-refresh
+      loadDevices(true);
+      loadChanges(true);
+      // Se un'azienda è selezionata, ricarica anche i dispositivi dell'azienda (già silenzioso)
       if (selectedCompanyId) {
         loadCompanyDevices(selectedCompanyId);
       }
@@ -453,10 +462,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       console.log('📡 Network monitoring update ricevuto:', data);
       
       // Ricarica dati quando arriva un aggiornamento SOLO se il modal non è aperto
+      // Usa modalità "silent" per evitare flicker (gli aggiornamenti WebSocket sono già real-time)
       if (!showCreateAgentModal) {
-        loadDevices();
-        loadChanges();
-        // Se un'azienda è selezionata, ricarica anche i dispositivi dell'azienda
+        loadDevices(true);
+        loadChanges(true);
+        // Se un'azienda è selezionata, ricarica anche i dispositivi dell'azienda (già silenzioso)
         if (selectedCompanyId) {
           loadCompanyDevices(selectedCompanyId);
         }
