@@ -805,7 +805,7 @@ module.exports = (pool, io) => {
       
       const aziendaId = parseInt(req.params.aziendaId);
       
-      if (!aziendaId || isNaN(aziendaId)) {
+      if (!aziendaId) {
         return res.status(400).json({ error: 'ID azienda non valido' });
       }
 
