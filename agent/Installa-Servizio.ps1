@@ -2,8 +2,7 @@
 # Installa Network Monitor Agent come servizio Windows permanente con tray icon
 
 param(
-    [string]$InstallDir = $PSScriptRoot,
-    [switch]$RemoveOldTask = $false  # Rimuove il vecchio Scheduled Task se presente
+    [string]$InstallDir = $PSScriptRoot
 )
 
 Write-Host "========================================" -ForegroundColor Cyan
@@ -80,24 +79,6 @@ if (-not (Test-Path $NssmPath)) {
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         exit 1
     }
-}
-
-# Rimuovi vecchio Scheduled Task se richiesto
-if ($RemoveOldTask) {
-    $TaskName = "NetworkMonitorAgent"
-    Write-Host "Rimozione vecchio Scheduled Task..." -ForegroundColor Yellow
-    try {
-        $existingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-        if ($existingTask) {
-            Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
-            Write-Host "Scheduled Task rimosso" -ForegroundColor Green
-        } else {
-            Write-Host "Scheduled Task non trovato" -ForegroundColor Gray
-        }
-    } catch {
-        Write-Host "Impossibile rimuovere Scheduled Task: $_" -ForegroundColor Yellow
-    }
-    Write-Host ""
 }
 
 # Rimuovi servizio esistente se presente

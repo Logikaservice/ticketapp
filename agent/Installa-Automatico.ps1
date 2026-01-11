@@ -193,24 +193,6 @@ if ($scriptDir -ne $installDir) {
 # Cambia directory a quella di installazione
 Set-Location $installDir
 
-# Rimuovi vecchio Scheduled Task se presente (opzionale)
-$oldTaskName = "NetworkMonitorAgent"
-$existingTask = Get-ScheduledTask -TaskName $oldTaskName -ErrorAction SilentlyContinue
-if ($existingTask) {
-    Write-Host "Rilevato vecchio Scheduled Task '$oldTaskName'." -ForegroundColor Yellow
-    Write-Host "Rimozione vecchio Scheduled Task..." -ForegroundColor Yellow
-    
-    try {
-        Stop-ScheduledTask -TaskName $oldTaskName -ErrorAction SilentlyContinue
-        Unregister-ScheduledTask -TaskName $oldTaskName -Confirm:$false -ErrorAction Stop
-        Write-Host "Vecchio Scheduled Task rimosso con successo!" -ForegroundColor Green
-        Write-Host ""
-    } catch {
-        Write-Host "Errore rimozione Scheduled Task (non critico): $_" -ForegroundColor Yellow
-        Write-Host ""
-    }
-}
-
 # Verifica se il servizio e' gia' installato
 $serviceName = "NetworkMonitorService"
 $existingService = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
@@ -276,8 +258,8 @@ Write-Host ""
 $installerPath = Join-Path $installDir "Installa-Servizio.ps1"
 if (Test-Path $installerPath) {
     try {
-        # Esegui installer con rimozione vecchio task
-        & powershell.exe -ExecutionPolicy Bypass -NoProfile -File $installerPath -RemoveOldTask
+        # Esegui installer
+        & powershell.exe -ExecutionPolicy Bypass -NoProfile -File $installerPath
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host ""
