@@ -72,11 +72,25 @@ module.exports = (pool, io) => {
           vendor VARCHAR(255),
           device_type VARCHAR(100),
           status VARCHAR(20) DEFAULT 'online' CHECK (status IN ('online', 'offline')),
+          is_static BOOLEAN DEFAULT false,
           first_seen TIMESTAMP DEFAULT NOW(),
           last_seen TIMESTAMP DEFAULT NOW(),
           UNIQUE(agent_id, ip_address, mac_address)
         );
       `);
+
+      // Aggiungi colonna is_static se non esiste (migrazione)
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;
+        `);
+      } catch (err) {
+        // Ignora errore se colonna esiste già
+        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna is_static:', err.message);
+        }
+      }
 
       // Crea tabella network_changes
       await pool.query(`

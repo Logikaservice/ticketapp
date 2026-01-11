@@ -28,7 +28,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [companyDevices, setCompanyDevices] = useState([]);
   const [loadingCompanyDevices, setLoadingCompanyDevices] = useState(false);
-  const [selectedStaticIPs, setSelectedStaticIPs] = useState(new Set()); // IP selezionati come statici
+  // selectedStaticIPs non serve più, usiamo is_static dal database
 
   const [showDeviceTypes, setShowDeviceTypes] = useState(false);
   const [deviceTypes, setDeviceTypes] = useState([]);
@@ -849,7 +849,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 </thead>
                 <tbody>
                   {companyDevices.map((device) => {
-                    const isStatic = selectedStaticIPs.has(device.ip_address);
+                    const isStatic = device.is_static === true;
                     return (
                       <tr 
                         key={device.id} 
@@ -859,14 +859,33 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           <input
                             type="checkbox"
                             checked={isStatic}
-                            onChange={(e) => {
-                              const newSelected = new Set(selectedStaticIPs);
-                              if (e.target.checked) {
-                                newSelected.add(device.ip_address);
-                              } else {
-                                newSelected.delete(device.ip_address);
+                            onChange={async (e) => {
+                              const newIsStatic = e.target.checked;
+                              try {
+                                const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/static`), {
+                                  method: 'PATCH',
+                                  headers: {
+                                    ...getAuthHeader(),
+                                    'Content-Type': 'application/json'
+                                  },
+                                  body: JSON.stringify({ is_static: newIsStatic })
+                                });
+
+                                if (!response.ok) {
+                                  const errorData = await response.json();
+                                  throw new Error(errorData.error || 'Errore aggiornamento stato statico');
+                                }
+
+                                // Aggiorna il dispositivo nella lista locale
+                                setCompanyDevices(prev => prev.map(d => 
+                                  d.id === device.id ? { ...d, is_static: newIsStatic } : d
+                                ));
+                              } catch (err) {
+                                console.error('Errore aggiornamento stato statico:', err);
+                                alert(`Errore: ${err.message}`);
+                                // Ripristina lo stato precedente
+                                e.target.checked = !newIsStatic;
                               }
-                              setSelectedStaticIPs(newSelected);
                             }}
                             className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
                             title="IP Statico"
