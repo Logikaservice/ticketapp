@@ -803,9 +803,11 @@ module.exports = (pool, io) => {
         }
       }
       
-      const aziendaId = parseInt(req.params.aziendaId);
+      const aziendaIdParam = req.params.aziendaId;
+      const aziendaId = parseInt(aziendaIdParam);
       
-      if (!aziendaId) {
+      if (isNaN(aziendaId) || aziendaId <= 0) {
+        console.error('❌ ID azienda non valido:', aziendaIdParam, 'parsed:', aziendaId);
         return res.status(400).json({ error: 'ID azienda non valido' });
       }
 
