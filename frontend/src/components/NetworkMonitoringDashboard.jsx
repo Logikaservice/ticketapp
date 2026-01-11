@@ -24,7 +24,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [showCreateAgentModal, setShowCreateAgentModal] = useState(false);
   const [agents, setAgents] = useState([]);
   const [showAgentsList, setShowAgentsList] = useState(false);
-  const [showCompaniesList, setShowCompaniesList] = useState(false);
   const [companies, setCompanies] = useState([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [companyDevices, setCompanyDevices] = useState([]);
@@ -542,79 +541,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         </div>
       </div>
 
-      {/* Pulsante Lista Aziende */}
-      {!showCompaniesList && !selectedCompanyId && (
-        <div className="mb-6">
-          <button
-            onClick={() => setShowCompaniesList(true)}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
-          >
-            <Building size={18} />
-            Lista Aziende
-          </button>
-        </div>
-      )}
-
-      {/* Vista Lista Aziende */}
-      {showCompaniesList && !selectedCompanyId && (
-        <div className="mb-6 bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <Building size={24} className="text-purple-600" />
-              Aziende Monitorate
-            </h2>
-            <button
-              onClick={() => setShowCompaniesList(false)}
-              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          <div className="space-y-3">
-            {companies.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">Nessuna azienda monitorata</p>
-            ) : (
-              companies.map((company) => {
-                // Conta dispositivi online/offline per questa azienda dai dispositivi caricati
-                const companyDevicesCount = devices.filter(d => d.azienda === company.azienda);
-                const onlineCount = companyDevicesCount.filter(d => d.status === 'online').length;
-                const offlineCount = companyDevicesCount.filter(d => d.status === 'offline').length;
-                
-                return (
-                  <div
-                    key={company.id}
-                    onClick={() => {
-                      setSelectedCompanyId(company.id);
-                      loadCompanyDevices(company.id);
-                    }}
-                    className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">{company.azienda}</h3>
-                        <div className="mt-2 flex items-center gap-4 text-sm text-gray-600">
-                          <span className="flex items-center gap-1">
-                            <CheckCircle size={14} className="text-green-600" />
-                            Online: {onlineCount}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <WifiOff size={14} className="text-red-600" />
-                            Offline: {offlineCount}
-                          </span>
-                          <span>Totale: {onlineCount + offlineCount}</span>
-                        </div>
-                      </div>
-                      <ChevronRight size={20} className="text-gray-400" />
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Vista Dettaglio Dispositivi Azienda */}
+      {/* Vista Dettaglio Dispositivi Azienda (mostrata solo se un'azienda è selezionata) */}
       {selectedCompanyId && (
         <div className="mb-6 bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-4">
