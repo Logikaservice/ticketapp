@@ -471,196 +471,71 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         </div>
       )}
 
-      {/* Statistiche */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600 mb-1">Totale Dispositivi</div>
-          <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
-            <CheckCircle size={16} className="text-green-600" />
-            Online
+      {/* Statistica principale: Cambiamenti */}
+      <div className="mb-6">
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <Activity size={24} className="text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Cambiamenti Recenti (24h)</h2>
+                <p className="text-sm text-gray-500">Monitoraggio attività di rete</p>
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-blue-600">{stats.recentChanges}</div>
           </div>
-          <div className="text-3xl font-bold text-green-600">{stats.online}</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
-            <WifiOff size={16} className="text-red-600" />
-            Offline
-          </div>
-          <div className="text-3xl font-bold text-red-600">{stats.offline}</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
-            <Activity size={16} className="text-blue-600" />
-            Cambiamenti (24h)
-          </div>
-          <div className="text-3xl font-bold text-blue-600">{stats.recentChanges}</div>
         </div>
       </div>
 
-      {/* Filtri e ricerca */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Cerca per IP, MAC, hostname, vendor, azienda..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">Tutti gli stati</option>
-            <option value="online">Solo online</option>
-            <option value="offline">Solo offline</option>
-          </select>
-
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="last_seen">Ultimo visto</option>
-            <option value="ip_address">Indirizzo IP</option>
-            <option value="hostname">Hostname</option>
-          </select>
-
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800"
-            >
-              <X size={20} />
-            </button>
-          )}
+      {/* Sezione cambiamenti recenti - PRIORITARIA */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-gray-900">Cambiamenti Rilevati</h2>
+          <span className="text-sm text-gray-500">{changes.length} totali</span>
         </div>
-      </div>
-
-      {/* Tabella dispositivi */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Dispositivo
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  IP / MAC
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Azienda / Agent
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ultimo visto
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredDevices.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
-                    Nessun dispositivo trovato
-                  </td>
-                </tr>
-              ) : (
-                filteredDevices.map((device) => (
-                  <tr key={device.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <div className="text-gray-400">
-                          {getDeviceIcon(device.device_type)}
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {device.hostname || 'Sconosciuto'}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {device.vendor || 'Vendor sconosciuto'}
-                            {device.device_type && ` • ${device.device_type}`}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 font-mono">{device.ip_address}</div>
-                      {device.mac_address && (
-                        <div className="text-xs text-gray-500 font-mono">{device.mac_address}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{device.azienda || 'N/A'}</div>
-                      <div className="text-xs text-gray-500">{device.agent_name || 'Agent'}</div>
-                      {device.agent_status && (
-                        <div className="text-xs">
-                          <span className={`inline-block w-2 h-2 rounded-full mr-1 ${
-                            device.agent_status === 'online' ? 'bg-green-500' : 'bg-red-500'
-                          }`}></span>
-                          {device.agent_status}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <StatusBadge status={device.status} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(device.last_seen)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Sezione cambiamenti recenti */}
-      {changes.length > 0 && (
-        <div className="mt-6 bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Cambiamenti Recenti</h2>
-          </div>
-          <div className="p-6">
+        <div className="p-6">
+          {changes.length === 0 ? (
+            <div className="text-center py-12">
+              <Activity className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg">Nessun cambiamento rilevato</p>
+              <p className="text-gray-400 text-sm mt-2">I cambiamenti di rete verranno visualizzati qui</p>
+            </div>
+          ) : (
             <div className="space-y-3">
-              {changes.slice(0, 20).map((change) => (
-                <div key={change.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
+              {changes.slice(0, 50).map((change) => (
+                <div key={change.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                  <div className="flex items-center gap-4 flex-1">
                     <ChangeTypeBadge changeType={change.change_type} />
-                    <div>
+                    <div className="flex-1">
                       <div className="text-sm font-medium text-gray-900">
                         {change.ip_address} {change.hostname && `(${change.hostname})`}
                       </div>
-                      <div className="text-xs text-gray-500">
-                        {change.agent_name} • {change.azienda || 'N/A'}
+                      <div className="text-xs text-gray-500 mt-1">
+                        <span className="font-medium">{change.azienda || 'N/A'}</span> • {change.agent_name || 'Agent'}
                       </div>
                       {change.old_value && change.new_value && (
-                        <div className="text-xs text-gray-400 mt-1">
+                        <div className="text-xs text-gray-400 mt-1 font-mono">
                           {change.old_value} → {change.new_value}
                         </div>
                       )}
                     </div>
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-gray-500 whitespace-nowrap ml-4">
                     {formatDate(change.detected_at)}
                   </div>
                 </div>
               ))}
+              {changes.length > 50 && (
+                <div className="text-center py-4 text-sm text-gray-500">
+                  Mostrati i primi 50 cambiamenti di {changes.length} totali
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Modal creazione agent - NON aggiornare dati durante creazione */}
       {showCreateAgentModal && (
