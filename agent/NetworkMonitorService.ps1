@@ -1,44 +1,52 @@
 # NetworkMonitorService.ps1
 # Servizio Windows permanente per Network Monitor Agent
 # Rimane sempre attivo e esegue scansioni periodicamente
+# Gestisce tutto internamente senza dipendere da Scheduled Task
 
 param(
     [string]$ConfigPath = "config.json",
     [switch]$ServiceMode = $false  # Modalità servizio (senza GUI)
 )
 
-# Aggiungi Windows Forms per la tray icon
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
+# Aggiungi Windows Forms per la tray icon (solo se non in modalità servizio)
+if (-not $ServiceMode) {
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+}
 
 # Variabili globali
 $script:isRunning = $true
 $script:trayIcon = $null
 $script:lastScanTime = $null
 $script:lastScanDevices = 0
+$script:scanIntervalMinutes = 15
 $script:statusFile = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) ".agent_status.json"
+$script:lastScanPath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "last_scan.json"
 
-# Funzioni helper (importate da NetworkMonitor.ps1 o duplicate qui)
+# ============================================
+# FUNZIONI HELPER
+# ============================================
+
 function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logMessage = "[$timestamp] [$Level] $Message"
     
+    $logPath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "NetworkMonitorService.log"
+    
     if ($ServiceMode) {
         # In modalità servizio, salva solo su file
-        $logPath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "NetworkMonitorService.log"
         $logMessage | Out-File -FilePath $logPath -Append -Encoding UTF8
     } else {
+        # In modalità app, mostra anche a console
         Write-Host $logMessage
-        # Salva anche su file
-        $logPath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "NetworkMonitorService.log"
         $logMessage | Out-File -FilePath $logPath -Append -Encoding UTF8
     }
 }
 
 function Update-StatusFile {
     param(
-        [string]$Status,  # "running", "stopping", "error"
+        [string]$Status,  # "running", "stopping", "error", "scanning"
         [int]$DevicesFound = 0,
         [datetime]$LastScan = $null,
         [string]$Message = ""
@@ -50,6 +58,7 @@ function Update-StatusFile {
         last_scan = if ($LastScan) { $LastScan.ToString("yyyy-MM-dd HH:mm:ss") } else { $null }
         message = $Message
         updated_at = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+        scan_interval_minutes = $script:scanIntervalMinutes
     } | ConvertTo-Json
     
     try {
@@ -59,56 +68,350 @@ function Update-StatusFile {
     }
 }
 
-# Importa funzioni da NetworkMonitor.ps1
-$networkMonitorPath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "NetworkMonitor.ps1"
-if (Test-Path $networkMonitorPath) {
-    # Esegui in uno scope separato per ottenere le funzioni
-    . $networkMonitorPath -ConfigPath $ConfigPath -ServiceMode:$true 2>$null
+# ============================================
+# FUNZIONI NETWORK SCAN (da NetworkMonitor.ps1)
+# ============================================
+
+function Get-NetworkDevices {
+    param([string[]]$NetworkRanges)
     
-    # Le funzioni vengono esportate automaticamente, ma per sicurezza le definiamo direttamente
-    # In realtà, meglio duplicare le funzioni necessarie qui o usarle come script module
+    $devices = @()
+    
+    # Ottieni IP locale del PC dove gira l'agent
+    $localIP = $null
+    try {
+        $networkAdapters = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { 
+            $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" 
+        }
+        if ($networkAdapters) {
+            $localIP = $networkAdapters[0].IPAddress
+            Write-Log "IP locale rilevato: $localIP" "DEBUG"
+        }
+    } catch {
+        Write-Log "Impossibile ottenere IP locale: $_" "WARN"
+    }
+    
+    foreach ($range in $NetworkRanges) {
+        Write-Log "Scansione range: $range"
+        
+        # Estrai subnet e calcola range IP
+        if ($range -match '^(\d+\.\d+\.\d+)\.(\d+)/(\d+)$') {
+            $baseIP = $matches[1]
+            $subnetMask = [int]$matches[3]
+            
+            # Calcola numero di host nella subnet
+            $hostBits = 32 - $subnetMask
+            $numHosts = [Math]::Pow(2, $hostBits) - 2  # -2 per network e broadcast
+            
+            # Per ora limitiamo a /24 (max 254 host) per performance
+            if ($subnetMask -ge 24) {
+                $startIP = if ($range -match '\.(\d+)/') { [int]$matches[1] } else { 1 }
+                $endIP = if ($subnetMask -eq 24) { 254 } else { $numHosts }
+                
+                # Aggiungi sempre l'IP locale se è nel range configurato
+                $localIPInRange = $false
+                if ($localIP -and $localIP -like "$baseIP.*") {
+                    $localIPInRange = $true
+                    $localIPOctet = [int]($localIP -split '\.')[3]
+                    Write-Log "IP locale ($localIP) è nel range configurato" "DEBUG"
+                }
+                
+                # Scansiona IP range (aumentato a 254 per includere tutti gli IP in una /24)
+                $maxIP = [Math]::Min(254, $endIP)
+                for ($i = 1; $i -le $maxIP; $i++) {
+                    $ip = "$baseIP.$i"
+                    
+                    # Se è l'IP locale, aggiungilo sempre (anche se il ping fallisce)
+                    if ($localIPInRange -and $i -eq $localIPOctet) {
+                        Write-Log "Aggiungendo IP locale: $ip" "DEBUG"
+                        
+                        # Ottieni MAC address locale
+                        $macAddress = $null
+                        try {
+                            $adapter = Get-NetAdapter | Where-Object { $_.Status -eq "Up" } | Select-Object -First 1
+                            if ($adapter) {
+                                $macAddress = ($adapter.MacAddress -replace '-', '-')  # Mantieni formato originale
+                            }
+                        } catch {
+                            # Ignora errori
+                        }
+                        
+                        # Ottieni hostname locale
+                        $hostname = $env:COMPUTERNAME
+                        
+                        $device = @{
+                            ip_address = $ip
+                            mac_address = $macAddress
+                            hostname = $hostname
+                            vendor = $null
+                            status = "online"
+                        }
+                        
+                        $devices += $device
+                        continue  # Skip ping per IP locale
+                    }
+                    
+                    # Ping test
+                    $pingResult = Test-Connection -ComputerName $ip -Count 1 -Quiet -ErrorAction SilentlyContinue
+                    
+                    if ($pingResult) {
+                        Write-Log "Dispositivo rilevato: $ip" "DEBUG"
+                        
+                        # Ottieni MAC address dalla tabella ARP
+                        $macAddress = $null
+                        try {
+                            # Metodo 1: Get-NetNeighbor (Windows 8+)
+                            $arpEntry = Get-NetNeighbor -IPAddress $ip -ErrorAction SilentlyContinue
+                            if ($arpEntry) {
+                                $macAddress = $arpEntry.LinkLayerAddress
+                            }
+                        } catch {
+                            # Metodo 2: arp.exe (compatibilità)
+                            try {
+                                $arpOutput = arp -a $ip 2>$null
+                                if ($arpOutput -match '([0-9A-F]{2}[:-]){5}([0-9A-F]{2})') {
+                                    $macAddress = $matches[0]
+                                }
+                            } catch {
+                                # Ignora se anche questo fallisce
+                            }
+                        }
+                        
+                        # Prova risoluzione hostname
+                        $hostname = $null
+                        try {
+                            $dnsResult = Resolve-DnsName -Name $ip -ErrorAction SilentlyContinue
+                            if ($dnsResult) {
+                                $hostname = $dnsResult.NameHost
+                            }
+                        } catch {
+                            # Se DNS fallisce, prova WMI (solo per Windows devices)
+                            try {
+                                $wmiResult = Get-WmiObject -Class Win32_ComputerSystem -ComputerName $ip -ErrorAction SilentlyContinue
+                                if ($wmiResult) {
+                                    $hostname = $wmiResult.Name
+                                }
+                            } catch {
+                                # Ignora errori
+                            }
+                        }
+                        
+                        # Vendor lookup da MAC (se disponibile)
+                        $vendor = $null
+                        if ($macAddress -and $macAddress -match '^([0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2})') {
+                            $oui = $matches[1] -replace '[:-]', ''
+                            # TODO: Implementa lookup vendor (API o database locale)
+                            # Per ora lasciamo null
+                        }
+                        
+                        $device = @{
+                            ip_address = $ip
+                            mac_address = $macAddress
+                            hostname = $hostname
+                            vendor = $vendor
+                            status = "online"
+                        }
+                        
+                        $devices += $device
+                    }
+                    
+                    # Piccola pausa per non sovraccaricare la rete
+                    Start-Sleep -Milliseconds 50
+                }
+            } else {
+                Write-Log "Subnet mask troppo grande per scansione completa: $range" "WARN"
+            }
+        } else {
+            Write-Log "Formato range IP non supportato: $range (atteso: x.x.x.x/24)" "WARN"
+        }
+    }
+    
+    return $devices
 }
 
-# Carica funzioni necessarie da NetworkMonitor.ps1 usando dot sourcing
-# Per ora, le richiamiamo direttamente dallo script originale
-
-function Start-ScanCycle {
+function Send-ScanResults {
     param(
-        [hashtable]$Config
+        [array]$Devices,
+        [string]$ServerUrl,
+        [string]$ApiKey
     )
     
-    Write-Log "=== Avvio ciclo scansione ==="
-    Update-StatusFile -Status "running" -Message "Scansione in corso..."
-    
     try {
-        # Esegui lo script NetworkMonitor.ps1 in modalità servizio
-        $networkMonitorScript = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "NetworkMonitor.ps1"
-        
-        if (-not (Test-Path $networkMonitorScript)) {
-            Write-Log "ERRORE: NetworkMonitor.ps1 non trovato!" "ERROR"
-            Update-StatusFile -Status "error" -Message "NetworkMonitor.ps1 non trovato"
-            return $false
+        # Carica ultimo scan per confronto (se esiste)
+        $lastScan = $null
+        if (Test-Path $script:lastScanPath) {
+            try {
+                $lastScanJson = Get-Content $script:lastScanPath -Raw | ConvertFrom-Json
+                $lastScan = $lastScanJson.devices
+            } catch {
+                Write-Log "Errore lettura last_scan.json: $_" "WARN"
+            }
         }
         
-        # Chiama la funzione di scansione direttamente
-        # Per ora, eseguiamo lo script completo ma in modalità "servizio" (silenzioso)
-        $scanResult = & powershell.exe -ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File $networkMonitorScript -ConfigPath $ConfigPath
+        # Rileva cambiamenti
+        $changes = @()
+        if ($lastScan) {
+            # Nuovi dispositivi
+            foreach ($device in $Devices) {
+                $exists = $lastScan | Where-Object { $_.ip_address -eq $device.ip_address }
+                if (-not $exists) {
+                    $changes += @{
+                        device_ip = $device.ip_address
+                        change_type = "new_device"
+                        old_value = $null
+                        new_value = $device.ip_address
+                    }
+                }
+            }
+            
+            # Dispositivi offline (non più nella scansione)
+            foreach ($oldDevice in $lastScan) {
+                $exists = $Devices | Where-Object { $_.ip_address -eq $oldDevice.ip_address }
+                if (-not $exists) {
+                    $changes += @{
+                        device_ip = $oldDevice.ip_address
+                        change_type = "device_offline"
+                        old_value = $oldDevice.ip_address
+                        new_value = $null
+                    }
+                }
+            }
+        } else {
+            # Primo scan: tutti i dispositivi sono nuovi
+            foreach ($device in $Devices) {
+                $changes += @{
+                    device_ip = $device.ip_address
+                    change_type = "new_device"
+                    old_value = $null
+                    new_value = $device.ip_address
+                }
+            }
+        }
         
-        # Aggiorna status
-        $script:lastScanTime = Get-Date
-        $script:lastScanDevices = 0  # Non abbiamo il conteggio diretto, ma possiamo leggerlo dai log
+        # Prepara payload
+        $payload = @{
+            devices = $Devices
+            changes = $changes
+        } | ConvertTo-Json -Depth 10
         
-        Update-StatusFile -Status "running" -Message "Ultima scansione completata" -LastScan $script:lastScanTime
+        # Invio dati al server
+        $headers = @{
+            "Content-Type" = "application/json"
+            "X-API-Key" = $ApiKey
+        }
         
-        Write-Log "Ciclo scansione completato"
-        return $true
+        $url = "$ServerUrl/api/network-monitoring/agent/scan-results"
+        Write-Log "Invio dati a: $url"
         
+        $response = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $payload -ErrorAction Stop
+        
+        Write-Log "Dati inviati con successo: $($response.devices_processed) dispositivi, $($response.changes_processed) cambiamenti"
+        
+        # Salva scan corrente come last_scan.json
+        $scanData = @{
+            timestamp = (Get-Date -Format "o")
+            devices = $Devices
+        } | ConvertTo-Json -Depth 10
+        
+        $scanData | Out-File -FilePath $script:lastScanPath -Encoding UTF8
+        
+        return $response
     } catch {
-        Write-Log "Errore durante scansione: $_" "ERROR"
-        Update-StatusFile -Status "error" -Message "Errore: $_"
-        return $false
+        Write-Log "Errore invio dati: $_" "ERROR"
+        Write-Log "Stack trace: $($_.Exception.StackTrace)" "ERROR"
+        throw
     }
 }
+
+function Get-ServerConfig {
+    param(
+        [string]$ServerUrl,
+        [string]$ApiKey
+    )
+    
+    try {
+        $headers = @{
+            "X-API-Key" = $ApiKey
+        }
+        
+        $url = "$ServerUrl/api/network-monitoring/agent/config?api_key=$ApiKey"
+        $response = Invoke-RestMethod -Uri $url -Method GET -Headers $headers -ErrorAction Stop
+        
+        return @{
+            success = $true
+            config = $response
+        }
+    } catch {
+        Write-Log "Errore recupero configurazione server: $_" "WARN"
+        return @{ success = $false; error = $_.Exception.Message }
+    }
+}
+
+function Send-Heartbeat {
+    param(
+        [string]$ServerUrl,
+        [string]$ApiKey,
+        [string]$Version = "1.0.0"
+    )
+    
+    try {
+        $headers = @{
+            "Content-Type" = "application/json"
+            "X-API-Key" = $ApiKey
+        }
+        
+        $payload = @{
+            version = $Version
+        } | ConvertTo-Json
+        
+        $url = "$ServerUrl/api/network-monitoring/agent/heartbeat"
+        $response = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $payload -ErrorAction Stop
+        
+        # Verifica se il server ha richiesto la disinstallazione
+        if ($response.uninstall -eq $true) {
+            Write-Log "Server ha richiesto disinstallazione: $($response.message)" "WARN"
+            return @{ success = $false; uninstall = $true; message = $response.message }
+        }
+        
+        Write-Log "Heartbeat inviato con successo" "DEBUG"
+        
+        # Recupera configurazione dal server per verificare se scan_interval_minutes è cambiato
+        try {
+            $serverConfigResult = Get-ServerConfig -ServerUrl $ServerUrl -ApiKey $ApiKey
+            if ($serverConfigResult.success -and $serverConfigResult.config.scan_interval_minutes) {
+                $serverInterval = $serverConfigResult.config.scan_interval_minutes
+                
+                # Se l'intervallo è diverso, aggiornalo solo in memoria (il servizio lo usa direttamente)
+                if ($serverInterval -ne $script:scanIntervalMinutes) {
+                    Write-Log "Rilevato cambio intervallo scansione: $($script:scanIntervalMinutes) -> $serverInterval minuti" "INFO"
+                    $script:scanIntervalMinutes = $serverInterval
+                    
+                    # Aggiorna config.json locale per persistenza
+                    $configPath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "config.json"
+                    if (Test-Path $configPath) {
+                        $localConfig = Get-Content $configPath -Raw | ConvertFrom-Json
+                        $localConfig.scan_interval_minutes = $serverInterval
+                        $localConfig | ConvertTo-Json -Depth 10 | Out-File -FilePath $configPath -Encoding UTF8 -Force
+                        Write-Log "Config.json locale aggiornato con nuovo intervallo ($serverInterval minuti)" "INFO"
+                        Write-Log "Il nuovo intervallo sarà applicato dalla prossima scansione" "INFO"
+                    }
+                }
+            }
+        } catch {
+            Write-Log "Errore verifica configurazione server: $_" "DEBUG"
+            # Non bloccare l'esecuzione se il controllo configurazione fallisce
+        }
+        
+        return @{ success = $true; uninstall = $false; config = $serverConfigResult.config }
+    } catch {
+        Write-Log "Errore heartbeat: $_" "WARN"
+        return @{ success = $false; uninstall = $false; error = $_.Exception.Message }
+    }
+}
+
+# ============================================
+# FUNZIONI TRAY ICON (solo se non in modalità servizio)
+# ============================================
 
 function Show-TrayIcon {
     # Crea icona nella system tray
@@ -172,13 +475,15 @@ function Show-TrayIcon {
             Status = "In esecuzione"
             LastScan = if ($script:lastScanTime) { $script:lastScanTime.ToString("HH:mm:ss") } else { "Mai" }
             DevicesFound = $script:lastScanDevices
+            Interval = "$script:scanIntervalMinutes minuti"
         }
         
         [System.Windows.Forms.MessageBox]::Show(
             "Network Monitor Agent`n`n" +
             "Stato: $($statusInfo.Status)`n" +
             "Ultima scansione: $($statusInfo.LastScan)`n" +
-            "Dispositivi trovati: $($statusInfo.DevicesFound)",
+            "Dispositivi trovati: $($statusInfo.DevicesFound)`n" +
+            "Intervallo scansione: $($statusInfo.Interval)",
             "Network Monitor Agent",
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Information
@@ -195,6 +500,7 @@ function Show-TrayIcon {
             } else {
                 $statusText += "Ultima scansione: Mai`n"
             }
+            $statusText += "Intervallo: $script:scanIntervalMinutes minuti`n"
             $statusText += "Stato: In esecuzione"
             $script:trayIcon.Text = $statusText
         }
@@ -241,7 +547,9 @@ function Update-TrayIconStatus {
     $script:trayIcon.Text = $tooltipText
 }
 
-# === MAIN ===
+# ============================================
+# MAIN
+# ============================================
 
 Write-Log "=== Network Monitor Service Avviato ==="
 Write-Log "Modalità: $(if ($ServiceMode) { 'Servizio' } else { 'Applicazione con Tray Icon' })"
@@ -280,12 +588,13 @@ if (-not $config.server_url -or -not $config.api_key -or -not $config.network_ra
     exit 1
 }
 
-$scanIntervalMinutes = $config.scan_interval_minutes
-if (-not $scanIntervalMinutes) { $scanIntervalMinutes = 15 }
+# Inizializza intervallo scansione
+$script:scanIntervalMinutes = $config.scan_interval_minutes
+if (-not $script:scanIntervalMinutes) { $script:scanIntervalMinutes = 15 }
 
 Write-Log "Server URL: $($config.server_url)"
 Write-Log "Network ranges: $($config.network_ranges -join ', ')"
-Write-Log "Scan interval: $scanIntervalMinutes minuti"
+Write-Log "Scan interval: $script:scanIntervalMinutes minuti"
 
 # Inizializza status
 Update-StatusFile -Status "running" -Message "Servizio avviato"
@@ -300,6 +609,7 @@ if (-not $ServiceMode) {
 # Loop principale
 Write-Log "Avvio loop principale..."
 $nextScanTime = Get-Date
+$nextHeartbeatTime = Get-Date  # Heartbeat ogni 5 minuti
 
 while ($script:isRunning) {
     try {
@@ -308,37 +618,72 @@ while ($script:isRunning) {
             [System.Windows.Forms.Application]::DoEvents()
         }
         
-        # Controlla se è il momento di eseguire una scansione
         $now = Get-Date
+        
+        # Heartbeat periodico (ogni 5 minuti) per verificare configurazione server
+        if ($now -ge $nextHeartbeatTime) {
+            Write-Log "Invio heartbeat..."
+            try {
+                $heartbeatResult = Send-Heartbeat -ServerUrl $config.server_url -ApiKey $config.api_key -Version ($config.version || "1.0.0")
+                
+                # Verifica se il server ha richiesto la disinstallazione
+                if ($heartbeatResult.uninstall -eq $true) {
+                    Write-Log "Server ha richiesto disinstallazione: $($heartbeatResult.message)" "WARN"
+                    Update-StatusFile -Status "stopping" -Message "Disinstallazione richiesta dal server"
+                    
+                    # Esci dal loop
+                    $script:isRunning = $false
+                    break
+                }
+                
+                # L'intervallo viene aggiornato automaticamente da Send-Heartbeat se diverso
+                Write-Log "Heartbeat completato"
+            } catch {
+                Write-Log "Errore heartbeat: $_" "WARN"
+            }
+            
+            # Prossimo heartbeat tra 5 minuti
+            $nextHeartbeatTime = $now.AddMinutes(5)
+        }
+        
+        # Controlla se è il momento di eseguire una scansione
         if ($now -ge $nextScanTime) {
             Write-Log "Esecuzione scansione programmata..."
             Update-TrayIconStatus -Status "scanning"
+            Update-StatusFile -Status "scanning" -Message "Scansione in corso..."
             
-            # Importa e chiama le funzioni da NetworkMonitor.ps1
-            # Per semplicità, eseguiamo direttamente lo script
-            $networkMonitorScript = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "NetworkMonitor.ps1"
-            
-            if (Test-Path $networkMonitorScript) {
-                try {
-                    # Esegui lo script originale
-                    & powershell.exe -ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File $networkMonitorScript -ConfigPath $ConfigPath 2>&1 | Out-Null
-                    $script:lastScanTime = Get-Date
-                    Update-TrayIconStatus -Status "running"
-                    Update-StatusFile -Status "running" -Message "Scansione completata" -LastScan $script:lastScanTime
-                    Write-Log "Scansione completata con successo"
-                } catch {
-                    Write-Log "Errore esecuzione scansione: $_" "ERROR"
-                    Update-TrayIconStatus -Status "error"
-                    Update-StatusFile -Status "error" -Message "Errore: $_"
+            try {
+                # 1. Scan rete
+                Write-Log "Avvio scansione rete..."
+                $devices = Get-NetworkDevices -NetworkRanges $config.network_ranges
+                Write-Log "Trovati $($devices.Count) dispositivi"
+                $script:lastScanDevices = $devices.Count
+                
+                # 2. Invio dati se ci sono dispositivi
+                if ($devices.Count -gt 0) {
+                    Write-Log "Invio dati al server..."
+                    $result = Send-ScanResults -Devices $devices -ServerUrl $config.server_url -ApiKey $config.api_key
+                    Write-Log "Dati inviati con successo!"
+                } else {
+                    Write-Log "Nessun dispositivo trovato, skip invio"
                 }
-            } else {
-                Write-Log "ERRORE: NetworkMonitor.ps1 non trovato!" "ERROR"
-                Update-StatusFile -Status "error" -Message "NetworkMonitor.ps1 non trovato"
+                
+                # 3. Aggiorna stato
+                $script:lastScanTime = Get-Date
+                Update-TrayIconStatus -Status "running"
+                Update-StatusFile -Status "running" -Message "Ultima scansione completata" -LastScan $script:lastScanTime -DevicesFound $script:lastScanDevices
+                Write-Log "Scansione completata con successo"
+                
+            } catch {
+                Write-Log "Errore durante scansione: $_" "ERROR"
+                Write-Log "Stack trace: $($_.Exception.StackTrace)" "ERROR"
+                Update-TrayIconStatus -Status "error"
+                Update-StatusFile -Status "error" -Message "Errore: $_"
             }
             
-            # Calcola prossima scansione
-            $nextScanTime = $now.AddMinutes($scanIntervalMinutes)
-            Write-Log "Prossima scansione: $($nextScanTime.ToString('HH:mm:ss'))"
+            # Calcola prossima scansione usando l'intervallo corrente (che potrebbe essere cambiato dal server)
+            $nextScanTime = $now.AddMinutes($script:scanIntervalMinutes)
+            Write-Log "Prossima scansione: $($nextScanTime.ToString('HH:mm:ss')) (intervallo: $script:scanIntervalMinutes minuti)"
         }
         
         # Dormi per 30 secondi prima di controllare di nuovo
