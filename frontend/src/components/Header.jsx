@@ -1,7 +1,7 @@
 // src/components/Header.jsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table, Wifi } from 'lucide-react';
+import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table, Wifi, Server as ServerIcon } from 'lucide-react';
 
 const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, openNetworkMonitoring, openNetworkMonitoringAgents, openNetworkMonitoringCreateAgent, isOrariDomain = false }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
