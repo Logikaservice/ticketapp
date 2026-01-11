@@ -152,7 +152,8 @@ module.exports = (pool, io) => {
         'CREATE INDEX IF NOT EXISTS idx_network_changes_notified ON network_changes(notified);',
         'CREATE INDEX IF NOT EXISTS idx_network_changes_change_type ON network_changes(change_type);',
         'CREATE INDEX IF NOT EXISTS idx_network_notification_config_agent ON network_notification_config(agent_id);',
-        'CREATE INDEX IF NOT EXISTS idx_network_notification_config_ip ON network_notification_config(ip_address);'
+        'CREATE INDEX IF NOT EXISTS idx_network_notification_config_ip ON network_notification_config(ip_address);',
+        'CREATE INDEX IF NOT EXISTS idx_network_device_types_name ON network_device_types(name);'
       ];
 
       for (const indexSql of indexes) {
