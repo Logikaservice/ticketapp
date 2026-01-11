@@ -27,16 +27,11 @@ if ($MyInvocation.MyCommand.Path) {
 }
 
 $script:isRunning = $true
-$script:trayIcon = $null
 $script:lastScanTime = $null
 $script:lastScanDevices = 0
 $script:scanIntervalMinutes = 15
 $script:statusFile = Join-Path $script:scriptDir ".agent_status.json"
 $script:lastScanPath = Join-Path $script:scriptDir "last_scan.json"
-$script:statusWindow = $null
-$script:statusWindowListBox = $null
-$script:currentScanIPs = @()
-$script:configIPs = @()
 
 # ============================================
 # FUNZIONI HELPER
@@ -738,9 +733,6 @@ if (-not (Test-Path $ConfigPath)) {
     $errorMsg = "File config.json non trovato! Crea un file config.json con le impostazioni."
     Write-Log $errorMsg "ERROR"
     Update-StatusFile -Status "error" -Message $errorMsg
-    if (-not $ServiceMode) {
-        [System.Windows.Forms.MessageBox]::Show($errorMsg, "Network Monitor Service", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
     exit 1
 }
 
@@ -750,9 +742,6 @@ try {
     $errorMsg = "Errore lettura config.json: $_"
     Write-Log $errorMsg "ERROR"
     Update-StatusFile -Status "error" -Message $errorMsg
-    if (-not $ServiceMode) {
-        [System.Windows.Forms.MessageBox]::Show($errorMsg, "Network Monitor Service", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
     exit 1
 }
 
@@ -761,9 +750,6 @@ if (-not $config.server_url -or -not $config.api_key -or -not $config.network_ra
     $errorMsg = "Configurazione incompleta! Richiesti: server_url, api_key, network_ranges"
     Write-Log $errorMsg "ERROR"
     Update-StatusFile -Status "error" -Message $errorMsg
-    if (-not $ServiceMode) {
-        [System.Windows.Forms.MessageBox]::Show($errorMsg, "Network Monitor Service", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-    }
     exit 1
 }
 
