@@ -21,6 +21,20 @@ function Get-NetworkDevices {
     
     $devices = @()
     
+    # Ottieni IP locale del PC dove gira l'agent
+    $localIP = $null
+    try {
+        $networkAdapters = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { 
+            $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" 
+        }
+        if ($networkAdapters) {
+            $localIP = $networkAdapters[0].IPAddress
+            Write-Log "IP locale rilevato: $localIP" "DEBUG"
+        }
+    } catch {
+        Write-Log "Impossibile ottenere IP locale: $_" "WARN"
+    }
+    
     foreach ($range in $NetworkRanges) {
         Write-Log "Scansione range: $range"
         
@@ -38,9 +52,48 @@ function Get-NetworkDevices {
                 $startIP = if ($range -match '\.(\d+)/') { [int]$matches[1] } else { 1 }
                 $endIP = if ($subnetMask -eq 24) { 254 } else { $numHosts }
                 
-                # Scansiona IP range (limitato per ora a prima subnet)
-                for ($i = 1; $i -le [Math]::Min(50, $endIP); $i++) {  # Limita a 50 per test
+                # Aggiungi sempre l'IP locale se è nel range configurato
+                $localIPInRange = $false
+                if ($localIP -and $localIP -like "$baseIP.*") {
+                    $localIPInRange = $true
+                    $localIPOctet = [int]($localIP -split '\.')[3]
+                    Write-Log "IP locale ($localIP) è nel range configurato" "DEBUG"
+                }
+                
+                # Scansiona IP range (aumentato a 254 per includere tutti gli IP in una /24)
+                $maxIP = [Math]::Min(254, $endIP)
+                for ($i = 1; $i -le $maxIP; $i++) {
                     $ip = "$baseIP.$i"
+                    
+                    # Se è l'IP locale, aggiungilo sempre (anche se il ping fallisce)
+                    if ($localIPInRange -and $i -eq $localIPOctet) {
+                        Write-Log "Aggiungendo IP locale: $ip" "DEBUG"
+                        
+                        # Ottieni MAC address locale
+                        $macAddress = $null
+                        try {
+                            $adapter = Get-NetAdapter | Where-Object { $_.Status -eq "Up" } | Select-Object -First 1
+                            if ($adapter) {
+                                $macAddress = ($adapter.MacAddress -replace '-', '-')  # Mantieni formato originale
+                            }
+                        } catch {
+                            # Ignora errori
+                        }
+                        
+                        # Ottieni hostname locale
+                        $hostname = $env:COMPUTERNAME
+                        
+                        $device = @{
+                            ip_address = $ip
+                            mac_address = $macAddress
+                            hostname = $hostname
+                            vendor = $null
+                            status = "online"
+                        }
+                        
+                        $devices += $device
+                        continue  # Skip ping per IP locale
+                    }
                     
                     # Ping test
                     $pingResult = Test-Connection -ComputerName $ip -Count 1 -Quiet -ErrorAction SilentlyContinue
