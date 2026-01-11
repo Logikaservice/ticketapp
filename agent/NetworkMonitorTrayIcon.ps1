@@ -317,28 +317,75 @@ function Exit-Application {
 }
 
 # Main
-[System.Windows.Forms.Application]::EnableVisualStyles()
-
-# Carica configurazione
-if (-not (Load-Config)) {
-    [System.Windows.Forms.MessageBox]::Show(
-        "File config.json non trovato: $script:configPath`n`nL'icona della system tray non può essere mostrata.",
-        "Network Monitor Agent",
-        [System.Windows.Forms.MessageBoxButtons]::OK,
-        [System.Windows.Forms.MessageBoxIcon]::Warning
-    )
-    exit 1
-}
-
-# Mostra tray icon
-Show-TrayIcon
-
-# Usa Application.Run per gestire correttamente i messaggi Windows
-# Questo permette al menu contestuale e ai click di funzionare correttamente
 try {
+    [System.Windows.Forms.Application]::EnableVisualStyles()
+    
+    # Carica configurazione
+    if (-not (Load-Config)) {
+        # Se config non trovato, prova a loggare l'errore
+        $logPath = Join-Path (Split-Path -Parent $script:configPath) "NetworkMonitorTrayIcon.log"
+        try {
+            $errorMsg = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] ERRORE: config.json non trovato in: $script:configPath"
+            $errorMsg | Out-File -FilePath $logPath -Append -Encoding UTF8
+        } catch {
+            # Ignora errori di log
+        }
+        
+        # Mostra messaggio solo se non siamo in modalità nascosta
+        # (se WindowStyle è Hidden, MessageBox non viene mostrato)
+        try {
+            [System.Windows.Forms.MessageBox]::Show(
+                "File config.json non trovato: $script:configPath`n`nL'icona della system tray non può essere mostrata.`n`nControlla il log: $logPath",
+                "Network Monitor Agent",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+        } catch {
+            # Se MessageBox fallisce (modalità servizio), esci silenziosamente
+        }
+        exit 1
+    }
+    
+    # Mostra tray icon
+    Show-TrayIcon
+    
+    # Verifica che l'icona sia stata creata correttamente
+    if (-not $script:trayIcon -or -not $script:trayIcon.Visible) {
+        $logPath = Join-Path (Split-Path -Parent $script:configPath) "NetworkMonitorTrayIcon.log"
+        try {
+            $errorMsg = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] ERRORE: Impossibile creare tray icon"
+            $errorMsg | Out-File -FilePath $logPath -Append -Encoding UTF8
+        } catch {
+            # Ignora errori di log
+        }
+        exit 1
+    }
+    
+    # Usa Application.Run per gestire correttamente i messaggi Windows
+    # Questo permette al menu contestuale e ai click di funzionare correttamente
     [System.Windows.Forms.Application]::Run()
+    
 } catch {
-    # Gestisci eventuali errori
+    # Log errore critico
+    $logPath = Join-Path (Split-Path -Parent $script:configPath) "NetworkMonitorTrayIcon.log"
+    try {
+        $errorMsg = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] ERRORE CRITICO: $($_.Exception.Message)`nStack: $($_.Exception.StackTrace)"
+        $errorMsg | Out-File -FilePath $logPath -Append -Encoding UTF8
+    } catch {
+        # Ignora errori di log
+    }
+    
+    # Prova a mostrare errore (se possibile)
+    try {
+        [System.Windows.Forms.MessageBox]::Show(
+            "Errore critico nell'avvio della tray icon:`n$($_.Exception.Message)`n`nControlla il log: $logPath",
+            "Network Monitor Agent - Errore",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        )
+    } catch {
+        # Ignora se MessageBox non può essere mostrato
+    }
 } finally {
     # Cleanup sempre
     Exit-Application
