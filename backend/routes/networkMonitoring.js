@@ -42,10 +42,24 @@ module.exports = (pool, io) => {
           network_ranges TEXT[],
           scan_interval_minutes INTEGER DEFAULT 15,
           enabled BOOLEAN DEFAULT true,
+          deleted_at TIMESTAMP,
           created_at TIMESTAMP DEFAULT NOW(),
           updated_at TIMESTAMP DEFAULT NOW()
         );
       `);
+      
+      // Aggiungi colonna deleted_at se non esiste (migrazione)
+      try {
+        await pool.query(`
+          ALTER TABLE network_agents 
+          ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
+        `);
+      } catch (err) {
+        // Ignora errore se colonna esiste già
+        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna deleted_at:', err.message);
+        }
+      }
 
       // Crea tabella network_devices
       await pool.query(`
@@ -235,7 +249,7 @@ module.exports = (pool, io) => {
       await ensureTables();
       
       const result = await pool.query(
-        'SELECT id, azienda_id, agent_name, enabled FROM network_agents WHERE api_key = $1',
+        'SELECT id, azienda_id, agent_name, enabled, deleted_at FROM network_agents WHERE api_key = $1 AND deleted_at IS NULL',
         [apiKey]
       );
 
@@ -337,15 +351,16 @@ module.exports = (pool, io) => {
 
   // POST /api/network-monitoring/agent/heartbeat
   // Agent invia heartbeat per segnalare che è online
-  // Se l'agent è disabilitato, restituisce comando di disinstallazione
+  // Se l'agent è eliminato (deleted_at IS NOT NULL), restituisce comando di disinstallazione
+  // Se l'agent è solo disabilitato (enabled=false), rifiuta i dati ma non disinstalla
   router.post('/agent/heartbeat', authenticateAgent, async (req, res) => {
     try {
       const agentId = req.agent.id;
       const { version } = req.body;
 
-      // Verifica se l'agent è ancora abilitato
+      // Verifica se l'agent è eliminato o disabilitato
       const agentCheck = await pool.query(
-        'SELECT enabled FROM network_agents WHERE id = $1',
+        'SELECT enabled, deleted_at FROM network_agents WHERE id = $1',
         [agentId]
       );
 
@@ -359,18 +374,30 @@ module.exports = (pool, io) => {
       }
 
       const agentEnabled = agentCheck.rows[0].enabled;
+      const agentDeletedAt = agentCheck.rows[0].deleted_at;
 
-      if (!agentEnabled) {
-        // Agent disabilitato -> comando disinstallazione
-        console.log(`🔴 Agent ${agentId} disabilitato - comando disinstallazione`);
+      // Se l'agent è eliminato (soft delete) -> comando disinstallazione
+      if (agentDeletedAt) {
+        console.log(`🗑️ Agent ${agentId} eliminato - comando disinstallazione`);
         return res.json({ 
           success: false, 
           uninstall: true,
-          message: 'Agent disabilitato dal server'
+          message: 'Agent eliminato dal server'
         });
       }
 
-      // Agent abilitato -> aggiorna heartbeat normalmente
+      // Se l'agent è disabilitato ma non eliminato -> rifiuta heartbeat (non aggiorna, non disinstalla)
+      if (!agentEnabled) {
+        console.log(`🔴 Agent ${agentId} disabilitato - rifiuto heartbeat (non disinstallo)`);
+        return res.status(403).json({ 
+          success: false, 
+          uninstall: false,
+          error: 'Agent disabilitato',
+          message: 'L\'agent è disabilitato ma non disinstallato. I dati non verranno accettati.'
+        });
+      }
+
+      // Agent abilitato e non eliminato -> aggiorna heartbeat normalmente
       await pool.query(
         `UPDATE network_agents 
          SET last_heartbeat = NOW(), status = 'online', version = COALESCE($1, version)
@@ -639,7 +666,7 @@ module.exports = (pool, io) => {
           id, agent_name, status, last_heartbeat, version, 
           network_ranges, scan_interval_minutes, enabled, created_at
          FROM network_agents
-         WHERE azienda_id = $1
+         WHERE azienda_id = $1 AND deleted_at IS NULL
          ORDER BY created_at DESC`,
         [aziendaId]
       );
@@ -1000,7 +1027,7 @@ Oppure:
   });
 
   // PUT /api/network-monitoring/agent/:id/disable
-  // Disabilita un agent (soft delete - l'agent si disinstallerà automaticamente al prossimo heartbeat)
+  // Disabilita un agent (blocca ricezione dati, ma NON disinstalla l'agent dal client)
   router.put('/agent/:id/disable', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       const agentId = parseInt(req.params.id);
@@ -1014,25 +1041,57 @@ Oppure:
       const result = await pool.query(
         `UPDATE network_agents 
          SET enabled = false, status = 'offline', updated_at = NOW()
-         WHERE id = $1
+         WHERE id = $1 AND deleted_at IS NULL
          RETURNING id, agent_name, enabled`,
         [agentId]
       );
 
       if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Agent non trovato' });
+        return res.status(404).json({ error: 'Agent non trovato o già eliminato' });
       }
 
-      console.log(`🔴 Agent ${agentId} disabilitato`);
-      res.json({ success: true, agent: result.rows[0], message: 'Agent disabilitato. L\'agent si disinstallerà automaticamente al prossimo heartbeat.' });
+      console.log(`🔴 Agent ${agentId} disabilitato (ricezione dati bloccata, agent rimane installato)`);
+      res.json({ success: true, agent: result.rows[0], message: 'Agent disabilitato. I dati non verranno più accettati, ma l\'agent rimane installato sul client.' });
     } catch (err) {
       console.error('❌ Errore disabilitazione agent:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });
 
+  // PUT /api/network-monitoring/agent/:id/enable
+  // Riabilita un agent (riprende ricezione dati)
+  router.put('/agent/:id/enable', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
+      
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
+
+      await ensureTables();
+      
+      const result = await pool.query(
+        `UPDATE network_agents 
+         SET enabled = true, updated_at = NOW()
+         WHERE id = $1 AND deleted_at IS NULL
+         RETURNING id, agent_name, enabled`,
+        [agentId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato o eliminato' });
+      }
+
+      console.log(`✅ Agent ${agentId} riabilitato`);
+      res.json({ success: true, agent: result.rows[0], message: 'Agent riabilitato. I dati verranno nuovamente accettati.' });
+    } catch (err) {
+      console.error('❌ Errore riabilitazione agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // DELETE /api/network-monitoring/agent/:id
-  // Elimina un agent (hard delete - rimuove completamente dal database)
+  // Elimina un agent (soft delete - marca come eliminato, mantiene dati, invia comando disinstallazione)
   router.delete('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       const agentId = parseInt(req.params.id);
@@ -1043,9 +1102,9 @@ Oppure:
 
       await ensureTables();
       
-      // Verifica che l'agent esista
+      // Verifica che l'agent esista e non sia già eliminato
       const checkResult = await pool.query(
-        'SELECT id, agent_name FROM network_agents WHERE id = $1',
+        'SELECT id, agent_name, deleted_at FROM network_agents WHERE id = $1',
         [agentId]
       );
 
@@ -1053,11 +1112,20 @@ Oppure:
         return res.status(404).json({ error: 'Agent non trovato' });
       }
 
-      // Elimina agent (CASCADE elimina anche dispositivi e cambiamenti associati)
-      await pool.query('DELETE FROM network_agents WHERE id = $1', [agentId]);
+      if (checkResult.rows[0].deleted_at) {
+        return res.status(400).json({ error: 'Agent già eliminato' });
+      }
 
-      console.log(`🗑️ Agent ${agentId} eliminato`);
-      res.json({ success: true, message: 'Agent eliminato con successo' });
+      // Soft delete: marca come eliminato (mantiene tutti i dati per i ticket)
+      await pool.query(
+        `UPDATE network_agents 
+         SET deleted_at = NOW(), enabled = false, status = 'offline', updated_at = NOW()
+         WHERE id = $1`,
+        [agentId]
+      );
+
+      console.log(`🗑️ Agent ${agentId} eliminato (soft delete - dati mantenuti, comando disinstallazione al prossimo heartbeat)`);
+      res.json({ success: true, message: 'Agent eliminato. I dati sono stati mantenuti. L\'agent si disinstallerà automaticamente dal client al prossimo heartbeat.' });
     } catch (err) {
       console.error('❌ Errore eliminazione agent:', err);
       res.status(500).json({ error: 'Errore interno del server' });

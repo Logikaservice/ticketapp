@@ -68,9 +68,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
     }
   }, [getAuthHeader]);
 
-  // Disabilita agent
+  // Disabilita agent (blocca ricezione dati, ma NON disinstalla)
   const disableAgent = useCallback(async (agentId, agentName) => {
-    if (!confirm(`Vuoi disabilitare l'agent "${agentName}"?\n\nL'agent si disinstallerà automaticamente al prossimo heartbeat.`)) {
+    if (!confirm(`Vuoi disabilitare l'agent "${agentName}"?\n\nL'agent smetterà di inviare dati al server, ma rimarrà installato sul client. Potrai riabilitarlo in futuro.`)) {
       return;
     }
 
@@ -85,17 +85,17 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
         throw new Error(errorData.error || 'Errore disabilitazione agent');
       }
 
-      alert('Agent disabilitato con successo. L\'agent si disinstallerà automaticamente al prossimo heartbeat.');
+      alert('Agent disabilitato con successo. I dati non verranno più accettati, ma l\'agent rimane installato sul client.');
       loadAgents(); // Ricarica lista
     } catch (err) {
       console.error('Errore disabilitazione agent:', err);
       alert(`Errore disabilitazione agent: ${err.message}`);
     }
-  }, [getAuthHeader]);
+  }, [getAuthHeader, loadAgents]);
 
-  // Elimina agent
+  // Elimina agent (disinstalla dal client, ma mantiene i dati nel database)
   const deleteAgent = useCallback(async (agentId, agentName) => {
-    if (!confirm(`Vuoi ELIMINARE definitivamente l'agent "${agentName}"?\n\nQuesta operazione non può essere annullata. I dati associati verranno eliminati.`)) {
+    if (!confirm(`Vuoi eliminare l'agent "${agentName}"?\n\nL'agent verrà disinstallato dal client, ma tutti i dati verranno mantenuti nel database (per i ticket associati).`)) {
       return;
     }
 
@@ -110,15 +110,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket }) => {
         throw new Error(errorData.error || 'Errore eliminazione agent');
       }
 
-      alert('Agent eliminato con successo.');
+      alert('Agent eliminato con successo. I dati sono stati mantenuti. L\'agent si disinstallerà automaticamente dal client al prossimo heartbeat.');
       loadAgents(); // Ricarica lista
-      loadDevices(); // Ricarica dispositivi (potrebbero essere cambiati)
-      loadChanges(); // Ricarica cambiamenti
     } catch (err) {
       console.error('Errore eliminazione agent:', err);
       alert(`Errore eliminazione agent: ${err.message}`);
     }
-  }, [getAuthHeader, loadAgents, loadDevices, loadChanges]);
+  }, [getAuthHeader, loadAgents]);
 
   // Carica lista agent
   const loadAgents = useCallback(async () => {
