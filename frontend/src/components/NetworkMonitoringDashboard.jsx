@@ -436,10 +436,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     const interval = setInterval(() => {
       loadDevices();
       loadChanges();
+      // Se un'azienda è selezionata, ricarica anche i dispositivi dell'azienda
+      if (selectedCompanyId) {
+        loadCompanyDevices(selectedCompanyId);
+      }
     }, 30000); // 30 secondi
 
     return () => clearInterval(interval);
-  }, [autoRefresh, loadDevices, loadChanges, showCreateAgentModal]);
+  }, [autoRefresh, loadDevices, loadChanges, loadCompanyDevices, selectedCompanyId, showCreateAgentModal]);
 
   // Ascolta eventi WebSocket per aggiornamenti real-time - DISABILITATO se il modal di creazione è aperto
   useEffect(() => {
@@ -452,6 +456,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       if (!showCreateAgentModal) {
         loadDevices();
         loadChanges();
+        // Se un'azienda è selezionata, ricarica anche i dispositivi dell'azienda
+        if (selectedCompanyId) {
+          loadCompanyDevices(selectedCompanyId);
+        }
       }
     };
 
@@ -460,7 +468,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     return () => {
       socket.off('network-monitoring-update', handleNetworkUpdate);
     };
-  }, [socket, loadDevices, loadChanges, showCreateAgentModal]);
+  }, [socket, loadDevices, loadChanges, loadCompanyDevices, selectedCompanyId, showCreateAgentModal]);
 
   // Icona dispositivo per tipo
   const getDeviceIcon = (deviceType) => {
@@ -567,10 +575,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     });
 
   // Statistiche
+  // Se un'azienda è selezionata, usa companyDevices (se disponibili), altrimenti usa devices
+  // Usa companyDevices solo se selectedCompanyId è impostato E companyDevices ha elementi
+  const devicesForStats = (selectedCompanyId && companyDevices.length > 0) ? companyDevices : devices;
   const stats = {
-    total: devices.length,
-    online: devices.filter(d => d.status === 'online').length,
-    offline: devices.filter(d => d.status === 'offline').length,
+    total: devicesForStats.length,
+    online: devicesForStats.filter(d => d.status === 'online').length,
+    offline: devicesForStats.filter(d => d.status === 'offline').length,
     recentChanges: changes.filter(c => {
       const changeDate = new Date(c.detected_at);
       const hoursAgo = (Date.now() - changeDate.getTime()) / 3600000;

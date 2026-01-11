@@ -52,10 +52,26 @@ function Update-StatusFile {
         [string]$Message = ""
     )
     
+    # Leggi status corrente per preservare last_scan se non fornito
+    $currentLastScan = $null
+    if (-not $LastScan -and (Test-Path $script:statusFile)) {
+        try {
+            $currentStatus = Get-Content $script:statusFile -Raw | ConvertFrom-Json
+            if ($currentStatus.last_scan) {
+                $currentLastScan = $currentStatus.last_scan
+            }
+        } catch {
+            # Ignora errori lettura status corrente
+        }
+    }
+    
+    # Usa LastScan fornito o preserva quello corrente
+    $lastScanValue = if ($LastScan) { $LastScan.ToString("yyyy-MM-dd HH:mm:ss") } else { $currentLastScan }
+    
     $statusData = @{
         status = $Status
         devices_found = $DevicesFound
-        last_scan = if ($LastScan) { $LastScan.ToString("yyyy-MM-dd HH:mm:ss") } else { $null }
+        last_scan = $lastScanValue
         message = $Message
         updated_at = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
         scan_interval_minutes = $script:scanIntervalMinutes
@@ -77,6 +93,8 @@ function Get-NetworkDevices {
     
     $devices = @()
     $foundIPs = [System.Collections.Generic.List[string]]::new()
+    # Dizionario per tracciare MAC trovati (inclusi quelli da lookup diretto)
+    $foundMACs = @{}
     
     # Ottieni IP locale del PC dove gira l'agent
     $localIP = $null
@@ -175,6 +193,11 @@ function Get-NetworkDevices {
                             status = "online"
                         }
                         
+                        # Salva MAC trovato per uso successivo
+                        if ($macAddress) {
+                            $foundMACs[$ip] = $macAddress
+                        }
+                        
                         $devices += $device
                         $foundIPs.Add($ip)
                     } else {
@@ -248,6 +271,40 @@ function Get-NetworkDevices {
                         $macAddress = $null
                         if ($arpTable.ContainsKey($ip)) {
                             $macAddress = $arpTable[$ip]
+                            # Verifica che non sia un MAC invalido (tutti zeri)
+                            if ($macAddress -match '^00-00-00-00-00-00' -or $macAddress -eq '00:00:00:00:00:00') {
+                                $macAddress = $null
+                            }
+                        }
+                        
+                        # Se MAC non trovato nella tabella ARP pre-caricata, prova ARP lookup diretto
+                        # (alcuni dispositivi non appaiono nella tabella ARP globale ma rispondono al ping)
+                        if (-not $macAddress) {
+                            try {
+                                # Prova Get-NetNeighbor per questo IP specifico
+                                $arpEntry = Get-NetNeighbor -IPAddress $ip -ErrorAction SilentlyContinue | Select-Object -First 1
+                                if ($arpEntry -and $arpEntry.LinkLayerAddress -and $arpEntry.LinkLayerAddress -notmatch '^00-00-00-00-00-00') {
+                                    $macAddress = $arpEntry.LinkLayerAddress
+                                }
+                            } catch {
+                                # Ignora errori
+                            }
+                            
+                            # Se ancora non trovato, prova arp.exe come fallback
+                            if (-not $macAddress) {
+                                try {
+                                    $arpOutput = arp -a $ip 2>$null
+                                    if ($arpOutput -match '([0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2})') {
+                                        $macFromArp = $matches[1]
+                                        # Verifica che non sia un MAC invalido
+                                        if ($macFromArp -notmatch '^00-00-00-00-00-00' -and $macFromArp -ne '00:00:00:00:00:00') {
+                                            $macAddress = $macFromArp
+                                        }
+                                    }
+                                } catch {
+                                    # Ignora errori
+                                }
+                            }
                         }
                         
                         # Prova risoluzione hostname (opzionale, può essere lento - la saltiamo per velocità)
@@ -276,6 +333,11 @@ function Get-NetworkDevices {
                             status = "online"
                         }
                         
+                        # Salva MAC trovato per uso successivo
+                        if ($macAddress) {
+                            $foundMACs[$ip] = $macAddress
+                        }
+                        
                         $devices += $device
                     }
                 }
@@ -289,7 +351,17 @@ function Get-NetworkDevices {
                         [int]$parts[0] * 16777216 + [int]$parts[1] * 65536 + [int]$parts[2] * 256 + [int]$parts[3]
                     }
                     foreach ($ip in $sortedIPs) {
-                        $macAddress = if ($arpTable.ContainsKey($ip)) { $arpTable[$ip] } else { $null }
+                        # Usa MAC trovato durante scansione (da lookup diretto) o dalla tabella ARP iniziale
+                        $macAddress = $null
+                        if ($foundMACs.ContainsKey($ip)) {
+                            $macAddress = $foundMACs[$ip]
+                        } elseif ($arpTable.ContainsKey($ip)) {
+                            $macAddress = $arpTable[$ip]
+                            # Verifica che non sia un MAC invalido
+                            if ($macAddress -match '^00-00-00-00-00-00' -or $macAddress -eq '00:00:00:00:00:00') {
+                                $macAddress = $null
+                            }
+                        }
                         $ipDataArray += @{
                             ip = $ip
                             mac = $macAddress
@@ -569,9 +641,26 @@ while ($script:isRunning) {
             $nextHeartbeatTime = $now.AddMinutes(5)
         }
         
-        # Controlla se è il momento di eseguire una scansione
-        if ($now -ge $nextScanTime) {
-            Write-Log "Esecuzione scansione programmata..."
+        # Controlla se c'è una richiesta di scansione forzata
+        $forceScan = $false
+        if (Test-Path $script:forceScanTriggerFile) {
+            Write-Log "Richiesta scansione forzata rilevata..."
+            $forceScan = $true
+            # Elimina il file trigger dopo averlo letto
+            try {
+                Remove-Item $script:forceScanTriggerFile -Force -ErrorAction SilentlyContinue
+            } catch {
+                # Ignora errori eliminazione file
+            }
+        }
+        
+        # Controlla se è il momento di eseguire una scansione (programmata o forzata)
+        if ($now -ge $nextScanTime -or $forceScan) {
+            if ($forceScan) {
+                Write-Log "Esecuzione scansione FORZATA..."
+            } else {
+                Write-Log "Esecuzione scansione programmata..."
+            }
             Update-StatusFile -Status "scanning" -Message "Scansione in corso..."
             
             # Reset lista IP trovati per la tray icon
@@ -609,12 +698,18 @@ while ($script:isRunning) {
             }
             
             # Calcola prossima scansione usando l'intervallo corrente (che potrebbe essere cambiato dal server)
-            $nextScanTime = $now.AddMinutes($script:scanIntervalMinutes)
-            Write-Log "Prossima scansione: $($nextScanTime.ToString('HH:mm:ss')) (intervallo: $script:scanIntervalMinutes minuti)"
+            # Solo se non era una scansione forzata, altrimenti mantieni la prossima scansione programmata
+            if (-not $forceScan) {
+                $nextScanTime = $now.AddMinutes($script:scanIntervalMinutes)
+                Write-Log "Prossima scansione: $($nextScanTime.ToString('HH:mm:ss')) (intervallo: $script:scanIntervalMinutes minuti)"
+            } else {
+                Write-Log "Scansione forzata completata. Prossima scansione programmata: $($nextScanTime.ToString('HH:mm:ss'))"
+            }
         }
         
-        # Dormi per 30 secondi prima di controllare di nuovo
-        Start-Sleep -Seconds 30
+        # Dormi per 5 secondi prima di controllare di nuovo (ridotto da 30 per reattività migliore)
+        # Questo permette di rilevare scansioni forzate più rapidamente
+        Start-Sleep -Seconds 5
         
     } catch {
         Write-Log "Errore nel loop principale: $_" "ERROR"
