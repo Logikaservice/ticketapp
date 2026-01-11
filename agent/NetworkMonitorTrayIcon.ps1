@@ -52,7 +52,7 @@ function Get-Status {
     return $null
 }
 
-# Leggi IP trovati durante la scansione corrente
+# Leggi IP trovati durante la scansione corrente (con MAC)
 function Get-CurrentScanIPs {
     if (Test-Path $script:currentScanIPsPath) {
         try {
@@ -61,31 +61,46 @@ function Get-CurrentScanIPs {
                 return @()
             }
             
-            $ips = $content | ConvertFrom-Json
+            $data = $content | ConvertFrom-Json
             
-            # ConvertFrom-Json può ritornare:
-            # - Un array se il JSON è un array: ["ip1", "ip2"]
-            # - Una stringa se il JSON è una stringa: "ip1ip2ip3" (caso errato da versioni precedenti)
-            # - Un oggetto PSCustomObject
-            if ($ips -is [System.Array]) {
-                # È già un array, ritorna come array di stringhe
-                return @($ips | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ })
-            } elseif ($ips -is [System.String]) {
-                # È una stringa concatenata (caso errato da versioni precedenti)
-                # Prova a separare gli IP (ogni IP è 192.168.100.xxx)
-                $ipPattern = '\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b'
-                $matches = [regex]::Matches($ips, $ipPattern)
-                if ($matches.Count -gt 0) {
-                    $ipList = @()
-                    foreach ($match in $matches) {
-                        $ipList += $match.Groups[1].Value
+            # Nuovo formato: array di oggetti con ip e mac
+            # Formato: [{"ip":"192.168.100.1","mac":"AA-BB-CC-DD-EE-FF"},...]
+            if ($data -is [System.Array]) {
+                $result = @()
+                foreach ($item in $data) {
+                    if ($item -is [PSCustomObject] -and $item.ip) {
+                        # Nuovo formato con oggetti
+                        $result += @{
+                            ip = $item.ip.ToString()
+                            mac = if ($item.mac) { $item.mac.ToString() } else { $null }
+                        }
+                    } elseif ($item -is [System.String]) {
+                        # Vecchio formato: array di stringhe IP (compatibilità)
+                        $result += @{
+                            ip = $item.ToString().Trim()
+                            mac = $null
+                        }
                     }
-                    return $ipList
+                }
+                return $result
+            } elseif ($data -is [System.String]) {
+                # Vecchio formato: stringa concatenata (compatibilità)
+                $ipPattern = '\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b'
+                $matches = [regex]::Matches($data, $ipPattern)
+                if ($matches.Count -gt 0) {
+                    $result = @()
+                    foreach ($match in $matches) {
+                        $result += @{
+                            ip = $match.Groups[1].Value
+                            mac = $null
+                        }
+                    }
+                    return $result
                 }
                 return @()
             } else {
-                # È un oggetto, convertilo in stringa
-                return @($ips.ToString().Trim())
+                # Caso fallback
+                return @()
             }
         } catch {
             return @()
@@ -170,9 +185,30 @@ function Show-StatusWindow {
     $forceScanButton.Add_Click({
         $triggerFile = Join-Path (Split-Path -Parent $script:configPath) ".force_scan.trigger"
         try {
+            # Pulisci lista IP per vedere la scansione in tempo reale
+            if ($script:statusWindowListBox) {
+                if ($script:statusWindow.InvokeRequired) {
+                    $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
+                        $script:statusWindowListBox.Items.Clear()
+                    })
+                } else {
+                    $script:statusWindowListBox.Items.Clear()
+                }
+            }
+            
+            # Pulisci file IP corrente
+            $currentScanIPsFile = Join-Path (Split-Path -Parent $script:configPath) ".current_scan_ips.json"
+            try {
+                @() | ConvertTo-Json -Compress | Out-File -FilePath $currentScanIPsFile -Encoding UTF8 -Force
+            } catch { }
+            
             # Crea file di segnale per forzare la scansione
             $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
             $triggerFile | Out-File -FilePath $triggerFile -Encoding UTF8 -Force
+            
+            # Riazzera conto alla rovescia (aggiorna subito)
+            Update-Countdown
+            
             Write-Host "Scansione forzata richiesta" -ForegroundColor Green
             [System.Windows.Forms.MessageBox]::Show(
                 "Scansione forzata richiesta al servizio.`n`nLa scansione inizierà entro pochi secondi.`nControlla la lista IP per vedere i risultati.",
