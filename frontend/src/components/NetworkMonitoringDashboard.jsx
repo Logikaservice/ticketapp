@@ -6,7 +6,7 @@ import {
   AlertCircle, CheckCircle, Clock, RefreshCw, 
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
-  Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit
+  Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit, Menu
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';

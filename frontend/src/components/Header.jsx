@@ -140,13 +140,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       icon: Wifi,
       color: 'cyan',
       visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openNetworkMonitoring,
-      hasSubActions: true,
-      subActions: [
-        { label: 'Dashboard', icon: Wifi, color: 'cyan', onClick: openNetworkMonitoring || (() => {}) },
-        { label: 'Agent Esistenti', icon: ServerIcon, color: 'cyan', onClick: openNetworkMonitoringAgents || (() => {}) },
-        { label: 'Crea Agent', icon: Plus, color: 'cyan', onClick: openNetworkMonitoringCreateAgent || (() => {}) },
-        { label: 'Tipi Dispositivi', icon: Settings, color: 'cyan', onClick: openNetworkMonitoringDeviceTypes || (() => {}) }
-      ]
+      onClick: () => handleQuickActionClick('networkMonitoring')
     },
     {
       id: 'progetti',
