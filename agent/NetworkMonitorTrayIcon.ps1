@@ -117,7 +117,7 @@ function Show-StatusWindow {
     # Crea nuova finestra
     $script:statusWindow = New-Object System.Windows.Forms.Form
     $script:statusWindow.Text = "Network Monitor Agent - Stato"
-    $script:statusWindow.Size = New-Object System.Drawing.Size(800, 640)
+    $script:statusWindow.Size = New-Object System.Drawing.Size(500, 640)
     $script:statusWindow.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
     $script:statusWindow.MinimizeBox = $false
     $script:statusWindow.MaximizeBox = $false
@@ -127,64 +127,32 @@ function Show-StatusWindow {
     $titleLabel = New-Object System.Windows.Forms.Label
     $titleLabel.Text = "Monitoraggio Rete - $($script:config.network_ranges -join ', ')"
     $titleLabel.Location = New-Object System.Drawing.Point(10, 10)
-    $titleLabel.Size = New-Object System.Drawing.Size(760, 25)
+    $titleLabel.Size = New-Object System.Drawing.Size(460, 25)
     $titleLabel.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 10, [System.Drawing.FontStyle]::Bold)
     $script:statusWindow.Controls.Add($titleLabel)
-    
-    # Label per IP configurati
-    $configLabel = New-Object System.Windows.Forms.Label
-    $configLabel.Text = "IP configurati nella classe:"
-    $configLabel.Location = New-Object System.Drawing.Point(10, 45)
-    $configLabel.Size = New-Object System.Drawing.Size(370, 20)
-    $configLabel.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 9, [System.Drawing.FontStyle]::Bold)
-    $script:statusWindow.Controls.Add($configLabel)
-    
-    # ListBox per IP configurati (sinistra)
-    $script:configListBox = New-Object System.Windows.Forms.ListBox
-    $script:configListBox.Location = New-Object System.Drawing.Point(10, 70)
-    $script:configListBox.Size = New-Object System.Drawing.Size(370, 490)
-    $script:configListBox.Font = New-Object System.Drawing.Font("Consolas", 9)
-    $script:configListBox.SelectionMode = [System.Windows.Forms.SelectionMode]::None
-    $script:statusWindow.Controls.Add($script:configListBox)
-    
-    # Popola lista IP configurati
-    $configIPsList = @()
-    foreach ($range in $script:config.network_ranges) {
-        if ($range -match '^(\d+\.\d+\.\d+)\.(\d+)/(\d+)$') {
-            $baseIP = $matches[1]
-            $subnetMask = [int]$matches[3]
-            if ($subnetMask -ge 24) {
-                $maxIP = if ($subnetMask -eq 24) { 254 } else { [Math]::Pow(2, 32 - $subnetMask) - 2 }
-                for ($i = 1; $i -le $maxIP; $i++) {
-                    $configIPsList += "$baseIP.$i"
-                }
-            }
-        }
-    }
-    $script:configListBox.Items.AddRange($configIPsList)
     
     # Label per IP trovati
     $foundLabel = New-Object System.Windows.Forms.Label
     $foundLabel.Text = "IP trovati durante la scansione:"
-    $foundLabel.Location = New-Object System.Drawing.Point(400, 45)
-    $foundLabel.Size = New-Object System.Drawing.Size(370, 20)
+    $foundLabel.Location = New-Object System.Drawing.Point(10, 45)
+    $foundLabel.Size = New-Object System.Drawing.Size(300, 20)
     $foundLabel.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 9, [System.Drawing.FontStyle]::Bold)
     $script:statusWindow.Controls.Add($foundLabel)
     
-    # ListBox per IP trovati (destra) - aggiornato in tempo reale
+    # ListBox per IP trovati (sinistra) - aggiornato in tempo reale
     $script:statusWindowListBox = New-Object System.Windows.Forms.ListBox
-    $script:statusWindowListBox.Location = New-Object System.Drawing.Point(400, 70)
-    $script:statusWindowListBox.Size = New-Object System.Drawing.Size(370, 460)
+    $script:statusWindowListBox.Location = New-Object System.Drawing.Point(10, 70)
+    $script:statusWindowListBox.Size = New-Object System.Drawing.Size(300, 460)
     $script:statusWindowListBox.Font = New-Object System.Drawing.Font("Consolas", 9)
     $script:statusWindowListBox.SelectionMode = [System.Windows.Forms.SelectionMode]::None
     $script:statusWindow.Controls.Add($script:statusWindowListBox)
     
-    # Pulsante Forza Scansione
+    # Pulsante Forza Scansione (destra)
     $forceScanButton = New-Object System.Windows.Forms.Button
     $forceScanButton.Text = "Forza Scansione"
-    $forceScanButton.Location = New-Object System.Drawing.Point(400, 565)
-    $forceScanButton.Size = New-Object System.Drawing.Size(150, 35)
-    $forceScanButton.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 9, [System.Drawing.FontStyle]::Bold)
+    $forceScanButton.Location = New-Object System.Drawing.Point(330, 70)
+    $forceScanButton.Size = New-Object System.Drawing.Size(150, 80)
+    $forceScanButton.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 10, [System.Drawing.FontStyle]::Bold)
     $forceScanButton.BackColor = [System.Drawing.Color]::FromArgb(0, 123, 255)
     $forceScanButton.ForeColor = [System.Drawing.Color]::White
     $forceScanButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
@@ -215,7 +183,7 @@ function Show-StatusWindow {
     # Pulsante Chiudi
     $closeButton = New-Object System.Windows.Forms.Button
     $closeButton.Text = "Chiudi"
-    $closeButton.Location = New-Object System.Drawing.Point(620, 565)
+    $closeButton.Location = New-Object System.Drawing.Point(330, 540)
     $closeButton.Size = New-Object System.Drawing.Size(150, 35)
     $closeButton.Add_Click({
         $script:statusWindow.Hide()
