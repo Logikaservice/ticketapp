@@ -1,145 +1,195 @@
 #!/bin/bash
-# Script completo per fix errori 502 - Da eseguire sulla VPS
+# Script per diagnosticare e risolvere errori 502 sul VPS
+# Diagnostica e riavvia il backend se necessario
 
-set -e
-
-echo "🔧 FIX ERRORI 502 - BACKEND NON RAGGIUNGIBILE"
-echo "=============================================="
+echo "🔧 DIAGNOSTICA E FIX ERRORI 502 BACKEND"
+echo "======================================"
 echo ""
 
 # Colori
-RED='\033[0;31m'
 GREEN='\033[0;32m'
+RED='\033[0;31m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
-BACKEND_DIR="/var/www/ticketapp/backend"
-
-# 1. Verifica directory
-echo "1️⃣ Verifica directory backend..."
-if [ ! -d "$BACKEND_DIR" ]; then
-    echo -e "${RED}❌ Directory backend non trovata: $BACKEND_DIR${NC}"
+# 1. Verifica PM2
+echo -e "${CYAN}1️⃣  Verifica PM2...${NC}"
+if command -v pm2 &> /dev/null; then
+    echo -e "${GREEN}✅ PM2 installato${NC}"
+    echo ""
+    echo "Status PM2:"
+    pm2 list
+    echo ""
+else
+    echo -e "${RED}❌ PM2 non installato!${NC}"
+    echo "Installa PM2 con: npm install -g pm2"
     exit 1
 fi
-cd "$BACKEND_DIR"
-echo -e "${GREEN}✅ Directory: $BACKEND_DIR${NC}"
-echo ""
 
-# 2. Verifica file .env
-echo "2️⃣ Verifica file .env..."
-if [ ! -f ".env" ]; then
-    echo -e "${YELLOW}⚠️  File .env non trovato!${NC}"
-    echo "Creo file .env base..."
-    echo "NODE_ENV=production" > .env
-    echo "PORT=3001" >> .env
-    echo -e "${GREEN}✅ File .env creato${NC}"
+# 2. Verifica processo backend
+echo -e "${CYAN}2️⃣  Verifica processo backend...${NC}"
+BACKEND_STATUS=$(pm2 list | grep -E "backend|ticketapp-backend" | grep -v grep || echo "")
+if [ -z "$BACKEND_STATUS" ]; then
+    echo -e "${RED}❌ Backend NON in esecuzione!${NC}"
+    BACKEND_RUNNING=false
 else
-    echo -e "${GREEN}✅ File .env trovato${NC}"
+    echo -e "${GREEN}✅ Backend trovato in PM2${NC}"
+    echo "$BACKEND_STATUS"
+    BACKEND_RUNNING=true
 fi
 echo ""
 
-# 3. Ferma processi esistenti
-echo "3️⃣ Fermo processi esistenti..."
-# Ferma PM2
-pm2 delete ticketapp-backend 2>/dev/null || pm2 delete backend 2>/dev/null || echo "Nessun processo PM2 da fermare"
-# Ferma processi Node sulla porta 3001
-lsof -ti:3001 | xargs kill -9 2>/dev/null || true
-sleep 2
-echo -e "${GREEN}✅ Processi fermati${NC}"
-echo ""
-
-# 4. Verifica dipendenze
-echo "4️⃣ Verifica dipendenze..."
-if [ ! -d "node_modules" ]; then
-    echo -e "${YELLOW}⚠️  node_modules non trovato, installo dipendenze...${NC}"
-    npm install
-fi
-echo -e "${GREEN}✅ Dipendenze verificate${NC}"
-echo ""
-
-# 5. Avvia backend con PM2
-echo "5️⃣ Avvio backend con PM2..."
-pm2 start index.js \
-    --name ticketapp-backend \
-    --cwd "$BACKEND_DIR" \
-    --interpreter node \
-    --env production \
-    --log-date-format "YYYY-MM-DD HH:mm:ss Z" \
-    --merge-logs \
-    --max-memory-restart 500M \
-    --error /var/log/pm2/ticketapp-backend-error.log \
-    --output /var/log/pm2/ticketapp-backend-out.log
-
-pm2 save
-echo -e "${GREEN}✅ Backend avviato${NC}"
-echo ""
-
-# 6. Attendi avvio
-echo "6️⃣ Attendo avvio backend (5 secondi)..."
-sleep 5
-echo ""
-
-# 7. Verifica stato
-echo "7️⃣ Verifica stato..."
-pm2 status
-echo ""
-
-# 8. Verifica porta 3001
-echo "8️⃣ Verifica porta 3001..."
-if netstat -tuln | grep -q ":3001 " || ss -tuln | grep -q ":3001 "; then
-    echo -e "${GREEN}✅ Porta 3001 in ascolto${NC}"
+# 3. Verifica porta 3001
+echo -e "${CYAN}3️⃣  Verifica porta 3001...${NC}"
+PORT_CHECK=$(sudo lsof -ti:3001 2>/dev/null || echo "")
+if [ -z "$PORT_CHECK" ]; then
+    echo -e "${YELLOW}⚠️  Nessun processo in ascolto sulla porta 3001${NC}"
+    PORT_FREE=true
 else
-    echo -e "${RED}❌ Porta 3001 NON in ascolto!${NC}"
-    echo "Verifica log per errori:"
-    pm2 logs ticketapp-backend --lines 30 --nostream
-    exit 1
+    echo -e "${YELLOW}⚠️  Porta 3001 occupata da processo: $PORT_CHECK${NC}"
+    PORT_FREE=false
 fi
 echo ""
 
-# 9. Test endpoint
-echo "9️⃣ Test endpoint backend..."
-HEALTH=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost:3001/api/health 2>/dev/null || echo "000")
-if [ "$HEALTH" = "200" ]; then
-    echo -e "${GREEN}✅ Health check: HTTP $HEALTH${NC}"
+# 4. Test endpoint backend
+echo -e "${CYAN}4️⃣  Test endpoint backend...${NC}"
+HEALTH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/api/health 2>/dev/null || echo "000")
+if [ "$HEALTH_CHECK" = "200" ]; then
+    echo -e "${GREEN}✅ Backend risponde correttamente (HTTP 200)${NC}"
+    BACKEND_RESPONDING=true
+elif [ "$HEALTH_CHECK" = "000" ]; then
+    echo -e "${RED}❌ Backend NON risponde (timeout/connessione rifiutata)${NC}"
+    BACKEND_RESPONDING=false
 else
-    echo -e "${YELLOW}⚠️  Health check: HTTP $HEALTH${NC}"
+    echo -e "${YELLOW}⚠️  Backend risponde con HTTP $HEALTH_CHECK${NC}"
+    BACKEND_RESPONDING=false
 fi
+echo ""
 
-CRYPTO=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost:3001/api/crypto/dashboard 2>/dev/null || echo "000")
-if [ "$CRYPTO" = "200" ] || [ "$CRYPTO" = "401" ] || [ "$CRYPTO" = "403" ]; then
-    echo -e "${GREEN}✅ Crypto dashboard: HTTP $CRYPTO${NC}"
+# 5. Verifica log errori recenti
+echo -e "${CYAN}5️⃣  Ultimi errori backend (ultimi 50 log)...${NC}"
+if [ "$BACKEND_RUNNING" = true ]; then
+    pm2 logs backend --lines 50 --nostream 2>/dev/null | grep -i "error\|exception\|fatal\|crash" | tail -20 || echo "   Nessun errore trovato negli ultimi log"
 else
-    echo -e "${YELLOW}⚠️  Crypto dashboard: HTTP $CRYPTO${NC}"
+    # Prova con ticketapp-backend
+    pm2 logs ticketapp-backend --lines 50 --nostream 2>/dev/null | grep -i "error\|exception\|fatal\|crash" | tail -20 || echo "   Nessun errore trovato negli ultimi log"
 fi
 echo ""
 
-# 10. Mostra log recenti
-echo "🔟 Ultimi log backend:"
-pm2 logs ticketapp-backend --lines 20 --nostream
+# 6. Diagnosi e soluzione
+echo -e "${CYAN}6️⃣  Diagnosi...${NC}"
 echo ""
 
-# 11. Riepilogo
-echo "=============================================="
-echo "📋 RIEPILOGO"
-echo "=============================================="
-if netstat -tuln | grep -q ":3001 " || ss -tuln | grep -q ":3001 "; then
-    echo -e "${GREEN}✅ Backend avviato correttamente${NC}"
+NEEDS_RESTART=false
+
+if [ "$BACKEND_RUNNING" = false ]; then
+    echo -e "${RED}❌ Problema: Backend non è in esecuzione${NC}"
+    NEEDS_RESTART=true
+elif [ "$BACKEND_RESPONDING" = false ]; then
+    echo -e "${RED}❌ Problema: Backend non risponde alle richieste${NC}"
+    NEEDS_RESTART=true
+elif [ "$PORT_FREE" = false ] && [ "$BACKEND_RUNNING" = false ]; then
+    echo -e "${RED}❌ Problema: Porta 3001 occupata ma backend non in esecuzione${NC}"
+    NEEDS_RESTART=true
+else
+    echo -e "${YELLOW}⚠️  Backend in esecuzione ma potrebbe avere problemi${NC}"
+    NEEDS_RESTART=true
+fi
+
+echo ""
+
+# 7. Azioni correttive
+if [ "$NEEDS_RESTART" = true ]; then
+    echo -e "${CYAN}7️⃣  Esecuzione azioni correttive...${NC}"
     echo ""
-    echo "Prossimi passi:"
-    echo "1. Ricarica il dashboard nel browser (Ctrl+Shift+R)"
-    echo "2. Verifica che non ci siano più errori 502"
-    echo "3. Se persistono errori, controlla i log:"
-    echo "   pm2 logs ticketapp-backend --lines 100"
+    
+    # Ferma tutti i processi backend esistenti
+    echo "   🛑 Fermo tutti i processi backend..."
+    pm2 stop backend 2>/dev/null || true
+    pm2 stop ticketapp-backend 2>/dev/null || true
+    pm2 delete backend 2>/dev/null || true
+    pm2 delete ticketapp-backend 2>/dev/null || true
+    
+    # Libera porta 3001 se occupata
+    if [ "$PORT_FREE" = false ]; then
+        echo "   🔓 Libero porta 3001..."
+        sudo lsof -ti:3001 | xargs sudo kill -9 2>/dev/null || true
+        sleep 2
+    fi
+    
+    # Vai alla directory backend
+    cd /var/www/ticketapp/backend || cd /root/ticketapp/backend || cd ~/ticketapp/backend || {
+        echo -e "${RED}❌ ERRORE: Directory backend non trovata!${NC}"
+        echo "   Verifica il percorso: /var/www/ticketapp/backend"
+        exit 1
+    }
+    
+    echo "   📁 Directory backend: $(pwd)"
+    echo ""
+    
+    # Verifica che index.js esista
+    if [ ! -f "index.js" ]; then
+        echo -e "${RED}❌ ERRORE: index.js non trovato in $(pwd)!${NC}"
+        exit 1
+    fi
+    
+    # Installa dipendenze se necessario
+    if [ ! -d "node_modules" ]; then
+        echo "   📦 Installo dipendenze..."
+        npm install
+    fi
+    
+    # Avvia backend con PM2
+    echo "   🚀 Avvio backend con PM2..."
+    pm2 start index.js --name backend --update-env
+    pm2 save
+    
+    sleep 3
+    
+    # Verifica avvio
+    echo ""
+    echo "   🔍 Verifica avvio..."
+    pm2 list | grep backend
+    
+    sleep 2
+    
+    # Test endpoint
+    echo ""
+    echo "   🧪 Test endpoint..."
+    HEALTH_CHECK_AFTER=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/api/health 2>/dev/null || echo "000")
+    if [ "$HEALTH_CHECK_AFTER" = "200" ]; then
+        echo -e "${GREEN}   ✅ Backend avviato correttamente! (HTTP 200)${NC}"
+    else
+        echo -e "${YELLOW}   ⚠️  Backend avviato ma non risponde ancora (HTTP $HEALTH_CHECK_AFTER)${NC}"
+        echo "   Attendi 10 secondi e riprova..."
+        sleep 10
+        HEALTH_CHECK_AFTER2=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/api/health 2>/dev/null || echo "000")
+        if [ "$HEALTH_CHECK_AFTER2" = "200" ]; then
+            echo -e "${GREEN}   ✅ Backend ora risponde correttamente! (HTTP 200)${NC}"
+        else
+            echo -e "${RED}   ❌ Backend ancora non risponde (HTTP $HEALTH_CHECK_AFTER2)${NC}"
+            echo ""
+            echo "   Ultimi log backend:"
+            pm2 logs backend --lines 30 --nostream 2>/dev/null | tail -30
+        fi
+    fi
 else
-    echo -e "${RED}❌ Backend NON avviato correttamente${NC}"
-    echo ""
-    echo "Verifica errori:"
-    echo "  pm2 logs ticketapp-backend --err --lines 50"
-    echo "  tail -50 /var/log/pm2/ticketapp-backend-error.log"
-    echo ""
-    echo "Prova ad avviare manualmente per vedere errori:"
-    echo "  cd $BACKEND_DIR"
-    echo "  node index.js"
+    echo -e "${GREEN}✅ Backend sembra funzionare correttamente${NC}"
+    echo "   Se vedi ancora errori 502, verifica:"
+    echo "   - Nginx configurazione"
+    echo "   - Firewall/VPN"
+    echo "   - Log nginx: tail -f /var/log/nginx/error.log"
 fi
-echo ""
 
+echo ""
+echo -e "${CYAN}======================================"
+echo "DIAGNOSTICA COMPLETATA"
+echo "======================================${NC}"
+echo ""
+echo "💡 Comandi utili:"
+echo "   - Verifica status: pm2 list"
+echo "   - Visualizza log: pm2 logs backend --lines 100"
+echo "   - Riavvia: pm2 restart backend"
+echo "   - Test endpoint: curl http://localhost:3001/api/health"
+echo ""
