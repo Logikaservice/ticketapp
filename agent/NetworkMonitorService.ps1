@@ -129,12 +129,21 @@ function Get-NetworkDevices {
                             $currentIPs = @()
                             if (Test-Path $script:currentScanIPsFile) {
                                 try {
-                                    $currentIPs = Get-Content $script:currentScanIPsFile -Raw | ConvertFrom-Json
+                                    $content = Get-Content $script:currentScanIPsFile -Raw
+                                    if ($content) {
+                                        $parsed = $content | ConvertFrom-Json
+                                        # ConvertFrom-Json può ritornare array o stringa
+                                        if ($parsed -is [System.Array]) {
+                                            $currentIPs = $parsed
+                                        } else {
+                                            $currentIPs = @($parsed)
+                                        }
+                                    }
                                 } catch { }
                             }
                             if ($currentIPs -notcontains $ip) {
-                                $currentIPs += $ip
-                                $currentIPs | ConvertTo-Json | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
+                                $currentIPs = @($currentIPs) + @($ip)
+                                $currentIPs | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
                             }
                         } catch {
                             # Ignora errori salvataggio IP per tray icon
@@ -177,12 +186,21 @@ function Get-NetworkDevices {
                             $currentIPs = @()
                             if (Test-Path $script:currentScanIPsFile) {
                                 try {
-                                    $currentIPs = Get-Content $script:currentScanIPsFile -Raw | ConvertFrom-Json
+                                    $content = Get-Content $script:currentScanIPsFile -Raw
+                                    if ($content) {
+                                        $parsed = $content | ConvertFrom-Json
+                                        # ConvertFrom-Json può ritornare array o stringa
+                                        if ($parsed -is [System.Array]) {
+                                            $currentIPs = $parsed
+                                        } else {
+                                            $currentIPs = @($parsed)
+                                        }
+                                    }
                                 } catch { }
                             }
                             if ($currentIPs -notcontains $ip) {
-                                $currentIPs += $ip
-                                $currentIPs | ConvertTo-Json | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
+                                $currentIPs = @($currentIPs) + @($ip)
+                                $currentIPs | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
                             }
                         } catch {
                             # Ignora errori salvataggio IP per tray icon
@@ -526,7 +544,7 @@ while ($script:isRunning) {
             
             # Reset lista IP trovati per la tray icon
             try {
-                @() | ConvertTo-Json | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
+                @() | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
             } catch {
                 # Ignora errori reset file IP
             }
