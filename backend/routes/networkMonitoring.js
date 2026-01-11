@@ -593,18 +593,18 @@ module.exports = (pool, io) => {
           }
           // device_type non viene più aggiornato automaticamente dall'agent
 
+          // last_seen viene SEMPRE aggiornato quando il dispositivo viene rilevato nella scansione
           updates.push(`last_seen = NOW()`);
           updates.push(`status = $${paramIndex++}`);
           values.push(status || 'online');
 
           values.push(existingDevice.id);
 
-          if (updates.length > 1) { // Almeno last_seen e status
-            await pool.query(
-              `UPDATE network_devices SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
-              values
-            );
-          }
+          // Esegui sempre l'UPDATE (almeno last_seen e status sono sempre presenti)
+          await pool.query(
+            `UPDATE network_devices SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
+            values
+          );
 
           deviceResults.push({ action: 'updated', id: existingDevice.id, ip: ip_address });
         } else {
