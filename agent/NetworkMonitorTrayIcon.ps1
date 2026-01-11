@@ -55,8 +55,33 @@ function Get-Status {
 function Get-CurrentScanIPs {
     if (Test-Path $script:currentScanIPsPath) {
         try {
-            $ips = Get-Content $script:currentScanIPsPath -Raw | ConvertFrom-Json
-            return @($ips)
+            $content = Get-Content $script:currentScanIPsPath -Raw
+            if ([string]::IsNullOrWhiteSpace($content)) {
+                return @()
+            }
+            
+            $ips = $content | ConvertFrom-Json
+            
+            # ConvertFrom-Json può ritornare:
+            # - Un array se il JSON è un array: ["ip1", "ip2"]
+            # - Una stringa se il JSON è una stringa: "ip1ip2ip3" (caso errato da versioni precedenti)
+            # - Un oggetto PSCustomObject
+            if ($ips -is [System.Array]) {
+                # È già un array, ritorna come array di stringhe
+                return @($ips | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ })
+            } elseif ($ips -is [System.String]) {
+                # È una stringa concatenata (caso errato da versioni precedenti)
+                # Prova a separare gli IP (ogni IP è 192.168.100.xxx)
+                $ipPattern = '\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b'
+                $matches = [regex]::Matches($ips, $ipPattern)
+                if ($matches.Count -gt 0) {
+                    return @($matches | ForEach-Object { $_.Groups[1].Value })
+                }
+                return @()
+            } else {
+                # È un oggetto, convertilo in stringa
+                return @($ips.ToString().Trim())
+            }
         } catch {
             return @()
         }
