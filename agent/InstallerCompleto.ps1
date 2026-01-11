@@ -180,7 +180,7 @@ try {
         -Settings $settings `
         -Description "Network Monitor Agent - Scansione rete automatica ogni $($config.scan_interval_minutes) minuti" `
         -User "SYSTEM" `
-        -RunLevel Highest | Out-Null
+        -RunLevel Highest -ErrorAction Stop | Out-Null
     
     Write-Host "✅ Scheduled Task creato con successo!" -ForegroundColor Green
 } catch {
@@ -193,7 +193,7 @@ try {
             -Settings $settings `
             -Description "Network Monitor Agent - Scansione rete automatica ogni $($config.scan_interval_minutes) minuti" `
             -User $env:USERNAME `
-            -RunLevel Limited | Out-Null
+            -RunLevel Limited -ErrorAction Stop | Out-Null
         
         Write-Host "✅ Task creato con privilegi limitati" -ForegroundColor Green
     } catch {
@@ -244,6 +244,11 @@ Write-Host "✅ Installazione completata!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "L'agent ora scansiona automaticamente la rete ogni $($config.scan_interval_minutes) minuti." -ForegroundColor White
+Write-Host ""
+Write-Host "⚠️  IMPORTANTE:" -ForegroundColor Yellow
+Write-Host "   • I file devono rimanere in: $InstallDir" -ForegroundColor White
+Write-Host "   • NON cancellare i file dopo l'installazione!" -ForegroundColor White
+Write-Host "   • Se cancelli i file, l'agent smetterà di funzionare" -ForegroundColor White
 Write-Host ""
 Write-Host "Premi un tasto per uscire..."
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
