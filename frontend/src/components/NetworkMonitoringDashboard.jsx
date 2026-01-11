@@ -11,7 +11,7 @@ import {
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
 
-const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null }) => {
+const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null }) => {
   const [devices, setDevices] = useState([]);
   const [changes, setChanges] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -580,15 +580,30 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
   if (loading && devices.length === 0) {
     return (
-      <div className="p-8 flex items-center justify-center">
-        <Loader className="w-8 h-8 animate-spin text-blue-600" />
-        <span className="ml-3 text-gray-600">Caricamento dispositivi...</span>
+      <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto">
+        <div className="p-8 flex items-center justify-center min-h-screen">
+          <Loader className="w-8 h-8 animate-spin text-blue-600" />
+          <span className="ml-3 text-gray-600">Caricamento dispositivi...</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto">
+      {/* Header Navigazione */}
+      {onClose && (
+        <div className="bg-white border-b px-6 py-3 flex justify-between items-center sticky top-0 z-40 shadow-sm">
+          <div className="flex items-center gap-4">
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+              <X size={24} className="text-gray-600" />
+            </button>
+            <div className="h-6 w-px bg-gray-300"></div>
+            <h1 className="font-bold text-xl text-gray-800">Monitoraggio Rete</h1>
+          </div>
+        </div>
+      )}
+      <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -643,15 +658,17 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             )}
           </div>
           
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-              <Wifi className="w-8 h-8 text-blue-600" />
-              Monitoraggio Rete
-            </h1>
-            <p className="text-gray-500 mt-1">
-              {lastUpdate && `Ultimo aggiornamento: ${formatDate(lastUpdate)}`}
-            </p>
-          </div>
+          {!onClose && (
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                <Wifi className="w-8 h-8 text-blue-600" />
+                Monitoraggio Rete
+              </h1>
+              <p className="text-gray-500 mt-1">
+                {lastUpdate && `Ultimo aggiornamento: ${formatDate(lastUpdate)}`}
+              </p>
+            </div>
+          )}
         </div>
         
         <div className="flex items-center gap-3">
