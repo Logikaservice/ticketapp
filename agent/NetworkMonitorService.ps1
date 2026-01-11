@@ -398,7 +398,7 @@ function Send-Heartbeat {
                     $script:scanIntervalMinutes = $serverInterval
                     
                     # Aggiorna config.json locale per persistenza
-                    $configPath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "config.json"
+                    $configPath = Join-Path $script:scriptDir "config.json"
                     if (Test-Path $configPath) {
                         $localConfig = Get-Content $configPath -Raw | ConvertFrom-Json
                         $localConfig.scan_interval_minutes = $serverInterval
