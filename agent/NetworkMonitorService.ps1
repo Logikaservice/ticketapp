@@ -490,18 +490,21 @@ function Show-TrayIcon {
         )
     })
     
-    # Aggiorna tooltip periodicamente
+    # Aggiorna tooltip periodicamente (massimo 64 caratteri per Windows)
     $updateTooltip = {
         if ($script:trayIcon) {
-            $statusText = "Network Monitor Agent`n"
+            $statusText = "Network Monitor Agent"
             if ($script:lastScanTime) {
                 $timeSince = (Get-Date) - $script:lastScanTime
-                $statusText += "Ultima scansione: $([Math]::Floor($timeSince.TotalMinutes)) minuti fa`n"
+                $minutesAgo = [Math]::Floor($timeSince.TotalMinutes)
+                $statusText = "Agent - Ultima scan: ${minutesAgo}m fa"
             } else {
-                $statusText += "Ultima scansione: Mai`n"
+                $statusText = "Network Monitor Agent - Running"
             }
-            $statusText += "Intervallo: $script:scanIntervalMinutes minuti`n"
-            $statusText += "Stato: In esecuzione"
+            # Limita a 64 caratteri (limite Windows NotifyIcon)
+            if ($statusText.Length -gt 63) {
+                $statusText = $statusText.Substring(0, 63)
+            }
             $script:trayIcon.Text = $statusText
         }
     }
