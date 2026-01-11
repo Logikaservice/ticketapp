@@ -33,6 +33,10 @@ $script:lastScanDevices = 0
 $script:scanIntervalMinutes = 15
 $script:statusFile = Join-Path $script:scriptDir ".agent_status.json"
 $script:lastScanPath = Join-Path $script:scriptDir "last_scan.json"
+$script:statusWindow = $null
+$script:statusWindowListBox = $null
+$script:currentScanIPs = @()
+$script:configIPs = @()
 
 # ============================================
 # FUNZIONI HELPER
@@ -136,6 +140,12 @@ function Get-NetworkDevices {
                     if ($localIPInRange -and $i -eq $localIPOctet) {
                         Write-Log "Aggiungendo IP locale: $ip" "DEBUG"
                         
+                        # Aggiungi IP locale alla lista scan corrente
+                        if (-not ($script:currentScanIPs -contains $ip)) {
+                            $script:currentScanIPs += $ip
+                            Update-StatusWindowIPs -IPs $script:currentScanIPs
+                        }
+                        
                         # Ottieni MAC address locale
                         $macAddress = $null
                         try {
@@ -167,6 +177,12 @@ function Get-NetworkDevices {
                     
                     if ($pingResult) {
                         Write-Log "Dispositivo rilevato: $ip" "DEBUG"
+                        
+                        # Aggiungi IP alla lista scan corrente
+                        if (-not ($script:currentScanIPs -contains $ip)) {
+                            $script:currentScanIPs += $ip
+                            Update-StatusWindowIPs -IPs $script:currentScanIPs
+                        }
                         
                         # Ottieni MAC address dalla tabella ARP
                         $macAddress = $null
