@@ -500,41 +500,308 @@ module.exports = (pool, io) => {
 
   // POST /api/network-monitoring/agent/scan-results
   // Agent invia risultati della scansione (dispositivi rilevati)
-  // POST /api/network-monitoring/agent/scan-results - DISABLED
+  // POST /api/network-monitoring/agent/scan-results
+  // Agent invia risultati della scansione (dispositivi rilevati)
   router.post('/agent/scan-results', authenticateAgent, async (req, res) => {
-    res.status(503).json({error: 'Disabled due to syntax error'});
+    try {
+      const agentId = req.agent.id;
+      const { devices, changes } = req.body; // devices: array, changes: array (opzionale)
+
+      console.log(`📥 Scan results ricevuti da agent ${agentId}: ${devices?.length || 0} dispositivi, ${changes?.length || 0} cambiamenti`);
+
+      if (!devices || !Array.isArray(devices)) {
+        console.error('❌ devices non è un array:', typeof devices, devices);
+        return res.status(400).json({ error: 'devices deve essere un array' });
+      }
+
+      // Aggiorna/inserisci dispositivi
+      const deviceResults = [];
+      const receivedIPs = new Set(); // Traccia gli IP ricevuti in questa scansione
+
+      for (let i = 0; i < devices.length; i++) {
+        const device = devices[i];
+        let { ip_address, mac_address, hostname, vendor, status } = device;
+        // device_type non viene più inviato dall'agent, sarà gestito manualmente
+
+        // Normalizza ip_address: potrebbe essere stringa, array, o oggetto JSON
+        if (ip_address) {
+          if (typeof ip_address === 'string') {
+            ip_address = ip_address.trim();
+            // Rimuovi caratteri JSON errati se presenti (es: {"192.168.100.2"} -> 192.168.100.2)
+            ip_address = ip_address.replace(/[{}"]/g, '').trim();
+          } else if (Array.isArray(ip_address)) {
+            // Se è un array, prendi il primo elemento valido
+            ip_address = ip_address.find(ip => ip && typeof ip === 'string' && ip.trim() !== '')?.trim() || null;
+            if (ip_address) {
+              ip_address = ip_address.replace(/[{}"]/g, '').trim();
+            }
+          } else if (typeof ip_address === 'object') {
+            // Se è un oggetto, prova a convertirlo in stringa o prendi il primo valore
+            const firstValue = Object.values(ip_address)[0];
+            if (firstValue && typeof firstValue === 'string') {
+              ip_address = firstValue.trim().replace(/[{}"]/g, '').trim();
+            } else {
+              ip_address = String(ip_address).replace(/[{}"]/g, '').trim();
+            }
+          }
+        }
+
+        if (!ip_address || ip_address === '') {
+          console.warn(`⚠️ Dispositivo ${i + 1}/${devices.length} senza IP valido, saltato:`, JSON.stringify(device));
+          continue;
+        }
+
+        // Traccia IP ricevuto
+        receivedIPs.add(ip_address);
+
+        // Log dettagliato per debug
+        if (i === 0 || i === devices.length - 1) {
+          console.log(`  📱 Dispositivo ${i + 1}/${devices.length}: IP=${ip_address}, MAC=${mac_address || 'N/A'}, Hostname=${hostname || 'N/A'}`);
+        }
+
+        // Preparazione MAC normalizzato per confronti e salvataggio
+        let normalizedMac = null;
+        if (mac_address && typeof mac_address === 'string') {
+          normalizedMac = mac_address.replace(/\s+/g, '').replace(/,/g, '').toUpperCase();
+          if (normalizedMac.length > 17) normalizedMac = normalizedMac.substring(0, 17);
+          if (normalizedMac.length === 12 && !normalizedMac.includes('-') && !normalizedMac.includes(':')) {
+            normalizedMac = normalizedMac.replace(/(..)(..)(..)(..)(..)(..)/, '$1-$2-$3-$4-$5-$6');
+          }
+          if (normalizedMac.length !== 17 || !/^([0-9A-F]{2}-){5}[0-9A-F]{2}$/i.test(normalizedMac)) {
+            normalizedMac = null;
+          }
+        }
+
+        // Cerca dispositivo esistente
+        let existingDevice = null;
+        const normalizedIpForSearch = ip_address.replace(/[{}"]/g, '').trim();
+
+        // STEP 1: Cerca per IP
+        const ipQuery = `
+            SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, device_type
+            FROM network_devices 
+            WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2
+            ORDER BY is_static DESC, last_seen DESC
+            LIMIT 1
+          `;
+        const ipResult = await pool.query(ipQuery, [agentId, normalizedIpForSearch]);
+
+        if (ipResult.rows.length > 0) {
+          existingDevice = ipResult.rows[0];
+        } else if (normalizedMac) {
+          // STEP 2: Cerca per MAC (solo se non trovato per IP)
+          const macQuery = `
+              SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, device_type
+              FROM network_devices 
+              WHERE agent_id = $1 AND mac_address = $2
+              ORDER BY is_static DESC, last_seen DESC
+              LIMIT 1
+            `;
+          const macResult = await pool.query(macQuery, [agentId, normalizedMac]);
+          if (macResult.rows.length > 0) {
+            existingDevice = macResult.rows[0];
+            console.log(`  📍 Dispositivo ${existingDevice.ip_address} ha cambiato IP in ${ip_address} (rilevato via MAC)`);
+          }
+        }
+
+        if (existingDevice) {
+          // UPDATE
+          const updates = [];
+          const values = [];
+          let paramIndex = 1;
+
+          if (existingDevice.ip_address !== ip_address) {
+            updates.push(`ip_address = $${paramIndex++}`);
+            values.push(ip_address);
+          }
+
+          if (normalizedMac && normalizedMac !== existingDevice.mac_address) {
+            console.log(`  🔄 Aggiornamento MAC per ${ip_address}: ${existingDevice.mac_address || 'NULL'} -> ${normalizedMac}`);
+            updates.push(`mac_address = $${paramIndex++}`);
+            values.push(normalizedMac);
+          }
+
+          if (hostname && hostname !== existingDevice.hostname) {
+            updates.push(`hostname = $${paramIndex++}`);
+            values.push(hostname || null);
+          }
+          if (vendor && vendor !== existingDevice.vendor) {
+            updates.push(`vendor = $${paramIndex++}`);
+            values.push(vendor || null);
+          }
+
+          updates.push(`last_seen = NOW()`);
+          updates.push(`status = $${paramIndex++}`);
+          values.push(status || 'online');
+
+          values.push(existingDevice.id);
+
+          await pool.query(
+            `UPDATE network_devices SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
+            values
+          );
+
+          deviceResults.push({ action: 'updated', id: existingDevice.id, ip: ip_address });
+        } else {
+          // INSERT
+          try {
+            const insertResult = await pool.query(
+              `INSERT INTO network_devices (agent_id, ip_address, mac_address, hostname, vendor, device_type, status, is_static)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                 RETURNING id`,
+              [
+                agentId,
+                ip_address,
+                normalizedMac,
+                (hostname && hostname.trim() !== '') ? hostname.trim() : null,
+                (vendor && vendor.trim() !== '') ? vendor.trim() : null,
+                'unknown', // default
+                status || 'online',
+                false // default is_static
+              ]
+            );
+
+            deviceResults.push({ action: 'created', id: insertResult.rows[0].id, ip: ip_address });
+          } catch (insertErr) {
+            // Fallback per duplicati
+            if (insertErr.code === '23505' || insertErr.message.includes('duplicate')) {
+              console.log(`  ℹ️ Dispositivo ${ip_address} conflitto in insert, fallback update...`);
+              const updateResult = await pool.query(
+                `UPDATE network_devices 
+                   SET last_seen = NOW(), status = $1 
+                   WHERE agent_id = $2 AND ip_address = $3
+                   RETURNING id`,
+                [status || 'online', agentId, ip_address]
+              );
+              if (updateResult.rows.length > 0) {
+                deviceResults.push({ action: 'updated', id: updateResult.rows[0].id, ip: ip_address });
+              }
+            } else {
+              console.error(`❌ Errore inserimento dispositivo ${ip_address}:`, insertErr.message);
+            }
+          }
+        }
+      } // CLOSE LOOP CORRECTLY HERE
+
+      // Marca come offline i dispositivi non rilevati
+      try {
+        const allAgentDevices = await pool.query(
+          'SELECT id, ip_address, status FROM network_devices WHERE agent_id = $1',
+          [agentId]
+        );
+
+        const normalizedReceivedIPs = new Set();
+        receivedIPs.forEach(ip => {
+          normalizedReceivedIPs.add(ip.replace(/[{}"]/g, '').trim());
+        });
+
+        const devicesToMarkOffline = allAgentDevices.rows.filter(device => {
+          const normalizedDeviceIp = (device.ip_address || '').replace(/[{}"]/g, '').trim();
+          return !normalizedReceivedIPs.has(normalizedDeviceIp) && device.status === 'online';
+        });
+
+        if (devicesToMarkOffline.length > 0) {
+          console.log(`  ⚠️ Marcatura ${devicesToMarkOffline.length} dispositivi come offline`);
+          for (const device of devicesToMarkOffline) {
+            await pool.query(
+              'UPDATE network_devices SET status = $1 WHERE id = $2',
+              ['offline', device.id]
+            );
+          }
+        }
+      } catch (offlineErr) {
+        console.error('❌ Errore durante marcatura dispositivi offline:', offlineErr);
+      }
+
+      // Gestisci cambiamenti
+      let changeResults = [];
+      if (changes && Array.isArray(changes)) {
+        for (const change of changes) {
+          const { device_ip, change_type, old_value, new_value } = change;
+          const deviceResult = await pool.query(
+            'SELECT id FROM network_devices WHERE agent_id = $1 AND ip_address = $2',
+            [agentId, device_ip]
+          );
+
+          if (deviceResult.rows.length > 0) {
+            const deviceId = deviceResult.rows[0].id;
+
+            if (change_type === 'device_offline') {
+              await pool.query('UPDATE network_devices SET status = $1 WHERE id = $2', ['offline', deviceId]);
+            } else if (change_type === 'device_online') {
+              await pool.query('UPDATE network_devices SET status = $1, last_seen = NOW() WHERE id = $2', ['online', deviceId]);
+            }
+
+            const notificationConfig = await pool.query(
+              'SELECT enabled FROM network_notification_config WHERE agent_id = $1 AND ip_address = $2',
+              [agentId, device_ip]
+            );
+            const shouldNotify = notificationConfig.rows.length > 0 && notificationConfig.rows[0].enabled;
+
+            const changeResult = await pool.query(
+              `INSERT INTO network_changes (device_id, agent_id, change_type, old_value, new_value, notification_ip)
+                 VALUES ($1, $2, $3, $4, $5, $6)
+                 RETURNING id`,
+              [deviceId, agentId, change_type, old_value || null, new_value || null, shouldNotify ? device_ip : null]
+            );
+            changeResults.push({ id: changeResult.rows[0].id, change_type, notified: shouldNotify });
+          }
+        }
+      }
+
+      // Emetti evento WebSocket
+      if (io && (deviceResults.length > 0 || changeResults.length > 0)) {
+        io.emit('network-monitoring-update', {
+          agent_id: agentId,
+          azienda_id: req.agent.azienda_id,
+          devices: deviceResults,
+          changes: changeResults
+        });
+      }
+
+      console.log(`✅ Scan results processati: ${deviceResults.length} dispositivi, ${changeResults.length} cambiamenti`);
+      res.json({
+        success: true,
+        devices_processed: deviceResults.length,
+        changes_processed: changeResults.length
+      });
+
+    } catch (err) {
+      console.error('❌ Errore ricezione scan results:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
   });
 
-// GET /api/network-monitoring/clients/:aziendaId/devices
-// Ottieni lista dispositivi per un'azienda (per frontend)
-router.get('/clients/:aziendaId/devices', async (req, res) => {
-  try {
-    await ensureTables();
-
-    // Assicurati che la colonna is_static esista (migrazione)
+  // GET /api/network-monitoring/clients/:aziendaId/devices
+  // Ottieni lista dispositivi per un'azienda (per frontend)
+  router.get('/clients/:aziendaId/devices', async (req, res) => {
     try {
-      await pool.query(`
+      await ensureTables();
+
+      // Assicurati che la colonna is_static esista (migrazione)
+      try {
+        await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;
         `);
-    } catch (migrationErr) {
-      // Ignora errore se colonna esiste giÃ 
-      if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
-        console.warn('âš ï¸ Avviso aggiunta colonna is_static in clients/:aziendaId/devices:', migrationErr.message);
+      } catch (migrationErr) {
+        // Ignora errore se colonna esiste giÃ 
+        if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
+          console.warn('âš ï¸ Avviso aggiunta colonna is_static in clients/:aziendaId/devices:', migrationErr.message);
+        }
       }
-    }
 
-    // Migrazione: pulisci IP nel formato JSON errato e rimuovi duplicati
-    try {
-      // 1. Pulisci IP nel formato errato {"192.168.100.2"} -> 192.168.100.2
-      await pool.query(`
+      // Migrazione: pulisci IP nel formato JSON errato e rimuovi duplicati
+      try {
+        // 1. Pulisci IP nel formato errato {"192.168.100.2"} -> 192.168.100.2
+        await pool.query(`
           UPDATE network_devices 
           SET ip_address = REGEXP_REPLACE(ip_address, '[{}"]', '', 'g')
           WHERE ip_address ~ '[{}"]';
         `);
 
-      // 2. Rimuovi duplicati: mantieni il dispositivo piÃ¹ recente o quello con piÃ¹ dati
-      await pool.query(`
+        // 2. Rimuovi duplicati: mantieni il dispositivo piÃ¹ recente o quello con piÃ¹ dati
+        await pool.query(`
           DELETE FROM network_devices nd1
           WHERE EXISTS (
             SELECT 1 FROM network_devices nd2
@@ -550,8 +817,8 @@ router.get('/clients/:aziendaId/devices', async (req, res) => {
           );
         `);
 
-      // 3. Rimuovi eventuali duplicati rimanenti mantenendo solo quello con ID maggiore
-      await pool.query(`
+        // 3. Rimuovi eventuali duplicati rimanenti mantenendo solo quello con ID maggiore
+        await pool.query(`
           DELETE FROM network_devices nd1
           WHERE EXISTS (
             SELECT 1 FROM network_devices nd2
@@ -560,23 +827,23 @@ router.get('/clients/:aziendaId/devices', async (req, res) => {
               AND nd2.id > nd1.id
           );
         `);
-    } catch (migrationErr) {
-      console.warn('âš ï¸ Avviso pulizia IP duplicati:', migrationErr.message);
-    }
+      } catch (migrationErr) {
+        console.warn('âš ï¸ Avviso pulizia IP duplicati:', migrationErr.message);
+      }
 
-    const aziendaIdParam = req.params.aziendaId;
-    console.log('ðŸ” Route /clients/:aziendaId/devices - aziendaIdParam:', aziendaIdParam, 'type:', typeof aziendaIdParam);
-    const aziendaId = parseInt(aziendaIdParam, 10);
-    console.log('ðŸ” Route /clients/:aziendaId/devices - aziendaId parsed:', aziendaId, 'type:', typeof aziendaId, 'isNaN:', isNaN(aziendaId));
+      const aziendaIdParam = req.params.aziendaId;
+      console.log('ðŸ” Route /clients/:aziendaId/devices - aziendaIdParam:', aziendaIdParam, 'type:', typeof aziendaIdParam);
+      const aziendaId = parseInt(aziendaIdParam, 10);
+      console.log('ðŸ” Route /clients/:aziendaId/devices - aziendaId parsed:', aziendaId, 'type:', typeof aziendaId, 'isNaN:', isNaN(aziendaId));
 
-    if (isNaN(aziendaId) || aziendaId <= 0) {
-      console.error('âŒ ID azienda non valido:', aziendaIdParam, 'parsed:', aziendaId);
-      return res.status(400).json({ error: 'ID azienda non valido' });
-    }
+      if (isNaN(aziendaId) || aziendaId <= 0) {
+        console.error('âŒ ID azienda non valido:', aziendaIdParam, 'parsed:', aziendaId);
+        return res.status(400).json({ error: 'ID azienda non valido' });
+      }
 
-    console.log('ðŸ” Eseguendo query con aziendaId:', aziendaId);
-    const result = await pool.query(
-      `SELECT 
+      console.log('ðŸ” Eseguendo query con aziendaId:', aziendaId);
+      const result = await pool.query(
+        `SELECT 
           nd.id, nd.ip_address, nd.mac_address, nd.hostname, nd.vendor, 
           nd.device_type, nd.status, nd.is_static, nd.first_seen, nd.last_seen,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
@@ -588,27 +855,27 @@ router.get('/clients/:aziendaId/devices', async (req, res) => {
            CAST(split_part(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g'), '.', 2) AS INTEGER),
            CAST(split_part(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g'), '.', 3) AS INTEGER),
            CAST(split_part(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g'), '.', 4) AS INTEGER) ASC`,
-      [aziendaId]
-    );
+        [aziendaId]
+      );
 
-    res.json(result.rows);
-  } catch (err) {
-    console.error('âŒ Errore recupero dispositivi:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      res.json(result.rows);
+    } catch (err) {
+      console.error('âŒ Errore recupero dispositivi:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
 
-// GET /api/network-monitoring/clients/:aziendaId/changes
-// Ottieni storico cambiamenti per un'azienda (per frontend)
-router.get('/clients/:aziendaId/changes', async (req, res) => {
-  try {
-    await ensureTables();
+  // GET /api/network-monitoring/clients/:aziendaId/changes
+  // Ottieni storico cambiamenti per un'azienda (per frontend)
+  router.get('/clients/:aziendaId/changes', async (req, res) => {
+    try {
+      await ensureTables();
 
-    const { aziendaId } = req.params;
-    const limit = parseInt(req.query.limit) || 100;
+      const { aziendaId } = req.params;
+      const limit = parseInt(req.query.limit) || 100;
 
-    const result = await pool.query(
-      `SELECT 
+      const result = await pool.query(
+        `SELECT 
           nc.id, nc.change_type, nc.old_value, nc.new_value, nc.detected_at, nc.notified,
           nd.ip_address, nd.mac_address, nd.hostname, nd.vendor,
           na.agent_name
@@ -618,49 +885,49 @@ router.get('/clients/:aziendaId/changes', async (req, res) => {
          WHERE na.azienda_id = $1
          ORDER BY nc.detected_at DESC
          LIMIT $2`,
-      [aziendaId, limit]
-    );
+        [aziendaId, limit]
+      );
 
-    res.json(result.rows);
-  } catch (err) {
-    console.error('âŒ Errore recupero cambiamenti:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      res.json(result.rows);
+    } catch (err) {
+      console.error('âŒ Errore recupero cambiamenti:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
 
-// GET /api/network-monitoring/clients/:aziendaId/status
-// Ottieni status agent per un'azienda (per frontend)
-router.get('/clients/:aziendaId/status', async (req, res) => {
-  try {
-    await ensureTables();
+  // GET /api/network-monitoring/clients/:aziendaId/status
+  // Ottieni status agent per un'azienda (per frontend)
+  router.get('/clients/:aziendaId/status', async (req, res) => {
+    try {
+      await ensureTables();
 
-    const { aziendaId } = req.params;
+      const { aziendaId } = req.params;
 
-    const result = await pool.query(
-      `SELECT 
+      const result = await pool.query(
+        `SELECT 
           id, agent_name, status, last_heartbeat, version, 
           network_ranges, scan_interval_minutes, enabled, created_at
          FROM network_agents
          WHERE azienda_id = $1 AND deleted_at IS NULL
          ORDER BY created_at DESC`,
-      [aziendaId]
-    );
+        [aziendaId]
+      );
 
-    res.json(result.rows);
-  } catch (err) {
-    console.error('âŒ Errore recupero status agent:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      res.json(result.rows);
+    } catch (err) {
+      console.error('âŒ Errore recupero status agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
 
-// GET /api/network-monitoring/all/devices
-// Ottieni tutti i dispositivi di tutte le aziende (per dashboard principale)
-router.get('/all/devices', async (req, res) => {
-  try {
-    await ensureTables();
+  // GET /api/network-monitoring/all/devices
+  // Ottieni tutti i dispositivi di tutte le aziende (per dashboard principale)
+  router.get('/all/devices', async (req, res) => {
+    try {
+      await ensureTables();
 
-    const result = await pool.query(
-      `SELECT 
+      const result = await pool.query(
+        `SELECT 
           nd.id, nd.ip_address, nd.mac_address, nd.hostname, nd.vendor, 
           nd.device_type, nd.status, nd.first_seen, nd.last_seen,
           na.agent_name, na.azienda_id, na.last_heartbeat as agent_last_seen, na.status as agent_status,
@@ -670,38 +937,38 @@ router.get('/all/devices', async (req, res) => {
          LEFT JOIN users u ON na.azienda_id = u.id
          ORDER BY nd.last_seen DESC
          LIMIT 500`
-    );
+      );
 
-    res.json(result.rows);
-  } catch (err) {
-    console.error('âŒ Errore recupero tutti dispositivi:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      res.json(result.rows);
+    } catch (err) {
+      console.error('âŒ Errore recupero tutti dispositivi:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
 
-// GET /api/network-monitoring/all/changes
-// Ottieni tutti i cambiamenti recenti (per dashboard principale)
-router.get('/all/changes', async (req, res) => {
-  try {
-    await ensureTables();
-
-    const limit = parseInt(req.query.limit) || 200;
-
-    // Assicurati che la colonna is_static esista (migrazione)
+  // GET /api/network-monitoring/all/changes
+  // Ottieni tutti i cambiamenti recenti (per dashboard principale)
+  router.get('/all/changes', async (req, res) => {
     try {
-      await pool.query(`
+      await ensureTables();
+
+      const limit = parseInt(req.query.limit) || 200;
+
+      // Assicurati che la colonna is_static esista (migrazione)
+      try {
+        await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;
         `);
-    } catch (migrationErr) {
-      // Ignora errore se colonna esiste giÃ 
-      if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
-        console.warn('âš ï¸ Avviso aggiunta colonna is_static in all/changes:', migrationErr.message);
+      } catch (migrationErr) {
+        // Ignora errore se colonna esiste giÃ 
+        if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
+          console.warn('âš ï¸ Avviso aggiunta colonna is_static in all/changes:', migrationErr.message);
+        }
       }
-    }
 
-    const result = await pool.query(
-      `SELECT 
+      const result = await pool.query(
+        `SELECT 
           nc.id, nc.change_type, nc.old_value, nc.new_value, nc.detected_at, nc.notified,
           nd.ip_address, nd.mac_address, nd.hostname, nd.vendor, nd.device_type, nd.is_static,
           na.agent_name, na.azienda_id,
@@ -712,65 +979,65 @@ router.get('/all/changes', async (req, res) => {
          LEFT JOIN users u ON na.azienda_id = u.id
          ORDER BY nc.detected_at DESC
          LIMIT $1`,
-      [limit]
-    );
+        [limit]
+      );
 
-    res.json(result.rows);
-  } catch (err) {
-    console.error('âŒ Errore recupero tutti cambiamenti:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      res.json(result.rows);
+    } catch (err) {
+      console.error('âŒ Errore recupero tutti cambiamenti:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
 
-// GET /api/network-monitoring/companies
-// Ottieni lista aziende uniche dal progetto ticket (solo tecnici/admin)
-router.get('/companies', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    // Recupera tutte le aziende distinte dalla tabella users del progetto ticket
-    // Query semplificata compatibile con tutte le versioni PostgreSQL
-    const companiesResult = await pool.query(
-      `SELECT DISTINCT 
+  // GET /api/network-monitoring/companies
+  // Ottieni lista aziende uniche dal progetto ticket (solo tecnici/admin)
+  router.get('/companies', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      // Recupera tutte le aziende distinte dalla tabella users del progetto ticket
+      // Query semplificata compatibile con tutte le versioni PostgreSQL
+      const companiesResult = await pool.query(
+        `SELECT DISTINCT 
           u.azienda,
           MIN(u.id) as id
          FROM users u
          WHERE u.azienda IS NOT NULL AND u.azienda != '' AND u.azienda != 'Senza azienda'
          GROUP BY u.azienda
          ORDER BY u.azienda ASC`
-    );
+      );
 
-    // Per ogni azienda, conta gli agent associati
-    const companiesWithAgents = await Promise.all(
-      companiesResult.rows.map(async (row) => {
-        const agentCount = await pool.query(
-          `SELECT COUNT(*) as count 
+      // Per ogni azienda, conta gli agent associati
+      const companiesWithAgents = await Promise.all(
+        companiesResult.rows.map(async (row) => {
+          const agentCount = await pool.query(
+            `SELECT COUNT(*) as count 
              FROM network_agents na
              INNER JOIN users u ON na.azienda_id = u.id
              WHERE u.azienda = $1`,
-          [row.azienda]
-        );
-        return {
-          id: row.id,
-          azienda: row.azienda,
-          agents_count: parseInt(agentCount.rows[0].count) || 0
-        };
-      })
-    );
+            [row.azienda]
+          );
+          return {
+            id: row.id,
+            azienda: row.azienda,
+            agents_count: parseInt(agentCount.rows[0].count) || 0
+          };
+        })
+      );
 
-    res.json(companiesWithAgents);
-  } catch (err) {
-    console.error('âŒ Errore recupero aziende:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      res.json(companiesWithAgents);
+    } catch (err) {
+      console.error('âŒ Errore recupero aziende:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
 
-// GET /api/network-monitoring/agents
-// Ottieni lista agent registrati (solo tecnici/admin)
-router.get('/agents', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
+  // GET /api/network-monitoring/agents
+  // Ottieni lista agent registrati (solo tecnici/admin)
+  router.get('/agents', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
 
-    const result = await pool.query(
-      `SELECT 
+      const result = await pool.query(
+        `SELECT 
           na.id, na.agent_name, 
           CASE 
             WHEN na.last_heartbeat IS NULL THEN 'offline'
@@ -785,215 +1052,215 @@ router.get('/agents', authenticateToken, requireRole('tecnico'), async (req, res
          LEFT JOIN users u ON na.azienda_id = u.id
          WHERE na.deleted_at IS NULL
          ORDER BY na.created_at DESC`
-    );
+      );
 
-    res.json(result.rows);
-  } catch (err) {
-    console.error('âŒ Errore recupero agent:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// GET /api/network-monitoring/agent/:id/config
-// Ottieni configurazione completa agent per download (solo tecnici/admin)
-router.get('/agent/:id/config', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const agentId = parseInt(req.params.id);
-
-    if (!agentId) {
-      return res.status(400).json({ error: 'ID agent richiesto' });
+      res.json(result.rows);
+    } catch (err) {
+      console.error('âŒ Errore recupero agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    await ensureTables();
+  // GET /api/network-monitoring/agent/:id/config
+  // Ottieni configurazione completa agent per download (solo tecnici/admin)
+  router.get('/agent/:id/config', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
 
-    const result = await pool.query(
-      `SELECT 
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
+
+      await ensureTables();
+
+      const result = await pool.query(
+        `SELECT 
           na.id, na.agent_name, na.api_key, na.network_ranges, 
           na.scan_interval_minutes, na.created_at
          FROM network_agents na
          WHERE na.id = $1`,
-      [agentId]
-    );
+        [agentId]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Agent non trovato' });
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato' });
+      }
+
+      const agent = result.rows[0];
+
+      // Restituisci configurazione per download
+      res.json({
+        agent_id: agent.id,
+        api_key: agent.api_key,
+        agent_name: agent.agent_name,
+        network_ranges: agent.network_ranges || [],
+        scan_interval_minutes: agent.scan_interval_minutes || 15,
+        created_at: agent.created_at
+      });
+    } catch (err) {
+      console.error('âŒ Errore recupero configurazione agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    const agent = result.rows[0];
+  // GET /api/network-monitoring/agent/:id/download
+  // Scarica pacchetto completo (ZIP con config.json + script .ps1)
+  router.get('/agent/:id/download', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
 
-    // Restituisci configurazione per download
-    res.json({
-      agent_id: agent.id,
-      api_key: agent.api_key,
-      agent_name: agent.agent_name,
-      network_ranges: agent.network_ranges || [],
-      scan_interval_minutes: agent.scan_interval_minutes || 15,
-      created_at: agent.created_at
-    });
-  } catch (err) {
-    console.error('âŒ Errore recupero configurazione agent:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
 
-// GET /api/network-monitoring/agent/:id/download
-// Scarica pacchetto completo (ZIP con config.json + script .ps1)
-router.get('/agent/:id/download', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const agentId = parseInt(req.params.id);
+      await ensureTables();
 
-    if (!agentId) {
-      return res.status(400).json({ error: 'ID agent richiesto' });
-    }
-
-    await ensureTables();
-
-    const result = await pool.query(
-      `SELECT 
+      const result = await pool.query(
+        `SELECT 
           na.id, na.agent_name, na.api_key, na.network_ranges, 
           na.scan_interval_minutes
          FROM network_agents na
          WHERE na.id = $1`,
-      [agentId]
-    );
+        [agentId]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Agent non trovato' });
-    }
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato' });
+      }
 
-    const agent = result.rows[0];
+      const agent = result.rows[0];
 
-    // Path dei file agent (relativo alla root del progetto)
-    // __dirname Ã¨ backend/routes, quindi risaliamo di 2 livelli per arrivare alla root
-    const projectRoot = path.resolve(__dirname, '..', '..');
-    const agentDir = path.join(projectRoot, 'agent');
-    const networkMonitorPath = path.join(agentDir, 'NetworkMonitor.ps1');
-    const installerPath = path.join(agentDir, 'InstallerCompleto.ps1');
-    const servicePath = path.join(agentDir, 'NetworkMonitorService.ps1');
-    const trayIconPath = path.join(agentDir, 'NetworkMonitorTrayIcon.ps1');
-    const installServicePath = path.join(agentDir, 'Installa-Servizio.ps1');
-    const removeServicePath = path.join(agentDir, 'Rimuovi-Servizio.ps1');
-    const installAutoPath = path.join(agentDir, 'Installa-Automatico.ps1');
-    const installBatPath = path.join(agentDir, 'Installa.bat');
-    const readmeServicePath = path.join(agentDir, 'README_SERVICE.md');
-    const guidaInstallazionePath = path.join(agentDir, 'GUIDA_INSTALLAZIONE_SERVIZIO.md');
-    const diagnosticaPath = path.join(agentDir, 'Diagnostica-Agent.ps1');
+      // Path dei file agent (relativo alla root del progetto)
+      // __dirname Ã¨ backend/routes, quindi risaliamo di 2 livelli per arrivare alla root
+      const projectRoot = path.resolve(__dirname, '..', '..');
+      const agentDir = path.join(projectRoot, 'agent');
+      const networkMonitorPath = path.join(agentDir, 'NetworkMonitor.ps1');
+      const installerPath = path.join(agentDir, 'InstallerCompleto.ps1');
+      const servicePath = path.join(agentDir, 'NetworkMonitorService.ps1');
+      const trayIconPath = path.join(agentDir, 'NetworkMonitorTrayIcon.ps1');
+      const installServicePath = path.join(agentDir, 'Installa-Servizio.ps1');
+      const removeServicePath = path.join(agentDir, 'Rimuovi-Servizio.ps1');
+      const installAutoPath = path.join(agentDir, 'Installa-Automatico.ps1');
+      const installBatPath = path.join(agentDir, 'Installa.bat');
+      const readmeServicePath = path.join(agentDir, 'README_SERVICE.md');
+      const guidaInstallazionePath = path.join(agentDir, 'GUIDA_INSTALLAZIONE_SERVIZIO.md');
+      const diagnosticaPath = path.join(agentDir, 'Diagnostica-Agent.ps1');
 
-    console.log('ðŸ“¦ Download pacchetto agent - Path ricerca file:');
-    console.log('  __dirname:', __dirname);
-    console.log('  process.cwd():', process.cwd());
-    console.log('  Project root:', projectRoot);
-    console.log('  Agent dir:', agentDir);
-    console.log('  NetworkMonitor.ps1:', networkMonitorPath);
-    console.log('    exists:', fs.existsSync(networkMonitorPath));
-    console.log('  InstallerCompleto.ps1:', installerPath);
-    console.log('    exists:', fs.existsSync(installerPath));
+      console.log('ðŸ“¦ Download pacchetto agent - Path ricerca file:');
+      console.log('  __dirname:', __dirname);
+      console.log('  process.cwd():', process.cwd());
+      console.log('  Project root:', projectRoot);
+      console.log('  Agent dir:', agentDir);
+      console.log('  NetworkMonitor.ps1:', networkMonitorPath);
+      console.log('    exists:', fs.existsSync(networkMonitorPath));
+      console.log('  InstallerCompleto.ps1:', installerPath);
+      console.log('    exists:', fs.existsSync(installerPath));
 
-    // Prova multiple path per trovare i file (fallback robusto)
-    const possiblePaths = [
-      { network: networkMonitorPath, installer: installerPath, label: 'path __dirname (default)' },
-      { network: path.join(process.cwd(), 'agent', 'NetworkMonitor.ps1'), installer: path.join(process.cwd(), 'agent', 'InstallerCompleto.ps1'), label: 'path process.cwd()' },
-      { network: path.join(projectRoot, 'agent', 'NetworkMonitor.ps1'), installer: path.join(projectRoot, 'agent', 'InstallerCompleto.ps1'), label: 'path projectRoot' }
-    ];
+      // Prova multiple path per trovare i file (fallback robusto)
+      const possiblePaths = [
+        { network: networkMonitorPath, installer: installerPath, label: 'path __dirname (default)' },
+        { network: path.join(process.cwd(), 'agent', 'NetworkMonitor.ps1'), installer: path.join(process.cwd(), 'agent', 'InstallerCompleto.ps1'), label: 'path process.cwd()' },
+        { network: path.join(projectRoot, 'agent', 'NetworkMonitor.ps1'), installer: path.join(projectRoot, 'agent', 'InstallerCompleto.ps1'), label: 'path projectRoot' }
+      ];
 
-    let networkMonitorContent, installerContent;
-    let filesFound = false;
-    let usedPath = null;
+      let networkMonitorContent, installerContent;
+      let filesFound = false;
+      let usedPath = null;
 
-    for (const pathSet of possiblePaths) {
-      console.log(`ðŸ” Tentativo path: ${pathSet.label}`);
-      console.log(`   NetworkMonitor: ${pathSet.network} (exists: ${fs.existsSync(pathSet.network)})`);
-      console.log(`   InstallerCompleto: ${pathSet.installer} (exists: ${fs.existsSync(pathSet.installer)})`);
+      for (const pathSet of possiblePaths) {
+        console.log(`ðŸ” Tentativo path: ${pathSet.label}`);
+        console.log(`   NetworkMonitor: ${pathSet.network} (exists: ${fs.existsSync(pathSet.network)})`);
+        console.log(`   InstallerCompleto: ${pathSet.installer} (exists: ${fs.existsSync(pathSet.installer)})`);
 
-      if (fs.existsSync(pathSet.network) && fs.existsSync(pathSet.installer)) {
-        try {
-          console.log(`âœ… File trovati usando: ${pathSet.label}`);
-          networkMonitorContent = fs.readFileSync(pathSet.network, 'utf8');
-          installerContent = fs.readFileSync(pathSet.installer, 'utf8');
-          filesFound = true;
-          usedPath = pathSet.label;
-          console.log(`âœ… File letti con successo: NetworkMonitor.ps1 (${networkMonitorContent.length} caratteri), InstallerCompleto.ps1 (${installerContent.length} caratteri)`);
-          break;
-        } catch (readErr) {
-          console.error(`âŒ Errore lettura file da ${pathSet.label}:`, readErr.message);
-          continue;
+        if (fs.existsSync(pathSet.network) && fs.existsSync(pathSet.installer)) {
+          try {
+            console.log(`âœ… File trovati usando: ${pathSet.label}`);
+            networkMonitorContent = fs.readFileSync(pathSet.network, 'utf8');
+            installerContent = fs.readFileSync(pathSet.installer, 'utf8');
+            filesFound = true;
+            usedPath = pathSet.label;
+            console.log(`âœ… File letti con successo: NetworkMonitor.ps1 (${networkMonitorContent.length} caratteri), InstallerCompleto.ps1 (${installerContent.length} caratteri)`);
+            break;
+          } catch (readErr) {
+            console.error(`âŒ Errore lettura file da ${pathSet.label}:`, readErr.message);
+            continue;
+          }
         }
       }
-    }
 
-    if (!filesFound) {
-      const errorMsg = `File agent non trovati in nessuno dei path provati. Verifica che i file NetworkMonitor.ps1 e InstallerCompleto.ps1 siano presenti nella cartella agent/ del progetto.`;
-      console.error('âŒ', errorMsg);
-      console.error('  Path provati:');
-      possiblePaths.forEach(p => {
-        console.error(`    - ${p.label}: NetworkMonitor=${fs.existsSync(p.network)}, Installer=${fs.existsSync(p.installer)}`);
+      if (!filesFound) {
+        const errorMsg = `File agent non trovati in nessuno dei path provati. Verifica che i file NetworkMonitor.ps1 e InstallerCompleto.ps1 siano presenti nella cartella agent/ del progetto.`;
+        console.error('âŒ', errorMsg);
+        console.error('  Path provati:');
+        possiblePaths.forEach(p => {
+          console.error(`    - ${p.label}: NetworkMonitor=${fs.existsSync(p.network)}, Installer=${fs.existsSync(p.installer)}`);
+        });
+        return res.status(500).json({ error: errorMsg });
+      }
+
+      // Crea config.json
+      const configJson = {
+        server_url: req.protocol + '://' + req.get('host'),
+        api_key: agent.api_key,
+        agent_name: agent.agent_name,
+        version: "1.0.0",
+        network_ranges: agent.network_ranges || [],
+        scan_interval_minutes: agent.scan_interval_minutes || 15
+      };
+
+      // Nome file ZIP
+      const zipFileName = `NetworkMonitor-Agent-${agent.agent_name.replace(/\s+/g, '-')}.zip`;
+
+      console.log('ðŸ“¦ Creazione ZIP:', zipFileName);
+
+      // Configura headers per download ZIP
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
+
+      // Crea ZIP
+      const archive = archiver('zip', {
+        zlib: { level: 9 } // Massima compressione
       });
-      return res.status(500).json({ error: errorMsg });
-    }
 
-    // Crea config.json
-    const configJson = {
-      server_url: req.protocol + '://' + req.get('host'),
-      api_key: agent.api_key,
-      agent_name: agent.agent_name,
-      version: "1.0.0",
-      network_ranges: agent.network_ranges || [],
-      scan_interval_minutes: agent.scan_interval_minutes || 15
-    };
+      console.log('âœ… Archivio creato, aggiungo file...');
 
-    // Nome file ZIP
-    const zipFileName = `NetworkMonitor-Agent-${agent.agent_name.replace(/\s+/g, '-')}.zip`;
+      // Gestisci errori
+      archive.on('error', (err) => {
+        console.error('âŒ Errore creazione ZIP:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: `Errore creazione pacchetto: ${err.message}` });
+        }
+      });
 
-    console.log('ðŸ“¦ Creazione ZIP:', zipFileName);
+      // Gestisci errori di risposta
+      res.on('error', (err) => {
+        console.error('âŒ Errore invio risposta:', err);
+        archive.abort();
+      });
 
-    // Configura headers per download ZIP
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
+      // Pipe ZIP alla risposta
+      archive.pipe(res);
 
-    // Crea ZIP
-    const archive = archiver('zip', {
-      zlib: { level: 9 } // Massima compressione
-    });
+      // Aggiungi file al ZIP
+      try {
+        // File principali (obbligatori)
+        archive.append(JSON.stringify(configJson, null, 2), { name: 'config.json' });
+        console.log('âœ… Aggiunto config.json');
 
-    console.log('âœ… Archivio creato, aggiungo file...');
+        archive.append(networkMonitorContent, { name: 'NetworkMonitor.ps1' });
+        console.log('âœ… Aggiunto NetworkMonitor.ps1');
 
-    // Gestisci errori
-    archive.on('error', (err) => {
-      console.error('âŒ Errore creazione ZIP:', err);
-      if (!res.headersSent) {
-        res.status(500).json({ error: `Errore creazione pacchetto: ${err.message}` });
+        archive.append(installerContent, { name: 'InstallerCompleto.ps1' });
+        console.log('âœ… Aggiunto InstallerCompleto.ps1');
+      } catch (appendErr) {
+        console.error('âŒ Errore aggiunta file allo ZIP:', appendErr);
+        if (!res.headersSent) {
+          return res.status(500).json({ error: `Errore creazione ZIP: ${appendErr.message}` });
+        }
       }
-    });
 
-    // Gestisci errori di risposta
-    res.on('error', (err) => {
-      console.error('âŒ Errore invio risposta:', err);
-      archive.abort();
-    });
-
-    // Pipe ZIP alla risposta
-    archive.pipe(res);
-
-    // Aggiungi file al ZIP
-    try {
-      // File principali (obbligatori)
-      archive.append(JSON.stringify(configJson, null, 2), { name: 'config.json' });
-      console.log('âœ… Aggiunto config.json');
-
-      archive.append(networkMonitorContent, { name: 'NetworkMonitor.ps1' });
-      console.log('âœ… Aggiunto NetworkMonitor.ps1');
-
-      archive.append(installerContent, { name: 'InstallerCompleto.ps1' });
-      console.log('âœ… Aggiunto InstallerCompleto.ps1');
-    } catch (appendErr) {
-      console.error('âŒ Errore aggiunta file allo ZIP:', appendErr);
-      if (!res.headersSent) {
-        return res.status(500).json({ error: `Errore creazione ZIP: ${appendErr.message}` });
-      }
-    }
-
-    // Aggiungi README
-    const readmeContent = `# Network Monitor Agent - Installazione
+      // Aggiungi README
+      const readmeContent = `# Network Monitor Agent - Installazione
 
 ## âš ï¸ IMPORTANTE: Directory Installazione
 
@@ -1067,351 +1334,351 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
 2. Esegui: Unregister-ScheduledTask -TaskName "NetworkMonitorAgent" -Confirm:$false
 3. Cancella la directory di installazione
 `;
-    archive.append(readmeContent, { name: 'README.txt' });
-    console.log('âœ… Aggiunto README.txt');
+      archive.append(readmeContent, { name: 'README.txt' });
+      console.log('âœ… Aggiunto README.txt');
 
-    // File servizio Windows (NUOVO) - Aggiungi dopo README per non interrompere il flusso
-    try {
-      // NetworkMonitorService.ps1
-      if (fs.existsSync(servicePath)) {
-        const serviceContent = fs.readFileSync(servicePath, 'utf8');
-        archive.append(serviceContent, { name: 'NetworkMonitorService.ps1' });
-        console.log('âœ… Aggiunto NetworkMonitorService.ps1');
-      } else {
-        console.warn('âš ï¸  NetworkMonitorService.ps1 non trovato!');
-      }
-
-      // Installa-Servizio.ps1
-      if (fs.existsSync(installServicePath)) {
-        const installServiceContent = fs.readFileSync(installServicePath, 'utf8');
-        archive.append(installServiceContent, { name: 'Installa-Servizio.ps1' });
-        console.log('âœ… Aggiunto Installa-Servizio.ps1');
-      } else {
-        console.warn('âš ï¸  Installa-Servizio.ps1 non trovato!');
-      }
-
-      // Rimuovi-Servizio.ps1
-      if (fs.existsSync(removeServicePath)) {
-        const removeServiceContent = fs.readFileSync(removeServicePath, 'utf8');
-        archive.append(removeServiceContent, { name: 'Rimuovi-Servizio.ps1' });
-        console.log('âœ… Aggiunto Rimuovi-Servizio.ps1');
-      } else {
-        console.warn('âš ï¸  Rimuovi-Servizio.ps1 non trovato!');
-      }
-
-      // Installa-Automatico.ps1 (INSTALLER AUTOMATICO)
-      if (fs.existsSync(installAutoPath)) {
-        const installAutoContent = fs.readFileSync(installAutoPath, 'utf8');
-        archive.append(installAutoContent, { name: 'Installa-Automatico.ps1' });
-        console.log('âœ… Aggiunto Installa-Automatico.ps1');
-      } else {
-        console.warn('âš ï¸  Installa-Automatico.ps1 non trovato!');
-      }
-
-      // Installa.bat (INSTALLER BATCH - DOPPIO CLICK)
-      if (fs.existsSync(installBatPath)) {
-        const installBatContent = fs.readFileSync(installBatPath, 'utf8');
-        archive.append(installBatContent, { name: 'Installa.bat' });
-        console.log('âœ… Aggiunto Installa.bat');
-      } else {
-        console.warn('âš ï¸  Installa.bat non trovato!');
-      }
-
-      // README_SERVICE.md
-      if (fs.existsSync(readmeServicePath)) {
-        const readmeServiceContent = fs.readFileSync(readmeServicePath, 'utf8');
-        archive.append(readmeServiceContent, { name: 'README_SERVICE.md' });
-        console.log('âœ… Aggiunto README_SERVICE.md');
-      }
-
-      // GUIDA_INSTALLAZIONE_SERVIZIO.md
-      if (fs.existsSync(guidaInstallazionePath)) {
-        const guidaContent = fs.readFileSync(guidaInstallazionePath, 'utf8');
-        archive.append(guidaContent, { name: 'GUIDA_INSTALLAZIONE_SERVIZIO.md' });
-        console.log('âœ… Aggiunto GUIDA_INSTALLAZIONE_SERVIZIO.md');
-      }
-
-      // Diagnostica-Agent.ps1
-      if (fs.existsSync(diagnosticaPath)) {
-        const diagnosticaContent = fs.readFileSync(diagnosticaPath, 'utf8');
-        archive.append(diagnosticaContent, { name: 'Diagnostica-Agent.ps1' });
-        console.log('âœ… Aggiunto Diagnostica-Agent.ps1');
-      }
-
-      // NetworkMonitorTrayIcon.ps1 (tray icon separata per avvio automatico)
-      if (fs.existsSync(trayIconPath)) {
-        const trayIconContent = fs.readFileSync(trayIconPath, 'utf8');
-        archive.append(trayIconContent, { name: 'NetworkMonitorTrayIcon.ps1' });
-        console.log('âœ… Aggiunto NetworkMonitorTrayIcon.ps1');
-      } else {
-        console.warn('âš ï¸  NetworkMonitorTrayIcon.ps1 non trovato!');
-      }
-
-      // Disinstalla-Tutto.ps1 e .bat
-      const disinstallaTuttoPath = path.join(agentDir, 'Disinstalla-Tutto.ps1');
-      const disinstallaTuttoBatPath = path.join(agentDir, 'Disinstalla-Tutto.bat');
-
-      if (fs.existsSync(disinstallaTuttoPath)) {
-        const disinstallaTuttoContent = fs.readFileSync(disinstallaTuttoPath, 'utf8');
-        archive.append(disinstallaTuttoContent, { name: 'Disinstalla-Tutto.ps1' });
-        console.log('âœ… Aggiunto Disinstalla-Tutto.ps1');
-      }
-
-      if (fs.existsSync(disinstallaTuttoBatPath)) {
-        const disinstallaTuttoBatContent = fs.readFileSync(disinstallaTuttoBatPath, 'utf8');
-        archive.append(disinstallaTuttoBatContent, { name: 'Disinstalla-Tutto.bat' });
-        console.log('âœ… Aggiunto Disinstalla-Tutto.bat');
-      }
-
-      // nssm.exe (incluso nel pacchetto - non serve download esterno)
-      const nssmPath = path.join(agentDir, 'nssm.exe');
-      console.log('ðŸ” Verifica nssm.exe:', nssmPath);
-      console.log('   Esiste:', fs.existsSync(nssmPath));
-      if (fs.existsSync(nssmPath)) {
-        try {
-          const nssmContent = fs.readFileSync(nssmPath);
-          archive.append(nssmContent, { name: 'nssm.exe' });
-          console.log('âœ… Aggiunto nssm.exe al ZIP');
-        } catch (nssmErr) {
-          console.error('âŒ Errore lettura nssm.exe:', nssmErr);
-          console.warn('âš ï¸  nssm.exe non aggiunto al ZIP a causa di errore');
+      // File servizio Windows (NUOVO) - Aggiungi dopo README per non interrompere il flusso
+      try {
+        // NetworkMonitorService.ps1
+        if (fs.existsSync(servicePath)) {
+          const serviceContent = fs.readFileSync(servicePath, 'utf8');
+          archive.append(serviceContent, { name: 'NetworkMonitorService.ps1' });
+          console.log('âœ… Aggiunto NetworkMonitorService.ps1');
+        } else {
+          console.warn('âš ï¸  NetworkMonitorService.ps1 non trovato!');
         }
-      } else {
-        console.warn('âš ï¸  nssm.exe non trovato in:', nssmPath);
-        console.warn('   Agent dir:', agentDir);
-        console.warn('   Assicurati che nssm.exe sia presente in agent/nssm.exe sul server');
+
+        // Installa-Servizio.ps1
+        if (fs.existsSync(installServicePath)) {
+          const installServiceContent = fs.readFileSync(installServicePath, 'utf8');
+          archive.append(installServiceContent, { name: 'Installa-Servizio.ps1' });
+          console.log('âœ… Aggiunto Installa-Servizio.ps1');
+        } else {
+          console.warn('âš ï¸  Installa-Servizio.ps1 non trovato!');
+        }
+
+        // Rimuovi-Servizio.ps1
+        if (fs.existsSync(removeServicePath)) {
+          const removeServiceContent = fs.readFileSync(removeServicePath, 'utf8');
+          archive.append(removeServiceContent, { name: 'Rimuovi-Servizio.ps1' });
+          console.log('âœ… Aggiunto Rimuovi-Servizio.ps1');
+        } else {
+          console.warn('âš ï¸  Rimuovi-Servizio.ps1 non trovato!');
+        }
+
+        // Installa-Automatico.ps1 (INSTALLER AUTOMATICO)
+        if (fs.existsSync(installAutoPath)) {
+          const installAutoContent = fs.readFileSync(installAutoPath, 'utf8');
+          archive.append(installAutoContent, { name: 'Installa-Automatico.ps1' });
+          console.log('âœ… Aggiunto Installa-Automatico.ps1');
+        } else {
+          console.warn('âš ï¸  Installa-Automatico.ps1 non trovato!');
+        }
+
+        // Installa.bat (INSTALLER BATCH - DOPPIO CLICK)
+        if (fs.existsSync(installBatPath)) {
+          const installBatContent = fs.readFileSync(installBatPath, 'utf8');
+          archive.append(installBatContent, { name: 'Installa.bat' });
+          console.log('âœ… Aggiunto Installa.bat');
+        } else {
+          console.warn('âš ï¸  Installa.bat non trovato!');
+        }
+
+        // README_SERVICE.md
+        if (fs.existsSync(readmeServicePath)) {
+          const readmeServiceContent = fs.readFileSync(readmeServicePath, 'utf8');
+          archive.append(readmeServiceContent, { name: 'README_SERVICE.md' });
+          console.log('âœ… Aggiunto README_SERVICE.md');
+        }
+
+        // GUIDA_INSTALLAZIONE_SERVIZIO.md
+        if (fs.existsSync(guidaInstallazionePath)) {
+          const guidaContent = fs.readFileSync(guidaInstallazionePath, 'utf8');
+          archive.append(guidaContent, { name: 'GUIDA_INSTALLAZIONE_SERVIZIO.md' });
+          console.log('âœ… Aggiunto GUIDA_INSTALLAZIONE_SERVIZIO.md');
+        }
+
+        // Diagnostica-Agent.ps1
+        if (fs.existsSync(diagnosticaPath)) {
+          const diagnosticaContent = fs.readFileSync(diagnosticaPath, 'utf8');
+          archive.append(diagnosticaContent, { name: 'Diagnostica-Agent.ps1' });
+          console.log('âœ… Aggiunto Diagnostica-Agent.ps1');
+        }
+
+        // NetworkMonitorTrayIcon.ps1 (tray icon separata per avvio automatico)
+        if (fs.existsSync(trayIconPath)) {
+          const trayIconContent = fs.readFileSync(trayIconPath, 'utf8');
+          archive.append(trayIconContent, { name: 'NetworkMonitorTrayIcon.ps1' });
+          console.log('âœ… Aggiunto NetworkMonitorTrayIcon.ps1');
+        } else {
+          console.warn('âš ï¸  NetworkMonitorTrayIcon.ps1 non trovato!');
+        }
+
+        // Disinstalla-Tutto.ps1 e .bat
+        const disinstallaTuttoPath = path.join(agentDir, 'Disinstalla-Tutto.ps1');
+        const disinstallaTuttoBatPath = path.join(agentDir, 'Disinstalla-Tutto.bat');
+
+        if (fs.existsSync(disinstallaTuttoPath)) {
+          const disinstallaTuttoContent = fs.readFileSync(disinstallaTuttoPath, 'utf8');
+          archive.append(disinstallaTuttoContent, { name: 'Disinstalla-Tutto.ps1' });
+          console.log('âœ… Aggiunto Disinstalla-Tutto.ps1');
+        }
+
+        if (fs.existsSync(disinstallaTuttoBatPath)) {
+          const disinstallaTuttoBatContent = fs.readFileSync(disinstallaTuttoBatPath, 'utf8');
+          archive.append(disinstallaTuttoBatContent, { name: 'Disinstalla-Tutto.bat' });
+          console.log('âœ… Aggiunto Disinstalla-Tutto.bat');
+        }
+
+        // nssm.exe (incluso nel pacchetto - non serve download esterno)
+        const nssmPath = path.join(agentDir, 'nssm.exe');
+        console.log('ðŸ” Verifica nssm.exe:', nssmPath);
+        console.log('   Esiste:', fs.existsSync(nssmPath));
+        if (fs.existsSync(nssmPath)) {
+          try {
+            const nssmContent = fs.readFileSync(nssmPath);
+            archive.append(nssmContent, { name: 'nssm.exe' });
+            console.log('âœ… Aggiunto nssm.exe al ZIP');
+          } catch (nssmErr) {
+            console.error('âŒ Errore lettura nssm.exe:', nssmErr);
+            console.warn('âš ï¸  nssm.exe non aggiunto al ZIP a causa di errore');
+          }
+        } else {
+          console.warn('âš ï¸  nssm.exe non trovato in:', nssmPath);
+          console.warn('   Agent dir:', agentDir);
+          console.warn('   Assicurati che nssm.exe sia presente in agent/nssm.exe sul server');
+        }
+      } catch (serviceErr) {
+        console.error('âŒ Errore aggiunta file servizio allo ZIP:', serviceErr);
+        // Non bloccare se i file servizio non sono disponibili (compatibilitÃ )
       }
-    } catch (serviceErr) {
-      console.error('âŒ Errore aggiunta file servizio allo ZIP:', serviceErr);
-      // Non bloccare se i file servizio non sono disponibili (compatibilitÃ )
+
+      // Finalizza ZIP
+      await archive.finalize();
+
+    } catch (err) {
+      console.error('âŒ Errore download pacchetto agent:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
     }
+  });
 
-    // Finalizza ZIP
-    await archive.finalize();
+  // PUT /api/network-monitoring/agent/:id/disable
+  // Disabilita un agent (blocca ricezione dati, ma NON disinstalla l'agent dal client)
+  router.put('/agent/:id/disable', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
 
-  } catch (err) {
-    console.error('âŒ Errore download pacchetto agent:', err);
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Errore interno del server' });
-    }
-  }
-});
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
 
-// PUT /api/network-monitoring/agent/:id/disable
-// Disabilita un agent (blocca ricezione dati, ma NON disinstalla l'agent dal client)
-router.put('/agent/:id/disable', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const agentId = parseInt(req.params.id);
+      await ensureTables();
 
-    if (!agentId) {
-      return res.status(400).json({ error: 'ID agent richiesto' });
-    }
-
-    await ensureTables();
-
-    const result = await pool.query(
-      `UPDATE network_agents 
+      const result = await pool.query(
+        `UPDATE network_agents 
          SET enabled = false, status = 'offline', updated_at = NOW()
          WHERE id = $1 AND deleted_at IS NULL
          RETURNING id, agent_name, enabled`,
-      [agentId]
-    );
+        [agentId]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Agent non trovato o giÃ  eliminato' });
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato o giÃ  eliminato' });
+      }
+
+      console.log(`ðŸ”´ Agent ${agentId} disabilitato (ricezione dati bloccata, agent rimane installato)`);
+      res.json({ success: true, agent: result.rows[0], message: 'Agent disabilitato. I dati non verranno piÃ¹ accettati, ma l\'agent rimane installato sul client.' });
+    } catch (err) {
+      console.error('âŒ Errore disabilitazione agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    console.log(`ðŸ”´ Agent ${agentId} disabilitato (ricezione dati bloccata, agent rimane installato)`);
-    res.json({ success: true, agent: result.rows[0], message: 'Agent disabilitato. I dati non verranno piÃ¹ accettati, ma l\'agent rimane installato sul client.' });
-  } catch (err) {
-    console.error('âŒ Errore disabilitazione agent:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+  // PUT /api/network-monitoring/agent/:id/enable
+  // Riabilita un agent (riprende ricezione dati)
+  router.put('/agent/:id/enable', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
 
-// PUT /api/network-monitoring/agent/:id/enable
-// Riabilita un agent (riprende ricezione dati)
-router.put('/agent/:id/enable', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const agentId = parseInt(req.params.id);
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
 
-    if (!agentId) {
-      return res.status(400).json({ error: 'ID agent richiesto' });
-    }
+      await ensureTables();
 
-    await ensureTables();
-
-    const result = await pool.query(
-      `UPDATE network_agents 
+      const result = await pool.query(
+        `UPDATE network_agents 
          SET enabled = true, updated_at = NOW()
          WHERE id = $1 AND deleted_at IS NULL
          RETURNING id, agent_name, enabled`,
-      [agentId]
-    );
+        [agentId]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Agent non trovato o eliminato' });
-    }
-
-    console.log(`âœ… Agent ${agentId} riabilitato`);
-    res.json({ success: true, agent: result.rows[0], message: 'Agent riabilitato. I dati verranno nuovamente accettati.' });
-  } catch (err) {
-    console.error('âŒ Errore riabilitazione agent:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// PUT /api/network-monitoring/agent/:id
-// Aggiorna configurazione agent (nome, reti, intervallo scansione)
-router.put('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const agentId = parseInt(req.params.id);
-
-    if (!agentId) {
-      return res.status(400).json({ error: 'ID agent richiesto' });
-    }
-
-    await ensureTables();
-
-    const { agent_name, network_ranges, scan_interval_minutes } = req.body;
-
-    // Costruisci query dinamica per aggiornare solo i campi forniti
-    const updateFields = [];
-    const updateValues = [];
-    let paramIndex = 1;
-
-    if (agent_name !== undefined) {
-      updateFields.push(`agent_name = $${paramIndex++}`);
-      updateValues.push(agent_name);
-    }
-
-    if (network_ranges !== undefined) {
-      // Assicurati che network_ranges sia un array
-      const rangesArray = Array.isArray(network_ranges) ? network_ranges : [];
-      updateFields.push(`network_ranges = $${paramIndex++}`);
-      updateValues.push(rangesArray);
-    }
-
-    if (scan_interval_minutes !== undefined) {
-      const interval = parseInt(scan_interval_minutes);
-      if (isNaN(interval) || interval < 1) {
-        return res.status(400).json({ error: 'Intervallo scansione deve essere un numero positivo' });
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato o eliminato' });
       }
-      updateFields.push(`scan_interval_minutes = $${paramIndex++}`);
-      updateValues.push(interval);
+
+      console.log(`âœ… Agent ${agentId} riabilitato`);
+      res.json({ success: true, agent: result.rows[0], message: 'Agent riabilitato. I dati verranno nuovamente accettati.' });
+    } catch (err) {
+      console.error('âŒ Errore riabilitazione agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    if (updateFields.length === 0) {
-      return res.status(400).json({ error: 'Nessun campo da aggiornare fornito' });
-    }
+  // PUT /api/network-monitoring/agent/:id
+  // Aggiorna configurazione agent (nome, reti, intervallo scansione)
+  router.put('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
 
-    // Aggiungi updated_at
-    updateFields.push(`updated_at = NOW()`);
-    updateValues.push(agentId);
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
 
-    const query = `
+      await ensureTables();
+
+      const { agent_name, network_ranges, scan_interval_minutes } = req.body;
+
+      // Costruisci query dinamica per aggiornare solo i campi forniti
+      const updateFields = [];
+      const updateValues = [];
+      let paramIndex = 1;
+
+      if (agent_name !== undefined) {
+        updateFields.push(`agent_name = $${paramIndex++}`);
+        updateValues.push(agent_name);
+      }
+
+      if (network_ranges !== undefined) {
+        // Assicurati che network_ranges sia un array
+        const rangesArray = Array.isArray(network_ranges) ? network_ranges : [];
+        updateFields.push(`network_ranges = $${paramIndex++}`);
+        updateValues.push(rangesArray);
+      }
+
+      if (scan_interval_minutes !== undefined) {
+        const interval = parseInt(scan_interval_minutes);
+        if (isNaN(interval) || interval < 1) {
+          return res.status(400).json({ error: 'Intervallo scansione deve essere un numero positivo' });
+        }
+        updateFields.push(`scan_interval_minutes = $${paramIndex++}`);
+        updateValues.push(interval);
+      }
+
+      if (updateFields.length === 0) {
+        return res.status(400).json({ error: 'Nessun campo da aggiornare fornito' });
+      }
+
+      // Aggiungi updated_at
+      updateFields.push(`updated_at = NOW()`);
+      updateValues.push(agentId);
+
+      const query = `
         UPDATE network_agents 
         SET ${updateFields.join(', ')}
         WHERE id = $${paramIndex} AND deleted_at IS NULL
         RETURNING id, agent_name, network_ranges, scan_interval_minutes, enabled, status, updated_at
       `;
 
-    const result = await pool.query(query, updateValues);
+      const result = await pool.query(query, updateValues);
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Agent non trovato o eliminato' });
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato o eliminato' });
+      }
+
+      console.log(`âœ… Agent ${agentId} aggiornato: ${updateFields.join(', ')}`);
+      res.json({
+        success: true,
+        agent: result.rows[0],
+        message: 'Configurazione agent aggiornata. Le modifiche saranno applicate al prossimo heartbeat dell\'agent.'
+      });
+    } catch (err) {
+      console.error('âŒ Errore aggiornamento agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    console.log(`âœ… Agent ${agentId} aggiornato: ${updateFields.join(', ')}`);
-    res.json({
-      success: true,
-      agent: result.rows[0],
-      message: 'Configurazione agent aggiornata. Le modifiche saranno applicate al prossimo heartbeat dell\'agent.'
-    });
-  } catch (err) {
-    console.error('âŒ Errore aggiornamento agent:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+  // DELETE /api/network-monitoring/agent/:id
+  // Elimina un agent (soft delete - marca come eliminato, mantiene dati, invia comando disinstallazione)
+  router.delete('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
 
-// DELETE /api/network-monitoring/agent/:id
-// Elimina un agent (soft delete - marca come eliminato, mantiene dati, invia comando disinstallazione)
-router.delete('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const agentId = parseInt(req.params.id);
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
 
-    if (!agentId) {
-      return res.status(400).json({ error: 'ID agent richiesto' });
-    }
+      await ensureTables();
 
-    await ensureTables();
+      // Verifica che l'agent esista e non sia giÃ  eliminato
+      const checkResult = await pool.query(
+        'SELECT id, agent_name, deleted_at FROM network_agents WHERE id = $1',
+        [agentId]
+      );
 
-    // Verifica che l'agent esista e non sia giÃ  eliminato
-    const checkResult = await pool.query(
-      'SELECT id, agent_name, deleted_at FROM network_agents WHERE id = $1',
-      [agentId]
-    );
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato' });
+      }
 
-    if (checkResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Agent non trovato' });
-    }
+      if (checkResult.rows[0].deleted_at) {
+        return res.status(400).json({ error: 'Agent giÃ  eliminato' });
+      }
 
-    if (checkResult.rows[0].deleted_at) {
-      return res.status(400).json({ error: 'Agent giÃ  eliminato' });
-    }
-
-    // Soft delete: marca come eliminato (mantiene tutti i dati per i ticket)
-    await pool.query(
-      `UPDATE network_agents 
+      // Soft delete: marca come eliminato (mantiene tutti i dati per i ticket)
+      await pool.query(
+        `UPDATE network_agents 
          SET deleted_at = NOW(), enabled = false, status = 'offline', updated_at = NOW()
          WHERE id = $1`,
-      [agentId]
-    );
+        [agentId]
+      );
 
-    console.log(`ðŸ—‘ï¸ Agent ${agentId} eliminato (soft delete - dati mantenuti, comando disinstallazione al prossimo heartbeat)`);
-    res.json({ success: true, message: 'Agent eliminato. I dati sono stati mantenuti. L\'agent si disinstallerÃ  automaticamente dal client al prossimo heartbeat.' });
-  } catch (err) {
-    console.error('âŒ Errore eliminazione agent:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      console.log(`ðŸ—‘ï¸ Agent ${agentId} eliminato (soft delete - dati mantenuti, comando disinstallazione al prossimo heartbeat)`);
+      res.json({ success: true, message: 'Agent eliminato. I dati sono stati mantenuti. L\'agent si disinstallerÃ  automaticamente dal client al prossimo heartbeat.' });
+    } catch (err) {
+      console.error('âŒ Errore eliminazione agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
 
-// ========================================
-// API TIPI DISPOSITIVI (Device Types)
-// ========================================
+  // ========================================
+  // API TIPI DISPOSITIVI (Device Types)
+  // ========================================
 
-// GET /api/network-monitoring/device-types
-// Ottieni lista tipi dispositivi
-router.get('/device-types', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
-    const result = await pool.query(
-      'SELECT id, name, description, created_at, updated_at FROM network_device_types ORDER BY name ASC'
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error('âŒ Errore recupero tipi dispositivi:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// POST /api/network-monitoring/device-types
-// Crea nuovo tipo dispositivo
-router.post('/device-types', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
-
-    // Assicurati che la tabella network_device_types esista (migrazione)
+  // GET /api/network-monitoring/device-types
+  // Ottieni lista tipi dispositivi
+  router.get('/device-types', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
-      const deviceTypesCheck = await pool.query(`
+      await ensureTables();
+      const result = await pool.query(
+        'SELECT id, name, description, created_at, updated_at FROM network_device_types ORDER BY name ASC'
+      );
+      res.json(result.rows);
+    } catch (err) {
+      console.error('âŒ Errore recupero tipi dispositivi:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // POST /api/network-monitoring/device-types
+  // Crea nuovo tipo dispositivo
+  router.post('/device-types', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+
+      // Assicurati che la tabella network_device_types esista (migrazione)
+      try {
+        const deviceTypesCheck = await pool.query(`
           SELECT EXISTS (
             SELECT FROM information_schema.tables 
             WHERE table_schema = 'public' 
             AND table_name = 'network_device_types'
           );
         `);
-      if (!deviceTypesCheck.rows[0].exists) {
-        await pool.query(`
+        if (!deviceTypesCheck.rows[0].exists) {
+          await pool.query(`
             CREATE TABLE IF NOT EXISTS network_device_types (
               id SERIAL PRIMARY KEY,
               name VARCHAR(100) UNIQUE NOT NULL,
@@ -1420,183 +1687,183 @@ router.post('/device-types', authenticateToken, requireRole('tecnico'), async (r
               updated_at TIMESTAMP DEFAULT NOW()
             );
           `);
+        }
+      } catch (migrationErr) {
+        console.warn('âš ï¸ Avviso migrazione network_device_types in POST:', migrationErr.message);
       }
-    } catch (migrationErr) {
-      console.warn('âš ï¸ Avviso migrazione network_device_types in POST:', migrationErr.message);
+
+      const { name, description } = req.body;
+
+      if (!name || name.trim() === '') {
+        return res.status(400).json({ error: 'Nome tipo richiesto' });
+      }
+
+      const result = await pool.query(
+        'INSERT INTO network_device_types (name, description) VALUES ($1, $2) RETURNING id, name, description, created_at, updated_at',
+        [name.trim(), description?.trim() || null]
+      );
+
+      res.status(201).json(result.rows[0]);
+    } catch (err) {
+      if (err.code === '23505') { // Unique violation
+        return res.status(409).json({ error: 'Tipo dispositivo giÃ  esistente' });
+      }
+      console.error('âŒ Errore creazione tipo dispositivo:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    const { name, description } = req.body;
-
-    if (!name || name.trim() === '') {
-      return res.status(400).json({ error: 'Nome tipo richiesto' });
-    }
-
-    const result = await pool.query(
-      'INSERT INTO network_device_types (name, description) VALUES ($1, $2) RETURNING id, name, description, created_at, updated_at',
-      [name.trim(), description?.trim() || null]
-    );
-
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    if (err.code === '23505') { // Unique violation
-      return res.status(409).json({ error: 'Tipo dispositivo giÃ  esistente' });
-    }
-    console.error('âŒ Errore creazione tipo dispositivo:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// PUT /api/network-monitoring/device-types/:id
-// Aggiorna tipo dispositivo
-router.put('/device-types/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
-    const { id } = req.params;
-    const { name, description } = req.body;
-
-    if (!name || name.trim() === '') {
-      return res.status(400).json({ error: 'Nome tipo richiesto' });
-    }
-
-    const result = await pool.query(
-      'UPDATE network_device_types SET name = $1, description = $2, updated_at = NOW() WHERE id = $3 RETURNING id, name, description, created_at, updated_at',
-      [name.trim(), description?.trim() || null, id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Tipo dispositivo non trovato' });
-    }
-
-    res.json(result.rows[0]);
-  } catch (err) {
-    if (err.code === '23505') { // Unique violation
-      return res.status(409).json({ error: 'Tipo dispositivo giÃ  esistente' });
-    }
-    console.error('âŒ Errore aggiornamento tipo dispositivo:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// DELETE /api/network-monitoring/device-types/:id
-// Elimina tipo dispositivo
-router.delete('/device-types/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
-    const { id } = req.params;
-
-    // Verifica se il tipo Ã¨ usato da qualche dispositivo
-    const devicesCheck = await pool.query(
-      'SELECT COUNT(*) FROM network_devices WHERE device_type = (SELECT name FROM network_device_types WHERE id = $1)',
-      [id]
-    );
-
-    if (parseInt(devicesCheck.rows[0].count) > 0) {
-      return res.status(409).json({ error: 'Impossibile eliminare: tipo in uso da dispositivi' });
-    }
-
-    const result = await pool.query(
-      'DELETE FROM network_device_types WHERE id = $1 RETURNING id',
-      [id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Tipo dispositivo non trovato' });
-    }
-
-    res.json({ success: true, message: 'Tipo dispositivo eliminato' });
-  } catch (err) {
-    console.error('âŒ Errore eliminazione tipo dispositivo:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// PATCH /api/network-monitoring/devices/:id/static
-// Aggiorna stato statico per un dispositivo specifico
-router.patch('/devices/:id/static', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
-
-    // Assicurati che la colonna is_static esista (migrazione)
+  // PUT /api/network-monitoring/device-types/:id
+  // Aggiorna tipo dispositivo
+  router.put('/device-types/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
-      await pool.query(`
+      await ensureTables();
+      const { id } = req.params;
+      const { name, description } = req.body;
+
+      if (!name || name.trim() === '') {
+        return res.status(400).json({ error: 'Nome tipo richiesto' });
+      }
+
+      const result = await pool.query(
+        'UPDATE network_device_types SET name = $1, description = $2, updated_at = NOW() WHERE id = $3 RETURNING id, name, description, created_at, updated_at',
+        [name.trim(), description?.trim() || null, id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Tipo dispositivo non trovato' });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      if (err.code === '23505') { // Unique violation
+        return res.status(409).json({ error: 'Tipo dispositivo giÃ  esistente' });
+      }
+      console.error('âŒ Errore aggiornamento tipo dispositivo:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // DELETE /api/network-monitoring/device-types/:id
+  // Elimina tipo dispositivo
+  router.delete('/device-types/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      const { id } = req.params;
+
+      // Verifica se il tipo Ã¨ usato da qualche dispositivo
+      const devicesCheck = await pool.query(
+        'SELECT COUNT(*) FROM network_devices WHERE device_type = (SELECT name FROM network_device_types WHERE id = $1)',
+        [id]
+      );
+
+      if (parseInt(devicesCheck.rows[0].count) > 0) {
+        return res.status(409).json({ error: 'Impossibile eliminare: tipo in uso da dispositivi' });
+      }
+
+      const result = await pool.query(
+        'DELETE FROM network_device_types WHERE id = $1 RETURNING id',
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Tipo dispositivo non trovato' });
+      }
+
+      res.json({ success: true, message: 'Tipo dispositivo eliminato' });
+    } catch (err) {
+      console.error('âŒ Errore eliminazione tipo dispositivo:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // PATCH /api/network-monitoring/devices/:id/static
+  // Aggiorna stato statico per un dispositivo specifico
+  router.patch('/devices/:id/static', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+
+      // Assicurati che la colonna is_static esista (migrazione)
+      try {
+        await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;
         `);
-    } catch (migrationErr) {
-      // Ignora errore se colonna esiste giÃ 
-      if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
-        console.warn('âš ï¸ Avviso aggiunta colonna is_static in PATCH static:', migrationErr.message);
+      } catch (migrationErr) {
+        // Ignora errore se colonna esiste giÃ 
+        if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
+          console.warn('âš ï¸ Avviso aggiunta colonna is_static in PATCH static:', migrationErr.message);
+        }
       }
-    }
 
-    const { id } = req.params;
-    const { is_static } = req.body;
+      const { id } = req.params;
+      const { is_static } = req.body;
 
-    // Verifica che il dispositivo esista
-    const deviceCheck = await pool.query(
-      'SELECT id FROM network_devices WHERE id = $1',
-      [id]
-    );
-
-    if (deviceCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Dispositivo non trovato' });
-    }
-
-    // Aggiorna il dispositivo
-    const result = await pool.query(
-      'UPDATE network_devices SET is_static = $1 WHERE id = $2 RETURNING id, ip_address, is_static',
-      [is_static === true || is_static === 'true', id]
-    );
-
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('âŒ Errore aggiornamento stato statico:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// PATCH /api/network-monitoring/devices/:id/type
-// Aggiorna tipo dispositivo per un dispositivo specifico
-router.patch('/devices/:id/type', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
-    const { id } = req.params;
-    const { device_type } = req.body;
-
-    // Verifica che il dispositivo esista
-    const deviceCheck = await pool.query(
-      'SELECT id FROM network_devices WHERE id = $1',
-      [id]
-    );
-
-    if (deviceCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Dispositivo non trovato' });
-    }
-
-    // Se device_type Ã¨ specificato, verifica che esista nella tabella tipi
-    if (device_type && device_type.trim() !== '') {
-      const typeCheck = await pool.query(
-        'SELECT id FROM network_device_types WHERE name = $1',
-        [device_type.trim()]
+      // Verifica che il dispositivo esista
+      const deviceCheck = await pool.query(
+        'SELECT id FROM network_devices WHERE id = $1',
+        [id]
       );
 
-      if (typeCheck.rows.length === 0) {
-        return res.status(400).json({ error: 'Tipo dispositivo non valido' });
+      if (deviceCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato' });
       }
+
+      // Aggiorna il dispositivo
+      const result = await pool.query(
+        'UPDATE network_devices SET is_static = $1 WHERE id = $2 RETURNING id, ip_address, is_static',
+        [is_static === true || is_static === 'true', id]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error('âŒ Errore aggiornamento stato statico:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    // Aggiorna il dispositivo
-    const result = await pool.query(
-      'UPDATE network_devices SET device_type = $1 WHERE id = $2 RETURNING id, ip_address, device_type',
-      [device_type?.trim() || null, id]
-    );
+  // PATCH /api/network-monitoring/devices/:id/type
+  // Aggiorna tipo dispositivo per un dispositivo specifico
+  router.patch('/devices/:id/type', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      const { id } = req.params;
+      const { device_type } = req.body;
 
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('âŒ Errore aggiornamento tipo dispositivo:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      // Verifica che il dispositivo esista
+      const deviceCheck = await pool.query(
+        'SELECT id FROM network_devices WHERE id = $1',
+        [id]
+      );
 
-return router;
+      if (deviceCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato' });
+      }
+
+      // Se device_type Ã¨ specificato, verifica che esista nella tabella tipi
+      if (device_type && device_type.trim() !== '') {
+        const typeCheck = await pool.query(
+          'SELECT id FROM network_device_types WHERE name = $1',
+          [device_type.trim()]
+        );
+
+        if (typeCheck.rows.length === 0) {
+          return res.status(400).json({ error: 'Tipo dispositivo non valido' });
+        }
+      }
+
+      // Aggiorna il dispositivo
+      const result = await pool.query(
+        'UPDATE network_devices SET device_type = $1 WHERE id = $2 RETURNING id, ip_address, device_type',
+        [device_type?.trim() || null, id]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error('âŒ Errore aggiornamento tipo dispositivo:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  return router;
 };
