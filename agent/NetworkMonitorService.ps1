@@ -771,6 +771,9 @@ if (-not $config.server_url -or -not $config.api_key -or -not $config.network_ra
 $script:scanIntervalMinutes = $config.scan_interval_minutes
 if (-not $script:scanIntervalMinutes) { $script:scanIntervalMinutes = 15 }
 
+# Salva config globale per finestra stato
+$script:config = $config
+
 Write-Log "Server URL: $($config.server_url)"
 Write-Log "Network ranges: $($config.network_ranges -join ', ')"
 Write-Log "Scan interval: $script:scanIntervalMinutes minuti"
