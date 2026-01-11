@@ -1264,6 +1264,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           getAuthHeader={getAuthHeader}
         />
       )}
+      </div>
     </div>
   );
 };
