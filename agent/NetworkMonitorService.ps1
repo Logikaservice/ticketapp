@@ -28,6 +28,7 @@ $script:scanIntervalMinutes = 15
 $script:statusFile = Join-Path $script:scriptDir ".agent_status.json"
 $script:lastScanPath = Join-Path $script:scriptDir "last_scan.json"
 $script:currentScanIPsFile = Join-Path $script:scriptDir ".current_scan_ips.json"
+$script:forceScanTriggerFile = Join-Path $script:scriptDir ".force_scan.trigger"
 
 # ============================================
 # FUNZIONI HELPER

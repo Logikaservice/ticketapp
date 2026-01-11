@@ -174,16 +174,49 @@ function Show-StatusWindow {
     # ListBox per IP trovati (destra) - aggiornato in tempo reale
     $script:statusWindowListBox = New-Object System.Windows.Forms.ListBox
     $script:statusWindowListBox.Location = New-Object System.Drawing.Point(400, 70)
-    $script:statusWindowListBox.Size = New-Object System.Drawing.Size(370, 490)
+    $script:statusWindowListBox.Size = New-Object System.Drawing.Size(370, 460)
     $script:statusWindowListBox.Font = New-Object System.Drawing.Font("Consolas", 9)
     $script:statusWindowListBox.SelectionMode = [System.Windows.Forms.SelectionMode]::None
     $script:statusWindow.Controls.Add($script:statusWindowListBox)
     
+    # Pulsante Forza Scansione
+    $forceScanButton = New-Object System.Windows.Forms.Button
+    $forceScanButton.Text = "Forza Scansione"
+    $forceScanButton.Location = New-Object System.Drawing.Point(400, 565)
+    $forceScanButton.Size = New-Object System.Drawing.Size(150, 35)
+    $forceScanButton.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 9, [System.Drawing.FontStyle]::Bold)
+    $forceScanButton.BackColor = [System.Drawing.Color]::FromArgb(0, 123, 255)
+    $forceScanButton.ForeColor = [System.Drawing.Color]::White
+    $forceScanButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $forceScanButton.Add_Click({
+        $triggerFile = Join-Path (Split-Path -Parent $script:configPath) ".force_scan.trigger"
+        try {
+            # Crea file di segnale per forzare la scansione
+            $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+            $triggerFile | Out-File -FilePath $triggerFile -Encoding UTF8 -Force
+            Write-Host "Scansione forzata richiesta" -ForegroundColor Green
+            [System.Windows.Forms.MessageBox]::Show(
+                "Scansione forzata richiesta al servizio.`n`nLa scansione inizierà entro pochi secondi.`nControlla la lista IP per vedere i risultati.",
+                "Network Monitor Agent",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            )
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Errore richiesta scansione: $_",
+                "Network Monitor Agent - Errore",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
+        }
+    })
+    $script:statusWindow.Controls.Add($forceScanButton)
+    
     # Pulsante Chiudi
     $closeButton = New-Object System.Windows.Forms.Button
     $closeButton.Text = "Chiudi"
-    $closeButton.Location = New-Object System.Drawing.Point(710, 530)
-    $closeButton.Size = New-Object System.Drawing.Size(70, 30)
+    $closeButton.Location = New-Object System.Drawing.Point(620, 565)
+    $closeButton.Size = New-Object System.Drawing.Size(150, 35)
     $closeButton.Add_Click({
         $script:statusWindow.Hide()
     })
