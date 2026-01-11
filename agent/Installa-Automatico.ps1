@@ -73,6 +73,82 @@ if ($filesMissing.Count -gt 0) {
     exit 1
 }
 
+# Verifica e completa config.json se necessario
+$configPath = Join-Path $scriptDir "config.json"
+if (Test-Path $configPath) {
+    try {
+        $config = Get-Content $configPath -Raw | ConvertFrom-Json
+        
+        # Verifica se mancano server_url o api_key
+        $needUpdate = $false
+        
+        if (-not $config.server_url -or $config.server_url -eq "") {
+            Write-Host "⚠️  ATTENZIONE: server_url mancante in config.json!" -ForegroundColor Yellow
+            Write-Host ""
+            $serverUrl = Read-Host "Inserisci il Server URL (es: https://ticketapp.tuoserver.it)"
+            if ($serverUrl) {
+                $config.server_url = $serverUrl.Trim()
+                $needUpdate = $true
+            } else {
+                Write-Host "❌ ERRORE: Server URL obbligatorio!" -ForegroundColor Red
+                Write-Host ""
+                Write-Host "Premi un tasto per uscire..."
+                $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+                exit 1
+            }
+        }
+        
+        if (-not $config.api_key -or $config.api_key -eq "") {
+            Write-Host "⚠️  ATTENZIONE: api_key mancante in config.json!" -ForegroundColor Yellow
+            Write-Host ""
+            $apiKey = Read-Host "Inserisci l'API Key dell'agent"
+            if ($apiKey) {
+                $config.api_key = $apiKey.Trim()
+                $needUpdate = $true
+            } else {
+                Write-Host "❌ ERRORE: API Key obbligatoria!" -ForegroundColor Red
+                Write-Host ""
+                Write-Host "Premi un tasto per uscire..."
+                $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+                exit 1
+            }
+        }
+        
+        # Aggiorna config.json se necessario
+        if ($needUpdate) {
+            Write-Host ""
+            Write-Host "📝 Aggiornamento config.json..." -ForegroundColor Yellow
+            $config | ConvertTo-Json -Depth 10 | Out-File -FilePath $configPath -Encoding UTF8 -Force
+            Write-Host "✅ config.json aggiornato!" -ForegroundColor Green
+            Write-Host ""
+        } else {
+            # Mostra informazioni di configurazione
+            Write-Host "✅ Configurazione trovata:" -ForegroundColor Green
+            Write-Host "   Server URL: $($config.server_url)" -ForegroundColor Gray
+            Write-Host "   API Key: $($config.api_key.Substring(0, [Math]::Min(8, $config.api_key.Length)))..." -ForegroundColor Gray
+            if ($config.agent_name) {
+                Write-Host "   Agent Name: $($config.agent_name)" -ForegroundColor Gray
+            }
+            if ($config.scan_interval_minutes) {
+                Write-Host "   Scan Interval: $($config.scan_interval_minutes) minuti" -ForegroundColor Gray
+            }
+            Write-Host ""
+        }
+    } catch {
+        Write-Host "❌ ERRORE: Impossibile leggere config.json: $_" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Premi un tasto per uscire..."
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        exit 1
+    }
+} else {
+    Write-Host "❌ ERRORE: config.json non trovato!" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Premi un tasto per uscire..."
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    exit 1
+}
+
 # Se la directory corrente è diversa da quella di installazione, copia i file
 if ($scriptDir -ne $installDir) {
     Write-Host "📦 Copia file in directory installazione..." -ForegroundColor Yellow
