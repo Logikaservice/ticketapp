@@ -21,8 +21,8 @@ if (-not $isAdmin) {
         Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" $scriptArgs" -Wait
         exit $LASTEXITCODE
     } catch {
-        Write-Host "❌ ERRORE: Impossibile ottenere privilegi amministratore!" -ForegroundColor Red
-        Write-Host "L'installazione è stata annullata." -ForegroundColor Yellow
+        Write-Host "ERRORE: Impossibile ottenere privilegi amministratore!" -ForegroundColor Red
+        Write-Host "L'installazione e' stata annullata." -ForegroundColor Yellow
         Write-Host ""
         Write-Host "Premi un tasto per uscire..."
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
@@ -41,8 +41,8 @@ Write-Host ""
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $installDir = "C:\ProgramData\NetworkMonitorAgent"
 
-Write-Host "📁 Directory corrente: $scriptDir" -ForegroundColor Gray
-Write-Host "📁 Directory installazione: $installDir" -ForegroundColor Gray
+Write-Host "Directory corrente: $scriptDir" -ForegroundColor Gray
+Write-Host "Directory installazione: $installDir" -ForegroundColor Gray
 Write-Host ""
 
 # Verifica se la directory corrente contiene i file necessari
@@ -61,7 +61,7 @@ foreach ($file in $requiredFiles) {
 }
 
 if ($filesMissing.Count -gt 0) {
-    Write-Host "❌ ERRORE: File mancanti nella directory corrente:" -ForegroundColor Red
+    Write-Host "ERRORE: File mancanti nella directory corrente:" -ForegroundColor Red
     foreach ($file in $filesMissing) {
         Write-Host "   - $file" -ForegroundColor Red
     }
@@ -83,14 +83,14 @@ if (Test-Path $configPath) {
         $needUpdate = $false
         
         if (-not $config.server_url -or $config.server_url -eq "") {
-            Write-Host "⚠️  ATTENZIONE: server_url mancante in config.json!" -ForegroundColor Yellow
+            Write-Host "ATTENZIONE: server_url mancante in config.json!" -ForegroundColor Yellow
             Write-Host ""
             $serverUrl = Read-Host "Inserisci il Server URL (es: https://ticketapp.tuoserver.it)"
             if ($serverUrl) {
                 $config.server_url = $serverUrl.Trim()
                 $needUpdate = $true
             } else {
-                Write-Host "❌ ERRORE: Server URL obbligatorio!" -ForegroundColor Red
+                Write-Host "ERRORE: Server URL obbligatorio!" -ForegroundColor Red
                 Write-Host ""
                 Write-Host "Premi un tasto per uscire..."
                 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
@@ -99,14 +99,14 @@ if (Test-Path $configPath) {
         }
         
         if (-not $config.api_key -or $config.api_key -eq "") {
-            Write-Host "⚠️  ATTENZIONE: api_key mancante in config.json!" -ForegroundColor Yellow
+            Write-Host "ATTENZIONE: api_key mancante in config.json!" -ForegroundColor Yellow
             Write-Host ""
             $apiKey = Read-Host "Inserisci l'API Key dell'agent"
             if ($apiKey) {
                 $config.api_key = $apiKey.Trim()
                 $needUpdate = $true
             } else {
-                Write-Host "❌ ERRORE: API Key obbligatoria!" -ForegroundColor Red
+                Write-Host "ERRORE: API Key obbligatoria!" -ForegroundColor Red
                 Write-Host ""
                 Write-Host "Premi un tasto per uscire..."
                 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
@@ -117,15 +117,16 @@ if (Test-Path $configPath) {
         # Aggiorna config.json se necessario
         if ($needUpdate) {
             Write-Host ""
-            Write-Host "📝 Aggiornamento config.json..." -ForegroundColor Yellow
+            Write-Host "Aggiornamento config.json..." -ForegroundColor Yellow
             $config | ConvertTo-Json -Depth 10 | Out-File -FilePath $configPath -Encoding UTF8 -Force
-            Write-Host "✅ config.json aggiornato!" -ForegroundColor Green
+            Write-Host "config.json aggiornato!" -ForegroundColor Green
             Write-Host ""
         } else {
             # Mostra informazioni di configurazione
-            Write-Host "✅ Configurazione trovata:" -ForegroundColor Green
+            Write-Host "Configurazione trovata:" -ForegroundColor Green
             Write-Host "   Server URL: $($config.server_url)" -ForegroundColor Gray
-            Write-Host "   API Key: $($config.api_key.Substring(0, [Math]::Min(8, $config.api_key.Length)))..." -ForegroundColor Gray
+            $apiKeyPreview = $config.api_key.Substring(0, [Math]::Min(8, $config.api_key.Length))
+            Write-Host "   API Key: $apiKeyPreview..." -ForegroundColor Gray
             if ($config.agent_name) {
                 Write-Host "   Agent Name: $($config.agent_name)" -ForegroundColor Gray
             }
@@ -135,28 +136,28 @@ if (Test-Path $configPath) {
             Write-Host ""
         }
     } catch {
-        Write-Host "❌ ERRORE: Impossibile leggere config.json: $_" -ForegroundColor Red
+        Write-Host "ERRORE: Impossibile leggere config.json: $_" -ForegroundColor Red
         Write-Host ""
         Write-Host "Premi un tasto per uscire..."
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         exit 1
     }
 } else {
-    Write-Host "❌ ERRORE: config.json non trovato!" -ForegroundColor Red
+    Write-Host "ERRORE: config.json non trovato!" -ForegroundColor Red
     Write-Host ""
     Write-Host "Premi un tasto per uscire..."
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     exit 1
 }
 
-# Se la directory corrente è diversa da quella di installazione, copia i file
+# Se la directory corrente e' diversa da quella di installazione, copia i file
 if ($scriptDir -ne $installDir) {
-    Write-Host "📦 Copia file in directory installazione..." -ForegroundColor Yellow
+    Write-Host "Copia file in directory installazione..." -ForegroundColor Yellow
     
     # Crea directory installazione se non esiste
     if (-not (Test-Path $installDir)) {
         New-Item -ItemType Directory -Path $installDir -Force | Out-Null
-        Write-Host "✅ Directory creata: $installDir" -ForegroundColor Green
+        Write-Host "Directory creata: $installDir" -ForegroundColor Green
     }
     
     # Copia tutti i file necessari
@@ -178,14 +179,14 @@ if ($scriptDir -ne $installDir) {
         
         if (Test-Path $sourcePath) {
             Copy-Item -Path $sourcePath -Destination $destPath -Force
-            Write-Host "   ✓ $file" -ForegroundColor Gray
+            Write-Host "   $file" -ForegroundColor Gray
         }
     }
     
-    Write-Host "✅ File copiati con successo!" -ForegroundColor Green
+    Write-Host "File copiati con successo!" -ForegroundColor Green
     Write-Host ""
 } else {
-    Write-Host "ℹ️  File già nella directory di installazione, procedo direttamente..." -ForegroundColor Gray
+    Write-Host "File gia' nella directory di installazione, procedo direttamente..." -ForegroundColor Gray
     Write-Host ""
 }
 
@@ -196,26 +197,26 @@ Set-Location $installDir
 $oldTaskName = "NetworkMonitorAgent"
 $existingTask = Get-ScheduledTask -TaskName $oldTaskName -ErrorAction SilentlyContinue
 if ($existingTask) {
-    Write-Host "⚠️  Rilevato vecchio Scheduled Task '$oldTaskName'." -ForegroundColor Yellow
+    Write-Host "Rilevato vecchio Scheduled Task '$oldTaskName'." -ForegroundColor Yellow
     Write-Host "Rimozione vecchio Scheduled Task..." -ForegroundColor Yellow
     
     try {
         Stop-ScheduledTask -TaskName $oldTaskName -ErrorAction SilentlyContinue
         Unregister-ScheduledTask -TaskName $oldTaskName -Confirm:$false -ErrorAction Stop
-        Write-Host "✅ Vecchio Scheduled Task rimosso con successo!" -ForegroundColor Green
+        Write-Host "Vecchio Scheduled Task rimosso con successo!" -ForegroundColor Green
         Write-Host ""
     } catch {
-        Write-Host "⚠️  Errore rimozione Scheduled Task (non critico): $_" -ForegroundColor Yellow
+        Write-Host "Errore rimozione Scheduled Task (non critico): $_" -ForegroundColor Yellow
         Write-Host ""
     }
 }
 
-# Verifica se il servizio è già installato
+# Verifica se il servizio e' gia' installato
 $serviceName = "NetworkMonitorService"
 $existingService = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
 
 if ($existingService) {
-    Write-Host "⚠️  Servizio '$serviceName' già installato." -ForegroundColor Yellow
+    Write-Host "Servizio '$serviceName' gia' installato." -ForegroundColor Yellow
     
     if (-not $Force) {
         Write-Host ""
@@ -249,10 +250,10 @@ if ($existingService) {
                     sc.exe delete $serviceName | Out-Null
                 }
                 
-                Write-Host "✅ Servizio disinstallato!" -ForegroundColor Green
+                Write-Host "Servizio disinstallato!" -ForegroundColor Green
                 Write-Host ""
             } catch {
-                Write-Host "⚠️  Errore disinstallazione (continuerò comunque): $_" -ForegroundColor Yellow
+                Write-Host "Errore disinstallazione (continui comunque): $_" -ForegroundColor Yellow
                 Write-Host ""
             }
         }
@@ -269,7 +270,7 @@ if ($existingService) {
 }
 
 # Esegui installer del servizio
-Write-Host "🚀 Installazione servizio Windows..." -ForegroundColor Cyan
+Write-Host "Installazione servizio Windows..." -ForegroundColor Cyan
 Write-Host ""
 
 $installerPath = Join-Path $installDir "Installa-Servizio.ps1"
@@ -281,10 +282,10 @@ if (Test-Path $installerPath) {
         if ($LASTEXITCODE -eq 0) {
             Write-Host ""
             Write-Host "========================================" -ForegroundColor Green
-            Write-Host "  ✅ INSTALLAZIONE COMPLETATA!" -ForegroundColor Green
+            Write-Host "  INSTALLAZIONE COMPLETATA!" -ForegroundColor Green
             Write-Host "========================================" -ForegroundColor Green
             Write-Host ""
-            Write-Host "Il servizio 'NetworkMonitorService' è stato installato e avviato." -ForegroundColor White
+            Write-Host "Il servizio 'NetworkMonitorService' e' stato installato e avviato." -ForegroundColor White
             Write-Host ""
             Write-Host "Directory installazione: $installDir" -ForegroundColor Gray
             Write-Host "Log servizio: $installDir\NetworkMonitorService.log" -ForegroundColor Gray
@@ -298,7 +299,7 @@ if (Test-Path $installerPath) {
             Write-Host ""
         } else {
             Write-Host ""
-            Write-Host "❌ ERRORE durante l'installazione del servizio!" -ForegroundColor Red
+            Write-Host "ERRORE durante l'installazione del servizio!" -ForegroundColor Red
             Write-Host "Controlla i log per maggiori dettagli." -ForegroundColor Yellow
             Write-Host ""
             Write-Host "Premi un tasto per uscire..."
@@ -307,14 +308,14 @@ if (Test-Path $installerPath) {
         }
     } catch {
         Write-Host ""
-        Write-Host "❌ ERRORE durante l'esecuzione dell'installer: $_" -ForegroundColor Red
+        Write-Host "ERRORE durante l'esecuzione dell'installer: $_" -ForegroundColor Red
         Write-Host ""
         Write-Host "Premi un tasto per uscire..."
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         exit 1
     }
 } else {
-    Write-Host "❌ ERRORE: Installa-Servizio.ps1 non trovato in $installDir!" -ForegroundColor Red
+    Write-Host "ERRORE: Installa-Servizio.ps1 non trovato in $installDir!" -ForegroundColor Red
     Write-Host ""
     Write-Host "Premi un tasto per uscire..."
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
