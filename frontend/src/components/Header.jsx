@@ -36,6 +36,13 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       else if (action === 'analytics') openAnalytics();
       else if (action === 'settings') openSettings();
       else if (action === 'accessLogs') openAccessLogs();
+      else if (action === 'networkMonitoring') {
+        if (openNetworkMonitoring) {
+          openNetworkMonitoring();
+          setShowQuickActions(false);
+          setExpandedAction(null);
+        }
+      }
       setShowQuickActions(false);
       setExpandedAction(null);
     }
@@ -128,6 +135,14 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       onClick: () => handleQuickActionClick('accessLogs')
     },
     {
+      id: 'networkMonitoring',
+      label: 'Monitoraggio Rete',
+      icon: Wifi,
+      color: 'cyan',
+      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openNetworkMonitoring,
+      onClick: () => handleQuickActionClick('networkMonitoring')
+    },
+    {
       id: 'progetti',
       label: 'Progetti',
       icon: FolderOpen,
@@ -137,8 +152,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       subActions: [
         { label: 'Orari e Turni', icon: Calendar, color: 'indigo', onClick: openOrariTurni },
         { label: 'Vivaldi', icon: Volume2, color: 'indigo', onClick: openVivaldi || (() => window.location.href = '/?domain=vivaldi') },
-        { label: 'PackVision', icon: Monitor, color: 'indigo', onClick: openPackVision },
-        { label: 'Monitoraggio Rete', icon: Wifi, color: 'indigo', onClick: openNetworkMonitoring }
+        { label: 'PackVision', icon: Monitor, color: 'indigo', onClick: openPackVision }
       ]
     }
   ].filter(action => action.visible);
