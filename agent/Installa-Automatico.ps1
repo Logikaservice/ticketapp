@@ -150,6 +150,20 @@ if (Test-Path $configPath) {
     exit 1
 }
 
+# Lista file necessari da copiare
+$filesToCopy = @(
+    "config.json",
+    "NetworkMonitorService.ps1",
+    "Installa-Servizio.ps1",
+    "Rimuovi-Servizio.ps1",
+    "NetworkMonitor.ps1",
+    "InstallerCompleto.ps1",
+    "Diagnostica-Agent.ps1",
+    "README_SERVICE.md",
+    "GUIDA_INSTALLAZIONE_SERVIZIO.md",
+    "nssm.exe"
+)
+
 # Se la directory corrente e' diversa da quella di installazione, copia i file
 if ($scriptDir -ne $installDir) {
     Write-Host "Copia file in directory installazione..." -ForegroundColor Yellow
@@ -161,19 +175,6 @@ if ($scriptDir -ne $installDir) {
     }
     
     # Copia tutti i file necessari
-    $filesToCopy = @(
-        "config.json",
-        "NetworkMonitorService.ps1",
-        "Installa-Servizio.ps1",
-        "Rimuovi-Servizio.ps1",
-        "NetworkMonitor.ps1",
-        "InstallerCompleto.ps1",
-        "Diagnostica-Agent.ps1",
-        "README_SERVICE.md",
-        "GUIDA_INSTALLAZIONE_SERVIZIO.md",
-        "nssm.exe"
-    )
-    
     foreach ($file in $filesToCopy) {
         $sourcePath = Join-Path $scriptDir $file
         $destPath = Join-Path $installDir $file
@@ -187,8 +188,30 @@ if ($scriptDir -ne $installDir) {
     Write-Host "File copiati con successo!" -ForegroundColor Green
     Write-Host ""
 } else {
-    Write-Host "File gia' nella directory di installazione, procedo direttamente..." -ForegroundColor Gray
-    Write-Host ""
+    Write-Host "File gia' nella directory di installazione..." -ForegroundColor Gray
+    
+    # Verifica che tutti i file necessari siano presenti, in particolare nssm.exe
+    $missingFiles = @()
+    foreach ($file in $filesToCopy) {
+        $filePath = Join-Path $installDir $file
+        if (-not (Test-Path $filePath)) {
+            $missingFiles += $file
+        }
+    }
+    
+    if ($missingFiles.Count -gt 0) {
+        Write-Host "ATTENZIONE: File mancanti nella directory di installazione:" -ForegroundColor Yellow
+        foreach ($file in $missingFiles) {
+            Write-Host "   - $file" -ForegroundColor Yellow
+        }
+        Write-Host ""
+        Write-Host "Assicurati che il pacchetto ZIP includa tutti i file necessari." -ForegroundColor Yellow
+        Write-Host "Riscarica il pacchetto dalla dashboard TicketApp se necessario." -ForegroundColor Yellow
+        Write-Host ""
+    } else {
+        Write-Host "Tutti i file necessari sono presenti." -ForegroundColor Green
+        Write-Host ""
+    }
 }
 
 # Cambia directory a quella di installazione
