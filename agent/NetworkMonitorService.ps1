@@ -135,12 +135,6 @@ function Get-NetworkDevices {
                     if ($localIPInRange -and $i -eq $localIPOctet) {
                         Write-Log "Aggiungendo IP locale: $ip" "DEBUG"
                         
-                        # Aggiungi IP locale alla lista scan corrente
-                        if (-not ($script:currentScanIPs -contains $ip)) {
-                            $script:currentScanIPs += $ip
-                            Update-StatusWindowIPs -IPs $script:currentScanIPs
-                        }
-                        
                         # Ottieni MAC address locale
                         $macAddress = $null
                         try {
@@ -172,12 +166,6 @@ function Get-NetworkDevices {
                     
                     if ($pingResult) {
                         Write-Log "Dispositivo rilevato: $ip" "DEBUG"
-                        
-                        # Aggiungi IP alla lista scan corrente
-                        if (-not ($script:currentScanIPs -contains $ip)) {
-                            $script:currentScanIPs += $ip
-                            Update-StatusWindowIPs -IPs $script:currentScanIPs
-                        }
                         
                         # Ottieni MAC address dalla tabella ARP
                         $macAddress = $null
@@ -842,14 +830,12 @@ while ($script:isRunning) {
                 
                 # 3. Aggiorna stato
                 $script:lastScanTime = Get-Date
-                Update-TrayIconStatus -Status "running"
                 Update-StatusFile -Status "running" -Message "Ultima scansione completata" -LastScan $script:lastScanTime -DevicesFound $script:lastScanDevices
                 Write-Log "Scansione completata con successo"
                 
             } catch {
                 Write-Log "Errore durante scansione: $_" "ERROR"
                 Write-Log "Stack trace: $($_.Exception.StackTrace)" "ERROR"
-                Update-TrayIconStatus -Status "error"
                 Update-StatusFile -Status "error" -Message "Errore: $_"
             }
             
@@ -869,9 +855,3 @@ while ($script:isRunning) {
 
 Write-Log "=== Network Monitor Service Arrestato ==="
 Update-StatusFile -Status "stopping" -Message "Servizio in arresto"
-
-# Pulisci risorse
-if ($script:trayIcon) {
-    $script:trayIcon.Visible = $false
-    $script:trayIcon.Dispose()
-}

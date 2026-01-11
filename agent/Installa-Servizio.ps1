@@ -88,7 +88,7 @@ $powershellPath = (Get-Command powershell.exe).Source
 
 try {
     # Installa servizio
-    & $NssmPath install $ServiceName $powershellPath "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$ScriptPath`" -ConfigPath `"$ConfigPath`" -ServiceMode"
+    & $NssmPath install $ServiceName $powershellPath "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$ScriptPath`" -ConfigPath `"$ConfigPath`""
     
     # Configura directory di lavoro
     & $NssmPath set $ServiceName AppDirectory $InstallDir
