@@ -28,6 +28,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [companyDevices, setCompanyDevices] = useState([]);
   const [loadingCompanyDevices, setLoadingCompanyDevices] = useState(false);
+  const [selectedStaticIPs, setSelectedStaticIPs] = useState(new Set()); // IP selezionati come statici
 
   // Gestisci initialView dal menu
   useEffect(() => {
@@ -593,6 +594,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12"></th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
@@ -603,9 +605,31 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                   </tr>
                 </thead>
                 <tbody>
-                  {companyDevices.map((device) => (
-                    <tr key={device.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4 text-sm font-mono text-gray-900">{device.ip_address}</td>
+                  {companyDevices.map((device) => {
+                    const isStatic = selectedStaticIPs.has(device.ip_address);
+                    return (
+                      <tr 
+                        key={device.id} 
+                        className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
+                      >
+                        <td className="py-3 px-4">
+                          <input
+                            type="checkbox"
+                            checked={isStatic}
+                            onChange={(e) => {
+                              const newSelected = new Set(selectedStaticIPs);
+                              if (e.target.checked) {
+                                newSelected.add(device.ip_address);
+                              } else {
+                                newSelected.delete(device.ip_address);
+                              }
+                              setSelectedStaticIPs(newSelected);
+                            }}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                            title="IP Statico"
+                          />
+                        </td>
+                        <td className="py-3 px-4 text-sm font-mono text-gray-900">{device.ip_address}</td>
                       <td className="py-3 px-4 text-sm font-mono text-gray-600">{device.mac_address || '-'}</td>
                       <td className="py-3 px-4 text-sm text-gray-900">{device.hostname || '-'}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">{device.vendor || '-'}</td>
