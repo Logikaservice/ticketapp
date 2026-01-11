@@ -309,41 +309,33 @@ if ($TestMode) {
     exit 0
 }
 
-# Modalità normale: loop continuo
-Write-Log "Avvio modalità monitoraggio continuo..."
-$scanIntervalSeconds = ($config.scan_interval_minutes * 60)
-$heartbeatIntervalSeconds = 300  # Heartbeat ogni 5 minuti
-$lastHeartbeat = Get-Date
+# Modalità normale: esecuzione singola (il Scheduled Task riavvierà lo script)
+Write-Log "=== Esecuzione scansione ==="
 
-while ($true) {
-    try {
-        $now = Get-Date
-        
-        # Heartbeat periodico
-        if (($now - $lastHeartbeat).TotalSeconds -ge $heartbeatIntervalSeconds) {
-            Send-Heartbeat -ServerUrl $config.server_url -ApiKey $config.api_key -Version $config.version
-            $lastHeartbeat = $now
-        }
-        
-        # Scan rete
-        Write-Log "Avvio scansione rete..."
-        $devices = Get-NetworkDevices -NetworkRanges $config.network_ranges
-        Write-Log "Trovati $($devices.Count) dispositivi"
-        
-        # Invio dati se ci sono dispositivi
-        if ($devices.Count -gt 0) {
-            Send-ScanResults -Devices $devices -ServerUrl $config.server_url -ApiKey $config.api_key
-        } else {
-            Write-Log "Nessun dispositivo trovato, skip invio"
-        }
-        
-        # Attendi prossimo scan
-        Write-Log "Attesa prossimo scan in $($config.scan_interval_minutes) minuti..."
-        Start-Sleep -Seconds $scanIntervalSeconds
-        
-    } catch {
-        Write-Log "Errore nel loop principale: $_" "ERROR"
-        Write-Log "Riprovo tra 60 secondi..." "WARN"
-        Start-Sleep -Seconds 60
+try {
+    # 1. Heartbeat (indica che l'agent è online)
+    Write-Log "Invio heartbeat..."
+    Send-Heartbeat -ServerUrl $config.server_url -ApiKey $config.api_key -Version $config.version
+    
+    # 2. Scan rete
+    Write-Log "Avvio scansione rete..."
+    $devices = Get-NetworkDevices -NetworkRanges $config.network_ranges
+    Write-Log "Trovati $($devices.Count) dispositivi"
+    
+    # 3. Invio dati se ci sono dispositivi
+    if ($devices.Count -gt 0) {
+        Write-Log "Invio dati al server..."
+        $result = Send-ScanResults -Devices $devices -ServerUrl $config.server_url -ApiKey $config.api_key
+        Write-Log "Dati inviati con successo!"
+    } else {
+        Write-Log "Nessun dispositivo trovato, skip invio"
     }
+    
+    Write-Log "=== Scansione completata ==="
+    exit 0
+    
+} catch {
+    Write-Log "Errore durante scansione: $_" "ERROR"
+    Write-Log "Stack trace: $($_.Exception.StackTrace)" "ERROR"
+    exit 1
 }
