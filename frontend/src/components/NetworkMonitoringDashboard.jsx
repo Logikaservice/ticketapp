@@ -545,21 +545,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       {selectedCompanyId && (
         <div className="mb-6 bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => {
-                  setSelectedCompanyId(null);
-                  setCompanyDevices([]);
-                }}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
-              >
-                <ArrowLeft size={20} />
-              </button>
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <Building size={24} className="text-purple-600" />
-                {companies.find(c => c.id === selectedCompanyId)?.azienda || 'Dispositivi'}
-              </h2>
-            </div>
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Building size={24} className="text-purple-600" />
+              {companies.find(c => c.id === selectedCompanyId)?.azienda || 'Dispositivi'}
+            </h2>
           </div>
           {loadingCompanyDevices ? (
             <div className="p-8 flex items-center justify-center">
