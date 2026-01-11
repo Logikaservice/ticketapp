@@ -1370,6 +1370,31 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
   router.post('/device-types', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       await ensureTables();
+      
+      // Assicurati che la tabella network_device_types esista (migrazione)
+      try {
+        const deviceTypesCheck = await pool.query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = 'network_device_types'
+          );
+        `);
+        if (!deviceTypesCheck.rows[0].exists) {
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS network_device_types (
+              id SERIAL PRIMARY KEY,
+              name VARCHAR(100) UNIQUE NOT NULL,
+              description TEXT,
+              created_at TIMESTAMP DEFAULT NOW(),
+              updated_at TIMESTAMP DEFAULT NOW()
+            );
+          `);
+        }
+      } catch (migrationErr) {
+        console.warn('⚠️ Avviso migrazione network_device_types in POST:', migrationErr.message);
+      }
+      
       const { name, description } = req.body;
       
       if (!name || name.trim() === '') {
@@ -1460,6 +1485,20 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
   router.patch('/devices/:id/static', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       await ensureTables();
+      
+      // Assicurati che la colonna is_static esista (migrazione)
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;
+        `);
+      } catch (migrationErr) {
+        // Ignora errore se colonna esiste già
+        if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna is_static in PATCH static:', migrationErr.message);
+        }
+      }
+      
       const { id } = req.params;
       const { is_static } = req.body;
 
