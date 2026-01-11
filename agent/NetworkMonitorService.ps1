@@ -624,7 +624,8 @@ while ($script:isRunning) {
         if ($now -ge $nextHeartbeatTime) {
             Write-Log "Invio heartbeat..."
             try {
-                $heartbeatResult = Send-Heartbeat -ServerUrl $config.server_url -ApiKey $config.api_key -Version ($config.version || "1.0.0")
+                $version = if ($config.version) { $config.version } else { "1.0.0" }
+            $heartbeatResult = Send-Heartbeat -ServerUrl $config.server_url -ApiKey $config.api_key -Version $version
                 
                 # Verifica se il server ha richiesto la disinstallazione
                 if ($heartbeatResult.uninstall -eq $true) {
