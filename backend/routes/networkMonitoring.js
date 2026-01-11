@@ -841,10 +841,10 @@ module.exports = (pool, io) => {
          INNER JOIN network_agents na ON nd.agent_id = na.id
          WHERE na.azienda_id = $1
          ORDER BY 
-           CAST(split_part(nd.ip_address, '.', 1) AS INTEGER),
-           CAST(split_part(nd.ip_address, '.', 2) AS INTEGER),
-           CAST(split_part(nd.ip_address, '.', 3) AS INTEGER),
-           CAST(split_part(nd.ip_address, '.', 4) AS INTEGER) ASC`,
+           CAST(split_part(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g'), '.', 1) AS INTEGER),
+           CAST(split_part(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g'), '.', 2) AS INTEGER),
+           CAST(split_part(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g'), '.', 3) AS INTEGER),
+           CAST(split_part(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g'), '.', 4) AS INTEGER) ASC`,
         [aziendaId]
       );
 
