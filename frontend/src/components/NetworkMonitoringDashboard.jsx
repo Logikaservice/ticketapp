@@ -30,11 +30,18 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     if (initialView === 'agents') {
       setShowAgentsList(true);
       loadAgents();
-      if (onViewReset) onViewReset();
+      // Reset dopo un breve delay per permettere al componente di renderizzare
+      if (onViewReset) {
+        setTimeout(() => onViewReset(), 100);
+      }
     } else if (initialView === 'create') {
       setShowCreateAgentModal(true);
-      if (onViewReset) onViewReset();
+      // Reset dopo un breve delay per permettere al componente di renderizzare
+      if (onViewReset) {
+        setTimeout(() => onViewReset(), 100);
+      }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialView]);
 
   // Carica dispositivi
