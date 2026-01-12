@@ -357,12 +357,39 @@ function Get-NetworkDevices {
                                 # Ignora errori ping
                             }
                             
+                            # Prova SendARP API direttamente (come Advanced IP Scanner) - PRIMA di tutto
+                            if (-not $macAddress) {
+                                try {
+                                    $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
+                                    if ($macFromSendArp -and 
+                                        $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
+                                        $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                        $macAddress = $macFromSendArp
+                                        Write-Log "MAC trovato per $ip tramite SendARP API: $macAddress" "DEBUG"
+                                    }
+                                } catch {
+                                    # Ignora errori
+                                }
+                            }
+                            
                             # Prova WMI Win32_PingStatus (a volte più affidabile)
                             if (-not $macAddress) {
                                 try {
                                     $pingStatus = Get-WmiObject -Class Win32_PingStatus -Filter "Address='$ip'" -ErrorAction SilentlyContinue | Select-Object -First 1
                                     if ($pingStatus -and $pingStatus.StatusCode -eq 0) {
                                         Start-Sleep -Milliseconds 300
+                                        # Dopo WMI ping, riprova SendARP
+                                        try {
+                                            $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
+                                            if ($macFromSendArp -and 
+                                                $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
+                                                $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                                $macAddress = $macFromSendArp
+                                                Write-Log "MAC trovato per $ip tramite SendARP dopo WMI ping: $macAddress" "DEBUG"
+                                            }
+                                        } catch {
+                                            # Ignora errori
+                                        }
                                     }
                                 } catch {
                                     # Ignora errori
