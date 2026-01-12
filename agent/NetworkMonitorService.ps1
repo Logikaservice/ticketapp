@@ -872,9 +872,12 @@ public class ArpHelper {
                         if ($macAddress) {
                             $foundMACs[$ip] = $macAddress
                             Write-Log "MAC salvato in foundMACs per $ip : $macAddress" "DEBUG"
+                        } else {
+                            Write-Log "ATTENZIONE: MAC NON salvato per $ip perché macAddress è null o vuoto" "WARN"
                         }
                         
                         $devices += $device
+                        Write-Log "Device aggiunto per $ip con MAC: $($device.mac_address)" "DEBUG"
                     }
                     
                     # IMPORTANTE: Salva SUBITO i MAC trovati per la tray icon (dopo ogni dispositivo processato)
@@ -900,7 +903,15 @@ public class ArpHelper {
                             }
                         }
                         $ipDataArrayTemp | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
-                        Write-Log "File tray icon aggiornato con MAC trovati: $($foundMACs.Count) MAC su $($foundIPs.Count) IP" "DEBUG"
+                        $macCount = ($ipDataArrayTemp | Where-Object { $_.mac }).Count
+                        Write-Log "File tray icon aggiornato: $macCount MAC su $($foundIPs.Count) IP" "DEBUG"
+                        # Log specifico per 192.168.100.9
+                        $ip99 = $ipDataArrayTemp | Where-Object { $_.ip -eq "192.168.100.9" }
+                        if ($ip99) {
+                            Write-Log "192.168.100.9 nel file tray icon: MAC = $($ip99.mac)" "DEBUG"
+                        } else {
+                            Write-Log "ATTENZIONE: 192.168.100.9 NON trovato nel file tray icon!" "WARN"
+                        }
                     } catch {
                         Write-Log "Errore aggiornamento file tray icon durante loop: $_" "WARN"
                     }
