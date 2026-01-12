@@ -557,7 +557,18 @@ public class ArpHelper {
                         
                         $macAddress = $null
                         
-                        # Prova tabella ARP pre-caricata
+                        # PRIORITÀ 1: SendARP diretto (VELOCE e FUNZIONA - testato!)
+                        # Prova SendARP PRIMA della tabella ARP perché funziona meglio per IP problematici
+                        try {
+                            $macFromSendArp = [ArpHelper]::GetMacAddress($targetIP)
+                            if ($macFromSendArp -and 
+                                $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
+                                $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                return @{ ip = $targetIP; mac = $macFromSendArp }
+                            }
+                        } catch { }
+                        
+                        # PRIORITÀ 2: Tabella ARP pre-caricata (solo se SendARP fallisce)
                         if ($arpTableData -and $arpTableData.ContainsKey($targetIP)) {
                             $macFromTable = $arpTableData[$targetIP]
                             if ($macFromTable -and 
@@ -568,19 +579,6 @@ public class ArpHelper {
                                 return @{ ip = $targetIP; mac = $macAddress }
                             }
                         }
-                        
-                        # Se MAC non trovato, prova recupero diretto (ottimizzato per parallelizzazione)
-                        # Riduciamo i tentativi per velocità, mantenendo efficacia
-                        
-                        # 1. SendARP diretto (veloce)
-                        try {
-                            $macFromSendArp = [ArpHelper]::GetMacAddress($targetIP)
-                            if ($macFromSendArp -and 
-                                $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
-                                $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                return @{ ip = $targetIP; mac = $macFromSendArp }
-                            }
-                        } catch { }
                         
                         # 2. Ping multipli per forzare ARP + SendARP (come Advanced IP Scanner)
                         # Advanced IP Scanner fa ping multipli per aggiornare la cache ARP prima di SendARP
