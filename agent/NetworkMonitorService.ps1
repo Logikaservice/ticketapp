@@ -871,9 +871,38 @@ public class ArpHelper {
                         # Salva MAC trovato per uso successivo
                         if ($macAddress) {
                             $foundMACs[$ip] = $macAddress
+                            Write-Log "MAC salvato in foundMACs per $ip : $macAddress" "DEBUG"
                         }
                         
                         $devices += $device
+                    }
+                    
+                    # IMPORTANTE: Salva SUBITO i MAC trovati per la tray icon (dopo ogni dispositivo processato)
+                    # Questo assicura che anche i MAC trovati nel tentativo finale sequenziale vengano salvati
+                    try {
+                        $ipDataArrayTemp = @()
+                        foreach ($ip in $foundIPs) {
+                            $macForTray = $null
+                            if ($foundMACs.ContainsKey($ip)) {
+                                $macForTray = $foundMACs[$ip]
+                            } else {
+                                # Cerca anche nei devices già costruiti
+                                $deviceMatch = $devices | Where-Object { $_.ip_address -eq $ip }
+                                if ($deviceMatch -and $deviceMatch.mac_address) {
+                                    $macForTray = $deviceMatch.mac_address
+                                    # Salva anche in foundMACs per prossime iterazioni
+                                    $foundMACs[$ip] = $macForTray
+                                }
+                            }
+                            $ipDataArrayTemp += @{
+                                ip = $ip
+                                mac = $macForTray
+                            }
+                        }
+                        $ipDataArrayTemp | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
+                        Write-Log "File tray icon aggiornato con MAC trovati: $($foundMACs.Count) MAC su $($foundIPs.Count) IP" "DEBUG"
+                    } catch {
+                        Write-Log "Errore aggiornamento file tray icon durante loop: $_" "WARN"
                     }
                 }
                 
