@@ -879,42 +879,6 @@ public class ArpHelper {
                         $devices += $device
                         Write-Log "Device aggiunto per $ip con MAC: $($device.mac_address)" "DEBUG"
                     }
-                    
-                    # IMPORTANTE: Salva SUBITO i MAC trovati per la tray icon (dopo ogni dispositivo processato)
-                    # Questo assicura che anche i MAC trovati nel tentativo finale sequenziale vengano salvati
-                    try {
-                        $ipDataArrayTemp = @()
-                        foreach ($ip in $foundIPs) {
-                            $macForTray = $null
-                            if ($foundMACs.ContainsKey($ip)) {
-                                $macForTray = $foundMACs[$ip]
-                            } else {
-                                # Cerca anche nei devices già costruiti
-                                $deviceMatch = $devices | Where-Object { $_.ip_address -eq $ip }
-                                if ($deviceMatch -and $deviceMatch.mac_address) {
-                                    $macForTray = $deviceMatch.mac_address
-                                    # Salva anche in foundMACs per prossime iterazioni
-                                    $foundMACs[$ip] = $macForTray
-                                }
-                            }
-                            $ipDataArrayTemp += @{
-                                ip = $ip
-                                mac = $macForTray
-                            }
-                        }
-                        $ipDataArrayTemp | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
-                        $macCount = ($ipDataArrayTemp | Where-Object { $_.mac }).Count
-                        Write-Log "File tray icon aggiornato: $macCount MAC su $($foundIPs.Count) IP" "DEBUG"
-                        # Log specifico per 192.168.100.9
-                        $ip99 = $ipDataArrayTemp | Where-Object { $_.ip -eq "192.168.100.9" }
-                        if ($ip99) {
-                            Write-Log "192.168.100.9 nel file tray icon: MAC = $($ip99.mac)" "DEBUG"
-                        } else {
-                            Write-Log "ATTENZIONE: 192.168.100.9 NON trovato nel file tray icon!" "WARN"
-                        }
-                    } catch {
-                        Write-Log "Errore aggiornamento file tray icon durante loop: $_" "WARN"
-                    }
                 }
                 
                 # Salva IP trovati con MAC in batch (una sola volta invece che per ogni IP)
