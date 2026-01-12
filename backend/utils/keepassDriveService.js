@@ -301,19 +301,28 @@ class KeepassDriveService {
    */
   async getMacToTitleMap(password) {
     const now = Date.now();
+    let fileModified = false;
 
     // Controlla se il file è stato modificato su Google Drive
     const currentModifiedTime = await this.checkFileModified(password);
-    if (currentModifiedTime && this.lastFileModifiedTime && 
-        currentModifiedTime !== this.lastFileModifiedTime) {
-      console.log('🔄 File KeePass modificato su Google Drive - invalidazione cache');
-      this.macToTitleMap = null;
-      this.lastCacheUpdate = null;
-      this.lastFileModifiedTime = null;
+    if (currentModifiedTime) {
+      if (!this.lastFileModifiedTime) {
+        // Prima volta che viene caricato - salva la data di modifica
+        console.log('📅 Prima caricamento file KeePass');
+      } else if (currentModifiedTime !== this.lastFileModifiedTime) {
+        // File modificato - forza il ricaricamento
+        console.log('🔄 File KeePass modificato su Google Drive - invalidazione cache e ricaricamento');
+        console.log(`   Data precedente: ${this.lastFileModifiedTime}`);
+        console.log(`   Data attuale: ${currentModifiedTime}`);
+        this.macToTitleMap = null;
+        this.lastCacheUpdate = null;
+        this.lastFileModifiedTime = null;
+        fileModified = true;
+      }
     }
 
-    // Se la cache è valida, restituiscila
-    if (this.macToTitleMap && this.lastCacheUpdate && 
+    // Se la cache è valida E il file non è stato modificato, restituiscila
+    if (!fileModified && this.macToTitleMap && this.lastCacheUpdate && 
         (now - this.lastCacheUpdate) < this.cacheTimeout) {
       return this.macToTitleMap;
     }
