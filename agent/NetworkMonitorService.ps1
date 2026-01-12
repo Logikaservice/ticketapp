@@ -382,10 +382,17 @@ function Get-NetworkDevices {
                         Write-Log "Errore salvataggio IP temporanei: $_" "WARN"
                     }
                     
-                    # Crea RunspacePool per recupero MAC parallelo
-                    $macRunspacePool = [runspacefactory]::CreateRunspacePool(1, [Math]::Min(20, $activeIPs.Count))
-                    $macRunspacePool.Open()
-                    $macJobs = New-Object System.Collections.ArrayList
+                    # Se non ci sono IP attivi, salta il recupero MAC
+                    if ($activeIPs.Count -eq 0) {
+                        Write-Log "Nessun IP attivo da processare, salto recupero MAC" "DEBUG"
+                    } else {
+                        # Crea RunspacePool per recupero MAC parallelo
+                        Write-Log "Creazione RunspacePool per recupero MAC parallelo..." "DEBUG"
+                        try {
+                            $macRunspacePool = [runspacefactory]::CreateRunspacePool(1, [Math]::Min(20, $activeIPs.Count))
+                            $macRunspacePool.Open()
+                            Write-Log "RunspacePool creato e aperto" "DEBUG"
+                            $macJobs = New-Object System.Collections.ArrayList
                     
                     # ScriptBlock per recupero MAC parallelo
                     $macRecoveryScriptBlock = {
@@ -563,70 +570,79 @@ public class ArpHelper {
                         })
                     }
                     
-                    # Raccogli risultati MAC con timeout per evitare blocchi
-                    $macResults = @{}
-                    $maxWaitTime = 20  # Timeout massimo 20 secondi per recupero MAC (ridotto)
-                    $startTime = Get-Date
-                    
-                    Write-Log "Attesa risultati recupero MAC per $($macJobs.Count) IP..." "DEBUG"
-                    
-                    foreach ($jobInfo in $macJobs) {
-                        try {
-                            # Verifica timeout totale
-                            $elapsed = ((Get-Date) - $startTime).TotalSeconds
-                            if ($elapsed -gt $maxWaitTime) {
-                                Write-Log "Timeout recupero MAC raggiunto dopo $maxWaitTime secondi, interrompendo..." "WARN"
-                                # Interrompi tutti i job rimanenti
-                                foreach ($remainingJob in $macJobs) {
-                                    if ($remainingJob -ne $jobInfo) {
-                                        try {
-                                            if (-not $remainingJob.AsyncResult.IsCompleted) {
-                                                $remainingJob.Job.Stop()
+                            # Raccogli risultati MAC con timeout per evitare blocchi
+                            $macResults = @{}
+                            $maxWaitTime = 15  # Timeout massimo 15 secondi per recupero MAC (ridotto ulteriormente)
+                            $startTime = Get-Date
+                            
+                            Write-Log "Attesa risultati recupero MAC per $($macJobs.Count) IP (timeout: $maxWaitTime secondi)..." "DEBUG"
+                            
+                            $processedJobs = 0
+                            foreach ($jobInfo in $macJobs) {
+                                try {
+                                    # Verifica timeout totale
+                                    $elapsed = ((Get-Date) - $startTime).TotalSeconds
+                                    if ($elapsed -gt $maxWaitTime) {
+                                        Write-Log "Timeout recupero MAC raggiunto dopo $maxWaitTime secondi, interrompendo job rimanenti..." "WARN"
+                                        # Interrompi tutti i job rimanenti
+                                        foreach ($remainingJob in $macJobs) {
+                                            if ($remainingJob -ne $jobInfo) {
+                                                try {
+                                                    if ($remainingJob.AsyncResult -and -not $remainingJob.AsyncResult.IsCompleted) {
+                                                        $remainingJob.Job.Stop()
+                                                    }
+                                                } catch { }
                                             }
+                                        }
+                                        break
+                                    }
+                                    
+                                    # Attendi risultato con timeout per singolo job (ridotto a 2 secondi)
+                                    $asyncWait = $jobInfo.AsyncResult.AsyncWaitHandle
+                                    if ($asyncWait.WaitOne(2000)) {  # Timeout 2 secondi per job
+                                        try {
+                                            $result = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
+                                            if ($result) {
+                                                $macResults[$result.ip] = $result.mac
+                                            }
+                                            $processedJobs++
+                                        } catch {
+                                            Write-Log "Errore EndInvoke per $($jobInfo.IP): $_" "WARN"
+                                        }
+                                    } else {
+                                        Write-Log "Timeout per recupero MAC di $($jobInfo.IP), continuo con altri..." "WARN"
+                                        # Interrompi job in timeout
+                                        try {
+                                            $jobInfo.Job.Stop()
                                         } catch { }
                                     }
+                                } catch {
+                                    Write-Log "Errore recupero MAC per $($jobInfo.IP): $_" "WARN"
+                                } finally {
+                                    try {
+                                        if ($jobInfo.Job) {
+                                            $jobInfo.Job.Dispose()
+                                        }
+                                    } catch { }
                                 }
-                                break
                             }
                             
-                            # Attendi risultato con timeout per singolo job (ridotto a 3 secondi)
-                            $asyncWait = $jobInfo.AsyncResult.AsyncWaitHandle
-                            if ($asyncWait.WaitOne(3000)) {  # Timeout 3 secondi per job
-                                try {
-                                    $result = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
-                                    if ($result) {
-                                        $macResults[$result.ip] = $result.mac
-                                    }
-                                } catch {
-                                    Write-Log "Errore EndInvoke per $($jobInfo.IP): $_" "WARN"
-                                }
-                            } else {
-                                Write-Log "Timeout per recupero MAC di $($jobInfo.IP), continuo con altri..." "WARN"
-                                # Interrompi job in timeout
-                                try {
-                                    $jobInfo.Job.Stop()
-                                } catch { }
-                            }
-                        } catch {
-                            Write-Log "Errore recupero MAC per $($jobInfo.IP): $_" "WARN"
-                        } finally {
+                            # Chiudi runspace pool
                             try {
-                                if ($jobInfo.Job) {
-                                    $jobInfo.Job.Dispose()
-                                }
-                            } catch { }
+                                $macRunspacePool.Close()
+                                $macRunspacePool.Dispose()
+                                Write-Log "RunspacePool chiuso" "DEBUG"
+                            } catch {
+                                Write-Log "Errore chiusura runspace pool: $_" "WARN"
+                            }
+                            
+                            Write-Log "Recupero MAC completato: $processedJobs job processati, $($macResults.Count) MAC trovati su $($activeIPs.Count) IP totali" "DEBUG"
+                        } catch {
+                            Write-Log "Errore critico durante recupero MAC parallelo: $_" "ERROR"
+                            Write-Log "Stack: $($_.Exception.StackTrace)" "ERROR"
+                            $macResults = @{}  # Reset risultati in caso di errore
                         }
                     }
-                    
-                    # Chiudi runspace pool
-                    try {
-                        $macRunspacePool.Close()
-                        $macRunspacePool.Dispose()
-                    } catch {
-                        Write-Log "Errore chiusura runspace pool: $_" "WARN"
-                    }
-                    
-                    Write-Log "Recupero MAC completato per $($macResults.Count) IP su $($activeIPs.Count) totali" "DEBUG"
                     
                     # Costruisci array devices con MAC recuperati
                     foreach ($ip in $activeIPs) {
