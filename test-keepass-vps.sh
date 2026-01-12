@@ -55,5 +55,6 @@ if [ ! -d "backend/node_modules" ]; then
     cd ..
 fi
 
-# Esegui test (lo script è nella root del progetto)
-node test-keepass-mac-search.js "$PASSWORD" "$MAC_ADDRESS"
+# Esegui test dalla cartella backend (così usa le node_modules corrette)
+cd backend
+node ../test-keepass-mac-search.js "$PASSWORD" "$MAC_ADDRESS"

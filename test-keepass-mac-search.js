@@ -1,8 +1,26 @@
 // Script per testare la ricerca MAC in KeePass
 // Esegui: node test-keepass-mac-search.js <password> <mac_address>
 
+const path = require('path');
+const fs = require('fs');
+
 // Carica variabili d'ambiente dal file .env
-require('dotenv').config({ path: require('path').join(__dirname, 'backend', '.env') });
+const envPath = path.join(__dirname, 'backend', '.env');
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  envContent.split('\n').forEach(line => {
+    const trimmedLine = line.trim();
+    if (trimmedLine && !trimmedLine.startsWith('#') && trimmedLine.includes('=')) {
+      const [key, ...valueParts] = trimmedLine.split('=');
+      const value = valueParts.join('=').trim();
+      // Rimuovi virgolette se presenti
+      const cleanValue = value.replace(/^["']|["']$/g, '');
+      if (!process.env[key.trim()]) {
+        process.env[key.trim()] = cleanValue;
+      }
+    }
+  });
+}
 
 const keepassDriveService = require('./backend/utils/keepassDriveService');
 
