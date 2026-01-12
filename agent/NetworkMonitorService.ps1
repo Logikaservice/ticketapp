@@ -26,9 +26,10 @@ public class ArpHelper {
             byte[] macAddr = new byte[6];
             uint macAddrLen = (uint)macAddr.Length;
             
-            // Converti IP in uint
+            // Converti IP in uint (network byte order - big endian)
             byte[] ipBytes = ip.GetAddressBytes();
-            uint destIP = (uint)(ipBytes[0] | (ipBytes[1] << 8) | (ipBytes[2] << 16) | (ipBytes[3] << 24));
+            // SendARP si aspetta IP in network byte order (big endian)
+            uint destIP = (uint)((ipBytes[0] << 24) | (ipBytes[1] << 16) | (ipBytes[2] << 8) | ipBytes[3]);
             
             int result = SendARP(destIP, 0, macAddr, ref macAddrLen);
             if (result == 0 && macAddrLen == 6) {
