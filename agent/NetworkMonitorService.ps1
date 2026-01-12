@@ -691,9 +691,9 @@ public class ArpHelper {
                                         break
                                     }
                                     
-                                    # Attendi risultato con timeout per singolo job (ridotto a 2 secondi)
+                                    # Attendi risultato con timeout per singolo job (ridotto a 1.5 secondi per velocità)
                                     $asyncWait = $jobInfo.AsyncResult.AsyncWaitHandle
-                                    if ($asyncWait.WaitOne(2000)) {  # Timeout 2 secondi per job
+                                    if ($asyncWait.WaitOne(1500)) {  # Timeout 1.5 secondi per job
                                         try {
                                             $result = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
                                             if ($result) {
@@ -753,28 +753,94 @@ public class ArpHelper {
                             }
                         }
                         
-                        # Se MAC non trovato dal recupero parallelo, prova un ultimo tentativo sequenziale (solo per IP problematici)
+                        # Se MAC non trovato dal recupero parallelo, prova tentativi aggiuntivi più aggressivi (solo per IP problematici)
                         if (-not $macAddress) {
                             Write-Log "Tentativo finale sequenziale per recupero MAC di $ip (non trovato in parallelo)" "DEBUG"
-                            # Ultimo tentativo con WMI ping + SendARP (più lento ma più affidabile)
+                            
+                            # Metodo 1: Ping multipli aggressivi + SendARP (come Advanced IP Scanner)
                             try {
-                                $pingStatus = Get-WmiObject -Class Win32_PingStatus -Filter "Address='$ip'" -ErrorAction SilentlyContinue | Select-Object -First 1
-                                if ($pingStatus -and $pingStatus.StatusCode -eq 0) {
-                                    Start-Sleep -Milliseconds 500
+                                $ping = New-Object System.Net.NetworkInformation.Ping
+                                $pingSuccess = $false
+                                # Fai 5 ping per forzare aggiornamento ARP cache
+                                for ($i = 1; $i -le 5; $i++) {
+                                    $pingReply = $ping.Send($ip, 1000)
+                                    if ($pingReply.Status -eq 'Success') {
+                                        $pingSuccess = $true
+                                        Start-Sleep -Milliseconds 300  # Attesa per aggiornamento ARP
+                                        # Prova SendARP dopo ogni ping riuscito
+                                        $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
+                                        if ($macFromSendArp -and 
+                                            $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
+                                            $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                            $ping.Dispose()
+                                            $macAddress = $macFromSendArp
+                                            Write-Log "MAC trovato per $ip tramite SendARP dopo ping multipli (tentativo finale): $macAddress" "DEBUG"
+                                            break
+                                        }
+                                    }
+                                }
+                                $ping.Dispose()
+                                
+                                # Se ping ha funzionato ma SendARP no, attendi più tempo e riprova
+                                if ($pingSuccess -and -not $macAddress) {
+                                    Start-Sleep -Milliseconds 1000  # Attesa extra per ARP cache
                                     $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
                                     if ($macFromSendArp -and 
                                         $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
                                         $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
                                         $macAddress = $macFromSendArp
-                                        Write-Log "MAC trovato per $ip tramite SendARP dopo WMI ping (tentativo finale): $macAddress" "DEBUG"
+                                        Write-Log "MAC trovato per $ip tramite SendARP dopo attesa extra (tentativo finale): $macAddress" "DEBUG"
                                     }
                                 }
                             } catch {
-                                Write-Log "Errore tentativo finale per ${ip}: $_" "DEBUG"
+                                Write-Log "Errore ping multipli per ${ip}: $_" "DEBUG"
+                            }
+                            
+                            # Metodo 2: WMI PingStatus + SendARP (fallback)
+                            if (-not $macAddress) {
+                                try {
+                                    $pingStatus = Get-WmiObject -Class Win32_PingStatus -Filter "Address='$ip'" -ErrorAction SilentlyContinue | Select-Object -First 1
+                                    if ($pingStatus -and $pingStatus.StatusCode -eq 0) {
+                                        Start-Sleep -Milliseconds 800
+                                        $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
+                                        if ($macFromSendArp -and 
+                                            $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
+                                            $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                            $macAddress = $macFromSendArp
+                                            Write-Log "MAC trovato per $ip tramite SendARP dopo WMI ping (tentativo finale): $macAddress" "DEBUG"
+                                        }
+                                    }
+                                } catch {
+                                    Write-Log "Errore WMI ping per ${ip}: $_" "DEBUG"
+                                }
+                            }
+                            
+                            # Metodo 3: Get-NetNeighbor diretto (forza refresh)
+                            if (-not $macAddress) {
+                                try {
+                                    # Forza refresh ARP table
+                                    $null = Test-Connection -ComputerName $ip -Count 2 -Quiet -ErrorAction SilentlyContinue
+                                    Start-Sleep -Milliseconds 500
+                                    $arpEntries = Get-NetNeighbor -IPAddress $ip -ErrorAction SilentlyContinue
+                                    foreach ($arpEntry in $arpEntries) {
+                                        if ($arpEntry.LinkLayerAddress) {
+                                            $macFromNeighbor = $arpEntry.LinkLayerAddress
+                                            if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
+                                                $macFromNeighbor -ne '00:00:00:00:00:00' -and
+                                                $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                                $macAddress = $macFromNeighbor
+                                                Write-Log "MAC trovato per $ip tramite Get-NetNeighbor refresh (tentativo finale): $macAddress" "DEBUG"
+                                                break
+                                            }
+                                        }
+                                    }
+                                } catch {
+                                    Write-Log "Errore Get-NetNeighbor refresh per ${ip}: $_" "DEBUG"
+                                }
                             }
                             
                             if (-not $macAddress) {
-                                Write-Log "MAC NON trovato per $ip dopo recupero parallelo e tentativo finale" "DEBUG"
+                                Write-Log "MAC NON trovato per $ip dopo tutti i tentativi" "DEBUG"
                             }
                         }
                         
