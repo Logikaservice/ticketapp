@@ -720,6 +720,7 @@ public class ArpHelper {
                 }
                 
                 # Salva IP trovati con MAC in batch (una sola volta invece che per ogni IP)
+                Write-Log "Salvataggio IP trovati per tray icon..." "DEBUG"
                 try {
                     $ipDataArray = @()
                     # Ordina IP numericamente invece che alfabeticamente
@@ -727,6 +728,7 @@ public class ArpHelper {
                         $parts = $_ -split '\.'
                         [int]$parts[0] * 16777216 + [int]$parts[1] * 65536 + [int]$parts[2] * 256 + [int]$parts[3]
                     }
+                    Write-Log "Ordinamento IP completato: $($sortedIPs.Count) IP unici" "DEBUG"
                     foreach ($ip in $sortedIPs) {
                         # Usa MAC trovato durante scansione (da lookup diretto) o dalla tabella ARP iniziale
                         $macAddress = $null
@@ -745,8 +747,9 @@ public class ArpHelper {
                         }
                     }
                     $ipDataArray | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
+                    Write-Log "IP salvati per tray icon: $($ipDataArray.Count) IP" "DEBUG"
                 } catch {
-                    # Ignora errori salvataggio IP per tray icon
+                    Write-Log "Errore salvataggio IP per tray icon: $_" "WARN"
                 }
             } else {
                 Write-Log "Subnet mask troppo grande per scansione completa: $range" "WARN"
