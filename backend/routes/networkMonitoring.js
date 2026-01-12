@@ -730,16 +730,15 @@ module.exports = (pool, io) => {
             values.push(vendor || null);
           }
           // Ricerca automatica MAC in KeePass per impostare device_type
+          // IMPORTANTE: Cerca sempre in KeePass se il MAC è disponibile, anche se device_type esiste già
           if (normalizedMac && process.env.KEEPASS_PASSWORD) {
             try {
               const keepassTitle = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
               if (keepassTitle) {
-                // Se il device_type è vuoto o diverso, aggiornalo con il Titolo da KeePass
-                if (!existingDevice.device_type || existingDevice.device_type !== keepassTitle) {
-                  console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${keepassTitle}"`);
-                  updates.push(`device_type = $${paramIndex++}`);
-                  values.push(keepassTitle);
-                }
+                // Aggiorna sempre il device_type con il Titolo da KeePass (sovrascrive quello esistente)
+                console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${keepassTitle}"`);
+                updates.push(`device_type = $${paramIndex++}`);
+                values.push(keepassTitle);
               }
             } catch (keepassErr) {
               // Non bloccare il processo se c'è un errore con KeePass
