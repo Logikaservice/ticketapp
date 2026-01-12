@@ -531,25 +531,51 @@ public class ArpHelper {
                         })
                     }
                     
-                    # Raccogli risultati MAC
+                    # Raccogli risultati MAC con timeout per evitare blocchi
                     $macResults = @{}
+                    $maxWaitTime = 30  # Timeout massimo 30 secondi per recupero MAC
+                    $startTime = Get-Date
+                    
                     foreach ($jobInfo in $macJobs) {
                         try {
-                            $result = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
-                            if ($result) {
-                                $macResults[$result.ip] = $result.mac
+                            # Verifica timeout
+                            if (((Get-Date) - $startTime).TotalSeconds -gt $maxWaitTime) {
+                                Write-Log "Timeout recupero MAC raggiunto dopo $maxWaitTime secondi, interrompendo..." "WARN"
+                                break
+                            }
+                            
+                            # Attendi risultato con timeout
+                            $asyncWait = $jobInfo.AsyncResult.AsyncWaitHandle
+                            if ($asyncWait.WaitOne(5000)) {  # Timeout 5 secondi per job
+                                $result = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
+                                if ($result) {
+                                    $macResults[$result.ip] = $result.mac
+                                }
+                            } else {
+                                Write-Log "Timeout per recupero MAC di $($jobInfo.IP)" "WARN"
+                                # Interrompi job in timeout
+                                try {
+                                    $jobInfo.Job.Stop()
+                                } catch { }
                             }
                         } catch {
-                            # Ignora errori
+                            Write-Log "Errore recupero MAC per $($jobInfo.IP): $_" "WARN"
                         } finally {
-                            $jobInfo.Job.Dispose()
+                            try {
+                                $jobInfo.Job.Dispose()
+                            } catch { }
                         }
                     }
                     
-                    $macRunspacePool.Close()
-                    $macRunspacePool.Dispose()
+                    # Chiudi runspace pool
+                    try {
+                        $macRunspacePool.Close()
+                        $macRunspacePool.Dispose()
+                    } catch {
+                        Write-Log "Errore chiusura runspace pool: $_" "WARN"
+                    }
                     
-                    Write-Log "Recupero MAC completato per $($macResults.Count) IP" "DEBUG"
+                    Write-Log "Recupero MAC completato per $($macResults.Count) IP su $($activeIPs.Count) totali" "DEBUG"
                     
                     # Costruisci array devices con MAC recuperati
                     foreach ($ip in $activeIPs) {
