@@ -66,6 +66,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       if (onViewReset) {
         setTimeout(() => onViewReset(), 100);
       }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialView]);
 
