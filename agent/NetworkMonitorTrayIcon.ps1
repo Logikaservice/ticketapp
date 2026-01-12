@@ -318,11 +318,31 @@ function Update-Countdown {
     if (-not $script:statusWindow -or -not $script:statusWindow.Visible) { return }
     
     $status = Get-Status
-    if ($status -and $status.last_scan -and $status.last_scan.ToString().Trim() -ne '') {
+    $countdownText = "Prossima scansione: --:--"
+    
+    # Se lo status è "scanning", mostra "Scansione in corso..."
+    if ($status -and $status.status -eq "scanning") {
+        $countdownText = "Scansione in corso..."
+        if ($script:statusWindow.InvokeRequired) {
+            $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
+                $script:countdownLabel.Text = $countdownText
+            })
+        } else {
+            $script:countdownLabel.Text = $countdownText
+        }
+        return
+    }
+    
+    # Prova a calcolare countdown da last_scan
+    if ($status -and $status.last_scan -and $status.last_scan -ne $null) {
         try {
+            $dateStr = $status.last_scan.ToString().Trim()
+            if ([string]::IsNullOrWhiteSpace($dateStr) -or $dateStr -eq "null") {
+                throw "last_scan è vuoto o null"
+            }
+            
             # Prova diversi formati di data
             $lastScanTime = $null
-            $dateStr = $status.last_scan.ToString().Trim()
             
             # Prova formato "yyyy-MM-dd HH:mm:ss"
             try {
@@ -332,8 +352,9 @@ function Update-Countdown {
                 try {
                     $lastScanTime = [DateTime]::Parse($dateStr)
                 } catch {
-                    # Fallback: usa Get-Date corrente
-                    $lastScanTime = Get-Date
+                    # Fallback: usa Get-Date corrente meno intervallo (per countdown provvisorio)
+                    $intervalMinutes = if ($status.scan_interval_minutes) { [int]$status.scan_interval_minutes } else { 15 }
+                    $lastScanTime = (Get-Date).AddMinutes(-$intervalMinutes)
                 }
             }
             
@@ -347,37 +368,25 @@ function Update-Countdown {
                 $seconds = [Math]::Floor($timeRemaining.TotalSeconds % 60)
                 $countdownText = "Prossima scansione: $($minutes.ToString('00')):$($seconds.ToString('00'))"
             } else {
-                $countdownText = "Scansione in corso..."
-            }
-            
-            # Aggiorna thread-safe
-            if ($script:statusWindow.InvokeRequired) {
-                $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
-                    $script:countdownLabel.Text = $countdownText
-                })
-            } else {
-                $script:countdownLabel.Text = $countdownText
+                # Se il tempo è scaduto, mostra "Scansione in corso..." o "In attesa..."
+                $countdownText = "In attesa scansione..."
             }
         } catch {
             # In caso di errore, mostra messaggio generico
             $countdownText = "Prossima scansione: --:--"
-            if ($script:statusWindow.InvokeRequired) {
-                $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
-                    $script:countdownLabel.Text = $countdownText
-                })
-            } else {
-                $script:countdownLabel.Text = $countdownText
-            }
         }
     } else {
-        $countdownText = "Prossima scansione: --:--"
-        if ($script:statusWindow.InvokeRequired) {
-            $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
-                $script:countdownLabel.Text = $countdownText
-            })
-        } else {
+        # Se non c'è last_scan, mostra messaggio informativo
+        $countdownText = "In attesa prima scansione..."
+    }
+    
+    # Aggiorna thread-safe
+    if ($script:statusWindow.InvokeRequired) {
+        $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
             $script:countdownLabel.Text = $countdownText
-        }
+        })
+    } else {
+        $script:countdownLabel.Text = $countdownText
     }
 }
 
