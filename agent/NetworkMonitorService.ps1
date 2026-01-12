@@ -768,7 +768,6 @@ public class ArpHelper {
                                     }
                                 }
                             } catch {
-                                Write-Log "Errore ping multipli per ${ip}: $_" "DEBUG"
                             }
                             
                             # Metodo 2: WMI PingStatus + SendARP (fallback) - OTTIMIZZATO
@@ -785,7 +784,6 @@ public class ArpHelper {
                                         }
                                     }
                                 } catch {
-                                    Write-Log "Errore WMI ping per ${ip}: $_" "DEBUG"
                                 }
                             }
                             
@@ -808,7 +806,6 @@ public class ArpHelper {
                                         }
                                     }
                                 } catch {
-                                    Write-Log "Errore Get-NetNeighbor refresh per ${ip}: $_" "DEBUG"
                                 }
                             }
                             
@@ -1044,7 +1041,6 @@ function Send-Heartbeat {
             return @{ success = $false; uninstall = $true; message = $response.message }
         }
         
-        Write-Log "Heartbeat inviato con successo" "DEBUG"
         
         # Recupera configurazione dal server per verificare se scan_interval_minutes è cambiato
         try {
@@ -1069,7 +1065,6 @@ function Send-Heartbeat {
                 }
             }
         } catch {
-            Write-Log "Errore verifica configurazione server: $_" "DEBUG"
             # Non bloccare l'esecuzione se il controllo configurazione fallisce
         }
         
