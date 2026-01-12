@@ -141,7 +141,7 @@ function Show-StatusWindow {
     
     # Label titolo
     $titleLabel = New-Object System.Windows.Forms.Label
-    $titleLabel.Text = "Monitoraggio Rete - $($script:config.network_ranges -join ', ')"
+    $titleLabel.Text = "Network Monitor Agent"
     $titleLabel.Location = New-Object System.Drawing.Point(10, 10)
     $titleLabel.Size = New-Object System.Drawing.Size(460, 25)
     $titleLabel.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 10, [System.Drawing.FontStyle]::Bold)
