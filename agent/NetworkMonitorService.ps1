@@ -370,6 +370,18 @@ function Get-NetworkDevices {
                     # Processa IP attivi trovati - PARALLELIZZATO per recupero MAC
                     Write-Log "Processando $($activeIPs.Count) IP attivi in parallelo per recupero MAC..." "DEBUG"
                     
+                    # Salva subito gli IP trovati (senza MAC) per la tray icon, così appaiono durante la scansione
+                    try {
+                        $tempIPArray = @()
+                        foreach ($ip in $activeIPs) {
+                            $tempIPArray += @{ ip = $ip; mac = $null }
+                        }
+                        $tempIPArray | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
+                        Write-Log "IP trovati salvati temporaneamente per tray icon: $($activeIPs.Count)" "DEBUG"
+                    } catch {
+                        Write-Log "Errore salvataggio IP temporanei: $_" "WARN"
+                    }
+                    
                     # Crea RunspacePool per recupero MAC parallelo
                     $macRunspacePool = [runspacefactory]::CreateRunspacePool(1, [Math]::Min(20, $activeIPs.Count))
                     $macRunspacePool.Open()
