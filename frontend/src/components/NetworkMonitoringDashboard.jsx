@@ -30,12 +30,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [loadingCompanyDevices, setLoadingCompanyDevices] = useState(false);
   // selectedStaticIPs non serve più, usiamo is_static dal database
 
-  const [showDeviceTypes, setShowDeviceTypes] = useState(false);
-  const [deviceTypes, setDeviceTypes] = useState([]);
-  const [loadingDeviceTypes, setLoadingDeviceTypes] = useState(false);
-  const [editingTypeId, setEditingTypeId] = useState(null);
-  const [newTypeName, setNewTypeName] = useState('');
-  const [newTypeDescription, setNewTypeDescription] = useState('');
   const [editingAgentId, setEditingAgentId] = useState(null);
   const [editAgentData, setEditAgentData] = useState({
     agent_name: '',
@@ -72,14 +66,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       if (onViewReset) {
         setTimeout(() => onViewReset(), 100);
       }
-    } else if (initialView === 'deviceTypes') {
-      setShowDeviceTypes(true);
-      loadDeviceTypes();
-      // Reset dopo un breve delay per permettere al componente di renderizzare
-      if (onViewReset) {
-        setTimeout(() => onViewReset(), 100);
-      }
-    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialView]);
 
@@ -170,112 +156,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     }
   }, [getAuthHeader]);
 
-  // Carica lista tipi dispositivi
-  const loadDeviceTypes = useCallback(async () => {
-    try {
-      setLoadingDeviceTypes(true);
-      const response = await fetch(buildApiUrl('/api/network-monitoring/device-types'), {
-        headers: getAuthHeader()
-      });
-
-      if (!response.ok) {
-        throw new Error('Errore caricamento tipi dispositivi');
-      }
-
-      const data = await response.json();
-      setDeviceTypes(data);
-    } catch (err) {
-      console.error('Errore caricamento tipi dispositivi:', err);
-    } finally {
-      setLoadingDeviceTypes(false);
-    }
-  }, [getAuthHeader]);
-
-  // Crea nuovo tipo dispositivo
-  const createDeviceType = async () => {
-    if (!newTypeName.trim()) {
-      alert('Inserisci un nome per il tipo dispositivo');
-      return;
-    }
-
-    try {
-      const response = await fetch(buildApiUrl('/api/network-monitoring/device-types'), {
-        method: 'POST',
-        headers: {
-          ...getAuthHeader(),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: newTypeName.trim(),
-          description: newTypeDescription.trim() || null
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Errore creazione tipo dispositivo');
-      }
-
-      setNewTypeName('');
-      setNewTypeDescription('');
-      loadDeviceTypes();
-    } catch (err) {
-      console.error('Errore creazione tipo dispositivo:', err);
-      alert(`Errore: ${err.message}`);
-    }
-  };
-
-  // Aggiorna tipo dispositivo
-  const updateDeviceType = async (id, name, description) => {
-    try {
-      const response = await fetch(buildApiUrl(`/api/network-monitoring/device-types/${id}`), {
-        method: 'PUT',
-        headers: {
-          ...getAuthHeader(),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: name.trim(),
-          description: description?.trim() || null
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Errore aggiornamento tipo dispositivo');
-      }
-
-      setEditingTypeId(null);
-      loadDeviceTypes();
-    } catch (err) {
-      console.error('Errore aggiornamento tipo dispositivo:', err);
-      alert(`Errore: ${err.message}`);
-    }
-  };
-
-  // Elimina tipo dispositivo
-  const deleteDeviceType = async (id) => {
-    if (!confirm('Vuoi eliminare questo tipo dispositivo?')) {
-      return;
-    }
-
-    try {
-      const response = await fetch(buildApiUrl(`/api/network-monitoring/device-types/${id}`), {
-        method: 'DELETE',
-        headers: getAuthHeader()
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Errore eliminazione tipo dispositivo');
-      }
-
-      loadDeviceTypes();
-    } catch (err) {
-      console.error('Errore eliminazione tipo dispositivo:', err);
-      alert(`Errore: ${err.message}`);
-    }
-  };
 
   // Apri modal modifica agent
   const handleEditAgent = (agent) => {
@@ -434,8 +314,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     loadChanges();
     loadAgents();
     loadCompanies();
-    loadDeviceTypes(); // Carica anche i tipi dispositivi (serve per il dropdown)
-  }, [loadDevices, loadChanges, loadAgents, loadCompanies, loadDeviceTypes]);
+  }, [loadDevices, loadChanges, loadAgents, loadCompanies]);
 
   // Auto-refresh ogni 30 secondi - DISABILITATO se il modal di creazione è aperto
   useEffect(() => {
@@ -518,7 +397,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       'ip_changed': { label: 'IP Cambiato', color: 'bg-yellow-100 text-yellow-800' },
       'mac_changed': { label: 'MAC Cambiato', color: 'bg-orange-100 text-orange-800' },
       'hostname_changed': { label: 'Hostname Cambiato', color: 'bg-purple-100 text-purple-800' },
-      'vendor_changed': { label: 'Vendor Cambiato', color: 'bg-indigo-100 text-indigo-800' }
     };
 
     const badge = badges[changeType] || { label: changeType, color: 'bg-gray-100 text-gray-800' };
@@ -564,7 +442,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         device.ip_address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         device.hostname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         device.mac_address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        device.vendor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         device.azienda?.toLowerCase().includes(searchTerm.toLowerCase());
 
       // Filtro status
@@ -666,17 +543,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                     <Plus size={18} className="text-cyan-600" />
                     Crea Agent
                   </button>
-                  <button
-                    onClick={() => {
-                      setShowDeviceTypes(true);
-                      loadDeviceTypes();
-                      setShowNetworkMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                  >
-                    <Settings size={18} className="text-cyan-600" />
-                    Tipi Dispositivi
-                  </button>
                 </div>
               </div>
             )}
@@ -760,128 +626,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         </div>
       )}
 
-      {/* Gestione Tipi Dispositivi */}
-      {showDeviceTypes && (
-        <div className="mb-6 bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <Settings size={24} className="text-cyan-600" />
-              Tipi Dispositivi
-            </h2>
-            <button
-              onClick={() => setShowDeviceTypes(false)}
-              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
-            >
-              <X size={20} />
-            </button>
-          </div>
-
-          {/* Form nuovo tipo */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <h3 className="font-semibold text-gray-700 mb-3">Aggiungi Nuovo Tipo</h3>
-            <div className="flex gap-3">
-              <input
-                type="text"
-                placeholder="Nome tipo (es: workstation, server, router...)"
-                value={newTypeName}
-                onChange={(e) => setNewTypeName(e.target.value)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                onKeyPress={(e) => e.key === 'Enter' && createDeviceType()}
-              />
-              <input
-                type="text"
-                placeholder="Descrizione (opzionale)"
-                value={newTypeDescription}
-                onChange={(e) => setNewTypeDescription(e.target.value)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                onKeyPress={(e) => e.key === 'Enter' && createDeviceType()}
-              />
-              <button
-                onClick={createDeviceType}
-                className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 flex items-center gap-2"
-              >
-                <Plus size={18} />
-                Aggiungi
-              </button>
-            </div>
-          </div>
-
-          {/* Lista tipi */}
-          {loadingDeviceTypes ? (
-            <div className="p-8 flex items-center justify-center">
-              <Loader className="w-8 h-8 animate-spin text-cyan-600" />
-              <span className="ml-3 text-gray-600">Caricamento tipi...</span>
-            </div>
-          ) : deviceTypes.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">Nessun tipo dispositivo definito</p>
-          ) : (
-            <div className="space-y-2">
-              {deviceTypes.map((type) => (
-                <div key={type.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-                  {editingTypeId === type.id ? (
-                    <div className="flex gap-3 items-center">
-                      <input
-                        type="text"
-                        defaultValue={type.name}
-                        id={`edit-name-${type.id}`}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                      />
-                      <input
-                        type="text"
-                        defaultValue={type.description || ''}
-                        id={`edit-desc-${type.id}`}
-                        placeholder="Descrizione"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                      />
-                      <button
-                        onClick={() => {
-                          const nameInput = document.getElementById(`edit-name-${type.id}`);
-                          const descInput = document.getElementById(`edit-desc-${type.id}`);
-                          updateDeviceType(type.id, nameInput.value, descInput.value);
-                        }}
-                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                      >
-                        Salva
-                      </button>
-                      <button
-                        onClick={() => setEditingTypeId(null)}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                      >
-                        Annulla
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{type.name}</h3>
-                        {type.description && (
-                          <p className="text-sm text-gray-600 mt-1">{type.description}</p>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setEditingTypeId(type.id)}
-                          className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
-                        >
-                          Modifica
-                        </button>
-                        <button
-                          onClick={() => deleteDeviceType(type.id)}
-                          className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-sm"
-                        >
-                          Elimina
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Lista Agent Esistenti */}
+{/* Lista Agent Esistenti */}
       {showAgentsList && (
         <div className="mb-6 bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-4">
@@ -1092,7 +837,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Vendor</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Ultimo Visto</th>
@@ -1147,47 +891,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         {device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-900">{device.hostname || '-'}</td>
-                      <td className="py-3 px-4 text-sm text-gray-600">{device.vendor || '-'}</td>
-                      <td className="py-3 px-4">
-                        <select
-                          value={device.device_type || ''}
-                          onChange={async (e) => {
-                            const newType = e.target.value || null;
-                            try {
-                              const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/type`), {
-                                method: 'PATCH',
-                                headers: {
-                                  ...getAuthHeader(),
-                                  'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({ device_type: newType })
-                              });
-
-                              if (!response.ok) {
-                                const errorData = await response.json();
-                                throw new Error(errorData.error || 'Errore aggiornamento tipo');
-                              }
-
-                              // Aggiorna il dispositivo nella lista locale
-                              setCompanyDevices(prev => prev.map(d => 
-                                d.id === device.id ? { ...d, device_type: newType } : d
-                              ));
-                            } catch (err) {
-                              console.error('Errore aggiornamento tipo dispositivo:', err);
-                              alert(`Errore: ${err.message}`);
-                              e.target.value = device.device_type || '';
-                            }
-                          }}
-                          className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-white"
-                        >
-                          <option value="">-- Nessuno --</option>
-                          {deviceTypes.map(type => (
-                            <option key={type.id} value={type.name}>
-                              {type.name}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">{device.device_type || '-'}</td>
                       <td className="py-3 px-4">
                         <StatusBadge status={device.status} />
                       </td>
@@ -1224,7 +928,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo Dispositivo</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Azienda</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Agente</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Data</th>
@@ -1256,9 +959,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-600">
                           {change.hostname || '-'}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {change.device_type || '-'}
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-600">
                           {change.azienda || 'N/A'}
