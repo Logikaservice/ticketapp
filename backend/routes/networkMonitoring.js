@@ -1046,7 +1046,7 @@ module.exports = (pool, io) => {
             ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor, 
-          nd.device_type, nd.status, nd.is_static, nd.first_seen, nd.last_seen,
+          nd.device_type, nd.device_path, nd.status, nd.is_static, nd.first_seen, nd.last_seen,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
@@ -1080,13 +1080,16 @@ module.exports = (pool, io) => {
         if (row.mac_address && keepassPassword) {
           try {
             console.log(`🔍 Cercando MAC ${row.mac_address} in KeePass...`);
-            const keepassTitle = await keepassDriveService.findMacTitle(row.mac_address, keepassPassword);
-            if (keepassTitle) {
-              // Il titolo da KeePass sovrascrive sempre il device_type esistente
-              console.log(`✅ MAC ${row.mac_address} trovato in KeePass -> Titolo: "${keepassTitle}"`);
-              row.device_type = keepassTitle;
+            const keepassResult = await keepassDriveService.findMacTitle(row.mac_address, keepassPassword);
+            if (keepassResult) {
+              // Il titolo e il percorso da KeePass sovrascrivono sempre i valori esistenti
+              console.log(`✅ MAC ${row.mac_address} trovato in KeePass -> Titolo: "${keepassResult.title}", Percorso: "${keepassResult.path}"`);
+              row.device_type = keepassResult.title;
+              row.device_path = keepassResult.path;
             } else {
               console.log(`ℹ️ MAC ${row.mac_address} non trovato in KeePass`);
+              // Se non trovato, rimuovi eventuali valori precedenti
+              row.device_path = null;
             }
           } catch (keepassErr) {
             // Non bloccare il processo se c'è un errore con KeePass
@@ -1226,13 +1229,16 @@ module.exports = (pool, io) => {
         if (row.mac_address && keepassPassword) {
           try {
             console.log(`🔍 Cercando MAC ${row.mac_address} in KeePass...`);
-            const keepassTitle = await keepassDriveService.findMacTitle(row.mac_address, keepassPassword);
-            if (keepassTitle) {
-              // Il titolo da KeePass sovrascrive sempre il device_type esistente
-              console.log(`✅ MAC ${row.mac_address} trovato in KeePass -> Titolo: "${keepassTitle}"`);
-              row.device_type = keepassTitle;
+            const keepassResult = await keepassDriveService.findMacTitle(row.mac_address, keepassPassword);
+            if (keepassResult) {
+              // Il titolo e il percorso da KeePass sovrascrivono sempre i valori esistenti
+              console.log(`✅ MAC ${row.mac_address} trovato in KeePass -> Titolo: "${keepassResult.title}", Percorso: "${keepassResult.path}"`);
+              row.device_type = keepassResult.title;
+              row.device_path = keepassResult.path;
             } else {
               console.log(`ℹ️ MAC ${row.mac_address} non trovato in KeePass`);
+              // Se non trovato, rimuovi eventuali valori precedenti
+              row.device_path = null;
             }
           } catch (keepassErr) {
             // Non bloccare il processo se c'è un errore con KeePass
