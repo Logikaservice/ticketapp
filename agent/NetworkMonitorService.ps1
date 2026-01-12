@@ -354,35 +354,52 @@ function Get-NetworkDevices {
                     $pingTimeout = 10  # Timeout 10 secondi per raccolta risultati ping
                     $pingStartTime = Get-Date
                     
-                    Write-Log "Raccolta risultati ping paralleli per $($jobs.Count) job..." "DEBUG"
+                    Write-Log "Raccolta risultati ping paralleli per $($jobs.Count) job..." "INFO"
+                    $jobIndex = 0
                     foreach ($jobInfo in $jobs) {
+                        $jobIndex++
                         try {
                             # Verifica timeout totale
                             $elapsed = ((Get-Date) - $pingStartTime).TotalSeconds
                             if ($elapsed -gt $pingTimeout) {
-                                Write-Log "Timeout raccolta ping raggiunto dopo $pingTimeout secondi, interrompendo..." "WARN"
+                                Write-Log "Timeout raccolta ping raggiunto dopo $pingTimeout secondi, interrompendo job rimanenti..." "WARN"
+                                # Interrompi tutti i job rimanenti
+                                for ($i = $jobIndex; $i -lt $jobs.Count; $i++) {
+                                    try {
+                                        if ($jobs[$i].AsyncResult -and -not $jobs[$i].AsyncResult.IsCompleted) {
+                                            $jobs[$i].Job.Stop()
+                                        }
+                                    } catch { }
+                                }
                                 break
                             }
                             
                             # Attendi risultato con timeout (2 secondi per job)
-                            $asyncWait = $jobInfo.AsyncResult.AsyncWaitHandle
-                            if ($asyncWait.WaitOne(2000)) {
-                                try {
-                                    $resultIP = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
-                                    if ($resultIP) {
-                                        [void]$activeIPs.Add($resultIP)
+                            if ($jobInfo.AsyncResult) {
+                                $asyncWait = $jobInfo.AsyncResult.AsyncWaitHandle
+                                if ($asyncWait -and $asyncWait.WaitOne(2000)) {
+                                    try {
+                                        $resultIP = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
+                                        if ($resultIP) {
+                                            [void]$activeIPs.Add($resultIP)
+                                        }
+                                    } catch {
+                                        $ipStr = if ($jobInfo.IP) { $jobInfo.IP } else { "sconosciuto" }
+                                        Write-Log "Errore EndInvoke ping per $ipStr : $_" "WARN"
                                     }
-                                } catch {
-                                    Write-Log "Errore EndInvoke ping per $($jobInfo.IP): $_" "WARN"
+                                } else {
+                                    $ipStr = if ($jobInfo.IP) { $jobInfo.IP } else { "sconosciuto" }
+                                    Write-Log "Timeout ping per $ipStr , continuo..." "WARN"
+                                    try {
+                                        $jobInfo.Job.Stop()
+                                    } catch { }
                                 }
                             } else {
-                                Write-Log "Timeout ping per $($jobInfo.IP), continuo..." "WARN"
-                                try {
-                                    $jobInfo.Job.Stop()
-                                } catch { }
+                                Write-Log "AsyncResult nullo per job $jobIndex, salto..." "WARN"
                             }
                         } catch {
-                            Write-Log "Errore raccolta ping per $($jobInfo.IP): $_" "WARN"
+                            $ipStr = if ($jobInfo.IP) { $jobInfo.IP } else { "sconosciuto" }
+                            Write-Log "Errore raccolta ping per $ipStr : $_" "WARN"
                         } finally {
                             try {
                                 if ($jobInfo.Job) {
@@ -392,7 +409,7 @@ function Get-NetworkDevices {
                         }
                     }
                     
-                    Write-Log "Raccolta ping completata: $($activeIPs.Count) IP attivi trovati" "DEBUG"
+                    Write-Log "Raccolta ping completata: $($activeIPs.Count) IP attivi trovati su $($jobs.Count) job processati" "INFO"
                     
                     try {
                         $runspacePool.Close()
