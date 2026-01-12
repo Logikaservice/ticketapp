@@ -914,6 +914,8 @@ public class ArpHelper {
                             if ($deviceMatch -and $deviceMatch.mac_address) {
                                 $macAddress = $deviceMatch.mac_address
                                 Write-Log "MAC per $ip da devices array: $macAddress" "DEBUG"
+                                # Salva anche in foundMACs per riferimento futuro
+                                $foundMACs[$ip] = $macAddress
                             }
                         }
                         $ipDataArray += @{
@@ -926,6 +928,13 @@ public class ArpHelper {
                     # Log per debug: conta quanti MAC sono stati salvati
                     $macCount = ($ipDataArray | Where-Object { $_.mac }).Count
                     Write-Log "MAC salvati per tray icon: $macCount su $($ipDataArray.Count) IP" "DEBUG"
+                    # Log specifico per 192.168.100.9
+                    $ip99 = $ipDataArray | Where-Object { $_.ip -eq "192.168.100.9" }
+                    if ($ip99) {
+                        Write-Log "192.168.100.9 nel file tray icon: MAC = $($ip99.mac)" "DEBUG"
+                    } else {
+                        Write-Log "ATTENZIONE: 192.168.100.9 NON trovato nel file tray icon!" "WARN"
+                    }
                 } catch {
                     Write-Log "Errore salvataggio IP per tray icon: $_" "WARN"
                 }
