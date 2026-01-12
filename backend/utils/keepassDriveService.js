@@ -152,11 +152,13 @@ class KeepassDriveService {
 
       console.log(`✅ File KDBX caricato: ${db.name || 'Senza nome'}`);
 
-      // Crea la mappa MAC -> Titolo
+      // Crea la mappa MAC -> {title, path}
       const macMap = new Map();
 
       // Funzione ricorsiva per processare gruppi ed entry
-      const processGroup = (group) => {
+      const processGroup = (group, groupPath = '') => {
+        const currentPath = groupPath ? `${groupPath} > ${group.name || 'Root'}` : (group.name || 'Root');
+        
         // Processa le entry del gruppo
         if (group.entries && group.entries.length > 0) {
           for (const entry of group.entries) {
@@ -195,8 +197,8 @@ class KeepassDriveService {
               if (normalizedMac) {
                 // Se ci sono più entry con lo stesso MAC, mantieni la prima trovata
                 if (!macMap.has(normalizedMac)) {
-                  macMap.set(normalizedMac, titleStr);
-                  console.log(`  📝 MAC ${foundMac} (normalizzato: ${normalizedMac}) -> Titolo: "${titleStr}"`);
+                  macMap.set(normalizedMac, { title: titleStr, path: currentPath });
+                  console.log(`  📝 MAC ${foundMac} (normalizzato: ${normalizedMac}) -> Titolo: "${titleStr}", Percorso: "${currentPath}"`);
                 } else {
                   console.log(`  ⚠️ MAC ${foundMac} (normalizzato: ${normalizedMac}) già presente nella mappa, ignoro duplicato`);
                 }
@@ -210,7 +212,7 @@ class KeepassDriveService {
         // Processa i sottogruppi
         if (group.groups && group.groups.length > 0) {
           for (const subGroup of group.groups) {
-            processGroup(subGroup);
+            processGroup(subGroup, currentPath);
           }
         }
       };
@@ -228,12 +230,12 @@ class KeepassDriveService {
       if (macMap.size > 0) {
         const examples = Array.from(macMap.entries()).slice(0, 5);
         console.log(`   Esempi MAC nella mappa:`);
-        examples.forEach(([mac, title]) => {
-          console.log(`     - ${mac} -> "${title}"`);
+        examples.forEach(([mac, result]) => {
+          console.log(`     - ${mac} -> Titolo: "${result.title}", Percorso: "${result.path}"`);
         });
       } else {
         console.log(`   ⚠️ ATTENZIONE: Nessun MAC trovato nel file KeePass!`);
-        console.log(`   Verifica che i MAC siano presenti nei campi: Title, UserName, Password, URL, Notes`);
+        console.log(`   Verifica che i MAC siano presenti nei campi (inclusi campi personalizzati)`);
       }
       
       return macMap;
@@ -304,10 +306,11 @@ class KeepassDriveService {
       console.log(`📊 Mappa KeePass caricata: ${macMap.size} MAC address trovati`);
 
       // Cerca il MAC nella mappa
-      const title = macMap.get(normalizedMac);
+      const result = macMap.get(normalizedMac);
       
-      if (title) {
-        console.log(`✅ MAC ${macAddress} (normalizzato: ${normalizedMac}) trovato in KeePass -> Titolo: "${title}"`);
+      if (result) {
+        console.log(`✅ MAC ${macAddress} (normalizzato: ${normalizedMac}) trovato in KeePass -> Titolo: "${result.title}", Percorso: "${result.path}"`);
+        return result;
       } else {
         console.log(`ℹ️ MAC ${macAddress} (normalizzato: ${normalizedMac}) non trovato in KeePass`);
         // Debug: mostra i primi 5 MAC nella mappa per confronto
@@ -317,7 +320,7 @@ class KeepassDriveService {
         }
       }
 
-      return title || null;
+      return null;
     } catch (error) {
       console.error(`❌ Errore ricerca MAC ${macAddress} in KeePass:`, error.message);
       console.error('Stack:', error.stack);
