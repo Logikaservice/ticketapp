@@ -236,30 +236,42 @@ class KeepassDriveService {
   async findMacTitle(macAddress, password) {
     try {
       if (!macAddress) {
+        console.log(`ℹ️ findMacTitle chiamato con MAC null o undefined`);
         return null;
       }
 
       // Normalizza il MAC per la ricerca
       const normalizedMac = this.normalizeMacForSearch(macAddress);
       if (!normalizedMac) {
+        console.log(`⚠️ MAC ${macAddress} non può essere normalizzato`);
         return null;
       }
 
+      console.log(`🔍 Ricerca MAC: "${macAddress}" -> Normalizzato: "${normalizedMac}"`);
+
       // Ottieni la mappa (con cache)
       const macMap = await this.getMacToTitleMap(password);
+
+      console.log(`📊 Mappa KeePass caricata: ${macMap.size} MAC address trovati`);
 
       // Cerca il MAC nella mappa
       const title = macMap.get(normalizedMac);
       
       if (title) {
-        console.log(`✅ MAC ${macAddress} trovato in KeePass -> Titolo: "${title}"`);
+        console.log(`✅ MAC ${macAddress} (normalizzato: ${normalizedMac}) trovato in KeePass -> Titolo: "${title}"`);
       } else {
-        console.log(`ℹ️ MAC ${macAddress} non trovato in KeePass`);
+        console.log(`ℹ️ MAC ${macAddress} (normalizzato: ${normalizedMac}) non trovato in KeePass`);
+        // Debug: mostra i primi 5 MAC nella mappa per confronto
+        if (macMap.size > 0) {
+          const first5Macs = Array.from(macMap.keys()).slice(0, 5);
+          console.log(`   📋 Esempi MAC nella mappa: ${first5Macs.join(', ')}`);
+        }
       }
 
       return title || null;
     } catch (error) {
       console.error(`❌ Errore ricerca MAC ${macAddress} in KeePass:`, error.message);
+      console.error('Stack:', error.stack);
       // In caso di errore, non bloccare il processo, restituisci null
       return null;
     }
