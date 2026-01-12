@@ -11,6 +11,59 @@ const { authenticateToken, requireRole } = require('../middleware/authMiddleware
 const keepassDriveService = require('../utils/keepassDriveService');
 
 module.exports = (pool, io) => {
+  // Funzione helper per normalizzare MAC address per la ricerca (rimuove separatori, uppercase)
+  const normalizeMacForSearch = (mac) => {
+    if (!mac) return null;
+    // Rimuovi tutti i separatori (sia : che -) e converti in uppercase
+    return mac.replace(/[:-]/g, '').toUpperCase();
+  };
+
+  // Funzione helper per cercare MAC address nel database KeePass e restituire il titolo
+  const findMacTitleInKeepass = async (macAddress) => {
+    if (!macAddress) return null;
+    
+    try {
+      const normalizedMac = normalizeMacForSearch(macAddress);
+      if (!normalizedMac || normalizedMac.length !== 12) return null;
+
+      // Cerca il MAC nei campi title, username, url, notes delle entry KeePass
+      // Il MAC può essere in formato XX-XX-XX-XX-XX-XX, XX:XX:XX:XX:XX:XX, o XXXXXXXXXXXX
+      const macPattern = normalizedMac.split('').map((c, i) => i % 2 === 0 ? c : `[${c}-:]?`).join('');
+      const macPatternWithSeparators = normalizedMac.match(/.{1,2}/g).join('[-:]?');
+      
+      const result = await pool.query(
+        `SELECT title 
+         FROM keepass_entries 
+         WHERE 
+           UPPER(REGEXP_REPLACE(COALESCE(title, ''), '[:-]', '', 'g')) LIKE $1
+           OR UPPER(REGEXP_REPLACE(COALESCE(username, ''), '[:-]', '', 'g')) LIKE $1
+           OR UPPER(REGEXP_REPLACE(COALESCE(url, ''), '[:-]', '', 'g')) LIKE $1
+           OR UPPER(REGEXP_REPLACE(COALESCE(notes, ''), '[:-]', '', 'g')) LIKE $1
+         LIMIT 1`,
+        [`%${normalizedMac}%`]
+      );
+
+      if (result.rows.length > 0 && result.rows[0].title) {
+        const title = result.rows[0].title;
+        // Estrai stringa se è in formato JSON
+        if (typeof title === 'string' && title.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(title);
+            return parsed._ !== undefined ? String(parsed._ || '') : title;
+          } catch {
+            return title;
+          }
+        }
+        return String(title || '').trim() || null;
+      }
+      
+      return null;
+    } catch (error) {
+      console.warn(`⚠️ Errore ricerca MAC ${macAddress} in database KeePass:`, error.message);
+      return null;
+    }
+  };
+
   // Funzione helper per inizializzare le tabelle se non esistono
   const initTables = async () => {
     try {
@@ -1043,7 +1096,23 @@ module.exports = (pool, io) => {
             ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor, 
-          nd.device_type, nd.status, nd.is_static, nd.first_seen, nd.last_seen,
+          -- Cerca sempre titolo da KeePass se MAC è disponibile (sovrascrive device_type esistente)
+          COALESCE(
+            CASE 
+              WHEN nd.mac_address IS NOT NULL THEN
+                (SELECT ke.title 
+                 FROM keepass_entries ke
+                 WHERE 
+                   UPPER(REGEXP_REPLACE(COALESCE(ke.title, ''), '[:-]', '', 'g')) LIKE '%' || UPPER(REGEXP_REPLACE(nd.mac_address, '[:-]', '', 'g')) || '%'
+                   OR UPPER(REGEXP_REPLACE(COALESCE(ke.username, ''), '[:-]', '', 'g')) LIKE '%' || UPPER(REGEXP_REPLACE(nd.mac_address, '[:-]', '', 'g')) || '%'
+                   OR UPPER(REGEXP_REPLACE(COALESCE(ke.url, ''), '[:-]', '', 'g')) LIKE '%' || UPPER(REGEXP_REPLACE(nd.mac_address, '[:-]', '', 'g')) || '%'
+                   OR UPPER(REGEXP_REPLACE(COALESCE(ke.notes, ''), '[:-]', '', 'g')) LIKE '%' || UPPER(REGEXP_REPLACE(nd.mac_address, '[:-]', '', 'g')) || '%'
+                 LIMIT 1)
+              ELSE NULL
+            END,
+            nd.device_type
+          ) as device_type,
+          nd.status, nd.is_static, nd.first_seen, nd.last_seen,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
@@ -1056,7 +1125,20 @@ module.exports = (pool, io) => {
         [aziendaId]
       );
 
-      res.json(result.rows);
+      // Post-processa i risultati per estrarre titoli da JSON se necessario
+      const processedRows = result.rows.map(row => {
+        if (row.device_type && typeof row.device_type === 'string' && row.device_type.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(row.device_type);
+            row.device_type = parsed._ !== undefined ? String(parsed._ || '') : row.device_type;
+          } catch {
+            // Mantieni originale se non è JSON valido
+          }
+        }
+        return row;
+      });
+
+      res.json(processedRows);
     } catch (err) {
       console.error('❌ Errore recupero dispositivi:', err);
       res.status(500).json({ error: 'Errore interno del server' });
@@ -1151,7 +1233,23 @@ module.exports = (pool, io) => {
             ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor, 
-          nd.device_type, nd.status, nd.first_seen, nd.last_seen,
+          -- Cerca sempre titolo da KeePass se MAC è disponibile (sovrascrive device_type esistente)
+          COALESCE(
+            CASE 
+              WHEN nd.mac_address IS NOT NULL THEN
+                (SELECT ke.title 
+                 FROM keepass_entries ke
+                 WHERE 
+                   UPPER(REGEXP_REPLACE(COALESCE(ke.title, ''), '[:-]', '', 'g')) LIKE '%' || UPPER(REGEXP_REPLACE(nd.mac_address, '[:-]', '', 'g')) || '%'
+                   OR UPPER(REGEXP_REPLACE(COALESCE(ke.username, ''), '[:-]', '', 'g')) LIKE '%' || UPPER(REGEXP_REPLACE(nd.mac_address, '[:-]', '', 'g')) || '%'
+                   OR UPPER(REGEXP_REPLACE(COALESCE(ke.url, ''), '[:-]', '', 'g')) LIKE '%' || UPPER(REGEXP_REPLACE(nd.mac_address, '[:-]', '', 'g')) || '%'
+                   OR UPPER(REGEXP_REPLACE(COALESCE(ke.notes, ''), '[:-]', '', 'g')) LIKE '%' || UPPER(REGEXP_REPLACE(nd.mac_address, '[:-]', '', 'g')) || '%'
+                 LIMIT 1)
+              ELSE NULL
+            END,
+            nd.device_type
+          ) as device_type,
+          nd.status, nd.first_seen, nd.last_seen,
           na.agent_name, na.azienda_id, na.last_heartbeat as agent_last_seen, na.status as agent_status,
           u.azienda
          FROM network_devices nd
@@ -1161,7 +1259,20 @@ module.exports = (pool, io) => {
          LIMIT 500`
       );
 
-      res.json(result.rows);
+      // Post-processa i risultati per estrarre titoli da JSON se necessario
+      const processedRows = result.rows.map(row => {
+        if (row.device_type && typeof row.device_type === 'string' && row.device_type.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(row.device_type);
+            row.device_type = parsed._ !== undefined ? String(parsed._ || '') : row.device_type;
+          } catch {
+            // Mantieni originale se non è JSON valido
+          }
+        }
+        return row;
+      });
+
+      res.json(processedRows);
     } catch (err) {
       console.error('❌ Errore recupero tutti dispositivi:', err);
       res.status(500).json({ error: 'Errore interno del server' });
