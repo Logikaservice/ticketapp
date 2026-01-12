@@ -193,6 +193,19 @@ class KeepassDriveService {
       }
 
       console.log(`✅ Mappa MAC->Titolo creata: ${macMap.size} entry trovate`);
+      
+      // Debug: mostra alcuni esempi di MAC nella mappa
+      if (macMap.size > 0) {
+        const examples = Array.from(macMap.entries()).slice(0, 5);
+        console.log(`   Esempi MAC nella mappa:`);
+        examples.forEach(([mac, title]) => {
+          console.log(`     - ${mac} -> "${title}"`);
+        });
+      } else {
+        console.log(`   ⚠️ ATTENZIONE: Nessun MAC trovato nel file KeePass!`);
+        console.log(`   Verifica che i MAC siano presenti nei campi: Title, UserName, Password, URL, Notes`);
+      }
+      
       return macMap;
     } catch (error) {
       console.error('❌ Errore caricamento mappa MAC->Titolo:', error.message);
