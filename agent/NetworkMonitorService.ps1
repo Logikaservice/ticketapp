@@ -57,16 +57,23 @@ function Update-StatusFile {
     if (-not $LastScan -and (Test-Path $script:statusFile)) {
         try {
             $currentStatus = Get-Content $script:statusFile -Raw | ConvertFrom-Json
-            if ($currentStatus.last_scan) {
-                $currentLastScan = $currentStatus.last_scan
+            # Preserva last_scan se esiste e non è vuoto
+            if ($currentStatus.last_scan -and $currentStatus.last_scan.ToString().Trim() -ne '') {
+                $currentLastScan = $currentStatus.last_scan.ToString().Trim()
             }
         } catch {
             # Ignora errori lettura status corrente
         }
     }
     
-    # Usa LastScan fornito o preserva quello corrente
-    $lastScanValue = if ($LastScan) { $LastScan.ToString("yyyy-MM-dd HH:mm:ss") } else { $currentLastScan }
+    # Usa LastScan fornito o preserva quello corrente (mai null o vuoto se esisteva prima)
+    $lastScanValue = if ($LastScan) { 
+        $LastScan.ToString("yyyy-MM-dd HH:mm:ss") 
+    } elseif ($currentLastScan) { 
+        $currentLastScan 
+    } else { 
+        $null 
+    }
     
     $statusData = @{
         status = $Status

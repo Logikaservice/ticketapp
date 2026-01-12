@@ -318,11 +318,11 @@ function Update-Countdown {
     if (-not $script:statusWindow -or -not $script:statusWindow.Visible) { return }
     
     $status = Get-Status
-    if ($status -and $status.last_scan) {
+    if ($status -and $status.last_scan -and $status.last_scan.ToString().Trim() -ne '') {
         try {
             # Prova diversi formati di data
             $lastScanTime = $null
-            $dateStr = $status.last_scan.ToString()
+            $dateStr = $status.last_scan.ToString().Trim()
             
             # Prova formato "yyyy-MM-dd HH:mm:ss"
             try {
