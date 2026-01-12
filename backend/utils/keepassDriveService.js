@@ -6,6 +6,7 @@ class KeepassDriveService {
   constructor() {
     this.macToTitleMap = null;
     this.lastCacheUpdate = null;
+    this.lastFileModifiedTime = null; // Data di modifica dell'ultimo file caricato
     this.cacheTimeout = 5 * 60 * 1000; // 5 minuti di cache
     this.isLoading = false;
     this.loadPromise = null;
@@ -42,7 +43,7 @@ class KeepassDriveService {
   }
 
   /**
-   * Scarica il file keepass.kdbx da Google Drive
+   * Scarica il file keepass.kdbx da Google Drive e restituisce anche la data di modifica
    */
   async downloadKeepassFile(password) {
     try {
@@ -51,20 +52,23 @@ class KeepassDriveService {
 
       let fileId;
       let fileName;
+      let modifiedTime;
 
       // Se è specificato il file ID direttamente, usalo (più efficiente)
       if (process.env.KEEPASS_FILE_ID) {
         fileId = process.env.KEEPASS_FILE_ID;
         console.log(`📥 Usando file ID specificato: ${fileId}`);
         
-        // Verifica che il file esista
+        // Verifica che il file esista e ottieni la data di modifica
         try {
           const fileInfo = await drive.files.get({
             fileId: fileId,
-            fields: 'id, name'
+            fields: 'id, name, modifiedTime'
           });
           fileName = fileInfo.data.name || 'keepass.kdbx';
+          modifiedTime = fileInfo.data.modifiedTime;
           console.log(`📄 Nome file: ${fileName}`);
+          console.log(`📅 Data modifica file: ${modifiedTime}`);
         } catch (err) {
           throw new Error(`File con ID ${fileId} non trovato su Google Drive: ${err.message}`);
         }
@@ -76,7 +80,7 @@ class KeepassDriveService {
         const searchQuery = `name='${fileNameToSearch}' and trashed=false`;
         const response = await drive.files.list({
           q: searchQuery,
-          fields: 'files(id, name)',
+          fields: 'files(id, name, modifiedTime)',
           pageSize: 1
         });
 
@@ -86,7 +90,9 @@ class KeepassDriveService {
 
         fileId = response.data.files[0].id;
         fileName = response.data.files[0].name || fileNameToSearch;
+        modifiedTime = response.data.files[0].modifiedTime;
         console.log(`📥 File trovato: ${fileName} (ID: ${fileId})`);
+        console.log(`📅 Data modifica file: ${modifiedTime}`);
       }
 
       // Scarica il file
@@ -95,7 +101,10 @@ class KeepassDriveService {
         { responseType: 'arraybuffer' }
       );
 
-      return Buffer.from(fileResponse.data);
+      return {
+        buffer: Buffer.from(fileResponse.data),
+        modifiedTime: modifiedTime
+      };
     } catch (error) {
       console.error('❌ Errore download file KeePass da Google Drive:', error.message);
       throw error;
@@ -143,8 +152,10 @@ class KeepassDriveService {
     try {
       console.log('🔄 Caricamento mappa MAC->Titolo da KeePass...');
 
-      // Scarica il file da Google Drive
-      const fileBuffer = await this.downloadKeepassFile(password);
+      // Scarica il file da Google Drive (con data di modifica)
+      const fileData = await this.downloadKeepassFile(password);
+      const fileBuffer = fileData.buffer;
+      const modifiedTime = fileData.modifiedTime;
 
       // Carica il file KDBX
       const credentials = new Credentials(ProtectedValue.fromString(password));
@@ -226,6 +237,9 @@ class KeepassDriveService {
 
       console.log(`✅ Mappa MAC->Titolo creata: ${macMap.size} entry trovate`);
       
+      // Salva la data di modifica del file
+      this.lastFileModifiedTime = modifiedTime;
+      
       // Debug: mostra alcuni esempi di MAC nella mappa
       if (macMap.size > 0) {
         const examples = Array.from(macMap.entries()).slice(0, 5);
@@ -246,10 +260,57 @@ class KeepassDriveService {
   }
 
   /**
-   * Ottiene la mappa MAC->Titolo (con cache)
+   * Verifica se il file KeePass è stato modificato su Google Drive
+   */
+  async checkFileModified(password) {
+    try {
+      const authClient = await this.getDriveAuth();
+      const drive = google.drive({ version: 'v3', auth: authClient });
+
+      let fileId;
+      if (process.env.KEEPASS_FILE_ID) {
+        fileId = process.env.KEEPASS_FILE_ID;
+      } else {
+        const fileNameToSearch = process.env.KEEPASS_FILE_NAME || 'keepass.kdbx';
+        const searchQuery = `name='${fileNameToSearch}' and trashed=false`;
+        const response = await drive.files.list({
+          q: searchQuery,
+          fields: 'files(id)',
+          pageSize: 1
+        });
+        if (!response.data.files || response.data.files.length === 0) {
+          return null;
+        }
+        fileId = response.data.files[0].id;
+      }
+
+      const fileInfo = await drive.files.get({
+        fileId: fileId,
+        fields: 'modifiedTime'
+      });
+
+      return fileInfo.data.modifiedTime || null;
+    } catch (error) {
+      console.warn('⚠️ Errore verifica data modifica file KeePass:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Ottiene la mappa MAC->Titolo (con cache e controllo data modifica)
    */
   async getMacToTitleMap(password) {
     const now = Date.now();
+
+    // Controlla se il file è stato modificato su Google Drive
+    const currentModifiedTime = await this.checkFileModified(password);
+    if (currentModifiedTime && this.lastFileModifiedTime && 
+        currentModifiedTime !== this.lastFileModifiedTime) {
+      console.log('🔄 File KeePass modificato su Google Drive - invalidazione cache');
+      this.macToTitleMap = null;
+      this.lastCacheUpdate = null;
+      this.lastFileModifiedTime = null;
+    }
 
     // Se la cache è valida, restituiscila
     if (this.macToTitleMap && this.lastCacheUpdate && 
