@@ -787,13 +787,15 @@ module.exports = (pool, io) => {
               }
             }
 
-            // Ricerca automatica MAC in KeePass per impostare device_type
+            // Ricerca automatica MAC in KeePass per impostare device_type e device_path
             let deviceTypeFromKeepass = null;
+            let devicePathFromKeepass = null;
             if (normalizedMac && process.env.KEEPASS_PASSWORD) {
               try {
                 const keepassResult = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
                 if (keepassResult) {
                   deviceTypeFromKeepass = keepassResult.title;
+                  devicePathFromKeepass = keepassResult.path;
                   console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${keepassResult.title}", device_path: "${keepassResult.path}"`);
                 }
               } catch (keepassErr) {
@@ -803,8 +805,8 @@ module.exports = (pool, io) => {
             }
 
             const insertResult = await pool.query(
-              `INSERT INTO network_devices (agent_id, ip_address, mac_address, hostname, vendor, device_type, status)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)
+              `INSERT INTO network_devices (agent_id, ip_address, mac_address, hostname, vendor, device_type, device_path, status)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                RETURNING id`,
               [
                 agentId,
@@ -813,6 +815,7 @@ module.exports = (pool, io) => {
                 hostname || null, // hostname già normalizzato e troncato sopra
                 (vendor && vendor.trim() !== '') ? vendor.trim() : null,
                 deviceTypeFromKeepass || null, // device_type da KeePass se trovato
+                devicePathFromKeepass || null, // device_path da KeePass se trovato
                 status || 'online'
               ]
             );
