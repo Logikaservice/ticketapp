@@ -49,20 +49,45 @@ class KeepassDriveService {
       const authClient = await this.getDriveAuth();
       const drive = google.drive({ version: 'v3', auth: authClient });
 
-      // Cerca il file keepass.kdbx
-      const searchQuery = "name='keepass.kdbx' and trashed=false";
-      const response = await drive.files.list({
-        q: searchQuery,
-        fields: 'files(id, name)',
-        pageSize: 1
-      });
+      let fileId;
+      let fileName;
 
-      if (!response.data.files || response.data.files.length === 0) {
-        throw new Error('File keepass.kdbx non trovato su Google Drive');
+      // Se è specificato il file ID direttamente, usalo (più efficiente)
+      if (process.env.KEEPASS_FILE_ID) {
+        fileId = process.env.KEEPASS_FILE_ID;
+        console.log(`📥 Usando file ID specificato: ${fileId}`);
+        
+        // Verifica che il file esista
+        try {
+          const fileInfo = await drive.files.get({
+            fileId: fileId,
+            fields: 'id, name'
+          });
+          fileName = fileInfo.data.name || 'keepass.kdbx';
+          console.log(`📄 Nome file: ${fileName}`);
+        } catch (err) {
+          throw new Error(`File con ID ${fileId} non trovato su Google Drive: ${err.message}`);
+        }
+      } else {
+        // Altrimenti cerca per nome (compatibilità con configurazione precedente)
+        const fileNameToSearch = process.env.KEEPASS_FILE_NAME || 'keepass.kdbx';
+        console.log(`🔍 Cercando file per nome: ${fileNameToSearch}`);
+        
+        const searchQuery = `name='${fileNameToSearch}' and trashed=false`;
+        const response = await drive.files.list({
+          q: searchQuery,
+          fields: 'files(id, name)',
+          pageSize: 1
+        });
+
+        if (!response.data.files || response.data.files.length === 0) {
+          throw new Error(`File ${fileNameToSearch} non trovato su Google Drive`);
+        }
+
+        fileId = response.data.files[0].id;
+        fileName = response.data.files[0].name || fileNameToSearch;
+        console.log(`📥 File trovato: ${fileName} (ID: ${fileId})`);
       }
-
-      const fileId = response.data.files[0].id;
-      console.log(`📥 Scaricando file keepass.kdbx (ID: ${fileId})...`);
 
       // Scarica il file
       const fileResponse = await drive.files.get(
