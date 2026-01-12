@@ -1058,6 +1058,10 @@ module.exports = (pool, io) => {
 
       // Cerca titoli da KeePass per ogni dispositivo con MAC
       const keepassPassword = process.env.KEEPASS_PASSWORD;
+      if (!keepassPassword) {
+        console.warn('⚠️ KEEPASS_PASSWORD non impostata - ricerca MAC in KeePass disabilitata');
+      }
+      
       const processedRows = await Promise.all(result.rows.map(async (row) => {
         // Post-processa hostname se necessario
         if (row.hostname && typeof row.hostname === 'string' && row.hostname.trim().startsWith('{')) {
@@ -1072,15 +1076,22 @@ module.exports = (pool, io) => {
         // Cerca MAC nel file KeePass se disponibile
         if (row.mac_address && keepassPassword) {
           try {
+            console.log(`🔍 Cercando MAC ${row.mac_address} in KeePass...`);
             const keepassTitle = await keepassDriveService.findMacTitle(row.mac_address, keepassPassword);
             if (keepassTitle) {
               // Il titolo da KeePass sovrascrive sempre il device_type esistente
+              console.log(`✅ MAC ${row.mac_address} trovato in KeePass -> Titolo: "${keepassTitle}"`);
               row.device_type = keepassTitle;
+            } else {
+              console.log(`ℹ️ MAC ${row.mac_address} non trovato in KeePass`);
             }
           } catch (keepassErr) {
             // Non bloccare il processo se c'è un errore con KeePass
-            console.warn(`  ⚠️ Errore ricerca MAC ${row.mac_address} in KeePass:`, keepassErr.message);
+            console.error(`❌ Errore ricerca MAC ${row.mac_address} in KeePass:`, keepassErr.message);
+            console.error('Stack:', keepassErr.stack);
           }
+        } else if (row.mac_address && !keepassPassword) {
+          console.log(`⚠️ MAC ${row.mac_address} presente ma KEEPASS_PASSWORD non configurata`);
         }
 
         return row;
@@ -1193,6 +1204,10 @@ module.exports = (pool, io) => {
 
       // Cerca titoli da KeePass per ogni dispositivo con MAC
       const keepassPassword = process.env.KEEPASS_PASSWORD;
+      if (!keepassPassword) {
+        console.warn('⚠️ KEEPASS_PASSWORD non impostata - ricerca MAC in KeePass disabilitata');
+      }
+      
       const processedRows = await Promise.all(result.rows.map(async (row) => {
         // Post-processa hostname se necessario
         if (row.hostname && typeof row.hostname === 'string' && row.hostname.trim().startsWith('{')) {
@@ -1207,15 +1222,22 @@ module.exports = (pool, io) => {
         // Cerca MAC nel file KeePass se disponibile
         if (row.mac_address && keepassPassword) {
           try {
+            console.log(`🔍 Cercando MAC ${row.mac_address} in KeePass...`);
             const keepassTitle = await keepassDriveService.findMacTitle(row.mac_address, keepassPassword);
             if (keepassTitle) {
               // Il titolo da KeePass sovrascrive sempre il device_type esistente
+              console.log(`✅ MAC ${row.mac_address} trovato in KeePass -> Titolo: "${keepassTitle}"`);
               row.device_type = keepassTitle;
+            } else {
+              console.log(`ℹ️ MAC ${row.mac_address} non trovato in KeePass`);
             }
           } catch (keepassErr) {
             // Non bloccare il processo se c'è un errore con KeePass
-            console.warn(`  ⚠️ Errore ricerca MAC ${row.mac_address} in KeePass:`, keepassErr.message);
+            console.error(`❌ Errore ricerca MAC ${row.mac_address} in KeePass:`, keepassErr.message);
+            console.error('Stack:', keepassErr.stack);
           }
+        } else if (row.mac_address && !keepassPassword) {
+          console.log(`⚠️ MAC ${row.mac_address} presente ma KEEPASS_PASSWORD non configurata`);
         }
 
         return row;
