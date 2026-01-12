@@ -525,14 +525,39 @@ module.exports = (pool, io) => {
         if (hostname) {
           if (typeof hostname === 'string') {
             hostname = hostname.trim();
-            // Rimuovi caratteri JSON errati se presenti
-            hostname = hostname.replace(/[{}"]/g, '').trim();
-          } else if (Array.isArray(hostname)) {
-            // Se è un array, prendi il primo elemento valido
-            hostname = hostname.find(h => h && typeof h === 'string' && h.trim() !== '')?.trim() || null;
-            if (hostname) {
+            
+            // Se sembra un array JSON come stringa (es: {"Android_RPRTJQAR.local", "Android_RPRTJQAR.local", ...})
+            // Prova a estrarre il primo valore valido
+            if (hostname.startsWith('{') || hostname.includes('", "')) {
+              // Prova a parsare come JSON array
+              try {
+                // Rimuovi le parentesi graffe e le virgolette, poi prendi il primo elemento
+                const cleaned = hostname.replace(/^[{\s"]+/, '').replace(/[}\s"]+$/, '');
+                const parts = cleaned.split(/",\s*"/);
+                if (parts.length > 0 && parts[0]) {
+                  hostname = parts[0].replace(/^["\s]+/, '').replace(/["\s]+$/, '').trim();
+                }
+              } catch (e) {
+                // Se il parsing fallisce, rimuovi solo i caratteri JSON
+                hostname = hostname.replace(/[{}"]/g, '').trim();
+                // Prendi solo la prima parte prima della prima virgola se presente
+                const firstPart = hostname.split(',')[0].trim();
+                if (firstPart) {
+                  hostname = firstPart;
+                }
+              }
+            } else {
+              // Rimuovi caratteri JSON errati se presenti
               hostname = hostname.replace(/[{}"]/g, '').trim();
             }
+          } else if (Array.isArray(hostname)) {
+            // Se è un array, prendi il primo elemento valido (non vuoto e non duplicato)
+            const validHostnames = hostname
+              .filter(h => h && typeof h === 'string' && h.trim() !== '')
+              .map(h => h.trim().replace(/[{}"]/g, ''))
+              .filter(h => h !== '' && !h.startsWith('_') && !h.includes('._tcp.local')); // Filtra nomi tecnici
+            
+            hostname = validHostnames.length > 0 ? validHostnames[0] : null;
           } else if (typeof hostname === 'object') {
             // Se è un oggetto, prova a convertirlo in stringa o prendi il primo valore
             const firstValue = Object.values(hostname)[0];
@@ -542,12 +567,30 @@ module.exports = (pool, io) => {
               hostname = String(hostname).replace(/[{}"]/g, '').trim();
             }
           }
+          
+          // Rimuovi prefissi tecnici comuni (es: "I013Q1b8n14AAA._FC9F5ED42C8A._tcp.local")
+          if (hostname && (hostname.includes('._tcp.local') || hostname.startsWith('_'))) {
+            // Se contiene solo nomi tecnici, prova a trovare un nome più leggibile
+            const parts = hostname.split(/[,\s]+/);
+            const readablePart = parts.find(p => p && !p.startsWith('_') && !p.includes('._tcp.local') && p.includes('.local'));
+            if (readablePart) {
+              hostname = readablePart.trim();
+            } else {
+              // Se non c'è un nome leggibile, prendi il primo che non inizia con underscore
+              const nonTechPart = parts.find(p => p && !p.startsWith('_'));
+              if (nonTechPart) {
+                hostname = nonTechPart.trim();
+              }
+            }
+          }
+          
           // Tronca hostname troppo lungo (max 100 caratteri per evitare problemi di impaginazione)
           if (hostname && hostname.length > 100) {
             hostname = hostname.substring(0, 97) + '...';
           }
-          // Rimuovi stringhe vuote
-          if (hostname === '' || hostname === 'null' || hostname === 'undefined') {
+          
+          // Rimuovi stringhe vuote o invalide
+          if (hostname === '' || hostname === 'null' || hostname === 'undefined' || hostname === '-') {
             hostname = null;
           }
         }
@@ -959,8 +1002,15 @@ module.exports = (pool, io) => {
         `SELECT 
           nd.id, nd.ip_address, nd.mac_address, 
           CASE 
+            WHEN nd.hostname IS NULL OR nd.hostname = '' THEN NULL
+            WHEN nd.hostname LIKE '{%' THEN 
+              -- Estrae il primo valore da array JSON come stringa (es: {"Android_RPRTJQAR.local", ...})
+              REGEXP_REPLACE(
+                SPLIT_PART(REGEXP_REPLACE(nd.hostname, '^[{\s"]+', ''), '",', 1),
+                '["\s]+$', ''
+              )
             WHEN LENGTH(nd.hostname) > 100 THEN LEFT(nd.hostname, 97) || '...'
-            ELSE nd.hostname
+            ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.status, nd.is_static, nd.first_seen, nd.last_seen,
@@ -997,8 +1047,15 @@ module.exports = (pool, io) => {
           nc.id, nc.change_type, nc.old_value, nc.new_value, nc.detected_at, nc.notified,
           nd.ip_address, nd.mac_address, 
           CASE 
+            WHEN nd.hostname IS NULL OR nd.hostname = '' THEN NULL
+            WHEN nd.hostname LIKE '{%' THEN 
+              -- Estrae il primo valore da array JSON come stringa (es: {"Android_RPRTJQAR.local", ...})
+              REGEXP_REPLACE(
+                SPLIT_PART(REGEXP_REPLACE(nd.hostname, '^[{\s"]+', ''), '",', 1),
+                '["\s]+$', ''
+              )
             WHEN LENGTH(nd.hostname) > 100 THEN LEFT(nd.hostname, 97) || '...'
-            ELSE nd.hostname
+            ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor,
           na.agent_name
@@ -1053,8 +1110,15 @@ module.exports = (pool, io) => {
         `SELECT 
           nd.id, nd.ip_address, nd.mac_address, 
           CASE 
+            WHEN nd.hostname IS NULL OR nd.hostname = '' THEN NULL
+            WHEN nd.hostname LIKE '{%' THEN 
+              -- Estrae il primo valore da array JSON come stringa (es: {"Android_RPRTJQAR.local", ...})
+              REGEXP_REPLACE(
+                SPLIT_PART(REGEXP_REPLACE(nd.hostname, '^[{\s"]+', ''), '",', 1),
+                '["\s]+$', ''
+              )
             WHEN LENGTH(nd.hostname) > 100 THEN LEFT(nd.hostname, 97) || '...'
-            ELSE nd.hostname
+            ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.status, nd.first_seen, nd.last_seen,
@@ -1100,8 +1164,15 @@ module.exports = (pool, io) => {
           nc.id, nc.change_type, nc.old_value, nc.new_value, nc.detected_at, nc.notified,
           nd.ip_address, nd.mac_address, 
           CASE 
+            WHEN nd.hostname IS NULL OR nd.hostname = '' THEN NULL
+            WHEN nd.hostname LIKE '{%' THEN 
+              -- Estrae il primo valore da array JSON come stringa (es: {"Android_RPRTJQAR.local", ...})
+              REGEXP_REPLACE(
+                SPLIT_PART(REGEXP_REPLACE(nd.hostname, '^[{\s"]+', ''), '",', 1),
+                '["\s]+$', ''
+              )
             WHEN LENGTH(nd.hostname) > 100 THEN LEFT(nd.hostname, 97) || '...'
-            ELSE nd.hostname
+            ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor, nd.device_type, nd.is_static,
           na.agent_name, na.azienda_id,
