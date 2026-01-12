@@ -210,7 +210,6 @@ function Get-NetworkDevices {
         }
         if ($networkAdapters) {
             $localIP = $networkAdapters[0].IPAddress
-            Write-Log "IP locale rilevato: $localIP" "DEBUG"
         }
     } catch {
         Write-Log "Impossibile ottenere IP locale: $_" "WARN"
@@ -261,7 +260,6 @@ function Get-NetworkDevices {
                 if ($localIP -and $localIP -like "$baseIP.*") {
                     $localIPInRange = $true
                     $localIPOctet = [int]($localIP -split '\.')[3]
-                    Write-Log "IP locale ($localIP) è nel range configurato" "DEBUG"
                 }
                 
                 # Scansiona IP range (ottimizzato con parallelizzazione)
@@ -274,7 +272,6 @@ function Get-NetworkDevices {
                     
                     # Se è l'IP locale, aggiungilo sempre (anche se il ping fallisce)
                     if ($localIPInRange -and $i -eq $localIPOctet) {
-                        Write-Log "Aggiungendo IP locale: $ip" "DEBUG"
                         
                         # Ottieni MAC address locale
                         $macAddress = $null
@@ -454,7 +451,6 @@ function Get-NetworkDevices {
                         Write-Log "Errore chiusura runspace pool ping: $_" "WARN"
                     }
                     
-                    Write-Log "Ping paralleli completati. IP attivi trovati: $($activeIPs.Count)" "DEBUG"
                     
                     # Salva SUBITO gli IP trovati (senza MAC) per la tray icon, così appaiono durante la scansione
                     # IMPORTANTE: Questo deve essere fatto PRIMA del recupero MAC, così gli IP appaiono subito
@@ -471,21 +467,16 @@ function Get-NetworkDevices {
                     
                     # Processa IP attivi trovati - PARALLELIZZATO per recupero MAC
                     if ($activeIPs.Count -gt 0) {
-                        Write-Log "Processando $($activeIPs.Count) IP attivi in parallelo per recupero MAC..." "DEBUG"
                     } else {
-                        Write-Log "Nessun IP attivo trovato, salto recupero MAC" "DEBUG"
                     }
                     
                     # Se non ci sono IP attivi, salta il recupero MAC
                     if ($activeIPs.Count -eq 0) {
-                        Write-Log "Nessun IP attivo da processare, salto recupero MAC" "DEBUG"
                     } else {
                         # Crea RunspacePool per recupero MAC parallelo
-                        Write-Log "Creazione RunspacePool per recupero MAC parallelo..." "DEBUG"
                         try {
                             $macRunspacePool = [runspacefactory]::CreateRunspacePool(1, [Math]::Min(20, $activeIPs.Count))
                             $macRunspacePool.Open()
-                            Write-Log "RunspacePool creato e aperto" "DEBUG"
                             $macJobs = New-Object System.Collections.ArrayList
                     
                     # ScriptBlock per recupero MAC parallelo
@@ -667,7 +658,6 @@ public class ArpHelper {
                             $maxWaitTime = 15  # Timeout massimo 15 secondi per recupero MAC (ridotto ulteriormente)
                             $startTime = Get-Date
                             
-                            Write-Log "Attesa risultati recupero MAC per $($macJobs.Count) IP (timeout: $maxWaitTime secondi)..." "DEBUG"
                             
                             $processedJobs = 0
                             foreach ($jobInfo in $macJobs) {
@@ -723,12 +713,10 @@ public class ArpHelper {
                             try {
                                 $macRunspacePool.Close()
                                 $macRunspacePool.Dispose()
-                                Write-Log "RunspacePool chiuso" "DEBUG"
                             } catch {
                                 Write-Log "Errore chiusura runspace pool: $_" "WARN"
                             }
                             
-                            Write-Log "Recupero MAC completato: $processedJobs job processati, $($macResults.Count) MAC trovati su $($activeIPs.Count) IP totali" "DEBUG"
                         } catch {
                             Write-Log "Errore critico durante recupero MAC parallelo: $_" "ERROR"
                             Write-Log "Stack: $($_.Exception.StackTrace)" "ERROR"
@@ -737,23 +725,14 @@ public class ArpHelper {
                     }
                     
                     # Costruisci array devices con MAC recuperati
-                    Write-Log "Costruzione array devices per $($activeIPs.Count) IP..." "DEBUG"
                     foreach ($ip in $activeIPs) {
-                        Write-Log "Processando dispositivo: $ip" "DEBUG"
-                        
                         $macAddress = $null
                         if ($macResults.ContainsKey($ip)) {
                             $macAddress = $macResults[$ip]
-                            if ($macAddress) {
-                                Write-Log "MAC trovato per ${ip}: $macAddress" "DEBUG"
-                            } else {
-                                Write-Log "MAC non trovato per $ip" "DEBUG"
-                            }
                         }
                         
                         # Se MAC non trovato dal recupero parallelo, prova tentativi aggiuntivi più aggressivi (solo per IP problematici)
                         if (-not $macAddress) {
-                            Write-Log "Tentativo finale sequenziale per recupero MAC di $ip (non trovato in parallelo)" "DEBUG"
                             
                             # Metodo 1: Ping multipli aggressivi + SendARP (come Advanced IP Scanner)
                             # OTTIMIZZATO: 3 ping invece di 5, timeout 500ms invece di 1000ms
@@ -772,7 +751,6 @@ public class ArpHelper {
                                             $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
                                             $ping.Dispose()
                                             $macAddress = $macFromSendArp
-                                            Write-Log "MAC trovato per $ip tramite SendARP dopo ping multipli (tentativo finale): $macAddress" "DEBUG"
                                             break
                                         }
                                     }
@@ -787,7 +765,6 @@ public class ArpHelper {
                                         $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
                                         $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
                                         $macAddress = $macFromSendArp
-                                        Write-Log "MAC trovato per $ip tramite SendARP dopo attesa extra (tentativo finale): $macAddress" "DEBUG"
                                     }
                                 }
                             } catch {
@@ -805,7 +782,6 @@ public class ArpHelper {
                                             $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
                                             $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
                                             $macAddress = $macFromSendArp
-                                            Write-Log "MAC trovato per $ip tramite SendARP dopo WMI ping (tentativo finale): $macAddress" "DEBUG"
                                         }
                                     }
                                 } catch {
@@ -827,7 +803,6 @@ public class ArpHelper {
                                                 $macFromNeighbor -ne '00:00:00:00:00:00' -and
                                                 $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
                                                 $macAddress = $macFromNeighbor
-                                                Write-Log "MAC trovato per $ip tramite Get-NetNeighbor refresh (tentativo finale): $macAddress" "DEBUG"
                                                 break
                                             }
                                         }
@@ -838,7 +813,6 @@ public class ArpHelper {
                             }
                             
                             if (-not $macAddress) {
-                                Write-Log "MAC NON trovato per $ip dopo tutti i tentativi" "DEBUG"
                             }
                         }
                         
