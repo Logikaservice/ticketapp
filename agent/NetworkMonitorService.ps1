@@ -367,8 +367,14 @@ function Get-NetworkDevices {
                     $runspacePool.Close()
                     $runspacePool.Dispose()
                     
+                    Write-Log "Ping paralleli completati. IP attivi trovati: $($activeIPs.Count)" "DEBUG"
+                    
                     # Processa IP attivi trovati - PARALLELIZZATO per recupero MAC
-                    Write-Log "Processando $($activeIPs.Count) IP attivi in parallelo per recupero MAC..." "DEBUG"
+                    if ($activeIPs.Count -gt 0) {
+                        Write-Log "Processando $($activeIPs.Count) IP attivi in parallelo per recupero MAC..." "DEBUG"
+                    } else {
+                        Write-Log "Nessun IP attivo trovato, salto recupero MAC" "DEBUG"
+                    }
                     
                     # Salva subito gli IP trovati (senza MAC) per la tray icon, così appaiono durante la scansione
                     try {
