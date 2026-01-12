@@ -45,13 +45,15 @@ echo ""
 echo "MAC da cercare: $MAC_ADDRESS"
 echo ""
 
-cd /var/www/ticketapp/backend
+cd /var/www/ticketapp
 
 # Test se node_modules esiste
-if [ ! -d "node_modules" ]; then
+if [ ! -d "backend/node_modules" ]; then
     echo "⚠️  node_modules non trovato, installo dipendenze..."
+    cd backend
     npm install
+    cd ..
 fi
 
-# Esegui test
-node ../../test-keepass-mac-search.js "$PASSWORD" "$MAC_ADDRESS"
+# Esegui test (lo script è nella root del progetto)
+node test-keepass-mac-search.js "$PASSWORD" "$MAC_ADDRESS"
