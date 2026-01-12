@@ -367,246 +367,226 @@ function Get-NetworkDevices {
                     $runspacePool.Close()
                     $runspacePool.Dispose()
                     
-                    # Processa IP attivi trovati
-                    foreach ($ip in $activeIPs) {
-                        Write-Log "Dispositivo rilevato: $ip" "DEBUG"
-                        $foundIPs.Add($ip)
+                    # Processa IP attivi trovati - PARALLELIZZATO per recupero MAC
+                    Write-Log "Processando $($activeIPs.Count) IP attivi in parallelo per recupero MAC..." "DEBUG"
+                    
+                    # Crea RunspacePool per recupero MAC parallelo
+                    $macRunspacePool = [runspacefactory]::CreateRunspacePool(1, [Math]::Min(20, $activeIPs.Count))
+                    $macRunspacePool.Open()
+                    $macJobs = New-Object System.Collections.ArrayList
+                    
+                    # ScriptBlock per recupero MAC parallelo
+                    $macRecoveryScriptBlock = {
+                        param($targetIP, $arpTableData)
                         
-                        # Ottieni MAC address dalla tabella ARP pre-caricata
+                        # Ricrea ArpHelper nel runspace (necessario per SendARP)
+                        Add-Type -TypeDefinition @"
+using System;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public class ArpHelper {
+    [DllImport("iphlpapi.dll", ExactSpelling = true)]
+    public static extern int SendARP(uint destIP, uint srcIP, byte[] pMacAddr, ref uint phyAddrLen);
+    
+    public static string GetMacAddress(string ipAddress) {
+        try {
+            IPAddress ip = IPAddress.Parse(ipAddress);
+            byte[] macAddr = new byte[6];
+            uint macAddrLen = (uint)macAddr.Length;
+            
+            byte[] ipBytes = ip.GetAddressBytes();
+            uint destIP = (uint)((ipBytes[0] << 24) | (ipBytes[1] << 16) | (ipBytes[2] << 8) | ipBytes[3]);
+            
+            int result = SendARP(destIP, 0, macAddr, ref macAddrLen);
+            if (result == 0 && macAddrLen == 6) {
+                bool allZero = true;
+                foreach (byte b in macAddr) {
+                    if (b != 0) {
+                        allZero = false;
+                        break;
+                    }
+                }
+                if (!allZero) {
+                    return string.Format("{0:X2}-{1:X2}-{2:X2}-{3:X2}-{4:X2}-{5:X2}",
+                        macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
+                }
+            }
+            
+            // Prova little endian
+            destIP = (uint)(ipBytes[0] | (ipBytes[1] << 8) | (ipBytes[2] << 16) | (ipBytes[3] << 24));
+            macAddrLen = (uint)macAddr.Length;
+            Array.Clear(macAddr, 0, macAddr.Length);
+            
+            result = SendARP(destIP, 0, macAddr, ref macAddrLen);
+            if (result == 0 && macAddrLen == 6) {
+                bool allZero = true;
+                foreach (byte b in macAddr) {
+                    if (b != 0) {
+                        allZero = false;
+                        break;
+                    }
+                }
+                if (!allZero) {
+                    return string.Format("{0:X2}-{1:X2}-{2:X2}-{3:X2}-{4:X2}-{5:X2}",
+                        macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
+                }
+            }
+        } catch {
+            // Ignora errori
+        }
+        return null;
+    }
+}
+"@
+                        
                         $macAddress = $null
-                        if ($arpTable.ContainsKey($ip)) {
-                            $macFromTable = $arpTable[$ip]
-                            # Verifica che non sia un MAC invalido (tutti zeri o formato errato)
+                        
+                        # Prova tabella ARP pre-caricata
+                        if ($arpTableData -and $arpTableData.ContainsKey($targetIP)) {
+                            $macFromTable = $arpTableData[$targetIP]
                             if ($macFromTable -and 
                                 $macFromTable -notmatch '^00-00-00-00-00-00' -and 
                                 $macFromTable -ne '00:00:00:00:00:00' -and
                                 $macFromTable -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
                                 $macAddress = $macFromTable
-                                Write-Log "MAC trovato per $ip dalla tabella ARP: $macAddress" "DEBUG"
-                            } else {
-                                Write-Log "MAC invalido per $ip nella tabella ARP: $macFromTable" "DEBUG"
+                                return @{ ip = $targetIP; mac = $macAddress }
                             }
                         }
                         
-                        # Se MAC non trovato nella tabella ARP pre-caricata, prova ARP lookup diretto
-                        # (alcuni dispositivi non appaiono nella tabella ARP globale ma rispondono al ping)
+                        # Se MAC non trovato, prova recupero diretto (ottimizzato per parallelizzazione)
+                        # Riduciamo i tentativi per velocità, mantenendo efficacia
+                        
+                        # 1. SendARP diretto (veloce)
+                        try {
+                            $macFromSendArp = [ArpHelper]::GetMacAddress($targetIP)
+                            if ($macFromSendArp -and 
+                                $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
+                                $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                return @{ ip = $targetIP; mac = $macFromSendArp }
+                            }
+                        } catch { }
+                        
+                        # 2. Ping veloce + SendARP (2 tentativi invece di 6)
+                        try {
+                            $ping = New-Object System.Net.NetworkInformation.Ping
+                            for ($i = 1; $i -le 2; $i++) {
+                                $pingReply = $ping.Send($targetIP, 300)
+                                if ($pingReply.Status -eq 'Success') {
+                                    Start-Sleep -Milliseconds 100
+                                    $macFromSendArp = [ArpHelper]::GetMacAddress($targetIP)
+                                    if ($macFromSendArp -and 
+                                        $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
+                                        $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                        $ping.Dispose()
+                                        return @{ ip = $targetIP; mac = $macFromSendArp }
+                                    }
+                                }
+                            }
+                            $ping.Dispose()
+                        } catch { }
+                        
+                        # 3. Get-NetNeighbor (veloce)
+                        try {
+                            $arpEntry = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue | Select-Object -First 1
+                            if ($arpEntry -and $arpEntry.LinkLayerAddress) {
+                                $macFromNeighbor = $arpEntry.LinkLayerAddress
+                                if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
+                                    $macFromNeighbor -ne '00:00:00:00:00:00' -and
+                                    $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                    return @{ ip = $targetIP; mac = $macFromNeighbor }
+                                }
+                            }
+                        } catch { }
+                        
+                        # 4. arp.exe (fallback)
+                        try {
+                            $arpOutput = arp -a 2>$null
+                            if ($arpOutput -match "(?m)^\s*$([regex]::Escape($targetIP))\s+([0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2})") {
+                                $macFromArp = $matches[2]
+                                if ($macFromArp -notmatch '^00-00-00-00-00-00' -and 
+                                    $macFromArp -ne '00:00:00:00:00:00' -and
+                                    $macFromArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                    return @{ ip = $targetIP; mac = $macFromArp }
+                                }
+                            }
+                        } catch { }
+                        
+                        # Nessun MAC trovato
+                        return @{ ip = $targetIP; mac = $null }
+                    }
+                    
+                    # Avvia recupero MAC parallelo
+                    foreach ($ip in $activeIPs) {
+                        $foundIPs.Add($ip)
+                        $job = [powershell]::Create().AddScript($macRecoveryScriptBlock).AddArgument($ip).AddArgument($arpTable)
+                        $job.RunspacePool = $macRunspacePool
+                        $asyncResult = $job.BeginInvoke()
+                        [void]$macJobs.Add(@{
+                            Job = $job
+                            AsyncResult = $asyncResult
+                            IP = $ip
+                        })
+                    }
+                    
+                    # Raccogli risultati MAC
+                    $macResults = @{}
+                    foreach ($jobInfo in $macJobs) {
+                        try {
+                            $result = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
+                            if ($result) {
+                                $macResults[$result.ip] = $result.mac
+                            }
+                        } catch {
+                            # Ignora errori
+                        } finally {
+                            $jobInfo.Job.Dispose()
+                        }
+                    }
+                    
+                    $macRunspacePool.Close()
+                    $macRunspacePool.Dispose()
+                    
+                    Write-Log "Recupero MAC completato per $($macResults.Count) IP" "DEBUG"
+                    
+                    # Costruisci array devices con MAC recuperati
+                    foreach ($ip in $activeIPs) {
+                        Write-Log "Dispositivo rilevato: $ip" "DEBUG"
+                        
+                        $macAddress = $null
+                        if ($macResults.ContainsKey($ip)) {
+                            $macAddress = $macResults[$ip]
+                            if ($macAddress) {
+                                Write-Log "MAC trovato per $ip: $macAddress" "DEBUG"
+                            } else {
+                                Write-Log "MAC non trovato per $ip" "DEBUG"
+                            }
+                        }
+                        
+                        # Se MAC non trovato dal recupero parallelo, prova un ultimo tentativo sequenziale (solo per IP problematici)
                         if (-not $macAddress) {
-                            # Advanced IP Scanner usa tecniche avanzate per trovare MAC
-                            # Proviamo multiple strategie: ping multipli, WMI, SendARP API (più volte)
-                            
-                            Write-Log "Tentativo recupero MAC per $ip (non trovato in ARP table)" "DEBUG"
-                            
-                            # Primo tentativo: ping multipli per forzare ARP
+                            Write-Log "Tentativo finale sequenziale per recupero MAC di $ip (non trovato in parallelo)" "DEBUG"
+                            # Ultimo tentativo con WMI ping + SendARP (più lento ma più affidabile)
                             try {
-                                $ping = New-Object System.Net.NetworkInformation.Ping
-                                # Fai 4-6 ping per assicurarti che ARP venga aggiornato
-                                for ($pingAttempt = 1; $pingAttempt -le 6; $pingAttempt++) {
-                                    $pingReply = $ping.Send($ip, 500)  # Timeout più lungo
-                                    if ($pingReply.Status -eq 'Success') {
-                                        Start-Sleep -Milliseconds 150  # Attesa tra ping
-                                        # Dopo ogni ping riuscito, prova SendARP immediatamente
-                                        try {
-                                            $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
-                                            if ($macFromSendArp -and 
-                                                $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
-                                                $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                                $macAddress = $macFromSendArp
-                                                Write-Log "MAC trovato per $ip tramite SendARP dopo ping #$pingAttempt: $macAddress" "DEBUG"
-                                                $ping.Dispose()
-                                                break
-                                            }
-                                        } catch {
-                                            # Ignora errori
-                                        }
-                                    }
-                                }
-                                $ping.Dispose()
-                                # Attesa più lunga per permettere al sistema di aggiornare la tabella ARP
-                                if (-not $macAddress) {
-                                    Start-Sleep -Milliseconds 800
-                                }
-                            } catch {
-                                Write-Log "Errore ping multipli per $ip: $_" "DEBUG"
-                            }
-                            
-                            # Prova SendARP API direttamente (anche se ping non ha funzionato)
-                            if (-not $macAddress) {
-                                try {
+                                $pingStatus = Get-WmiObject -Class Win32_PingStatus -Filter "Address='$ip'" -ErrorAction SilentlyContinue | Select-Object -First 1
+                                if ($pingStatus -and $pingStatus.StatusCode -eq 0) {
+                                    Start-Sleep -Milliseconds 500
                                     $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
                                     if ($macFromSendArp -and 
                                         $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
                                         $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
                                         $macAddress = $macFromSendArp
-                                        Write-Log "MAC trovato per $ip tramite SendARP API (diretto): $macAddress" "DEBUG"
-                                    } else {
-                                        Write-Log "SendARP per $ip ha restituito: $macFromSendArp" "DEBUG"
+                                        Write-Log "MAC trovato per $ip tramite SendARP dopo WMI ping (tentativo finale): $macAddress" "DEBUG"
                                     }
-                                } catch {
-                                    Write-Log "Errore SendARP per $ip: $_" "DEBUG"
-                                }
-                            }
-                            
-                            # Prova WMI Win32_PingStatus (a volte più affidabile)
-                            if (-not $macAddress) {
-                                try {
-                                    $pingStatus = Get-WmiObject -Class Win32_PingStatus -Filter "Address='$ip'" -ErrorAction SilentlyContinue | Select-Object -First 1
-                                    if ($pingStatus -and $pingStatus.StatusCode -eq 0) {
-                                        Start-Sleep -Milliseconds 400
-                                        # Dopo WMI ping, riprova SendARP più volte
-                                        for ($retry = 1; $retry -le 3; $retry++) {
-                                            try {
-                                                $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
-                                                if ($macFromSendArp -and 
-                                                    $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
-                                                    $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                                    $macAddress = $macFromSendArp
-                                                    Write-Log "MAC trovato per $ip tramite SendARP dopo WMI ping (tentativo $retry): $macAddress" "DEBUG"
-                                                    break
-                                                }
-                                            } catch {
-                                                # Ignora errori
-                                            }
-                                            if ($retry -lt 3) {
-                                                Start-Sleep -Milliseconds 200
-                                            }
-                                        }
-                                    }
-                                } catch {
-                                    Write-Log "Errore WMI ping per $ip: $_" "DEBUG"
-                                }
-                            }
-                            
-                            # Prova Get-NetNeighbor (include tutti gli stati possibili)
-                            try {
-                                $arpEntry = Get-NetNeighbor -IPAddress $ip -ErrorAction SilentlyContinue | Select-Object -First 1
-                                if ($arpEntry -and $arpEntry.LinkLayerAddress) {
-                                    $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                    # Verifica che non sia un MAC invalido
-                                    if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                        $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                        $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                        $macAddress = $macFromNeighbor
-                                        Write-Log "MAC trovato per $ip tramite Get-NetNeighbor (stato: $($arpEntry.State)): $macAddress" "DEBUG"
-                                    } else {
-                                        Write-Log "Get-NetNeighbor per $ip ha MAC invalido: $macFromNeighbor (stato: $($arpEntry.State))" "DEBUG"
-                                    }
-                                } else {
-                                    Write-Log "Get-NetNeighbor per $ip: nessuna entry trovata" "DEBUG"
                                 }
                             } catch {
-                                Write-Log "Errore Get-NetNeighbor per $ip: $_" "DEBUG"
-                            }
-                            
-                            # Prova WMI Win32_NetworkAdapterConfiguration (metodo alternativo)
-                            if (-not $macAddress) {
-                                try {
-                                    $adapters = Get-WmiObject -Class Win32_NetworkAdapterConfiguration -ErrorAction SilentlyContinue | Where-Object { 
-                                        $_.IPAddress -contains $ip 
-                                    }
-                                    foreach ($adapter in $adapters) {
-                                        $adapterMAC = Get-WmiObject -Class Win32_NetworkAdapter -Filter "Index = $($adapter.Index)" -ErrorAction SilentlyContinue
-                                        if ($adapterMAC -and $adapterMAC.MACAddress) {
-                                            $macFromWMI = $adapterMAC.MACAddress -replace ':', '-'
-                                            if ($macFromWMI -notmatch '^00-00-00-00-00-00' -and 
-                                                $macFromWMI -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                                $macAddress = $macFromWMI
-                                                Write-Log "MAC trovato per $ip tramite WMI Win32_NetworkAdapter: $macAddress" "DEBUG"
-                                                break
-                                            }
-                                        }
-                                    }
-                                } catch {
-                                    Write-Log "Errore WMI Win32_NetworkAdapterConfiguration per $ip: $_" "DEBUG"
-                                }
-                            }
-                            
-                            # Se ancora non trovato, prova arp.exe (legge tutta la tabella ARP)
-                            if (-not $macAddress) {
-                                try {
-                                    # arp -a mostra tutta la tabella ARP, cerca l'IP specifico
-                                    $arpOutput = arp -a 2>$null
-                                    # Cerca pattern più specifico per l'IP (multiline)
-                                    if ($arpOutput -match "(?m)^\s*$([regex]::Escape($ip))\s+([0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2})") {
-                                        $macFromArp = $matches[2]
-                                        # Verifica che non sia un MAC invalido
-                                        if ($macFromArp -notmatch '^00-00-00-00-00-00' -and 
-                                            $macFromArp -ne '00:00:00:00:00:00' -and
-                                            $macFromArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            $macAddress = $macFromArp
-                                            Write-Log "MAC trovato per $ip tramite arp -a: $macAddress" "DEBUG"
-                                        }
-                                    }
-                                } catch {
-                                    # Ignora errori
-                                }
-                            }
-                            
-                            # Secondo tentativo: ricarica Get-NetNeighbor dopo attesa più lunga
-                            if (-not $macAddress) {
-                                Start-Sleep -Milliseconds 800
-                                try {
-                                    # Prova con tutti gli stati possibili (incluso Unreachable se ha MAC valido)
-                                    $arpEntries = Get-NetNeighbor -IPAddress $ip -ErrorAction SilentlyContinue
-                                    foreach ($arpEntry in $arpEntries) {
-                                        if ($arpEntry.LinkLayerAddress) {
-                                            $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                            if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                                $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                                $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                                $macAddress = $macFromNeighbor
-                                                Write-Log "MAC trovato per $ip al secondo tentativo (stato: $($arpEntry.State)): $macAddress" "DEBUG"
-                                                break
-                                            }
-                                        }
-                                    }
-                                } catch {
-                                    # Ignora errori
-                                }
-                            }
-                            
-                            # Terzo tentativo: ricarica tutta la tabella ARP e cerca di nuovo
-                            if (-not $macAddress) {
-                                Start-Sleep -Milliseconds 500
-                                try {
-                                    # Ricarica tabella ARP completa con tutti gli stati
-                                    $arpEntries = Get-NetNeighbor -ErrorAction SilentlyContinue | Where-Object { 
-                                        $_.IPAddress -eq $ip
-                                    }
-                                    foreach ($arpEntry in $arpEntries) {
-                                        if ($arpEntry.LinkLayerAddress) {
-                                            $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                            if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                                $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                                $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                                $macAddress = $macFromNeighbor
-                                                Write-Log "MAC trovato per $ip al terzo tentativo (ricarica ARP, stato: $($arpEntry.State)): $macAddress" "DEBUG"
-                                                break
-                                            }
-                                        }
-                                    }
-                                } catch {
-                                    # Ignora errori
-                                }
-                            }
-                            
-                            # Ultimo tentativo: SendARP dopo attesa più lunga (alcuni dispositivi richiedono più tempo)
-                            if (-not $macAddress) {
-                                Start-Sleep -Milliseconds 1000
-                                try {
-                                    $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
-                                    if ($macFromSendArp -and 
-                                        $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
-                                        $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                        $macAddress = $macFromSendArp
-                                        Write-Log "MAC trovato per $ip tramite SendARP (ultimo tentativo dopo attesa): $macAddress" "DEBUG"
-                                    }
-                                } catch {
-                                    Write-Log "Errore SendARP ultimo tentativo per $ip: $_" "DEBUG"
-                                }
+                                Write-Log "Errore tentativo finale per $ip: $_" "DEBUG"
                             }
                             
                             if (-not $macAddress) {
-                                Write-Log "MAC NON trovato per $ip dopo tutti i tentativi" "DEBUG"
+                                Write-Log "MAC NON trovato per $ip dopo recupero parallelo e tentativo finale" "DEBUG"
                             }
                         }
                         
