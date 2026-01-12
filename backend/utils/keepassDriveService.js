@@ -165,8 +165,11 @@ class KeepassDriveService {
             const titleField = entry.fields && entry.fields['Title'];
             const titleStr = titleField ? (titleField instanceof ProtectedValue ? titleField.getText() : String(titleField)) : '';
 
-            // Cerca MAC in vari campi
-            const fieldsToCheck = ['UserName', 'Password', 'URL', 'Notes', 'Title'];
+            // Cerca MAC in TUTTI i campi (inclusi campi personalizzati)
+            // Prima ottieni tutti i nomi dei campi disponibili
+            const allFieldNames = entry.fields ? Object.keys(entry.fields) : [];
+            const standardFields = ['UserName', 'Password', 'URL', 'Notes', 'Title'];
+            const fieldsToCheck = [...new Set([...standardFields, ...allFieldNames])]; // Unisci senza duplicati
             let foundMac = null;
 
             for (const fieldName of fieldsToCheck) {
