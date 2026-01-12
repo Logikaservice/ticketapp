@@ -711,7 +711,7 @@ public class ArpHelper {
                         if ($macResults.ContainsKey($ip)) {
                             $macAddress = $macResults[$ip]
                             if ($macAddress) {
-                                Write-Log "MAC trovato per $ip: $macAddress" "DEBUG"
+                                Write-Log "MAC trovato per ${ip}: $macAddress" "DEBUG"
                             } else {
                                 Write-Log "MAC non trovato per $ip" "DEBUG"
                             }
@@ -734,7 +734,7 @@ public class ArpHelper {
                                     }
                                 }
                             } catch {
-                                Write-Log "Errore tentativo finale per $ip: $_" "DEBUG"
+                                Write-Log "Errore tentativo finale per ${ip}: $_" "DEBUG"
                             }
                             
                             if (-not $macAddress) {
