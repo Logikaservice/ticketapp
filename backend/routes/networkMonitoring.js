@@ -1212,7 +1212,7 @@ module.exports = (pool, io) => {
             ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor, 
-          nd.device_type, nd.status, nd.first_seen, nd.last_seen,
+          nd.device_type, nd.device_path, nd.status, nd.first_seen, nd.last_seen,
           na.agent_name, na.azienda_id, na.last_heartbeat as agent_last_seen, na.status as agent_status,
           u.azienda
          FROM network_devices nd
