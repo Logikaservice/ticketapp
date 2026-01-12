@@ -403,23 +403,24 @@ function Get-NetworkDevices {
                     
                     Write-Log "Ping paralleli completati. IP attivi trovati: $($activeIPs.Count)" "DEBUG"
                     
-                    # Processa IP attivi trovati - PARALLELIZZATO per recupero MAC
-                    if ($activeIPs.Count -gt 0) {
-                        Write-Log "Processando $($activeIPs.Count) IP attivi in parallelo per recupero MAC..." "DEBUG"
-                    } else {
-                        Write-Log "Nessun IP attivo trovato, salto recupero MAC" "DEBUG"
-                    }
-                    
-                    # Salva subito gli IP trovati (senza MAC) per la tray icon, così appaiono durante la scansione
+                    # Salva SUBITO gli IP trovati (senza MAC) per la tray icon, così appaiono durante la scansione
+                    # IMPORTANTE: Questo deve essere fatto PRIMA del recupero MAC, così gli IP appaiono subito
                     try {
                         $tempIPArray = @()
                         foreach ($ip in $activeIPs) {
                             $tempIPArray += @{ ip = $ip; mac = $null }
                         }
                         $tempIPArray | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
-                        Write-Log "IP trovati salvati temporaneamente per tray icon: $($activeIPs.Count)" "DEBUG"
+                        Write-Log "IP trovati salvati SUBITO per tray icon: $($tempIPArray.Count) IP" "INFO"
                     } catch {
-                        Write-Log "Errore salvataggio IP temporanei: $_" "WARN"
+                        Write-Log "Errore salvataggio IP temporanei: $_" "ERROR"
+                    }
+                    
+                    # Processa IP attivi trovati - PARALLELIZZATO per recupero MAC
+                    if ($activeIPs.Count -gt 0) {
+                        Write-Log "Processando $($activeIPs.Count) IP attivi in parallelo per recupero MAC..." "DEBUG"
+                    } else {
+                        Write-Log "Nessun IP attivo trovato, salto recupero MAC" "DEBUG"
                     }
                     
                     # Se non ci sono IP attivi, salta il recupero MAC
