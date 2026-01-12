@@ -9,16 +9,20 @@ param(
     [string]$ConfigPath = "config.json"
 )
 
-# Aggiungi definizione SendARP API per recupero MAC diretto (come Advanced IP Scanner)
+# Aggiungi definizione API Windows per recupero MAC (come Advanced IP Scanner)
 Add-Type -TypeDefinition @"
 using System;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
+using System.Text;
 
 public class ArpHelper {
     [DllImport("iphlpapi.dll", ExactSpelling = true)]
     public static extern int SendARP(uint destIP, uint srcIP, byte[] pMacAddr, ref uint phyAddrLen);
+    
+    [DllImport("iphlpapi.dll", SetLastError = true)]
+    public static extern int GetIpNetTable(IntPtr pIpNetTable, ref int pdwSize, bool bOrder);
     
     public static string GetMacAddress(string ipAddress) {
         try {
@@ -26,14 +30,32 @@ public class ArpHelper {
             byte[] macAddr = new byte[6];
             uint macAddrLen = (uint)macAddr.Length;
             
-            // Converti IP in uint (network byte order - big endian)
+            // PROVA 1: SendARP con network byte order (big endian)
             byte[] ipBytes = ip.GetAddressBytes();
-            // SendARP si aspetta IP in network byte order (big endian)
             uint destIP = (uint)((ipBytes[0] << 24) | (ipBytes[1] << 16) | (ipBytes[2] << 8) | ipBytes[3]);
             
             int result = SendARP(destIP, 0, macAddr, ref macAddrLen);
             if (result == 0 && macAddrLen == 6) {
-                // Verifica che non sia tutto zero
+                bool allZero = true;
+                foreach (byte b in macAddr) {
+                    if (b != 0) {
+                        allZero = false;
+                        break;
+                    }
+                }
+                if (!allZero) {
+                    return string.Format("{0:X2}-{1:X2}-{2:X2}-{3:X2}-{4:X2}-{5:X2}",
+                        macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
+                }
+            }
+            
+            // PROVA 2: SendARP con host byte order (little endian) - alcuni sistemi lo richiedono
+            destIP = (uint)(ipBytes[0] | (ipBytes[1] << 8) | (ipBytes[2] << 16) | (ipBytes[3] << 24));
+            macAddrLen = (uint)macAddr.Length;
+            Array.Clear(macAddr, 0, macAddr.Length);
+            
+            result = SendARP(destIP, 0, macAddr, ref macAddrLen);
+            if (result == 0 && macAddrLen == 6) {
                 bool allZero = true;
                 foreach (byte b in macAddr) {
                     if (b != 0) {
@@ -50,6 +72,37 @@ public class ArpHelper {
             // Ignora errori
         }
         return null;
+    }
+    
+    public static int GetMacAddressWithError(string ipAddress, out string macAddress) {
+        macAddress = null;
+        try {
+            IPAddress ip = IPAddress.Parse(ipAddress);
+            byte[] macAddr = new byte[6];
+            uint macAddrLen = (uint)macAddr.Length;
+            
+            byte[] ipBytes = ip.GetAddressBytes();
+            uint destIP = (uint)((ipBytes[0] << 24) | (ipBytes[1] << 16) | (ipBytes[2] << 8) | ipBytes[3]);
+            
+            int result = SendARP(destIP, 0, macAddr, ref macAddrLen);
+            if (result == 0 && macAddrLen == 6) {
+                bool allZero = true;
+                foreach (byte b in macAddr) {
+                    if (b != 0) {
+                        allZero = false;
+                        break;
+                    }
+                }
+                if (!allZero) {
+                    macAddress = string.Format("{0:X2}-{1:X2}-{2:X2}-{3:X2}-{4:X2}-{5:X2}",
+                        macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
+                    return 0;
+                }
+            }
+            return result; // Restituisce codice errore
+        } catch {
+            return -1;
+        }
     }
 }
 "@
@@ -433,11 +486,38 @@ function Get-NetworkDevices {
                                         $macFromNeighbor -ne '00:00:00:00:00:00' -and
                                         $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
                                         $macAddress = $macFromNeighbor
-                                        Write-Log "MAC trovato per $ip tramite Get-NetNeighbor: $macAddress" "DEBUG"
+                                        Write-Log "MAC trovato per $ip tramite Get-NetNeighbor (stato: $($arpEntry.State)): $macAddress" "DEBUG"
+                                    } else {
+                                        Write-Log "Get-NetNeighbor per $ip ha MAC invalido: $macFromNeighbor (stato: $($arpEntry.State))" "DEBUG"
                                     }
+                                } else {
+                                    Write-Log "Get-NetNeighbor per $ip: nessuna entry trovata" "DEBUG"
                                 }
                             } catch {
-                                # Ignora errori
+                                Write-Log "Errore Get-NetNeighbor per $ip: $_" "DEBUG"
+                            }
+                            
+                            # Prova WMI Win32_NetworkAdapterConfiguration (metodo alternativo)
+                            if (-not $macAddress) {
+                                try {
+                                    $adapters = Get-WmiObject -Class Win32_NetworkAdapterConfiguration -ErrorAction SilentlyContinue | Where-Object { 
+                                        $_.IPAddress -contains $ip 
+                                    }
+                                    foreach ($adapter in $adapters) {
+                                        $adapterMAC = Get-WmiObject -Class Win32_NetworkAdapter -Filter "Index = $($adapter.Index)" -ErrorAction SilentlyContinue
+                                        if ($adapterMAC -and $adapterMAC.MACAddress) {
+                                            $macFromWMI = $adapterMAC.MACAddress -replace ':', '-'
+                                            if ($macFromWMI -notmatch '^00-00-00-00-00-00' -and 
+                                                $macFromWMI -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                                $macAddress = $macFromWMI
+                                                Write-Log "MAC trovato per $ip tramite WMI Win32_NetworkAdapter: $macAddress" "DEBUG"
+                                                break
+                                            }
+                                        }
+                                    }
+                                } catch {
+                                    Write-Log "Errore WMI Win32_NetworkAdapterConfiguration per $ip: $_" "DEBUG"
+                                }
                             }
                             
                             # Se ancora non trovato, prova arp.exe (legge tutta la tabella ARP)
