@@ -293,27 +293,39 @@ function Get-NetworkDevices {
                         # Se MAC non trovato nella tabella ARP pre-caricata, prova ARP lookup diretto
                         # (alcuni dispositivi non appaiono nella tabella ARP globale ma rispondono al ping)
                         if (-not $macAddress) {
-                            # Advanced IP Scanner fa più tentativi e aspetta più tempo
-                            # Facciamo lo stesso: ping multipli e attese più lunghe
+                            # Advanced IP Scanner usa tecniche avanzate per trovare MAC
+                            # Proviamo multiple strategie: ping multipli, WMI, SendARP API
                             
-                            # Primo tentativo: ping diretto per forzare ARP
+                            # Primo tentativo: ping multipli per forzare ARP
                             try {
                                 $ping = New-Object System.Net.NetworkInformation.Ping
-                                # Fai 2-3 ping per assicurarti che ARP venga aggiornato
-                                for ($pingAttempt = 1; $pingAttempt -le 3; $pingAttempt++) {
-                                    $pingReply = $ping.Send($ip, 200)  # Timeout più lungo
+                                # Fai 3-4 ping per assicurarti che ARP venga aggiornato
+                                for ($pingAttempt = 1; $pingAttempt -le 4; $pingAttempt++) {
+                                    $pingReply = $ping.Send($ip, 300)  # Timeout più lungo
                                     if ($pingReply.Status -eq 'Success') {
-                                        Start-Sleep -Milliseconds 150  # Attesa tra ping
+                                        Start-Sleep -Milliseconds 200  # Attesa tra ping
                                     }
                                 }
                                 $ping.Dispose()
                                 # Attesa più lunga per permettere al sistema di aggiornare la tabella ARP
-                                Start-Sleep -Milliseconds 300
+                                Start-Sleep -Milliseconds 500
                             } catch {
                                 # Ignora errori ping
                             }
                             
-                            # Prova Get-NetNeighbor (metodo più affidabile)
+                            # Prova WMI Win32_PingStatus (a volte più affidabile)
+                            if (-not $macAddress) {
+                                try {
+                                    $pingStatus = Get-WmiObject -Class Win32_PingStatus -Filter "Address='$ip'" -ErrorAction SilentlyContinue | Select-Object -First 1
+                                    if ($pingStatus -and $pingStatus.StatusCode -eq 0) {
+                                        Start-Sleep -Milliseconds 300
+                                    }
+                                } catch {
+                                    # Ignora errori
+                                }
+                            }
+                            
+                            # Prova Get-NetNeighbor (include tutti gli stati possibili)
                             try {
                                 $arpEntry = Get-NetNeighbor -IPAddress $ip -ErrorAction SilentlyContinue | Select-Object -First 1
                                 if ($arpEntry -and $arpEntry.LinkLayerAddress) {
@@ -335,7 +347,7 @@ function Get-NetworkDevices {
                                 try {
                                     # arp -a mostra tutta la tabella ARP, cerca l'IP specifico
                                     $arpOutput = arp -a 2>$null
-                                    # Cerca pattern più specifico per l'IP
+                                    # Cerca pattern più specifico per l'IP (multiline)
                                     if ($arpOutput -match "(?m)^\s*$([regex]::Escape($ip))\s+([0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2})") {
                                         $macFromArp = $matches[2]
                                         # Verifica che non sia un MAC invalido
@@ -351,18 +363,22 @@ function Get-NetworkDevices {
                                 }
                             }
                             
-                            # Secondo tentativo dopo attesa più lunga (alcuni dispositivi sono lenti)
+                            # Secondo tentativo: ricarica Get-NetNeighbor dopo attesa più lunga
                             if (-not $macAddress) {
-                                Start-Sleep -Milliseconds 500
+                                Start-Sleep -Milliseconds 800
                                 try {
-                                    $arpEntry = Get-NetNeighbor -IPAddress $ip -ErrorAction SilentlyContinue | Select-Object -First 1
-                                    if ($arpEntry -and $arpEntry.LinkLayerAddress) {
-                                        $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                        if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                            $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                            $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            $macAddress = $macFromNeighbor
-                                            Write-Log "MAC trovato per $ip al secondo tentativo: $macAddress" "DEBUG"
+                                    # Prova con tutti gli stati possibili (incluso Unreachable se ha MAC valido)
+                                    $arpEntries = Get-NetNeighbor -IPAddress $ip -ErrorAction SilentlyContinue
+                                    foreach ($arpEntry in $arpEntries) {
+                                        if ($arpEntry.LinkLayerAddress) {
+                                            $macFromNeighbor = $arpEntry.LinkLayerAddress
+                                            if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
+                                                $macFromNeighbor -ne '00:00:00:00:00:00' -and
+                                                $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                                $macAddress = $macFromNeighbor
+                                                Write-Log "MAC trovato per $ip al secondo tentativo (stato: $($arpEntry.State)): $macAddress" "DEBUG"
+                                                break
+                                            }
                                         }
                                     }
                                 } catch {
@@ -372,20 +388,22 @@ function Get-NetworkDevices {
                             
                             # Terzo tentativo: ricarica tutta la tabella ARP e cerca di nuovo
                             if (-not $macAddress) {
+                                Start-Sleep -Milliseconds 500
                                 try {
-                                    # Ricarica tabella ARP completa
+                                    # Ricarica tabella ARP completa con tutti gli stati
                                     $arpEntries = Get-NetNeighbor -ErrorAction SilentlyContinue | Where-Object { 
-                                        $_.IPAddress -eq $ip -and 
-                                        ($_.State -eq "Reachable" -or $_.State -eq "Stale" -or $_.State -eq "Delay" -or $_.State -eq "Probe")
+                                        $_.IPAddress -eq $ip
                                     }
-                                    $arpEntry = $arpEntries | Select-Object -First 1
-                                    if ($arpEntry -and $arpEntry.LinkLayerAddress) {
-                                        $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                        if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                            $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                            $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            $macAddress = $macFromNeighbor
-                                            Write-Log "MAC trovato per $ip al terzo tentativo (ricarica ARP): $macAddress" "DEBUG"
+                                    foreach ($arpEntry in $arpEntries) {
+                                        if ($arpEntry.LinkLayerAddress) {
+                                            $macFromNeighbor = $arpEntry.LinkLayerAddress
+                                            if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
+                                                $macFromNeighbor -ne '00:00:00:00:00:00' -and
+                                                $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                                $macAddress = $macFromNeighbor
+                                                Write-Log "MAC trovato per $ip al terzo tentativo (ricarica ARP, stato: $($arpEntry.State)): $macAddress" "DEBUG"
+                                                break
+                                            }
                                         }
                                     }
                                 } catch {
