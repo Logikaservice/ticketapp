@@ -68,17 +68,32 @@ function Get-CurrentScanIPs {
             if ($data -is [System.Array]) {
                 $result = @()
                 foreach ($item in $data) {
-                    if ($item -is [PSCustomObject] -and $item.ip) {
-                        # Nuovo formato con oggetti
-                        $result += @{
-                            ip = $item.ip.ToString()
-                            mac = if ($item.mac) { $item.mac.ToString() } else { $null }
+                    # Gestisci diversi tipi di oggetti
+                    if ($item -is [PSCustomObject]) {
+                        # Nuovo formato con oggetti PSCustomObject
+                        if ($item.ip) {
+                            $ipValue = if ($item.ip -is [System.Array]) { $item.ip[0] } else { $item.ip.ToString() }
+                            $macValue = if ($item.mac) {
+                                if ($item.mac -is [System.Array]) { $item.mac[0] } else { $item.mac.ToString() }
+                            } else { $null }
+                            $result += @{
+                                ip = $ipValue
+                                mac = $macValue
+                            }
                         }
                     } elseif ($item -is [System.String]) {
                         # Vecchio formato: array di stringhe IP (compatibilità)
                         $result += @{
                             ip = $item.ToString().Trim()
                             mac = $null
+                        }
+                    } elseif ($item -is [Hashtable]) {
+                        # Formato hashtable (compatibilità)
+                        if ($item.ContainsKey('ip')) {
+                            $result += @{
+                                ip = $item.ip.ToString()
+                                mac = if ($item.ContainsKey('mac') -and $item.mac) { $item.mac.ToString() } else { $null }
+                            }
                         }
                     }
                 }

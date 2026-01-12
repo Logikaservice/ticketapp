@@ -350,6 +350,7 @@ function Get-NetworkDevices {
                     }
                     
                     # Raccogli risultati con timeout per evitare blocchi
+                    # IMPORTANTE: Salva gli IP man mano che vengono trovati, così appaiono in tempo reale nella tray icon
                     $activeIPs = New-Object System.Collections.ArrayList
                     $pingTimeout = 10  # Timeout 10 secondi per raccolta risultati ping
                     $pingStartTime = Get-Date
@@ -382,6 +383,41 @@ function Get-NetworkDevices {
                                         $resultIP = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
                                         if ($resultIP) {
                                             [void]$activeIPs.Add($resultIP)
+                                            
+                                            # Salva SUBITO questo IP nella tray icon (aggiornamento in tempo reale)
+                                            try {
+                                                $currentIPs = @()
+                                                if (Test-Path $script:currentScanIPsFile) {
+                                                    $existingContent = Get-Content $script:currentScanIPsFile -Raw -ErrorAction SilentlyContinue
+                                                    if ($existingContent -and $existingContent.Trim() -ne '[]' -and $existingContent.Trim() -ne '') {
+                                                        try {
+                                                            $existingData = $existingContent | ConvertFrom-Json
+                                                            if ($existingData -is [System.Array]) {
+                                                                foreach ($existingItem in $existingData) {
+                                                                    if ($existingItem -is [PSCustomObject] -and $existingItem.ip) {
+                                                                        $currentIPs += @{ ip = $existingItem.ip.ToString(); mac = if ($existingItem.mac) { $existingItem.mac.ToString() } else { $null } }
+                                                                    }
+                                                                }
+                                                            }
+                                                        } catch { }
+                                                    }
+                                                }
+                                                
+                                                # Aggiungi il nuovo IP se non è già presente
+                                                $ipExists = $false
+                                                foreach ($existingIP in $currentIPs) {
+                                                    if ($existingIP.ip -eq $resultIP) {
+                                                        $ipExists = $true
+                                                        break
+                                                    }
+                                                }
+                                                if (-not $ipExists) {
+                                                    $currentIPs += @{ ip = $resultIP; mac = $null }
+                                                    $currentIPs | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
+                                                }
+                                            } catch {
+                                                # Ignora errori salvataggio in tempo reale
+                                            }
                                         }
                                     } catch {
                                         $ipStr = if ($jobInfo.IP) { $jobInfo.IP } else { "sconosciuto" }
