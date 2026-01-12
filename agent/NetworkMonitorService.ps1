@@ -246,7 +246,6 @@ function Get-NetworkDevices {
         if ($range -match '^(\d+\.\d+\.\d+)\.(\d+)/(\d+)$') {
             $baseIP = $matches[1]
             $subnetMask = [int]$matches[3]
-            Write-Log "Base IP: $baseIP, Subnet mask: $subnetMask" "DEBUG"
             
             # Calcola numero di host nella subnet
             $hostBits = 32 - $subnetMask
@@ -268,7 +267,6 @@ function Get-NetworkDevices {
                 # Scansiona IP range (ottimizzato con parallelizzazione)
                 $maxIP = [Math]::Min(254, $endIP)
                 $ipListToScan = @()
-                Write-Log "Preparazione lista IP da scansionare: maxIP=$maxIP" "DEBUG"
                 
                 # Prepara lista IP da scansionare (escludendo IP locale)
                 for ($i = 1; $i -le $maxIP; $i++) {
@@ -312,14 +310,10 @@ function Get-NetworkDevices {
                     }
                 }
                 
-                Write-Log "Lista IP preparata: $($ipListToScan.Count) IP da scansionare" "DEBUG"
-                
                 # Parallelizza scansione IP usando RunspacePool (molto più veloce)
                 if ($ipListToScan.Count -gt 0) {
-                    Write-Log "Avvio ping paralleli per $($ipListToScan.Count) IP..." "DEBUG"
                     $runspacePool = [runspacefactory]::CreateRunspacePool(1, 100)
                     $runspacePool.Open()
-                    Write-Log "RunspacePool aperto" "DEBUG"
                     $jobs = New-Object System.Collections.ArrayList
                     
                     # ScriptBlock per ping parallelo
@@ -877,18 +871,13 @@ public class ArpHelper {
                         # Salva MAC trovato per uso successivo
                         if ($macAddress) {
                             $foundMACs[$ip] = $macAddress
-                            Write-Log "MAC salvato in foundMACs per $ip : $macAddress" "DEBUG"
-                        } else {
-                            Write-Log "ATTENZIONE: MAC NON salvato per $ip perché macAddress è null o vuoto" "WARN"
                         }
                         
                         $devices += $device
-                        Write-Log "Device aggiunto per $ip con MAC: $($device.mac_address)" "DEBUG"
                     }
                 }
                 
                 # Salva IP trovati con MAC in batch (una sola volta invece che per ogni IP)
-                Write-Log "Salvataggio IP trovati per tray icon..." "DEBUG"
                 try {
                     $ipDataArray = @()
                     # Ordina IP numericamente invece che alfabeticamente
@@ -896,22 +885,16 @@ public class ArpHelper {
                         $parts = $_ -split '\.'
                         [int]$parts[0] * 16777216 + [int]$parts[1] * 65536 + [int]$parts[2] * 256 + [int]$parts[3]
                     }
-                    Write-Log "Ordinamento IP completato: $($sortedIPs.Count) IP unici" "DEBUG"
-                    Write-Log "FoundMACs contiene $($foundMACs.Count) MAC" "DEBUG"
                     foreach ($ip in $sortedIPs) {
                         # Usa MAC trovato durante scansione (da lookup diretto) o dalla tabella ARP iniziale
                         $macAddress = $null
                         if ($foundMACs.ContainsKey($ip)) {
                             $macAddress = $foundMACs[$ip]
-                            Write-Log "MAC per $ip da foundMACs: $macAddress" "DEBUG"
                         } elseif ($arpTable.ContainsKey($ip)) {
                             $macAddress = $arpTable[$ip]
                             # Verifica che non sia un MAC invalido
                             if ($macAddress -match '^00-00-00-00-00-00' -or $macAddress -eq '00:00:00:00:00:00') {
                                 $macAddress = $null
-                            }
-                            if ($macAddress) {
-                                Write-Log "MAC per $ip da arpTable: $macAddress" "DEBUG"
                             }
                         }
                         # IMPORTANTE: Cerca anche nei devices già costruiti (per MAC trovati nel tentativo finale sequenziale)
@@ -919,7 +902,6 @@ public class ArpHelper {
                             $deviceMatch = $devices | Where-Object { $_.ip_address -eq $ip }
                             if ($deviceMatch -and $deviceMatch.mac_address) {
                                 $macAddress = $deviceMatch.mac_address
-                                Write-Log "MAC per $ip da devices array: $macAddress" "DEBUG"
                                 # Salva anche in foundMACs per riferimento futuro
                                 $foundMACs[$ip] = $macAddress
                             }
@@ -930,17 +912,6 @@ public class ArpHelper {
                         }
                     }
                     $ipDataArray | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
-                    Write-Log "IP salvati per tray icon: $($ipDataArray.Count) IP" "DEBUG"
-                    # Log per debug: conta quanti MAC sono stati salvati
-                    $macCount = ($ipDataArray | Where-Object { $_.mac }).Count
-                    Write-Log "MAC salvati per tray icon: $macCount su $($ipDataArray.Count) IP" "DEBUG"
-                    # Log specifico per 192.168.100.9
-                    $ip99 = $ipDataArray | Where-Object { $_.ip -eq "192.168.100.9" }
-                    if ($ip99) {
-                        Write-Log "192.168.100.9 nel file tray icon: MAC = $($ip99.mac)" "DEBUG"
-                    } else {
-                        Write-Log "ATTENZIONE: 192.168.100.9 NON trovato nel file tray icon!" "WARN"
-                    }
                 } catch {
                     Write-Log "Errore salvataggio IP per tray icon: $_" "WARN"
                 }
