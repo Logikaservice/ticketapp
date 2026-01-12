@@ -277,10 +277,16 @@ function Get-NetworkDevices {
                         # Ottieni MAC address dalla tabella ARP pre-caricata
                         $macAddress = $null
                         if ($arpTable.ContainsKey($ip)) {
-                            $macAddress = $arpTable[$ip]
-                            # Verifica che non sia un MAC invalido (tutti zeri)
-                            if ($macAddress -match '^00-00-00-00-00-00' -or $macAddress -eq '00:00:00:00:00:00') {
-                                $macAddress = $null
+                            $macFromTable = $arpTable[$ip]
+                            # Verifica che non sia un MAC invalido (tutti zeri o formato errato)
+                            if ($macFromTable -and 
+                                $macFromTable -notmatch '^00-00-00-00-00-00' -and 
+                                $macFromTable -ne '00:00:00:00:00:00' -and
+                                $macFromTable -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                $macAddress = $macFromTable
+                                Write-Log "MAC trovato per $ip dalla tabella ARP: $macAddress" "DEBUG"
+                            } else {
+                                Write-Log "MAC invalido per $ip nella tabella ARP: $macFromTable" "DEBUG"
                             }
                         }
                         
@@ -302,9 +308,17 @@ function Get-NetworkDevices {
                             try {
                                 # Prova Get-NetNeighbor per questo IP specifico (dopo il ping)
                                 $arpEntry = Get-NetNeighbor -IPAddress $ip -ErrorAction SilentlyContinue | Select-Object -First 1
-                                if ($arpEntry -and $arpEntry.LinkLayerAddress -and $arpEntry.LinkLayerAddress -notmatch '^00-00-00-00-00-00') {
-                                    $macAddress = $arpEntry.LinkLayerAddress
-                                    Write-Log "MAC trovato per $ip tramite Get-NetNeighbor: $macAddress" "DEBUG"
+                                if ($arpEntry -and $arpEntry.LinkLayerAddress) {
+                                    $macFromNeighbor = $arpEntry.LinkLayerAddress
+                                    # Verifica che non sia un MAC invalido
+                                    if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
+                                        $macFromNeighbor -ne '00:00:00:00:00:00' -and
+                                        $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                        $macAddress = $macFromNeighbor
+                                        Write-Log "MAC trovato per $ip tramite Get-NetNeighbor: $macAddress" "DEBUG"
+                                    } else {
+                                        Write-Log "MAC invalido per $ip tramite Get-NetNeighbor: $macFromNeighbor" "DEBUG"
+                                    }
                                 }
                             } catch {
                                 # Ignora errori
