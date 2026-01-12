@@ -19,7 +19,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // all, online, offline
   const [sortBy, setSortBy] = useState('last_seen'); // last_seen, ip_address, hostname
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [showCreateAgentModal, setShowCreateAgentModal] = useState(false);
   const [agents, setAgents] = useState([]);
