@@ -508,6 +508,26 @@ function Get-NetworkDevices {
                                     # Ignora errori
                                 }
                             }
+                            
+                            # Ultimo tentativo: SendARP dopo attesa più lunga (alcuni dispositivi richiedono più tempo)
+                            if (-not $macAddress) {
+                                Start-Sleep -Milliseconds 1000
+                                try {
+                                    $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
+                                    if ($macFromSendArp -and 
+                                        $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
+                                        $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                        $macAddress = $macFromSendArp
+                                        Write-Log "MAC trovato per $ip tramite SendARP (ultimo tentativo dopo attesa): $macAddress" "DEBUG"
+                                    }
+                                } catch {
+                                    Write-Log "Errore SendARP ultimo tentativo per $ip: $_" "DEBUG"
+                                }
+                            }
+                            
+                            if (-not $macAddress) {
+                                Write-Log "MAC NON trovato per $ip dopo tutti i tentativi" "DEBUG"
+                            }
                         }
                         
                         # Prova risoluzione hostname (opzionale, può essere lento - la saltiamo per velocità)
