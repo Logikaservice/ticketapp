@@ -240,12 +240,13 @@ function Get-NetworkDevices {
     }
     
     foreach ($range in $NetworkRanges) {
-        Write-Log "Scansione range: $range"
+        Write-Log "Scansione range: $range" "INFO"
         
         # Estrai subnet e calcola range IP
         if ($range -match '^(\d+\.\d+\.\d+)\.(\d+)/(\d+)$') {
             $baseIP = $matches[1]
             $subnetMask = [int]$matches[3]
+            Write-Log "Base IP: $baseIP, Subnet mask: $subnetMask" "DEBUG"
             
             # Calcola numero di host nella subnet
             $hostBits = 32 - $subnetMask
@@ -267,6 +268,7 @@ function Get-NetworkDevices {
                 # Scansiona IP range (ottimizzato con parallelizzazione)
                 $maxIP = [Math]::Min(254, $endIP)
                 $ipListToScan = @()
+                Write-Log "Preparazione lista IP da scansionare: maxIP=$maxIP" "DEBUG"
                 
                 # Prepara lista IP da scansionare (escludendo IP locale)
                 for ($i = 1; $i -le $maxIP; $i++) {
@@ -310,10 +312,14 @@ function Get-NetworkDevices {
                     }
                 }
                 
+                Write-Log "Lista IP preparata: $($ipListToScan.Count) IP da scansionare" "DEBUG"
+                
                 # Parallelizza scansione IP usando RunspacePool (molto più veloce)
                 if ($ipListToScan.Count -gt 0) {
+                    Write-Log "Avvio ping paralleli per $($ipListToScan.Count) IP..." "DEBUG"
                     $runspacePool = [runspacefactory]::CreateRunspacePool(1, 100)
                     $runspacePool.Open()
+                    Write-Log "RunspacePool aperto" "DEBUG"
                     $jobs = New-Object System.Collections.ArrayList
                     
                     # ScriptBlock per ping parallelo
