@@ -758,15 +758,15 @@ public class ArpHelper {
                             Write-Log "Tentativo finale sequenziale per recupero MAC di $ip (non trovato in parallelo)" "DEBUG"
                             
                             # Metodo 1: Ping multipli aggressivi + SendARP (come Advanced IP Scanner)
+                            # OTTIMIZZATO: 3 ping invece di 5, timeout 500ms invece di 1000ms
                             try {
                                 $ping = New-Object System.Net.NetworkInformation.Ping
                                 $pingSuccess = $false
-                                # Fai 5 ping per forzare aggiornamento ARP cache
-                                for ($i = 1; $i -le 5; $i++) {
-                                    $pingReply = $ping.Send($ip, 1000)
+                                for ($i = 1; $i -le 3; $i++) {
+                                    $pingReply = $ping.Send($ip, 500)  # Timeout ridotto a 500ms
                                     if ($pingReply.Status -eq 'Success') {
                                         $pingSuccess = $true
-                                        Start-Sleep -Milliseconds 300  # Attesa per aggiornamento ARP
+                                        Start-Sleep -Milliseconds 200  # Attesa ridotta
                                         # Prova SendARP dopo ogni ping riuscito
                                         $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
                                         if ($macFromSendArp -and 
@@ -783,7 +783,7 @@ public class ArpHelper {
                                 
                                 # Se ping ha funzionato ma SendARP no, attendi più tempo e riprova
                                 if ($pingSuccess -and -not $macAddress) {
-                                    Start-Sleep -Milliseconds 1000  # Attesa extra per ARP cache
+                                    Start-Sleep -Milliseconds 500  # Attesa ridotta da 1000ms
                                     $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
                                     if ($macFromSendArp -and 
                                         $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
@@ -796,12 +796,12 @@ public class ArpHelper {
                                 Write-Log "Errore ping multipli per ${ip}: $_" "DEBUG"
                             }
                             
-                            # Metodo 2: WMI PingStatus + SendARP (fallback)
+                            # Metodo 2: WMI PingStatus + SendARP (fallback) - OTTIMIZZATO
                             if (-not $macAddress) {
                                 try {
                                     $pingStatus = Get-WmiObject -Class Win32_PingStatus -Filter "Address='$ip'" -ErrorAction SilentlyContinue | Select-Object -First 1
                                     if ($pingStatus -and $pingStatus.StatusCode -eq 0) {
-                                        Start-Sleep -Milliseconds 800
+                                        Start-Sleep -Milliseconds 400  # Ridotto da 800ms
                                         $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
                                         if ($macFromSendArp -and 
                                             $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
@@ -815,12 +815,12 @@ public class ArpHelper {
                                 }
                             }
                             
-                            # Metodo 3: Get-NetNeighbor diretto (forza refresh)
+                            # Metodo 3: Get-NetNeighbor diretto (forza refresh) - OTTIMIZZATO
                             if (-not $macAddress) {
                                 try {
-                                    # Forza refresh ARP table
-                                    $null = Test-Connection -ComputerName $ip -Count 2 -Quiet -ErrorAction SilentlyContinue
-                                    Start-Sleep -Milliseconds 500
+                                    # Forza refresh ARP table con 1 ping veloce
+                                    $null = Test-Connection -ComputerName $ip -Count 1 -Quiet -ErrorAction SilentlyContinue
+                                    Start-Sleep -Milliseconds 300  # Ridotto da 500ms
                                     $arpEntries = Get-NetNeighbor -IPAddress $ip -ErrorAction SilentlyContinue
                                     foreach ($arpEntry in $arpEntries) {
                                         if ($arpEntry.LinkLayerAddress) {
