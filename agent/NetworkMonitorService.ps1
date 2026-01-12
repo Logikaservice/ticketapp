@@ -469,13 +469,18 @@ public class ArpHelper {
                             }
                         } catch { }
                         
-                        # 2. Ping veloce + SendARP (2 tentativi invece di 6)
+                        # 2. Ping multipli per forzare ARP + SendARP (come Advanced IP Scanner)
+                        # Advanced IP Scanner fa ping multipli per aggiornare la cache ARP prima di SendARP
                         try {
                             $ping = New-Object System.Net.NetworkInformation.Ping
-                            for ($i = 1; $i -le 2; $i++) {
-                                $pingReply = $ping.Send($targetIP, 300)
+                            # Fai 3 ping per forzare aggiornamento ARP cache
+                            $pingSuccess = $false
+                            for ($i = 1; $i -le 3; $i++) {
+                                $pingReply = $ping.Send($targetIP, 500)
                                 if ($pingReply.Status -eq 'Success') {
-                                    Start-Sleep -Milliseconds 100
+                                    $pingSuccess = $true
+                                    Start-Sleep -Milliseconds 200  # Attesa per aggiornamento ARP
+                                    # Prova SendARP dopo ogni ping riuscito
                                     $macFromSendArp = [ArpHelper]::GetMacAddress($targetIP)
                                     if ($macFromSendArp -and 
                                         $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
@@ -486,17 +491,32 @@ public class ArpHelper {
                                 }
                             }
                             $ping.Dispose()
+                            
+                            # Se ping ha funzionato ma SendARP no, attendi più tempo e riprova
+                            if ($pingSuccess) {
+                                Start-Sleep -Milliseconds 500  # Attesa extra per ARP cache
+                                $macFromSendArp = [ArpHelper]::GetMacAddress($targetIP)
+                                if ($macFromSendArp -and 
+                                    $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
+                                    $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                    return @{ ip = $targetIP; mac = $macFromSendArp }
+                                }
+                            }
                         } catch { }
                         
-                        # 3. Get-NetNeighbor (veloce)
+                        # 3. Get-NetNeighbor - cerca anche in stati Stale/Probe (non solo Reachable)
                         try {
-                            $arpEntry = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue | Select-Object -First 1
-                            if ($arpEntry -and $arpEntry.LinkLayerAddress) {
-                                $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                    $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                    $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                    return @{ ip = $targetIP; mac = $macFromNeighbor }
+                            $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
+                            foreach ($arpEntry in $arpEntries) {
+                                if ($arpEntry.LinkLayerAddress) {
+                                    $macFromNeighbor = $arpEntry.LinkLayerAddress
+                                    # Accetta MAC anche se stato è Stale/Probe (non solo Reachable)
+                                    # MA escludi 00-00-00-00-00-00
+                                    if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
+                                        $macFromNeighbor -ne '00:00:00:00:00:00' -and
+                                        $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                        return @{ ip = $targetIP; mac = $macFromNeighbor }
+                                    }
                                 }
                             }
                         } catch { }
