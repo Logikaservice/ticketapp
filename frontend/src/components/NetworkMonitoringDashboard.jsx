@@ -838,7 +838,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Titolo</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Prod.</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Ultimo Visto</th>
                   </tr>
@@ -893,6 +894,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-900">{device.hostname || '-'}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">{device.device_type || '-'}</td>
+                      <td className="py-3 px-4 text-sm text-gray-600">{device.device_path || '-'}</td>
                       <td className="py-3 px-4">
                         <StatusBadge status={device.status} />
                       </td>
