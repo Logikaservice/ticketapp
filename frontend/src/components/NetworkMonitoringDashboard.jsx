@@ -51,6 +51,24 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Carica lista agent (definito prima per essere usato in useEffect)
+  const loadAgents = useCallback(async () => {
+    try {
+      const response = await fetch(buildApiUrl('/api/network-monitoring/agents'), {
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore caricamento agent');
+      }
+
+      const data = await response.json();
+      setAgents(data);
+    } catch (err) {
+      console.error('Errore caricamento agent:', err);
+    }
+  }, [getAuthHeader]);
+
   // Gestisci initialView dal menu
   useEffect(() => {
     if (initialView === 'agents') {
@@ -118,24 +136,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       if (!silent) {
         console.error('Errore caricamento cambiamenti:', err);
       }
-    }
-  }, [getAuthHeader]);
-
-  // Carica lista agent
-  const loadAgents = useCallback(async () => {
-    try {
-      const response = await fetch(buildApiUrl('/api/network-monitoring/agents'), {
-        headers: getAuthHeader()
-      });
-
-      if (!response.ok) {
-        throw new Error('Errore caricamento agent');
-      }
-
-      const data = await response.json();
-      setAgents(data);
-    } catch (err) {
-      console.error('Errore caricamento agent:', err);
     }
   }, [getAuthHeader]);
 
