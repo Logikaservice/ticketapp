@@ -135,15 +135,17 @@ class KeepassDriveService {
         // Processa le entry del gruppo
         if (group.entries && group.entries.length > 0) {
           for (const entry of group.entries) {
-            const title = entry.fields.get('Title');
-            const titleStr = title ? (title instanceof ProtectedValue ? title.getText() : String(title)) : '';
+            // kdbxweb usa entry.fields come oggetto, non come Map
+            // Accediamo direttamente alle proprietà
+            const titleField = entry.fields && entry.fields['Title'];
+            const titleStr = titleField ? (titleField instanceof ProtectedValue ? titleField.getText() : String(titleField)) : '';
 
             // Cerca MAC in vari campi
             const fieldsToCheck = ['UserName', 'Password', 'URL', 'Notes', 'Title'];
             let foundMac = null;
 
             for (const fieldName of fieldsToCheck) {
-              const fieldValue = entry.fields.get(fieldName);
+              const fieldValue = entry.fields && entry.fields[fieldName];
               if (fieldValue) {
                 const valueStr = fieldValue instanceof ProtectedValue 
                   ? fieldValue.getText() 
