@@ -58,8 +58,11 @@ async function cercaMacSimile() {
           const titleField = entry.fields && entry.fields['Title'];
           const titleStr = titleField ? (titleField instanceof ProtectedValue ? titleField.getText() : String(titleField)) : '';
 
-          // Cerca MAC in tutti i campi
-          const fieldsToCheck = ['UserName', 'Password', 'URL', 'Notes', 'Title'];
+          // Ottieni TUTTI i nomi dei campi disponibili (inclusi campi personalizzati)
+          const allFieldNames = entry.fields ? Object.keys(entry.fields) : [];
+          const standardFields = ['UserName', 'Password', 'URL', 'Notes', 'Title'];
+          const fieldsToCheck = [...new Set([...standardFields, ...allFieldNames])]; // Unisci senza duplicati
+          
           const campiCercati = [];
 
           for (const fieldName of fieldsToCheck) {
