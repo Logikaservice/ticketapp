@@ -9,6 +9,50 @@ param(
     [string]$ConfigPath = "config.json"
 )
 
+# Aggiungi definizione SendARP API per recupero MAC diretto (come Advanced IP Scanner)
+Add-Type -TypeDefinition @"
+using System;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Runtime.InteropServices;
+
+public class ArpHelper {
+    [DllImport("iphlpapi.dll", ExactSpelling = true)]
+    public static extern int SendARP(uint destIP, uint srcIP, byte[] pMacAddr, ref uint phyAddrLen);
+    
+    public static string GetMacAddress(string ipAddress) {
+        try {
+            IPAddress ip = IPAddress.Parse(ipAddress);
+            byte[] macAddr = new byte[6];
+            uint macAddrLen = (uint)macAddr.Length;
+            
+            // Converti IP in uint
+            byte[] ipBytes = ip.GetAddressBytes();
+            uint destIP = (uint)(ipBytes[0] | (ipBytes[1] << 8) | (ipBytes[2] << 16) | (ipBytes[3] << 24));
+            
+            int result = SendARP(destIP, 0, macAddr, ref macAddrLen);
+            if (result == 0 && macAddrLen == 6) {
+                // Verifica che non sia tutto zero
+                bool allZero = true;
+                foreach (byte b in macAddr) {
+                    if (b != 0) {
+                        allZero = false;
+                        break;
+                    }
+                }
+                if (!allZero) {
+                    return string.Format("{0:X2}-{1:X2}-{2:X2}-{3:X2}-{4:X2}-{5:X2}",
+                        macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
+                }
+            }
+        } catch {
+            // Ignora errori
+        }
+        return null;
+    }
+}
+"@
+
 # Variabili globali
 # Determina directory script (funziona anche come servizio)
 $script:scriptDir = $null
