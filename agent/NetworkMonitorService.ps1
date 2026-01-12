@@ -553,26 +553,43 @@ public class ArpHelper {
                     
                     # Raccogli risultati MAC con timeout per evitare blocchi
                     $macResults = @{}
-                    $maxWaitTime = 30  # Timeout massimo 30 secondi per recupero MAC
+                    $maxWaitTime = 20  # Timeout massimo 20 secondi per recupero MAC (ridotto)
                     $startTime = Get-Date
+                    
+                    Write-Log "Attesa risultati recupero MAC per $($macJobs.Count) IP..." "DEBUG"
                     
                     foreach ($jobInfo in $macJobs) {
                         try {
-                            # Verifica timeout
-                            if (((Get-Date) - $startTime).TotalSeconds -gt $maxWaitTime) {
+                            # Verifica timeout totale
+                            $elapsed = ((Get-Date) - $startTime).TotalSeconds
+                            if ($elapsed -gt $maxWaitTime) {
                                 Write-Log "Timeout recupero MAC raggiunto dopo $maxWaitTime secondi, interrompendo..." "WARN"
+                                # Interrompi tutti i job rimanenti
+                                foreach ($remainingJob in $macJobs) {
+                                    if ($remainingJob -ne $jobInfo) {
+                                        try {
+                                            if (-not $remainingJob.AsyncResult.IsCompleted) {
+                                                $remainingJob.Job.Stop()
+                                            }
+                                        } catch { }
+                                    }
+                                }
                                 break
                             }
                             
-                            # Attendi risultato con timeout
+                            # Attendi risultato con timeout per singolo job (ridotto a 3 secondi)
                             $asyncWait = $jobInfo.AsyncResult.AsyncWaitHandle
-                            if ($asyncWait.WaitOne(5000)) {  # Timeout 5 secondi per job
-                                $result = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
-                                if ($result) {
-                                    $macResults[$result.ip] = $result.mac
+                            if ($asyncWait.WaitOne(3000)) {  # Timeout 3 secondi per job
+                                try {
+                                    $result = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
+                                    if ($result) {
+                                        $macResults[$result.ip] = $result.mac
+                                    }
+                                } catch {
+                                    Write-Log "Errore EndInvoke per $($jobInfo.IP): $_" "WARN"
                                 }
                             } else {
-                                Write-Log "Timeout per recupero MAC di $($jobInfo.IP)" "WARN"
+                                Write-Log "Timeout per recupero MAC di $($jobInfo.IP), continuo con altri..." "WARN"
                                 # Interrompi job in timeout
                                 try {
                                     $jobInfo.Job.Stop()
@@ -582,7 +599,9 @@ public class ArpHelper {
                             Write-Log "Errore recupero MAC per $($jobInfo.IP): $_" "WARN"
                         } finally {
                             try {
-                                $jobInfo.Job.Dispose()
+                                if ($jobInfo.Job) {
+                                    $jobInfo.Job.Dispose()
+                                }
                             } catch { }
                         }
                     }
