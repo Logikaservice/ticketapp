@@ -8,6 +8,7 @@ const archiver = require('archiver');
 const path = require('path');
 const fs = require('fs');
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
+const keepassDriveService = require('../utils/keepassDriveService');
 
 module.exports = (pool, io) => {
   // Funzione helper per inizializzare le tabelle se non esistono
@@ -728,7 +729,23 @@ module.exports = (pool, io) => {
             updates.push(`vendor = $${paramIndex++}`);
             values.push(vendor || null);
           }
-          // device_type non viene più aggiornato automaticamente dall'agent
+          // Ricerca automatica MAC in KeePass per impostare device_type
+          if (normalizedMac && process.env.KEEPASS_PASSWORD) {
+            try {
+              const keepassTitle = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
+              if (keepassTitle) {
+                // Se il device_type è vuoto o diverso, aggiornalo con il Titolo da KeePass
+                if (!existingDevice.device_type || existingDevice.device_type !== keepassTitle) {
+                  console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${keepassTitle}"`);
+                  updates.push(`device_type = $${paramIndex++}`);
+                  values.push(keepassTitle);
+                }
+              }
+            } catch (keepassErr) {
+              // Non bloccare il processo se c'è un errore con KeePass
+              console.warn(`  ⚠️ Errore ricerca MAC ${normalizedMac} in KeePass:`, keepassErr.message);
+            }
+          }
 
           // last_seen viene SEMPRE aggiornato quando il dispositivo viene rilevato nella scansione
           updates.push(`last_seen = NOW()`);
@@ -769,6 +786,20 @@ module.exports = (pool, io) => {
               }
             }
 
+            // Ricerca automatica MAC in KeePass per impostare device_type
+            let deviceTypeFromKeepass = null;
+            if (normalizedMac && process.env.KEEPASS_PASSWORD) {
+              try {
+                deviceTypeFromKeepass = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
+                if (deviceTypeFromKeepass) {
+                  console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${deviceTypeFromKeepass}"`);
+                }
+              } catch (keepassErr) {
+                // Non bloccare il processo se c'è un errore con KeePass
+                console.warn(`  ⚠️ Errore ricerca MAC ${normalizedMac} in KeePass:`, keepassErr.message);
+              }
+            }
+
             const insertResult = await pool.query(
               `INSERT INTO network_devices (agent_id, ip_address, mac_address, hostname, vendor, device_type, status)
                VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -779,7 +810,7 @@ module.exports = (pool, io) => {
                 normalizedMac,
                 hostname || null, // hostname già normalizzato e troncato sopra
                 (vendor && vendor.trim() !== '') ? vendor.trim() : null,
-                'unknown', // Tipo di default, gestito manualmente dall'utente
+                deviceTypeFromKeepass || null, // device_type da KeePass se trovato
                 status || 'online'
               ]
             );
@@ -2066,6 +2097,117 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
     } catch (err) {
       console.error('❌ Errore aggiornamento tipo dispositivo:', err);
       res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/test-keepass - Test connessione e lettura KeePass da Google Drive
+  router.get('/test-keepass', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { mac, password } = req.query;
+
+      if (!password) {
+        return res.status(400).json({ 
+          error: 'Password richiesta',
+          message: 'Fornisci la password del file KeePass come parametro ?password=...'
+        });
+      }
+
+      console.log('🧪 Test connessione KeePass da Google Drive...');
+
+      // Test 1: Verifica credenziali Google
+      let googleAuthOk = false;
+      try {
+        await keepassDriveService.getDriveAuth();
+        googleAuthOk = true;
+        console.log('✅ Credenziali Google OK');
+      } catch (err) {
+        console.error('❌ Errore credenziali Google:', err.message);
+        return res.status(500).json({
+          error: 'Credenziali Google non configurate',
+          details: err.message,
+          step: 'google_auth'
+        });
+      }
+
+      // Test 2: Download file da Google Drive
+      let fileDownloaded = false;
+      let fileSize = 0;
+      try {
+        const fileBuffer = await keepassDriveService.downloadKeepassFile(password);
+        fileDownloaded = true;
+        fileSize = fileBuffer.length;
+        console.log(`✅ File scaricato: ${(fileSize / 1024).toFixed(2)} KB`);
+      } catch (err) {
+        console.error('❌ Errore download file:', err.message);
+        return res.status(500).json({
+          error: 'Errore download file da Google Drive',
+          details: err.message,
+          step: 'file_download',
+          googleAuthOk
+        });
+      }
+
+      // Test 3: Caricamento e parsing KDBX
+      let kdbxLoaded = false;
+      let macCount = 0;
+      try {
+        const macMap = await keepassDriveService.loadMacToTitleMap(password);
+        kdbxLoaded = true;
+        macCount = macMap.size;
+        console.log(`✅ File KDBX caricato: ${macCount} MAC address trovati`);
+      } catch (err) {
+        console.error('❌ Errore caricamento KDBX:', err.message);
+        return res.status(500).json({
+          error: 'Errore caricamento file KDBX',
+          details: err.message,
+          step: 'kdbx_load',
+          googleAuthOk,
+          fileDownloaded,
+          fileSize
+        });
+      }
+
+      // Test 4: Ricerca MAC specifico (se fornito)
+      let macFound = null;
+      let macTitle = null;
+      if (mac) {
+        try {
+          macTitle = await keepassDriveService.findMacTitle(mac, password);
+          macFound = macTitle !== null;
+          if (macFound) {
+            console.log(`✅ MAC ${mac} trovato -> Titolo: "${macTitle}"`);
+          } else {
+            console.log(`ℹ️ MAC ${mac} non trovato nel file`);
+          }
+        } catch (err) {
+          console.error(`❌ Errore ricerca MAC ${mac}:`, err.message);
+        }
+      }
+
+      // Risultato completo
+      res.json({
+        success: true,
+        tests: {
+          googleAuth: googleAuthOk,
+          fileDownload: fileDownloaded,
+          fileSize: fileSize,
+          kdbxLoad: kdbxLoaded,
+          macCount: macCount
+        },
+        macSearch: mac ? {
+          mac: mac,
+          found: macFound,
+          title: macTitle
+        } : null,
+        message: 'Tutti i test completati con successo!'
+      });
+
+    } catch (err) {
+      console.error('❌ Errore test KeePass:', err);
+      res.status(500).json({
+        error: 'Errore durante il test',
+        details: err.message
+      });
     }
   });
 
