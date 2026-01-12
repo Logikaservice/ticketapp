@@ -735,12 +735,14 @@ module.exports = (pool, io) => {
             try {
             const keepassResult = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
             if (keepassResult) {
+              // Estrai solo l'ultimo elemento del percorso (es: "gestione > logikaservice.it > Pippo2" -> "Pippo2")
+              const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
               // Aggiorna sempre il device_type e device_path con i valori da KeePass (sovrascrive quelli esistenti)
-              console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${keepassResult.title}", device_path: "${keepassResult.path}"`);
+              console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${keepassResult.title}", device_path: "${lastPathElement}"`);
               updates.push(`device_type = $${paramIndex++}`);
               values.push(keepassResult.title);
               updates.push(`device_path = $${paramIndex++}`);
-              values.push(keepassResult.path);
+              values.push(lastPathElement);
             }
             } catch (keepassErr) {
               // Non bloccare il processo se c'è un errore con KeePass
@@ -795,8 +797,9 @@ module.exports = (pool, io) => {
                 const keepassResult = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
                 if (keepassResult) {
                   deviceTypeFromKeepass = keepassResult.title;
-                  devicePathFromKeepass = keepassResult.path;
-                  console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${keepassResult.title}", device_path: "${keepassResult.path}"`);
+                  // Estrai solo l'ultimo elemento del percorso (es: "gestione > logikaservice.it > Pippo2" -> "Pippo2")
+                  devicePathFromKeepass = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
+                  console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${keepassResult.title}", device_path: "${devicePathFromKeepass}"`);
                 }
               } catch (keepassErr) {
                 // Non bloccare il processo se c'è un errore con KeePass
@@ -1096,10 +1099,12 @@ module.exports = (pool, io) => {
             console.log(`🔍 Cercando MAC ${row.mac_address} in KeePass...`);
             const keepassResult = await keepassDriveService.findMacTitle(row.mac_address, keepassPassword);
             if (keepassResult) {
+              // Estrai solo l'ultimo elemento del percorso (es: "gestione > logikaservice.it > Pippo2" -> "Pippo2")
+              const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
               // Il titolo e il percorso da KeePass sovrascrivono sempre i valori esistenti
-              console.log(`✅ MAC ${row.mac_address} trovato in KeePass -> Titolo: "${keepassResult.title}", Percorso: "${keepassResult.path}"`);
+              console.log(`✅ MAC ${row.mac_address} trovato in KeePass -> Titolo: "${keepassResult.title}", Percorso: "${lastPathElement}"`);
               row.device_type = keepassResult.title;
-              row.device_path = keepassResult.path;
+              row.device_path = lastPathElement;
             } else {
               console.log(`ℹ️ MAC ${row.mac_address} non trovato in KeePass`);
               // Se non trovato, rimuovi eventuali valori precedenti
@@ -1258,10 +1263,12 @@ module.exports = (pool, io) => {
             console.log(`🔍 Cercando MAC ${row.mac_address} in KeePass...`);
             const keepassResult = await keepassDriveService.findMacTitle(row.mac_address, keepassPassword);
             if (keepassResult) {
+              // Estrai solo l'ultimo elemento del percorso (es: "gestione > logikaservice.it > Pippo2" -> "Pippo2")
+              const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
               // Il titolo e il percorso da KeePass sovrascrivono sempre i valori esistenti
-              console.log(`✅ MAC ${row.mac_address} trovato in KeePass -> Titolo: "${keepassResult.title}", Percorso: "${keepassResult.path}"`);
+              console.log(`✅ MAC ${row.mac_address} trovato in KeePass -> Titolo: "${keepassResult.title}", Percorso: "${lastPathElement}"`);
               row.device_type = keepassResult.title;
-              row.device_path = keepassResult.path;
+              row.device_path = lastPathElement;
             } else {
               console.log(`ℹ️ MAC ${row.mac_address} non trovato in KeePass`);
               // Se non trovato, rimuovi eventuali valori precedenti
