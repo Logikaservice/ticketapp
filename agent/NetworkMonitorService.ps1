@@ -887,16 +887,29 @@ public class ArpHelper {
                         [int]$parts[0] * 16777216 + [int]$parts[1] * 65536 + [int]$parts[2] * 256 + [int]$parts[3]
                     }
                     Write-Log "Ordinamento IP completato: $($sortedIPs.Count) IP unici" "DEBUG"
+                    Write-Log "FoundMACs contiene $($foundMACs.Count) MAC" "DEBUG"
                     foreach ($ip in $sortedIPs) {
                         # Usa MAC trovato durante scansione (da lookup diretto) o dalla tabella ARP iniziale
                         $macAddress = $null
                         if ($foundMACs.ContainsKey($ip)) {
                             $macAddress = $foundMACs[$ip]
+                            Write-Log "MAC per $ip da foundMACs: $macAddress" "DEBUG"
                         } elseif ($arpTable.ContainsKey($ip)) {
                             $macAddress = $arpTable[$ip]
                             # Verifica che non sia un MAC invalido
                             if ($macAddress -match '^00-00-00-00-00-00' -or $macAddress -eq '00:00:00:00:00:00') {
                                 $macAddress = $null
+                            }
+                            if ($macAddress) {
+                                Write-Log "MAC per $ip da arpTable: $macAddress" "DEBUG"
+                            }
+                        }
+                        # IMPORTANTE: Cerca anche nei devices già costruiti (per MAC trovati nel tentativo finale sequenziale)
+                        if (-not $macAddress) {
+                            $deviceMatch = $devices | Where-Object { $_.ip_address -eq $ip }
+                            if ($deviceMatch -and $deviceMatch.mac_address) {
+                                $macAddress = $deviceMatch.mac_address
+                                Write-Log "MAC per $ip da devices array: $macAddress" "DEBUG"
                             }
                         }
                         $ipDataArray += @{
@@ -906,6 +919,9 @@ public class ArpHelper {
                     }
                     $ipDataArray | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
                     Write-Log "IP salvati per tray icon: $($ipDataArray.Count) IP" "DEBUG"
+                    # Log per debug: conta quanti MAC sono stati salvati
+                    $macCount = ($ipDataArray | Where-Object { $_.mac }).Count
+                    Write-Log "MAC salvati per tray icon: $macCount su $($ipDataArray.Count) IP" "DEBUG"
                 } catch {
                     Write-Log "Errore salvataggio IP per tray icon: $_" "WARN"
                 }
