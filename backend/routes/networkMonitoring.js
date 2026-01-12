@@ -957,7 +957,12 @@ module.exports = (pool, io) => {
       console.log('🔍 Eseguendo query con aziendaId:', aziendaId);
       const result = await pool.query(
         `SELECT 
-          nd.id, nd.ip_address, nd.mac_address, nd.hostname, nd.vendor, 
+          nd.id, nd.ip_address, nd.mac_address, 
+          CASE 
+            WHEN LENGTH(nd.hostname) > 100 THEN LEFT(nd.hostname, 97) || '...'
+            ELSE nd.hostname
+          END as hostname,
+          nd.vendor, 
           nd.device_type, nd.status, nd.is_static, nd.first_seen, nd.last_seen,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
@@ -990,7 +995,12 @@ module.exports = (pool, io) => {
       const result = await pool.query(
         `SELECT 
           nc.id, nc.change_type, nc.old_value, nc.new_value, nc.detected_at, nc.notified,
-          nd.ip_address, nd.mac_address, nd.hostname, nd.vendor,
+          nd.ip_address, nd.mac_address, 
+          CASE 
+            WHEN LENGTH(nd.hostname) > 100 THEN LEFT(nd.hostname, 97) || '...'
+            ELSE nd.hostname
+          END as hostname,
+          nd.vendor,
           na.agent_name
          FROM network_changes nc
          INNER JOIN network_devices nd ON nc.device_id = nd.id
@@ -1041,7 +1051,12 @@ module.exports = (pool, io) => {
       
       const result = await pool.query(
         `SELECT 
-          nd.id, nd.ip_address, nd.mac_address, nd.hostname, nd.vendor, 
+          nd.id, nd.ip_address, nd.mac_address, 
+          CASE 
+            WHEN LENGTH(nd.hostname) > 100 THEN LEFT(nd.hostname, 97) || '...'
+            ELSE nd.hostname
+          END as hostname,
+          nd.vendor, 
           nd.device_type, nd.status, nd.first_seen, nd.last_seen,
           na.agent_name, na.azienda_id, na.last_heartbeat as agent_last_seen, na.status as agent_status,
           u.azienda
@@ -1083,7 +1098,12 @@ module.exports = (pool, io) => {
       const result = await pool.query(
         `SELECT 
           nc.id, nc.change_type, nc.old_value, nc.new_value, nc.detected_at, nc.notified,
-          nd.ip_address, nd.mac_address, nd.hostname, nd.vendor, nd.device_type, nd.is_static,
+          nd.ip_address, nd.mac_address, 
+          CASE 
+            WHEN LENGTH(nd.hostname) > 100 THEN LEFT(nd.hostname, 97) || '...'
+            ELSE nd.hostname
+          END as hostname,
+          nd.vendor, nd.device_type, nd.is_static,
           na.agent_name, na.azienda_id,
           u.azienda
          FROM network_changes nc
