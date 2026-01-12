@@ -1197,6 +1197,19 @@ module.exports = (pool, io) => {
     try {
       await ensureTables();
       
+      // Assicurati che la colonna device_path esista (migrazione)
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS device_path TEXT;
+        `);
+      } catch (migrationErr) {
+        // Ignora errore se colonna esiste già
+        if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna device_path in all/devices:', migrationErr.message);
+        }
+      }
+      
       const result = await pool.query(
         `SELECT 
           nd.id, nd.ip_address, nd.mac_address, 
