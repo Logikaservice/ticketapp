@@ -778,19 +778,28 @@ while ($script:isRunning) {
                 Update-StatusFile -Status "running" -Message "Ultima scansione completata" -LastScan $script:lastScanTime -DevicesFound $script:lastScanDevices
                 Write-Log "Scansione completata con successo"
                 
+                # 4. Ricalcola prossima scansione basandosi sul nuovo last_scan
+                # Questo è importante anche per scansioni forzate, così il conto alla rovescia riparte correttamente
+                $nextScanTime = $script:lastScanTime.AddMinutes($script:scanIntervalMinutes)
+                if ($forceScan) {
+                    Write-Log "Scansione forzata completata. Prossima scansione programmata: $($nextScanTime.ToString('HH:mm:ss')) (intervallo: $script:scanIntervalMinutes minuti)"
+                } else {
+                    Write-Log "Prossima scansione: $($nextScanTime.ToString('HH:mm:ss')) (intervallo: $script:scanIntervalMinutes minuti)"
+                }
+                
             } catch {
                 Write-Log "Errore durante scansione: $_" "ERROR"
                 Write-Log "Stack trace: $($_.Exception.StackTrace)" "ERROR"
                 Update-StatusFile -Status "error" -Message "Errore: $_"
-            }
-            
-            # Calcola prossima scansione usando l'intervallo corrente (che potrebbe essere cambiato dal server)
-            # Solo se non era una scansione forzata, altrimenti mantieni la prossima scansione programmata
-            if (-not $forceScan) {
-                $nextScanTime = $now.AddMinutes($script:scanIntervalMinutes)
-                Write-Log "Prossima scansione: $($nextScanTime.ToString('HH:mm:ss')) (intervallo: $script:scanIntervalMinutes minuti)"
-            } else {
-                Write-Log "Scansione forzata completata. Prossima scansione programmata: $($nextScanTime.ToString('HH:mm:ss'))"
+                
+                # Anche in caso di errore, ricalcola nextScanTime per evitare loop infiniti
+                if ($forceScan) {
+                    # Per scansione forzata fallita, ricalcola comunque basandosi su ora
+                    $nextScanTime = (Get-Date).AddMinutes($script:scanIntervalMinutes)
+                } else {
+                    # Per scansione programmata fallita, ricalcola normalmente
+                    $nextScanTime = (Get-Date).AddMinutes($script:scanIntervalMinutes)
+                }
             }
         }
         
