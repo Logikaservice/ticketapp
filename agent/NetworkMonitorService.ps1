@@ -339,26 +339,44 @@ function Get-NetworkDevices {
                         # (alcuni dispositivi non appaiono nella tabella ARP globale ma rispondono al ping)
                         if (-not $macAddress) {
                             # Advanced IP Scanner usa tecniche avanzate per trovare MAC
-                            # Proviamo multiple strategie: ping multipli, WMI, SendARP API
+                            # Proviamo multiple strategie: ping multipli, WMI, SendARP API (più volte)
+                            
+                            Write-Log "Tentativo recupero MAC per $ip (non trovato in ARP table)" "DEBUG"
                             
                             # Primo tentativo: ping multipli per forzare ARP
                             try {
                                 $ping = New-Object System.Net.NetworkInformation.Ping
-                                # Fai 3-4 ping per assicurarti che ARP venga aggiornato
-                                for ($pingAttempt = 1; $pingAttempt -le 4; $pingAttempt++) {
-                                    $pingReply = $ping.Send($ip, 300)  # Timeout più lungo
+                                # Fai 4-6 ping per assicurarti che ARP venga aggiornato
+                                for ($pingAttempt = 1; $pingAttempt -le 6; $pingAttempt++) {
+                                    $pingReply = $ping.Send($ip, 500)  # Timeout più lungo
                                     if ($pingReply.Status -eq 'Success') {
-                                        Start-Sleep -Milliseconds 200  # Attesa tra ping
+                                        Start-Sleep -Milliseconds 150  # Attesa tra ping
+                                        # Dopo ogni ping riuscito, prova SendARP immediatamente
+                                        try {
+                                            $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
+                                            if ($macFromSendArp -and 
+                                                $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
+                                                $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                                $macAddress = $macFromSendArp
+                                                Write-Log "MAC trovato per $ip tramite SendARP dopo ping #$pingAttempt: $macAddress" "DEBUG"
+                                                $ping.Dispose()
+                                                break
+                                            }
+                                        } catch {
+                                            # Ignora errori
+                                        }
                                     }
                                 }
                                 $ping.Dispose()
                                 # Attesa più lunga per permettere al sistema di aggiornare la tabella ARP
-                                Start-Sleep -Milliseconds 500
+                                if (-not $macAddress) {
+                                    Start-Sleep -Milliseconds 800
+                                }
                             } catch {
-                                # Ignora errori ping
+                                Write-Log "Errore ping multipli per $ip: $_" "DEBUG"
                             }
                             
-                            # Prova SendARP API direttamente (come Advanced IP Scanner) - PRIMA di tutto
+                            # Prova SendARP API direttamente (anche se ping non ha funzionato)
                             if (-not $macAddress) {
                                 try {
                                     $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
@@ -366,10 +384,12 @@ function Get-NetworkDevices {
                                         $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
                                         $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
                                         $macAddress = $macFromSendArp
-                                        Write-Log "MAC trovato per $ip tramite SendARP API: $macAddress" "DEBUG"
+                                        Write-Log "MAC trovato per $ip tramite SendARP API (diretto): $macAddress" "DEBUG"
+                                    } else {
+                                        Write-Log "SendARP per $ip ha restituito: $macFromSendArp" "DEBUG"
                                     }
                                 } catch {
-                                    # Ignora errori
+                                    Write-Log "Errore SendARP per $ip: $_" "DEBUG"
                                 }
                             }
                             
@@ -378,22 +398,28 @@ function Get-NetworkDevices {
                                 try {
                                     $pingStatus = Get-WmiObject -Class Win32_PingStatus -Filter "Address='$ip'" -ErrorAction SilentlyContinue | Select-Object -First 1
                                     if ($pingStatus -and $pingStatus.StatusCode -eq 0) {
-                                        Start-Sleep -Milliseconds 300
-                                        # Dopo WMI ping, riprova SendARP
-                                        try {
-                                            $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
-                                            if ($macFromSendArp -and 
-                                                $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
-                                                $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                                $macAddress = $macFromSendArp
-                                                Write-Log "MAC trovato per $ip tramite SendARP dopo WMI ping: $macAddress" "DEBUG"
+                                        Start-Sleep -Milliseconds 400
+                                        # Dopo WMI ping, riprova SendARP più volte
+                                        for ($retry = 1; $retry -le 3; $retry++) {
+                                            try {
+                                                $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
+                                                if ($macFromSendArp -and 
+                                                    $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
+                                                    $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                                    $macAddress = $macFromSendArp
+                                                    Write-Log "MAC trovato per $ip tramite SendARP dopo WMI ping (tentativo $retry): $macAddress" "DEBUG"
+                                                    break
+                                                }
+                                            } catch {
+                                                # Ignora errori
                                             }
-                                        } catch {
-                                            # Ignora errori
+                                            if ($retry -lt 3) {
+                                                Start-Sleep -Milliseconds 200
+                                            }
                                         }
                                     }
                                 } catch {
-                                    # Ignora errori
+                                    Write-Log "Errore WMI ping per $ip: $_" "DEBUG"
                                 }
                             }
                             
