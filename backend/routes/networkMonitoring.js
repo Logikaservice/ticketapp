@@ -733,13 +733,15 @@ module.exports = (pool, io) => {
           // IMPORTANTE: Cerca sempre in KeePass se il MAC è disponibile, anche se device_type esiste già
           if (normalizedMac && process.env.KEEPASS_PASSWORD) {
             try {
-              const keepassTitle = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
-              if (keepassTitle) {
-                // Aggiorna sempre il device_type con il Titolo da KeePass (sovrascrive quello esistente)
-                console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${keepassTitle}"`);
-                updates.push(`device_type = $${paramIndex++}`);
-                values.push(keepassTitle);
-              }
+            const keepassResult = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
+            if (keepassResult) {
+              // Aggiorna sempre il device_type e device_path con i valori da KeePass (sovrascrive quelli esistenti)
+              console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${keepassResult.title}", device_path: "${keepassResult.path}"`);
+              updates.push(`device_type = $${paramIndex++}`);
+              values.push(keepassResult.title);
+              updates.push(`device_path = $${paramIndex++}`);
+              values.push(keepassResult.path);
+            }
             } catch (keepassErr) {
               // Non bloccare il processo se c'è un errore con KeePass
               console.warn(`  ⚠️ Errore ricerca MAC ${normalizedMac} in KeePass:`, keepassErr.message);
@@ -789,9 +791,10 @@ module.exports = (pool, io) => {
             let deviceTypeFromKeepass = null;
             if (normalizedMac && process.env.KEEPASS_PASSWORD) {
               try {
-                deviceTypeFromKeepass = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
-                if (deviceTypeFromKeepass) {
-                  console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${deviceTypeFromKeepass}"`);
+                const keepassResult = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
+                if (keepassResult) {
+                  deviceTypeFromKeepass = keepassResult.title;
+                  console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${keepassResult.title}", device_path: "${keepassResult.path}"`);
                 }
               } catch (keepassErr) {
                 // Non bloccare il processo se c'è un errore con KeePass
