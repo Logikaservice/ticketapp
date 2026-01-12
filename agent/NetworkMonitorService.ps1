@@ -645,8 +645,9 @@ public class ArpHelper {
                     }
                     
                     # Costruisci array devices con MAC recuperati
+                    Write-Log "Costruzione array devices per $($activeIPs.Count) IP..." "DEBUG"
                     foreach ($ip in $activeIPs) {
-                        Write-Log "Dispositivo rilevato: $ip" "DEBUG"
+                        Write-Log "Processando dispositivo: $ip" "DEBUG"
                         
                         $macAddress = $null
                         if ($macResults.ContainsKey($ip)) {
