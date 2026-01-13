@@ -1325,18 +1325,39 @@ module.exports = (pool, io) => {
       
       if (searchTerm) {
         const searchPattern = `%${searchTerm}%`;
-        searchConditions = `WHERE (
-          nd.ip_address::text ILIKE $1 OR
-          nd.mac_address ILIKE $1 OR
-          nd.hostname ILIKE $1 OR
-          nc.change_type::text ILIKE $1 OR
-          nc.old_value ILIKE $1 OR
-          nc.new_value ILIKE $1 OR
-          na.agent_name ILIKE $1 OR
-          COALESCE(u.azienda, '') ILIKE $1 OR
-          nd.device_type ILIKE $1
-        )`;
-        queryParams.push(searchPattern);
+        // Normalizza il MAC per la ricerca (rimuove separatori)
+        const normalizedMacSearch = searchTerm.replace(/[:-]/g, '').toUpperCase();
+        const macSearchPattern = normalizedMacSearch.length >= 6 ? `%${normalizedMacSearch}%` : null;
+        
+        // Se il termine di ricerca sembra un MAC (almeno 6 caratteri esadecimali), cerca anche nel MAC normalizzato
+        if (macSearchPattern) {
+          searchConditions = `WHERE (
+            nd.ip_address::text ILIKE $1 OR
+            nd.mac_address ILIKE $1 OR
+            REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', '') ILIKE $2 OR
+            nd.hostname ILIKE $1 OR
+            nc.change_type::text ILIKE $1 OR
+            nc.old_value ILIKE $1 OR
+            nc.new_value ILIKE $1 OR
+            na.agent_name ILIKE $1 OR
+            COALESCE(u.azienda, '') ILIKE $1 OR
+            nd.device_type ILIKE $1
+          )`;
+          queryParams.push(searchPattern, macSearchPattern);
+        } else {
+          searchConditions = `WHERE (
+            nd.ip_address::text ILIKE $1 OR
+            nd.mac_address ILIKE $1 OR
+            nd.hostname ILIKE $1 OR
+            nc.change_type::text ILIKE $1 OR
+            nc.old_value ILIKE $1 OR
+            nc.new_value ILIKE $1 OR
+            na.agent_name ILIKE $1 OR
+            COALESCE(u.azienda, '') ILIKE $1 OR
+            nd.device_type ILIKE $1
+          )`;
+          queryParams.push(searchPattern);
+        }
       }
 
       const result = await pool.query(
