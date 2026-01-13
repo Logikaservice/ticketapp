@@ -1009,27 +1009,28 @@ module.exports = (pool, io) => {
     try {
       await ensureTables();
       
-      // Assicurati che le colonne is_static e device_path esistano (migrazione)
+      // Assicurati che le colonne is_static, device_path, previous_ip, previous_mac esistano (migrazione)
       try {
         await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;
         `);
-      } catch (migrationErr) {
-        // Ignora errore se colonna esiste già
-        if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonna is_static in clients/:aziendaId/devices:', migrationErr.message);
-        }
-      }
-      try {
         await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS device_path TEXT;
         `);
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS previous_ip VARCHAR(45);
+        `);
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS previous_mac VARCHAR(17);
+        `);
       } catch (migrationErr) {
         // Ignora errore se colonna esiste già
         if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonna device_path in clients/:aziendaId/devices:', migrationErr.message);
+          console.warn('⚠️ Avviso aggiunta colonne in clients/:aziendaId/devices:', migrationErr.message);
         }
       }
       
