@@ -44,9 +44,9 @@ Write-Host "Versione corrente: $currentVersion" -ForegroundColor Yellow
 
 # Parse versione
 $parts = $currentVersion.Split('.')
-$major = [int]$parts[0]
-$minor = [int]$parts[1]
-$patch = [int]$parts[2]
+$major = [int]($parts[0])
+$minor = [int]($parts[1])
+$patch = [int]($parts[2])
 
 # Incrementa versione
 if ($Major) {

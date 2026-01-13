@@ -5,15 +5,15 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 1.1.0
-# Data ultima modifica: 2025-01-13
+# Versione: False.False.1
+# Data ultima modifica: 2026-01-13
 
 param(
     [string]$ConfigPath = "config.json"
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "1.1.0"
+$SCRIPT_VERSION = "False.False.1"
 
 # Aggiungi definizione API Windows per recupero MAC (come Advanced IP Scanner)
 Add-Type -TypeDefinition @"
@@ -1354,3 +1354,4 @@ while ($script:isRunning) {
 
 Write-Log "=== Network Monitor Service Arrestato ==="
 Update-StatusFile -Status "stopping" -Message "Servizio in arresto"
+
