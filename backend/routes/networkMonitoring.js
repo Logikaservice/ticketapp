@@ -202,6 +202,21 @@ module.exports = (pool, io) => {
         );
       `);
 
+      // Crea tabella network_agent_events per tracciare eventi agent (offline, online, riavvio, problemi rete)
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS network_agent_events (
+          id SERIAL PRIMARY KEY,
+          agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
+          event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('offline', 'online', 'reboot', 'network_issue')),
+          event_data JSONB,
+          detected_at TIMESTAMP DEFAULT NOW(),
+          resolved_at TIMESTAMP,
+          notified BOOLEAN DEFAULT FALSE,
+          read_by INTEGER[] DEFAULT ARRAY[]::INTEGER[],
+          created_at TIMESTAMP DEFAULT NOW()
+        );
+      `);
+
       // Inserisci tipi di default se la tabella è vuota
       const typesCheck = await pool.query('SELECT COUNT(*) FROM network_device_types');
       if (parseInt(typesCheck.rows[0].count) === 0) {
@@ -238,7 +253,11 @@ module.exports = (pool, io) => {
         'CREATE INDEX IF NOT EXISTS idx_network_changes_change_type ON network_changes(change_type);',
         'CREATE INDEX IF NOT EXISTS idx_network_notification_config_agent ON network_notification_config(agent_id);',
         'CREATE INDEX IF NOT EXISTS idx_network_notification_config_ip ON network_notification_config(ip_address);',
-        'CREATE INDEX IF NOT EXISTS idx_network_device_types_name ON network_device_types(name);'
+        'CREATE INDEX IF NOT EXISTS idx_network_device_types_name ON network_device_types(name);',
+        'CREATE INDEX IF NOT EXISTS idx_network_agent_events_agent_id ON network_agent_events(agent_id);',
+        'CREATE INDEX IF NOT EXISTS idx_network_agent_events_detected_at ON network_agent_events(detected_at DESC);',
+        'CREATE INDEX IF NOT EXISTS idx_network_agent_events_notified ON network_agent_events(notified) WHERE notified = FALSE;',
+        'CREATE INDEX IF NOT EXISTS idx_network_agent_events_type ON network_agent_events(event_type);'
       ];
 
       for (const indexSql of indexes) {
@@ -473,11 +492,11 @@ module.exports = (pool, io) => {
   router.post('/agent/heartbeat', authenticateAgent, async (req, res) => {
     try {
       const agentId = req.agent.id;
-      const { version } = req.body;
+      const { version, system_uptime, network_issue_detected, network_issue_duration } = req.body;
 
       // Verifica se l'agent è eliminato o disabilitato
       const agentCheck = await pool.query(
-        'SELECT enabled, deleted_at FROM network_agents WHERE id = $1',
+        'SELECT enabled, deleted_at, last_heartbeat FROM network_agents WHERE id = $1',
         [agentId]
       );
 
@@ -492,6 +511,7 @@ module.exports = (pool, io) => {
 
       const agentEnabled = agentCheck.rows[0].enabled;
       const agentDeletedAt = agentCheck.rows[0].deleted_at;
+      const lastHeartbeat = agentCheck.rows[0].last_heartbeat;
 
       // Se l'agent è eliminato (soft delete) -> comando disinstallazione
       if (agentDeletedAt) {
@@ -514,6 +534,24 @@ module.exports = (pool, io) => {
         });
       }
 
+      // Rileva se c'è stato un riavvio (system_uptime < 5 minuti e last_heartbeat > 10 minuti fa)
+      let rebootDetected = false;
+      if (system_uptime !== undefined && system_uptime !== null) {
+        const uptimeMinutes = system_uptime / 60; // Converti secondi in minuti
+        if (uptimeMinutes < 5 && lastHeartbeat) {
+          const lastHeartbeatTime = new Date(lastHeartbeat);
+          const minutesSinceLastHeartbeat = (Date.now() - lastHeartbeatTime.getTime()) / 60000;
+          if (minutesSinceLastHeartbeat > 10) {
+            rebootDetected = true;
+            console.log(`🔄 Rilevato riavvio per agent ${agentId} (uptime: ${uptimeMinutes.toFixed(2)} min, ultimo heartbeat: ${minutesSinceLastHeartbeat.toFixed(2)} min fa)`);
+          }
+        }
+      }
+
+      // Rileva se l'agent era offline e ora è tornato online
+      const wasOffline = lastHeartbeat ? (Date.now() - new Date(lastHeartbeat).getTime()) > 10 * 60 * 1000 : true;
+      const isNowOnline = true; // Se riceviamo heartbeat, è online
+
       // Agent abilitato e non eliminato -> aggiorna heartbeat normalmente
       await pool.query(
         `UPDATE network_agents 
@@ -521,6 +559,122 @@ module.exports = (pool, io) => {
          WHERE id = $2`,
         [version, agentId]
       );
+
+      // Crea eventi se necessario
+      if (rebootDetected) {
+        // Verifica se esiste già un evento riavvio recente (ultimi 5 minuti)
+        const existingReboot = await pool.query(
+          `SELECT id FROM network_agent_events 
+           WHERE agent_id = $1 
+             AND event_type = 'reboot' 
+             AND detected_at > NOW() - INTERVAL '5 minutes'
+           LIMIT 1`,
+          [agentId]
+        );
+
+        if (existingReboot.rows.length === 0) {
+          // Crea evento riavvio
+          await pool.query(
+            `INSERT INTO network_agent_events (agent_id, event_type, event_data, detected_at, notified)
+             VALUES ($1, 'reboot', $2, NOW(), FALSE)`,
+            [agentId, JSON.stringify({
+              system_uptime_seconds: system_uptime,
+              system_uptime_minutes: (system_uptime / 60).toFixed(2),
+              last_heartbeat_before: lastHeartbeat,
+              detected_at: new Date().toISOString()
+            })]
+          );
+        
+        // Emetti evento WebSocket
+        if (io) {
+          io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
+            agentId,
+            eventType: 'reboot',
+            message: `Agent ${req.agent.agent_name || agentId} riavviato`,
+            detectedAt: new Date().toISOString()
+          });
+        }
+      }
+
+      if (wasOffline && isNowOnline) {
+        // Risolvi eventuali eventi offline precedenti
+        await pool.query(
+          `UPDATE network_agent_events 
+           SET resolved_at = NOW()
+           WHERE agent_id = $1 
+             AND event_type = 'offline' 
+             AND resolved_at IS NULL`,
+          [agentId]
+        );
+
+        // Crea evento "tornato online"
+        const offlineDuration = lastHeartbeat ? Math.floor((Date.now() - new Date(lastHeartbeat).getTime()) / 60000) : 0;
+        
+        // Verifica se esiste già un evento online recente (ultimi 2 minuti)
+        const existingOnline = await pool.query(
+          `SELECT id FROM network_agent_events 
+           WHERE agent_id = $1 
+             AND event_type = 'online' 
+             AND detected_at > NOW() - INTERVAL '2 minutes'
+           LIMIT 1`,
+          [agentId]
+        );
+
+        if (existingOnline.rows.length === 0) {
+          await pool.query(
+            `INSERT INTO network_agent_events (agent_id, event_type, event_data, detected_at, notified)
+             VALUES ($1, 'online', $2, NOW(), FALSE)`,
+            [agentId, JSON.stringify({
+              offline_duration_minutes: offlineDuration,
+              last_heartbeat_before: lastHeartbeat,
+              detected_at: new Date().toISOString()
+            })]
+          );
+        
+        // Emetti evento WebSocket
+        if (io) {
+          io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
+            agentId,
+            eventType: 'online',
+            message: `Agent ${req.agent.agent_name || agentId} tornato online (era offline da ${offlineDuration} minuti)`,
+            detectedAt: new Date().toISOString()
+          });
+        }
+      }
+
+      // Rileva problema rete se indicato dall'agent
+      if (network_issue_detected === true && network_issue_duration !== undefined) {
+        // Verifica se esiste già un evento network_issue recente (ultimi 5 minuti)
+        const existingNetworkIssue = await pool.query(
+          `SELECT id FROM network_agent_events 
+           WHERE agent_id = $1 
+             AND event_type = 'network_issue' 
+             AND detected_at > NOW() - INTERVAL '5 minutes'
+           LIMIT 1`,
+          [agentId]
+        );
+
+        if (existingNetworkIssue.rows.length === 0) {
+          await pool.query(
+            `INSERT INTO network_agent_events (agent_id, event_type, event_data, detected_at, notified, resolved_at)
+             VALUES ($1, 'network_issue', $2, NOW(), FALSE, NOW())`,
+            [agentId, JSON.stringify({
+              issue_duration_minutes: network_issue_duration,
+              detected_at: new Date().toISOString(),
+              resolved_at: new Date().toISOString()
+            })]
+          );
+        
+        // Emetti evento WebSocket
+        if (io) {
+          io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
+            agentId,
+            eventType: 'network_issue',
+            message: `Agent ${req.agent.agent_name || agentId} - problema rete rilevato (durata: ${network_issue_duration} minuti)`,
+            detectedAt: new Date().toISOString()
+          });
+        }
+      }
 
       res.json({ success: true, timestamp: new Date().toISOString(), uninstall: false });
     } catch (err) {
@@ -2356,6 +2510,161 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
       res.status(500).json({ error: 'Errore interno del server', details: err.message });
     }
   });
+
+  // GET /api/network-monitoring/agent-events - Ottieni eventi agent (offline, online, riavvio, problemi rete)
+  router.get('/agent-events', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { limit = 50, unread_only = false } = req.query;
+      const userId = req.user.id;
+
+      let query = `
+        SELECT 
+          nae.id,
+          nae.agent_id,
+          na.agent_name,
+          nae.event_type,
+          nae.event_data,
+          nae.detected_at,
+          nae.resolved_at,
+          nae.notified,
+          CASE WHEN $1 = ANY(nae.read_by) THEN TRUE ELSE FALSE END as is_read,
+          u.azienda
+        FROM network_agent_events nae
+        INNER JOIN network_agents na ON nae.agent_id = na.id
+        LEFT JOIN users u ON na.azienda_id = u.id
+        WHERE na.deleted_at IS NULL
+      `;
+      const params = [userId];
+      let paramIndex = 2;
+
+      if (unread_only === 'true') {
+        query += ` AND ($1 = ANY(nae.read_by) IS FALSE OR nae.read_by IS NULL)`;
+      }
+
+      query += ` ORDER BY nae.detected_at DESC LIMIT $${paramIndex}`;
+      params.push(parseInt(limit) || 50);
+
+      const result = await pool.query(query, params);
+
+      res.json(result.rows);
+    } catch (err) {
+      console.error('❌ Errore recupero eventi agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // POST /api/network-monitoring/agent-events/:id/read - Marca evento come letto
+  router.post('/agent-events/:id/read', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const eventId = parseInt(req.params.id);
+      const userId = req.user.id;
+
+      await pool.query(
+        `UPDATE network_agent_events 
+         SET read_by = array_append(COALESCE(read_by, ARRAY[]::INTEGER[]), $1)
+         WHERE id = $2 AND ($1 = ANY(read_by) IS FALSE OR read_by IS NULL)`,
+        [userId, eventId]
+      );
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error('❌ Errore marcatura evento come letto:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/agent-events/unread-count - Conta eventi non letti
+  router.get('/agent-events/unread-count', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const userId = req.user.id;
+
+      const result = await pool.query(
+        `SELECT COUNT(*) as count
+         FROM network_agent_events nae
+         INNER JOIN network_agents na ON nae.agent_id = na.id
+         WHERE na.deleted_at IS NULL
+           AND ($1 = ANY(nae.read_by) IS FALSE OR nae.read_by IS NULL)`,
+        [userId]
+      );
+
+      res.json({ count: parseInt(result.rows[0].count, 10) });
+    } catch (err) {
+      console.error('❌ Errore conteggio eventi non letti:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // Funzione per rilevare agent offline (chiamata periodicamente)
+  const checkOfflineAgents = async () => {
+    try {
+      // Trova agent che non hanno inviato heartbeat da più di 10 minuti
+      const offlineAgents = await pool.query(
+        `SELECT id, agent_name, last_heartbeat, status
+         FROM network_agents
+         WHERE deleted_at IS NULL
+           AND enabled = TRUE
+           AND (
+             last_heartbeat IS NULL 
+             OR last_heartbeat < NOW() - INTERVAL '10 minutes'
+           )
+           AND status != 'offline'`
+      );
+
+      for (const agent of offlineAgents.rows) {
+        // Aggiorna status a offline
+        await pool.query(
+          `UPDATE network_agents SET status = 'offline' WHERE id = $1`,
+          [agent.id]
+        );
+
+        // Verifica se esiste già un evento offline non risolto
+        const existingEvent = await pool.query(
+          `SELECT id FROM network_agent_events 
+           WHERE agent_id = $1 
+             AND event_type = 'offline' 
+             AND resolved_at IS NULL
+           ORDER BY detected_at DESC LIMIT 1`,
+          [agent.id]
+        );
+
+        if (existingEvent.rows.length === 0) {
+          // Crea nuovo evento offline
+          const offlineDuration = agent.last_heartbeat 
+            ? Math.floor((Date.now() - new Date(agent.last_heartbeat).getTime()) / 60000)
+            : null;
+
+          await pool.query(
+            `INSERT INTO network_agent_events (agent_id, event_type, event_data, detected_at, notified)
+             VALUES ($1, 'offline', $2, NOW(), FALSE)`,
+            [agent.id, JSON.stringify({
+              last_heartbeat: agent.last_heartbeat,
+              offline_duration_minutes: offlineDuration,
+              detected_at: new Date().toISOString()
+            })]
+          );
+
+          // Emetti evento WebSocket
+          if (io) {
+            io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
+              agentId: agent.id,
+              eventType: 'offline',
+              message: `Agent ${agent.agent_name || agent.id} offline`,
+              detectedAt: new Date().toISOString()
+            });
+          }
+
+          console.log(`🔴 Agent ${agent.id} (${agent.agent_name}) rilevato offline`);
+        }
+      }
+    } catch (err) {
+      console.error('❌ Errore controllo agent offline:', err);
+    }
+  };
+
+  // Avvia job periodico per controllare agent offline (ogni minuto)
+  setInterval(checkOfflineAgents, 60 * 1000);
+  // Esegui subito un controllo
+  checkOfflineAgents();
 
   // GET /api/network-monitoring/test-keepass - Test connessione e lettura KeePass da Google Drive
   router.get('/test-keepass', authenticateToken, requireRole('tecnico'), async (req, res) => {

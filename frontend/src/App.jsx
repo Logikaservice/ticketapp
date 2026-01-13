@@ -2925,6 +2925,8 @@ export default function TicketApp() {
             openCreateContract={() => setShowContractModal(true)}
             openContractsList={() => setShowContractsListModal(true)}
             isOrariDomain={isOrariDomain}
+            getAuthHeader={getAuthHeader}
+            socket={socket}
           />
         )}
 

@@ -139,6 +139,10 @@ $script:scanIntervalMinutes = 15
 $script:statusFile = Join-Path $script:scriptDir ".agent_status.json"
 $script:lastScanPath = Join-Path $script:scriptDir "last_scan.json"
 $script:currentScanIPsFile = Join-Path $script:scriptDir ".current_scan_ips.json"
+# Variabili per tracciare problemi rete
+$script:lastSuccessfulHeartbeat = $null
+$script:failedHeartbeatCount = 0
+$script:networkIssueStartTime = $null
 $script:forceScanTriggerFile = Join-Path $script:scriptDir ".force_scan.trigger"
 
 # ============================================
@@ -1386,12 +1390,54 @@ function Send-Heartbeat {
             "X-API-Key" = $ApiKey
         }
         
+        # Ottieni system uptime (in secondi)
+        $systemUptime = $null
+        try {
+            $os = Get-WmiObject Win32_OperatingSystem -ErrorAction SilentlyContinue
+            if ($os) {
+                $systemUptime = [Math]::Floor((Get-Date).Subtract($os.ConvertToDateTime($os.LastBootUpTime)).TotalSeconds)
+            }
+        } catch {
+            # Ignora errori recupero uptime
+        }
+        
+        # Prepara payload con system_uptime e network_issue_detected
+        $networkIssueDetected = $false
+        $networkIssueDuration = $null
+        
+        # Se c'erano tentativi falliti e ora riusciamo, segnala problema rete
+        if ($script:failedHeartbeatCount -gt 0) {
+            $networkIssueDetected = $true
+            if ($script:networkIssueStartTime) {
+                $networkIssueDuration = [Math]::Floor((Get-Date).Subtract($script:networkIssueStartTime).TotalMinutes)
+            } else {
+                $networkIssueDuration = $script:failedHeartbeatCount * 5 # Stima: ogni heartbeat è ogni 5 minuti
+            }
+            Write-Log "Rilevato problema rete risolto: durata $networkIssueDuration minuti" "INFO"
+        }
+        
         $payload = @{
             version = $Version
-        } | ConvertTo-Json
+        }
+        
+        if ($systemUptime -ne $null) {
+            $payload.system_uptime = $systemUptime
+        }
+        
+        if ($networkIssueDetected) {
+            $payload.network_issue_detected = $true
+            $payload.network_issue_duration = $networkIssueDuration
+        }
+        
+        $payloadJson = $payload | ConvertTo-Json
         
         $url = "$ServerUrl/api/network-monitoring/agent/heartbeat"
-        $response = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $payload -ErrorAction Stop
+        $response = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $payloadJson -ErrorAction Stop
+        
+        # Heartbeat riuscito - reset contatori problemi rete
+        $script:lastSuccessfulHeartbeat = Get-Date
+        $script:failedHeartbeatCount = 0
+        $script:networkIssueStartTime = $null
         
         # Verifica se il server ha richiesto la disinstallazione
         if ($response.uninstall -eq $true) {
@@ -1429,6 +1475,13 @@ function Send-Heartbeat {
         return @{ success = $true; uninstall = $false; config = $serverConfigResult.config }
     } catch {
         Write-Log "Errore heartbeat: $_" "WARN"
+        
+        # Traccia tentativo fallito
+        $script:failedHeartbeatCount++
+        if (-not $script:networkIssueStartTime) {
+            $script:networkIssueStartTime = Get-Date
+        }
+        
         return @{ success = $false; uninstall = $false; error = $_.Exception.Message }
     }
 }
@@ -1505,9 +1558,18 @@ while ($script:isRunning) {
                 }
                 
                 # L'intervallo viene aggiornato automaticamente da Send-Heartbeat se diverso
-                Write-Log "Heartbeat completato"
+                if ($heartbeatResult.success) {
+                    Write-Log "Heartbeat completato"
+                } else {
+                    Write-Log "Heartbeat fallito: $($heartbeatResult.error)" "WARN"
+                }
             } catch {
                 Write-Log "Errore heartbeat: $_" "WARN"
+                # Traccia tentativo fallito
+                $script:failedHeartbeatCount++
+                if (-not $script:networkIssueStartTime) {
+                    $script:networkIssueStartTime = Get-Date
+                }
             }
             
             # Prossimo heartbeat tra 5 minuti

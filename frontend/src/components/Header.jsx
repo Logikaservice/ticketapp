@@ -2,8 +2,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table, Wifi, Server as ServerIcon } from 'lucide-react';
+import AgentNotifications from './AgentNotifications';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, openNetworkMonitoring, openNetworkMonitoringAgents, openNetworkMonitoringCreateAgent, openNetworkMonitoringDeviceTypes, isOrariDomain = false }) => {
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, openNetworkMonitoring, openNetworkMonitoringAgents, openNetworkMonitoringCreateAgent, openNetworkMonitoringDeviceTypes, isOrariDomain = false, getAuthHeader = null, socket = null }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [expandedAction, setExpandedAction] = useState(null);
@@ -203,6 +204,14 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                 <Plus size={18} />
                 Nuovo Ticket
               </button>
+            )}
+
+            {!isOrariDomain && currentUser?.ruolo === 'tecnico' && getAuthHeader && (
+              <AgentNotifications
+                getAuthHeader={getAuthHeader}
+                socket={socket}
+                onOpenNetworkMonitoring={openNetworkMonitoringAgents}
+              />
             )}
 
             <button
