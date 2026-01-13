@@ -2597,6 +2597,20 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
   // Funzione per rilevare agent offline (chiamata periodicamente)
   const checkOfflineAgents = async () => {
     try {
+      // Verifica che la tabella network_agent_events esista prima di procedere
+      const tableCheck = await pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'network_agent_events'
+        );
+      `);
+      
+      if (!tableCheck.rows[0].exists) {
+        // Tabella non esiste ancora, esci silenziosamente
+        return;
+      }
+
       // Trova agent che non hanno inviato heartbeat da più di 10 minuti
       const offlineAgents = await pool.query(
         `SELECT id, agent_name, last_heartbeat, status
