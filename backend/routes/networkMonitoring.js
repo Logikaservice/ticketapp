@@ -2667,6 +2667,22 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
         }
       }
 
+      // Prima, vediamo tutti gli agent per capire perché non vengono trovati
+      const allAgents = await pool.query(
+        `SELECT id, agent_name, last_heartbeat, status, enabled, deleted_at
+         FROM network_agents
+         WHERE deleted_at IS NULL`
+      );
+      
+      console.log(`🔍 checkOfflineAgents: totale agent nel database: ${allAgents.rows.length}`);
+      allAgents.rows.forEach(agent => {
+        const lastHeartbeatStr = agent.last_heartbeat ? new Date(agent.last_heartbeat).toISOString() : 'NULL';
+        const minutesAgo = agent.last_heartbeat 
+          ? Math.floor((Date.now() - new Date(agent.last_heartbeat).getTime()) / 60000)
+          : 'N/A';
+        console.log(`  - Agent ${agent.id} (${agent.agent_name}): status=${agent.status}, enabled=${agent.enabled}, last_heartbeat=${lastHeartbeatStr} (${minutesAgo} min fa)`);
+      });
+
       // Trova agent che non hanno inviato heartbeat da più di 2 minuti
       // (l'agent invia heartbeat ogni 5 minuti, quindi dopo 2 minuti senza heartbeat
       //  è probabile che sia offline, specialmente se era online prima)
@@ -2688,6 +2704,8 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
         offlineAgents.rows.forEach(agent => {
           console.log(`  - Agent ${agent.id} (${agent.agent_name}): last_heartbeat = ${agent.last_heartbeat}, status = ${agent.status}`);
         });
+      } else {
+        console.log('⚠️ checkOfflineAgents: nessun agent trovato offline. Verifica i filtri della query.');
       }
 
       for (const agent of offlineAgents.rows) {
