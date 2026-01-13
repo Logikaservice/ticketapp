@@ -213,16 +213,16 @@ class KeepassDriveService {
               }
             }
 
-            // Se trovato un MAC, aggiungilo alla mappa
-            if (foundMac && titleStr) {
+            // Se trovato un MAC, aggiungilo alla mappa (anche se il titolo è vuoto)
+            if (foundMac) {
               // foundMac è già normalizzato da extractMacFromField (formato XX-XX-XX-XX-XX-XX)
               // Normalizziamo per la ricerca (rimuoviamo separatori)
               const normalizedMac = this.normalizeMacForSearch(foundMac);
               if (normalizedMac) {
                 // Se ci sono più entry con lo stesso MAC, mantieni la prima trovata
                 if (!macMap.has(normalizedMac)) {
-                  macMap.set(normalizedMac, { title: titleStr, path: currentPath });
-                  console.log(`  📝 MAC ${foundMac} (normalizzato: ${normalizedMac}) -> Titolo: "${titleStr}", Campo: "${foundMacField}", Percorso: "${currentPath}"`);
+                  macMap.set(normalizedMac, { title: titleStr || '', path: currentPath || '' });
+                  console.log(`  📝 MAC ${foundMac} (normalizzato: ${normalizedMac}) -> Titolo: "${titleStr || ''}", Campo: "${foundMacField}", Percorso: "${currentPath || ''}"`);
                 } else {
                   console.log(`  ⚠️ MAC ${foundMac} (normalizzato: ${normalizedMac}) già presente nella mappa, ignoro duplicato`);
                 }
