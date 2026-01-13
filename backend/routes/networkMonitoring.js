@@ -1076,13 +1076,21 @@ module.exports = (pool, io) => {
         [aziendaId]
       );
 
-      // Cerca titoli da KeePass per ogni dispositivo con MAC
+      // Ottimizzazione: carica la mappa KeePass UNA SOLA VOLTA invece di per ogni dispositivo
       const keepassPassword = process.env.KEEPASS_PASSWORD;
-      if (!keepassPassword) {
-        console.warn('⚠️ KEEPASS_PASSWORD non impostata - ricerca MAC in KeePass disabilitata');
+      let keepassMap = null;
+      if (keepassPassword) {
+        try {
+          console.log('📥 Caricamento mappa KeePass (una volta per tutti i dispositivi)...');
+          keepassMap = await keepassDriveService.getMacToTitleMap(keepassPassword);
+          console.log(`✅ Mappa KeePass caricata: ${keepassMap.size} MAC address disponibili`);
+        } catch (keepassErr) {
+          console.warn('⚠️ Errore caricamento mappa KeePass:', keepassErr.message);
+        }
       }
       
-      const processedRows = await Promise.all(result.rows.map(async (row) => {
+      // Processa i dispositivi in modo sincrono (veloce, senza chiamate async per ogni dispositivo)
+      const processedRows = result.rows.map((row) => {
         // Post-processa hostname se necessario
         if (row.hostname && typeof row.hostname === 'string' && row.hostname.trim().startsWith('{')) {
           try {
@@ -1093,34 +1101,28 @@ module.exports = (pool, io) => {
           }
         }
 
-        // Cerca MAC nel file KeePass se disponibile
-        if (row.mac_address && keepassPassword) {
+        // Cerca MAC nella mappa KeePass (già caricata)
+        if (row.mac_address && keepassMap) {
           try {
-            console.log(`🔍 Cercando MAC ${row.mac_address} in KeePass...`);
-            const keepassResult = await keepassDriveService.findMacTitle(row.mac_address, keepassPassword);
+            // Normalizza il MAC per la ricerca
+            const normalizedMac = row.mac_address.replace(/[:-]/g, '').toUpperCase();
+            const keepassResult = keepassMap.get(normalizedMac);
+            
             if (keepassResult) {
-              // Estrai solo l'ultimo elemento del percorso (es: "gestione > logikaservice.it > Pippo2" -> "Pippo2")
+              // Estrai solo l'ultimo elemento del percorso
               const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
-              // Il titolo e il percorso da KeePass sovrascrivono sempre i valori esistenti
-              console.log(`✅ MAC ${row.mac_address} trovato in KeePass -> Titolo: "${keepassResult.title}", Percorso: "${lastPathElement}"`);
               row.device_type = keepassResult.title;
               row.device_path = lastPathElement;
-            } else {
-              console.log(`ℹ️ MAC ${row.mac_address} non trovato in KeePass`);
-              // Se non trovato, rimuovi eventuali valori precedenti
-              row.device_path = null;
             }
+            // Se non trovato, mantieni i valori esistenti dal database
           } catch (keepassErr) {
-            // Non bloccare il processo se c'è un errore con KeePass
-            console.error(`❌ Errore ricerca MAC ${row.mac_address} in KeePass:`, keepassErr.message);
-            console.error('Stack:', keepassErr.stack);
+            // Non bloccare il processo se c'è un errore
+            console.error(`❌ Errore ricerca MAC ${row.mac_address} in mappa KeePass:`, keepassErr.message);
           }
-        } else if (row.mac_address && !keepassPassword) {
-          console.log(`⚠️ MAC ${row.mac_address} presente ma KEEPASS_PASSWORD non configurata`);
         }
 
         return row;
-      }));
+      });
 
       res.json(processedRows);
     } catch (err) {
@@ -1240,13 +1242,21 @@ module.exports = (pool, io) => {
          LIMIT 500`
       );
 
-      // Cerca titoli da KeePass per ogni dispositivo con MAC
+      // Ottimizzazione: carica la mappa KeePass UNA SOLA VOLTA invece di per ogni dispositivo
       const keepassPassword = process.env.KEEPASS_PASSWORD;
-      if (!keepassPassword) {
-        console.warn('⚠️ KEEPASS_PASSWORD non impostata - ricerca MAC in KeePass disabilitata');
+      let keepassMap = null;
+      if (keepassPassword) {
+        try {
+          console.log('📥 Caricamento mappa KeePass (una volta per tutti i dispositivi)...');
+          keepassMap = await keepassDriveService.getMacToTitleMap(keepassPassword);
+          console.log(`✅ Mappa KeePass caricata: ${keepassMap.size} MAC address disponibili`);
+        } catch (keepassErr) {
+          console.warn('⚠️ Errore caricamento mappa KeePass:', keepassErr.message);
+        }
       }
       
-      const processedRows = await Promise.all(result.rows.map(async (row) => {
+      // Processa i dispositivi in modo sincrono (veloce, senza chiamate async per ogni dispositivo)
+      const processedRows = result.rows.map((row) => {
         // Post-processa hostname se necessario
         if (row.hostname && typeof row.hostname === 'string' && row.hostname.trim().startsWith('{')) {
           try {
@@ -1257,34 +1267,28 @@ module.exports = (pool, io) => {
           }
         }
 
-        // Cerca MAC nel file KeePass se disponibile
-        if (row.mac_address && keepassPassword) {
+        // Cerca MAC nella mappa KeePass (già caricata)
+        if (row.mac_address && keepassMap) {
           try {
-            console.log(`🔍 Cercando MAC ${row.mac_address} in KeePass...`);
-            const keepassResult = await keepassDriveService.findMacTitle(row.mac_address, keepassPassword);
+            // Normalizza il MAC per la ricerca
+            const normalizedMac = row.mac_address.replace(/[:-]/g, '').toUpperCase();
+            const keepassResult = keepassMap.get(normalizedMac);
+            
             if (keepassResult) {
-              // Estrai solo l'ultimo elemento del percorso (es: "gestione > logikaservice.it > Pippo2" -> "Pippo2")
+              // Estrai solo l'ultimo elemento del percorso
               const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
-              // Il titolo e il percorso da KeePass sovrascrivono sempre i valori esistenti
-              console.log(`✅ MAC ${row.mac_address} trovato in KeePass -> Titolo: "${keepassResult.title}", Percorso: "${lastPathElement}"`);
               row.device_type = keepassResult.title;
               row.device_path = lastPathElement;
-            } else {
-              console.log(`ℹ️ MAC ${row.mac_address} non trovato in KeePass`);
-              // Se non trovato, rimuovi eventuali valori precedenti
-              row.device_path = null;
             }
+            // Se non trovato, mantieni i valori esistenti dal database
           } catch (keepassErr) {
-            // Non bloccare il processo se c'è un errore con KeePass
-            console.error(`❌ Errore ricerca MAC ${row.mac_address} in KeePass:`, keepassErr.message);
-            console.error('Stack:', keepassErr.stack);
+            // Non bloccare il processo se c'è un errore
+            console.error(`❌ Errore ricerca MAC ${row.mac_address} in mappa KeePass:`, keepassErr.message);
           }
-        } else if (row.mac_address && !keepassPassword) {
-          console.log(`⚠️ MAC ${row.mac_address} presente ma KEEPASS_PASSWORD non configurata`);
         }
 
         return row;
-      }));
+      });
 
       res.json(processedRows);
     } catch (err) {
