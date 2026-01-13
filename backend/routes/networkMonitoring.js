@@ -677,14 +677,34 @@ module.exports = (pool, io) => {
         let existingQuery;
         let existingParams;
         
+        // Normalizza MAC address PRIMA della query per confronti corretti
+        let normalizedMacForSearch = null;
         if (macAddressStr && macAddressStr !== '') {
-          // Se abbiamo MAC, cerca per IP O MAC (per gestire cambi di IP)
+          // Rimuovi spazi, virgole, e converti in maiuscolo
+          normalizedMacForSearch = macAddressStr.replace(/\s+/g, '').replace(/,/g, '').toUpperCase();
+          // Se contiene duplicati separati, prendi solo i primi 17 caratteri
+          if (normalizedMacForSearch.length > 17) {
+            normalizedMacForSearch = normalizedMacForSearch.substring(0, 17);
+          }
+          // Se non ha il formato corretto, prova a convertirlo
+          if (normalizedMacForSearch.length === 12 && !normalizedMacForSearch.includes('-') && !normalizedMacForSearch.includes(':')) {
+            // Formato senza separatori, aggiungi trattini ogni 2 caratteri
+            normalizedMacForSearch = normalizedMacForSearch.replace(/(..)(..)(..)(..)(..)(..)/, '$1-$2-$3-$4-$5-$6');
+          }
+          // Verifica che sia un MAC valido (17 caratteri con trattini)
+          if (normalizedMacForSearch.length !== 17 || !/^([0-9A-F]{2}-){5}[0-9A-F]{2}$/i.test(normalizedMacForSearch)) {
+            normalizedMacForSearch = null;
+          }
+        }
+
+        if (normalizedMacForSearch && normalizedMacForSearch !== '') {
+          // Se abbiamo MAC, cerca PRIMA per MAC (più affidabile), poi per IP (per gestire cambi di IP)
           existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac
                            FROM network_devices 
-                           WHERE agent_id = $1 AND (REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2 OR mac_address = $3)
-                           ORDER BY CASE WHEN REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2 THEN 1 ELSE 2 END
+                           WHERE agent_id = $1 AND (mac_address = $2 OR REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $3)
+                           ORDER BY CASE WHEN mac_address = $2 THEN 1 ELSE 2 END
                            LIMIT 1`;
-          existingParams = [agentId, normalizedIpForSearch, macAddressStr];
+          existingParams = [agentId, normalizedMacForSearch, normalizedIpForSearch];
         } else {
           // Se non abbiamo MAC, cerca SOLO per IP (senza vincolo su mac_address)
           // Questo evita di perdere dispositivi che avevano MAC prima ma ora non vengono trovati
