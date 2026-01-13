@@ -2686,6 +2686,7 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
       // Trova agent che:
       // 1. Sono online ma non hanno inviato heartbeat da più di 2 minuti (devono essere marcati offline)
       // 2. Sono già offline ma non hanno ancora un evento offline non risolto (devono creare evento)
+      // NOTA: Controlliamo solo agent enabled=TRUE per evitare di creare eventi per agent disattivati manualmente
       console.log('🔍 checkOfflineAgents: controllo agent offline...');
       const offlineAgents = await pool.query(
         `SELECT na.id, na.agent_name, na.last_heartbeat, na.status, na.enabled
@@ -2713,6 +2714,24 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
         });
       } else {
         console.log('⚠️ checkOfflineAgents: nessun agent trovato offline. Verifica i filtri della query.');
+        // Debug: verifica se ci sono agent offline con eventi esistenti
+        const offlineAgentsWithEvents = await pool.query(
+          `SELECT na.id, na.agent_name, na.status, na.enabled,
+                  (SELECT COUNT(*) FROM network_agent_events nae 
+                   WHERE nae.agent_id = na.id 
+                     AND nae.event_type = 'offline' 
+                     AND nae.resolved_at IS NULL) as event_count
+           FROM network_agents na
+           WHERE na.deleted_at IS NULL
+             AND na.enabled = TRUE
+             AND na.status = 'offline'`
+        );
+        if (offlineAgentsWithEvents.rows.length > 0) {
+          console.log(`🔍 checkOfflineAgents: trovati ${offlineAgentsWithEvents.rows.length} agent offline con enabled=TRUE:`);
+          offlineAgentsWithEvents.rows.forEach(agent => {
+            console.log(`  - Agent ${agent.id} (${agent.agent_name}): status=${agent.status}, eventi offline non risolti=${agent.event_count}`);
+          });
+        }
       }
 
       for (const agent of offlineAgents.rows) {
