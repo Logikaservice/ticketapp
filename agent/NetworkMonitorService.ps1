@@ -282,14 +282,65 @@ function Get-NetworkDevices {
                     if ($localIPInRange -and $i -eq $localIPOctet) {
                         
                         # Ottieni MAC address locale
+                        # IMPORTANTE: Preferisci interfacce fisiche rispetto a virtuali (VMware, VirtualBox, Hyper-V)
                         $macAddress = $null
                         try {
-                            $adapter = Get-NetAdapter | Where-Object { $_.Status -eq "Up" } | Select-Object -First 1
-                            if ($adapter) {
-                                $macAddress = ($adapter.MacAddress -replace '-', '-')  # Mantieni formato originale
+                            # Ottieni tutte le interfacce attive
+                            $adapters = Get-NetAdapter | Where-Object { $_.Status -eq "Up" } | Sort-Object InterfaceDescription
+                            
+                            # Filtra e preferisci interfacce fisiche
+                            $physicalAdapter = $null
+                            $virtualAdapter = $null
+                            
+                            foreach ($adapter in $adapters) {
+                                $macNormalized = $adapter.MacAddress -replace '[:-]', '' -replace ' ', ''
+                                $isVirtual = $false
+                                
+                                # Verifica se è un MAC virtuale (prefissi OUI comuni)
+                                if ($macNormalized -match '^(005056|000C29|000569|080027|00155D)') {
+                                    $isVirtual = $true
+                                }
+                                
+                                # Verifica anche dalla descrizione dell'interfaccia
+                                $desc = $adapter.InterfaceDescription
+                                if ($desc -match 'VMware|VirtualBox|Hyper-V|Virtual|TAP|TUN') {
+                                    $isVirtual = $true
+                                }
+                                
+                                if ($isVirtual) {
+                                    if (-not $virtualAdapter) {
+                                        $virtualAdapter = $adapter
+                                    }
+                                } else {
+                                    if (-not $physicalAdapter) {
+                                        $physicalAdapter = $adapter
+                                    }
+                                }
+                            }
+                            
+                            # Preferisci interfaccia fisica, altrimenti usa virtuale come fallback
+                            $selectedAdapter = $physicalAdapter
+                            if (-not $selectedAdapter) {
+                                $selectedAdapter = $virtualAdapter
+                            }
+                            
+                            if ($selectedAdapter) {
+                                $macAddress = $selectedAdapter.MacAddress
+                                # Normalizza formato MAC (usa trattini)
+                                if ($macAddress -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                    $macAddress = $macAddress -replace ':', '-' -replace ' ', ''
+                                    # Assicura formato maiuscolo
+                                    $macAddress = $macAddress.ToUpper()
+                                }
+                                
+                                if ($physicalAdapter) {
+                                    Write-Log "MAC locale (fisico) per $ip: $macAddress" "DEBUG"
+                                } else {
+                                    Write-Log "MAC locale (virtuale) per $ip: $macAddress" "WARN"
+                                }
                             }
                         } catch {
-                            # Ignora errori
+                            Write-Log "Errore recupero MAC locale: $_" "WARN"
                         }
                         
                         # Ottieni hostname locale
