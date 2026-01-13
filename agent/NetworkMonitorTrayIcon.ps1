@@ -145,58 +145,116 @@ function Show-StatusWindow {
         return
     }
     
-    # Crea nuova finestra
+    # Crea nuova finestra con design moderno
     $script:statusWindow = New-Object System.Windows.Forms.Form
     $script:statusWindow.Text = "Network Monitor Agent - Stato"
-    $script:statusWindow.Size = New-Object System.Drawing.Size(500, 640)
+    $script:statusWindow.Size = New-Object System.Drawing.Size(580, 680)
     $script:statusWindow.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
     $script:statusWindow.MinimizeBox = $false
     $script:statusWindow.MaximizeBox = $false
     $script:statusWindow.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedSingle
+    $script:statusWindow.BackColor = [System.Drawing.Color]::FromArgb(245, 247, 250)
     
-    # Label titolo
+    # Header con sfondo colorato
+    $headerPanel = New-Object System.Windows.Forms.Panel
+    $headerPanel.Location = New-Object System.Drawing.Point(0, 0)
+    $headerPanel.Size = New-Object System.Drawing.Size(580, 80)
+    $headerPanel.BackColor = [System.Drawing.Color]::FromArgb(30, 58, 138)
+    $script:statusWindow.Controls.Add($headerPanel)
+    
+    # Label titolo nel header (bianco, grande)
     $titleLabel = New-Object System.Windows.Forms.Label
     $titleLabel.Text = "Network Monitor Agent"
-    $titleLabel.Location = New-Object System.Drawing.Point(10, 10)
-    $titleLabel.Size = New-Object System.Drawing.Size(460, 25)
-    $titleLabel.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 10, [System.Drawing.FontStyle]::Bold)
-    $script:statusWindow.Controls.Add($titleLabel)
+    $titleLabel.Location = New-Object System.Drawing.Point(20, 15)
+    $titleLabel.Size = New-Object System.Drawing.Size(540, 30)
+    $titleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 16, [System.Drawing.FontStyle]::Bold)
+    $titleLabel.ForeColor = [System.Drawing.Color]::White
+    $titleLabel.BackColor = [System.Drawing.Color]::Transparent
+    $headerPanel.Controls.Add($titleLabel)
     
-    # Label conto alla rovescia (grande, a sinistra)
+    # Sottotitolo nel header
+    $subtitleLabel = New-Object System.Windows.Forms.Label
+    $subtitleLabel.Text = "Monitoraggio Rete in Tempo Reale"
+    $subtitleLabel.Location = New-Object System.Drawing.Point(20, 45)
+    $subtitleLabel.Size = New-Object System.Drawing.Size(540, 20)
+    $subtitleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $subtitleLabel.ForeColor = [System.Drawing.Color]::FromArgb(200, 200, 220)
+    $subtitleLabel.BackColor = [System.Drawing.Color]::Transparent
+    $headerPanel.Controls.Add($subtitleLabel)
+    
+    # Panel per conto alla rovescia (card style)
+    $countdownPanel = New-Object System.Windows.Forms.Panel
+    $countdownPanel.Location = New-Object System.Drawing.Point(20, 100)
+    $countdownPanel.Size = New-Object System.Drawing.Size(320, 70)
+    $countdownPanel.BackColor = [System.Drawing.Color]::White
+    $countdownPanel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $script:statusWindow.Controls.Add($countdownPanel)
+    
+    # Label "Prossima scansione" (piccola, sopra)
+    $countdownTitleLabel = New-Object System.Windows.Forms.Label
+    $countdownTitleLabel.Text = "Prossima scansione"
+    $countdownTitleLabel.Location = New-Object System.Drawing.Point(15, 8)
+    $countdownTitleLabel.Size = New-Object System.Drawing.Size(290, 18)
+    $countdownTitleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Regular)
+    $countdownTitleLabel.ForeColor = [System.Drawing.Color]::FromArgb(100, 100, 120)
+    $countdownPanel.Controls.Add($countdownTitleLabel)
+    
+    # Label conto alla rovescia (grande, centrale)
     $script:countdownLabel = New-Object System.Windows.Forms.Label
-    $script:countdownLabel.Text = "Prossima scansione: --:--"
-    $script:countdownLabel.Location = New-Object System.Drawing.Point(10, 45)
-    $script:countdownLabel.Size = New-Object System.Drawing.Size(280, 50)
-    $script:countdownLabel.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 18, [System.Drawing.FontStyle]::Bold)
-    $script:countdownLabel.ForeColor = [System.Drawing.Color]::FromArgb(0, 123, 255)
+    $script:countdownLabel.Text = "--:--"
+    $script:countdownLabel.Location = New-Object System.Drawing.Point(15, 28)
+    $script:countdownLabel.Size = New-Object System.Drawing.Size(290, 35)
+    $script:countdownLabel.Font = New-Object System.Drawing.Font("Segoe UI", 24, [System.Drawing.FontStyle]::Bold)
+    $script:countdownLabel.ForeColor = [System.Drawing.Color]::FromArgb(30, 58, 138)
     $script:countdownLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-    $script:statusWindow.Controls.Add($script:countdownLabel)
+    $countdownPanel.Controls.Add($script:countdownLabel)
     
-    # Label per IP trovati
+    # Panel per lista IP (card style)
+    $ipListPanel = New-Object System.Windows.Forms.Panel
+    $ipListPanel.Location = New-Object System.Drawing.Point(20, 185)
+    $ipListPanel.Size = New-Object System.Drawing.Size(320, 420)
+    $ipListPanel.BackColor = [System.Drawing.Color]::White
+    $ipListPanel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $script:statusWindow.Controls.Add($ipListPanel)
+    
+    # Label per IP trovati (dentro il panel)
     $foundLabel = New-Object System.Windows.Forms.Label
-    $foundLabel.Text = "IP trovati durante la scansione:"
-    $foundLabel.Location = New-Object System.Drawing.Point(10, 100)
-    $foundLabel.Size = New-Object System.Drawing.Size(300, 20)
-    $foundLabel.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 9, [System.Drawing.FontStyle]::Bold)
-    $script:statusWindow.Controls.Add($foundLabel)
+    $foundLabel.Text = "IP trovati durante la scansione"
+    $foundLabel.Location = New-Object System.Drawing.Point(12, 12)
+    $foundLabel.Size = New-Object System.Drawing.Size(296, 20)
+    $foundLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $foundLabel.ForeColor = [System.Drawing.Color]::FromArgb(50, 50, 70)
+    $ipListPanel.Controls.Add($foundLabel)
     
-    # ListBox per IP trovati (sinistra) - aggiornato in tempo reale
+    # ListBox per IP trovati (dentro il panel) - aggiornato in tempo reale
     $script:statusWindowListBox = New-Object System.Windows.Forms.ListBox
-    $script:statusWindowListBox.Location = New-Object System.Drawing.Point(10, 125)
-    $script:statusWindowListBox.Size = New-Object System.Drawing.Size(300, 405)
-    $script:statusWindowListBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $script:statusWindowListBox.Location = New-Object System.Drawing.Point(12, 35)
+    $script:statusWindowListBox.Size = New-Object System.Drawing.Size(296, 375)
+    $script:statusWindowListBox.Font = New-Object System.Drawing.Font("Consolas", 9.5)
     $script:statusWindowListBox.SelectionMode = [System.Windows.Forms.SelectionMode]::None
-    $script:statusWindow.Controls.Add($script:statusWindowListBox)
+    $script:statusWindowListBox.BackColor = [System.Drawing.Color]::FromArgb(250, 250, 252)
+    $script:statusWindowListBox.BorderStyle = [System.Windows.Forms.BorderStyle]::None
+    $ipListPanel.Controls.Add($script:statusWindowListBox)
     
-    # Pulsante Forza Scansione (destra)
+    # Panel per pulsanti (card style)
+    $buttonPanel = New-Object System.Windows.Forms.Panel
+    $buttonPanel.Location = New-Object System.Drawing.Point(360, 100)
+    $buttonPanel.Size = New-Object System.Drawing.Size(200, 505)
+    $buttonPanel.BackColor = [System.Drawing.Color]::White
+    $buttonPanel.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $script:statusWindow.Controls.Add($buttonPanel)
+    
+    # Pulsante Forza Scansione (moderno, con gradiente simulato)
     $forceScanButton = New-Object System.Windows.Forms.Button
     $forceScanButton.Text = "Forza Scansione"
-    $forceScanButton.Location = New-Object System.Drawing.Point(330, 70)
-    $forceScanButton.Size = New-Object System.Drawing.Size(150, 80)
-    $forceScanButton.Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 10, [System.Drawing.FontStyle]::Bold)
-    $forceScanButton.BackColor = [System.Drawing.Color]::FromArgb(0, 123, 255)
+    $forceScanButton.Location = New-Object System.Drawing.Point(15, 20)
+    $forceScanButton.Size = New-Object System.Drawing.Size(170, 65)
+    $forceScanButton.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
+    $forceScanButton.BackColor = [System.Drawing.Color]::FromArgb(30, 58, 138)
     $forceScanButton.ForeColor = [System.Drawing.Color]::White
     $forceScanButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $forceScanButton.FlatAppearance.BorderSize = 0
+    $forceScanButton.Cursor = [System.Windows.Forms.Cursors]::Hand
     $forceScanButton.Add_Click({
         $triggerFile = Join-Path (Split-Path -Parent $script:configPath) ".force_scan.trigger"
         try {
@@ -240,17 +298,57 @@ function Show-StatusWindow {
             )
         }
     })
-    $script:statusWindow.Controls.Add($forceScanButton)
+    # Effetto hover per il pulsante
+    $forceScanButton.Add_MouseEnter({
+        $forceScanButton.BackColor = [System.Drawing.Color]::FromArgb(37, 99, 235)
+    })
+    $forceScanButton.Add_MouseLeave({
+        $forceScanButton.BackColor = [System.Drawing.Color]::FromArgb(30, 58, 138)
+    })
+    $buttonPanel.Controls.Add($forceScanButton)
     
-    # Pulsante Chiudi
+    # Label statistiche (opzionale, sotto il pulsante)
+    $statsLabel = New-Object System.Windows.Forms.Label
+    $statsLabel.Text = "Statistiche"
+    $statsLabel.Location = New-Object System.Drawing.Point(15, 100)
+    $statsLabel.Size = New-Object System.Drawing.Size(170, 20)
+    $statsLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $statsLabel.ForeColor = [System.Drawing.Color]::FromArgb(50, 50, 70)
+    $buttonPanel.Controls.Add($statsLabel)
+    
+    # Label per statistiche (da aggiornare)
+    $script:statsInfoLabel = New-Object System.Windows.Forms.Label
+    $script:statsInfoLabel.Text = "Caricamento..."
+    $script:statsInfoLabel.Location = New-Object System.Drawing.Point(15, 125)
+    $script:statsInfoLabel.Size = New-Object System.Drawing.Size(170, 80)
+    $script:statsInfoLabel.Font = New-Object System.Drawing.Font("Segoe UI", 8.5)
+    $script:statsInfoLabel.ForeColor = [System.Drawing.Color]::FromArgb(100, 100, 120)
+    $script:statsInfoLabel.TextAlign = [System.Drawing.ContentAlignment]::TopLeft
+    $buttonPanel.Controls.Add($script:statsInfoLabel)
+    
+    # Pulsante Chiudi (stile moderno)
     $closeButton = New-Object System.Windows.Forms.Button
     $closeButton.Text = "Chiudi"
-    $closeButton.Location = New-Object System.Drawing.Point(330, 540)
-    $closeButton.Size = New-Object System.Drawing.Size(150, 35)
+    $closeButton.Location = New-Object System.Drawing.Point(15, 450)
+    $closeButton.Size = New-Object System.Drawing.Size(170, 40)
+    $closeButton.Font = New-Object System.Drawing.Font("Segoe UI", 9.5, [System.Drawing.FontStyle]::Regular)
+    $closeButton.BackColor = [System.Drawing.Color]::FromArgb(239, 246, 255)
+    $closeButton.ForeColor = [System.Drawing.Color]::FromArgb(30, 58, 138)
+    $closeButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $closeButton.FlatAppearance.BorderSize = 1
+    $closeButton.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(200, 200, 220)
+    $closeButton.Cursor = [System.Windows.Forms.Cursors]::Hand
     $closeButton.Add_Click({
         $script:statusWindow.Hide()
     })
-    $script:statusWindow.Controls.Add($closeButton)
+    # Effetto hover per il pulsante chiudi
+    $closeButton.Add_MouseEnter({
+        $closeButton.BackColor = [System.Drawing.Color]::FromArgb(219, 234, 254)
+    })
+    $closeButton.Add_MouseLeave({
+        $closeButton.BackColor = [System.Drawing.Color]::FromArgb(239, 246, 255)
+    })
+    $buttonPanel.Controls.Add($closeButton)
     
     # Handler chiusura finestra
     $script:statusWindow.Add_FormClosing({
@@ -264,12 +362,14 @@ function Show-StatusWindow {
     $script:updateTimer.Add_Tick({
         Update-FoundIPsList
         Update-Countdown
+        Update-Stats
     })
     $script:updateTimer.Start()
     
     # Aggiorna subito
     Update-FoundIPsList
     Update-Countdown
+    Update-Stats
     
     # Mostra finestra
     $script:statusWindow.Show()
@@ -307,9 +407,16 @@ function Update-FoundIPsList {
     if ($script:statusWindow.InvokeRequired) {
         $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
             $script:statusWindowListBox.Items.Clear()
+            $index = 0
             foreach ($item in $sortedIPs) {
                 $displayText = if ($item.mac) { "$($item.ip) - $($item.mac)" } else { $item.ip }
                 $script:statusWindowListBox.Items.Add($displayText)
+                # Colore alternato per le righe (solo se supportato)
+                if ($index % 2 -eq 0) {
+                    # Riga pari: colore leggermente diverso (se possibile)
+                    # Nota: ListBox standard non supporta colori per riga, ma miglioriamo il font
+                }
+                $index++
             }
             if ($script:statusWindowListBox.Items.Count -gt 0) {
                 $script:statusWindowListBox.TopIndex = $script:statusWindowListBox.Items.Count - 1
@@ -317,9 +424,11 @@ function Update-FoundIPsList {
         })
     } else {
         $script:statusWindowListBox.Items.Clear()
+        $index = 0
         foreach ($item in $sortedIPs) {
             $displayText = if ($item.mac) { "$($item.ip) - $($item.mac)" } else { $item.ip }
             $script:statusWindowListBox.Items.Add($displayText)
+            $index++
         }
         if ($script:statusWindowListBox.Items.Count -gt 0) {
             $script:statusWindowListBox.TopIndex = $script:statusWindowListBox.Items.Count - 1
@@ -333,19 +442,30 @@ function Update-Countdown {
     if (-not $script:statusWindow -or -not $script:statusWindow.Visible) { return }
     
     $status = Get-Status
-    $countdownText = "Prossima scansione: --:--"
+    $countdownText = "--:--"
     
     # Se lo status è "scanning", mostra "Scansione in corso..."
     if ($status -and $status.status -eq "scanning") {
-        $countdownText = "Scansione in corso..."
+        $countdownText = "In corso..."
         if ($script:statusWindow.InvokeRequired) {
             $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
                 $script:countdownLabel.Text = $countdownText
+                $script:countdownLabel.ForeColor = [System.Drawing.Color]::FromArgb(34, 197, 94)
             })
         } else {
             $script:countdownLabel.Text = $countdownText
+            $script:countdownLabel.ForeColor = [System.Drawing.Color]::FromArgb(34, 197, 94)
         }
         return
+    }
+    
+    # Reset colore normale
+    if ($script:statusWindow.InvokeRequired) {
+        $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
+            $script:countdownLabel.ForeColor = [System.Drawing.Color]::FromArgb(30, 58, 138)
+        })
+    } else {
+        $script:countdownLabel.ForeColor = [System.Drawing.Color]::FromArgb(30, 58, 138)
     }
     
     # Prova a calcolare countdown da last_scan
@@ -381,18 +501,18 @@ function Update-Countdown {
             if ($timeRemaining.TotalSeconds -gt 0) {
                 $minutes = [Math]::Floor($timeRemaining.TotalMinutes)
                 $seconds = [Math]::Floor($timeRemaining.TotalSeconds % 60)
-                $countdownText = "Prossima scansione: $($minutes.ToString('00')):$($seconds.ToString('00'))"
+                $countdownText = "$($minutes.ToString('00')):$($seconds.ToString('00'))"
             } else {
                 # Se il tempo è scaduto, mostra "Scansione in corso..." o "In attesa..."
-                $countdownText = "In attesa scansione..."
+                $countdownText = "In attesa..."
             }
         } catch {
             # In caso di errore, mostra messaggio generico
-            $countdownText = "Prossima scansione: --:--"
+            $countdownText = "--:--"
         }
     } else {
         # Se non c'è last_scan, mostra messaggio informativo
-        $countdownText = "In attesa prima scansione..."
+        $countdownText = "In attesa..."
     }
     
     # Aggiorna thread-safe
@@ -402,6 +522,47 @@ function Update-Countdown {
         })
     } else {
         $script:countdownLabel.Text = $countdownText
+    }
+}
+
+# Aggiorna statistiche
+function Update-Stats {
+    if (-not $script:statsInfoLabel) { return }
+    if (-not $script:statusWindow -or -not $script:statusWindow.Visible) { return }
+    
+    $status = Get-Status
+    $currentIPs = Get-CurrentScanIPs
+    
+    $statsText = ""
+    if ($status) {
+        if ($status.devices_found -ne $null) {
+            $statsText += "Dispositivi trovati: $($status.devices_found)`r`n"
+        }
+        if ($status.status) {
+            $statusText = switch ($status.status) {
+                "running" { "In esecuzione" }
+                "scanning" { "Scansione in corso" }
+                "error" { "Errore" }
+                default { $status.status }
+            }
+            $statsText += "Stato: $statusText`r`n"
+        }
+    }
+    if ($currentIPs) {
+        $statsText += "IP attuali: $($currentIPs.Count)"
+    }
+    
+    if ([string]::IsNullOrWhiteSpace($statsText)) {
+        $statsText = "Nessuna informazione disponibile"
+    }
+    
+    # Aggiorna thread-safe
+    if ($script:statusWindow.InvokeRequired) {
+        $script:statusWindow.Invoke([System.Windows.Forms.MethodInvoker]{
+            $script:statsInfoLabel.Text = $statsText
+        })
+    } else {
+        $script:statsInfoLabel.Text = $statsText
     }
 }
 
