@@ -125,7 +125,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const loadChanges = useCallback(async (silent = false) => {
     try {
       const searchParam = changesSearchTerm ? `&search=${encodeURIComponent(changesSearchTerm)}` : '';
-      const response = await fetch(buildApiUrl(`/api/network-monitoring/all/changes?limit=100${searchParam}`), {
+      // Richiedi anche il conteggio delle ultime 24 ore
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/all/changes?limit=500&count24h=true${searchParam}`), {
         headers: getAuthHeader()
       });
 
@@ -134,7 +135,16 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       }
 
       const data = await response.json();
-      setChanges(data);
+      // Gestisci sia formato vecchio (array) che nuovo (oggetto con count24h)
+      if (Array.isArray(data)) {
+        setChanges(data);
+      } else {
+        setChanges(data.changes || []);
+        // Salva il conteggio delle ultime 24 ore se disponibile
+        if (data.count24h !== undefined) {
+          setRecentChangesCount(data.count24h);
+        }
+      }
     } catch (err) {
       if (!silent) {
         console.error('Errore caricamento cambiamenti:', err);
@@ -482,7 +492,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     total: devicesForStats.length,
     online: devicesForStats.filter(d => d.status === 'online').length,
     offline: devicesForStats.filter(d => d.status === 'offline').length,
-    recentChanges: changes.filter(c => {
+    // Usa il conteggio dal backend se disponibile, altrimenti calcola lato frontend
+    recentChanges: recentChangesCount > 0 ? recentChangesCount : changes.filter(c => {
       const changeDate = new Date(c.detected_at);
       const hoursAgo = (Date.now() - changeDate.getTime()) / 3600000;
       return hoursAgo < 24;

@@ -1447,20 +1447,57 @@ module.exports = (pool, io) => {
             nd.device_type ILIKE $1
           )`;
           queryParams.push(searchPattern, macSearchPattern);
-        } else {
-          searchConditions = `WHERE (
-            nd.ip_address::text ILIKE $1 OR
-            nd.mac_address ILIKE $1 OR
-            nd.hostname ILIKE $1 OR
-            nc.change_type::text ILIKE $1 OR
-            nc.old_value ILIKE $1 OR
-            nc.new_value ILIKE $1 OR
-            na.agent_name ILIKE $1 OR
-            COALESCE(u.azienda, '') ILIKE $1 OR
-            nd.device_type ILIKE $1
-          )`;
-          queryParams.push(searchPattern);
+      } else {
+        searchConditions = `WHERE (
+          nd.ip_address::text ILIKE $1 OR
+          nd.mac_address ILIKE $1 OR
+          nd.hostname ILIKE $1 OR
+          nc.change_type::text ILIKE $1 OR
+          nc.old_value ILIKE $1 OR
+          nc.new_value ILIKE $1 OR
+          na.agent_name ILIKE $1 OR
+          COALESCE(u.azienda, '') ILIKE $1 OR
+          nd.device_type ILIKE $1
+        )`;
+        queryParams.push(searchPattern);
+      }
+    }
+    
+    // Per il conteggio 24h, gestisci correttamente le condizioni WHERE/AND
+    let count24hQuery = '';
+    if (req.query.count24h === 'true') {
+      if (searchConditions) {
+        // Se c'è già una condizione WHERE, aggiungi AND per le 24h
+        count24hQuery = searchConditions + ` AND nc.detected_at > NOW() - INTERVAL '24 hours'`;
+      } else {
+        // Altrimenti crea una nuova condizione WHERE
+        count24hQuery = `WHERE nc.detected_at > NOW() - INTERVAL '24 hours'`;
         }
+      }
+      
+      // Se richiesto, conta i cambiamenti delle ultime 24 ore
+      let count24h = null;
+      if (req.query.count24h === 'true') {
+        // Costruisci la condizione per le 24h
+        let count24hCondition = '';
+        if (searchConditions) {
+          // Se c'è già una condizione WHERE, aggiungi AND per le 24h
+          count24hCondition = searchConditions + ` AND nc.detected_at > NOW() - INTERVAL '24 hours'`;
+        } else {
+          // Altrimenti crea una nuova condizione WHERE
+          count24hCondition = `WHERE nc.detected_at > NOW() - INTERVAL '24 hours'`;
+        }
+        
+        const countQuery = `
+          SELECT COUNT(*) as count
+          FROM network_changes nc
+          INNER JOIN network_devices nd ON nc.device_id = nd.id
+          INNER JOIN network_agents na ON nc.agent_id = na.id
+          LEFT JOIN users u ON na.azienda_id = u.id
+          ${count24hCondition}
+        `;
+        const countResult = await pool.query(countQuery, queryParams);
+        count24h = parseInt(countResult.rows[0].count, 10);
       }
 
       const result = await pool.query(
@@ -1491,7 +1528,12 @@ module.exports = (pool, io) => {
         [...queryParams, limit]
       );
 
-      res.json(result.rows);
+      // Restituisci anche il conteggio se richiesto
+      if (count24h !== null) {
+        res.json({ changes: result.rows, count24h });
+      } else {
+        res.json(result.rows);
+      }
     } catch (err) {
       console.error('❌ Errore recupero tutti cambiamenti:', err);
       res.status(500).json({ error: 'Errore interno del server' });
