@@ -1474,31 +1474,26 @@ module.exports = (pool, io) => {
       }
     }
     
-    // Per il conteggio 24h, gestisci correttamente le condizioni WHERE/AND
-    let count24hQuery = '';
+    // Se richiesto, conta i cambiamenti delle ultime 24 ore
+    // IMPORTANTE: Esegui questa query PRIMA della query principale per evitare timeout
+    let count24h = null;
     if (req.query.count24h === 'true') {
-      if (searchConditions) {
-        // Se c'è già una condizione WHERE, aggiungi AND per le 24h
-        count24hQuery = searchConditions + ` AND nc.detected_at > NOW() - INTERVAL '24 hours'`;
-      } else {
-        // Altrimenti crea una nuova condizione WHERE
-        count24hQuery = `WHERE nc.detected_at > NOW() - INTERVAL '24 hours'`;
-        }
-      }
-      
-      // Se richiesto, conta i cambiamenti delle ultime 24 ore
-      let count24h = null;
-      if (req.query.count24h === 'true') {
+      try {
         // Costruisci la condizione per le 24h
         let count24hCondition = '';
+        let countParams = [];
+        
         if (searchConditions) {
           // Se c'è già una condizione WHERE, aggiungi AND per le 24h
           count24hCondition = searchConditions + ` AND nc.detected_at > NOW() - INTERVAL '24 hours'`;
+          countParams = queryParams.slice(0, -1); // Rimuovi il limit dai params
         } else {
           // Altrimenti crea una nuova condizione WHERE
           count24hCondition = `WHERE nc.detected_at > NOW() - INTERVAL '24 hours'`;
+          countParams = [];
         }
         
+        // Query semplificata e veloce con timeout
         const countQuery = `
           SELECT COUNT(*) as count
           FROM network_changes nc
@@ -1507,9 +1502,21 @@ module.exports = (pool, io) => {
           LEFT JOIN users u ON na.azienda_id = u.id
           ${count24hCondition}
         `;
-        const countResult = await pool.query(countQuery, queryParams);
+        
+        // Timeout di 5 secondi per evitare 502
+        const countPromise = pool.query(countQuery, countParams);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Query timeout dopo 5 secondi')), 5000)
+        );
+        
+        const countResult = await Promise.race([countPromise, timeoutPromise]);
         count24h = parseInt(countResult.rows[0].count, 10);
+      } catch (countErr) {
+        console.warn('⚠️ Errore conteggio 24h (non critico):', countErr.message);
+        // Non bloccare la risposta principale se il conteggio fallisce
+        count24h = null;
       }
+    }
 
       const result = await pool.query(
         `SELECT 
