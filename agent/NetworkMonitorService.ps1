@@ -1300,8 +1300,10 @@ Update-StatusFile -Status "running" -Message "Servizio avviato"
 
 # Loop principale
 Write-Log "Avvio loop principale..."
-$nextScanTime = Get-Date
+# Imposta nextScanTime a 5 secondi fa per forzare la prima scansione immediata
+$nextScanTime = (Get-Date).AddSeconds(-5)
 $nextHeartbeatTime = Get-Date  # Heartbeat ogni 5 minuti
+Write-Log "Prima scansione programmata immediatamente (nextScanTime: $($nextScanTime.ToString('HH:mm:ss')))"
 
 while ($script:isRunning) {
     try {
