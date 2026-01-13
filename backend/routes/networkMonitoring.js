@@ -324,11 +324,6 @@ module.exports = (pool, io) => {
   let tablesCheckDone = false;
   let tablesCheckInProgress = false;
   const ensureTables = async () => {
-    // Se già verificato, esci subito
-    if (tablesCheckDone) {
-      return;
-    }
-    
     // Se una verifica è già in corso, aspetta
     if (tablesCheckInProgress) {
       // Aspetta fino a 5 secondi che la verifica finisca
@@ -337,7 +332,10 @@ module.exports = (pool, io) => {
         await new Promise(resolve => setTimeout(resolve, 100));
         waitCount++;
       }
-      return;
+      // Dopo l'attesa, ricontrolla se le tabelle esistono (potrebbero essere state create)
+      if (tablesCheckDone) {
+        return;
+      }
     }
     
     tablesCheckInProgress = true;
@@ -366,7 +364,8 @@ module.exports = (pool, io) => {
         return;
       }
       
-      // Se manca almeno una tabella, inizializza (creerà tutte le tabelle necessarie)
+      // Se manca almeno una tabella, resetta il flag e inizializza (creerà tutte le tabelle necessarie)
+      tablesCheckDone = false; // Reset per forzare la ricreazione
       await initTables();
       tablesCheckDone = true;
     } catch (err) {
