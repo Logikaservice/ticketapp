@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Wifi, WifiOff, Monitor, Server, Printer, Router, 
-  AlertCircle, CheckCircle, Clock, RefreshCw, 
+  AlertCircle, AlertTriangle, CheckCircle, Clock, RefreshCw, 
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
   Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit, Menu
