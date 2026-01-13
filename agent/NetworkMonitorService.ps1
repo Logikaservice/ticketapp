@@ -327,20 +327,32 @@ function Get-NetworkDevices {
                             if ($selectedAdapter) {
                                 $macAddress = $selectedAdapter.MacAddress
                                 # Normalizza formato MAC (usa trattini)
-                                if ($macAddress -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                if ($macAddress) {
+                                    # Rimuovi spazi e normalizza separatori
                                     $macAddress = $macAddress -replace ':', '-' -replace ' ', ''
                                     # Assicura formato maiuscolo
                                     $macAddress = $macAddress.ToUpper()
+                                    
+                                    # Verifica che sia un MAC valido
+                                    if (-not ($macAddress -match '^([0-9A-F]{2}-){5}[0-9A-F]{2}$')) {
+                                        Write-Log "MAC locale non valido: $macAddress" "WARN"
+                                        $macAddress = $null
+                                    }
                                 }
                                 
-                                if ($physicalAdapter) {
-                                    Write-Log "MAC locale (fisico) per $ip: $macAddress" "DEBUG"
-                                } else {
-                                    Write-Log "MAC locale (virtuale) per $ip: $macAddress" "WARN"
+                                if ($macAddress) {
+                                    if ($physicalAdapter) {
+                                        Write-Log "MAC locale (fisico) per $ip: $macAddress" "DEBUG"
+                                    } else {
+                                        Write-Log "MAC locale (virtuale) per $ip: $macAddress" "WARN"
+                                    }
                                 }
                             }
                         } catch {
                             Write-Log "Errore recupero MAC locale: $_" "WARN"
+                            Write-Log "Stack: $($_.Exception.StackTrace)" "WARN"
+                            # Continua anche se c'è un errore nel recupero MAC locale
+                            $macAddress = $null
                         }
                         
                         # Ottieni hostname locale
