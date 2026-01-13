@@ -206,6 +206,8 @@ function Get-NetworkDevices {
     $foundIPs = [System.Collections.Generic.List[string]]::new()
     # Dizionario per tracciare MAC trovati (inclusi quelli da lookup diretto)
     $foundMACs = @{}
+    # Dizionario per tracciare dispositivi con ping intermittenti (ping falliti durante i 3 tentativi)
+    $script:pingFailures = @{}
     
     # Ottieni IP locale del PC dove gira l'agent
     $localIP = $null
@@ -322,10 +324,14 @@ function Get-NetworkDevices {
                     # ScriptBlock per ping parallelo
                     # IMPORTANTE: Fa più tentativi per dispositivi con ping intermittenti
                     # Come Advanced IP Scanner, considera attivo se almeno un ping ha successo
+                    # Traccia anche i ping falliti per mostrare warning nel frontend
                     $pingScriptBlock = {
                         param($targetIP, $timeoutMs)
                         
                         $ping = $null
+                        $successCount = 0
+                        $failureCount = 0
+                        
                         try {
                             $ping = New-Object System.Net.NetworkInformation.Ping
                             
@@ -335,16 +341,27 @@ function Get-NetworkDevices {
                                 try {
                                     $reply = $ping.Send($targetIP, $timeoutMs)
                                     if ($reply.Status -eq 'Success') {
+                                        $successCount++
                                         # Almeno un ping ha avuto successo -> dispositivo attivo
-                                        return $targetIP
+                                    } else {
+                                        $failureCount++
                                     }
                                 } catch {
-                                    # Ignora errori ping singolo, continua con prossimo tentativo
+                                    # Errore ping -> conta come fallimento
+                                    $failureCount++
                                 }
                                 
                                 # Attesa breve tra tentativi (solo se non è l'ultimo)
                                 if ($attempt -lt 3) {
                                     Start-Sleep -Milliseconds 100
+                                }
+                            }
+                            
+                            # Se almeno un ping ha avuto successo, restituisci risultato con info fallimenti
+                            if ($successCount -gt 0) {
+                                return @{
+                                    ip = $targetIP
+                                    has_ping_failures = ($failureCount -gt 0)
                                 }
                             }
                         } catch {
@@ -402,9 +419,33 @@ function Get-NetworkDevices {
                                 # Timeout aumentato a 3 secondi per gestire ping multipli (3 tentativi)
                                 if ($asyncWait -and $asyncWait.WaitOne(3000)) {
                                     try {
-                                        $resultIP = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
-                                        if ($resultIP) {
-                                            [void]$activeIPs.Add($resultIP)
+                                        $result = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
+                                        if ($result) {
+                                            # Gestisci sia formato vecchio (stringa IP) che nuovo (oggetto con has_ping_failures)
+                                            if ($result -is [string]) {
+                                                [void]$activeIPs.Add($result)
+                                            } elseif ($result -is [hashtable] -or $result -is [PSCustomObject]) {
+                                                [void]$activeIPs.Add($result.ip)
+                                                # Salva info ping failures per uso successivo
+                                                if ($result.has_ping_failures) {
+                                                    if (-not $script:pingFailures) {
+                                                        $script:pingFailures = @{}
+                                                    }
+                                                    $script:pingFailures[$result.ip] = $true
+                                                }
+                                            } else {
+                                                # Fallback: se è un oggetto con proprietà ip
+                                                $ipValue = if ($result.ip) { $result.ip } else { $result }
+                                                if ($ipValue) {
+                                                    [void]$activeIPs.Add($ipValue)
+                                                    if ($result.has_ping_failures) {
+                                                        if (-not $script:pingFailures) {
+                                                            $script:pingFailures = @{}
+                                                        }
+                                                        $script:pingFailures[$ipValue] = $true
+                                                    }
+                                                }
+                                            }
                                             
                                             # Salva SUBITO questo IP nella tray icon (aggiornamento in tempo reale)
                                             try {

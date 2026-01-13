@@ -150,6 +150,19 @@ module.exports = (pool, io) => {
         }
       }
 
+      // Aggiungi colonna has_ping_failures per tracciare dispositivi con ping intermittenti
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS has_ping_failures BOOLEAN DEFAULT false;
+        `);
+      } catch (err) {
+        // Ignora errore se colonna esiste già
+        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna has_ping_failures:', err.message);
+        }
+      }
+
       // Crea tabella network_changes
       await pool.query(`
         CREATE TABLE IF NOT EXISTS network_changes (
@@ -536,7 +549,7 @@ module.exports = (pool, io) => {
       
       for (let i = 0; i < devices.length; i++) {
         const device = devices[i];
-        let { ip_address, mac_address, hostname, vendor, status } = device;
+        let { ip_address, mac_address, hostname, vendor, status, has_ping_failures } = device;
         // device_type non viene più inviato dall'agent, sarà gestito manualmente
         
         // Normalizza hostname: potrebbe essere stringa, array, o oggetto JSON
@@ -708,7 +721,7 @@ module.exports = (pool, io) => {
         } else {
           // Se non abbiamo MAC, cerca SOLO per IP (senza vincolo su mac_address)
           // Questo evita di perdere dispositivi che avevano MAC prima ma ora non vengono trovati
-          existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac
+          existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac, has_ping_failures
                            FROM network_devices 
                            WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2
                            LIMIT 1`;
@@ -1128,7 +1141,7 @@ module.exports = (pool, io) => {
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.device_path, nd.status, nd.is_static, nd.first_seen, nd.last_seen,
-          nd.previous_ip, nd.previous_mac,
+          nd.previous_ip, nd.previous_mac, nd.has_ping_failures,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
@@ -1287,6 +1300,10 @@ module.exports = (pool, io) => {
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS previous_mac VARCHAR(17);
         `);
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS has_ping_failures BOOLEAN DEFAULT false;
+        `);
       } catch (migrationErr) {
         // Ignora errore se colonna esiste già
         if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
@@ -1310,7 +1327,7 @@ module.exports = (pool, io) => {
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.device_path, nd.status, nd.is_static, nd.first_seen, nd.last_seen,
-          nd.previous_ip, nd.previous_mac,
+          nd.previous_ip, nd.previous_mac, nd.has_ping_failures,
           na.agent_name, na.azienda_id, na.last_heartbeat as agent_last_seen, na.status as agent_status,
           u.azienda
          FROM network_devices nd
