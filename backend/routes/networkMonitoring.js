@@ -721,8 +721,8 @@ module.exports = (pool, io) => {
                          LIMIT 1`;
         existingParams = [agentId, normalizedIpForSearch];
         
-        let existing = await pool.query(existingQuery, existingParams);
-        existingDevice = existing.rows[0];
+        let existingResult = await pool.query(existingQuery, existingParams);
+        existingDevice = existingResult.rows[0];
         
         // 2. Se non trovato per IP E abbiamo MAC, cerca per MAC (per gestire cambi di IP)
         if (!existingDevice && normalizedMacForSearch && normalizedMacForSearch !== '') {
@@ -731,8 +731,8 @@ module.exports = (pool, io) => {
                            WHERE agent_id = $1 AND mac_address = $2
                            LIMIT 1`;
           existingParams = [agentId, normalizedMacForSearch];
-          existing = await pool.query(existingQuery, existingParams);
-          existingDevice = existing.rows[0];
+          existingResult = await pool.query(existingQuery, existingParams);
+          existingDevice = existingResult.rows[0];
           
           if (existingDevice) {
             console.log(`  🔄 Dispositivo trovato per MAC ${normalizedMacForSearch}, ma IP cambiato: ${existingDevice.ip_address} -> ${ip_address}`);
