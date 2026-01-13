@@ -7,7 +7,7 @@ class KeepassDriveService {
     this.macToTitleMap = null;
     this.lastCacheUpdate = null;
     this.lastFileModifiedTime = null; // Data di modifica dell'ultimo file caricato
-    this.cacheTimeout = 5 * 60 * 1000; // 5 minuti di cache
+    this.cacheTimeout = 30 * 1000; // 30 secondi di cache (ridotto per aggiornamenti più frequenti)
     this.isLoading = false;
     this.loadPromise = null;
   }
@@ -349,11 +349,12 @@ class KeepassDriveService {
     this.isLoading = true;
     this.loadPromise = this.loadMacToTitleMap(password)
       .then(map => {
-        this.macToTitleMap = map;
-        this.lastCacheUpdate = Date.now();
-        this.isLoading = false;
-        this.loadPromise = null;
-        return map;
+      this.macToTitleMap = map;
+      this.lastCacheUpdate = Date.now();
+      this.lastFileModifiedTime = modifiedTime; // Salva la data di modifica del file caricato
+      this.isLoading = false;
+      this.loadPromise = null;
+      return map;
       })
       .catch(err => {
         this.isLoading = false;
