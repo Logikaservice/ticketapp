@@ -2715,22 +2715,31 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
       } else {
         console.log('⚠️ checkOfflineAgents: nessun agent trovato offline. Verifica i filtri della query.');
         // Debug: verifica se ci sono agent offline con eventi esistenti
-        const offlineAgentsWithEvents = await pool.query(
-          `SELECT na.id, na.agent_name, na.status, na.enabled,
-                  (SELECT COUNT(*) FROM network_agent_events nae 
-                   WHERE nae.agent_id = na.id 
-                     AND nae.event_type = 'offline' 
-                     AND nae.resolved_at IS NULL) as event_count
-           FROM network_agents na
-           WHERE na.deleted_at IS NULL
-             AND na.enabled = TRUE
-             AND na.status = 'offline'`
-        );
-        if (offlineAgentsWithEvents.rows.length > 0) {
-          console.log(`🔍 checkOfflineAgents: trovati ${offlineAgentsWithEvents.rows.length} agent offline con enabled=TRUE:`);
-          offlineAgentsWithEvents.rows.forEach(agent => {
-            console.log(`  - Agent ${agent.id} (${agent.agent_name}): status=${agent.status}, eventi offline non risolti=${agent.event_count}`);
-          });
+        try {
+          const offlineAgentsWithEvents = await pool.query(
+            `SELECT na.id, na.agent_name, na.status, na.enabled,
+                    (SELECT COUNT(*) FROM network_agent_events nae 
+                     WHERE nae.agent_id = na.id 
+                       AND nae.event_type = 'offline' 
+                       AND nae.resolved_at IS NULL) as event_count
+             FROM network_agents na
+             WHERE na.deleted_at IS NULL
+               AND na.enabled = TRUE
+               AND na.status = 'offline'`
+          );
+          if (offlineAgentsWithEvents.rows.length > 0) {
+            console.log(`🔍 checkOfflineAgents: trovati ${offlineAgentsWithEvents.rows.length} agent offline con enabled=TRUE:`);
+            offlineAgentsWithEvents.rows.forEach(agent => {
+              console.log(`  - Agent ${agent.id} (${agent.agent_name}): status=${agent.status}, eventi offline non risolti=${agent.event_count}`);
+            });
+          }
+        } catch (debugErr) {
+          // Se la tabella non esiste ancora, ignora l'errore di debug
+          if (debugErr.code === '42P01') {
+            console.log('ℹ️ checkOfflineAgents: tabella network_agent_events non ancora disponibile per debug');
+          } else {
+            console.log(`⚠️ checkOfflineAgents: errore query debug: ${debugErr.message}`);
+          }
         }
       }
 
