@@ -320,15 +320,32 @@ function Get-NetworkDevices {
                     $jobs = New-Object System.Collections.ArrayList
                     
                     # ScriptBlock per ping parallelo
+                    # IMPORTANTE: Fa più tentativi per dispositivi con ping intermittenti
+                    # Come Advanced IP Scanner, considera attivo se almeno un ping ha successo
                     $pingScriptBlock = {
                         param($targetIP, $timeoutMs)
                         
                         $ping = $null
                         try {
                             $ping = New-Object System.Net.NetworkInformation.Ping
-                            $reply = $ping.Send($targetIP, $timeoutMs)
-                            if ($reply.Status -eq 'Success') {
-                                return $targetIP
+                            
+                            # Fai 3 tentativi di ping (per gestire ping intermittenti)
+                            # Se almeno uno ha successo, il dispositivo è considerato attivo
+                            for ($attempt = 1; $attempt -le 3; $attempt++) {
+                                try {
+                                    $reply = $ping.Send($targetIP, $timeoutMs)
+                                    if ($reply.Status -eq 'Success') {
+                                        # Almeno un ping ha avuto successo -> dispositivo attivo
+                                        return $targetIP
+                                    }
+                                } catch {
+                                    # Ignora errori ping singolo, continua con prossimo tentativo
+                                }
+                                
+                                # Attesa breve tra tentativi (solo se non è l'ultimo)
+                                if ($attempt -lt 3) {
+                                    Start-Sleep -Milliseconds 100
+                                }
                             }
                         } catch {
                             # Ignora errori ping
@@ -341,8 +358,9 @@ function Get-NetworkDevices {
                     }
                     
                     # Avvia ping paralleli
+                    # Timeout aumentato a 300ms per gestire dispositivi con latenza maggiore o ping intermittenti
                     foreach ($ip in $ipListToScan) {
-                        $job = [powershell]::Create().AddScript($pingScriptBlock).AddArgument($ip).AddArgument(150)
+                        $job = [powershell]::Create().AddScript($pingScriptBlock).AddArgument($ip).AddArgument(300)
                         $job.RunspacePool = $runspacePool
                         $asyncResult = $job.BeginInvoke()
                         [void]$jobs.Add(@{
