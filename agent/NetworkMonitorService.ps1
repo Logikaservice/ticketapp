@@ -115,14 +115,21 @@ public class ArpHelper {
 
 # Variabili globali
 # Determina directory script (funziona anche come servizio)
+# IMPORTANTE: Quando eseguito come servizio Windows, $MyInvocation.MyCommand.Path è null
+# Usa prima $PSScriptRoot, poi percorso fisso come fallback
 $script:scriptDir = $null
-if ($MyInvocation.MyCommand.Path) {
-    $script:scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-} elseif ($PSScriptRoot) {
+if ($PSScriptRoot) {
     $script:scriptDir = $PSScriptRoot
-} else {
-    # Fallback: usa directory di lavoro corrente (NSSM configura AppDirectory)
-    $script:scriptDir = Get-Location | Select-Object -ExpandProperty Path
+} elseif ($MyInvocation.MyCommand.Path) {
+    $script:scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path -ErrorAction SilentlyContinue
+}
+if (-not $script:scriptDir) {
+    # Fallback: usa directory di installazione standard (NSSM configura AppDirectory)
+    $script:scriptDir = "C:\ProgramData\NetworkMonitorAgent"
+    # Se anche questo non esiste, prova directory corrente
+    if (-not (Test-Path $script:scriptDir)) {
+        $script:scriptDir = Get-Location | Select-Object -ExpandProperty Path
+    }
 }
 
 $script:isRunning = $true
