@@ -738,9 +738,6 @@ module.exports = (pool, io) => {
             console.log(`  🔄 Dispositivo trovato per MAC ${normalizedMacForSearch}, ma IP cambiato: ${existingDevice.ip_address} -> ${ip_address}`);
           }
         }
-        
-        const existing = await pool.query(existingQuery, existingParams);
-        existingDevice = existing.rows[0];
 
         if (existingDevice) {
           // Aggiorna dispositivo esistente
