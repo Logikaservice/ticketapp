@@ -288,7 +288,7 @@ function Get-NetworkDevices {
                             # Ottieni tutte le interfacce attive (con gestione errori robusta)
                             $adapters = $null
                             try {
-                                $adapters = Get-NetAdapter -ErrorAction Stop | Where-Object { $_.Status -eq "Up" } | Sort-Object InterfaceDescription
+                                $adapters = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq "Up" } | Sort-Object InterfaceDescription
                             } catch {
                                 Write-Log "Errore Get-NetAdapter: $_" "WARN"
                                 # Fallback: usa Get-NetIPAddress per trovare l'interfaccia corretta
