@@ -370,9 +370,9 @@ function Get-NetworkDevices {
                                     
                                     if ($macAddress) {
                                         if ($physicalAdapter) {
-                                            Write-Log "MAC locale (fisico) per $ip: $macAddress" "DEBUG"
+                                            Write-Log "MAC locale (fisico) per ${ip}: ${macAddress}" "DEBUG"
                                         } else {
-                                            Write-Log "MAC locale (virtuale) per $ip: $macAddress" "WARN"
+                                            Write-Log "MAC locale (virtuale) per ${ip}: ${macAddress}" "WARN"
                                         }
                                     }
                                 }
