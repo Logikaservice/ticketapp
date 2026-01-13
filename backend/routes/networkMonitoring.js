@@ -2636,6 +2636,7 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
     try {
       // Verifica che pool sia disponibile
       if (!pool) {
+        console.log('⚠️ checkOfflineAgents: pool non disponibile');
         return;
       }
 
@@ -2651,19 +2652,22 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
         
         if (!tableCheck || !tableCheck.rows || !tableCheck.rows[0] || !tableCheck.rows[0].exists) {
           // Tabella non esiste ancora, esci silenziosamente
+          console.log('⚠️ checkOfflineAgents: tabella network_agent_events non esiste ancora');
           return;
         }
       } catch (tableCheckErr) {
         // Se la verifica della tabella fallisce, esci silenziosamente
         // (probabilmente il database non è ancora pronto)
+        console.log('⚠️ checkOfflineAgents: errore verifica tabella:', tableCheckErr.message);
         return;
       }
 
       // Trova agent che non hanno inviato heartbeat da più di 2 minuti
       // (l'agent invia heartbeat ogni 5 minuti, quindi dopo 2 minuti senza heartbeat
       //  è probabile che sia offline, specialmente se era online prima)
+      console.log('🔍 checkOfflineAgents: controllo agent offline...');
       const offlineAgents = await pool.query(
-        `SELECT id, agent_name, last_heartbeat, status
+        `SELECT id, agent_name, last_heartbeat, status, enabled
          FROM network_agents
          WHERE deleted_at IS NULL
            AND enabled = TRUE
@@ -2673,21 +2677,35 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
              OR last_heartbeat < NOW() - INTERVAL '2 minutes'
            )`
       );
+      
+      console.log(`🔍 checkOfflineAgents: trovati ${offlineAgents.rows.length} agent offline`);
+      if (offlineAgents.rows.length > 0) {
+        offlineAgents.rows.forEach(agent => {
+          console.log(`  - Agent ${agent.id} (${agent.agent_name}): last_heartbeat = ${agent.last_heartbeat}, status = ${agent.status}`);
+        });
+      }
 
       for (const agent of offlineAgents.rows) {
+        console.log(`🔄 checkOfflineAgents: aggiornamento agent ${agent.id} (${agent.agent_name}) a offline...`);
+        
         // Aggiorna status a offline
         await pool.query(
           `UPDATE network_agents SET status = 'offline' WHERE id = $1`,
           [agent.id]
         );
+        
+        console.log(`✅ checkOfflineAgents: agent ${agent.id} aggiornato a offline nel database`);
 
         // Emetti evento WebSocket per aggiornare la lista agenti in tempo reale
         if (io) {
+          console.log(`📡 checkOfflineAgents: emissione evento WebSocket per agent ${agent.id}`);
           io.to(`role:tecnico`).to(`role:admin`).emit('network-monitoring-update', {
             type: 'agent-status-changed',
             agentId: agent.id,
             status: 'offline'
           });
+        } else {
+          console.log('⚠️ checkOfflineAgents: io (WebSocket) non disponibile');
         }
 
         // Verifica se esiste già un evento offline non risolto
@@ -2745,7 +2763,9 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
     }, 5000); // Aspetta 5 secondi dopo l'avvio del server
 
     // Avvia job periodico
+    console.log('⏰ checkOfflineAgents: avvio job periodico (ogni 60 secondi)');
     setInterval(() => {
+      console.log('⏰ checkOfflineAgents: esecuzione job periodico...');
       checkOfflineAgents().catch(err => {
         console.error('❌ Errore controllo periodico agent offline:', err);
       });
