@@ -15,6 +15,7 @@ import CreateAgentModal from './Modals/CreateAgentModal';
 const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null }) => {
   const [devices, setDevices] = useState([]);
   const [changes, setChanges] = useState([]);
+  const [recentChangesCount, setRecentChangesCount] = useState(0); // Conteggio cambiamenti ultime 24h dal backend
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
