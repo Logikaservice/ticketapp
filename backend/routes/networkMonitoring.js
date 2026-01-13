@@ -2133,6 +2133,39 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
     }
   });
 
+  // PATCH /api/network-monitoring/devices/:id/reset-warnings
+  // Resetta i warning per un dispositivo (pulisce previous_ip e previous_mac)
+  router.patch('/devices/:id/reset-warnings', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      
+      const { id } = req.params;
+
+      // Verifica che il dispositivo esista
+      const deviceCheck = await pool.query(
+        'SELECT id, previous_ip, previous_mac FROM network_devices WHERE id = $1',
+        [id]
+      );
+
+      if (deviceCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato' });
+      }
+
+      // Reset dei warning (pulisce previous_ip e previous_mac)
+      const result = await pool.query(
+        'UPDATE network_devices SET previous_ip = NULL, previous_mac = NULL WHERE id = $1 RETURNING id, ip_address, previous_ip, previous_mac',
+        [id]
+      );
+
+      console.log(`✅ Warning reset per dispositivo ${id}`);
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error('❌ Errore reset warning:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // PATCH /api/network-monitoring/devices/:id/type
   // Aggiorna tipo dispositivo per un dispositivo specifico
   router.patch('/devices/:id/type', authenticateToken, requireRole('tecnico'), async (req, res) => {
