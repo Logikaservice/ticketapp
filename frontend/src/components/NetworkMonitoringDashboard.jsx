@@ -362,6 +362,15 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     };
   }, [socket, loadDevices, loadChanges, loadCompanyDevices, selectedCompanyId, showCreateAgentModal]);
 
+  // Ricarica cambiamenti quando cambia il termine di ricerca (con debounce)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadChanges();
+    }, 300); // Debounce di 300ms
+
+    return () => clearTimeout(timeoutId);
+  }, [changesSearchTerm, loadChanges]);
+
   // Icona dispositivo per tipo
   const getDeviceIcon = (deviceType) => {
     switch (deviceType?.toLowerCase()) {
