@@ -1507,10 +1507,18 @@ while ($script:isRunning) {
             
             try {
                 # 1. Scan rete
-                Write-Log "Avvio scansione rete..."
-                $devices = Get-NetworkDevices -NetworkRanges $config.network_ranges
-                Write-Log "Trovati $($devices.Count) dispositivi"
-                $script:lastScanDevices = $devices.Count
+                Write-Log "Avvio scansione rete..." "INFO"
+                try {
+                    $devices = Get-NetworkDevices -NetworkRanges $config.network_ranges
+                    Write-Log "Trovati $($devices.Count) dispositivi" "INFO"
+                    $script:lastScanDevices = $devices.Count
+                } catch {
+                    Write-Log "ERRORE CRITICO durante Get-NetworkDevices: $_" "ERROR"
+                    Write-Log "Stack trace: $($_.Exception.StackTrace)" "ERROR"
+                    # Continua con array vuoto invece di bloccare tutto
+                    $devices = @()
+                    $script:lastScanDevices = 0
+                }
                 
                 # 2. Invio dati se ci sono dispositivi
                 if ($devices.Count -gt 0) {
