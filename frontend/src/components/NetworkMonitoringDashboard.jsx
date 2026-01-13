@@ -360,6 +360,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       if (!showCreateAgentModal) {
         loadDevices(true);
         loadChanges(true);
+        
+        // Se l'evento riguarda un cambio di status dell'agent, ricarica anche la lista agenti
+        if (data && data.type === 'agent-status-changed') {
+          loadAgents();
+        }
+        
         // Se un'azienda è selezionata, ricarica anche i dispositivi dell'azienda (già silenzioso)
         if (selectedCompanyId) {
           loadCompanyDevices(selectedCompanyId);

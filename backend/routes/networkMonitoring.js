@@ -2659,17 +2659,19 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
         return;
       }
 
-      // Trova agent che non hanno inviato heartbeat da più di 10 minuti
+      // Trova agent che non hanno inviato heartbeat da più di 2 minuti
+      // (l'agent invia heartbeat ogni 5 minuti, quindi dopo 2 minuti senza heartbeat
+      //  è probabile che sia offline, specialmente se era online prima)
       const offlineAgents = await pool.query(
         `SELECT id, agent_name, last_heartbeat, status
          FROM network_agents
          WHERE deleted_at IS NULL
            AND enabled = TRUE
+           AND status = 'online'
            AND (
              last_heartbeat IS NULL 
-             OR last_heartbeat < NOW() - INTERVAL '10 minutes'
-           )
-           AND status != 'offline'`
+             OR last_heartbeat < NOW() - INTERVAL '2 minutes'
+           )`
       );
 
       for (const agent of offlineAgents.rows) {
