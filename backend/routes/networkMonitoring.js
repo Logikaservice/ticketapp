@@ -2517,6 +2517,7 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
   // GET /api/network-monitoring/agent-events - Ottieni eventi agent (offline, online, riavvio, problemi rete)
   router.get('/agent-events', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
+      await ensureTables(); // Assicura che le tabelle esistano
       const { limit = 50, unread_only = false } = req.query;
       const userId = req.user.id;
 
@@ -2551,11 +2552,12 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
 
       res.json(result.rows);
     } catch (err) {
-      console.error('❌ Errore recupero eventi agent:', err);
       // Se la tabella non esiste, restituisci array vuoto invece di errore
-      if (err.message && err.message.includes('does not exist')) {
+      if (err.message && (err.message.includes('does not exist') || err.message.includes('relation') && err.message.includes('network_agent_events'))) {
+        console.log('ℹ️ Tabella network_agent_events non ancora creata, restituisco array vuoto');
         res.json([]);
       } else {
+        console.error('❌ Errore recupero eventi agent:', err);
         res.status(500).json({ error: 'Errore interno del server' });
       }
     }
@@ -2584,6 +2586,7 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
   // GET /api/network-monitoring/agent-events/unread-count - Conta eventi non letti
   router.get('/agent-events/unread-count', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
+      await ensureTables(); // Assicura che le tabelle esistano
       const userId = req.user.id;
 
       const result = await pool.query(
@@ -2597,11 +2600,12 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
 
       res.json({ count: parseInt(result.rows[0].count, 10) });
     } catch (err) {
-      console.error('❌ Errore conteggio eventi non letti:', err);
       // Se la tabella non esiste, restituisci 0 invece di errore
-      if (err.message && err.message.includes('does not exist')) {
+      if (err.message && (err.message.includes('does not exist') || err.message.includes('relation') && err.message.includes('network_agent_events'))) {
+        console.log('ℹ️ Tabella network_agent_events non ancora creata, restituisco 0');
         res.json({ count: 0 });
       } else {
+        console.error('❌ Errore conteggio eventi non letti:', err);
         res.status(500).json({ error: 'Errore interno del server' });
       }
     }
