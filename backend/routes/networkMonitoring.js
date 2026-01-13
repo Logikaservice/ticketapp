@@ -795,6 +795,13 @@ module.exports = (pool, io) => {
             // MAC è lo stesso (anche se formato diverso), non serve aggiornare
             console.log(`  ℹ️ MAC per ${ip_address} già corretto: ${normalizedMac} (formato normalizzato: ${newMacNormalized})`);
           }
+          
+          // Aggiorna has_ping_failures se presente nei dati
+          if (has_ping_failures !== undefined && has_ping_failures !== existingDevice.has_ping_failures) {
+            updates.push(`has_ping_failures = $${paramIndex++}`);
+            values.push(has_ping_failures === true);
+          }
+          
           // Usa hostname già normalizzato (troncato a max 100 caratteri)
           if (hostname && hostname !== existingDevice.hostname) {
             updates.push(`hostname = $${paramIndex++}`);
@@ -884,8 +891,8 @@ module.exports = (pool, io) => {
             }
 
             const insertResult = await pool.query(
-              `INSERT INTO network_devices (agent_id, ip_address, mac_address, hostname, vendor, device_type, device_path, status)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+              `INSERT INTO network_devices (agent_id, ip_address, mac_address, hostname, vendor, device_type, device_path, status, has_ping_failures)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                RETURNING id`,
               [
                 agentId,
@@ -895,7 +902,8 @@ module.exports = (pool, io) => {
                 (vendor && vendor.trim() !== '') ? vendor.trim() : null,
                 deviceTypeFromKeepass || null, // device_type da KeePass se trovato
                 devicePathFromKeepass || null, // device_path da KeePass se trovato
-                status || 'online'
+                status || 'online',
+                has_ping_failures === true // has_ping_failures (default false)
               ]
             );
 
