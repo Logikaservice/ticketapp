@@ -396,7 +396,7 @@ function Get-NetworkDevices {
                                 break
                             }
                             
-                            # Attendi risultato con timeout (2 secondi per job)
+                            # Attendi risultato con timeout (3 secondi per job - aumentato per ping multipli)
                             if ($jobInfo.AsyncResult) {
                                 $asyncWait = $jobInfo.AsyncResult.AsyncWaitHandle
                                 # Timeout aumentato a 3 secondi per gestire ping multipli (3 tentativi)
