@@ -1682,12 +1682,35 @@ module.exports = (pool, io) => {
         return res.status(500).json({ error: errorMsg });
       }
 
+      // Leggi versione dal file NetworkMonitorService.ps1 se disponibile
+      let agentVersion = "1.0.0"; // Default
+      if (fs.existsSync(servicePath)) {
+        try {
+          const serviceContent = fs.readFileSync(servicePath, 'utf8');
+          // Cerca $SCRIPT_VERSION = "X.Y.Z"
+          const versionMatch = serviceContent.match(/\$SCRIPT_VERSION\s*=\s*"([\d\.]+)"/);
+          if (versionMatch) {
+            agentVersion = versionMatch[1];
+            console.log(`✅ Versione agent letta da NetworkMonitorService.ps1: ${agentVersion}`);
+          } else {
+            // Fallback: cerca nel commento "Versione: X.Y.Z"
+            const commentMatch = serviceContent.match(/Versione:\s*([\d\.]+)/);
+            if (commentMatch) {
+              agentVersion = commentMatch[1];
+              console.log(`✅ Versione agent letta da commento: ${agentVersion}`);
+            }
+          }
+        } catch (versionErr) {
+          console.warn(`⚠️  Impossibile leggere versione da NetworkMonitorService.ps1: ${versionErr.message}`);
+        }
+      }
+
       // Crea config.json
       const configJson = {
         server_url: req.protocol + '://' + req.get('host'),
         api_key: agent.api_key,
         agent_name: agent.agent_name,
-        version: "1.0.0",
+        version: agentVersion,
         network_ranges: agent.network_ranges || [],
         scan_interval_minutes: agent.scan_interval_minutes || 15
       };
