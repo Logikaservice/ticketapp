@@ -2662,9 +2662,24 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
   };
 
   // Avvia job periodico per controllare agent offline (ogni minuto)
-  setInterval(checkOfflineAgents, 60 * 1000);
-  // Esegui subito un controllo
-  checkOfflineAgents();
+  // Wrappato in try-catch per evitare crash se pool non è ancora disponibile
+  try {
+    // Esegui subito un controllo (con delay per assicurarsi che tutto sia inizializzato)
+    setTimeout(() => {
+      checkOfflineAgents().catch(err => {
+        console.error('❌ Errore controllo iniziale agent offline:', err);
+      });
+    }, 5000); // Aspetta 5 secondi dopo l'avvio del server
+
+    // Avvia job periodico
+    setInterval(() => {
+      checkOfflineAgents().catch(err => {
+        console.error('❌ Errore controllo periodico agent offline:', err);
+      });
+    }, 60 * 1000);
+  } catch (err) {
+    console.error('❌ Errore inizializzazione job controllo agent offline:', err);
+  }
 
   // GET /api/network-monitoring/test-keepass - Test connessione e lettura KeePass da Google Drive
   router.get('/test-keepass', authenticateToken, requireRole('tecnico'), async (req, res) => {
