@@ -2640,13 +2640,31 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
         return;
       }
 
-      // Assicura che tutte le tabelle esistano (inclusa network_agent_events)
-      // Questo creerà la tabella se non esiste
+      // Verifica se la tabella network_agent_events esiste, se non esiste la crea
       try {
-        await ensureTables();
-      } catch (ensureErr) {
-        console.log('⚠️ checkOfflineAgents: errore ensureTables:', ensureErr.message);
-        // Continua comunque, potrebbe essere solo un problema temporaneo
+        const tableCheck = await pool.query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = 'network_agent_events'
+          );
+        `);
+        
+        if (!tableCheck || !tableCheck.rows || !tableCheck.rows[0] || !tableCheck.rows[0].exists) {
+          // Tabella non esiste, creala chiamando initTables
+          console.log('⚠️ checkOfflineAgents: tabella network_agent_events non esiste, creazione...');
+          await initTables();
+          console.log('✅ checkOfflineAgents: tabella network_agent_events creata');
+        }
+      } catch (tableCheckErr) {
+        // Se la verifica della tabella fallisce, prova a crearla comunque
+        console.log('⚠️ checkOfflineAgents: errore verifica tabella, tentativo creazione:', tableCheckErr.message);
+        try {
+          await initTables();
+        } catch (initErr) {
+          console.log('❌ checkOfflineAgents: errore creazione tabella:', initErr.message);
+          return;
+        }
       }
 
       // Trova agent che non hanno inviato heartbeat da più di 2 minuti
