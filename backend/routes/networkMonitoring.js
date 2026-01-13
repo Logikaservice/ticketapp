@@ -759,7 +759,11 @@ module.exports = (pool, io) => {
           }
 
           // Aggiorna MAC se disponibile e diverso (anche se era NULL prima)
-          if (normalizedMac && normalizedMac !== existingDevice.mac_address) {
+          // IMPORTANTE: Normalizza anche il MAC esistente per confronto corretto (ignora differenze formato : vs -)
+          const existingMacNormalized = existingDevice.mac_address ? existingDevice.mac_address.toUpperCase().replace(/[:-]/g, '-') : null;
+          const newMacNormalized = normalizedMac ? normalizedMac.toUpperCase().replace(/[:-]/g, '-') : null;
+          
+          if (normalizedMac && newMacNormalized !== existingMacNormalized) {
             // Se il dispositivo è statico e il MAC cambia, salva il valore precedente
             if (existingDevice.is_static && existingDevice.mac_address) {
               console.log(`  ⚠️ MAC CAMBIATO per dispositivo statico ${existingDevice.mac_address} -> ${normalizedMac}`);
@@ -774,6 +778,9 @@ module.exports = (pool, io) => {
             console.log(`  ➕ Aggiunta MAC per ${ip_address}: NULL -> ${normalizedMac}`);
             updates.push(`mac_address = $${paramIndex++}`);
             values.push(normalizedMac);
+          } else if (normalizedMac && newMacNormalized === existingMacNormalized) {
+            // MAC è lo stesso (anche se formato diverso), non serve aggiornare
+            console.log(`  ℹ️ MAC per ${ip_address} già corretto: ${normalizedMac} (formato normalizzato: ${newMacNormalized})`);
           }
           // Usa hostname già normalizzato (troncato a max 100 caratteri)
           if (hostname && hostname !== existingDevice.hostname) {
