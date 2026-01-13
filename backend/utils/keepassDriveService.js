@@ -349,12 +349,12 @@ class KeepassDriveService {
     this.isLoading = true;
     this.loadPromise = this.loadMacToTitleMap(password)
       .then(map => {
-      this.macToTitleMap = map;
-      this.lastCacheUpdate = Date.now();
-      this.lastFileModifiedTime = modifiedTime; // Salva la data di modifica del file caricato
-      this.isLoading = false;
-      this.loadPromise = null;
-      return map;
+        // loadMacToTitleMap ha già salvato this.lastFileModifiedTime
+        this.macToTitleMap = map;
+        this.lastCacheUpdate = Date.now();
+        this.isLoading = false;
+        this.loadPromise = null;
+        return map;
       })
       .catch(err => {
         this.isLoading = false;
