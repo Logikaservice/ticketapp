@@ -342,23 +342,31 @@ module.exports = (pool, io) => {
     
     tablesCheckInProgress = true;
     try {
-      // Verifica rapida se le tabelle esistono già (più veloce che eseguire initTables)
+      // Verifica rapida se le tabelle principali esistono già (più veloce che eseguire initTables)
       const checkResult = await pool.query(`
         SELECT EXISTS (
           SELECT FROM information_schema.tables 
           WHERE table_schema = 'public' 
           AND table_name = 'network_agents'
-        );
+        ) as agents_exists,
+        EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'network_agent_events'
+        ) as events_exists;
       `);
       
-      if (checkResult.rows && checkResult.rows[0] && checkResult.rows[0].exists) {
-        // Tabelle già esistenti, non fare nulla - NON chiamare initTables
+      const agentsExists = checkResult.rows && checkResult.rows[0] && checkResult.rows[0].agents_exists;
+      const eventsExists = checkResult.rows && checkResult.rows[0] && checkResult.rows[0].events_exists;
+      
+      if (agentsExists && eventsExists) {
+        // Tutte le tabelle necessarie esistono, non fare nulla
         tablesCheckDone = true;
         tablesCheckInProgress = false;
         return;
       }
       
-      // Solo se non esistono, inizializza
+      // Se manca almeno una tabella, inizializza (creerà tutte le tabelle necessarie)
       await initTables();
       tablesCheckDone = true;
     } catch (err) {
