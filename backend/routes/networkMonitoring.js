@@ -2683,19 +2683,26 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
         console.log(`  - Agent ${agent.id} (${agent.agent_name}): status=${agent.status}, enabled=${agent.enabled}, last_heartbeat=${lastHeartbeatStr} (${minutesAgo} min fa)`);
       });
 
-      // Trova agent che non hanno inviato heartbeat da più di 2 minuti
-      // (l'agent invia heartbeat ogni 5 minuti, quindi dopo 2 minuti senza heartbeat
-      //  è probabile che sia offline, specialmente se era online prima)
+      // Trova agent che:
+      // 1. Sono online ma non hanno inviato heartbeat da più di 2 minuti (devono essere marcati offline)
+      // 2. Sono già offline ma non hanno ancora un evento offline non risolto (devono creare evento)
       console.log('🔍 checkOfflineAgents: controllo agent offline...');
       const offlineAgents = await pool.query(
-        `SELECT id, agent_name, last_heartbeat, status, enabled
-         FROM network_agents
-         WHERE deleted_at IS NULL
-           AND enabled = TRUE
-           AND status = 'online'
+        `SELECT na.id, na.agent_name, na.last_heartbeat, na.status, na.enabled
+         FROM network_agents na
+         WHERE na.deleted_at IS NULL
+           AND na.enabled = TRUE
            AND (
-             last_heartbeat IS NULL 
-             OR last_heartbeat < NOW() - INTERVAL '2 minutes'
+             -- Caso 1: Agent online ma senza heartbeat da più di 2 minuti
+             (na.status = 'online' AND (na.last_heartbeat IS NULL OR na.last_heartbeat < NOW() - INTERVAL '2 minutes'))
+             OR
+             -- Caso 2: Agent già offline ma senza evento offline non risolto
+             (na.status = 'offline' AND NOT EXISTS (
+               SELECT 1 FROM network_agent_events nae
+               WHERE nae.agent_id = na.id
+                 AND nae.event_type = 'offline'
+                 AND nae.resolved_at IS NULL
+             ))
            )`
       );
       
