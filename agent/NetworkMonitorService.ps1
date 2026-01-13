@@ -399,7 +399,8 @@ function Get-NetworkDevices {
                             # Attendi risultato con timeout (2 secondi per job)
                             if ($jobInfo.AsyncResult) {
                                 $asyncWait = $jobInfo.AsyncResult.AsyncWaitHandle
-                                if ($asyncWait -and $asyncWait.WaitOne(2000)) {
+                                # Timeout aumentato a 3 secondi per gestire ping multipli (3 tentativi)
+                                if ($asyncWait -and $asyncWait.WaitOne(3000)) {
                                     try {
                                         $resultIP = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
                                         if ($resultIP) {
