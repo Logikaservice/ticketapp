@@ -2797,43 +2797,55 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
           console.log('⚠️ checkOfflineAgents: io (WebSocket) non disponibile');
         }
 
-        // Verifica se esiste già un evento offline non risolto
-        const existingEvent = await pool.query(
-          `SELECT id FROM network_agent_events 
-           WHERE agent_id = $1 
-             AND event_type = 'offline' 
-             AND resolved_at IS NULL
-           ORDER BY detected_at DESC LIMIT 1`,
-          [agent.id]
-        );
+        // Verifica se esiste già un evento offline non risolto (proteggiamo con try-catch)
+        try {
+          // Assicurati che la tabella esista prima di usarla
+          await ensureTables();
 
-        if (existingEvent.rows.length === 0) {
-          // Crea nuovo evento offline
-          const offlineDuration = agent.last_heartbeat 
-            ? Math.floor((Date.now() - new Date(agent.last_heartbeat).getTime()) / 60000)
-            : null;
-
-          await pool.query(
-            `INSERT INTO network_agent_events (agent_id, event_type, event_data, detected_at, notified)
-             VALUES ($1, 'offline', $2, NOW(), FALSE)`,
-            [agent.id, JSON.stringify({
-              last_heartbeat: agent.last_heartbeat,
-              offline_duration_minutes: offlineDuration,
-              detected_at: new Date().toISOString()
-            })]
+          const existingEvent = await pool.query(
+            `SELECT id FROM network_agent_events 
+             WHERE agent_id = $1 
+               AND event_type = 'offline' 
+               AND resolved_at IS NULL
+             ORDER BY detected_at DESC LIMIT 1`,
+            [agent.id]
           );
 
-          // Emetti evento WebSocket
-          if (io) {
-            io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
-              agentId: agent.id,
-              eventType: 'offline',
-              message: `Agent ${agent.agent_name || agent.id} offline`,
-              detectedAt: new Date().toISOString()
-            });
-          }
+          if (existingEvent.rows.length === 0) {
+            // Crea nuovo evento offline
+            const offlineDuration = agent.last_heartbeat 
+              ? Math.floor((Date.now() - new Date(agent.last_heartbeat).getTime()) / 60000)
+              : null;
 
-          console.log(`🔴 Agent ${agent.id} (${agent.agent_name}) rilevato offline`);
+            await pool.query(
+              `INSERT INTO network_agent_events (agent_id, event_type, event_data, detected_at, notified)
+               VALUES ($1, 'offline', $2, NOW(), FALSE)`,
+              [agent.id, JSON.stringify({
+                last_heartbeat: agent.last_heartbeat,
+                offline_duration_minutes: offlineDuration,
+                detected_at: new Date().toISOString()
+              })]
+            );
+
+            // Emetti evento WebSocket
+            if (io) {
+              io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
+                agentId: agent.id,
+                eventType: 'offline',
+                message: `Agent ${agent.agent_name || agent.id} offline`,
+                detectedAt: new Date().toISOString()
+              });
+            }
+
+            console.log(`🔴 Agent ${agent.id} (${agent.agent_name}) rilevato offline`);
+          }
+        } catch (eventErr) {
+          // Se la tabella non esiste o c'è un errore, logga ma continua
+          if (eventErr.code === '42P01') {
+            console.log(`ℹ️ checkOfflineAgents: tabella network_agent_events non disponibile per agent ${agent.id}`);
+          } else {
+            console.error(`❌ checkOfflineAgents: errore creazione evento offline per agent ${agent.id}:`, eventErr.message);
+          }
         }
       }
     } catch (err) {
