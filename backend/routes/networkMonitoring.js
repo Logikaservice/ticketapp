@@ -133,6 +133,23 @@ module.exports = (pool, io) => {
         }
       }
 
+      // Aggiungi colonne previous_ip e previous_mac per tracciare cambiamenti su dispositivi statici
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS previous_ip VARCHAR(45);
+        `);
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS previous_mac VARCHAR(17);
+        `);
+      } catch (err) {
+        // Ignora errore se colonna esiste già
+        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonne previous_ip/previous_mac:', err.message);
+        }
+      }
+
       // Crea tabella network_changes
       await pool.query(`
         CREATE TABLE IF NOT EXISTS network_changes (
@@ -662,7 +679,7 @@ module.exports = (pool, io) => {
         
         if (macAddressStr && macAddressStr !== '') {
           // Se abbiamo MAC, cerca per IP O MAC (per gestire cambi di IP)
-          existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status 
+          existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac
                            FROM network_devices 
                            WHERE agent_id = $1 AND (REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2 OR mac_address = $3)
                            ORDER BY CASE WHEN REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2 THEN 1 ELSE 2 END
@@ -671,7 +688,7 @@ module.exports = (pool, io) => {
         } else {
           // Se non abbiamo MAC, cerca SOLO per IP (senza vincolo su mac_address)
           // Questo evita di perdere dispositivi che avevano MAC prima ma ora non vengono trovati
-          existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status 
+          existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac
                            FROM network_devices 
                            WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2
                            LIMIT 1`;
@@ -708,8 +725,27 @@ module.exports = (pool, io) => {
             }
           }
 
+          // Rileva cambiamenti IP su dispositivi statici
+          const normalizedCurrentIp = normalizedIpForSearch;
+          const existingIp = existingDevice.ip_address ? existingDevice.ip_address.replace(/[{}"]/g, '').trim() : null;
+          if (existingDevice.is_static && normalizedCurrentIp !== existingIp) {
+            // Dispositivo statico con IP cambiato - salva valore precedente
+            console.log(`  ⚠️ IP CAMBIATO per dispositivo statico ${existingIp} -> ${normalizedCurrentIp}`);
+            updates.push(`previous_ip = $${paramIndex++}`);
+            values.push(existingIp);
+            // Aggiorna anche l'IP
+            updates.push(`ip_address = $${paramIndex++}`);
+            values.push(normalizedCurrentIp);
+          }
+
           // Aggiorna MAC se disponibile e diverso (anche se era NULL prima)
           if (normalizedMac && normalizedMac !== existingDevice.mac_address) {
+            // Se il dispositivo è statico e il MAC cambia, salva il valore precedente
+            if (existingDevice.is_static && existingDevice.mac_address) {
+              console.log(`  ⚠️ MAC CAMBIATO per dispositivo statico ${existingDevice.mac_address} -> ${normalizedMac}`);
+              updates.push(`previous_mac = $${paramIndex++}`);
+              values.push(existingDevice.mac_address);
+            }
             console.log(`  🔄 Aggiornamento MAC per ${ip_address}: ${existingDevice.mac_address || 'NULL'} -> ${normalizedMac}`);
             updates.push(`mac_address = $${paramIndex++}`);
             values.push(normalizedMac);
@@ -1064,6 +1100,7 @@ module.exports = (pool, io) => {
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.device_path, nd.status, nd.is_static, nd.first_seen, nd.last_seen,
+          nd.previous_ip, nd.previous_mac,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
@@ -1232,7 +1269,8 @@ module.exports = (pool, io) => {
             ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor, 
-          nd.device_type, nd.device_path, nd.status, nd.first_seen, nd.last_seen,
+          nd.device_type, nd.device_path, nd.status, nd.is_static, nd.first_seen, nd.last_seen,
+          nd.previous_ip, nd.previous_mac,
           na.agent_name, na.azienda_id, na.last_heartbeat as agent_last_seen, na.status as agent_status,
           u.azienda
          FROM network_devices nd

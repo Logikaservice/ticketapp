@@ -899,9 +899,31 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             title="IP Statico"
                           />
                         </td>
-                        <td className="py-3 px-4 text-sm font-mono text-gray-900">{device.ip_address}</td>
+                        <td className="py-3 px-4 text-sm font-mono text-gray-900">
+                          <div className="flex items-center gap-2">
+                            {device.previous_ip && (
+                              <div className="relative group">
+                                <AlertTriangle className="w-4 h-4 text-orange-500" />
+                                <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                  IP precedente: {device.previous_ip}
+                                </div>
+                              </div>
+                            )}
+                            <span>{device.ip_address}</span>
+                          </div>
+                        </td>
                       <td className="py-3 px-4 text-sm font-mono text-gray-600">
-                        {device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}
+                        <div className="flex items-center gap-2">
+                          {device.previous_mac && (
+                            <div className="relative group">
+                              <AlertTriangle className="w-4 h-4 text-orange-500" />
+                              <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                MAC precedente: {device.previous_mac ? device.previous_mac.replace(/-/g, ':') : '-'}
+                              </div>
+                            </div>
+                          )}
+                          <span>{device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}</span>
+                        </div>
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-900">{device.hostname || '-'}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">{device.device_type || '-'}</td>
