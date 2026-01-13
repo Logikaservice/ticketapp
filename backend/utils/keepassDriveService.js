@@ -405,7 +405,8 @@ class KeepassDriveService {
   invalidateCache() {
     this.macToTitleMap = null;
     this.lastCacheUpdate = null;
-    console.log('🔄 Cache KeePass invalidata');
+    this.lastFileModifiedTime = null; // Reset anche la data di modifica per forzare il controllo
+    console.log('🔄 Cache KeePass invalidata completamente');
   }
 }
 

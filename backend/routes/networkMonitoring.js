@@ -2084,6 +2084,20 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
     }
   });
 
+  // POST /api/network-monitoring/invalidate-keepass-cache - Forza invalidazione cache KeePass
+  router.post('/invalidate-keepass-cache', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      keepassDriveService.invalidateCache();
+      res.json({ 
+        success: true, 
+        message: 'Cache KeePass invalidata con successo. Il prossimo caricamento ricaricherà i dati da Google Drive.' 
+      });
+    } catch (err) {
+      console.error('❌ Errore invalidazione cache KeePass:', err);
+      res.status(500).json({ error: 'Errore interno del server', details: err.message });
+    }
+  });
+
   // GET /api/network-monitoring/test-keepass - Test connessione e lettura KeePass da Google Drive
   router.get('/test-keepass', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
