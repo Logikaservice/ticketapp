@@ -7,7 +7,7 @@ class KeepassDriveService {
     this.macToTitleMap = null;
     this.lastCacheUpdate = null;
     this.lastFileModifiedTime = null; // Data di modifica dell'ultimo file caricato
-    this.cacheTimeout = 30 * 1000; // 30 secondi di cache (ridotto per aggiornamenti più frequenti)
+    this.cacheTimeout = 5 * 60 * 1000; // 5 minuti di cache
     this.isLoading = false;
     this.loadPromise = null;
   }
