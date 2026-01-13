@@ -629,18 +629,47 @@ public class ArpHelper {
                         
                         # PRIORITÀ 2: Get-NetNeighbor diretto (più affidabile di SendARP)
                         # Questo legge direttamente dalla cache ARP di Windows, più accurato
+                        # IMPORTANTE: Filtra MAC virtuali (VMware, VirtualBox, Hyper-V) e preferisci interfacce fisiche
                         try {
                             $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
+                            $physicalMacs = @()
+                            $virtualMacs = @()
+                            
                             foreach ($arpEntry in $arpEntries) {
                                 if ($arpEntry.LinkLayerAddress) {
                                     $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                    # Accetta MAC anche se stato è Stale/Probe (non solo Reachable)
+                                    # Normalizza formato MAC per confronto
+                                    $macNormalized = $macFromNeighbor -replace '[:-]', '' -replace ' ', ''
+                                    
+                                    # Verifica che sia un MAC valido
                                     if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
                                         $macFromNeighbor -ne '00:00:00:00:00:00' -and
                                         $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                        return @{ ip = $targetIP; mac = $macFromNeighbor }
+                                        
+                                        # Filtra MAC virtuali (prefissi OUI comuni)
+                                        # VMware: 00:50:56, 00:0C:29, 00:05:69
+                                        # VirtualBox: 08:00:27
+                                        # Hyper-V: 00:15:5D
+                                        $isVirtual = $false
+                                        if ($macNormalized -match '^(005056|000C29|000569|080027|00155D)') {
+                                            $isVirtual = $true
+                                        }
+                                        
+                                        if ($isVirtual) {
+                                            $virtualMacs += $macFromNeighbor
+                                        } else {
+                                            $physicalMacs += $macFromNeighbor
+                                        }
                                     }
                                 }
+                            }
+                            
+                            # Preferisci MAC fisici rispetto a virtuali
+                            if ($physicalMacs.Count -gt 0) {
+                                return @{ ip = $targetIP; mac = $physicalMacs[0] }
+                            } elseif ($virtualMacs.Count -gt 0) {
+                                # Se ci sono solo MAC virtuali, usa il primo (meglio di niente)
+                                return @{ ip = $targetIP; mac = $virtualMacs[0] }
                             }
                         } catch { }
                         
@@ -668,34 +697,82 @@ public class ArpHelper {
                                 
                                 # Leggi da Get-NetNeighbor (più affidabile di SendARP e tabella ARP pre-caricata)
                                 # Questo legge direttamente dalla cache ARP aggiornata dopo i ping
+                                # IMPORTANTE: Filtra MAC virtuali e preferisci interfacce fisiche
                                 $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
+                                $physicalMacs = @()
+                                $virtualMacs = @()
+                                
                                 foreach ($arpEntry in $arpEntries) {
                                     if ($arpEntry.LinkLayerAddress) {
                                         $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                        # Accetta MAC anche se stato è Stale/Probe (non solo Reachable)
-                                        # perché potrebbe essere appena stato aggiornato
+                                        # Normalizza formato MAC per confronto
+                                        $macNormalized = $macFromNeighbor -replace '[:-]', '' -replace ' ', ''
+                                        
+                                        # Verifica che sia un MAC valido
                                         if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
                                             $macFromNeighbor -ne '00:00:00:00:00:00' -and
                                             $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            $ping.Dispose()
-                                            return @{ ip = $targetIP; mac = $macFromNeighbor }
+                                            
+                                            # Filtra MAC virtuali (prefissi OUI comuni)
+                                            $isVirtual = $false
+                                            if ($macNormalized -match '^(005056|000C29|000569|080027|00155D)') {
+                                                $isVirtual = $true
+                                            }
+                                            
+                                            if ($isVirtual) {
+                                                $virtualMacs += $macFromNeighbor
+                                            } else {
+                                                $physicalMacs += $macFromNeighbor
+                                            }
                                         }
                                     }
+                                }
+                                
+                                # Preferisci MAC fisici rispetto a virtuali
+                                if ($physicalMacs.Count -gt 0) {
+                                    $ping.Dispose()
+                                    return @{ ip = $targetIP; mac = $physicalMacs[0] }
+                                } elseif ($virtualMacs.Count -gt 0) {
+                                    # Se ci sono solo MAC virtuali, usa il primo (meglio di niente)
+                                    $ping.Dispose()
+                                    return @{ ip = $targetIP; mac = $virtualMacs[0] }
                                 }
                                 
                                 # Se Get-NetNeighbor non ha trovato nulla dopo ping, riprova dopo altra attesa
                                 Start-Sleep -Milliseconds 300
                                 $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
+                                $physicalMacs = @()
+                                $virtualMacs = @()
+                                
                                 foreach ($arpEntry in $arpEntries) {
                                     if ($arpEntry.LinkLayerAddress) {
                                         $macFromNeighbor = $arpEntry.LinkLayerAddress
+                                        $macNormalized = $macFromNeighbor -replace '[:-]', '' -replace ' ', ''
+                                        
                                         if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
                                             $macFromNeighbor -ne '00:00:00:00:00:00' -and
                                             $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            $ping.Dispose()
-                                            return @{ ip = $targetIP; mac = $macFromNeighbor }
+                                            
+                                            $isVirtual = $false
+                                            if ($macNormalized -match '^(005056|000C29|000569|080027|00155D)') {
+                                                $isVirtual = $true
+                                            }
+                                            
+                                            if ($isVirtual) {
+                                                $virtualMacs += $macFromNeighbor
+                                            } else {
+                                                $physicalMacs += $macFromNeighbor
+                                            }
                                         }
                                     }
+                                }
+                                
+                                if ($physicalMacs.Count -gt 0) {
+                                    $ping.Dispose()
+                                    return @{ ip = $targetIP; mac = $physicalMacs[0] }
+                                } elseif ($virtualMacs.Count -gt 0) {
+                                    $ping.Dispose()
+                                    return @{ ip = $targetIP; mac = $virtualMacs[0] }
                                 }
                                 
                                 # Fallback: SendARP solo se Get-NetNeighbor non ha trovato nulla dopo ping
