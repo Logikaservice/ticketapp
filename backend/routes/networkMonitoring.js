@@ -584,15 +584,16 @@ module.exports = (pool, io) => {
               detected_at: new Date().toISOString()
             })]
           );
-        
-        // Emetti evento WebSocket
-        if (io) {
-          io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
-            agentId,
-            eventType: 'reboot',
-            message: `Agent ${req.agent.agent_name || agentId} riavviato`,
-            detectedAt: new Date().toISOString()
-          });
+          
+          // Emetti evento WebSocket
+          if (io) {
+            io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
+              agentId,
+              eventType: 'reboot',
+              message: `Agent ${req.agent.agent_name || agentId} riavviato`,
+              detectedAt: new Date().toISOString()
+            });
+          }
         }
       }
 
@@ -630,15 +631,16 @@ module.exports = (pool, io) => {
               detected_at: new Date().toISOString()
             })]
           );
-        
-        // Emetti evento WebSocket
-        if (io) {
-          io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
-            agentId,
-            eventType: 'online',
-            message: `Agent ${req.agent.agent_name || agentId} tornato online (era offline da ${offlineDuration} minuti)`,
-            detectedAt: new Date().toISOString()
-          });
+          
+          // Emetti evento WebSocket
+          if (io) {
+            io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
+              agentId,
+              eventType: 'online',
+              message: `Agent ${req.agent.agent_name || agentId} tornato online (era offline da ${offlineDuration} minuti)`,
+              detectedAt: new Date().toISOString()
+            });
+          }
         }
       }
 
