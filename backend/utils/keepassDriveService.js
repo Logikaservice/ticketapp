@@ -181,12 +181,24 @@ class KeepassDriveService {
             // Cerca MAC in TUTTI i campi (inclusi campi personalizzati)
             // Prima ottieni tutti i nomi dei campi disponibili
             const allFieldNames = entry.fields ? Object.keys(entry.fields) : [];
+            
+            // Verifica anche se ci sono customFields (alcune versioni di kdbxweb li mettono qui)
+            const customFieldNames = entry.customFields ? Object.keys(entry.customFields) : [];
+            
             const standardFields = ['UserName', 'Password', 'URL', 'Notes', 'Title'];
-            const fieldsToCheck = [...new Set([...standardFields, ...allFieldNames])]; // Unisci senza duplicati
+            const fieldsToCheck = [...new Set([...standardFields, ...allFieldNames, ...customFieldNames])]; // Unisci senza duplicati
             let foundMac = null;
+            let foundMacField = null;
 
             for (const fieldName of fieldsToCheck) {
-              const fieldValue = entry.fields && entry.fields[fieldName];
+              // Prova prima in entry.fields, poi in entry.customFields
+              let fieldValue = null;
+              if (entry.fields && entry.fields[fieldName]) {
+                fieldValue = entry.fields[fieldName];
+              } else if (entry.customFields && entry.customFields[fieldName]) {
+                fieldValue = entry.customFields[fieldName];
+              }
+              
               if (fieldValue) {
                 const valueStr = fieldValue instanceof ProtectedValue 
                   ? fieldValue.getText() 
@@ -195,6 +207,7 @@ class KeepassDriveService {
                 const mac = this.extractMacFromField(valueStr);
                 if (mac) {
                   foundMac = mac;
+                  foundMacField = fieldName;
                   break; // Prendi il primo MAC trovato
                 }
               }
