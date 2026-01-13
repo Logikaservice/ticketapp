@@ -740,7 +740,10 @@ module.exports = (pool, io) => {
 
       res.json({ success: true, timestamp: new Date().toISOString(), uninstall: false });
     } catch (err) {
-      console.error('❌ Errore heartbeat:', err);
+      // Non loggare come errore se è solo la tabella network_agent_events mancante (già gestito nel catch interno)
+      if (err.code !== '42P01' || !err.message.includes('network_agent_events')) {
+        console.error('❌ Errore heartbeat:', err);
+      }
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });
@@ -2896,7 +2899,10 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
         }
       }
     } catch (err) {
-      console.error('❌ Errore controllo agent offline:', err);
+      // Non loggare come errore se è solo la tabella network_agent_events mancante (già gestito nei catch interni)
+      if (err.code !== '42P01' || !err.message.includes('network_agent_events')) {
+        console.error('❌ Errore controllo agent offline:', err);
+      }
     }
   };
 
