@@ -209,7 +209,7 @@ class KeepassDriveService {
                 // Se ci sono più entry con lo stesso MAC, mantieni la prima trovata
                 if (!macMap.has(normalizedMac)) {
                   macMap.set(normalizedMac, { title: titleStr, path: currentPath });
-                  console.log(`  📝 MAC ${foundMac} (normalizzato: ${normalizedMac}) -> Titolo: "${titleStr}", Percorso: "${currentPath}"`);
+                  console.log(`  📝 MAC ${foundMac} (normalizzato: ${normalizedMac}) -> Titolo: "${titleStr}", Campo: "${foundMacField}", Percorso: "${currentPath}"`);
                 } else {
                   console.log(`  ⚠️ MAC ${foundMac} (normalizzato: ${normalizedMac}) già presente nella mappa, ignoro duplicato`);
                 }
