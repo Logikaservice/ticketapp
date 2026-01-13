@@ -367,12 +367,24 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       }
     };
 
+    const handleAgentEvent = (data) => {
+      console.log('🔔 Agent event ricevuto:', data);
+      
+      // Quando arriva un evento agent (offline, online, reboot, network_issue)
+      // ricarica la lista agenti per aggiornare lo status in tempo reale
+      if (!showCreateAgentModal) {
+        loadAgents();
+      }
+    };
+
     socket.on('network-monitoring-update', handleNetworkUpdate);
+    socket.on('agent-event', handleAgentEvent);
 
     return () => {
       socket.off('network-monitoring-update', handleNetworkUpdate);
+      socket.off('agent-event', handleAgentEvent);
     };
-  }, [socket, loadDevices, loadChanges, loadCompanyDevices, selectedCompanyId, showCreateAgentModal]);
+  }, [socket, loadDevices, loadChanges, loadCompanyDevices, loadAgents, selectedCompanyId, showCreateAgentModal]);
 
   // Ricarica cambiamenti quando cambia il termine di ricerca (con debounce)
   useEffect(() => {

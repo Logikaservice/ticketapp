@@ -496,7 +496,7 @@ module.exports = (pool, io) => {
 
       // Verifica se l'agent è eliminato o disabilitato
       const agentCheck = await pool.query(
-        'SELECT enabled, deleted_at, last_heartbeat FROM network_agents WHERE id = $1',
+        'SELECT enabled, deleted_at, last_heartbeat, status FROM network_agents WHERE id = $1',
         [agentId]
       );
 
@@ -512,6 +512,7 @@ module.exports = (pool, io) => {
       const agentEnabled = agentCheck.rows[0].enabled;
       const agentDeletedAt = agentCheck.rows[0].deleted_at;
       const lastHeartbeat = agentCheck.rows[0].last_heartbeat;
+      const previousStatus = agentCheck.rows[0].status; // Status PRIMA dell'aggiornamento
 
       // Se l'agent è eliminato (soft delete) -> comando disinstallazione
       if (agentDeletedAt) {
@@ -549,7 +550,10 @@ module.exports = (pool, io) => {
       }
 
       // Rileva se l'agent era offline e ora è tornato online
-      const wasOffline = lastHeartbeat ? (Date.now() - new Date(lastHeartbeat).getTime()) > 10 * 60 * 1000 : true;
+      // Controlla sia lo status nel database che il tempo dall'ultimo heartbeat
+      const wasOfflineByStatus = previousStatus === 'offline';
+      const wasOfflineByTime = lastHeartbeat ? (Date.now() - new Date(lastHeartbeat).getTime()) > 10 * 60 * 1000 : true;
+      const wasOffline = wasOfflineByStatus || wasOfflineByTime;
       const isNowOnline = true; // Se riceviamo heartbeat, è online
 
       // Agent abilitato e non eliminato -> aggiorna heartbeat normalmente
@@ -559,6 +563,22 @@ module.exports = (pool, io) => {
          WHERE id = $2`,
         [version, agentId]
       );
+      
+      // Log per debug
+      if (wasOfflineByStatus) {
+        console.log(`🟢 Agent ${agentId} tornato online (era offline nel database)`);
+      } else if (wasOfflineByTime) {
+        console.log(`🟢 Agent ${agentId} tornato online (ultimo heartbeat > 10 min fa)`);
+      }
+      
+      // Emetti evento WebSocket per aggiornare la lista agenti in tempo reale
+      if (io && wasOffline) {
+        io.to(`role:tecnico`).to(`role:admin`).emit('network-monitoring-update', {
+          type: 'agent-status-changed',
+          agentId,
+          status: 'online'
+        });
+      }
 
       // Crea eventi se necessario
       if (rebootDetected) {
@@ -2658,6 +2678,15 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
           `UPDATE network_agents SET status = 'offline' WHERE id = $1`,
           [agent.id]
         );
+
+        // Emetti evento WebSocket per aggiornare la lista agenti in tempo reale
+        if (io) {
+          io.to(`role:tecnico`).to(`role:admin`).emit('network-monitoring-update', {
+            type: 'agent-status-changed',
+            agentId: agent.id,
+            status: 'offline'
+          });
+        }
 
         // Verifica se esiste già un evento offline non risolto
         const existingEvent = await pool.query(
