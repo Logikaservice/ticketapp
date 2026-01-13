@@ -139,6 +139,36 @@ if (Test-Path $trayScript) {
     Write-Host "   Avviso Avvia-TrayIcon.ps1 non trovato" -ForegroundColor Yellow
 }
 
+# 6. Aggiorna versione nel config.json se presente
+Write-Host ""
+Write-Host "5. Aggiornamento versione nel config.json..." -ForegroundColor Yellow
+$configFile = Join-Path $targetDir "config.json"
+if (Test-Path $configFile) {
+    try {
+        $configContent = Get-Content $configFile -Raw | ConvertFrom-Json
+        
+        # Leggi versione dal file NetworkMonitorService.ps1 aggiornato
+        $serviceFile = Join-Path $scriptDir "NetworkMonitorService.ps1"
+        if (Test-Path $serviceFile) {
+            $serviceContent = Get-Content $serviceFile -Raw
+            if ($serviceContent -match '\$SCRIPT_VERSION = "([\d\.]+)"') {
+                $newVersion = $matches[1]
+                if ($configContent.version -ne $newVersion) {
+                    $configContent.version = $newVersion
+                    $configContent | ConvertTo-Json -Depth 10 | Set-Content -Path $configFile -Encoding UTF8
+                    Write-Host "   OK Versione aggiornata nel config.json: $newVersion" -ForegroundColor Green
+                } else {
+                    Write-Host "   Info Versione gia aggiornata: $newVersion" -ForegroundColor Gray
+                }
+            }
+        }
+    } catch {
+        Write-Host "   Avviso Impossibile aggiornare versione nel config.json: $_" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "   Avviso config.json non trovato" -ForegroundColor Yellow
+}
+
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Aggiornamento completato!" -ForegroundColor Green

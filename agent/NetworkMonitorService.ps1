@@ -4,10 +4,16 @@
 # Gestisce tutto internamente senza dipendere da Scheduled Task
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
+#
+# Versione: 1.1.0
+# Data ultima modifica: 2025-01-13
 
 param(
     [string]$ConfigPath = "config.json"
 )
+
+# Versione dell'agent (usata se non specificata nel config.json)
+$SCRIPT_VERSION = "1.1.0"
 
 # Aggiungi definizione API Windows per recupero MAC (come Advanced IP Scanner)
 Add-Type -TypeDefinition @"
@@ -1131,7 +1137,7 @@ while ($script:isRunning) {
         if ($now -ge $nextHeartbeatTime) {
             Write-Log "Invio heartbeat..."
             try {
-                $version = if ($config.version) { $config.version } else { "1.0.0" }
+                $version = if ($config.version) { $config.version } else { $SCRIPT_VERSION }
                 $heartbeatResult = Send-Heartbeat -ServerUrl $config.server_url -ApiKey $config.api_key -Version $version
                 
                 # Verifica se il server ha richiesto la disinstallazione
