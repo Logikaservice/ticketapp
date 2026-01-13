@@ -42,12 +42,12 @@ try {
     if ($service -and $service.Status -eq "Running") {
         Stop-Service -Name $serviceName -Force -ErrorAction Stop
         Start-Sleep -Seconds 3
-        Write-Host "   ✓ Servizio arrestato" -ForegroundColor Green
+        Write-Host "   OK Servizio arrestato" -ForegroundColor Green
     } else {
-        Write-Host "   ℹ Servizio già fermo o non trovato" -ForegroundColor Gray
+        Write-Host "   Info Servizio gia fermo o non trovato" -ForegroundColor Gray
     }
 } catch {
-    Write-Host "   ⚠ Avviso: $_" -ForegroundColor Yellow
+    Write-Host "   Avviso: $_" -ForegroundColor Yellow
 }
 
 # 2. Copia file
@@ -67,13 +67,13 @@ foreach ($file in $files) {
     if (Test-Path $src) {
         try {
             Copy-Item $src $dst -Force -ErrorAction Stop
-            Write-Host "   ✓ $file" -ForegroundColor Green
+            Write-Host "   OK $file" -ForegroundColor Green
             $filesCopied++
         } catch {
-            Write-Host "   ✗ Errore copia $file : $_" -ForegroundColor Red
+            Write-Host "   Errore copia $file : $_" -ForegroundColor Red
         }
     } else {
-        Write-Host "   ⚠ $file non trovato nella directory sorgente" -ForegroundColor Yellow
+        Write-Host "   Avviso $file non trovato nella directory sorgente" -ForegroundColor Yellow
     }
 }
 
@@ -85,7 +85,7 @@ if ($filesCopied -eq 0) {
 }
 
 Write-Host ""
-Write-Host "   ✓ $filesCopied file copiati con successo" -ForegroundColor Green
+Write-Host "   OK $filesCopied file copiati con successo" -ForegroundColor Green
 
 # 3. Riavvia servizio
 Write-Host ""
@@ -96,12 +96,12 @@ try {
     
     $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
     if ($service -and $service.Status -eq "Running") {
-        Write-Host "   ✓ Servizio avviato correttamente" -ForegroundColor Green
+        Write-Host "   OK Servizio avviato correttamente" -ForegroundColor Green
     } else {
-        Write-Host "   ⚠ Servizio avviato ma stato non confermato" -ForegroundColor Yellow
+        Write-Host "   Avviso Servizio avviato ma stato non confermato" -ForegroundColor Yellow
     }
 } catch {
-    Write-Host "   ✗ Errore avvio servizio: $_" -ForegroundColor Red
+    Write-Host "   Errore avvio servizio: $_" -ForegroundColor Red
     Write-Host ""
     Write-Host "Prova ad avviare manualmente il servizio:" -ForegroundColor Yellow
     Write-Host "   Start-Service -Name $serviceName" -ForegroundColor Gray
@@ -117,7 +117,7 @@ Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {
     } catch { $false }
 } | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
-Write-Host "   ✓ Tray icon esistente arrestata" -ForegroundColor Green
+Write-Host "   OK Tray icon esistente arrestata" -ForegroundColor Green
 
 # 5. Avvia tray icon aggiornata
 $trayScript = Join-Path $targetDir "Avvia-TrayIcon.ps1"
@@ -131,12 +131,12 @@ if (Test-Path $trayScript) {
         $psi.UseShellExecute = $false
         [System.Diagnostics.Process]::Start($psi) | Out-Null
         Start-Sleep -Seconds 2
-        Write-Host "   ✓ Tray icon avviata" -ForegroundColor Green
+        Write-Host "   OK Tray icon avviata" -ForegroundColor Green
     } catch {
-        Write-Host "   ⚠ Errore avvio tray icon: $_" -ForegroundColor Yellow
+        Write-Host "   Avviso Errore avvio tray icon: $_" -ForegroundColor Yellow
     }
 } else {
-    Write-Host "   ⚠ Avvia-TrayIcon.ps1 non trovato" -ForegroundColor Yellow
+    Write-Host "   Avviso Avvia-TrayIcon.ps1 non trovato" -ForegroundColor Yellow
 }
 
 Write-Host ""
