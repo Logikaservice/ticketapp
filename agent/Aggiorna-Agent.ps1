@@ -144,7 +144,7 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Aggiornamento completato!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "L'agent e' stato aggiornato e riavviato." -ForegroundColor Gray
+Write-Host "L'agent e stato aggiornato e riavviato." -ForegroundColor Gray
 Write-Host "Le modifiche sono ora attive." -ForegroundColor Gray
 Write-Host ""
 pause
