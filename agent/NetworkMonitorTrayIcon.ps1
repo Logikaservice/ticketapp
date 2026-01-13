@@ -298,12 +298,14 @@ function Show-StatusWindow {
             )
         }
     })
-    # Effetto hover per il pulsante
+    # Effetto hover per il pulsante (cattura la variabile in una closure)
+    $hoverColorEnter = [System.Drawing.Color]::FromArgb(37, 99, 235)
+    $hoverColorLeave = [System.Drawing.Color]::FromArgb(30, 58, 138)
     $forceScanButton.Add_MouseEnter({
-        $forceScanButton.BackColor = [System.Drawing.Color]::FromArgb(37, 99, 235)
+        $this.BackColor = $hoverColorEnter
     })
     $forceScanButton.Add_MouseLeave({
-        $forceScanButton.BackColor = [System.Drawing.Color]::FromArgb(30, 58, 138)
+        $this.BackColor = $hoverColorLeave
     })
     $buttonPanel.Controls.Add($forceScanButton)
     
@@ -341,12 +343,14 @@ function Show-StatusWindow {
     $closeButton.Add_Click({
         $script:statusWindow.Hide()
     })
-    # Effetto hover per il pulsante chiudi
+    # Effetto hover per il pulsante chiudi (cattura la variabile in una closure)
+    $closeHoverColorEnter = [System.Drawing.Color]::FromArgb(219, 234, 254)
+    $closeHoverColorLeave = [System.Drawing.Color]::FromArgb(239, 246, 255)
     $closeButton.Add_MouseEnter({
-        $closeButton.BackColor = [System.Drawing.Color]::FromArgb(219, 234, 254)
+        $this.BackColor = $closeHoverColorEnter
     })
     $closeButton.Add_MouseLeave({
-        $closeButton.BackColor = [System.Drawing.Color]::FromArgb(239, 246, 255)
+        $this.BackColor = $closeHoverColorLeave
     })
     $buttonPanel.Controls.Add($closeButton)
     
