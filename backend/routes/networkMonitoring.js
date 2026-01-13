@@ -2549,7 +2549,12 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
       res.json(result.rows);
     } catch (err) {
       console.error('❌ Errore recupero eventi agent:', err);
-      res.status(500).json({ error: 'Errore interno del server' });
+      // Se la tabella non esiste, restituisci array vuoto invece di errore
+      if (err.message && err.message.includes('does not exist')) {
+        res.json([]);
+      } else {
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
     }
   });
 
@@ -2590,24 +2595,40 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
       res.json({ count: parseInt(result.rows[0].count, 10) });
     } catch (err) {
       console.error('❌ Errore conteggio eventi non letti:', err);
-      res.status(500).json({ error: 'Errore interno del server' });
+      // Se la tabella non esiste, restituisci 0 invece di errore
+      if (err.message && err.message.includes('does not exist')) {
+        res.json({ count: 0 });
+      } else {
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
     }
   });
 
   // Funzione per rilevare agent offline (chiamata periodicamente)
   const checkOfflineAgents = async () => {
     try {
+      // Verifica che pool sia disponibile
+      if (!pool) {
+        return;
+      }
+
       // Verifica che la tabella network_agent_events esista prima di procedere
-      const tableCheck = await pool.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = 'network_agent_events'
-        );
-      `);
-      
-      if (!tableCheck.rows[0].exists) {
-        // Tabella non esiste ancora, esci silenziosamente
+      try {
+        const tableCheck = await pool.query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = 'network_agent_events'
+          );
+        `);
+        
+        if (!tableCheck || !tableCheck.rows || !tableCheck.rows[0] || !tableCheck.rows[0].exists) {
+          // Tabella non esiste ancora, esci silenziosamente
+          return;
+        }
+      } catch (tableCheckErr) {
+        // Se la verifica della tabella fallisce, esci silenziosamente
+        // (probabilmente il database non è ancora pronto)
         return;
       }
 
