@@ -664,15 +664,16 @@ module.exports = (pool, io) => {
               resolved_at: new Date().toISOString()
             })]
           );
-        
-        // Emetti evento WebSocket
-        if (io) {
-          io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
-            agentId,
-            eventType: 'network_issue',
-            message: `Agent ${req.agent.agent_name || agentId} - problema rete rilevato (durata: ${network_issue_duration} minuti)`,
-            detectedAt: new Date().toISOString()
-          });
+          
+          // Emetti evento WebSocket
+          if (io) {
+            io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
+              agentId,
+              eventType: 'network_issue',
+              message: `Agent ${req.agent.agent_name || agentId} - problema rete rilevato (durata: ${network_issue_duration} minuti)`,
+              detectedAt: new Date().toISOString()
+            });
+          }
         }
       }
 
