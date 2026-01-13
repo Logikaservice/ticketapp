@@ -710,22 +710,33 @@ module.exports = (pool, io) => {
           }
         }
 
-        if (normalizedMacForSearch && normalizedMacForSearch !== '') {
-          // Se abbiamo MAC, cerca PRIMA per MAC (più affidabile), poi per IP (per gestire cambi di IP)
-          existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac
-                           FROM network_devices 
-                           WHERE agent_id = $1 AND (mac_address = $2 OR REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $3)
-                           ORDER BY CASE WHEN mac_address = $2 THEN 1 ELSE 2 END
-                           LIMIT 1`;
-          existingParams = [agentId, normalizedMacForSearch, normalizedIpForSearch];
-        } else {
-          // Se non abbiamo MAC, cerca SOLO per IP (senza vincolo su mac_address)
-          // Questo evita di perdere dispositivi che avevano MAC prima ma ora non vengono trovati
+        // SEMPLIFICAZIONE: Cerca PRIMA per IP (più affidabile per matching immediato)
+        // Se non trova per IP, cerca per MAC (per gestire cambi di IP)
+        // Questo evita confusione e duplicati
+        
+        // 1. Cerca PRIMA per IP (priorità massima - l'agent ha trovato questo IP ora)
+        existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac, has_ping_failures
+                         FROM network_devices 
+                         WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2
+                         LIMIT 1`;
+        existingParams = [agentId, normalizedIpForSearch];
+        
+        let existing = await pool.query(existingQuery, existingParams);
+        existingDevice = existing.rows[0];
+        
+        // 2. Se non trovato per IP E abbiamo MAC, cerca per MAC (per gestire cambi di IP)
+        if (!existingDevice && normalizedMacForSearch && normalizedMacForSearch !== '') {
           existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac, has_ping_failures
                            FROM network_devices 
-                           WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2
+                           WHERE agent_id = $1 AND mac_address = $2
                            LIMIT 1`;
-          existingParams = [agentId, normalizedIpForSearch];
+          existingParams = [agentId, normalizedMacForSearch];
+          existing = await pool.query(existingQuery, existingParams);
+          existingDevice = existing.rows[0];
+          
+          if (existingDevice) {
+            console.log(`  🔄 Dispositivo trovato per MAC ${normalizedMacForSearch}, ma IP cambiato: ${existingDevice.ip_address} -> ${ip_address}`);
+          }
         }
         
         const existing = await pool.query(existingQuery, existingParams);
