@@ -2688,24 +2688,43 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
       // 2. Sono già offline ma non hanno ancora un evento offline non risolto (devono creare evento)
       // NOTA: Controlliamo solo agent enabled=TRUE per evitare di creare eventi per agent disattivati manualmente
       console.log('🔍 checkOfflineAgents: controllo agent offline...');
-      const offlineAgents = await pool.query(
-        `SELECT na.id, na.agent_name, na.last_heartbeat, na.status, na.enabled
-         FROM network_agents na
-         WHERE na.deleted_at IS NULL
-           AND na.enabled = TRUE
-           AND (
-             -- Caso 1: Agent online ma senza heartbeat da più di 2 minuti
-             (na.status = 'online' AND (na.last_heartbeat IS NULL OR na.last_heartbeat < NOW() - INTERVAL '2 minutes'))
-             OR
-             -- Caso 2: Agent già offline ma senza evento offline non risolto
-             (na.status = 'offline' AND NOT EXISTS (
-               SELECT 1 FROM network_agent_events nae
-               WHERE nae.agent_id = na.id
-                 AND nae.event_type = 'offline'
-                 AND nae.resolved_at IS NULL
-             ))
-           )`
-      );
+      let offlineAgents;
+      try {
+        offlineAgents = await pool.query(
+          `SELECT na.id, na.agent_name, na.last_heartbeat, na.status, na.enabled
+           FROM network_agents na
+           WHERE na.deleted_at IS NULL
+             AND na.enabled = TRUE
+             AND (
+               -- Caso 1: Agent online ma senza heartbeat da più di 2 minuti
+               (na.status = 'online' AND (na.last_heartbeat IS NULL OR na.last_heartbeat < NOW() - INTERVAL '2 minutes'))
+               OR
+               -- Caso 2: Agent già offline ma senza evento offline non risolto
+               (na.status = 'offline' AND NOT EXISTS (
+                 SELECT 1 FROM network_agent_events nae
+                 WHERE nae.agent_id = na.id
+                   AND nae.event_type = 'offline'
+                   AND nae.resolved_at IS NULL
+               ))
+             )`
+        );
+      } catch (queryErr) {
+        // Se la tabella network_agent_events non esiste, usa una query semplificata
+        if (queryErr.code === '42P01') {
+          console.log('ℹ️ checkOfflineAgents: tabella network_agent_events non disponibile, uso query semplificata');
+          offlineAgents = await pool.query(
+            `SELECT na.id, na.agent_name, na.last_heartbeat, na.status, na.enabled
+             FROM network_agents na
+             WHERE na.deleted_at IS NULL
+               AND na.enabled = TRUE
+               AND na.status = 'online'
+               AND (na.last_heartbeat IS NULL OR na.last_heartbeat < NOW() - INTERVAL '2 minutes')`
+          );
+        } else {
+          // Rilancia altri errori
+          throw queryErr;
+        }
+      }
       
       console.log(`🔍 checkOfflineAgents: trovati ${offlineAgents.rows.length} agent offline`);
       if (offlineAgents.rows.length > 0) {
