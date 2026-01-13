@@ -1304,6 +1304,7 @@ module.exports = (pool, io) => {
       await ensureTables();
       
       const limit = parseInt(req.query.limit) || 200;
+      const searchTerm = req.query.search ? req.query.search.trim() : '';
 
       // Assicurati che la colonna is_static esista (migrazione)
       try {
@@ -1316,6 +1317,26 @@ module.exports = (pool, io) => {
         if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
           console.warn('⚠️ Avviso aggiunta colonna is_static in all/changes:', migrationErr.message);
         }
+      }
+
+      // Costruisci condizioni di ricerca
+      let searchConditions = '';
+      let queryParams = [];
+      
+      if (searchTerm) {
+        const searchPattern = `%${searchTerm}%`;
+        searchConditions = `WHERE (
+          nd.ip_address::text ILIKE $1 OR
+          nd.mac_address ILIKE $1 OR
+          nd.hostname ILIKE $1 OR
+          nc.change_type::text ILIKE $1 OR
+          nc.old_value ILIKE $1 OR
+          nc.new_value ILIKE $1 OR
+          na.agent_name ILIKE $1 OR
+          COALESCE(u.azienda, '') ILIKE $1 OR
+          nd.device_type ILIKE $1
+        )`;
+        queryParams.push(searchPattern);
       }
 
       const result = await pool.query(
@@ -1340,9 +1361,10 @@ module.exports = (pool, io) => {
          INNER JOIN network_devices nd ON nc.device_id = nd.id
          INNER JOIN network_agents na ON nc.agent_id = na.id
          LEFT JOIN users u ON na.azienda_id = u.id
+         ${searchConditions}
          ORDER BY nc.detected_at DESC
-         LIMIT $1`,
-        [limit]
+         LIMIT $${queryParams.length + 1}`,
+        [...queryParams, limit]
       );
 
       res.json(result.rows);

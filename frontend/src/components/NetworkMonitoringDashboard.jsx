@@ -28,6 +28,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [companyDevices, setCompanyDevices] = useState([]);
   const [loadingCompanyDevices, setLoadingCompanyDevices] = useState(false);
+  const [changesSearchTerm, setChangesSearchTerm] = useState('');
   // selectedStaticIPs non serve più, usiamo is_static dal database
 
   const [editingAgentId, setEditingAgentId] = useState(null);
@@ -122,7 +123,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   // Carica cambiamenti
   const loadChanges = useCallback(async (silent = false) => {
     try {
-      const response = await fetch(buildApiUrl('/api/network-monitoring/all/changes?limit=100'), {
+      const searchParam = changesSearchTerm ? `&search=${encodeURIComponent(changesSearchTerm)}` : '';
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/all/changes?limit=100${searchParam}`), {
         headers: getAuthHeader()
       });
 
@@ -137,7 +139,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         console.error('Errore caricamento cambiamenti:', err);
       }
     }
-  }, [getAuthHeader]);
+  }, [getAuthHeader, changesSearchTerm]);
 
   // Carica lista aziende
   const loadCompanies = useCallback(async () => {
@@ -913,7 +915,37 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900">Cambiamenti Rilevati</h2>
-          <span className="text-sm text-gray-500">{changes.length} totali</span>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Cerca (IP, MAC, hostname, azienda...)"
+                value={changesSearchTerm}
+                onChange={(e) => {
+                  setChangesSearchTerm(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    loadChanges();
+                  }
+                }}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
+              />
+              {changesSearchTerm && (
+                <button
+                  onClick={() => {
+                    setChangesSearchTerm('');
+                    loadChanges();
+                  }}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <span className="text-sm text-gray-500">{changes.length} totali</span>
+          </div>
         </div>
         <div className="p-6">
           {changes.length === 0 ? (
