@@ -580,122 +580,134 @@ module.exports = (pool, io) => {
         });
       }
 
-      // Crea eventi se necessario
-      if (rebootDetected) {
-        // Verifica se esiste già un evento riavvio recente (ultimi 5 minuti)
-        const existingReboot = await pool.query(
-          `SELECT id FROM network_agent_events 
-           WHERE agent_id = $1 
-             AND event_type = 'reboot' 
-             AND detected_at > NOW() - INTERVAL '5 minutes'
-           LIMIT 1`,
-          [agentId]
-        );
+      // Crea eventi se necessario (proteggiamo tutte le operazioni con try-catch)
+      try {
+        // Assicurati che la tabella esista prima di usarla
+        await ensureTables();
 
-        if (existingReboot.rows.length === 0) {
-          // Crea evento riavvio
-          await pool.query(
-            `INSERT INTO network_agent_events (agent_id, event_type, event_data, detected_at, notified)
-             VALUES ($1, 'reboot', $2, NOW(), FALSE)`,
-            [agentId, JSON.stringify({
-              system_uptime_seconds: system_uptime,
-              system_uptime_minutes: (system_uptime / 60).toFixed(2),
-              last_heartbeat_before: lastHeartbeat,
-              detected_at: new Date().toISOString()
-            })]
+        if (rebootDetected) {
+          // Verifica se esiste già un evento riavvio recente (ultimi 5 minuti)
+          const existingReboot = await pool.query(
+            `SELECT id FROM network_agent_events 
+             WHERE agent_id = $1 
+               AND event_type = 'reboot' 
+               AND detected_at > NOW() - INTERVAL '5 minutes'
+             LIMIT 1`,
+            [agentId]
           );
-          
-          // Emetti evento WebSocket
-          if (io) {
-            io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
-              agentId,
-              eventType: 'reboot',
-              message: `Agent ${req.agent.agent_name || agentId} riavviato`,
-              detectedAt: new Date().toISOString()
-            });
+
+          if (existingReboot.rows.length === 0) {
+            // Crea evento riavvio
+            await pool.query(
+              `INSERT INTO network_agent_events (agent_id, event_type, event_data, detected_at, notified)
+               VALUES ($1, 'reboot', $2, NOW(), FALSE)`,
+              [agentId, JSON.stringify({
+                system_uptime_seconds: system_uptime,
+                system_uptime_minutes: (system_uptime / 60).toFixed(2),
+                last_heartbeat_before: lastHeartbeat,
+                detected_at: new Date().toISOString()
+              })]
+            );
+            
+            // Emetti evento WebSocket
+            if (io) {
+              io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
+                agentId,
+                eventType: 'reboot',
+                message: `Agent ${req.agent.agent_name || agentId} riavviato`,
+                detectedAt: new Date().toISOString()
+              });
+            }
           }
         }
-      }
 
-      if (wasOffline && isNowOnline) {
-        // Risolvi eventuali eventi offline precedenti
-        await pool.query(
-          `UPDATE network_agent_events 
-           SET resolved_at = NOW()
-           WHERE agent_id = $1 
-             AND event_type = 'offline' 
-             AND resolved_at IS NULL`,
-          [agentId]
-        );
-
-        // Crea evento "tornato online"
-        const offlineDuration = lastHeartbeat ? Math.floor((Date.now() - new Date(lastHeartbeat).getTime()) / 60000) : 0;
-        
-        // Verifica se esiste già un evento online recente (ultimi 2 minuti)
-        const existingOnline = await pool.query(
-          `SELECT id FROM network_agent_events 
-           WHERE agent_id = $1 
-             AND event_type = 'online' 
-             AND detected_at > NOW() - INTERVAL '2 minutes'
-           LIMIT 1`,
-          [agentId]
-        );
-
-        if (existingOnline.rows.length === 0) {
+        if (wasOffline && isNowOnline) {
+          // Risolvi eventuali eventi offline precedenti
           await pool.query(
-            `INSERT INTO network_agent_events (agent_id, event_type, event_data, detected_at, notified)
-             VALUES ($1, 'online', $2, NOW(), FALSE)`,
-            [agentId, JSON.stringify({
-              offline_duration_minutes: offlineDuration,
-              last_heartbeat_before: lastHeartbeat,
-              detected_at: new Date().toISOString()
-            })]
+            `UPDATE network_agent_events 
+             SET resolved_at = NOW()
+             WHERE agent_id = $1 
+               AND event_type = 'offline' 
+               AND resolved_at IS NULL`,
+            [agentId]
           );
+
+          // Crea evento "tornato online"
+          const offlineDuration = lastHeartbeat ? Math.floor((Date.now() - new Date(lastHeartbeat).getTime()) / 60000) : 0;
           
-          // Emetti evento WebSocket
-          if (io) {
-            io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
-              agentId,
-              eventType: 'online',
-              message: `Agent ${req.agent.agent_name || agentId} tornato online (era offline da ${offlineDuration} minuti)`,
-              detectedAt: new Date().toISOString()
-            });
+          // Verifica se esiste già un evento online recente (ultimi 2 minuti)
+          const existingOnline = await pool.query(
+            `SELECT id FROM network_agent_events 
+             WHERE agent_id = $1 
+               AND event_type = 'online' 
+               AND detected_at > NOW() - INTERVAL '2 minutes'
+             LIMIT 1`,
+            [agentId]
+          );
+
+          if (existingOnline.rows.length === 0) {
+            await pool.query(
+              `INSERT INTO network_agent_events (agent_id, event_type, event_data, detected_at, notified)
+               VALUES ($1, 'online', $2, NOW(), FALSE)`,
+              [agentId, JSON.stringify({
+                offline_duration_minutes: offlineDuration,
+                last_heartbeat_before: lastHeartbeat,
+                detected_at: new Date().toISOString()
+              })]
+            );
+            
+            // Emetti evento WebSocket
+            if (io) {
+              io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
+                agentId,
+                eventType: 'online',
+                message: `Agent ${req.agent.agent_name || agentId} tornato online (era offline da ${offlineDuration} minuti)`,
+                detectedAt: new Date().toISOString()
+              });
+            }
           }
         }
-      }
 
-      // Rileva problema rete se indicato dall'agent
-      if (network_issue_detected === true && network_issue_duration !== undefined) {
-        // Verifica se esiste già un evento network_issue recente (ultimi 5 minuti)
-        const existingNetworkIssue = await pool.query(
-          `SELECT id FROM network_agent_events 
-           WHERE agent_id = $1 
-             AND event_type = 'network_issue' 
-             AND detected_at > NOW() - INTERVAL '5 minutes'
-           LIMIT 1`,
-          [agentId]
-        );
-
-        if (existingNetworkIssue.rows.length === 0) {
-          await pool.query(
-            `INSERT INTO network_agent_events (agent_id, event_type, event_data, detected_at, notified, resolved_at)
-             VALUES ($1, 'network_issue', $2, NOW(), FALSE, NOW())`,
-            [agentId, JSON.stringify({
-              issue_duration_minutes: network_issue_duration,
-              detected_at: new Date().toISOString(),
-              resolved_at: new Date().toISOString()
-            })]
+        // Rileva problema rete se indicato dall'agent
+        if (network_issue_detected === true && network_issue_duration !== undefined) {
+          // Verifica se esiste già un evento network_issue recente (ultimi 5 minuti)
+          const existingNetworkIssue = await pool.query(
+            `SELECT id FROM network_agent_events 
+             WHERE agent_id = $1 
+               AND event_type = 'network_issue' 
+               AND detected_at > NOW() - INTERVAL '5 minutes'
+             LIMIT 1`,
+            [agentId]
           );
-          
-          // Emetti evento WebSocket
-          if (io) {
-            io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
-              agentId,
-              eventType: 'network_issue',
-              message: `Agent ${req.agent.agent_name || agentId} - problema rete rilevato (durata: ${network_issue_duration} minuti)`,
-              detectedAt: new Date().toISOString()
-            });
+
+          if (existingNetworkIssue.rows.length === 0) {
+            await pool.query(
+              `INSERT INTO network_agent_events (agent_id, event_type, event_data, detected_at, notified, resolved_at)
+               VALUES ($1, 'network_issue', $2, NOW(), FALSE, NOW())`,
+              [agentId, JSON.stringify({
+                issue_duration_minutes: network_issue_duration,
+                detected_at: new Date().toISOString(),
+                resolved_at: new Date().toISOString()
+              })]
+            );
+            
+            // Emetti evento WebSocket
+            if (io) {
+              io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
+                agentId,
+                eventType: 'network_issue',
+                message: `Agent ${req.agent.agent_name || agentId} - problema rete rilevato (durata: ${network_issue_duration} minuti)`,
+                detectedAt: new Date().toISOString()
+              });
+            }
           }
+        }
+      } catch (eventsErr) {
+        // Se la tabella non esiste o c'è un errore, logga ma non bloccare il heartbeat
+        if (eventsErr.code === '42P01') {
+          console.log(`ℹ️ Heartbeat: tabella network_agent_events non disponibile, eventi non registrati`);
+        } else {
+          console.error(`❌ Errore creazione eventi heartbeat:`, eventsErr.message);
         }
       }
 
