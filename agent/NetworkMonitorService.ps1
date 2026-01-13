@@ -1004,12 +1004,19 @@ public class ArpHelper {
                             # Per ora lasciamo null
                         }
                         
+                        # Verifica se questo IP ha avuto ping falliti durante i 3 tentativi
+                        $hasPingFailures = $false
+                        if ($script:pingFailures -and $script:pingFailures.ContainsKey($ip)) {
+                            $hasPingFailures = $script:pingFailures[$ip]
+                        }
+                        
                         $device = @{
                             ip_address = $ip
                             mac_address = $macAddress
                             hostname = $hostname
                             vendor = $vendor
                             status = "online"
+                            has_ping_failures = $hasPingFailures
                         }
                         
                         # Salva MAC trovato per uso successivo
