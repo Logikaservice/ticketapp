@@ -710,9 +710,29 @@ module.exports = (pool, io) => {
           }
         }
       } catch (eventsErr) {
-        // Se la tabella non esiste o c'è un errore, logga ma non bloccare il heartbeat
+        // Se la tabella non esiste, prova a crearla direttamente
         if (eventsErr.code === '42P01') {
-          console.log(`ℹ️ Heartbeat: tabella network_agent_events non disponibile, eventi non registrati`);
+          console.log(`⚠️ Heartbeat: tabella network_agent_events non disponibile, tentativo creazione...`);
+          try {
+            await pool.query(`
+              CREATE TABLE IF NOT EXISTS network_agent_events (
+                id SERIAL PRIMARY KEY,
+                agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
+                event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('offline', 'online', 'reboot', 'network_issue')),
+                event_data JSONB,
+                detected_at TIMESTAMP DEFAULT NOW(),
+                resolved_at TIMESTAMP,
+                notified BOOLEAN DEFAULT FALSE,
+                read_by INTEGER[] DEFAULT ARRAY[]::INTEGER[],
+                created_at TIMESTAMP DEFAULT NOW()
+              );
+            `);
+            console.log(`✅ Heartbeat: tabella network_agent_events creata con successo`);
+            // Resetta il flag per forzare la ricreazione al prossimo heartbeat
+            tablesCheckDone = false;
+          } catch (createErr) {
+            console.error(`❌ Heartbeat: errore creazione tabella network_agent_events:`, createErr.message);
+          }
         } else {
           console.error(`❌ Errore creazione eventi heartbeat:`, eventsErr.message);
         }
@@ -2847,9 +2867,29 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
             console.log(`🔴 Agent ${agent.id} (${agent.agent_name}) rilevato offline`);
           }
         } catch (eventErr) {
-          // Se la tabella non esiste o c'è un errore, logga ma continua
+          // Se la tabella non esiste, prova a crearla direttamente
           if (eventErr.code === '42P01') {
-            console.log(`ℹ️ checkOfflineAgents: tabella network_agent_events non disponibile per agent ${agent.id}`);
+            console.log(`⚠️ checkOfflineAgents: tabella network_agent_events non disponibile, tentativo creazione...`);
+            try {
+              await pool.query(`
+                CREATE TABLE IF NOT EXISTS network_agent_events (
+                  id SERIAL PRIMARY KEY,
+                  agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
+                  event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('offline', 'online', 'reboot', 'network_issue')),
+                  event_data JSONB,
+                  detected_at TIMESTAMP DEFAULT NOW(),
+                  resolved_at TIMESTAMP,
+                  notified BOOLEAN DEFAULT FALSE,
+                  read_by INTEGER[] DEFAULT ARRAY[]::INTEGER[],
+                  created_at TIMESTAMP DEFAULT NOW()
+                );
+              `);
+              console.log(`✅ checkOfflineAgents: tabella network_agent_events creata con successo`);
+              // Resetta il flag per forzare la ricreazione al prossimo controllo
+              tablesCheckDone = false;
+            } catch (createErr) {
+              console.error(`❌ checkOfflineAgents: errore creazione tabella network_agent_events:`, createErr.message);
+            }
           } else {
             console.error(`❌ checkOfflineAgents: errore creazione evento offline per agent ${agent.id}:`, eventErr.message);
           }
