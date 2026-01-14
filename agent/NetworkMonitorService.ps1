@@ -15,8 +15,26 @@ param(
 # Versione dell'agent (usata se non specificata nel config.json)
 $SCRIPT_VERSION = "1.1.1"
 
-# Aggiungi definizione API Windows per recupero MAC (come Advanced IP Scanner)
-Add-Type -TypeDefinition @"
+# Bootstrap log: se il servizio crasha subito (prima di Write-Log), almeno qui troviamo l'errore.
+$script:bootstrapLogDir = "C:\ProgramData\NetworkMonitorAgent"
+try {
+    if (-not (Test-Path $script:bootstrapLogDir)) {
+        New-Item -ItemType Directory -Path $script:bootstrapLogDir -Force | Out-Null
+    }
+} catch { }
+$script:bootstrapLogPath = Join-Path $script:bootstrapLogDir "NetworkMonitorService_bootstrap.log"
+function Write-BootstrapLog {
+    param([string]$Message)
+    try {
+        $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        "[$ts] $Message" | Out-File -FilePath $script:bootstrapLogPath -Append -Encoding UTF8
+    } catch { }
+}
+
+$script:arpHelperAvailable = $false
+try {
+    # Aggiungi definizione API Windows per recupero MAC (come Advanced IP Scanner)
+    Add-Type -TypeDefinition @"
 using System;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -112,6 +130,12 @@ public class ArpHelper {
     }
 }
 "@
+    $script:arpHelperAvailable = $true
+} catch {
+    Write-BootstrapLog "WARN: Add-Type ArpHelper fallito: $($_.Exception.Message)"
+    try { Write-BootstrapLog "Stack: $($_.Exception.StackTrace)" } catch { }
+    # Non bloccare il servizio: useremo fallback (Get-NetNeighbor/arp.exe) dove possibile.
+}
 
 # Variabili globali
 # Determina directory script (funziona anche come servizio)
@@ -655,6 +679,7 @@ function Get-NetworkDevices {
                         param($targetIP, $arpTableData)
                         
                         # Ricrea ArpHelper nel runspace (necessario per SendARP)
+                        try {
                         Add-Type -TypeDefinition @"
 using System;
 using System.Net;
@@ -716,6 +741,7 @@ public class ArpHelper {
     }
 }
 "@
+                        } catch { }
                         
                         $macAddress = $null
                         
