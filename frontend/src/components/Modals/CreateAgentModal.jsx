@@ -447,7 +447,7 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
                   <option value="">Seleziona un'azienda</option>
                   {companies.map(company => (
                     <option key={company.id} value={company.id}>
-                      {company.azienda} {company.agents_count > 0 && `(${company.agents_count} agent)`}
+                      {company.azienda}
                     </option>
                   ))}
                 </select>

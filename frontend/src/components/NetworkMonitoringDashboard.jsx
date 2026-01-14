@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
+import AgentNotifications from './AgentNotifications';
 
 const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null }) => {
   const [devices, setDevices] = useState([]);
@@ -590,6 +591,15 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               </div>
             )}
           </div>
+          
+          {/* Notifiche Agent */}
+          {getAuthHeader && socket && (
+            <AgentNotifications
+              getAuthHeader={getAuthHeader}
+              socket={socket}
+              onOpenNetworkMonitoring={null}
+            />
+          )}
           
           {!onClose && (
             <div>

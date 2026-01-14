@@ -1,7 +1,7 @@
 // src/components/AgentNotifications.jsx
 
 import React, { useState, useEffect, useRef } from 'react';
-import { AlertTriangle, X, CheckCircle, RefreshCw, WifiOff, Wifi } from 'lucide-react';
+import { AlertTriangle, X, CheckCircle, RefreshCw, WifiOff, Wifi, Trash2 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
 const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) => {
@@ -53,6 +53,30 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
       }
     } catch (err) {
       console.error('Errore marcatura evento come letto:', err);
+    }
+  };
+
+  // Cancella tutte le notifiche
+  const clearAllNotifications = async () => {
+    if (!confirm('Vuoi cancellare tutte le notifiche agent? Questa azione non può essere annullata.')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(buildApiUrl('/api/network-monitoring/agent-events/clear'), {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+      if (response.ok) {
+        setEvents([]);
+        setUnreadCount(0);
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Errore cancellazione notifiche' }));
+        alert(errorData.error || 'Errore cancellazione notifiche');
+      }
+    } catch (err) {
+      console.error('Errore cancellazione notifiche:', err);
+      alert('Errore cancellazione notifiche: ' + err.message);
     }
   };
 
@@ -165,12 +189,23 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
         <div className="absolute right-0 top-full mt-2 w-96 bg-white rounded-lg shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
           <div className="p-4 border-b border-gray-200 flex items-center justify-between">
             <h3 className="font-semibold text-gray-900">Notifiche Agent</h3>
-            <button
-              onClick={() => setShowDropdown(false)}
-              className="p-1 text-gray-400 hover:text-gray-600"
-            >
-              <X size={18} />
-            </button>
+            <div className="flex items-center gap-2">
+              {events.length > 0 && (
+                <button
+                  onClick={clearAllNotifications}
+                  className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition"
+                  title="Pulisci tutte le notifiche"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+              <button
+                onClick={() => setShowDropdown(false)}
+                className="p-1 text-gray-400 hover:text-gray-600"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
 
           {events.length === 0 ? (

@@ -1700,12 +1700,12 @@ module.exports = (pool, io) => {
         let countParams = [];
         
         if (searchConditions) {
-          // Se c'è già una condizione WHERE, aggiungi AND per le 24h
-          count24hCondition = searchConditions + ` AND nc.detected_at > NOW() - INTERVAL '24 hours'`;
+          // Se c'è già una condizione WHERE, aggiungi AND per oggi (si resetta a mezzanotte)
+          count24hCondition = searchConditions + ` AND nc.detected_at >= CURRENT_DATE`;
           countParams = queryParams.slice(0, -1); // Rimuovi il limit dai params
         } else {
-          // Altrimenti crea una nuova condizione WHERE
-          count24hCondition = `WHERE nc.detected_at > NOW() - INTERVAL '24 hours'`;
+          // Altrimenti crea una nuova condizione WHERE per oggi (si resetta a mezzanotte)
+          count24hCondition = `WHERE nc.detected_at >= CURRENT_DATE`;
           countParams = [];
         }
         
@@ -1790,14 +1790,14 @@ module.exports = (pool, io) => {
          ORDER BY u.azienda ASC`
       );
       
-      // Per ogni azienda, conta gli agent associati
+      // Per ogni azienda, conta gli agent associati (solo quelli non cancellati)
       const companiesWithAgents = await Promise.all(
         companiesResult.rows.map(async (row) => {
           const agentCount = await pool.query(
             `SELECT COUNT(*) as count 
              FROM network_agents na
              INNER JOIN users u ON na.azienda_id = u.id
-             WHERE u.azienda = $1`,
+             WHERE u.azienda = $1 AND na.deleted_at IS NULL`,
             [row.azienda]
           );
           return {
@@ -2668,6 +2668,35 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
         res.json({ count: 0 });
       } else {
         console.error('❌ Errore conteggio eventi non letti:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
+    }
+  });
+
+  // DELETE /api/network-monitoring/agent-events/clear - Cancella tutte le notifiche (anche non lette)
+  router.delete('/agent-events/clear', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables(); // Assicura che le tabelle esistano
+      
+      // Cancella tutti gli eventi (anche quelli non letti)
+      const result = await pool.query(
+        `DELETE FROM network_agent_events
+         WHERE id IN (
+           SELECT nae.id
+           FROM network_agent_events nae
+           INNER JOIN network_agents na ON nae.agent_id = na.id
+           WHERE na.deleted_at IS NULL
+         )`
+      );
+
+      res.json({ success: true, deleted: result.rowCount });
+    } catch (err) {
+      // Se la tabella non esiste, restituisci successo comunque
+      if (err.message && (err.message.includes('does not exist') || err.message.includes('relation') && err.message.includes('network_agent_events'))) {
+        console.log('ℹ️ Tabella network_agent_events non ancora creata, restituisco successo');
+        res.json({ success: true, deleted: 0 });
+      } else {
+        console.error('❌ Errore cancellazione notifiche:', err);
         res.status(500).json({ error: 'Errore interno del server' });
       }
     }
