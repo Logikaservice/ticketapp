@@ -9,6 +9,29 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Exit-WithPause {
+    param(
+        [int]$Code = 0
+    )
+    Write-Host ""
+    Write-Host "Premi un tasto per chiudere..." -ForegroundColor Yellow
+    try { $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") } catch {}
+    exit $Code
+}
+
+trap {
+    Write-Host ""
+    Write-Host "❌ ERRORE: $($_.Exception.Message)" -ForegroundColor Red
+    try {
+        if ($_.Exception.StackTrace) {
+            Write-Host ""
+            Write-Host "StackTrace:" -ForegroundColor DarkGray
+            Write-Host $_.Exception.StackTrace -ForegroundColor DarkGray
+        }
+    } catch {}
+    Exit-WithPause 1
+}
+
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Network Monitor Agent - Installer" -ForegroundColor Cyan
@@ -20,7 +43,7 @@ if ($PSVersionTable.PSVersion.Major -lt 5) {
     Write-Host "❌ Richiesto PowerShell 5.1 o superiore!" -ForegroundColor Red
     Write-Host "Premi un tasto per uscire..."
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    exit 1
+    Exit-WithPause 1
 }
 
 # Prova a leggere automaticamente API Key e Server URL dal config.json nello ZIP
@@ -57,7 +80,7 @@ if ([string]::IsNullOrWhiteSpace($ApiKey)) {
         Write-Host "❌ API Key richiesta!" -ForegroundColor Red
         Write-Host "Premi un tasto per uscire..."
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        exit 1
+        Exit-WithPause 1
     }
 }
 
@@ -105,7 +128,7 @@ try {
     Write-Host ""
     Write-Host "Premi un tasto per uscire..."
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    exit 1
+    Exit-WithPause 1
 }
 
 # Directory di installazione (fissa, per evitare che dopo reboot parta una "vecchia" copia da Downloads/Desktop)
@@ -231,7 +254,7 @@ if (Test-Path $autoInstaller) {
     Write-Host ""
     Write-Host "Premi un tasto per uscire..."
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    exit 0
+    Exit-WithPause 0
 }
 
 Write-Host ""
@@ -240,4 +263,4 @@ Write-Host "Scarica nuovamente il pacchetto ZIP completo dalla dashboard TicketA
 Write-Host ""
 Write-Host "Premi un tasto per uscire..."
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-exit 1
+Exit-WithPause 1
