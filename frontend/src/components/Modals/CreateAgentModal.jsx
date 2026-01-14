@@ -330,6 +330,39 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Scarica pacchetto completo agent (ZIP con tutti i file)
+  const downloadAgentPackage = async () => {
+    if (!createdAgent) return;
+    
+    try {
+      setLoading(true);
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/agent/${createdAgent.id}/download`), {
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Errore download pacchetto' }));
+        throw new Error(errorData.error || 'Errore download pacchetto');
+      }
+
+      // Download ZIP
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `NetworkMonitor-Agent-${createdAgent.agent_name.replace(/\s+/g, '-')}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Errore download pacchetto:', err);
+      setError('Errore scaricamento pacchetto: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -543,33 +576,64 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
                   </button>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                  ⚠️ <strong>Nota:</strong> Scarica anche <code className="bg-gray-100 px-1 rounded">NetworkMonitor.ps1</code> e <code className="bg-gray-100 px-1 rounded">NetworkMonitorInstaller.ps1</code> dalla cartella <code className="bg-gray-100 px-1 rounded">agent/</code> del progetto
+                  💡 <strong>Suggerimento:</strong> Per un'installazione più semplice, usa il pulsante "Scarica Pacchetto ZIP Completo" qui sotto che include tutti i file necessari!
+                </p>
+              </div>
+
+              <div className="p-4 bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-300 rounded-lg">
+                <h3 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
+                  <Download size={20} />
+                  📦 Scarica Pacchetto Completo (Consigliato)
+                </h3>
+                <p className="text-sm text-green-800 mb-3">
+                  <strong>Il modo più semplice:</strong> Scarica il pacchetto ZIP completo che contiene tutti i file necessari già configurati!
+                </p>
+                <button
+                  onClick={downloadAgentPackage}
+                  disabled={loading}
+                  className="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold shadow-lg"
+                >
+                  {loading ? (
+                    <>
+                      <Loader size={18} className="animate-spin" />
+                      Download in corso...
+                    </>
+                  ) : (
+                    <>
+                      <Download size={20} />
+                      Scarica Pacchetto ZIP Completo
+                    </>
+                  )}
+                </button>
+                <p className="text-xs text-green-700 mt-2">
+                  ✅ Il pacchetto ZIP contiene: config.json, NetworkMonitor.ps1, NetworkMonitorService.ps1, InstallerCompleto.ps1 e tutti gli altri file necessari
                 </p>
               </div>
 
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h3 className="font-semibold text-blue-900 mb-2">📦 Pacchetto di installazione:</h3>
+                <h3 className="font-semibold text-blue-900 mb-2">📦 Installazione Manuale (Alternativa):</h3>
                 <p className="text-sm text-blue-800 mb-3">
-                  Per installare l'agent sul PC Windows, hai bisogno di 3 file:
+                  Se preferisci scaricare i file manualmente, hai bisogno di questi file:
                 </p>
                 <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside mb-3">
                   <li><code className="bg-blue-100 px-1 rounded">config.json</code> (scaricato sopra ✅)</li>
                   <li><code className="bg-blue-100 px-1 rounded">NetworkMonitor.ps1</code> (dalla cartella <code className="bg-blue-100 px-1 rounded">agent/</code> del progetto)</li>
-                  <li><code className="bg-blue-100 px-1 rounded">NetworkMonitorInstaller.ps1</code> (dalla cartella <code className="bg-blue-100 px-1 rounded">agent/</code> del progetto)</li>
+                  <li><code className="bg-blue-100 px-1 rounded">NetworkMonitorService.ps1</code> (dalla cartella <code className="bg-blue-100 px-1 rounded">agent/</code> del progetto)</li>
                 </ul>
                 
                 <div className="mt-4 p-3 bg-white border border-blue-200 rounded-lg">
-                  <h4 className="font-semibold text-blue-900 mb-2">🚀 Installazione automatica:</h4>
+                  <h4 className="font-semibold text-blue-900 mb-2">🚀 Installazione automatica (con pacchetto ZIP):</h4>
                   <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                    <li>Copia tutti e 3 i file nella stessa cartella sul PC Windows</li>
+                    <li>Scarica il pacchetto ZIP completo usando il pulsante verde sopra</li>
+                    <li>Estrai il ZIP in una cartella permanente (es: <code className="bg-blue-100 px-1 rounded">C:\ProgramData\NetworkMonitorAgent\</code>)</li>
                     <li>
                       <strong>Esegui l'installer come amministratore:</strong>
                       <div className="bg-gray-100 px-3 py-2 rounded mt-1 font-mono text-xs border border-gray-300">
-                        .\NetworkMonitorInstaller.ps1
+                        .\InstallerCompleto.ps1
                       </div>
-                      Oppure usa il file <code className="bg-blue-100 px-1 rounded">Installa-Agent.bat</code> (doppio click)
+                      Oppure usa il file <code className="bg-blue-100 px-1 rounded">Installa.bat</code> (doppio click)
                     </li>
-                    <li>L'installer configurerà tutto automaticamente, incluso il Scheduled Task</li>
+                    <li>L'installer configurerà tutto automaticamente, incluso il servizio Windows</li>
                   </ol>
                 </div>
 
