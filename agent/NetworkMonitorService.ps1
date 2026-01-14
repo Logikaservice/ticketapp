@@ -1432,7 +1432,8 @@ function Send-Heartbeat {
         $payloadJson = $payload | ConvertTo-Json
         
         $url = "$ServerUrl/api/network-monitoring/agent/heartbeat"
-        $response = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $payloadJson -ErrorAction Stop
+        # Timeout di 30 secondi per evitare che la richiesta si blocchi troppo a lungo
+        $response = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $payloadJson -TimeoutSec 30 -ErrorAction Stop
         
         # Heartbeat riuscito - reset contatori problemi rete
         $script:lastSuccessfulHeartbeat = Get-Date

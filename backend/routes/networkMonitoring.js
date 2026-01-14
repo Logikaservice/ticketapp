@@ -2767,8 +2767,8 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
            WHERE na.deleted_at IS NULL
              AND na.enabled = TRUE
              AND (
-               -- Caso 1: Agent online ma senza heartbeat da più di 2 minuti
-               (na.status = 'online' AND (na.last_heartbeat IS NULL OR na.last_heartbeat < NOW() - INTERVAL '2 minutes'))
+               -- Caso 1: Agent online ma senza heartbeat da più di 8 minuti (agent invia ogni 5 minuti, quindi 8 minuti dà margine per ritardi)
+               (na.status = 'online' AND (na.last_heartbeat IS NULL OR na.last_heartbeat < NOW() - INTERVAL '8 minutes'))
                OR
                -- Caso 2: Agent già offline ma senza evento offline non risolto
                (na.status = 'offline' AND NOT EXISTS (
@@ -2789,7 +2789,7 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
              WHERE na.deleted_at IS NULL
                AND na.enabled = TRUE
                AND na.status = 'online'
-               AND (na.last_heartbeat IS NULL OR na.last_heartbeat < NOW() - INTERVAL '2 minutes')`
+               AND (na.last_heartbeat IS NULL OR na.last_heartbeat < NOW() - INTERVAL '8 minutes')`
           );
         } else {
           // Rilancia altri errori
