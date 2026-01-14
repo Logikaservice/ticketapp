@@ -53,8 +53,9 @@ if (-not $isAdmin) {
     Write-Host "Se non vedi il prompt, controlla la barra delle applicazioni: potrebbe essere dietro altre finestre." -ForegroundColor Gray
     try {
         $self = $PSCommandPath
-        Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$self`"" -Wait
-        Exit-WithPause 0
+        # Non aspettare: questa finestra serve solo ad aprire il prompt amministratore.
+        Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$self`""
+        exit 0
     } catch {
         Write-Host "❌ Impossibile ottenere privilegi amministratore." -ForegroundColor Red
         Exit-WithPause 1
