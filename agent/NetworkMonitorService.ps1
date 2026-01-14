@@ -32,6 +32,7 @@ function Write-BootstrapLog {
 }
 
 $script:arpHelperAvailable = $false
+Write-BootstrapLog "BOOT: avvio NetworkMonitorService.ps1 (v=$SCRIPT_VERSION, PS=$($PSVersionTable.PSVersion), PID=$PID, ConfigPath=$ConfigPath)"
 try {
     # Aggiungi definizione API Windows per recupero MAC (come Advanced IP Scanner)
     Add-Type -TypeDefinition @"
