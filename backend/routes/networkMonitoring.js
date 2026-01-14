@@ -461,6 +461,25 @@ module.exports = (pool, io) => {
       }
 
       await ensureTables();
+
+      // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
+      // Serve per far capire all'installer quale versione dovrebbe risultare installata.
+      let agentPackageVersion = "1.0.0";
+      try {
+        const projectRoot = path.resolve(__dirname, '..', '..');
+        const agentDir = path.join(projectRoot, 'agent');
+        const servicePath = path.join(agentDir, 'NetworkMonitorService.ps1');
+        if (fs.existsSync(servicePath)) {
+          const serviceContent = fs.readFileSync(servicePath, 'utf8');
+          const versionMatch = serviceContent.match(/\$SCRIPT_VERSION\s*=\s*"([\d\.]+)"/);
+          if (versionMatch) {
+            agentPackageVersion = versionMatch[1];
+          }
+        }
+      } catch (versionErr) {
+        // Non bloccare la risposta se non riusciamo a leggere la versione
+        console.warn('⚠️ Impossibile leggere versione pacchetto agent:', versionErr.message);
+      }
       
       const result = await pool.query(
         `SELECT id, agent_name, network_ranges, scan_interval_minutes, enabled 
@@ -483,6 +502,7 @@ module.exports = (pool, io) => {
       res.json({
         api_key: apiKey, // Restituisci la stessa API key per comodità
         agent_name: agent.agent_name,
+        version: agentPackageVersion,
         network_ranges: agent.network_ranges || [],
         scan_interval_minutes: agent.scan_interval_minutes || 15
       });

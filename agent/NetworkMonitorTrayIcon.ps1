@@ -20,6 +20,8 @@ $script:statusFile = $StatusFilePath
 $script:configPath = $ConfigPath
 $script:currentScanIPsPath = $CurrentScanIPsPath
 $script:config = $null
+$script:agentVersion = $null
+$script:installDir = Split-Path -Parent $script:configPath
 $script:statusWindow = $null
 $script:statusWindowListBox = $null
 $script:countdownLabel = $null
@@ -31,6 +33,21 @@ function Load-Config {
     if (Test-Path $script:configPath) {
         try {
             $script:config = Get-Content $script:configPath -Raw | ConvertFrom-Json
+            # Versione: preferisci config.json, fallback a $SCRIPT_VERSION dal service
+            if ($script:config -and $script:config.version) {
+                $script:agentVersion = $script:config.version.ToString()
+            } else {
+                $script:agentVersion = $null
+                try {
+                    $servicePath = Join-Path $script:installDir "NetworkMonitorService.ps1"
+                    if (Test-Path $servicePath) {
+                        $content = Get-Content $servicePath -Raw
+                        if ($content -match '\$SCRIPT_VERSION\s*=\s*"([\d\.]+)"') {
+                            $script:agentVersion = $matches[1]
+                        }
+                    }
+                } catch { }
+            }
             return $true
         } catch {
             return $false
@@ -181,6 +198,16 @@ function Show-StatusWindow {
     $subtitleLabel.ForeColor = [System.Drawing.Color]::FromArgb(200, 200, 220)
     $subtitleLabel.BackColor = [System.Drawing.Color]::Transparent
     $headerPanel.Controls.Add($subtitleLabel)
+
+    # Info versione e percorso installazione (per evitare confusione tra copie "vecchie" e "nuove")
+    $versionText = if ($script:agentVersion) { "v$($script:agentVersion)" } else { "v?" }
+    $infoLabel = New-Object System.Windows.Forms.Label
+    $infoLabel.Text = "$versionText • $($script:installDir)"
+    $infoLabel.Location = New-Object System.Drawing.Point(20, 610)
+    $infoLabel.Size = New-Object System.Drawing.Size(540, 18)
+    $infoLabel.Font = New-Object System.Drawing.Font("Segoe UI", 8)
+    $infoLabel.ForeColor = [System.Drawing.Color]::FromArgb(120, 120, 140)
+    $script:statusWindow.Controls.Add($infoLabel)
     
     # Panel per conto alla rovescia (card style)
     $countdownPanel = New-Object System.Windows.Forms.Panel

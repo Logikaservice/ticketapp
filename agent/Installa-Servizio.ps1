@@ -26,6 +26,20 @@ $ScriptPath = Join-Path $InstallDir "NetworkMonitorService.ps1"
 $ConfigPath = Join-Path $InstallDir "config.json"
 $NssmPath = Join-Path $InstallDir "nssm.exe"
 
+# Rimuovi eventuale installazione "vecchia" via Scheduled Task (evita che riparta dopo reboot)
+try {
+    $legacyTaskName = "NetworkMonitorAgent"
+    $legacyTask = Get-ScheduledTask -TaskName $legacyTaskName -ErrorAction SilentlyContinue
+    if ($legacyTask) {
+        Write-Host "Trovato Scheduled Task legacy '$legacyTaskName' - rimozione..." -ForegroundColor Yellow
+        Unregister-ScheduledTask -TaskName $legacyTaskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+        Write-Host "Scheduled Task legacy rimosso" -ForegroundColor Green
+        Write-Host ""
+    }
+} catch {
+    # non bloccare installazione
+}
+
 # Verifica che NetworkMonitorService.ps1 esista
 if (-not (Test-Path $ScriptPath)) {
     Write-Host "ERRORE: NetworkMonitorService.ps1 non trovato in: $InstallDir" -ForegroundColor Red
@@ -141,8 +155,10 @@ try {
         if (Test-Path $trayIconScript) {
             $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
             $regName = "NetworkMonitorTrayIcon"
-            # Includi i parametri necessari per la tray icon
-            $regValue = "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -NoProfile -File `"$trayIconScript`" -ConfigPath `"$ConfigPath`""
+            # Includi i parametri necessari per la tray icon (config + file di stato)
+            $statusFile = Join-Path $InstallDir ".agent_status.json"
+            $currentScanIPs = Join-Path $InstallDir ".current_scan_ips.json"
+            $regValue = "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -NoProfile -File `"$trayIconScript`" -ConfigPath `"$ConfigPath`" -StatusFilePath `"$statusFile`" -CurrentScanIPsPath `"$currentScanIPs`""
             
             Set-ItemProperty -Path $regPath -Name $regName -Value $regValue -ErrorAction Stop
             Write-Host "Tray icon configurata per avvio automatico all'accesso utente" -ForegroundColor Green
@@ -150,7 +166,7 @@ try {
             # Avvia immediatamente la tray icon (non aspettare il prossimo accesso)
             Write-Host "Avvio tray icon..." -ForegroundColor Yellow
             try {
-                Start-Process powershell.exe -ArgumentList "-WindowStyle Hidden -ExecutionPolicy Bypass -NoProfile -File `"$trayIconScript`" -ConfigPath `"$ConfigPath`"" -ErrorAction Stop
+                Start-Process powershell.exe -ArgumentList "-WindowStyle Hidden -ExecutionPolicy Bypass -NoProfile -File `"$trayIconScript`" -ConfigPath `"$ConfigPath`" -StatusFilePath `"$statusFile`" -CurrentScanIPsPath `"$currentScanIPs`"" -ErrorAction Stop
                 Start-Sleep -Seconds 2
                 Write-Host "Tray icon avviata!" -ForegroundColor Green
             } catch {

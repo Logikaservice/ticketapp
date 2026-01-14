@@ -87,33 +87,67 @@ try {
     exit 1
 }
 
-# Directory di installazione (dove si trova lo script)
-$InstallDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-if ([string]::IsNullOrWhiteSpace($InstallDir)) {
-    $InstallDir = $PWD.Path
+# Directory di installazione (fissa, per evitare che dopo reboot parta una "vecchia" copia da Downloads/Desktop)
+$SourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+if ([string]::IsNullOrWhiteSpace($SourceDir)) { $SourceDir = $PWD.Path }
+$InstallDir = "$env:ProgramData\NetworkMonitorAgent"
+
+Write-Host "Directory sorgente: $SourceDir" -ForegroundColor Gray
+Write-Host "Directory installazione (fissa): $InstallDir" -ForegroundColor Gray
+Write-Host ""
+
+# Crea directory installazione se non esiste
+if (-not (Test-Path $InstallDir)) {
+    New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 }
 
-Write-Host "Directory installazione: $InstallDir" -ForegroundColor Gray
-Write-Host "⚠️  IMPORTANTE: I file devono rimanere in questa directory!" -ForegroundColor Yellow
-if ($InstallDir -like "*Downloads*" -or $InstallDir -like "*Download*") {
-    Write-Host "⚠️  ATTENZIONE: Stai installando nella cartella Download!" -ForegroundColor Red
-    Write-Host "    Consigliato: sposta i file in una directory permanente (es: C:\ProgramData\NetworkMonitorAgent\)" -ForegroundColor Yellow
-    Write-Host ""
-    $continue = Read-Host "Vuoi continuare comunque? (S/N)"
-    if ($continue -ne "S" -and $continue -ne "s" -and $continue -ne "Y" -and $continue -ne "y") {
-        Write-Host "Installazione annullata." -ForegroundColor Yellow
-        exit 0
+# Copia (sovrascrive) tutti i file dell'agent dalla directory sorgente alla directory di installazione
+$filesToCopy = @(
+    "NetworkMonitorService.ps1",
+    "NetworkMonitorTrayIcon.ps1",
+    "NetworkMonitor.ps1",
+    "Installa-Servizio.ps1",
+    "Installa-Automatico.ps1",
+    "Rimuovi-Servizio.ps1",
+    "Diagnostica-Agent.ps1",
+    "README_SERVICE.md",
+    "GUIDA_INSTALLAZIONE_SERVIZIO.md",
+    "Installa.bat",
+    "nssm.exe"
+)
+
+foreach ($f in $filesToCopy) {
+    $src = Join-Path $SourceDir $f
+    $dst = Join-Path $InstallDir $f
+    if (Test-Path $src) {
+        Copy-Item -Path $src -Destination $dst -Force -ErrorAction SilentlyContinue
     }
 }
-Write-Host ""
 
 # Crea config.json
 Write-Host "Creazione config.json..." -ForegroundColor Yellow
+$agentVersion = $null
+try {
+    if ($config.version) { $agentVersion = $config.version.ToString() }
+} catch { }
+if (-not $agentVersion) {
+    try {
+        $servicePath = Join-Path $InstallDir "NetworkMonitorService.ps1"
+        if (Test-Path $servicePath) {
+            $content = Get-Content $servicePath -Raw
+            if ($content -match '\$SCRIPT_VERSION\s*=\s*"([\d\.]+)"') {
+                $agentVersion = $matches[1]
+            }
+        }
+    } catch { }
+}
+if (-not $agentVersion) { $agentVersion = "1.0.0" }
+
 $configJson = @{
     server_url = $ServerUrl
     api_key = $ApiKey
     agent_name = $config.agent_name
-    version = "1.0.0"
+    version = $agentVersion
     network_ranges = $config.network_ranges
     scan_interval_minutes = $config.scan_interval_minutes
 } | ConvertTo-Json -Depth 10
@@ -122,133 +156,30 @@ $configPath = Join-Path $InstallDir "config.json"
 $configJson | Out-File -FilePath $configPath -Encoding UTF8 -Force
 Write-Host "✅ config.json creato" -ForegroundColor Green
 
-# Verifica che NetworkMonitor.ps1 esista nella stessa directory
-$agentScript = Join-Path $InstallDir "NetworkMonitor.ps1"
-if (-not (Test-Path $agentScript)) {
+Write-Host "Versione agent impostata: $agentVersion" -ForegroundColor Gray
+
+# Preferisci installazione "nuova" come servizio Windows (più stabile di Scheduled Task)
+$autoInstaller = Join-Path $InstallDir "Installa-Automatico.ps1"
+if (Test-Path $autoInstaller) {
     Write-Host ""
-    Write-Host "⚠️  File NetworkMonitor.ps1 non trovato in: $InstallDir" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "Il file NetworkMonitor.ps1 deve essere nella stessa cartella dell'installer." -ForegroundColor Yellow
-    Write-Host "Scarica NetworkMonitor.ps1 dalla cartella agent/ del progetto TicketApp." -ForegroundColor Yellow
+    Write-Host "Avvio installazione come servizio Windows (consigliato)..." -ForegroundColor Yellow
+    try {
+        # -Force per evitare prompt e garantire sovrascrittura/riconfigurazione
+        Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$autoInstaller`" -Force" -Wait
+        Write-Host "✅ Installazione/aggiornamento servizio completato." -ForegroundColor Green
+    } catch {
+        Write-Host "⚠️ Errore durante installazione servizio: $_" -ForegroundColor Yellow
+    }
     Write-Host ""
     Write-Host "Premi un tasto per uscire..."
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    exit 1
+    exit 0
 }
 
-# Crea Scheduled Task
 Write-Host ""
-Write-Host "Creazione Scheduled Task..." -ForegroundColor Yellow
-
-$TaskName = "NetworkMonitorAgent"
-
-# Rimuovi task esistente se presente
-$existingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-if ($existingTask) {
-    Write-Host "  Rimozione task esistente..." -ForegroundColor Gray
-    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
-}
-
-# Crea azione
-$action = New-ScheduledTaskAction `
-    -Execute "powershell.exe" `
-    -Argument "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$agentScript`"" `
-    -WorkingDirectory $InstallDir
-
-# Crea trigger
-$trigger = New-ScheduledTaskTrigger `
-    -Once `
-    -At (Get-Date) `
-    -RepetitionInterval (New-TimeSpan -Minutes $config.scan_interval_minutes)
-
-# Crea settings
-$settings = New-ScheduledTaskSettingsSet `
-    -AllowStartIfOnBatteries `
-    -DontStopIfGoingOnBatteries `
-    -StartWhenAvailable `
-    -RunOnlyIfNetworkAvailable `
-    -ExecutionTimeLimit (New-TimeSpan -Minutes 10) `
-    -RestartCount 3 `
-    -RestartInterval (New-TimeSpan -Minutes 1)
-
-# Registra task
-try {
-    Register-ScheduledTask `
-        -TaskName $TaskName `
-        -Action $action `
-        -Trigger $trigger `
-        -Settings $settings `
-        -Description "Network Monitor Agent - Scansione rete automatica ogni $($config.scan_interval_minutes) minuti" `
-        -User "SYSTEM" `
-        -RunLevel Highest -ErrorAction Stop | Out-Null
-    
-    Write-Host "✅ Scheduled Task creato con successo!" -ForegroundColor Green
-} catch {
-    Write-Host "⚠️  Impossibile creare task come SYSTEM, provo con utente corrente..." -ForegroundColor Yellow
-    try {
-        Register-ScheduledTask `
-            -TaskName $TaskName `
-            -Action $action `
-            -Trigger $trigger `
-            -Settings $settings `
-            -Description "Network Monitor Agent - Scansione rete automatica ogni $($config.scan_interval_minutes) minuti" `
-            -User $env:USERNAME `
-            -RunLevel Limited -ErrorAction Stop | Out-Null
-        
-        Write-Host "✅ Task creato con privilegi limitati" -ForegroundColor Green
-    } catch {
-        Write-Host "❌ Errore creazione Scheduled Task: $_" -ForegroundColor Red
-        Write-Host ""
-        Write-Host "Esegui PowerShell come Amministratore e riprova." -ForegroundColor Yellow
-        Write-Host "Premi un tasto per uscire..."
-        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-        exit 1
-    }
-}
-
-# Test connessione
-Write-Host ""
-Write-Host "Test connessione..." -ForegroundColor Yellow
-try {
-    # Esegui test nella directory di installazione (dove si trova config.json)
-    Push-Location $InstallDir
-    try {
-        & $agentScript -TestMode 2>&1 | ForEach-Object {
-            if ($_ -match "ERROR") {
-                Write-Host $_ -ForegroundColor Red
-            } elseif ($_ -match "WARN") {
-                Write-Host $_ -ForegroundColor Yellow
-            } else {
-                Write-Host $_
-            }
-        }
-        # Verifica exit code
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "✅ Test completato con successo!" -ForegroundColor Green
-        } else {
-            Write-Host "⚠️  Test completato con errori (exit code: $LASTEXITCODE)" -ForegroundColor Yellow
-            Write-Host "   Verifica manualmente con: .\NetworkMonitor.ps1 -TestMode" -ForegroundColor Yellow
-        }
-    } finally {
-        Pop-Location
-    }
-} catch {
-    Write-Host "⚠️  Errore durante test: $_" -ForegroundColor Yellow
-    Write-Host "   Verifica manualmente con: .\NetworkMonitor.ps1 -TestMode" -ForegroundColor Yellow
-}
-
-# Fine
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "✅ Installazione completata!" -ForegroundColor Green
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "L'agent ora scansiona automaticamente la rete ogni $($config.scan_interval_minutes) minuti." -ForegroundColor White
-Write-Host ""
-Write-Host "⚠️  IMPORTANTE:" -ForegroundColor Yellow
-Write-Host "   • I file devono rimanere in: $InstallDir" -ForegroundColor White
-Write-Host "   • NON cancellare i file dopo l'installazione!" -ForegroundColor White
-Write-Host "   • Se cancelli i file, l'agent smetterà di funzionare" -ForegroundColor White
+Write-Host "❌ Installa-Automatico.ps1 non trovato in: $InstallDir" -ForegroundColor Red
+Write-Host "Scarica nuovamente il pacchetto ZIP completo dalla dashboard TicketApp." -ForegroundColor Yellow
 Write-Host ""
 Write-Host "Premi un tasto per uscire..."
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+exit 1
