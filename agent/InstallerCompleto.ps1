@@ -23,11 +23,36 @@ if ($PSVersionTable.PSVersion.Major -lt 5) {
     exit 1
 }
 
-# Se API Key non passata come parametro, chiedila
+# Prova a leggere automaticamente API Key e Server URL dal config.json nello ZIP
+$SourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+if ([string]::IsNullOrWhiteSpace($SourceDir)) { $SourceDir = $PWD.Path }
+$zipConfigPath = Join-Path $SourceDir "config.json"
+$programDataConfigPath = Join-Path "$env:ProgramData\NetworkMonitorAgent" "config.json"
+
+try {
+    $autoConfig = $null
+    if (Test-Path $zipConfigPath) {
+        $autoConfig = Get-Content $zipConfigPath -Raw | ConvertFrom-Json
+    } elseif (Test-Path $programDataConfigPath) {
+        $autoConfig = Get-Content $programDataConfigPath -Raw | ConvertFrom-Json
+    }
+
+    if ($autoConfig) {
+        if ([string]::IsNullOrWhiteSpace($ApiKey) -and $autoConfig.api_key) {
+            $ApiKey = $autoConfig.api_key.ToString()
+        }
+        if (($ServerUrl -eq "https://ticket.logikaservice.it" -or [string]::IsNullOrWhiteSpace($ServerUrl)) -and $autoConfig.server_url) {
+            $ServerUrl = $autoConfig.server_url.ToString()
+        }
+    }
+} catch {
+    # non bloccare
+}
+
+# Se ancora manca API Key, chiedila
 if ([string]::IsNullOrWhiteSpace($ApiKey)) {
-    Write-Host "Inserisci l'API Key dell'agent (ottienila dalla dashboard TicketApp):" -ForegroundColor Yellow
+    Write-Host "Inserisci l'API Key dell'agent (se hai scaricato lo ZIP dalla dashboard dovrebbe essere già in config.json):" -ForegroundColor Yellow
     $ApiKey = Read-Host "API Key"
-    
     if ([string]::IsNullOrWhiteSpace($ApiKey)) {
         Write-Host "❌ API Key richiesta!" -ForegroundColor Red
         Write-Host "Premi un tasto per uscire..."
@@ -36,23 +61,19 @@ if ([string]::IsNullOrWhiteSpace($ApiKey)) {
     }
 }
 
-# Chiedi URL server (con default)
-Write-Host ""
-Write-Host "URL del server TicketApp (premi INVIO per usare il default):" -ForegroundColor Yellow
-$inputUrl = Read-Host "Server URL"
-if (-not [string]::IsNullOrWhiteSpace($inputUrl)) {
-    $ServerUrl = $inputUrl
-    # Verifica che inizi con https://
-    if ($ServerUrl -notlike "https://*") {
-        Write-Host "⚠️  ATTENZIONE: L'URL dovrebbe iniziare con 'https://'" -ForegroundColor Yellow
-        if ($ServerUrl -like "http://*") {
-            Write-Host "    Correggo automaticamente da http:// a https://" -ForegroundColor Yellow
-            $ServerUrl = $ServerUrl -replace "^http://", "https://"
-        } else {
-            Write-Host "    Aggiungo automaticamente https://" -ForegroundColor Yellow
-            $ServerUrl = "https://" + $ServerUrl.TrimStart('/')
-        }
-        Write-Host "    URL corretto: $ServerUrl" -ForegroundColor Gray
+# Se ServerUrl è vuoto, chiedilo; altrimenti non chiedere nulla (evita prompt inutile)
+if ([string]::IsNullOrWhiteSpace($ServerUrl)) {
+    Write-Host ""
+    Write-Host "URL del server TicketApp:" -ForegroundColor Yellow
+    $ServerUrl = Read-Host "Server URL"
+}
+
+# Normalizza URL (https)
+if (-not [string]::IsNullOrWhiteSpace($ServerUrl) -and $ServerUrl -notlike "https://*") {
+    if ($ServerUrl -like "http://*") {
+        $ServerUrl = $ServerUrl -replace "^http://", "https://"
+    } else {
+        $ServerUrl = "https://" + $ServerUrl.TrimStart('/')
     }
 }
 
@@ -88,8 +109,6 @@ try {
 }
 
 # Directory di installazione (fissa, per evitare che dopo reboot parta una "vecchia" copia da Downloads/Desktop)
-$SourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-if ([string]::IsNullOrWhiteSpace($SourceDir)) { $SourceDir = $PWD.Path }
 $InstallDir = "$env:ProgramData\NetworkMonitorAgent"
 
 Write-Host "Directory sorgente: $SourceDir" -ForegroundColor Gray
