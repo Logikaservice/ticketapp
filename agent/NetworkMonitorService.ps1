@@ -239,7 +239,8 @@ function Get-NetworkDevices {
     param([string[]]$NetworkRanges)
     
     $devices = @()
-    $foundIPs = [System.Collections.Generic.List[string]]::new()
+    # PS 4.0 non supporta ::new(), usa New-Object per compatibilità (Server 2012)
+    $foundIPs = New-Object 'System.Collections.Generic.List[string]'
     # Dizionario per tracciare MAC trovati (inclusi quelli da lookup diretto)
     $foundMACs = @{}
     # Dizionario per tracciare dispositivi con ping intermittenti (ping falliti durante i 3 tentativi)

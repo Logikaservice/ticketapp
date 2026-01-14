@@ -106,6 +106,11 @@ try {
     
     # Configura directory di lavoro
     & $NssmPath set $ServiceName AppDirectory $InstallDir
+
+    # Forza parametri assoluti (evita che ConfigPath diventi relativo su alcuni sistemi)
+    & $NssmPath set $ServiceName Application $powershellPath
+    $absParams = "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$ScriptPath`" -ConfigPath `"$ConfigPath`""
+    & $NssmPath set $ServiceName AppParameters $absParams
     
     # Configura display name e descrizione
     & $NssmPath set $ServiceName DisplayName "Network Monitor Agent Service"
