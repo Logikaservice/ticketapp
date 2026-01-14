@@ -131,7 +131,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   }, [getAuthHeader]);
 
   const clearAllAgentNotifications = useCallback(async () => {
-    if (!confirm('Vuoi cancellare TUTTE le notifiche agent (anche non lette)?')) return;
+    if (!confirm('Vuoi segnare come LETTE tutte le notifiche agent?\n\nLo storico resterà disponibile in questa schermata.')) return;
     try {
       const response = await fetch(buildApiUrl('/api/network-monitoring/agent-events/clear'), {
         method: 'DELETE',
@@ -141,7 +141,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         const errorData = await response.json().catch(() => ({ error: 'Errore cancellazione notifiche' }));
         throw new Error(errorData.error || 'Errore cancellazione notifiche');
       }
-      setAgentEvents([]);
+      // Non svuotare lo storico: marca come lette localmente
+      setAgentEvents(prev => (prev || []).map(e => ({ ...e, is_read: true })));
     } catch (err) {
       console.error('Errore cancellazione notifiche agent:', err);
       alert(`Errore cancellazione notifiche: ${err.message}`);
@@ -971,11 +972,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               </button>
               <button
                 onClick={clearAllAgentNotifications}
-                className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
-                title="Pulisci tutte le notifiche"
+                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                title="Segna tutte come lette (lo storico resta)"
               >
                 <Trash2 size={16} />
-                Pulisci
+                Segna tutte lette
               </button>
               <button
                 onClick={() => setShowAgentNotificationsList(false)}

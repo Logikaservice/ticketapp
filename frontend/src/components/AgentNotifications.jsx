@@ -56,9 +56,9 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
     }
   };
 
-  // Cancella tutte le notifiche
+  // "Pulisci" nel triangolo: segna tutte come lette e svuota il popup (non cancella lo storico)
   const clearAllNotifications = async () => {
-    if (!confirm('Vuoi cancellare tutte le notifiche agent? Questa azione non può essere annullata.')) {
+    if (!confirm('Vuoi pulire le notifiche agent in questo popup?\n\nVerranno segnate come lette (lo storico resta disponibile).')) {
       return;
     }
     

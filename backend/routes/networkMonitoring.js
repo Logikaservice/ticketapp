@@ -2673,28 +2673,35 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
     }
   });
 
-  // DELETE /api/network-monitoring/agent-events/clear - Cancella tutte le notifiche (anche non lette)
+  // DELETE /api/network-monitoring/agent-events/clear
+  // "Pulisci" nel triangolo notifiche: NON cancella lo storico.
+  // Segna invece tutti gli eventi come letti per l'utente corrente (così in menu restano visibili).
   router.delete('/agent-events/clear', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       await ensureTables(); // Assicura che le tabelle esistano
+      const userId = req.user.id;
       
-      // Cancella tutti gli eventi (anche quelli non letti)
+      // Marca come letto tutto ciò che è "non letto" per questo utente
       const result = await pool.query(
-        `DELETE FROM network_agent_events
-         WHERE id IN (
-           SELECT nae.id
-           FROM network_agent_events nae
-           INNER JOIN network_agents na ON nae.agent_id = na.id
-           WHERE na.deleted_at IS NULL
-         )`
+        `UPDATE network_agent_events nae
+         SET read_by = CASE
+           WHEN nae.read_by IS NULL THEN ARRAY[$1]::INTEGER[]
+           WHEN NOT ($1 = ANY(nae.read_by)) THEN array_append(nae.read_by, $1)
+           ELSE nae.read_by
+         END
+         FROM network_agents na
+         WHERE nae.agent_id = na.id
+           AND na.deleted_at IS NULL
+           AND (nae.read_by IS NULL OR NOT ($1 = ANY(nae.read_by)))`,
+        [userId]
       );
 
-      res.json({ success: true, deleted: result.rowCount });
+      res.json({ success: true, marked_read: result.rowCount });
     } catch (err) {
       // Se la tabella non esiste, restituisci successo comunque
       if (err.message && (err.message.includes('does not exist') || err.message.includes('relation') && err.message.includes('network_agent_events'))) {
         console.log('ℹ️ Tabella network_agent_events non ancora creata, restituisco successo');
-        res.json({ success: true, deleted: 0 });
+        res.json({ success: true, marked_read: 0 });
       } else {
         console.error('❌ Errore cancellazione notifiche:', err);
         res.status(500).json({ error: 'Errore interno del server' });
