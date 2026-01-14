@@ -135,11 +135,50 @@ $filesToCopy = @(
     "nssm.exe"
 )
 
+# Prova a fermare servizio/tray e processi che possono tenere lock su file nella cartella
+try {
+    $serviceName = "NetworkMonitorService"
+    $svc = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    if ($svc -and $svc.Status -eq "Running") {
+        Write-Host "Arresto servizio esistente..." -ForegroundColor Yellow
+        Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+    }
+} catch { }
+
+try {
+    Get-Process -Name "nssm" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+} catch { }
+
+try {
+    # Chiudi eventuale tray icon (powershell con NetworkMonitorTrayIcon)
+    Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {
+        try {
+            $cmd = (Get-WmiObject Win32_Process -Filter "ProcessId = $($_.Id)").CommandLine
+            $cmd -like "*NetworkMonitorTrayIcon*"
+        } catch { $false }
+    } | Stop-Process -Force -ErrorAction SilentlyContinue
+} catch { }
+
 foreach ($f in $filesToCopy) {
     $src = Join-Path $SourceDir $f
     $dst = Join-Path $InstallDir $f
     if (Test-Path $src) {
-        Copy-Item -Path $src -Destination $dst -Force -ErrorAction SilentlyContinue
+        $copied = $false
+        for ($i = 0; $i -lt 3 -and -not $copied; $i++) {
+            try {
+                Copy-Item -Path $src -Destination $dst -Force -ErrorAction Stop
+                $copied = $true
+            } catch {
+                # Se nssm.exe è in uso, non bloccare: usa quello già presente
+                if ($f -ieq "nssm.exe" -and $_.Exception.Message -match "in uso|in use|accesso al file") {
+                    Write-Host "⚠️ nssm.exe è in uso: mantengo la copia esistente (OK)" -ForegroundColor Yellow
+                    $copied = $true
+                    break
+                }
+                Start-Sleep -Milliseconds 600
+            }
+        }
     }
 }
 
