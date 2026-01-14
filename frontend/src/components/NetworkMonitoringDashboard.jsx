@@ -27,6 +27,17 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [showCreateAgentModal, setShowCreateAgentModal] = useState(false);
   const [agents, setAgents] = useState([]);
   const [showAgentsList, setShowAgentsList] = useState(false);
+  const [showAgentNotificationsList, setShowAgentNotificationsList] = useState(false);
+  const [agentEvents, setAgentEvents] = useState([]);
+  const [agentEventsLoading, setAgentEventsLoading] = useState(false);
+  const [agentEventsError, setAgentEventsError] = useState(null);
+  const [agentEventsFilters, setAgentEventsFilters] = useState({
+    azienda: '',
+    agentId: '',
+    eventType: '',
+    unreadOnly: false,
+    search: ''
+  });
   const [companies, setCompanies] = useState([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [companyDevices, setCompanyDevices] = useState([]);
@@ -72,6 +83,106 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       console.error('Errore caricamento agent:', err);
     }
   }, [getAuthHeader]);
+
+  const loadAgentEvents = useCallback(async (opts = {}) => {
+    try {
+      setAgentEventsLoading(true);
+      setAgentEventsError(null);
+      const limit = opts.limit || 200;
+      const unreadOnly = opts.unreadOnly === true;
+
+      const url = new URL(buildApiUrl('/api/network-monitoring/agent-events'));
+      url.searchParams.set('limit', String(limit));
+      if (unreadOnly) url.searchParams.set('unread_only', 'true');
+
+      const response = await fetch(url.toString(), {
+        headers: getAuthHeader()
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Errore caricamento notifiche agent' }));
+        throw new Error(errorData.error || 'Errore caricamento notifiche agent');
+      }
+      const data = await response.json();
+      setAgentEvents(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Errore caricamento notifiche agent:', err);
+      setAgentEventsError(err.message || 'Errore caricamento notifiche agent');
+    } finally {
+      setAgentEventsLoading(false);
+    }
+  }, [getAuthHeader]);
+
+  const markAgentEventAsRead = useCallback(async (eventId) => {
+    try {
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/agent-events/${eventId}/read`), {
+        method: 'POST',
+        headers: getAuthHeader()
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Errore marcatura notifica' }));
+        throw new Error(errorData.error || 'Errore marcatura notifica');
+      }
+      // Aggiorna localmente (evita un refetch completo)
+      setAgentEvents(prev => prev.map(e => (e.id === eventId ? { ...e, is_read: true } : e)));
+    } catch (err) {
+      console.error('Errore marcatura notifica come letta:', err);
+      alert(`Errore marcatura notifica: ${err.message}`);
+    }
+  }, [getAuthHeader]);
+
+  const clearAllAgentNotifications = useCallback(async () => {
+    if (!confirm('Vuoi cancellare TUTTE le notifiche agent (anche non lette)?')) return;
+    try {
+      const response = await fetch(buildApiUrl('/api/network-monitoring/agent-events/clear'), {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Errore cancellazione notifiche' }));
+        throw new Error(errorData.error || 'Errore cancellazione notifiche');
+      }
+      setAgentEvents([]);
+    } catch (err) {
+      console.error('Errore cancellazione notifiche agent:', err);
+      alert(`Errore cancellazione notifiche: ${err.message}`);
+    }
+  }, [getAuthHeader]);
+
+  const safeParseEventData = (event) => {
+    try {
+      const raw = event?.event_data;
+      if (!raw) return {};
+      if (typeof raw === 'string') return JSON.parse(raw);
+      return raw;
+    } catch {
+      return {};
+    }
+  };
+
+  const getAgentEventLabel = (event) => {
+    const data = safeParseEventData(event);
+    const agentLabel = event?.agent_name || `Agent #${event?.agent_id || ''}`;
+    switch (event?.event_type) {
+      case 'offline': {
+        const mins = data.offline_duration_minutes;
+        return `Agent ${agentLabel} offline${mins ? ` (da ${mins} min)` : ''}`;
+      }
+      case 'online': {
+        const mins = data.offline_duration_minutes;
+        return `Agent ${agentLabel} tornato online${mins ? ` (era offline da ${mins} min)` : ''}`;
+      }
+      case 'reboot': {
+        const uptime = data.system_uptime_minutes || data.system_uptime;
+        return `Agent ${agentLabel} riavviato${uptime ? ` (uptime: ${uptime} min)` : ''}`;
+      }
+      case 'network_issue': {
+        const mins = data.issue_duration_minutes || data.network_issue_duration;
+        return `Agent ${agentLabel} - problema rete${mins ? ` (durata: ${mins} min)` : ''}`;
+      }
+      default:
+        return `Evento ${event?.event_type || 'sconosciuto'} per ${agentLabel}`;
+    }
+  };
 
   // Gestisci initialView dal menu
   useEffect(() => {
@@ -569,6 +680,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                   <button
                     onClick={() => {
                       setShowAgentsList(true);
+                      setShowAgentNotificationsList(false);
                       loadAgents();
                       setShowNetworkMenu(false);
                     }}
@@ -579,7 +691,22 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                   </button>
                   <button
                     onClick={() => {
+                      setShowAgentNotificationsList(true);
+                      setShowAgentsList(false);
+                      setShowNetworkMenu(false);
+                      // Carica dati necessari
+                      loadAgents();
+                      loadAgentEvents({ limit: 200, unreadOnly: false });
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                  >
+                    <AlertTriangle size={18} className="text-yellow-600" />
+                    Notifiche Agent
+                  </button>
+                  <button
+                    onClick={() => {
                       setShowCreateAgentModal(true);
+                      setShowAgentNotificationsList(false);
                       setShowNetworkMenu(false);
                     }}
                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
@@ -821,6 +948,187 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Lista Notifiche Agent */}
+      {showAgentNotificationsList && (
+        <div className="mb-6 bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <AlertTriangle size={24} className="text-yellow-600" />
+              Notifiche Agent
+            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => loadAgentEvents({ limit: 200, unreadOnly: false })}
+                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+                disabled={agentEventsLoading}
+                title="Aggiorna notifiche"
+              >
+                <RefreshCw size={16} className={agentEventsLoading ? 'animate-spin' : ''} />
+                Aggiorna
+              </button>
+              <button
+                onClick={clearAllAgentNotifications}
+                className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                title="Pulisci tutte le notifiche"
+              >
+                <Trash2 size={16} />
+                Pulisci
+              </button>
+              <button
+                onClick={() => setShowAgentNotificationsList(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+                title="Chiudi"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* Filtri */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+            <select
+              value={agentEventsFilters.azienda}
+              onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, azienda: e.target.value }))}
+              className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-700"
+            >
+              <option value="">Tutte le aziende</option>
+              {companies.map(c => (
+                <option key={c.id} value={c.azienda}>{c.azienda}</option>
+              ))}
+            </select>
+
+            <select
+              value={agentEventsFilters.agentId}
+              onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, agentId: e.target.value }))}
+              className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-700"
+            >
+              <option value="">Tutti gli agent</option>
+              {agents.map(a => (
+                <option key={a.id} value={String(a.id)}>
+                  {a.agent_name || `Agent #${a.id}`}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={agentEventsFilters.eventType}
+              onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, eventType: e.target.value }))}
+              className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-700"
+            >
+              <option value="">Tutti i tipi</option>
+              <option value="offline">Offline</option>
+              <option value="online">Online</option>
+              <option value="reboot">Riavvio</option>
+              <option value="network_issue">Problema rete</option>
+            </select>
+
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={agentEventsFilters.unreadOnly}
+                  onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, unreadOnly: e.target.checked }))}
+                />
+                Solo non lette
+              </label>
+              <div className="flex-1 relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={agentEventsFilters.search}
+                  onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, search: e.target.value }))}
+                  placeholder="Cerca..."
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {agentEventsError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-800 text-sm">
+              {agentEventsError}
+            </div>
+          )}
+
+          {/* Lista */}
+          {agentEventsLoading ? (
+            <div className="py-8 flex items-center justify-center text-gray-600">
+              <Loader className="w-5 h-5 animate-spin mr-2" />
+              Caricamento notifiche...
+            </div>
+          ) : (() => {
+            const filtered = (agentEvents || [])
+              .filter(ev => {
+                if (agentEventsFilters.unreadOnly && ev.is_read) return false;
+                if (agentEventsFilters.azienda && (ev.azienda || '') !== agentEventsFilters.azienda) return false;
+                if (agentEventsFilters.agentId && String(ev.agent_id) !== String(agentEventsFilters.agentId)) return false;
+                if (agentEventsFilters.eventType && ev.event_type !== agentEventsFilters.eventType) return false;
+
+                const q = (agentEventsFilters.search || '').trim().toLowerCase();
+                if (!q) return true;
+                const hay = [
+                  ev.azienda,
+                  ev.agent_name,
+                  ev.event_type,
+                  getAgentEventLabel(ev),
+                ].filter(Boolean).join(' ').toLowerCase();
+                return hay.includes(q);
+              });
+
+            if (filtered.length === 0) {
+              return <div className="py-8 text-center text-gray-500">Nessuna notifica</div>;
+            }
+
+            return (
+              <div className="divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
+                {filtered.map(ev => {
+                  const isUnread = !ev.is_read;
+                  return (
+                    <div
+                      key={ev.id}
+                      className={`p-4 hover:bg-gray-50 flex items-start justify-between gap-4 ${isUnread ? 'bg-blue-50' : ''}`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                            ev.event_type === 'offline' ? 'bg-red-100 text-red-800' :
+                            ev.event_type === 'online' ? 'bg-green-100 text-green-800' :
+                            ev.event_type === 'reboot' ? 'bg-blue-100 text-blue-800' :
+                            ev.event_type === 'network_issue' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {ev.event_type}
+                          </span>
+                          {isUnread && <span className="text-xs font-semibold text-blue-700">NON LETTA</span>}
+                        </div>
+                        <div className="text-sm text-gray-900 font-medium truncate">
+                          {getAgentEventLabel(ev)}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {ev.detected_at ? formatDate(ev.detected_at) : 'N/A'}
+                          {ev.azienda ? ` • ${ev.azienda}` : ''}
+                          {ev.agent_name ? ` • ${ev.agent_name}` : ''}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!ev.is_read && (
+                          <button
+                            onClick={() => markAgentEventAsRead(ev.id)}
+                            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                            title="Segna come letta"
+                          >
+                            Segna letta
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       )}
 
