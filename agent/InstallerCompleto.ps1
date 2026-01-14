@@ -39,11 +39,15 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Verifica PowerShell version
-if ($PSVersionTable.PSVersion.Major -lt 5) {
-    Write-Host "❌ Richiesto PowerShell 5.1 o superiore!" -ForegroundColor Red
-    Write-Host "Premi un tasto per uscire..."
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+# Compatibilità: su Windows Server 2012 spesso c'è PowerShell 3/4. L'installer può funzionare comunque.
+if ($PSVersionTable.PSVersion.Major -lt 3) {
+    Write-Host "❌ Richiesto PowerShell 3.0 o superiore!" -ForegroundColor Red
     Exit-WithPause 1
+}
+if ($PSVersionTable.PSVersion.Major -lt 5) {
+    Write-Host "⚠️ PowerShell 5.1 non presente (rilevata versione $($PSVersionTable.PSVersion)). Provo comunque (compatibilità Server 2012)." -ForegroundColor Yellow
+    Write-Host "   Se qualcosa non funziona, la soluzione migliore è installare Windows Management Framework 5.1." -ForegroundColor Gray
+    Write-Host ""
 }
 
 # Auto-elevazione: serve per fermare/aggiornare il servizio e scrivere in ProgramData senza errori
