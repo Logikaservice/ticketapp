@@ -46,6 +46,21 @@ if ($PSVersionTable.PSVersion.Major -lt 5) {
     Exit-WithPause 1
 }
 
+# Auto-elevazione: serve per fermare/aggiornare il servizio e scrivere in ProgramData senza errori
+$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Host "Richiesti privilegi amministratore (UAC)..." -ForegroundColor Yellow
+    Write-Host "Se non vedi il prompt, controlla la barra delle applicazioni: potrebbe essere dietro altre finestre." -ForegroundColor Gray
+    try {
+        $self = $PSCommandPath
+        Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$self`"" -Wait
+        Exit-WithPause 0
+    } catch {
+        Write-Host "❌ Impossibile ottenere privilegi amministratore." -ForegroundColor Red
+        Exit-WithPause 1
+    }
+}
+
 # Prova a leggere automaticamente API Key e Server URL dal config.json nello ZIP
 $SourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 if ([string]::IsNullOrWhiteSpace($SourceDir)) { $SourceDir = $PWD.Path }
@@ -245,15 +260,12 @@ if (Test-Path $autoInstaller) {
     Write-Host ""
     Write-Host "Avvio installazione come servizio Windows (consigliato)..." -ForegroundColor Yellow
     try {
-        # -Force per evitare prompt e garantire sovrascrittura/riconfigurazione
-        Start-Process powershell.exe -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$autoInstaller`" -Force" -Wait
+        # Siamo già admin qui: esegui nello stesso terminale (così non sembra "bloccato")
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $autoInstaller -Force
         Write-Host "✅ Installazione/aggiornamento servizio completato." -ForegroundColor Green
     } catch {
         Write-Host "⚠️ Errore durante installazione servizio: $_" -ForegroundColor Yellow
     }
-    Write-Host ""
-    Write-Host "Premi un tasto per uscire..."
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     Exit-WithPause 0
 }
 
