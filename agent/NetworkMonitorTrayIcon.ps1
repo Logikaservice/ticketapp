@@ -9,6 +9,10 @@ param(
     [string]$CurrentScanIPsPath = "$env:ProgramData\NetworkMonitorAgent\.current_scan_ips.json"
 )
 
+# Branding / Titoli UI (visibili al cliente)
+$script:APP_BRAND_NAME = "Logika Service"
+$script:APP_TITLE = "Logika Service Agent Monitor"
+
 # Aggiungi Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -147,7 +151,7 @@ function Show-StatusWindow {
         if (-not (Load-Config)) {
             [System.Windows.Forms.MessageBox]::Show(
                 "Configurazione non disponibile",
-                "Network Monitor Agent",
+                $script:APP_TITLE,
                 [System.Windows.Forms.MessageBoxButtons]::OK,
                 [System.Windows.Forms.MessageBoxIcon]::Warning
             )
@@ -164,7 +168,7 @@ function Show-StatusWindow {
     
     # Crea nuova finestra con design moderno
     $script:statusWindow = New-Object System.Windows.Forms.Form
-    $script:statusWindow.Text = "Network Monitor Agent - Stato"
+    $script:statusWindow.Text = "$($script:APP_TITLE) - Stato"
     $script:statusWindow.Size = New-Object System.Drawing.Size(580, 680)
     $script:statusWindow.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
     $script:statusWindow.MinimizeBox = $false
@@ -181,7 +185,7 @@ function Show-StatusWindow {
     
     # Label titolo nel header (bianco, grande)
     $titleLabel = New-Object System.Windows.Forms.Label
-    $titleLabel.Text = "Network Monitor Agent"
+    $titleLabel.Text = $script:APP_TITLE
     $titleLabel.Location = New-Object System.Drawing.Point(20, 15)
     $titleLabel.Size = New-Object System.Drawing.Size(540, 30)
     $titleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 16, [System.Drawing.FontStyle]::Bold)
@@ -312,14 +316,14 @@ function Show-StatusWindow {
             Write-Host "Scansione forzata richiesta" -ForegroundColor Green
             [System.Windows.Forms.MessageBox]::Show(
                 "Scansione forzata richiesta al servizio.`n`nLa scansione inizierà entro pochi secondi.`nControlla la lista IP per vedere i risultati.",
-                "Network Monitor Agent",
+                $script:APP_TITLE,
                 [System.Windows.Forms.MessageBoxButtons]::OK,
                 [System.Windows.Forms.MessageBoxIcon]::Information
             )
         } catch {
             [System.Windows.Forms.MessageBox]::Show(
                 "Errore richiesta scansione: $_",
-                "Network Monitor Agent - Errore",
+                "$($script:APP_TITLE) - Errore",
                 [System.Windows.Forms.MessageBoxButtons]::OK,
                 [System.Windows.Forms.MessageBoxIcon]::Error
             )
@@ -597,7 +601,7 @@ function Update-Stats {
 function Show-TrayIcon {
     $script:trayIcon = New-Object System.Windows.Forms.NotifyIcon
     $script:trayIcon.Icon = [System.Drawing.SystemIcons]::Information
-    $script:trayIcon.Text = "Network Monitor Agent"
+    $script:trayIcon.Text = $script:APP_TITLE
     $script:trayIcon.Visible = $true
     
     # Menu contestuale
@@ -648,13 +652,13 @@ function Show-TrayIcon {
         if ($script:trayIcon) {
             $status = Get-Status
             if ($status) {
-                $statusText = "Network Monitor Agent - $($status.status)"
+                $statusText = "$($script:APP_BRAND_NAME) - $($status.status)"
                 if ($status.last_scan) {
                     try {
                         $lastScanTime = [DateTime]::Parse($status.last_scan)
                         $timeSince = (Get-Date) - $lastScanTime
                         $minutesAgo = [Math]::Floor($timeSince.TotalMinutes)
-                        $statusText = "Agent - Ultima scan: ${minutesAgo}m fa"
+                        $statusText = "$($script:APP_BRAND_NAME) - Ultima scan: ${minutesAgo}m fa"
                     } catch {
                         # Ignora errori parsing
                     }
@@ -665,7 +669,7 @@ function Show-TrayIcon {
                 }
                 $script:trayIcon.Text = $statusText
             } else {
-                $script:trayIcon.Text = "Network Monitor Agent - Avvio..."
+                $script:trayIcon.Text = "$($script:APP_BRAND_NAME) - Avvio..."
             }
         }
     }
@@ -718,7 +722,7 @@ try {
         try {
             [System.Windows.Forms.MessageBox]::Show(
                 "File config.json non trovato: $script:configPath`n`nL'icona della system tray non può essere mostrata.`n`nControlla il log: $logPath",
-                "Network Monitor Agent",
+                $script:APP_TITLE,
                 [System.Windows.Forms.MessageBoxButtons]::OK,
                 [System.Windows.Forms.MessageBoxIcon]::Warning
             )
@@ -761,7 +765,7 @@ try {
     try {
         [System.Windows.Forms.MessageBox]::Show(
             "Errore critico nell'avvio della tray icon:`n$($_.Exception.Message)`n`nControlla il log: $logPath",
-            "Network Monitor Agent - Errore",
+            "$($script:APP_TITLE) - Errore",
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Error
         )
