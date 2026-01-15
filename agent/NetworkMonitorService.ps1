@@ -5,8 +5,8 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 1.1.2
-# Data ultima modifica: 2025-01-15
+# Versione: 1.1.3
+# Data ultima modifica: 2026-01-16
 
 param(
     [string]$ConfigPath = "config.json"
