@@ -2,7 +2,7 @@
 # Installa Network Monitor Agent come servizio Windows permanente con tray icon
 
 param(
-    [string]$InstallDir = $PSScriptRoot
+    [string]$InstallDir = "C:\ProgramData\NetworkMonitorAgent"
 )
 
 Write-Host "========================================" -ForegroundColor Cyan
