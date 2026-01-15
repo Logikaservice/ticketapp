@@ -150,11 +150,11 @@ try {
             Write-Host "Servizio installato ma non e' riuscito ad avviarsi" -ForegroundColor Yellow
             Write-Host "Stato: $($serviceStatus.Status)" -ForegroundColor Yellow
             Write-Host ""
-            Write-Host "🔍 DIAGNOSTICA:" -ForegroundColor Cyan
+            Write-Host "DIAGNOSTICA:" -ForegroundColor Cyan
             Write-Host "Controlla i log per dettagli:" -ForegroundColor Yellow
-            Write-Host "  • Errori: $stderrLog" -ForegroundColor White
-            Write-Host "  • Output: $stdoutLog" -ForegroundColor White
-            Write-Host "  • Bootstrap: $($InstallDir)\NetworkMonitorService_bootstrap.log" -ForegroundColor White
+            Write-Host "  Errori: $stderrLog" -ForegroundColor White
+            Write-Host "  Output: $stdoutLog" -ForegroundColor White
+            Write-Host "  Bootstrap: $($InstallDir)\NetworkMonitorService_bootstrap.log" -ForegroundColor White
             Write-Host ""
             Write-Host "Per diagnosticare il problema, esegui:" -ForegroundColor Yellow
             Write-Host "  powershell.exe -ExecutionPolicy Bypass -File `"$($InstallDir)\Diagnostica-Servizio.ps1`"" -ForegroundColor White
@@ -167,7 +167,7 @@ try {
     } catch {
         Write-Host "ERRORE durante avvio servizio: $_" -ForegroundColor Red
         Write-Host ""
-        Write-Host "🔍 DIAGNOSTICA:" -ForegroundColor Cyan
+        Write-Host "DIAGNOSTICA:" -ForegroundColor Cyan
         
         # Verifica se i log esistono
         if (Test-Path $stderrLog) {
