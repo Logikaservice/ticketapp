@@ -51,9 +51,9 @@ if (-not (Test-Path $ConfigPath)) {
 # Verifica che il servizio esista
 try {
     $service = Get-Service -Name $ServiceName -ErrorAction Stop
-    Write-Host "✅ Servizio '$ServiceName' trovato" -ForegroundColor Green
+    Write-Host "Servizio '$ServiceName' trovato" -ForegroundColor Green
 } catch {
-    Write-Host "❌ Servizio '$ServiceName' NON trovato!" -ForegroundColor Red
+    Write-Host "Servizio '$ServiceName' NON trovato!" -ForegroundColor Red
     Write-Host "Esegui prima Installa-Servizio.ps1" -ForegroundColor Yellow
     pause
     exit 1
@@ -73,24 +73,24 @@ Write-Host ""
 
 # Verifica se Application punta a .ps1 (ERRORE!)
 if ($appExe -match '\.ps1$') {
-    Write-Host "⚠️  PROBLEMA RILEVATO: Application punta a uno script .ps1 invece che a powershell.exe!" -ForegroundColor Red
+    Write-Host "PROBLEMA RILEVATO: Application punta a uno script .ps1 invece che a powershell.exe!" -ForegroundColor Red
     Write-Host "   Questo impedisce al servizio di avviarsi correttamente." -ForegroundColor Yellow
     Write-Host ""
 } else {
-    Write-Host "ℹ️  Application sembra corretto (non punta a .ps1)" -ForegroundColor Green
+    Write-Host "Application sembra corretto (non punta a .ps1)" -ForegroundColor Green
     Write-Host "   Continuo comunque con la riparazione per assicurarmi che tutto sia configurato correttamente..." -ForegroundColor Gray
     Write-Host ""
 }
 
-# Ferma il servizio se è in esecuzione
+# Ferma il servizio se e in esecuzione
 if ($service.Status -eq "Running") {
     Write-Host "Fermo il servizio..." -ForegroundColor Yellow
     try {
         Stop-Service -Name $ServiceName -Force -ErrorAction Stop
         Start-Sleep -Seconds 2
-        Write-Host "✅ Servizio fermato" -ForegroundColor Green
+        Write-Host "Servizio fermato" -ForegroundColor Green
     } catch {
-        Write-Host "⚠️  Errore fermando servizio: $_" -ForegroundColor Yellow
+        Write-Host "Errore fermando servizio: $_" -ForegroundColor Yellow
     }
 }
 
@@ -115,7 +115,7 @@ $absParams = "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$Sc
 Write-Host "  Imposto AppParameters (percorsi assoluti)" -ForegroundColor Gray
 & $NssmPath set $ServiceName AppParameters $absParams | Out-Null
 
-Write-Host "✅ Configurazione riparata!" -ForegroundColor Green
+Write-Host "Configurazione riparata!" -ForegroundColor Green
 Write-Host ""
 
 # Verifica configurazione finale
@@ -137,9 +137,9 @@ try {
     
     $serviceStatus = Get-Service -Name $ServiceName
     if ($serviceStatus.Status -eq "Running") {
-        Write-Host "✅ Servizio avviato con successo!" -ForegroundColor Green
+        Write-Host "Servizio avviato con successo!" -ForegroundColor Green
     } else {
-        Write-Host "⚠️  Il servizio non è ancora in esecuzione. Stato: $($serviceStatus.Status)" -ForegroundColor Yellow
+        Write-Host "Il servizio non e ancora in esecuzione. Stato: $($serviceStatus.Status)" -ForegroundColor Yellow
         Write-Host ""
         Write-Host "Controlla i log per dettagli:" -ForegroundColor Yellow
         $stderrPath = Join-Path $InstallDir "NetworkMonitorService_stderr.log"
@@ -148,11 +148,13 @@ try {
         Write-Host "  Get-Content '$bootstrapPath' -Tail 20" -ForegroundColor White
     }
 } catch {
-    Write-Host "❌ Errore avvio servizio: $_" -ForegroundColor Red
+    Write-Host "Errore avvio servizio: $_" -ForegroundColor Red
     Write-Host ""
     Write-Host "Controlla i log per dettagli:" -ForegroundColor Yellow
-    Write-Host "  Get-Content '$InstallDir\NetworkMonitorService_stderr.log' -Tail 20" -ForegroundColor White
-    Write-Host "  Get-Content '$InstallDir\NetworkMonitorService_bootstrap.log' -Tail 20" -ForegroundColor White
+    $stderrPath = Join-Path $InstallDir "NetworkMonitorService_stderr.log"
+    $bootstrapPath = Join-Path $InstallDir "NetworkMonitorService_bootstrap.log"
+    Write-Host "  Get-Content '$stderrPath' -Tail 20" -ForegroundColor White
+    Write-Host "  Get-Content '$bootstrapPath' -Tail 20" -ForegroundColor White
 }
 
 Write-Host ""
