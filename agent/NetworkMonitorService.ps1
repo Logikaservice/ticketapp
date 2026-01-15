@@ -990,7 +990,9 @@ public class ArpHelper {
                     # Avvia recupero MAC parallelo
                     foreach ($ip in $activeIPs) {
                         $foundIPs.Add($ip)
-                        $job = [powershell]::Create().AddScript($macRecoveryScriptBlock).AddArgument($ip).AddArgument($arpTable)
+                        # PowerShell 4.0 compatibility: usa New-Object invece di ::Create()
+                        $job = New-Object System.Management.Automation.PowerShell
+                        $job.AddScript($macRecoveryScriptBlock).AddArgument($ip).AddArgument($arpTable) | Out-Null
                         $job.RunspacePool = $macRunspacePool
                         $asyncResult = $job.BeginInvoke()
                         [void]$macJobs.Add(@{
