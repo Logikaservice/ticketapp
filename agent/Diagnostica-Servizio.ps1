@@ -65,18 +65,39 @@ if (-not (Test-Path $NssmPath)) {
         Write-Host "   • Application: $appExe" -ForegroundColor White
         Write-Host "   • AppParameters: $appParams" -ForegroundColor White
         
-        # Verifica che AppDirectory esista
-        if ($appDir -and (Test-Path $appDir)) {
-            Write-Host "   ✅ AppDirectory esiste" -ForegroundColor Green
-        } else {
-            Write-Host "   ❌ AppDirectory NON esiste: $appDir" -ForegroundColor Red
+        # Verifica che AppDirectory esista (pulisci spazi extra)
+        if ($appDir) {
+            $appDirClean = $appDir.Trim()
+            try {
+                if (Test-Path $appDirClean) {
+                    Write-Host "   ✅ AppDirectory esiste" -ForegroundColor Green
+                } else {
+                    Write-Host "   ❌ AppDirectory NON esiste: $appDirClean" -ForegroundColor Red
+                }
+            } catch {
+                Write-Host "   ⚠️  Errore verifica AppDirectory: $_" -ForegroundColor Yellow
+            }
         }
         
-        # Verifica che Application esista
-        if ($appExe -and (Test-Path $appExe)) {
-            Write-Host "   ✅ Application esiste" -ForegroundColor Green
-        } else {
-            Write-Host "   ❌ Application NON esiste: $appExe" -ForegroundColor Red
+        # Verifica che Application sia powershell.exe (non lo script .ps1!)
+        if ($appExe) {
+            $appExeClean = $appExe.Trim()
+            # Controlla se Application punta a powershell.exe o a uno script .ps1 (SBAGLIATO)
+            if ($appExeClean -match '\.ps1$') {
+                Write-Host "   ❌ ERRORE: Application punta a uno script .ps1 invece che a powershell.exe!" -ForegroundColor Red
+                Write-Host "      Valore attuale: $appExeClean" -ForegroundColor Red
+                Write-Host "      Dovrebbe essere: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -ForegroundColor Yellow
+            } else {
+                try {
+                    if (Test-Path $appExeClean) {
+                        Write-Host "   ✅ Application esiste" -ForegroundColor Green
+                    } else {
+                        Write-Host "   ❌ Application NON esiste: $appExeClean" -ForegroundColor Red
+                    }
+                } catch {
+                    Write-Host "   ⚠️  Errore verifica Application: $_" -ForegroundColor Yellow
+                }
+            }
         }
         
         # Verifica che lo script esista
@@ -294,8 +315,21 @@ if (-not $service) {
     Write-Host "      cd $InstallDir" -ForegroundColor White
     Write-Host "      powershell.exe -NoProfile -ExecutionPolicy Bypass -File NetworkMonitorService.ps1 -ConfigPath config.json" -ForegroundColor White
     Write-Host ""
-    Write-Host "   5. Se lo script manuale funziona ma il servizio no, verifica NSSM AppDirectory:" -ForegroundColor Gray
+    Write-Host "   5. Se lo script manuale funziona ma il servizio no, verifica/corregge NSSM:" -ForegroundColor Gray
     Write-Host "      .\nssm.exe set $ServiceName AppDirectory $InstallDir" -ForegroundColor White
+    Write-Host ""
+    Write-Host "   6. SE Application punta a .ps1 invece che a powershell.exe (ERRORE COMUNE):" -ForegroundColor Yellow
+    Write-Host "      # Trova percorso PowerShell" -ForegroundColor Gray
+    Write-Host "      `$ps = (Get-Command powershell.exe).Source" -ForegroundColor White
+    Write-Host "      # Corregge Application" -ForegroundColor Gray
+    Write-Host "      .\nssm.exe set $ServiceName Application `$ps" -ForegroundColor White
+    Write-Host "      # Corregge AppParameters (usa percorsi assoluti)" -ForegroundColor Gray
+    Write-Host "      `$script = '$InstallDir\NetworkMonitorService.ps1'" -ForegroundColor White
+    Write-Host "      `$config = '$InstallDir\config.json'" -ForegroundColor White
+    Write-Host "      `$params = \"-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `\"`$script`\" -ConfigPath `\"`$config`\"\"" -ForegroundColor White
+    Write-Host "      .\nssm.exe set $ServiceName AppParameters `$params" -ForegroundColor White
+    Write-Host "      # Poi riavvia il servizio" -ForegroundColor Gray
+    Write-Host "      Restart-Service -Name '$ServiceName'" -ForegroundColor White
 } else {
     Write-Host "✅ Il servizio è installato e in esecuzione!" -ForegroundColor Green
 }

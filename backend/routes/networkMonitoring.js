@@ -1958,6 +1958,7 @@ module.exports = (pool, io) => {
       const guidaInstallazionePath = path.join(agentDir, 'GUIDA_INSTALLAZIONE_SERVIZIO.md');
       const diagnosticaPath = path.join(agentDir, 'Diagnostica-Agent.ps1');
       const diagnosticaServizioPath = path.join(agentDir, 'Diagnostica-Servizio.ps1');
+      const riparaServizioPath = path.join(agentDir, 'Ripara-Servizio.ps1');
 
       console.log('📦 Download pacchetto agent - Path ricerca file:');
       console.log('  __dirname:', __dirname);
@@ -2255,6 +2256,13 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
           const diagnosticaServizioContent = fs.readFileSync(diagnosticaServizioPath, 'utf8');
           archive.append(diagnosticaServizioContent, { name: 'Diagnostica-Servizio.ps1' });
           console.log('✅ Aggiunto Diagnostica-Servizio.ps1');
+        }
+        
+        // Ripara-Servizio.ps1 (per riparare configurazione NSSM)
+        if (fs.existsSync(riparaServizioPath)) {
+          const riparaServizioContent = fs.readFileSync(riparaServizioPath, 'utf8');
+          archive.append(riparaServizioContent, { name: 'Ripara-Servizio.ps1' });
+          console.log('✅ Aggiunto Ripara-Servizio.ps1');
         }
         
         // NetworkMonitorTrayIcon.ps1 (tray icon separata per avvio automatico)
