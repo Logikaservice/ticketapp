@@ -1959,6 +1959,7 @@ module.exports = (pool, io) => {
       const diagnosticaPath = path.join(agentDir, 'Diagnostica-Agent.ps1');
       const diagnosticaServizioPath = path.join(agentDir, 'Diagnostica-Servizio.ps1');
       const riparaServizioPath = path.join(agentDir, 'Ripara-Servizio.ps1');
+      const verificaServizioPath = path.join(agentDir, 'Verifica-Servizio.ps1');
 
       console.log('📦 Download pacchetto agent - Path ricerca file:');
       console.log('  __dirname:', __dirname);
@@ -2263,6 +2264,13 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
           const riparaServizioContent = fs.readFileSync(riparaServizioPath, 'utf8');
           archive.append(riparaServizioContent, { name: 'Ripara-Servizio.ps1' });
           console.log('✅ Aggiunto Ripara-Servizio.ps1');
+        }
+        
+        // Verifica-Servizio.ps1 (per verificare configurazione e errori)
+        if (fs.existsSync(verificaServizioPath)) {
+          const verificaServizioContent = fs.readFileSync(verificaServizioPath, 'utf8');
+          archive.append(verificaServizioContent, { name: 'Verifica-Servizio.ps1' });
+          console.log('✅ Aggiunto Verifica-Servizio.ps1');
         }
         
         // NetworkMonitorTrayIcon.ps1 (tray icon separata per avvio automatico)

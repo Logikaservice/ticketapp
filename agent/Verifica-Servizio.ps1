@@ -1,180 +1,111 @@
-# Script di verifica per NetworkMonitor Service
-# Verifica lo stato del servizio e mostra i log recenti
-
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Verifica NetworkMonitor Service" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
+# Verifica-Servizio.ps1
+# Script rapido per verificare perché il servizio non si avvia
 
 $ServiceName = "NetworkMonitorService"
 $InstallDir = "C:\ProgramData\NetworkMonitorAgent"
+$NssmPath = Join-Path $InstallDir "nssm.exe"
 
-# 1. Verifica stato servizio
-Write-Host "1. Stato Servizio..." -ForegroundColor Yellow
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Verifica NetworkMonitorService" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+
+# 1. Stato servizio
+Write-Host "1. STATO SERVIZIO" -ForegroundColor Yellow
 try {
     $service = Get-Service -Name $ServiceName -ErrorAction Stop
-    Write-Host "   Servizio: $ServiceName" -ForegroundColor White
-    Write-Host "   Stato: $($service.Status)" -ForegroundColor $(if ($service.Status -eq "Running") { "Green" } else { "Red" })
-    Write-Host "   Tipo Avvio: $($service.StartType)" -ForegroundColor White
-    Write-Host ""
-    
-    if ($service.Status -ne "Running") {
-        Write-Host "   ATTENZIONE: Il servizio NON e' in esecuzione!" -ForegroundColor Red
-        Write-Host "   Per avviarlo, esegui PowerShell come Amministratore:" -ForegroundColor Yellow
-        Write-Host "   Start-Service -Name '$ServiceName'" -ForegroundColor Gray
-        Write-Host ""
+    Write-Host "   Status: $($service.Status)" -ForegroundColor $(if ($service.Status -eq 'Running') { 'Green' } else { 'Red' })
+    Write-Host "   StartType: $($service.StartType)" -ForegroundColor White
+} catch {
+    Write-Host "   ERRORE: Servizio non trovato!" -ForegroundColor Red
+    exit 1
+}
+Write-Host ""
+
+# 2. Configurazione NSSM
+Write-Host "2. CONFIGURAZIONE NSSM" -ForegroundColor Yellow
+$appExe = & $NssmPath get $ServiceName Application 2>&1
+$appParams = & $NssmPath get $ServiceName AppParameters 2>&1
+$appDir = & $NssmPath get $ServiceName AppDirectory 2>&1
+
+Write-Host "   Application: $appExe" -ForegroundColor White
+Write-Host "   AppDirectory: $appDir" -ForegroundColor White
+Write-Host "   AppParameters: $appParams" -ForegroundColor White
+Write-Host ""
+
+# Verifica che Application sia powershell.exe
+if ($appExe -match '\.ps1$') {
+    Write-Host "   ERRORE: Application punta a .ps1 invece che a powershell.exe!" -ForegroundColor Red
+} elseif ($appExe -notmatch 'powershell\.exe') {
+    Write-Host "   ERRORE: Application non e powershell.exe!" -ForegroundColor Red
+} else {
+    Write-Host "   OK: Application e powershell.exe" -ForegroundColor Green
+}
+
+# Verifica che AppDirectory esista
+if (Test-Path $appDir) {
+    Write-Host "   OK: AppDirectory esiste" -ForegroundColor Green
+} else {
+    Write-Host "   ERRORE: AppDirectory non esiste: $appDir" -ForegroundColor Red
+}
+Write-Host ""
+
+# 3. Verifica file necessari
+Write-Host "3. FILE NECESSARI" -ForegroundColor Yellow
+$scriptPath = Join-Path $InstallDir "NetworkMonitorService.ps1"
+$configPath = Join-Path $InstallDir "config.json"
+
+if (Test-Path $scriptPath) {
+    Write-Host "   OK: NetworkMonitorService.ps1 trovato" -ForegroundColor Green
+} else {
+    Write-Host "   ERRORE: NetworkMonitorService.ps1 NON trovato!" -ForegroundColor Red
+}
+
+if (Test-Path $configPath) {
+    Write-Host "   OK: config.json trovato" -ForegroundColor Green
+} else {
+    Write-Host "   ERRORE: config.json NON trovato!" -ForegroundColor Red
+}
+Write-Host ""
+
+# 4. Prova a eseguire il comando NSSM manualmente
+Write-Host "4. TEST ESECUZIONE COMANDO NSSM" -ForegroundColor Yellow
+Write-Host "   Comando che NSSM eseguirebbe:" -ForegroundColor Gray
+Write-Host "   $appExe $appParams" -ForegroundColor White
+Write-Host ""
+
+# 5. Controlla Event Viewer per errori
+Write-Host "5. EVENT VIEWER (ultimi errori servizio)" -ForegroundColor Yellow
+try {
+    $events = Get-EventLog -LogName System -Source "Service Control Manager" -Newest 10 -ErrorAction SilentlyContinue | Where-Object { $_.Message -match $ServiceName }
+    if ($events) {
+        foreach ($event in $events) {
+            Write-Host "   [$($event.TimeGenerated)] $($event.EntryType): $($event.Message.Substring(0, [Math]::Min(100, $event.Message.Length)))..." -ForegroundColor $(if ($event.EntryType -eq 'Error') { 'Red' } else { 'Yellow' })
+        }
+    } else {
+        Write-Host "   Nessun evento recente trovato" -ForegroundColor Gray
     }
 } catch {
-    Write-Host "   ERRORE: Servizio '$ServiceName' NON trovato!" -ForegroundColor Red
-    Write-Host ""
+    Write-Host "   Impossibile leggere Event Viewer: $_" -ForegroundColor Yellow
 }
-
-# 2. Verifica config.json
-Write-Host "2. Configurazione..." -ForegroundColor Yellow
-$configPath = Join-Path $InstallDir "config.json"
-if (Test-Path $configPath) {
-    Write-Host "   config.json trovato: $configPath" -ForegroundColor Green
-    try {
-        $config = Get-Content $configPath -Raw | ConvertFrom-Json
-        Write-Host "   Server URL: $($config.server_url)" -ForegroundColor White
-        $apiKeyPreview = if ($config.api_key) { $config.api_key.Substring(0, [Math]::Min(20, $config.api_key.Length)) + "..." } else { "N/A" }
-        Write-Host "   API Key: $apiKeyPreview" -ForegroundColor White
-        Write-Host "   Network Ranges: $($config.network_ranges -join ', ')" -ForegroundColor White
-        Write-Host "   Scan Interval: $($config.scan_interval_minutes) minuti" -ForegroundColor White
-        Write-Host ""
-    } catch {
-        Write-Host "   ERRORE: Impossibile leggere config.json: $_" -ForegroundColor Red
-        Write-Host ""
-    }
-} else {
-    Write-Host "   ERRORE: config.json NON trovato in $InstallDir" -ForegroundColor Red
-    Write-Host ""
-}
-
-# 3. Verifica log principali
-Write-Host "3. Log Servizio..." -ForegroundColor Yellow
-$logPath = Join-Path $InstallDir "NetworkMonitorService.log"
-if (Test-Path $logPath) {
-    Write-Host "   Log principale: $logPath" -ForegroundColor Green
-    Write-Host "   Ultime 20 righe:" -ForegroundColor White
-    Write-Host "   ----------------------------------------" -ForegroundColor Gray
-    try {
-        Get-Content $logPath -Tail 20 | ForEach-Object {
-            Write-Host "   $_" -ForegroundColor $(if ($_ -match "ERROR|ERRORE|Errore") { "Red" } elseif ($_ -match "WARN|ATTENZIONE") { "Yellow" } else { "White" })
-        }
-    } catch {
-        Write-Host "   ERRORE lettura log: $_" -ForegroundColor Red
-    }
-    Write-Host "   ----------------------------------------" -ForegroundColor Gray
-    Write-Host ""
-} else {
-    Write-Host "   Log principale non trovato: $logPath" -ForegroundColor Yellow
-    Write-Host ""
-}
-
-# 4. Verifica log stdout/stderr (NSSM)
-Write-Host "4. Log NSSM (stdout/stderr)..." -ForegroundColor Yellow
-$stdoutPath = Join-Path $InstallDir "NetworkMonitorService_stdout.log"
-$stderrPath = Join-Path $InstallDir "NetworkMonitorService_stderr.log"
-
-if (Test-Path $stdoutPath) {
-    Write-Host "   stdout.log trovato" -ForegroundColor Green
-    Write-Host "   Ultime 10 righe:" -ForegroundColor White
-    Write-Host "   ----------------------------------------" -ForegroundColor Gray
-    try {
-        Get-Content $stdoutPath -Tail 10 | ForEach-Object {
-            Write-Host "   $_" -ForegroundColor White
-        }
-    } catch {
-        Write-Host "   ERRORE lettura stdout: $_" -ForegroundColor Red
-    }
-    Write-Host "   ----------------------------------------" -ForegroundColor Gray
-    Write-Host ""
-} else {
-    Write-Host "   stdout.log non trovato (servizio potrebbe non essere ancora partito)" -ForegroundColor Yellow
-    Write-Host ""
-}
-
-if (Test-Path $stderrPath) {
-    $stderrContent = Get-Content $stderrPath -ErrorAction SilentlyContinue
-    if ($stderrContent) {
-        Write-Host "   stderr.log trovato (contiene errori!)" -ForegroundColor Red
-        Write-Host "   Ultimi errori:" -ForegroundColor White
-        Write-Host "   ----------------------------------------" -ForegroundColor Gray
-        Get-Content $stderrPath -Tail 10 | ForEach-Object {
-            Write-Host "   $_" -ForegroundColor Red
-        }
-        Write-Host "   ----------------------------------------" -ForegroundColor Gray
-        Write-Host ""
-    } else {
-        Write-Host "   stderr.log vuoto (nessun errore)" -ForegroundColor Green
-        Write-Host ""
-    }
-}
-
-# 5. Test connessione server
-Write-Host "5. Test connessione server..." -ForegroundColor Yellow
-if ($config -and $config.server_url -and $config.api_key) {
-    try {
-        $testUrl = "$($config.server_url)/api/health"
-        Write-Host "   Test URL: $testUrl" -ForegroundColor White
-        
-        $response = Invoke-WebRequest -Uri $testUrl -Method GET -TimeoutSec 5 -ErrorAction Stop
-        if ($response.StatusCode -eq 200) {
-            Write-Host "   Connessione server: OK" -ForegroundColor Green
-        } else {
-            Write-Host "   Connessione server: Errore HTTP $($response.StatusCode)" -ForegroundColor Red
-        }
-        Write-Host ""
-    } catch {
-        Write-Host "   ERRORE connessione server: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "   Verifica che il server URL sia corretto e raggiungibile" -ForegroundColor Yellow
-        Write-Host ""
-    }
-} else {
-    Write-Host "   Configurazione incompleta, impossibile testare connessione" -ForegroundColor Yellow
-    Write-Host ""
-}
-
-# 6. Status file
-Write-Host "6. File Status..." -ForegroundColor Yellow
-$statusPath = Join-Path $InstallDir ".agent_status.json"
-if (Test-Path $statusPath) {
-    try {
-        $status = Get-Content $statusPath -Raw | ConvertFrom-Json
-        Write-Host "   Status: $($status.status)" -ForegroundColor White
-        Write-Host "   Messaggio: $($status.message)" -ForegroundColor White
-        if ($status.last_scan) {
-            $lastScan = [DateTime]::Parse($status.last_scan)
-            Write-Host "   Ultima scansione: $($lastScan.ToString('yyyy-MM-dd HH:mm:ss'))" -ForegroundColor White
-        }
-        if ($status.devices_found) {
-            Write-Host "   Dispositivi trovati: $($status.devices_found)" -ForegroundColor White
-        }
-        Write-Host ""
-    } catch {
-        Write-Host "   Errore lettura status file: $_" -ForegroundColor Yellow
-        Write-Host ""
-    }
-} else {
-    Write-Host "   Status file non trovato" -ForegroundColor Yellow
-    Write-Host ""
-}
-
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "Verifica completata" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Suggerimenti:" -ForegroundColor Yellow
-Write-Host "• Se il servizio non e' Running, avvialo con:" -ForegroundColor White
-Write-Host "  Start-Service -Name '$ServiceName'" -ForegroundColor Gray
-Write-Host ""
-Write-Host "• Per vedere tutti i log:" -ForegroundColor White
-Write-Host "  Get-Content '$logPath' -Tail 50" -ForegroundColor Gray
-Write-Host ""
-Write-Host "• Per riavviare il servizio:" -ForegroundColor White
-Write-Host "  Restart-Service -Name '$ServiceName'" -ForegroundColor Gray
-Write-Host ""
-Write-Host "Premi un tasto per uscire..."
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+
+# 6. Suggerimenti
+Write-Host "6. SUGGERIMENTI" -ForegroundColor Yellow
+if ($service.Status -ne "Running") {
+    Write-Host "   Prova a:" -ForegroundColor White
+    Write-Host "   1. Verifica configurazione NSSM:" -ForegroundColor Gray
+    Write-Host "      .\nssm.exe get $ServiceName Application" -ForegroundColor White
+    Write-Host "      .\nssm.exe get $ServiceName AppParameters" -ForegroundColor White
+    Write-Host ""
+    Write-Host "   2. Prova a eseguire il comando manualmente:" -ForegroundColor Gray
+    Write-Host "      cd $InstallDir" -ForegroundColor White
+    Write-Host "      $appExe $appParams" -ForegroundColor White
+    Write-Host ""
+    Write-Host "   3. Se il comando manuale funziona, riavvia il servizio:" -ForegroundColor Gray
+    Write-Host "      Restart-Service -Name $ServiceName" -ForegroundColor White
+    Write-Host ""
+    Write-Host "   4. Se Application punta a .ps1, esegui Ripara-Servizio.ps1" -ForegroundColor Gray
+}
+
+pause
