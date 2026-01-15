@@ -1954,6 +1954,7 @@ module.exports = (pool, io) => {
       const installAutoPath = path.join(agentDir, 'Installa-Automatico.ps1');
       const installBatPath = path.join(agentDir, 'Installa.bat');
       const installServizioBatPath = path.join(agentDir, 'Installa-Servizio.bat');
+      const installServizioBatchBatPath = path.join(agentDir, 'Installa-Servizio-Batch.bat');
       const readmeServicePath = path.join(agentDir, 'README_SERVICE.md');
       const guidaInstallazionePath = path.join(agentDir, 'GUIDA_INSTALLAZIONE_SERVIZIO.md');
       const diagnosticaPath = path.join(agentDir, 'Diagnostica-Agent.ps1');
@@ -2229,6 +2230,15 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
           console.log('✅ Aggiunto Installa-Servizio.bat');
         } else {
           console.warn('⚠️  Installa-Servizio.bat non trovato!');
+        }
+
+        // Installa-Servizio-Batch.bat (INSTALLER BATCH COMPLETO - USA SOLO NSSM, NO POWERSHELL)
+        if (fs.existsSync(installServizioBatchBatPath)) {
+          const installServizioBatchBatContent = fs.readFileSync(installServizioBatchBatPath, 'utf8');
+          archive.append(installServizioBatchBatContent, { name: 'Installa-Servizio-Batch.bat' });
+          console.log('✅ Aggiunto Installa-Servizio-Batch.bat');
+        } else {
+          console.warn('⚠️  Installa-Servizio-Batch.bat non trovato!');
         }
 
         // README_SERVICE.md
