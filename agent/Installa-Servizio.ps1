@@ -205,12 +205,21 @@ try {
         Write-Host ""
         Write-Host "DIAGNOSTICA:" -ForegroundColor Cyan
         
-        # Verifica se i log esistono
+        # Verifica se i log esistono e mostra contenuto
         if (Test-Path $stderrLog) {
-            Write-Host "Ultimi errori dal log:" -ForegroundColor Yellow
-            Get-Content $stderrLog -Tail 10 -ErrorAction SilentlyContinue | ForEach-Object {
-                Write-Host "  $_" -ForegroundColor Red
+            $stderrContent = Get-Content $stderrLog -Tail 20 -ErrorAction SilentlyContinue
+            if ($stderrContent) {
+                Write-Host "Ultimi errori dal log stderr:" -ForegroundColor Yellow
+                $stderrContent | ForEach-Object {
+                    Write-Host "  $_" -ForegroundColor Red
+                }
+                Write-Host ""
+            } else {
+                Write-Host "Log stderr vuoto (nessun errore registrato)" -ForegroundColor Gray
+                Write-Host ""
             }
+        } else {
+            Write-Host "Log stderr non trovato: $stderrLog" -ForegroundColor Gray
             Write-Host ""
         }
         
@@ -220,6 +229,19 @@ try {
                 Write-Host "  $_" -ForegroundColor Gray
             }
             Write-Host ""
+        }
+        
+        # Verifica versione script
+        if (Test-Path $ScriptPath) {
+            $scriptContent = Get-Content $ScriptPath -Raw -ErrorAction SilentlyContinue
+            if ($scriptContent -match '\$SCRIPT_VERSION\s*=\s*"([\d\.]+)"') {
+                $installedVersion = $matches[1]
+                Write-Host "Versione script installato: $installedVersion" -ForegroundColor Cyan
+                if ($installedVersion -lt "1.1.2") {
+                    Write-Host "ATTENZIONE: Versione vecchia! Scarica il nuovo pacchetto dalla dashboard." -ForegroundColor Yellow
+                }
+                Write-Host ""
+            }
         }
         
         Write-Host "Controlla i log per dettagli:" -ForegroundColor Yellow
