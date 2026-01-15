@@ -124,6 +124,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       }
       // Aggiorna localmente (evita un refetch completo)
       setAgentEvents(prev => prev.map(e => (e.id === eventId ? { ...e, is_read: true } : e)));
+      try {
+        window.dispatchEvent(new CustomEvent('agent-notifications-updated'));
+      } catch { }
     } catch (err) {
       console.error('Errore marcatura notifica come letta:', err);
       alert(`Errore marcatura notifica: ${err.message}`);
@@ -131,7 +134,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   }, [getAuthHeader]);
 
   const clearAllAgentNotifications = useCallback(async () => {
-    if (!confirm('Vuoi segnare come LETTE tutte le notifiche agent?\n\nLo storico resterà disponibile in questa schermata.')) return;
     try {
       const response = await fetch(buildApiUrl('/api/network-monitoring/agent-events/clear'), {
         method: 'DELETE',
@@ -143,6 +145,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       }
       // Non svuotare lo storico: marca come lette localmente
       setAgentEvents(prev => (prev || []).map(e => ({ ...e, is_read: true })));
+      try {
+        window.dispatchEvent(new CustomEvent('agent-notifications-updated'));
+      } catch { }
     } catch (err) {
       console.error('Errore cancellazione notifiche agent:', err);
       alert(`Errore cancellazione notifiche: ${err.message}`);

@@ -50,6 +50,9 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
       if (response.ok) {
         loadEvents();
         loadUnreadCount();
+        try {
+          window.dispatchEvent(new CustomEvent('agent-notifications-updated'));
+        } catch { }
       }
     } catch (err) {
       console.error('Errore marcatura evento come letto:', err);
@@ -58,10 +61,6 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
 
   // "Pulisci" nel triangolo: segna tutte come lette e svuota il popup (non cancella lo storico)
   const clearAllNotifications = async () => {
-    if (!confirm('Vuoi pulire le notifiche agent in questo popup?\n\nVerranno segnate come lette (lo storico resta disponibile).')) {
-      return;
-    }
-    
     try {
       const response = await fetch(buildApiUrl('/api/network-monitoring/agent-events/clear'), {
         method: 'DELETE',
@@ -70,6 +69,9 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
       if (response.ok) {
         setEvents([]);
         setUnreadCount(0);
+        try {
+          window.dispatchEvent(new CustomEvent('agent-notifications-updated'));
+        } catch { }
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Errore cancellazione notifiche' }));
         alert(errorData.error || 'Errore cancellazione notifiche');
@@ -169,6 +171,16 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
       };
     }
   }, [socket]);
+
+  // Aggiornamento cross-component (es. quando si segna tutto come letto nella pagina Monitoraggio Rete)
+  useEffect(() => {
+    const handler = () => {
+      loadEvents();
+      loadUnreadCount();
+    };
+    window.addEventListener('agent-notifications-updated', handler);
+    return () => window.removeEventListener('agent-notifications-updated', handler);
+  }, []);
 
   return (
     <div className="relative" ref={dropdownRef}>
