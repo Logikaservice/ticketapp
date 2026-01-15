@@ -2339,16 +2339,34 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
         
         if (nssmPath) {
           try {
+            // Verifica permessi di lettura
+            try {
+              fs.accessSync(nssmPath, fs.constants.R_OK);
+              console.log(`   ✅ File leggibile`);
+            } catch (accessErr) {
+              console.error(`   ❌ File non leggibile: ${accessErr.message}`);
+              throw new Error(`File nssm.exe non leggibile: ${accessErr.message}`);
+            }
+            
             console.log(`📦 Leggo nssm.exe da: ${nssmPath}`);
             const nssmContent = fs.readFileSync(nssmPath);
             const nssmSize = nssmContent.length;
             console.log(`   Dimensione file: ${nssmSize} bytes`);
             
+            if (nssmSize === 0) {
+              throw new Error('File nssm.exe è vuoto!');
+            }
+            
+            if (!Buffer.isBuffer(nssmContent)) {
+              throw new Error('Contenuto nssm.exe non è un Buffer!');
+            }
+            
             archive.append(nssmContent, { name: 'nssm.exe' });
-            console.log('✅ Aggiunto nssm.exe al ZIP');
+            console.log('✅ Aggiunto nssm.exe al ZIP (dimensione nel ZIP: ' + nssmSize + ' bytes)');
             nssmAdded = true;
           } catch (nssmErr) {
-            console.error('❌ Errore lettura nssm.exe:', nssmErr);
+            console.error('❌ Errore lettura/aggiunta nssm.exe:', nssmErr);
+            console.error('   Messaggio:', nssmErr.message);
             console.error('   Stack:', nssmErr.stack);
             console.warn('⚠️  nssm.exe non aggiunto al ZIP a causa di errore');
           }
