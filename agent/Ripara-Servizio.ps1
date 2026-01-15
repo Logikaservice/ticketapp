@@ -154,9 +154,9 @@ try {
 }
 
 Write-Host ""
-$separator = "========================================"
+$separator = '========================================'
 Write-Host $separator -ForegroundColor Cyan
-Write-Host "Riparazione completata" -ForegroundColor Cyan
+Write-Host 'Riparazione completata' -ForegroundColor Cyan
 Write-Host $separator -ForegroundColor Cyan
 Write-Host ""
 pause
