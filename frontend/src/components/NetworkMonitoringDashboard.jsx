@@ -726,7 +726,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           {/* Menu hamburger */}
-          <div className="relative" ref={networkMenuRef}>
+          <div className="relative" ref={networkMenuRef} style={{ position: 'relative' }}>
             <button
               onClick={() => setShowNetworkMenu(!showNetworkMenu)}
               className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
