@@ -735,9 +735,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               <Menu size={24} />
             </button>
             
-            {/* Dropdown menu */}
+            {/* Dropdown menu - posizionato sotto il pulsante */}
             {showNetworkMenu && (
-              <div className="absolute left-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+              <div className="absolute left-0 top-full mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50" style={{ position: 'absolute' }}>
                 <div className="py-1">
                   <button
                     onClick={() => {
