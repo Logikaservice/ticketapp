@@ -2270,6 +2270,15 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
           archive.append(diagnosticaServizioContent, { name: 'Diagnostica-Servizio.ps1' });
           console.log('✅ Aggiunto Diagnostica-Servizio.ps1');
         }
+
+        // Genera-Report-Diagnostico.ps1 (per generare report completo)
+        if (fs.existsSync(generaReportPath)) {
+          const generaReportContent = fs.readFileSync(generaReportPath, 'utf8');
+          archive.append(generaReportContent, { name: 'Genera-Report-Diagnostico.ps1' });
+          console.log('✅ Aggiunto Genera-Report-Diagnostico.ps1');
+        } else {
+          console.warn('⚠️  Genera-Report-Diagnostico.ps1 non trovato!');
+        }
         
         // Ripara-Servizio.ps1 (per riparare configurazione NSSM)
         if (fs.existsSync(riparaServizioPath)) {
