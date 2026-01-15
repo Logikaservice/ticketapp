@@ -1956,6 +1956,7 @@ module.exports = (pool, io) => {
       const readmeServicePath = path.join(agentDir, 'README_SERVICE.md');
       const guidaInstallazionePath = path.join(agentDir, 'GUIDA_INSTALLAZIONE_SERVIZIO.md');
       const diagnosticaPath = path.join(agentDir, 'Diagnostica-Agent.ps1');
+      const diagnosticaServizioPath = path.join(agentDir, 'Diagnostica-Servizio.ps1');
 
       console.log('📦 Download pacchetto agent - Path ricerca file:');
       console.log('  __dirname:', __dirname);
@@ -2237,6 +2238,13 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
           const diagnosticaContent = fs.readFileSync(diagnosticaPath, 'utf8');
           archive.append(diagnosticaContent, { name: 'Diagnostica-Agent.ps1' });
           console.log('✅ Aggiunto Diagnostica-Agent.ps1');
+        }
+        
+        // Diagnostica-Servizio.ps1 (per Windows Server 2012)
+        if (fs.existsSync(diagnosticaServizioPath)) {
+          const diagnosticaServizioContent = fs.readFileSync(diagnosticaServizioPath, 'utf8');
+          archive.append(diagnosticaServizioContent, { name: 'Diagnostica-Servizio.ps1' });
+          console.log('✅ Aggiunto Diagnostica-Servizio.ps1');
         }
         
         // NetworkMonitorTrayIcon.ps1 (tray icon separata per avvio automatico)
