@@ -2283,6 +2283,13 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
           archive.append(verificaServizioContent, { name: 'Verifica-Servizio.ps1' });
           console.log('✅ Aggiunto Verifica-Servizio.ps1');
         }
+
+        // Disinstalla-Tutto.bat (disinstallazione completa in batch)
+        if (fs.existsSync(disinstallaTuttoBatPath)) {
+          const disinstallaTuttoBatContent = fs.readFileSync(disinstallaTuttoBatPath, 'utf8');
+          archive.append(disinstallaTuttoBatContent, { name: 'Disinstalla-Tutto.bat' });
+          console.log('✅ Aggiunto Disinstalla-Tutto.bat');
+        }
         
         // NetworkMonitorTrayIcon.ps1 (tray icon separata per avvio automatico)
         if (fs.existsSync(trayIconPath)) {
