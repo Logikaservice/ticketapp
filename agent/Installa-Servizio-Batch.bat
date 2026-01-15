@@ -86,9 +86,10 @@ if %errorLevel% equ 0 (
 echo.
 
 REM Copia file necessari
-echo [3/6] Copia file nella directory di installazione...
-set "FILES_TO_COPY=NetworkMonitorService.ps1 NetworkMonitorTrayIcon.ps1 Start-TrayIcon-Hidden.vbs config.json nssm.exe Installa-Servizio.ps1 Installa-Automatico.ps1 Rimuovi-Servizio.ps1 Diagnostica-Servizio.ps1 Verifica-Servizio.ps1 Ripara-Servizio.ps1 Installa-Servizio.bat Installa-Servizio-Batch.bat"
+echo [3/7] Copia file nella directory di installazione...
+set "FILES_TO_COPY=NetworkMonitorService.ps1 NetworkMonitorTrayIcon.ps1 Start-TrayIcon-Hidden.vbs config.json nssm.exe Installa-Servizio.ps1 Installa-Automatico.ps1 Rimuovi-Servizio.ps1 Diagnostica-Servizio.ps1 Verifica-Servizio.ps1 Ripara-Servizio.ps1 Installa-Servizio.bat Installa-Servizio-Batch.bat Avvia-TrayIcon.bat Verifica-TrayIcon.ps1"
 
+set "FILES_MISSING="
 for %%f in (%FILES_TO_COPY%) do (
     if exist "%%f" (
         copy /Y "%%f" "%INSTALL_DIR%\" >nul 2>&1
@@ -96,14 +97,25 @@ for %%f in (%FILES_TO_COPY%) do (
             echo   Copiato: %%f
         ) else (
             echo   ATTENZIONE: Impossibile copiare %%f (potrebbe essere in uso)
+            set "FILES_MISSING=!FILES_MISSING! %%f"
         )
+    ) else (
+        echo   ATTENZIONE: %%f non trovato nella directory corrente
+        set "FILES_MISSING=!FILES_MISSING! %%f"
     )
 )
+
+if not "!FILES_MISSING!"=="" (
+    echo.
+    echo ATTENZIONE: Alcuni file non sono stati copiati:!FILES_MISSING!
+    echo Verifica che tutti i file siano presenti nella directory corrente.
+)
+
 echo OK
 echo.
 
 REM Trova percorso PowerShell
-echo [4/6] Configurazione servizio...
+echo [4/7] Configurazione servizio...
 set "PS_PATH=C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
 if not exist "%PS_PATH%" (
     set "PS_PATH=C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe"
@@ -117,7 +129,7 @@ echo PowerShell trovato: %PS_PATH%
 echo.
 
 REM Installa servizio con NSSM
-echo [5/6] Installazione servizio Windows...
+echo [5/7] Installazione servizio Windows...
 set "SCRIPT_PATH=%INSTALL_DIR%\NetworkMonitorService.ps1"
 set "CONFIG_PATH=%INSTALL_DIR%\config.json"
 set "APP_PARAMS=-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File "%SCRIPT_PATH%" -ConfigPath "%CONFIG_PATH%""
