@@ -1961,6 +1961,7 @@ module.exports = (pool, io) => {
       const diagnosticaServizioPath = path.join(agentDir, 'Diagnostica-Servizio.ps1');
       const riparaServizioPath = path.join(agentDir, 'Ripara-Servizio.ps1');
       const verificaServizioPath = path.join(agentDir, 'Verifica-Servizio.ps1');
+      const disinstallaTuttoBatPath = path.join(agentDir, 'Disinstalla-Tutto.bat');
 
       console.log('📦 Download pacchetto agent - Path ricerca file:');
       console.log('  __dirname:', __dirname);
