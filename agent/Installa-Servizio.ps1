@@ -22,6 +22,42 @@ if (-not $isAdmin) {
 }
 
 $ServiceName = "NetworkMonitorService"
+
+# IMPORTANTE: Se i file non sono nella directory di installazione, copiali lì
+$sourceDir = $PSScriptRoot
+if ($sourceDir -ne $InstallDir -and (Test-Path (Join-Path $sourceDir "NetworkMonitorService.ps1"))) {
+    Write-Host "File trovati in: $sourceDir" -ForegroundColor Gray
+    Write-Host "Copia file in directory installazione: $InstallDir" -ForegroundColor Yellow
+    
+    # Crea directory installazione se non esiste
+    if (-not (Test-Path $InstallDir)) {
+        New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+    }
+    
+    # Copia file necessari
+    $filesToCopy = @(
+        "NetworkMonitorService.ps1",
+        "config.json",
+        "nssm.exe",
+        "NetworkMonitorTrayIcon.ps1",
+        "Start-TrayIcon-Hidden.vbs",
+        "Diagnostica-Servizio.ps1",
+        "Ripara-Servizio.ps1"
+    )
+    
+    foreach ($file in $filesToCopy) {
+        $src = Join-Path $sourceDir $file
+        $dst = Join-Path $InstallDir $file
+        if (Test-Path $src) {
+            Copy-Item $src $dst -Force -ErrorAction SilentlyContinue
+            Write-Host "  Copiato: $file" -ForegroundColor Gray
+        }
+    }
+    
+    Write-Host "File copiati con successo!" -ForegroundColor Green
+    Write-Host ""
+}
+
 $ScriptPath = Join-Path $InstallDir "NetworkMonitorService.ps1"
 $ConfigPath = Join-Path $InstallDir "config.json"
 $NssmPath = Join-Path $InstallDir "nssm.exe"
