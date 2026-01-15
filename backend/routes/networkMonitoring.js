@@ -2348,27 +2348,38 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
               throw new Error(`File nssm.exe non leggibile: ${accessErr.message}`);
             }
             
-            console.log(`📦 Leggo nssm.exe da: ${nssmPath}`);
-            const nssmContent = fs.readFileSync(nssmPath);
-            const nssmSize = nssmContent.length;
+            // Verifica dimensione file
+            const stats = fs.statSync(nssmPath);
+            const nssmSize = stats.size;
+            console.log(`📦 Aggiungo nssm.exe da: ${nssmPath}`);
             console.log(`   Dimensione file: ${nssmSize} bytes`);
             
             if (nssmSize === 0) {
               throw new Error('File nssm.exe è vuoto!');
             }
             
-            if (!Buffer.isBuffer(nssmContent)) {
-              throw new Error('Contenuto nssm.exe non è un Buffer!');
-            }
-            
-            archive.append(nssmContent, { name: 'nssm.exe' });
-            console.log('✅ Aggiunto nssm.exe al ZIP (dimensione nel ZIP: ' + nssmSize + ' bytes)');
+            // Usa archive.file() per file binari (metodo raccomandato per file dal filesystem)
+            archive.file(nssmPath, { name: 'nssm.exe' });
+            console.log('✅ Aggiunto nssm.exe al ZIP usando archive.file() (dimensione: ' + nssmSize + ' bytes)');
             nssmAdded = true;
           } catch (nssmErr) {
-            console.error('❌ Errore lettura/aggiunta nssm.exe:', nssmErr);
+            console.error('❌ Errore aggiunta nssm.exe:', nssmErr);
             console.error('   Messaggio:', nssmErr.message);
             console.error('   Stack:', nssmErr.stack);
             console.warn('⚠️  nssm.exe non aggiunto al ZIP a causa di errore');
+            
+            // Fallback: prova con readFileSync + append
+            try {
+              console.log('🔄 Tentativo fallback: leggo file e aggiungo con append()...');
+              const nssmContent = fs.readFileSync(nssmPath);
+              if (Buffer.isBuffer(nssmContent) && nssmContent.length > 0) {
+                archive.append(nssmContent, { name: 'nssm.exe' });
+                console.log('✅ Aggiunto nssm.exe al ZIP usando fallback append()');
+                nssmAdded = true;
+              }
+            } catch (fallbackErr) {
+              console.error('❌ Anche il fallback è fallito:', fallbackErr.message);
+            }
           }
         } else {
           console.error('❌ ERRORE CRITICO: nssm.exe non trovato in nessun percorso!');
