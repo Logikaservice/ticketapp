@@ -858,6 +858,27 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
             Aggiorna
           </button>
+          
+          {/* Versione agent più recente */}
+          {agents.length > 0 && (() => {
+            // Trova l'agent con la versione più recente (per updated_at)
+            const latestAgent = agents.reduce((latest, agent) => {
+              if (!latest) return agent;
+              const latestDate = latest.updated_at ? new Date(latest.updated_at) : new Date(0);
+              const agentDate = agent.updated_at ? new Date(agent.updated_at) : new Date(0);
+              return agentDate > latestDate ? agent : latest;
+            }, null);
+            
+            if (latestAgent && latestAgent.version) {
+              return (
+                <div className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex items-center gap-2 min-w-[140px]">
+                  <span className="text-xs text-gray-500">Versione:</span>
+                  <span className="font-mono font-semibold text-blue-600">{latestAgent.version}</span>
+                </div>
+              );
+            }
+            return null;
+          })()}
         </div>
       </div>
 
