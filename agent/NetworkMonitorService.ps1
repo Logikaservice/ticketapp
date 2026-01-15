@@ -521,7 +521,9 @@ function Get-NetworkDevices {
                     # Avvia ping paralleli
                     # Timeout aumentato a 300ms per gestire dispositivi con latenza maggiore o ping intermittenti
                     foreach ($ip in $ipListToScan) {
-                        $job = [powershell]::Create().AddScript($pingScriptBlock).AddArgument($ip).AddArgument(300)
+                        # PowerShell 4.0 compatibility: usa New-Object invece di ::Create()
+                        $job = New-Object System.Management.Automation.PowerShell
+                        $job.AddScript($pingScriptBlock).AddArgument($ip).AddArgument(300) | Out-Null
                         $job.RunspacePool = $runspacePool
                         $asyncResult = $job.BeginInvoke()
                         [void]$jobs.Add(@{
