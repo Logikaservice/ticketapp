@@ -351,7 +351,8 @@ function Show-StatusWindow {
     $script:statsInfoLabel = New-Object System.Windows.Forms.Label
     $script:statsInfoLabel.Text = "Caricamento..."
     $script:statsInfoLabel.Location = New-Object System.Drawing.Point(15, 125)
-    $script:statsInfoLabel.Size = New-Object System.Drawing.Size(170, 80)
+    # Aumentata altezza per mostrare anche la configurazione (intervallo, reti, server)
+    $script:statsInfoLabel.Size = New-Object System.Drawing.Size(170, 165)
     $script:statsInfoLabel.Font = New-Object System.Drawing.Font("Segoe UI", 8.5)
     $script:statsInfoLabel.ForeColor = [System.Drawing.Color]::FromArgb(100, 100, 120)
     $script:statsInfoLabel.TextAlign = [System.Drawing.ContentAlignment]::TopLeft
@@ -578,9 +579,42 @@ function Update-Stats {
             }
             $statsText += "Stato: $statusText`r`n"
         }
+        # Mostra intervallo scansione effettivo (quello usato per calcolare il countdown)
+        if ($status.scan_interval_minutes -ne $null -and $status.scan_interval_minutes -ne "") {
+            try {
+                $interval = [int]$status.scan_interval_minutes
+                $statsText += "Intervallo: $interval min`r`n"
+            } catch { }
+        }
     }
     if ($currentIPs) {
-        $statsText += "IP attuali: $($currentIPs.Count)"
+        $statsText += "IP attuali: $($currentIPs.Count)`r`n"
+    }
+
+    # Mostra configurazione principale (da config.json)
+    if ($script:config) {
+        try {
+            if ($script:config.agent_name) {
+                $statsText += "Agent: $($script:config.agent_name)`r`n"
+            }
+        } catch { }
+        try {
+            if ($script:config.server_url) {
+                $server = $script:config.server_url.ToString()
+                $server = $server -replace '^https?://', ''
+                if ($server.Length -gt 28) { $server = $server.Substring(0, 28) + "…" }
+                $statsText += "Server: $server`r`n"
+            }
+        } catch { }
+        try {
+            if ($script:config.network_ranges) {
+                $ranges = $script:config.network_ranges
+                if ($ranges -is [string]) { $ranges = @($ranges) }
+                $rangesText = ($ranges -join ", ")
+                if ($rangesText.Length -gt 32) { $rangesText = $rangesText.Substring(0, 32) + "…" }
+                $statsText += "Reti: $rangesText"
+            }
+        } catch { }
     }
     
     if ([string]::IsNullOrWhiteSpace($statsText)) {
