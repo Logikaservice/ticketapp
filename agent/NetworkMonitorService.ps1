@@ -15,6 +15,19 @@ param(
 # Versione dell'agent (usata se non specificata nel config.json)
 $SCRIPT_VERSION = "1.1.1"
 
+# Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
+function Enable-Tls12 {
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = `
+            ([Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls)
+    } catch {
+        try {
+            [Net.ServicePointManager]::SecurityProtocol = 192 -bor 768 -bor 3072
+        } catch { }
+    }
+}
+Enable-Tls12
+
 # Bootstrap log: se il servizio crasha subito (prima di Write-Log), almeno qui troviamo l'errore.
 $script:bootstrapLogDir = "C:\ProgramData\NetworkMonitorAgent"
 try {

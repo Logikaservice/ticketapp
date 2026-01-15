@@ -8,6 +8,16 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Enable-Tls12 {
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = `
+            ([Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls)
+    } catch {
+        try { [Net.ServicePointManager]::SecurityProtocol = 192 -bor 768 -bor 3072 } catch { }
+    }
+}
+Enable-Tls12
+
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Network Monitor Agent - Installer" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan

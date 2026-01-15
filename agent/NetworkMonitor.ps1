@@ -6,6 +6,17 @@ param(
     [switch]$TestMode = $false
 )
 
+# Forza TLS 1.2 per Invoke-RestMethod (compatibilità hardening TLS su Windows/Server)
+function Enable-Tls12 {
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = `
+            ([Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls)
+    } catch {
+        try { [Net.ServicePointManager]::SecurityProtocol = 192 -bor 768 -bor 3072 } catch { }
+    }
+}
+Enable-Tls12
+
 # Funzioni helper
 function Write-Log {
     param([string]$Message, [string]$Level = "INFO")

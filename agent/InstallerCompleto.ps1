@@ -9,6 +9,22 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Enable-Tls12 {
+    # Su alcuni Windows/NET l'impostazione di default può essere TLS 1.0 (spesso disabilitato),
+    # causando: "Impossibile creare un canale sicuro SSL/TLS" con Invoke-RestMethod.
+    try {
+        # Prova con enum (funziona su .NET moderni)
+        [Net.ServicePointManager]::SecurityProtocol = `
+            ([Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls)
+    } catch {
+        try {
+            # Fallback numerico (più compatibile)
+            # Tls 1.0 = 192, Tls 1.1 = 768, Tls 1.2 = 3072
+            [Net.ServicePointManager]::SecurityProtocol = 192 -bor 768 -bor 3072
+        } catch { }
+    }
+}
+
 function Exit-WithPause {
     param(
         [int]$Code = 0
@@ -37,6 +53,9 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Network Monitor Agent - Installer" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
+
+# Forza TLS 1.2 per evitare errori SSL/TLS su alcuni sistemi (Server/Policy hardening)
+Enable-Tls12
 
 # Verifica PowerShell version
 # Compatibilità: su Windows Server 2012 spesso c'è PowerShell 3/4. L'installer può funzionare comunque.
