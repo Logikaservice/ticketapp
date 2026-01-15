@@ -142,8 +142,10 @@ try {
         Write-Host "⚠️  Il servizio non è ancora in esecuzione. Stato: $($serviceStatus.Status)" -ForegroundColor Yellow
         Write-Host ""
         Write-Host "Controlla i log per dettagli:" -ForegroundColor Yellow
-        Write-Host "  Get-Content '$InstallDir\NetworkMonitorService_stderr.log' -Tail 20" -ForegroundColor White
-        Write-Host "  Get-Content '$InstallDir\NetworkMonitorService_bootstrap.log' -Tail 20" -ForegroundColor White
+        $stderrPath = Join-Path $InstallDir "NetworkMonitorService_stderr.log"
+        $bootstrapPath = Join-Path $InstallDir "NetworkMonitorService_bootstrap.log"
+        Write-Host "  Get-Content '$stderrPath' -Tail 20" -ForegroundColor White
+        Write-Host "  Get-Content '$bootstrapPath' -Tail 20" -ForegroundColor White
     }
 } catch {
     Write-Host "❌ Errore avvio servizio: $_" -ForegroundColor Red
