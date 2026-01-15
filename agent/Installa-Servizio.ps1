@@ -17,7 +17,7 @@ if (-not $isAdmin) {
     Write-Host "Esegui PowerShell come Amministratore e riprova." -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Premi un tasto per uscire..."
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    pause
     exit 1
 }
 
@@ -52,7 +52,7 @@ if (-not (Test-Path $ConfigPath)) {
     Write-Host "Crea un file config.json prima di installare il servizio." -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Premi un tasto per uscire..."
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    pause
     exit 1
 }
 
@@ -65,7 +65,7 @@ if (-not (Test-Path $NssmPath)) {
     Write-Host "Il pacchetto ZIP deve includere nssm.exe insieme agli altri file." -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Premi un tasto per uscire..."
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    pause
     exit 1
 } else {
     Write-Host "nssm.exe trovato (incluso nel pacchetto)" -ForegroundColor Green
@@ -276,12 +276,12 @@ CreateObject("WScript.Shell").Run cmd, 0, False
     Write-Host ""
     
     Write-Host "Premi un tasto per uscire..."
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    pause
     
 } catch {
     Write-Host "ERRORE installazione servizio: $_" -ForegroundColor Red
     Write-Host ""
     Write-Host "Premi un tasto per uscire..."
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    pause
     exit 1
 }
