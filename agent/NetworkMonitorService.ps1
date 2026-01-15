@@ -5,15 +5,15 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 1.1.1
-# Data ultima modifica: 2025-01-13
+# Versione: 1.1.2
+# Data ultima modifica: 2025-01-15
 
 param(
     [string]$ConfigPath = "config.json"
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "1.1.1"
+$SCRIPT_VERSION = "1.1.2"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
