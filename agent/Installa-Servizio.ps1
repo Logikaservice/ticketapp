@@ -146,10 +146,54 @@ try {
         $serviceStatus = Get-Service -Name $ServiceName
         if ($serviceStatus.Status -eq "Running") {
             Write-Host "Servizio avviato con successo!" -ForegroundColor Green
-    } else {
-        Write-Host "Servizio installato ma non e' riuscito ad avviarsi" -ForegroundColor Yellow
-        Write-Host "   Stato: $($serviceStatus.Status)" -ForegroundColor Yellow
-        Write-Host "   Controlla i log per dettagli: $stdoutLog" -ForegroundColor Yellow
+        } else {
+            Write-Host "Servizio installato ma non e' riuscito ad avviarsi" -ForegroundColor Yellow
+            Write-Host "Stato: $($serviceStatus.Status)" -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "🔍 DIAGNOSTICA:" -ForegroundColor Cyan
+            Write-Host "Controlla i log per dettagli:" -ForegroundColor Yellow
+            Write-Host "  • Errori: $stderrLog" -ForegroundColor White
+            Write-Host "  • Output: $stdoutLog" -ForegroundColor White
+            Write-Host "  • Bootstrap: $($InstallDir)\NetworkMonitorService_bootstrap.log" -ForegroundColor White
+            Write-Host ""
+            Write-Host "Per diagnosticare il problema, esegui:" -ForegroundColor Yellow
+            Write-Host "  powershell.exe -ExecutionPolicy Bypass -File `"$($InstallDir)\Diagnostica-Servizio.ps1`"" -ForegroundColor White
+            Write-Host ""
+            Write-Host "Oppure prova a eseguire lo script manualmente:" -ForegroundColor Yellow
+            Write-Host "  cd $InstallDir" -ForegroundColor White
+            Write-Host "  powershell.exe -NoProfile -ExecutionPolicy Bypass -File NetworkMonitorService.ps1 -ConfigPath config.json" -ForegroundColor White
+            Write-Host ""
+        }
+    } catch {
+        Write-Host "ERRORE durante avvio servizio: $_" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "🔍 DIAGNOSTICA:" -ForegroundColor Cyan
+        
+        # Verifica se i log esistono
+        if (Test-Path $stderrLog) {
+            Write-Host "Ultimi errori dal log:" -ForegroundColor Yellow
+            Get-Content $stderrLog -Tail 10 -ErrorAction SilentlyContinue | ForEach-Object {
+                Write-Host "  $_" -ForegroundColor Red
+            }
+            Write-Host ""
+        }
+        
+        if (Test-Path "$InstallDir\NetworkMonitorService_bootstrap.log") {
+            Write-Host "Ultime righe bootstrap log:" -ForegroundColor Yellow
+            Get-Content "$InstallDir\NetworkMonitorService_bootstrap.log" -Tail 10 -ErrorAction SilentlyContinue | ForEach-Object {
+                Write-Host "  $_" -ForegroundColor Gray
+            }
+            Write-Host ""
+        }
+        
+        Write-Host "Controlla i log per dettagli:" -ForegroundColor Yellow
+        Write-Host "  • Errori: $stderrLog" -ForegroundColor White
+        Write-Host "  • Output: $stdoutLog" -ForegroundColor White
+        Write-Host "  • Bootstrap: $($InstallDir)\NetworkMonitorService_bootstrap.log" -ForegroundColor White
+        Write-Host ""
+        Write-Host "Per diagnosticare il problema, esegui:" -ForegroundColor Yellow
+        Write-Host "  powershell.exe -ExecutionPolicy Bypass -File `"$($InstallDir)\Diagnostica-Servizio.ps1`"" -ForegroundColor White
+        Write-Host ""
     }
     
     Write-Host ""
