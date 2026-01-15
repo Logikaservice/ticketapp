@@ -593,9 +593,15 @@ module.exports = (pool, io) => {
       
       // Log per debug
       if (wasOfflineByStatus) {
-        console.log(`🟢 Agent ${agentId} tornato online (era offline nel database)`);
+        console.log(`🟢 Agent ${agentId} (${req.agent.agent_name || 'N/A'}) tornato online (era offline nel database)`);
       } else if (wasOfflineByTime) {
-        console.log(`🟢 Agent ${agentId} tornato online (ultimo heartbeat > 10 min fa)`);
+        console.log(`🟢 Agent ${agentId} (${req.agent.agent_name || 'N/A'}) tornato online (ultimo heartbeat > 10 min fa)`);
+      } else {
+        // Log ogni heartbeat per debug (anche se già online)
+        const minutesSinceLastHeartbeat = lastHeartbeat 
+          ? Math.floor((Date.now() - new Date(lastHeartbeat).getTime()) / 60000)
+          : 'N/A';
+        console.log(`💓 Heartbeat ricevuto da agent ${agentId} (${req.agent.agent_name || 'N/A'}) - ultimo: ${minutesSinceLastHeartbeat} min fa`);
       }
       
       // Emetti evento WebSocket per aggiornare la lista agenti in tempo reale
