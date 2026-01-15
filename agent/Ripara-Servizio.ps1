@@ -155,6 +155,16 @@ try {
     $bootstrapPath = Join-Path $InstallDir "NetworkMonitorService_bootstrap.log"
     Write-Host "  Get-Content '$stderrPath' -Tail 20" -ForegroundColor White
     Write-Host "  Get-Content '$bootstrapPath' -Tail 20" -ForegroundColor White
+    Write-Host ""
+    Write-Host "IMPORTANTE: Verifica che i file siano nella directory corretta:" -ForegroundColor Yellow
+    Write-Host "  Directory configurata: $InstallDir" -ForegroundColor White
+    Write-Host "  File necessari:" -ForegroundColor White
+    Write-Host "    - NetworkMonitorService.ps1" -ForegroundColor White
+    Write-Host "    - config.json" -ForegroundColor White
+    Write-Host "    - nssm.exe" -ForegroundColor White
+    Write-Host ""
+    Write-Host "Se i file sono in un'altra directory, copiali in $InstallDir" -ForegroundColor Yellow
+    Write-Host "oppure esegui Ripara-Servizio.ps1 con il parametro -InstallDir" -ForegroundColor Yellow
 }
 
 Write-Host ""
