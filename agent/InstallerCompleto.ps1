@@ -167,6 +167,7 @@ if (-not (Test-Path $InstallDir)) {
 $filesToCopy = @(
     "NetworkMonitorService.ps1",
     "NetworkMonitorTrayIcon.ps1",
+    "Start-TrayIcon-Hidden.vbs",
     "NetworkMonitor.ps1",
     "Installa-Servizio.ps1",
     "Installa-Automatico.ps1",

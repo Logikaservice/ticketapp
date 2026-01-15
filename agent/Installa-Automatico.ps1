@@ -159,6 +159,7 @@ $filesToCopy = @(
     "NetworkMonitor.ps1",
     "InstallerCompleto.ps1",
     "Diagnostica-Agent.ps1",
+    "Start-TrayIcon-Hidden.vbs",
     "README_SERVICE.md",
     "GUIDA_INSTALLAZIONE_SERVIZIO.md",
     "nssm.exe"

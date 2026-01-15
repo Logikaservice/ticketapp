@@ -163,7 +163,32 @@ try {
             # Includi i parametri necessari per la tray icon (config + file di stato)
             $statusFile = Join-Path $InstallDir ".agent_status.json"
             $currentScanIPs = Join-Path $InstallDir ".current_scan_ips.json"
-            $regValue = "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -NoProfile -File `"$trayIconScript`" -ConfigPath `"$ConfigPath`" -StatusFilePath `"$statusFile`" -CurrentScanIPsPath `"$currentScanIPs`""
+
+            # IMPORTANT: su alcuni sistemi (es. Windows 11 con "Default terminal application" = Windows Terminal)
+            # l'avvio di powershell.exe da Run può aprire una finestra visibile anche con -WindowStyle Hidden.
+            # Usiamo un wrapper VBS con wscript.exe per garantire che non compaiano finestre.
+            $vbsLauncher = Join-Path $InstallDir "Start-TrayIcon-Hidden.vbs"
+            if (-not (Test-Path $vbsLauncher)) {
+                try {
+                    @'
+Option Explicit
+Dim fso, baseDir, ps, tray, cfg, statusFile, ipsFile, cmd
+Set fso = CreateObject("Scripting.FileSystemObject")
+baseDir = fso.GetParentFolderName(WScript.ScriptFullName)
+ps = "powershell.exe"
+tray = baseDir & "\NetworkMonitorTrayIcon.ps1"
+cfg = baseDir & "\config.json"
+statusFile = baseDir & "\.agent_status.json"
+ipsFile = baseDir & "\.current_scan_ips.json"
+cmd = ps & " -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & tray & """ -ConfigPath """ & cfg & """ -StatusFilePath """ & statusFile & """ -CurrentScanIPsPath """ & ipsFile & """"
+CreateObject("WScript.Shell").Run cmd, 0, False
+'@ | Out-File -FilePath $vbsLauncher -Encoding ASCII -Force
+                } catch {
+                    # non bloccare installazione
+                }
+            }
+
+            $regValue = "wscript.exe `"$vbsLauncher`""
             
             Set-ItemProperty -Path $regPath -Name $regName -Value $regValue -ErrorAction Stop
             Write-Host "Tray icon configurata per avvio automatico all'accesso utente" -ForegroundColor Green
@@ -171,7 +196,12 @@ try {
             # Avvia immediatamente la tray icon (non aspettare il prossimo accesso)
             Write-Host "Avvio tray icon..." -ForegroundColor Yellow
             try {
-                Start-Process powershell.exe -ArgumentList "-WindowStyle Hidden -ExecutionPolicy Bypass -NoProfile -File `"$trayIconScript`" -ConfigPath `"$ConfigPath`" -StatusFilePath `"$statusFile`" -CurrentScanIPsPath `"$currentScanIPs`"" -ErrorAction Stop
+                if (Test-Path $vbsLauncher) {
+                    Start-Process wscript.exe -ArgumentList "`"$vbsLauncher`"" -ErrorAction Stop
+                } else {
+                    # Fallback: avvio diretto (può mostrare una finestra su alcuni sistemi)
+                    Start-Process powershell.exe -ArgumentList "-WindowStyle Hidden -ExecutionPolicy Bypass -NoProfile -File `"$trayIconScript`" -ConfigPath `"$ConfigPath`" -StatusFilePath `"$statusFile`" -CurrentScanIPsPath `"$currentScanIPs`"" -ErrorAction Stop
+                }
                 Start-Sleep -Seconds 2
                 Write-Host "Tray icon avviata!" -ForegroundColor Green
             } catch {

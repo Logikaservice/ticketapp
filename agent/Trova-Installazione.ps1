@@ -113,7 +113,16 @@ try {
         Write-Host "   Comando: $command" -ForegroundColor Gray
         
         # Estrai percorso file dal comando
-        if ($command -match '"([^"]+NetworkMonitorTrayIcon\.ps1)"') {
+        if ($command -match '"([^"]+Start-TrayIcon-Hidden\.vbs)"') {
+            $vbsPath = $matches[1]
+            $trayIconDir = Split-Path $vbsPath -Parent
+            Write-Host "   Directory tray icon (da VBS): $trayIconDir" -ForegroundColor Cyan
+            if (Test-Path (Join-Path $trayIconDir "NetworkMonitorTrayIcon.ps1")) {
+                Write-Host "   ✓ File tray icon esiste" -ForegroundColor Green
+            } else {
+                Write-Host "   ✗ File tray icon NON esiste nella directory: $trayIconDir" -ForegroundColor Red
+            }
+        } elseif ($command -match '"([^"]+NetworkMonitorTrayIcon\.ps1)"') {
             $trayIconPath = $matches[1]
             $trayIconDir = Split-Path $trayIconPath -Parent
             Write-Host "   Directory tray icon: $trayIconDir" -ForegroundColor Cyan
@@ -123,6 +132,8 @@ try {
             } else {
                 Write-Host "   ✗ File tray icon NON esiste: $trayIconPath" -ForegroundColor Red
             }
+        } else {
+            Write-Host "   Info: impossibile estrarre percorso (formato comando non riconosciuto)" -ForegroundColor Gray
         }
     } else {
         Write-Host "   ✗ Voce registro NON trovata" -ForegroundColor Red

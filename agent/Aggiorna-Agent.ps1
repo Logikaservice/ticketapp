@@ -56,7 +56,8 @@ Write-Host "2. Copia file aggiornati..." -ForegroundColor Yellow
 $files = @(
     "NetworkMonitorService.ps1",
     "NetworkMonitorTrayIcon.ps1",
-    "Avvia-TrayIcon.ps1"
+    "Avvia-TrayIcon.ps1",
+    "Start-TrayIcon-Hidden.vbs"
 )
 
 $filesCopied = 0
@@ -123,13 +124,18 @@ Write-Host "   OK Tray icon esistente arrestata" -ForegroundColor Green
 $trayScript = Join-Path $targetDir "Avvia-TrayIcon.ps1"
 if (Test-Path $trayScript) {
     try {
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = "powershell.exe"
-        $psi.Arguments = "-WindowStyle Hidden -ExecutionPolicy Bypass -NoProfile -File `"$trayScript`""
-        $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-        $psi.CreateNoWindow = $true
-        $psi.UseShellExecute = $false
-        [System.Diagnostics.Process]::Start($psi) | Out-Null
+        $vbsLauncher = Join-Path $targetDir "Start-TrayIcon-Hidden.vbs"
+        if (Test-Path $vbsLauncher) {
+            Start-Process wscript.exe -ArgumentList "`"$vbsLauncher`"" -ErrorAction Stop
+        } else {
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "powershell.exe"
+            $psi.Arguments = "-WindowStyle Hidden -ExecutionPolicy Bypass -NoProfile -File `"$trayScript`""
+            $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+            $psi.CreateNoWindow = $true
+            $psi.UseShellExecute = $false
+            [System.Diagnostics.Process]::Start($psi) | Out-Null
+        }
         Start-Sleep -Seconds 2
         Write-Host "   OK Tray icon avviata" -ForegroundColor Green
     } catch {
