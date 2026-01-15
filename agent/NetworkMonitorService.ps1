@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "1.1.2"
+$SCRIPT_VERSION = "1.1.3"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -521,11 +521,25 @@ function Get-NetworkDevices {
                     # Avvia ping paralleli
                     # Timeout aumentato a 300ms per gestire dispositivi con latenza maggiore o ping intermittenti
                     foreach ($ip in $ipListToScan) {
-                        # PowerShell 4.0 compatibility: usa New-Object invece di ::Create()
-                        $job = New-Object System.Management.Automation.PowerShell
-                        $job.AddScript($pingScriptBlock).AddArgument($ip).AddArgument(300) | Out-Null
-                        $job.RunspacePool = $runspacePool
-                        $asyncResult = $job.BeginInvoke()
+                        # PowerShell 4.0/5.0 compatibility: crea PowerShell tramite RunspacePool
+                        try {
+                            $job = [System.Management.Automation.PowerShell]::Create()
+                            $job.RunspacePool = $runspacePool
+                            $job.AddScript($pingScriptBlock).AddArgument($ip).AddArgument(300) | Out-Null
+                            $asyncResult = $job.BeginInvoke()
+                        } catch {
+                            # Fallback per PowerShell 4.0
+                            try {
+                                $runspace = $runspacePool.AcquireRunspace()
+                                $job = [System.Management.Automation.PowerShell]::Create()
+                                $job.Runspace = $runspace
+                                $job.AddScript($pingScriptBlock).AddArgument($ip).AddArgument(300) | Out-Null
+                                $asyncResult = $job.BeginInvoke()
+                            } catch {
+                                Write-Log "Errore creazione PowerShell per ping $ip : $_" "WARN"
+                                continue
+                            }
+                        }
                         [void]$jobs.Add(@{
                             Job = $job
                             AsyncResult = $asyncResult
@@ -990,11 +1004,25 @@ public class ArpHelper {
                     # Avvia recupero MAC parallelo
                     foreach ($ip in $activeIPs) {
                         $foundIPs.Add($ip)
-                        # PowerShell 4.0 compatibility: usa New-Object invece di ::Create()
-                        $job = New-Object System.Management.Automation.PowerShell
-                        $job.AddScript($macRecoveryScriptBlock).AddArgument($ip).AddArgument($arpTable) | Out-Null
-                        $job.RunspacePool = $macRunspacePool
-                        $asyncResult = $job.BeginInvoke()
+                        # PowerShell 4.0/5.0 compatibility: crea PowerShell tramite RunspacePool
+                        try {
+                            $job = [System.Management.Automation.PowerShell]::Create()
+                            $job.RunspacePool = $macRunspacePool
+                            $job.AddScript($macRecoveryScriptBlock).AddArgument($ip).AddArgument($arpTable) | Out-Null
+                            $asyncResult = $job.BeginInvoke()
+                        } catch {
+                            # Fallback per PowerShell 4.0
+                            try {
+                                $runspace = $macRunspacePool.AcquireRunspace()
+                                $job = [System.Management.Automation.PowerShell]::Create()
+                                $job.Runspace = $runspace
+                                $job.AddScript($macRecoveryScriptBlock).AddArgument($ip).AddArgument($arpTable) | Out-Null
+                                $asyncResult = $job.BeginInvoke()
+                            } catch {
+                                Write-Log "Errore creazione PowerShell per MAC $ip : $_" "WARN"
+                                continue
+                            }
+                        }
                         [void]$macJobs.Add(@{
                             Job = $job
                             AsyncResult = $asyncResult
