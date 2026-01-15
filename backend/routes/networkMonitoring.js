@@ -2316,79 +2316,80 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
           console.log('✅ Aggiunto Disinstalla-Tutto.bat');
         }
         
-        // nssm.exe (incluso nel pacchetto - CRITICO per l'installazione)
-        // Prova multiple path per trovare nssm.exe (fallback robusto)
-        const possibleNssmPaths = [
-          path.join(agentDir, 'nssm.exe'),
-          path.join(projectRoot, 'agent', 'nssm.exe'),
-          path.join(process.cwd(), 'agent', 'nssm.exe'),
-          path.join(__dirname, '..', 'agent', 'nssm.exe')
-        ];
-        
-        let nssmPath = null;
-        let nssmAdded = false;
-        
-        console.log('🔍 Verifica nssm.exe in multiple percorsi:');
-        for (const testPath of possibleNssmPaths) {
-          const exists = fs.existsSync(testPath);
-          console.log(`   ${exists ? '✅' : '❌'} ${testPath} (exists: ${exists})`);
-          if (exists && !nssmPath) {
-            nssmPath = testPath;
-          }
-        }
-        
-        // nssm.exe (CRITICO - aggiunto manualmente come gli altri file)
-        if (nssmPath && fs.existsSync(nssmPath)) {
-          try {
-            console.log(`📦 Leggo nssm.exe da: ${nssmPath}`);
-            const nssmContent = fs.readFileSync(nssmPath); // Legge come Buffer binario
-            const nssmSize = nssmContent.length;
-            console.log(`   Dimensione file: ${nssmSize} bytes`);
-            console.log(`   Tipo: ${Buffer.isBuffer(nssmContent) ? 'Buffer' : typeof nssmContent}`);
-            
-            if (nssmSize === 0) {
-              throw new Error('File nssm.exe è vuoto!');
-            }
-            
-            // Aggiungi come Buffer (stesso metodo degli altri file)
-            archive.append(nssmContent, { name: 'nssm.exe' });
-            console.log('✅ Aggiunto nssm.exe al ZIP (dimensione: ' + nssmSize + ' bytes)');
-            nssmAdded = true;
-          } catch (nssmErr) {
-            console.error('❌ ERRORE aggiunta nssm.exe:', nssmErr);
-            console.error('   Messaggio:', nssmErr.message);
-            console.error('   Stack:', nssmErr.stack);
-            console.warn('⚠️  nssm.exe non aggiunto al ZIP a causa di errore');
-          }
-        } else {
-          console.error('❌ ERRORE CRITICO: nssm.exe non trovato o percorso non valido!');
-          console.error('   Percorso cercato:', nssmPath);
-          console.error('   Esiste:', nssmPath ? fs.existsSync(nssmPath) : 'percorso null');
-          console.error('   Percorsi verificati:');
-          possibleNssmPaths.forEach(p => console.error(`     - ${p} (exists: ${fs.existsSync(p)})`));
-          console.error('   Agent dir:', agentDir);
-          console.error('   Project root:', projectRoot);
-          console.error('   Process cwd:', process.cwd());
-          console.error('   __dirname:', __dirname);
-          console.error('');
-          console.error('   Questo file e\' ESSENZIALE per l\'installazione del servizio!');
-          console.error('   SOLUZIONE:');
-          console.error('   1. Verifica che nssm.exe sia presente in agent/nssm.exe sul server VPS');
-          console.error('   2. Se manca, esegui sul server: git pull origin main');
-          console.error('   3. Oppure copia manualmente nssm.exe nella directory agent/ sul server');
-        }
-        
-        // Avvisa se nssm.exe non e' stato aggiunto (blocca l'installazione)
-        if (!nssmAdded) {
-          console.error('');
-          console.error('⚠️  ATTENZIONE CRITICA: nssm.exe NON e\' stato incluso nel pacchetto ZIP!');
-          console.error('   L\'installazione fallira\' senza questo file.');
-          console.error('   Il pacchetto ZIP verra\' generato comunque, ma l\'installazione non funzionera\'.');
-        }
       } catch (serviceErr) {
         console.error('❌ Errore aggiunta file servizio allo ZIP:', serviceErr);
         // Non bloccare se i file servizio non sono disponibili (compatibilità)
       }
+
+      // nssm.exe (CRITICO - AGGIUNTO FUORI DAL TRY-CATCH PER ESSERE SEMPRE ESEGUITO)
+      console.log('');
+      console.log('🔍 ===== AGGIUNTA NSSM.EXE =====');
+      const possibleNssmPaths = [
+        path.join(agentDir, 'nssm.exe'),
+        path.join(projectRoot, 'agent', 'nssm.exe'),
+        path.join(process.cwd(), 'agent', 'nssm.exe'),
+        path.join(__dirname, '..', 'agent', 'nssm.exe')
+      ];
+      
+      let nssmPath = null;
+      let nssmAdded = false;
+      
+      console.log('🔍 Verifica nssm.exe in multiple percorsi:');
+      for (const testPath of possibleNssmPaths) {
+        const exists = fs.existsSync(testPath);
+        console.log(`   ${exists ? '✅' : '❌'} ${testPath} (exists: ${exists})`);
+        if (exists && !nssmPath) {
+          nssmPath = testPath;
+        }
+      }
+      
+      if (nssmPath && fs.existsSync(nssmPath)) {
+        try {
+          console.log(`📦 Leggo nssm.exe da: ${nssmPath}`);
+          const nssmContent = fs.readFileSync(nssmPath); // Legge come Buffer binario
+          const nssmSize = nssmContent.length;
+          console.log(`   Dimensione file: ${nssmSize} bytes`);
+          console.log(`   Tipo: ${Buffer.isBuffer(nssmContent) ? 'Buffer' : typeof nssmContent}`);
+          
+          if (nssmSize === 0) {
+            throw new Error('File nssm.exe è vuoto!');
+          }
+          
+          if (!Buffer.isBuffer(nssmContent)) {
+            throw new Error('Contenuto nssm.exe non è un Buffer!');
+          }
+          
+          // Aggiungi come Buffer (stesso metodo degli altri file)
+          archive.append(nssmContent, { name: 'nssm.exe' });
+          console.log('✅✅✅ AGGIUNTO nssm.exe al ZIP (dimensione: ' + nssmSize + ' bytes) ✅✅✅');
+          nssmAdded = true;
+        } catch (nssmErr) {
+          console.error('❌❌❌ ERRORE CRITICO aggiunta nssm.exe:', nssmErr);
+          console.error('   Messaggio:', nssmErr.message);
+          console.error('   Stack:', nssmErr.stack);
+          throw new Error(`IMPOSSIBILE AGGIUNGERE nssm.exe: ${nssmErr.message}`);
+        }
+      } else {
+        console.error('❌❌❌ ERRORE CRITICO: nssm.exe non trovato!');
+        console.error('   Percorso cercato:', nssmPath);
+        console.error('   Percorsi verificati:');
+        possibleNssmPaths.forEach(p => {
+          const exists = fs.existsSync(p);
+          console.error(`     - ${p} (exists: ${exists})`);
+        });
+        console.error('   Agent dir:', agentDir);
+        console.error('   Project root:', projectRoot);
+        console.error('   Process cwd:', process.cwd());
+        console.error('   __dirname:', __dirname);
+        throw new Error('nssm.exe NON TROVATO in nessun percorso! Il pacchetto ZIP non può essere generato senza questo file.');
+      }
+      
+      if (!nssmAdded) {
+        throw new Error('nssm.exe NON AGGIUNTO al ZIP!');
+      }
+      
+      console.log('🔍 ===== FINE AGGIUNTA NSSM.EXE =====');
+      console.log('');
 
       // Finalizza ZIP
       await archive.finalize();
