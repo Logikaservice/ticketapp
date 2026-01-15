@@ -2316,23 +2316,34 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
           console.log('✅ Aggiunto Disinstalla-Tutto.bat');
         }
         
-        // nssm.exe (incluso nel pacchetto - non serve download esterno)
+        // nssm.exe (incluso nel pacchetto - CRITICO per l'installazione)
         const nssmPath = path.join(agentDir, 'nssm.exe');
         console.log('🔍 Verifica nssm.exe:', nssmPath);
         console.log('   Esiste:', fs.existsSync(nssmPath));
+        
+        let nssmAdded = false;
         if (fs.existsSync(nssmPath)) {
           try {
             const nssmContent = fs.readFileSync(nssmPath);
             archive.append(nssmContent, { name: 'nssm.exe' });
             console.log('✅ Aggiunto nssm.exe al ZIP');
+            nssmAdded = true;
           } catch (nssmErr) {
             console.error('❌ Errore lettura nssm.exe:', nssmErr);
             console.warn('⚠️  nssm.exe non aggiunto al ZIP a causa di errore');
           }
         } else {
-          console.warn('⚠️  nssm.exe non trovato in:', nssmPath);
-          console.warn('   Agent dir:', agentDir);
-          console.warn('   Assicurati che nssm.exe sia presente in agent/nssm.exe sul server');
+          console.error('❌ ERRORE CRITICO: nssm.exe non trovato in:', nssmPath);
+          console.error('   Agent dir:', agentDir);
+          console.error('   Questo file e\' ESSENZIALE per l\'installazione del servizio!');
+          console.error('   Verifica che nssm.exe sia presente in agent/nssm.exe sul server VPS');
+          console.error('   Se manca, copialo manualmente nella directory agent/ sul server');
+        }
+        
+        // Avvisa se nssm.exe non e' stato aggiunto (blocca l'installazione)
+        if (!nssmAdded) {
+          console.error('⚠️  ATTENZIONE: nssm.exe NON e\' stato incluso nel pacchetto ZIP!');
+          console.error('   L\'installazione fallira\' senza questo file.');
         }
       } catch (serviceErr) {
         console.error('❌ Errore aggiunta file servizio allo ZIP:', serviceErr);
