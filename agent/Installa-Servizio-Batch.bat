@@ -173,8 +173,30 @@ set "STDERR_LOG=%INSTALL_DIR%\NetworkMonitorService_stderr.log"
 echo OK
 echo.
 
-REM Avvia servizio
-echo [6/6] Avvio servizio...
+REM 6. Configurazione avvio automatico tray icon
+echo [6/7] Configurazione avvio automatico tray icon...
+set "VBS_LAUNCHER=%INSTALL_DIR%\Start-TrayIcon-Hidden.vbs"
+if exist "%VBS_LAUNCHER%" (
+    REM Configura avvio automatico nel registro
+    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "NetworkMonitorTrayIcon" /t REG_SZ /d "wscript.exe \"%VBS_LAUNCHER%\"" /f >nul 2>&1
+    if !errorLevel! equ 0 (
+        echo Avvio automatico configurato nel registro
+    ) else (
+        echo ATTENZIONE: Impossibile configurare avvio automatico
+    )
+    
+    REM Avvia immediatamente la tray icon
+    echo Avvio tray icon...
+    wscript.exe "%VBS_LAUNCHER%" >nul 2>&1
+    timeout /t 2 /nobreak >nul
+    echo Tray icon avviata
+) else (
+    echo ATTENZIONE: Start-TrayIcon-Hidden.vbs non trovato, tray icon non configurata
+)
+echo.
+
+REM 7. Avvia servizio
+echo [7/7] Avvio servizio...
 sc start %SERVICE_NAME% >nul 2>&1
 timeout /t 3 /nobreak >nul
 
