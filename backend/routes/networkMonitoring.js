@@ -2298,6 +2298,109 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
     }
   });
 
+  // GET /api/network-monitoring/agent/:id/diagnostics
+  // Endpoint di diagnostica per capire perché un agent risulta offline
+  router.get('/agent/:id/diagnostics', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      const agentId = parseInt(req.params.id);
+      
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
+
+      // Recupera info agent
+      const agentResult = await pool.query(
+        `SELECT id, agent_name, status, last_heartbeat, enabled, deleted_at, 
+                version, network_ranges, scan_interval_minutes, created_at, updated_at
+         FROM network_agents
+         WHERE id = $1`,
+        [agentId]
+      );
+
+      if (agentResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato' });
+      }
+
+      const agent = agentResult.rows[0];
+      
+      // Calcola minuti dall'ultimo heartbeat
+      const minutesSinceLastHeartbeat = agent.last_heartbeat 
+        ? Math.floor((Date.now() - new Date(agent.last_heartbeat).getTime()) / 60000)
+        : null;
+
+      // Verifica se ci sono eventi offline non risolti
+      let offlineEvents = [];
+      try {
+        const eventsResult = await pool.query(
+          `SELECT id, event_type, detected_at, resolved_at, event_data
+           FROM network_agent_events
+           WHERE agent_id = $1 AND event_type = 'offline' AND resolved_at IS NULL
+           ORDER BY detected_at DESC
+           LIMIT 5`,
+          [agentId]
+        );
+        offlineEvents = eventsResult.rows;
+      } catch (eventsErr) {
+        // Se la tabella non esiste, ignora
+        if (eventsErr.code !== '42P01') {
+          console.error('Errore query eventi offline:', eventsErr);
+        }
+      }
+
+      // Verifica se l'agent dovrebbe essere offline secondo la logica di checkOfflineAgents
+      const shouldBeOffline = agent.enabled && !agent.deleted_at && (
+        (agent.status === 'online' && (agent.last_heartbeat === null || minutesSinceLastHeartbeat > 8)) ||
+        (agent.status === 'offline' && offlineEvents.length === 0)
+      );
+
+      const diagnostics = {
+        agent: {
+          id: agent.id,
+          name: agent.agent_name,
+          status: agent.status,
+          enabled: agent.enabled,
+          deleted: agent.deleted_at !== null,
+          version: agent.version,
+          network_ranges: agent.network_ranges,
+          scan_interval_minutes: agent.scan_interval_minutes,
+          created_at: agent.created_at,
+          updated_at: agent.updated_at
+        },
+        heartbeat: {
+          last_heartbeat: agent.last_heartbeat,
+          minutes_ago: minutesSinceLastHeartbeat,
+          is_stale: minutesSinceLastHeartbeat === null || minutesSinceLastHeartbeat > 8,
+          expected_interval_minutes: 5 // Agent invia ogni 5 minuti
+        },
+        events: {
+          unresolved_offline_count: offlineEvents.length,
+          unresolved_offline_events: offlineEvents.map(e => ({
+            id: e.id,
+            detected_at: e.detected_at,
+            event_data: e.event_data
+          }))
+        },
+        analysis: {
+          should_be_offline: shouldBeOffline,
+          reason: shouldBeOffline 
+            ? (agent.status === 'online' && minutesSinceLastHeartbeat > 8 
+                ? `Agent online ma senza heartbeat da ${minutesSinceLastHeartbeat} minuti (soglia: 8 min)`
+                : `Agent offline ma senza evento offline non risolto`)
+            : 'Agent dovrebbe essere online (heartbeat recente o evento offline risolto)',
+          recommendation: minutesSinceLastHeartbeat === null || minutesSinceLastHeartbeat > 8
+            ? `L'agent non sta inviando heartbeat. Verifica: 1) Il servizio è in esecuzione? 2) La connessione internet funziona? 3) L'API key è corretta? 4) Il server URL è raggiungibile?`
+            : 'L\'agent sta inviando heartbeat regolarmente. Se risulta offline, potrebbe essere un problema di sincronizzazione del database.'
+        }
+      };
+
+      res.json(diagnostics);
+    } catch (err) {
+      console.error('❌ Errore diagnostica agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // PUT /api/network-monitoring/agent/:id/disable
   // Disabilita un agent (blocca ricezione dati, ma NON disinstalla l'agent dal client)
   router.put('/agent/:id/disable', authenticateToken, requireRole('tecnico'), async (req, res) => {
