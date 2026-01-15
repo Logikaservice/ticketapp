@@ -159,4 +159,4 @@ Write-Host "Riparazione completata" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Premi un tasto per uscire..."
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+pause
