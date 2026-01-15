@@ -139,12 +139,13 @@ try {
     
     # Avvia servizio
     Write-Host "Avvio servizio..." -ForegroundColor Yellow
-    Start-Service -Name $ServiceName
-    Start-Sleep -Seconds 2
-    
-    $serviceStatus = Get-Service -Name $ServiceName
-    if ($serviceStatus.Status -eq "Running") {
-        Write-Host "Servizio avviato con successo!" -ForegroundColor Green
+    try {
+        Start-Service -Name $ServiceName -ErrorAction Stop
+        Start-Sleep -Seconds 3
+        
+        $serviceStatus = Get-Service -Name $ServiceName
+        if ($serviceStatus.Status -eq "Running") {
+            Write-Host "Servizio avviato con successo!" -ForegroundColor Green
     } else {
         Write-Host "Servizio installato ma non e' riuscito ad avviarsi" -ForegroundColor Yellow
         Write-Host "   Stato: $($serviceStatus.Status)" -ForegroundColor Yellow
