@@ -2361,13 +2361,11 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
             console.warn('⚠️  nssm.exe non aggiunto al ZIP a causa di errore');
           }
         } else {
-          console.error('❌ nssm.exe non trovato o percorso non valido');
+          console.error('❌ ERRORE CRITICO: nssm.exe non trovato o percorso non valido!');
           console.error('   Percorso cercato:', nssmPath);
           console.error('   Esiste:', nssmPath ? fs.existsSync(nssmPath) : 'percorso null');
-        } else {
-          console.error('❌ ERRORE CRITICO: nssm.exe non trovato in nessun percorso!');
           console.error('   Percorsi verificati:');
-          possibleNssmPaths.forEach(p => console.error(`     - ${p}`));
+          possibleNssmPaths.forEach(p => console.error(`     - ${p} (exists: ${fs.existsSync(p)})`));
           console.error('   Agent dir:', agentDir);
           console.error('   Project root:', projectRoot);
           console.error('   Process cwd:', process.cwd());
