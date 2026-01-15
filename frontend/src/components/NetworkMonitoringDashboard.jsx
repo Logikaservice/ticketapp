@@ -7,7 +7,7 @@ import {
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
   Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit, Menu,
-  CircleAlert
+  CircleAlert, Stethoscope
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
@@ -438,6 +438,62 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     } catch (err) {
       console.error('Errore download pacchetto:', err);
       alert('Errore scaricamento pacchetto: ' + err.message);
+    }
+  };
+
+  // Apri diagnostica agent
+  const showAgentDiagnostics = async (agentId, agentName) => {
+    try {
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/agent/${agentId}/diagnostics`), {
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Errore caricamento diagnostica' }));
+        throw new Error(errorData.error || 'Errore caricamento diagnostica');
+      }
+
+      const diagnostics = await response.json();
+      
+      // Formatta i dati per la visualizzazione
+      const formatDiagnostics = (diag) => {
+        let message = `🔍 DIAGNOSTICA AGENT: ${diag.agent.name}\n\n`;
+        message += `📊 STATO AGENT:\n`;
+        message += `  • ID: ${diag.agent.id}\n`;
+        message += `  • Status: ${diag.agent.status}\n`;
+        message += `  • Versione: ${diag.agent.version || 'N/A'}\n`;
+        message += `  • Abilitato: ${diag.agent.enabled ? 'Sì' : 'No'}\n`;
+        message += `  • Eliminato: ${diag.agent.deleted ? 'Sì' : 'No'}\n`;
+        message += `  • Reti: ${(diag.agent.network_ranges || []).join(', ') || 'Nessuna'}\n`;
+        message += `  • Intervallo: ${diag.agent.scan_interval_minutes || 15} minuti\n\n`;
+        
+        message += `💓 HEARTBEAT:\n`;
+        message += `  • Ultimo heartbeat: ${diag.heartbeat.last_heartbeat ? new Date(diag.heartbeat.last_heartbeat).toLocaleString('it-IT') : 'Mai'}\n`;
+        message += `  • Minuti fa: ${diag.heartbeat.minutes_ago !== null ? diag.heartbeat.minutes_ago : 'N/A'}\n`;
+        message += `  • Scaduto: ${diag.heartbeat.is_stale ? 'Sì (>8 min)' : 'No'}\n`;
+        message += `  • Intervallo atteso: ${diag.heartbeat.expected_interval_minutes} minuti\n\n`;
+        
+        if (diag.events.unresolved_offline_count > 0) {
+          message += `⚠️ EVENTI OFFLINE NON RISOLTI: ${diag.events.unresolved_offline_count}\n`;
+          diag.events.unresolved_offline_events.forEach((ev, idx) => {
+            message += `  ${idx + 1}. Rilevato: ${new Date(ev.detected_at).toLocaleString('it-IT')}\n`;
+          });
+          message += `\n`;
+        }
+        
+        message += `🔬 ANALISI:\n`;
+        message += `  • Dovrebbe essere offline: ${diag.analysis.should_be_offline ? 'Sì' : 'No'}\n`;
+        message += `  • Motivo: ${diag.analysis.reason}\n\n`;
+        message += `💡 RACCOMANDAZIONE:\n  ${diag.analysis.recommendation}`;
+        
+        return message;
+      };
+
+      const formattedMessage = formatDiagnostics(diagnostics);
+      alert(formattedMessage);
+    } catch (err) {
+      console.error('Errore diagnostica agent:', err);
+      alert('Errore caricamento diagnostica: ' + err.message);
     }
   };
 
@@ -887,6 +943,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           </div>
                         ) : (
                           <>
+                            <p><strong>Versione:</strong> <span className="font-mono text-blue-600 font-semibold">{agent.version || 'N/A'}</span></p>
                             <p><strong>Reti:</strong> {(agent.network_ranges || []).join(', ') || 'Nessuna'}</p>
                             <p><strong>Intervallo:</strong> {agent.scan_interval_minutes || 15} minuti</p>
                             <p><strong>Ultimo heartbeat:</strong> {agent.last_heartbeat ? formatDate(new Date(agent.last_heartbeat)) : 'Mai'}</p>
@@ -921,6 +978,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           >
                             <Edit size={18} />
                             Modifica
+                          </button>
+                          <button
+                            onClick={() => showAgentDiagnostics(agent.id, agent.agent_name)}
+                            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+                            title="Mostra diagnostica agent (heartbeat, eventi, analisi)"
+                          >
+                            <Stethoscope size={18} />
+                            Diagnostica
                           </button>
                           <button
                             onClick={() => downloadAgentPackage(agent.id, agent.agent_name)}

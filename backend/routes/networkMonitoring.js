@@ -2509,6 +2509,30 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
         return res.status(400).json({ error: 'Nessun campo da aggiornare fornito' });
       }
 
+      // Incrementa automaticamente la versione quando viene modificato un agent
+      // La versione è nel formato "MAJOR.MINOR.PATCH" (es: "1.1.1")
+      // Incrementiamo il PATCH (ultimo numero)
+      const currentVersionResult = await pool.query(
+        'SELECT version FROM network_agents WHERE id = $1',
+        [agentId]
+      );
+      
+      let newVersion = '1.0.1'; // Default se non esiste versione
+      if (currentVersionResult.rows.length > 0 && currentVersionResult.rows[0].version) {
+        const currentVersion = currentVersionResult.rows[0].version;
+        const versionParts = currentVersion.split('.');
+        if (versionParts.length === 3) {
+          const patch = parseInt(versionParts[2]) || 0;
+          newVersion = `${versionParts[0]}.${versionParts[1]}.${patch + 1}`;
+        } else {
+          // Se formato non valido, incrementa come se fosse 1.0.0
+          newVersion = '1.0.1';
+        }
+      }
+      
+      updateFields.push(`version = $${paramIndex++}`);
+      updateValues.push(newVersion);
+
       // Aggiungi updated_at
       updateFields.push(`updated_at = NOW()`);
       updateValues.push(agentId);
@@ -2517,7 +2541,7 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
         UPDATE network_agents 
         SET ${updateFields.join(', ')}
         WHERE id = $${paramIndex} AND deleted_at IS NULL
-        RETURNING id, agent_name, network_ranges, scan_interval_minutes, enabled, status, updated_at
+        RETURNING id, agent_name, network_ranges, scan_interval_minutes, enabled, status, version, updated_at
       `;
 
       const result = await pool.query(query, updateValues);
@@ -2526,11 +2550,11 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
         return res.status(404).json({ error: 'Agent non trovato o eliminato' });
       }
 
-      console.log(`✅ Agent ${agentId} aggiornato: ${updateFields.join(', ')}`);
+      console.log(`✅ Agent ${agentId} aggiornato: ${updateFields.join(', ')} (versione: ${newVersion})`);
       res.json({ 
         success: true, 
         agent: result.rows[0], 
-        message: 'Configurazione agent aggiornata. Le modifiche saranno applicate al prossimo heartbeat dell\'agent.' 
+        message: `Configurazione agent aggiornata (versione: ${newVersion}). Le modifiche saranno applicate al prossimo heartbeat dell'agent.` 
       });
     } catch (err) {
       console.error('❌ Errore aggiornamento agent:', err);
