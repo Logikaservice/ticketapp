@@ -188,8 +188,17 @@ if exist "%VBS_LAUNCHER%" (
     REM Avvia immediatamente la tray icon
     echo Avvio tray icon...
     wscript.exe "%VBS_LAUNCHER%" >nul 2>&1
-    timeout /t 2 /nobreak >nul
-    echo Tray icon avviata
+    timeout /t 3 /nobreak >nul
+    
+    REM Verifica che il processo sia in esecuzione
+    tasklist | findstr /i "wscript.exe" >nul
+    if !errorLevel! equ 0 (
+        echo Tray icon avviata con successo
+        echo NOTA: Se non vedi l'icona, controlla l'area nascosta della system tray (freccia ^^)
+    ) else (
+        echo ATTENZIONE: Tray icon potrebbe non essere avviata
+        echo Esegui manualmente: .\Avvia-TrayIcon.bat o .\Verifica-TrayIcon.ps1
+    )
 ) else (
     echo ATTENZIONE: Start-TrayIcon-Hidden.vbs non trovato, tray icon non configurata
 )

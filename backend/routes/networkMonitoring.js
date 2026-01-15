@@ -2295,6 +2295,13 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
           archive.append(avviaTrayIconBatContent, { name: 'Avvia-TrayIcon.bat' });
           console.log('✅ Aggiunto Avvia-TrayIcon.bat');
         }
+
+        // Verifica-TrayIcon.ps1 (per diagnosticare problemi tray icon)
+        if (fs.existsSync(verificaTrayIconPath)) {
+          const verificaTrayIconContent = fs.readFileSync(verificaTrayIconPath, 'utf8');
+          archive.append(verificaTrayIconContent, { name: 'Verifica-TrayIcon.ps1' });
+          console.log('✅ Aggiunto Verifica-TrayIcon.ps1');
+        }
         
         // Ripara-Servizio.ps1 (per riparare configurazione NSSM)
         if (fs.existsSync(riparaServizioPath)) {
