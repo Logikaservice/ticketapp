@@ -1488,12 +1488,17 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               setTimeout(() => {
                 loadDevices();
                 loadChanges();
+                loadAgents();
+                // opzionale: aggiorna lista aziende (se UI mostra conteggi o dropdown dipende dal backend)
+                loadCompanies();
               }, 200);
             }
           }}
           onAgentCreated={(agent) => {
-            // NON fare nulla qui - evita qualsiasi refresh
+            // Aggiorna subito lista agent: evita che l'utente debba fare refresh pagina
             console.log('✅ Agent creato con successo:', agent);
+            loadAgents();
+            loadCompanies();
           }}
           getAuthHeader={getAuthHeader}
         />

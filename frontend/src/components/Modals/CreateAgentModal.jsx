@@ -289,9 +289,15 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
       } catch (e) {
         console.error('Errore salvataggio stato:', e);
       }
-      
-      // NON chiamare onAgentCreated qui per evitare qualsiasi refresh
-      // I dati verranno aggiornati solo quando il modal viene chiuso
+
+      // Notifica il parent: così può aggiornare subito la lista agent senza richiedere refresh pagina
+      try {
+        if (typeof onAgentCreated === 'function') {
+          onAgentCreated(data.agent);
+        }
+      } catch (e) {
+        console.error('Errore callback onAgentCreated:', e);
+      }
     } catch (err) {
       console.error('Errore creazione agent:', err);
       setError(err.message || 'Errore creazione agent');
