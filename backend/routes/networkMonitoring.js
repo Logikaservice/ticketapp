@@ -1963,6 +1963,7 @@ module.exports = (pool, io) => {
       const verificaServizioPath = path.join(agentDir, 'Verifica-Servizio.ps1');
       const disinstallaTuttoBatPath = path.join(agentDir, 'Disinstalla-Tutto.bat');
       const generaReportPath = path.join(agentDir, 'Genera-Report-Diagnostico.ps1');
+      const diagnosticaRapidaPath = path.join(agentDir, 'Diagnostica-Rapida.ps1');
 
       console.log('📦 Download pacchetto agent - Path ricerca file:');
       console.log('  __dirname:', __dirname);
@@ -2278,6 +2279,13 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
           console.log('✅ Aggiunto Genera-Report-Diagnostico.ps1');
         } else {
           console.warn('⚠️  Genera-Report-Diagnostico.ps1 non trovato!');
+        }
+
+        // Diagnostica-Rapida.ps1 (diagnostica veloce)
+        if (fs.existsSync(diagnosticaRapidaPath)) {
+          const diagnosticaRapidaContent = fs.readFileSync(diagnosticaRapidaPath, 'utf8');
+          archive.append(diagnosticaRapidaContent, { name: 'Diagnostica-Rapida.ps1' });
+          console.log('✅ Aggiunto Diagnostica-Rapida.ps1');
         }
         
         // Ripara-Servizio.ps1 (per riparare configurazione NSSM)
