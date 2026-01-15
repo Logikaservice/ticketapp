@@ -36,8 +36,13 @@ Write-Host ""
 # Verifica che Application sia powershell.exe
 if ($appExe -match '\.ps1$') {
     Write-Host "   ERRORE: Application punta a .ps1 invece che a powershell.exe!" -ForegroundColor Red
+} elseif ($appExe -match '^-ExecutionPolicy|^-NoProfile|^-WindowStyle|^-File') {
+    Write-Host "   ERRORE CRITICO: Application contiene parametri invece di powershell.exe!" -ForegroundColor Red
+    Write-Host "   Valore: $appExe" -ForegroundColor Red
+    Write-Host "   Esegui Ripara-Servizio.ps1 per correggere!" -ForegroundColor Yellow
 } elseif ($appExe -notmatch 'powershell\.exe') {
     Write-Host "   ERRORE: Application non e powershell.exe!" -ForegroundColor Red
+    Write-Host "   Valore: $appExe" -ForegroundColor Red
 } else {
     Write-Host "   OK: Application e powershell.exe" -ForegroundColor Green
 }

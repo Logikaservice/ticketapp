@@ -71,13 +71,26 @@ Write-Host "  AppParameters: $appParams" -ForegroundColor White
 Write-Host "  AppDirectory: $appDir" -ForegroundColor White
 Write-Host ""
 
-# Verifica se Application punta a .ps1 (ERRORE!)
+# Verifica se Application punta a .ps1 o contiene parametri (ERRORE!)
+$needsRepair = $false
 if ($appExe -match '\.ps1$') {
     Write-Host "PROBLEMA RILEVATO: Application punta a uno script .ps1 invece che a powershell.exe!" -ForegroundColor Red
     Write-Host "   Questo impedisce al servizio di avviarsi correttamente." -ForegroundColor Yellow
+    $needsRepair = $true
+    Write-Host ""
+} elseif ($appExe -match '^-ExecutionPolicy|^-NoProfile|^-WindowStyle|^-File') {
+    Write-Host "PROBLEMA RILEVATO: Application contiene parametri invece di powershell.exe!" -ForegroundColor Red
+    Write-Host "   Valore attuale: $appExe" -ForegroundColor Red
+    Write-Host "   Questo e un errore grave - Application deve essere powershell.exe!" -ForegroundColor Yellow
+    $needsRepair = $true
+    Write-Host ""
+} elseif ($appExe -notmatch 'powershell\.exe$') {
+    Write-Host "PROBLEMA RILEVATO: Application non e powershell.exe!" -ForegroundColor Red
+    Write-Host "   Valore attuale: $appExe" -ForegroundColor Red
+    $needsRepair = $true
     Write-Host ""
 } else {
-    Write-Host "Application sembra corretto (non punta a .ps1)" -ForegroundColor Green
+    Write-Host "Application sembra corretto (powershell.exe)" -ForegroundColor Green
     Write-Host "   Continuo comunque con la riparazione per assicurarmi che tutto sia configurato correttamente..." -ForegroundColor Gray
     Write-Host ""
 }
