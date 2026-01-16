@@ -2208,12 +2208,20 @@ module.exports = (pool, io) => {
           console.log('✅ Aggiunto Start-TrayIcon-Hidden.vbs');
         }
         
-        // Installa-Agent.ps1 (installer unico)
+        // Installa-Agent.bat (installer unico - SOLO COMANDI NATIVI, NO POWERSHELL)
+        const installAgentBatPath = path.join(agentDir, 'Installa-Agent.bat');
+        if (fs.existsSync(installAgentBatPath)) {
+          const installAgentBatContent = fs.readFileSync(installAgentBatPath, 'utf8');
+          archive.append(installAgentBatContent, { name: 'Installa-Agent.bat' });
+          console.log('✅ Aggiunto Installa-Agent.bat');
+        }
+        
+        // Installa-Agent.ps1 (backup, opzionale)
         const installAgentPath = path.join(agentDir, 'Installa-Agent.ps1');
         if (fs.existsSync(installAgentPath)) {
           const installAgentContent = fs.readFileSync(installAgentPath, 'utf8');
           archive.append(installAgentContent, { name: 'Installa-Agent.ps1' });
-          console.log('✅ Aggiunto Installa-Agent.ps1');
+          console.log('✅ Aggiunto Installa-Agent.ps1 (backup)');
         }
         
       } catch (appendErr) {
