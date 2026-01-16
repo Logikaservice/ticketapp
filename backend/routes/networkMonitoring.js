@@ -2907,6 +2907,12 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
       );
 
       console.log(`📊 Trovati ${devicesResult.rows.length} dispositivi con MAC address da verificare`);
+      
+      // Debug: mostra alcuni MAC dalla mappa Keepass per verifica
+      if (keepassMap.size > 0) {
+        const sampleMacs = Array.from(keepassMap.keys()).slice(0, 5);
+        console.log(`📋 Esempi MAC nella mappa Keepass (primi 5): ${sampleMacs.join(', ')}`);
+      }
 
       let updatedCount = 0;
       let notFoundCount = 0;
@@ -2917,6 +2923,16 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
         try {
           // Normalizza il MAC per la ricerca
           const normalizedMac = device.mac_address.replace(/[:-]/g, '').toUpperCase();
+          
+          // Debug per MAC specifico che l'utente sta cercando
+          if (normalizedMac === '101331CDFF6C' || device.mac_address.toLowerCase().includes('10:13:31:cd:ff:6c')) {
+            console.log(`🔍 DEBUG MAC ${device.mac_address}:`);
+            console.log(`   - MAC originale nel DB: "${device.mac_address}"`);
+            console.log(`   - MAC normalizzato: "${normalizedMac}"`);
+            console.log(`   - Presente nella mappa Keepass: ${keepassMap.has(normalizedMac)}`);
+            console.log(`   - device_type attuale: "${device.device_type}"`);
+            console.log(`   - device_path attuale: "${device.device_path}"`);
+          }
           
           // Cerca nella mappa KeePass
           const keepassResult = keepassMap.get(normalizedMac);
@@ -2947,6 +2963,10 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
           } else {
             // MAC non trovato in KeePass: resetta i valori se erano presenti
             if (device.device_type !== null || device.device_path !== null) {
+              console.log(`  🔍 MAC ${device.mac_address} (normalizzato: ${normalizedMac}) NON trovato in KeePass`);
+              console.log(`     Valori attuali: device_type="${device.device_type}", device_path="${device.device_path}"`);
+              console.log(`     Reset in corso...`);
+              
               await pool.query(
                 `UPDATE network_devices 
                  SET device_type = NULL, device_path = NULL 
@@ -2954,8 +2974,10 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
                 [device.id]
               );
               
-              console.log(`  🔄 Dispositivo ID ${device.id} (MAC: ${device.mac_address}) - MAC non trovato in KeePass, valori resettati`);
+              console.log(`  ✅ Dispositivo ID ${device.id} (MAC: ${device.mac_address}) - MAC non trovato in KeePass, valori resettati`);
               updatedCount++;
+            } else {
+              console.log(`  ℹ️ MAC ${device.mac_address} (normalizzato: ${normalizedMac}) non trovato in KeePass, ma valori già NULL`);
             }
             notFoundCount++;
           }
