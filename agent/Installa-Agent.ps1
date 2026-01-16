@@ -247,7 +247,7 @@ if (-not (Test-Path $psPath)) {
 }
 
 # Parametri per PowerShell
-$appParams = "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$serviceScriptPath`" -ConfigPath `"$configPath`""
+$appParams = '-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File "' + $serviceScriptPath + '" -ConfigPath "' + $configPath + '"'
 
 # Rimuovi servizio esistente se presente
 try {
@@ -321,11 +321,11 @@ if (Test-Path $vbsLauncher) {
     try {
         # Configura avvio automatico
         $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-        $regValue = "wscript.exe `"$vbsLauncher`""
+        $regValue = 'wscript.exe "' + $vbsLauncher + '"'
         Set-ItemProperty -Path $regPath -Name "NetworkMonitorTrayIcon" -Value $regValue -ErrorAction SilentlyContinue
         
         # Avvia tray icon
-        $vbsArg = "`"$vbsLauncher`""
+        $vbsArg = '"' + $vbsLauncher + '"'
         Start-Process "wscript.exe" -ArgumentList $vbsArg -WindowStyle Hidden -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 2
         
