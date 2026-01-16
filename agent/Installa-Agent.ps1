@@ -246,8 +246,15 @@ if (-not (Test-Path $psPath)) {
     exit 1
 }
 
-# Parametri per PowerShell
-$appParams = '-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File "' + $serviceScriptPath + '" -ConfigPath "' + $configPath + '"'
+# Parametri per PowerShell - usa array invece di stringa per evitare problemi con virgolette
+$appParamsArray = @(
+    '-ExecutionPolicy', 'Bypass',
+    '-NoProfile',
+    '-WindowStyle', 'Hidden',
+    '-File', $serviceScriptPath,
+    '-ConfigPath', $configPath
+)
+$appParams = $appParamsArray -join ' '
 
 # Rimuovi servizio esistente se presente
 try {
