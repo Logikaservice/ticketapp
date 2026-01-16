@@ -321,12 +321,12 @@ if (Test-Path $vbsLauncher) {
     try {
         # Configura avvio automatico
         $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-        $regValue = 'wscript.exe "' + $vbsLauncher + '"'
+        $vbsLauncherQuoted = $vbsLauncher
+        $regValue = "wscript.exe " + $vbsLauncherQuoted
         Set-ItemProperty -Path $regPath -Name "NetworkMonitorTrayIcon" -Value $regValue -ErrorAction SilentlyContinue
         
         # Avvia tray icon
-        $vbsArg = '"' + $vbsLauncher + '"'
-        Start-Process "wscript.exe" -ArgumentList $vbsArg -WindowStyle Hidden -ErrorAction SilentlyContinue
+        Start-Process "wscript.exe" -ArgumentList $vbsLauncher -WindowStyle Hidden -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 2
         
         Write-Host "   ✅ Tray icon configurata e avviata" -ForegroundColor Green
