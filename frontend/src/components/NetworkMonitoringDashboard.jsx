@@ -884,6 +884,19 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                     <Plus size={18} className="text-cyan-600" />
                     Crea Agent
                   </button>
+                  <button
+                    onClick={() => {
+                      setShowTelegramConfig(true);
+                      setShowAgentsList(false);
+                      setShowAgentNotificationsList(false);
+                      setShowNetworkMenu(false);
+                      loadTelegramConfigs();
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                  >
+                    <AlertCircle size={18} className="text-blue-600" />
+                    Notifiche Telegram
+                  </button>
                 </div>
               </div>
             )}
