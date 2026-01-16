@@ -176,6 +176,23 @@ module.exports = (pool, io) => {
         }
       }
 
+      // Aggiungi colonne accepted_ip e accepted_mac per tracciare IP/MAC accettati dall'utente
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS accepted_ip VARCHAR(45);
+        `);
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS accepted_mac VARCHAR(17);
+        `);
+      } catch (err) {
+        // Ignora errore se colonna esiste già
+        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonne accepted_ip/accepted_mac:', err.message);
+        }
+      }
+
       // Crea tabella network_changes
       await pool.query(`
         CREATE TABLE IF NOT EXISTS network_changes (
@@ -973,7 +990,7 @@ module.exports = (pool, io) => {
         // Questo evita confusione e duplicati
         
         // 1. Cerca PRIMA per IP (priorità massima - l'agent ha trovato questo IP ora)
-        existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac, has_ping_failures
+        existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac, accepted_ip, accepted_mac, has_ping_failures
                          FROM network_devices 
                          WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2
                          LIMIT 1`;
@@ -984,7 +1001,7 @@ module.exports = (pool, io) => {
         
         // 2. Se non trovato per IP E abbiamo MAC, cerca per MAC (per gestire cambi di IP)
         if (!existingDevice && normalizedMacForSearch && normalizedMacForSearch !== '') {
-          existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac, has_ping_failures
+          existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac, accepted_ip, accepted_mac, has_ping_failures
                            FROM network_devices 
                            WHERE agent_id = $1 AND mac_address = $2
                            LIMIT 1`;
@@ -1028,13 +1045,23 @@ module.exports = (pool, io) => {
           const normalizedCurrentIp = normalizedIpForSearch;
           const existingIp = existingDevice.ip_address ? existingDevice.ip_address.replace(/[{}"]/g, '').trim() : null;
           if (existingDevice.is_static && normalizedCurrentIp !== existingIp) {
-            // Dispositivo statico con IP cambiato - salva valore precedente
-            console.log(`  ⚠️ IP CAMBIATO per dispositivo statico ${existingIp} -> ${normalizedCurrentIp}`);
-            updates.push(`previous_ip = $${paramIndex++}`);
-            values.push(existingIp);
-            // Aggiorna anche l'IP
-            updates.push(`ip_address = $${paramIndex++}`);
-            values.push(normalizedCurrentIp);
+            // Controlla se il nuovo IP è quello accettato dall'utente
+            const acceptedIp = existingDevice.accepted_ip ? existingDevice.accepted_ip.replace(/[{}"]/g, '').trim() : null;
+            if (acceptedIp && normalizedCurrentIp === acceptedIp) {
+              // L'IP è quello accettato dall'utente, non mostrare warning
+              console.log(`  ℹ️ IP cambiato ma accettato dall'utente: ${existingIp} -> ${normalizedCurrentIp} (accettato)`);
+              // Aggiorna solo l'IP, non salvare previous_ip
+              updates.push(`ip_address = $${paramIndex++}`);
+              values.push(normalizedCurrentIp);
+            } else {
+              // Dispositivo statico con IP cambiato - salva valore precedente
+              console.log(`  ⚠️ IP CAMBIATO per dispositivo statico ${existingIp} -> ${normalizedCurrentIp}`);
+              updates.push(`previous_ip = $${paramIndex++}`);
+              values.push(existingIp);
+              // Aggiorna anche l'IP
+              updates.push(`ip_address = $${paramIndex++}`);
+              values.push(normalizedCurrentIp);
+            }
           }
 
           // Aggiorna MAC se disponibile e diverso (anche se era NULL prima)
@@ -1043,15 +1070,29 @@ module.exports = (pool, io) => {
           const newMacNormalized = normalizedMac ? normalizedMac.toUpperCase().replace(/[:-]/g, '-') : null;
           
           if (normalizedMac && newMacNormalized !== existingMacNormalized) {
-            // Se il dispositivo è statico e il MAC cambia, salva il valore precedente
+            // Se il dispositivo è statico e il MAC cambia, controlla se è quello accettato
             if (existingDevice.is_static && existingDevice.mac_address) {
-              console.log(`  ⚠️ MAC CAMBIATO per dispositivo statico ${existingDevice.mac_address} -> ${normalizedMac}`);
-              updates.push(`previous_mac = $${paramIndex++}`);
-              values.push(existingDevice.mac_address);
+              const acceptedMac = existingDevice.accepted_mac ? existingDevice.accepted_mac.toUpperCase().replace(/[:-]/g, '-') : null;
+              if (acceptedMac && newMacNormalized === acceptedMac) {
+                // Il MAC è quello accettato dall'utente, non mostrare warning
+                console.log(`  ℹ️ MAC cambiato ma accettato dall'utente: ${existingDevice.mac_address} -> ${normalizedMac} (accettato)`);
+                // Aggiorna solo il MAC, non salvare previous_mac
+                updates.push(`mac_address = $${paramIndex++}`);
+                values.push(normalizedMac);
+              } else {
+                // Dispositivo statico con MAC cambiato - salva valore precedente
+                console.log(`  ⚠️ MAC CAMBIATO per dispositivo statico ${existingDevice.mac_address} -> ${normalizedMac}`);
+                updates.push(`previous_mac = $${paramIndex++}`);
+                values.push(existingDevice.mac_address);
+                updates.push(`mac_address = $${paramIndex++}`);
+                values.push(normalizedMac);
+              }
+            } else {
+              // Dispositivo non statico o senza MAC precedente, aggiorna normalmente
+              console.log(`  🔄 Aggiornamento MAC per ${ip_address}: ${existingDevice.mac_address || 'NULL'} -> ${normalizedMac}`);
+              updates.push(`mac_address = $${paramIndex++}`);
+              values.push(normalizedMac);
             }
-            console.log(`  🔄 Aggiornamento MAC per ${ip_address}: ${existingDevice.mac_address || 'NULL'} -> ${normalizedMac}`);
-            updates.push(`mac_address = $${paramIndex++}`);
-            values.push(normalizedMac);
           } else if (normalizedMac && !existingDevice.mac_address) {
             // Se il dispositivo non aveva MAC e ora lo abbiamo, aggiornalo
             console.log(`  ➕ Aggiunta MAC per ${ip_address}: NULL -> ${normalizedMac}`);
@@ -1354,6 +1395,14 @@ module.exports = (pool, io) => {
         await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS device_username TEXT;
+        `);
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS accepted_ip VARCHAR(45);
+        `);
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS accepted_mac VARCHAR(17);
         `);
       } catch (migrationErr) {
         // Ignora errore se colonna esiste già
@@ -2826,16 +2875,16 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
   });
 
   // PATCH /api/network-monitoring/devices/:id/reset-warnings
-  // Resetta i warning per un dispositivo (pulisce previous_ip e previous_mac)
+  // Resetta i warning per un dispositivo (salva IP/MAC attuale come accettato e pulisce previous_ip e previous_mac)
   router.patch('/devices/:id/reset-warnings', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       await ensureTables();
       
       const { id } = req.params;
 
-      // Verifica che il dispositivo esista
+      // Verifica che il dispositivo esista e ottieni IP/MAC attuali
       const deviceCheck = await pool.query(
-        'SELECT id, previous_ip, previous_mac FROM network_devices WHERE id = $1',
+        'SELECT id, ip_address, mac_address, previous_ip, previous_mac FROM network_devices WHERE id = $1',
         [id]
       );
 
@@ -2843,13 +2892,25 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
         return res.status(404).json({ error: 'Dispositivo non trovato' });
       }
 
-      // Reset dei warning (pulisce previous_ip e previous_mac)
+      const device = deviceCheck.rows[0];
+      
+      // Salva l'IP/MAC attuale come accettato (così non verrà più mostrato il warning per questo valore)
+      // Se c'era un previous_ip, accetta l'IP attuale; se c'era un previous_mac, accetta il MAC attuale
+      const acceptedIp = device.previous_ip ? device.ip_address : device.accepted_ip || null;
+      const acceptedMac = device.previous_mac ? device.mac_address : device.accepted_mac || null;
+
+      // Reset dei warning (pulisce previous_ip e previous_mac) e salva IP/MAC accettati
       const result = await pool.query(
-        'UPDATE network_devices SET previous_ip = NULL, previous_mac = NULL WHERE id = $1 RETURNING id, ip_address, previous_ip, previous_mac',
-        [id]
+        `UPDATE network_devices 
+         SET previous_ip = NULL, previous_mac = NULL, 
+             accepted_ip = COALESCE($1, accepted_ip), 
+             accepted_mac = COALESCE($2, accepted_mac)
+         WHERE id = $3 
+         RETURNING id, ip_address, mac_address, previous_ip, previous_mac, accepted_ip, accepted_mac`,
+        [acceptedIp, acceptedMac, id]
       );
 
-      console.log(`✅ Warning reset per dispositivo ${id}`);
+      console.log(`✅ Warning reset per dispositivo ${id} - IP accettato: ${acceptedIp || 'N/A'}, MAC accettato: ${acceptedMac || 'N/A'}`);
 
       res.json(result.rows[0]);
     } catch (err) {
