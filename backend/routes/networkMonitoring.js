@@ -2897,12 +2897,27 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
       console.log('🔄 Inizio aggiornamento dispositivi da KeePass...');
       
       // Invalida la cache per forzare il ricaricamento
+      console.log('🗑️ Invalidazione cache KeePass...');
       keepassDriveService.invalidateCache();
       
       // Carica la mappa KeePass (forza il ricaricamento)
       console.log('📥 Caricamento mappa KeePass da Google Drive...');
       const keepassMap = await keepassDriveService.getMacToTitleMap(keepassPassword);
       console.log(`✅ Mappa KeePass caricata: ${keepassMap.size} MAC address disponibili`);
+      
+      // Verifica se il MAC specifico è presente (per debug)
+      const testMac = '101331CDFF6C';
+      if (keepassMap.has(testMac)) {
+        const testResult = keepassMap.get(testMac);
+        console.log(`✅ MAC ${testMac} trovato in mappa Keepass: Titolo="${testResult.title}", Path="${testResult.path}"`);
+      } else {
+        console.log(`⚠️ MAC ${testMac} NON trovato in mappa Keepass`);
+        // Mostra MAC simili per debug
+        const similarMacs = Array.from(keepassMap.keys()).filter(mac => mac.includes('101331') || mac.includes('CDFF6C'));
+        if (similarMacs.length > 0) {
+          console.log(`   MAC simili trovati: ${similarMacs.join(', ')}`);
+        }
+      }
 
       // Ottieni tutti i dispositivi con MAC address
       const devicesResult = await pool.query(
@@ -2946,10 +2961,23 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
             // Estrai solo l'ultimo elemento del percorso
             const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
             
+            // Debug per MAC specifico
+            if (normalizedMac === '101331CDFF6C') {
+              console.log(`  🔍 MAC ${device.mac_address} trovato in Keepass:`);
+              console.log(`     - Titolo da Keepass: "${keepassResult.title}"`);
+              console.log(`     - Path da Keepass: "${keepassResult.path}"`);
+              console.log(`     - LastPathElement: "${lastPathElement}"`);
+              console.log(`     - device_type attuale: "${device.device_type}"`);
+              console.log(`     - device_path attuale: "${device.device_path}"`);
+            }
+            
             // Verifica se i valori sono diversi da quelli attuali
+            // IMPORTANTE: considera anche il caso in cui i valori attuali sono NULL
             const needsUpdate = 
-              device.device_type !== keepassResult.title || 
-              device.device_path !== lastPathElement;
+              (device.device_type !== keepassResult.title) || 
+              (device.device_path !== lastPathElement) ||
+              (device.device_type === null && keepassResult.title !== null) ||
+              (device.device_path === null && lastPathElement !== null);
             
             if (needsUpdate) {
               // Aggiorna il dispositivo nel database
@@ -2960,9 +2988,16 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
                 [keepassResult.title, lastPathElement, device.id]
               );
               
-              console.log(`  ✅ Dispositivo ID ${device.id} (MAC: ${device.mac_address}) aggiornato: device_type="${keepassResult.title}", device_path="${lastPathElement}"`);
+              if (normalizedMac === '101331CDFF6C') {
+                console.log(`  ✅✅✅ MAC ${device.mac_address} AGGIORNATO: device_type="${keepassResult.title}", device_path="${lastPathElement}"`);
+              } else {
+                console.log(`  ✅ Dispositivo ID ${device.id} (MAC: ${device.mac_address}) aggiornato: device_type="${keepassResult.title}", device_path="${lastPathElement}"`);
+              }
               updatedCount++;
             } else {
+              if (normalizedMac === '101331CDFF6C') {
+                console.log(`  ℹ️ MAC ${device.mac_address} già aggiornato, nessuna modifica necessaria`);
+              }
               unchangedCount++;
             }
           } else {
