@@ -1079,6 +1079,16 @@ module.exports = (pool, io) => {
               values.push(keepassResult.title);
               updates.push(`device_path = $${paramIndex++}`);
               values.push(lastPathElement);
+            } else {
+              // MAC non trovato in KeePass: resetta i valori se erano presenti
+              // Questo gestisce il caso in cui un MAC è stato rimosso da KeePass
+              if (existingDevice.device_type !== null || existingDevice.device_path !== null) {
+                console.log(`  🔍 MAC ${normalizedMac} NON trovato in KeePass -> Reset device_type e device_path`);
+                updates.push(`device_type = $${paramIndex++}`);
+                values.push(null);
+                updates.push(`device_path = $${paramIndex++}`);
+                values.push(null);
+              }
             }
             } catch (keepassErr) {
               // Non bloccare il processo se c'è un errore con KeePass
@@ -2863,6 +2873,114 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
     } catch (err) {
       console.error('❌ Errore invalidazione cache KeePass:', err);
       res.status(500).json({ error: 'Errore interno del server', details: err.message });
+    }
+  });
+
+  // POST /api/network-monitoring/refresh-keepass-data - Aggiorna tutti i dispositivi da KeePass
+  router.post('/refresh-keepass-data', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      
+      const keepassPassword = process.env.KEEPASS_PASSWORD;
+      if (!keepassPassword) {
+        return res.status(400).json({ 
+          error: 'KEEPASS_PASSWORD non configurato',
+          updated: 0 
+        });
+      }
+
+      console.log('🔄 Inizio aggiornamento dispositivi da KeePass...');
+      
+      // Invalida la cache per forzare il ricaricamento
+      keepassDriveService.invalidateCache();
+      
+      // Carica la mappa KeePass (forza il ricaricamento)
+      console.log('📥 Caricamento mappa KeePass da Google Drive...');
+      const keepassMap = await keepassDriveService.getMacToTitleMap(keepassPassword);
+      console.log(`✅ Mappa KeePass caricata: ${keepassMap.size} MAC address disponibili`);
+
+      // Ottieni tutti i dispositivi con MAC address
+      const devicesResult = await pool.query(
+        `SELECT id, mac_address, device_type, device_path 
+         FROM network_devices 
+         WHERE mac_address IS NOT NULL AND mac_address != ''`
+      );
+
+      console.log(`📊 Trovati ${devicesResult.rows.length} dispositivi con MAC address da verificare`);
+
+      let updatedCount = 0;
+      let notFoundCount = 0;
+      let unchangedCount = 0;
+
+      // Per ogni dispositivo, controlla se il MAC è in KeePass e aggiorna se necessario
+      for (const device of devicesResult.rows) {
+        try {
+          // Normalizza il MAC per la ricerca
+          const normalizedMac = device.mac_address.replace(/[:-]/g, '').toUpperCase();
+          
+          // Cerca nella mappa KeePass
+          const keepassResult = keepassMap.get(normalizedMac);
+          
+          if (keepassResult) {
+            // Estrai solo l'ultimo elemento del percorso
+            const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
+            
+            // Verifica se i valori sono diversi da quelli attuali
+            const needsUpdate = 
+              device.device_type !== keepassResult.title || 
+              device.device_path !== lastPathElement;
+            
+            if (needsUpdate) {
+              // Aggiorna il dispositivo nel database
+              await pool.query(
+                `UPDATE network_devices 
+                 SET device_type = $1, device_path = $2 
+                 WHERE id = $3`,
+                [keepassResult.title, lastPathElement, device.id]
+              );
+              
+              console.log(`  ✅ Dispositivo ID ${device.id} (MAC: ${device.mac_address}) aggiornato: device_type="${keepassResult.title}", device_path="${lastPathElement}"`);
+              updatedCount++;
+            } else {
+              unchangedCount++;
+            }
+          } else {
+            // MAC non trovato in KeePass: resetta i valori se erano presenti
+            if (device.device_type !== null || device.device_path !== null) {
+              await pool.query(
+                `UPDATE network_devices 
+                 SET device_type = NULL, device_path = NULL 
+                 WHERE id = $1`,
+                [device.id]
+              );
+              
+              console.log(`  🔄 Dispositivo ID ${device.id} (MAC: ${device.mac_address}) - MAC non trovato in KeePass, valori resettati`);
+              updatedCount++;
+            }
+            notFoundCount++;
+          }
+        } catch (deviceErr) {
+          console.error(`  ⚠️ Errore aggiornamento dispositivo ID ${device.id}:`, deviceErr.message);
+        }
+      }
+
+      console.log(`✅ Aggiornamento completato: ${updatedCount} aggiornati, ${unchangedCount} invariati, ${notFoundCount} non trovati in KeePass`);
+
+      res.json({
+        success: true,
+        message: `Aggiornamento completato: ${updatedCount} dispositivi aggiornati da KeePass`,
+        updated: updatedCount,
+        unchanged: unchangedCount,
+        notFound: notFoundCount,
+        total: devicesResult.rows.length
+      });
+    } catch (err) {
+      console.error('❌ Errore aggiornamento dispositivi da KeePass:', err);
+      res.status(500).json({ 
+        error: 'Errore interno del server', 
+        details: err.message,
+        updated: 0
+      });
     }
   });
 

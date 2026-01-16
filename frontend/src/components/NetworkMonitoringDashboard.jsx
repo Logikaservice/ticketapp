@@ -341,6 +341,44 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     }
   }, [editingAgentId, editAgentData, getAuthHeader, loadAgents]);
 
+  // Aggiorna dati da Keepass e ricarica tutto
+  const handleRefresh = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Prima aggiorna i dati da Keepass
+      console.log('🔄 Aggiornamento dati da Keepass...');
+      const keepassResponse = await fetch(buildApiUrl('/api/network-monitoring/refresh-keepass-data'), {
+        method: 'POST',
+        headers: getAuthHeader()
+      });
+
+      if (keepassResponse.ok) {
+        const keepassResult = await keepassResponse.json();
+        console.log('✅ Keepass aggiornato:', keepassResult);
+        if (keepassResult.updated > 0) {
+          // Mostra messaggio solo se ci sono stati aggiornamenti
+          console.log(`✅ ${keepassResult.message}`);
+        }
+      } else {
+        console.warn('⚠️ Errore aggiornamento Keepass (continuo comunque con il refresh)...');
+      }
+
+      // Poi ricarica tutti i dati
+      await Promise.all([
+        loadDevices(),
+        loadChanges(),
+        selectedCompanyId ? loadCompanyDevices(selectedCompanyId) : Promise.resolve()
+      ]);
+    } catch (err) {
+      console.error('Errore durante il refresh:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [getAuthHeader, loadDevices, loadChanges, loadCompanyDevices, selectedCompanyId]);
+
   // Carica dispositivi per un'azienda specifica
   const loadCompanyDevices = useCallback(async (aziendaId) => {
     try {
@@ -845,15 +883,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           </button>
           
           <button
-            onClick={() => {
-              loadDevices();
-              loadChanges();
-              if (selectedCompanyId) {
-                loadCompanyDevices(selectedCompanyId);
-              }
-            }}
+            onClick={handleRefresh}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
             disabled={loading}
+            title="Aggiorna dati da Keepass e ricarica dispositivi"
           >
             <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
             Aggiorna
