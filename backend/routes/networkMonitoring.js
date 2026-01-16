@@ -3918,7 +3918,7 @@ pause
                notify_status_changes = $7,
                updated_at = NOW()
            WHERE id = $8
-           RETURNING id, azienda_id, agent_id, enabled, 
+           RETURNING id, azienda_id, agent_id, bot_token, chat_id, enabled, 
                      notify_agent_offline, notify_ip_changes, 
                      notify_mac_changes, notify_status_changes, 
                      created_at, updated_at`,
