@@ -1146,6 +1146,20 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         </div>
       )}
 
+      {/* Configurazione Notifiche Telegram */}
+      {showTelegramConfig && (
+        <TelegramConfigSection
+          companies={companies}
+          agents={agents}
+          telegramConfigs={telegramConfigs}
+          loading={telegramConfigLoading}
+          onSave={saveTelegramConfig}
+          onDelete={deleteTelegramConfig}
+          onClose={() => setShowTelegramConfig(false)}
+          getAuthHeader={getAuthHeader}
+        />
+      )}
+
       {/* Lista Notifiche Agent */}
       {showAgentNotificationsList && (
         <div className="mb-6 bg-white rounded-lg shadow p-6">
