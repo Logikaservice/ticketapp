@@ -146,6 +146,49 @@ const TelegramConfigSection = ({
     return agent ? agent.agent_name : `Agent #${agentId}`;
   };
 
+  const handleTestNotification = async (configId, notificationType) => {
+    setTesting(notificationType);
+    setTestResult(null);
+    setError(null);
+    
+    try {
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/telegram/config/${configId}/test`), {
+        method: 'POST',
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ notification_type: notificationType })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Errore durante il test');
+      }
+
+      setTestResult({
+        success: true,
+        type: notificationType,
+        message: data.message
+      });
+      setTimeout(() => {
+        setTestResult(null);
+      }, 5000);
+    } catch (err) {
+      setTestResult({
+        success: false,
+        type: notificationType,
+        message: err.message || 'Errore durante il test'
+      });
+      setTimeout(() => {
+        setTestResult(null);
+      }, 5000);
+    } finally {
+      setTesting(null);
+    }
+  };
+
   return (
     <div className="mb-6 bg-white rounded-lg shadow p-6">
       <div className="flex items-center justify-between mb-4">
