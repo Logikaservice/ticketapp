@@ -12,6 +12,7 @@ import {
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
 import AgentNotifications from './AgentNotifications';
+import TelegramConfigSection from './TelegramConfigSection';
 
 const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null }) => {
   const [devices, setDevices] = useState([]);
@@ -28,6 +29,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [agents, setAgents] = useState([]);
   const [showAgentsList, setShowAgentsList] = useState(false);
   const [showAgentNotificationsList, setShowAgentNotificationsList] = useState(false);
+  const [showTelegramConfig, setShowTelegramConfig] = useState(false);
+  const [telegramConfigs, setTelegramConfigs] = useState([]);
+  const [telegramConfigLoading, setTelegramConfigLoading] = useState(false);
   const [agentEvents, setAgentEvents] = useState([]);
   const [agentEventsLoading, setAgentEventsLoading] = useState(false);
   const [agentEventsError, setAgentEventsError] = useState(null);
@@ -288,6 +292,72 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       console.error('Errore caricamento aziende:', err);
     }
   }, [getAuthHeader]);
+
+  // Carica configurazioni Telegram
+  const loadTelegramConfigs = useCallback(async () => {
+    setTelegramConfigLoading(true);
+    try {
+      const response = await fetch(buildApiUrl('/api/network-monitoring/telegram/config'), {
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore caricamento configurazioni Telegram');
+      }
+
+      const data = await response.json();
+      setTelegramConfigs(data);
+    } catch (err) {
+      console.error('Errore caricamento configurazioni Telegram:', err);
+    } finally {
+      setTelegramConfigLoading(false);
+    }
+  }, [getAuthHeader]);
+
+  // Salva configurazione Telegram
+  const saveTelegramConfig = async (config) => {
+    try {
+      const response = await fetch(buildApiUrl('/api/network-monitoring/telegram/config'), {
+        method: 'POST',
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(config)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Errore salvataggio configurazione Telegram');
+      }
+
+      const data = await response.json();
+      await loadTelegramConfigs(); // Ricarica lista
+      return data;
+    } catch (err) {
+      console.error('Errore salvataggio configurazione Telegram:', err);
+      throw err;
+    }
+  };
+
+  // Rimuovi configurazione Telegram
+  const deleteTelegramConfig = async (configId) => {
+    try {
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/telegram/config/${configId}`), {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore rimozione configurazione Telegram');
+      }
+
+      await loadTelegramConfigs(); // Ricarica lista
+    } catch (err) {
+      console.error('Errore rimozione configurazione Telegram:', err);
+      throw err;
+    }
+  };
 
 
   // Apri modal modifica agent
