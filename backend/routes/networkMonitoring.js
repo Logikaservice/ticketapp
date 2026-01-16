@@ -3771,5 +3771,108 @@ pause
     }
   });
 
+  // POST /api/network-monitoring/telegram/config
+  // Configura notifiche Telegram per un'azienda o agent
+  router.post('/telegram/config', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      
+      const { azienda_id, agent_id, bot_token, chat_id, enabled, 
+              notify_agent_offline, notify_ip_changes, 
+              notify_mac_changes, notify_status_changes } = req.body;
+
+      if (!bot_token || !chat_id) {
+        return res.status(400).json({ error: 'bot_token e chat_id sono obbligatori' });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO network_telegram_config 
+         (azienda_id, agent_id, bot_token, chat_id, enabled,
+          notify_agent_offline, notify_ip_changes, notify_mac_changes, notify_status_changes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT (azienda_id, agent_id) 
+         DO UPDATE SET 
+           bot_token = EXCLUDED.bot_token,
+           chat_id = EXCLUDED.chat_id,
+           enabled = EXCLUDED.enabled,
+           notify_agent_offline = EXCLUDED.notify_agent_offline,
+           notify_ip_changes = EXCLUDED.notify_ip_changes,
+           notify_mac_changes = EXCLUDED.notify_mac_changes,
+           notify_status_changes = EXCLUDED.notify_status_changes,
+           updated_at = NOW()
+         RETURNING id, azienda_id, agent_id, enabled, 
+                   notify_agent_offline, notify_ip_changes, 
+                   notify_mac_changes, notify_status_changes, 
+                   created_at, updated_at`,
+        [azienda_id || null, agent_id || null, bot_token, chat_id, enabled !== false,
+         notify_agent_offline !== false, notify_ip_changes !== false,
+         notify_mac_changes !== false, notify_status_changes !== false]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error('❌ Errore configurazione Telegram:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/telegram/config
+  // Ottieni configurazione Telegram
+  router.get('/telegram/config', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      
+      const { azienda_id, agent_id } = req.query;
+      
+      let query = `SELECT id, azienda_id, agent_id, enabled, 
+                          notify_agent_offline, notify_ip_changes, 
+                          notify_mac_changes, notify_status_changes, 
+                          created_at, updated_at
+                   FROM network_telegram_config WHERE 1=1`;
+      const params = [];
+      let paramIndex = 1;
+
+      if (azienda_id) {
+        query += ` AND azienda_id = $${paramIndex++}`;
+        params.push(azienda_id);
+      }
+
+      if (agent_id) {
+        query += ` AND agent_id = $${paramIndex++}`;
+        params.push(agent_id);
+      }
+
+      const result = await pool.query(query, params);
+      res.json(result.rows);
+    } catch (err) {
+      console.error('❌ Errore recupero configurazione Telegram:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // DELETE /api/network-monitoring/telegram/config/:id
+  // Rimuovi configurazione Telegram
+  router.delete('/telegram/config/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      
+      const { id } = req.params;
+      
+      const result = await pool.query(
+        'DELETE FROM network_telegram_config WHERE id = $1 RETURNING id',
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Configurazione non trovata' });
+      }
+
+      res.json({ message: 'Configurazione rimossa', id: result.rows[0].id });
+    } catch (err) {
+      console.error('❌ Errore rimozione configurazione Telegram:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   return router;
 };
