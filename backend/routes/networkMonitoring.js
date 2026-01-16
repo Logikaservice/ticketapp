@@ -3859,34 +3859,80 @@ pause
         return res.status(400).json({ error: 'bot_token e chat_id sono obbligatori' });
       }
 
-      const result = await pool.query(
-        `INSERT INTO network_telegram_config 
-         (azienda_id, agent_id, bot_token, chat_id, enabled,
-          notify_agent_offline, notify_ip_changes, notify_mac_changes, notify_status_changes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-         ON CONFLICT (azienda_id, agent_id) 
-         DO UPDATE SET 
-           bot_token = EXCLUDED.bot_token,
-           chat_id = EXCLUDED.chat_id,
-           enabled = EXCLUDED.enabled,
-           notify_agent_offline = EXCLUDED.notify_agent_offline,
-           notify_ip_changes = EXCLUDED.notify_ip_changes,
-           notify_mac_changes = EXCLUDED.notify_mac_changes,
-           notify_status_changes = EXCLUDED.notify_status_changes,
-           updated_at = NOW()
-         RETURNING id, azienda_id, agent_id, enabled, 
-                   notify_agent_offline, notify_ip_changes, 
-                   notify_mac_changes, notify_status_changes, 
-                   created_at, updated_at`,
-        [azienda_id || null, agent_id || null, bot_token, chat_id, enabled !== false,
-         notify_agent_offline !== false, notify_ip_changes !== false,
-         notify_mac_changes !== false, notify_status_changes !== false]
+      // Normalizza valori NULL
+      const normalizedAziendaId = azienda_id && azienda_id !== '' ? parseInt(azienda_id) : null;
+      const normalizedAgentId = agent_id && agent_id !== '' ? parseInt(agent_id) : null;
+
+      // Verifica se esiste già una configurazione con gli stessi valori
+      const existingCheck = await pool.query(
+        `SELECT id FROM network_telegram_config 
+         WHERE (azienda_id = $1 OR (azienda_id IS NULL AND $1 IS NULL))
+           AND (agent_id = $2 OR (agent_id IS NULL AND $2 IS NULL))`,
+        [normalizedAziendaId, normalizedAgentId]
       );
+
+      let result;
+      if (existingCheck.rows.length > 0) {
+        // Update esistente
+        result = await pool.query(
+          `UPDATE network_telegram_config 
+           SET bot_token = $1,
+               chat_id = $2,
+               enabled = $3,
+               notify_agent_offline = $4,
+               notify_ip_changes = $5,
+               notify_mac_changes = $6,
+               notify_status_changes = $7,
+               updated_at = NOW()
+           WHERE id = $8
+           RETURNING id, azienda_id, agent_id, enabled, 
+                     notify_agent_offline, notify_ip_changes, 
+                     notify_mac_changes, notify_status_changes, 
+                     created_at, updated_at`,
+          [
+            bot_token,
+            chat_id,
+            enabled !== false,
+            notify_agent_offline !== false,
+            notify_ip_changes !== false,
+            notify_mac_changes !== false,
+            notify_status_changes !== false,
+            existingCheck.rows[0].id
+          ]
+        );
+      } else {
+        // Insert nuovo
+        result = await pool.query(
+          `INSERT INTO network_telegram_config 
+           (azienda_id, agent_id, bot_token, chat_id, enabled,
+            notify_agent_offline, notify_ip_changes, notify_mac_changes, notify_status_changes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           RETURNING id, azienda_id, agent_id, enabled, 
+                     notify_agent_offline, notify_ip_changes, 
+                     notify_mac_changes, notify_status_changes, 
+                     created_at, updated_at`,
+          [
+            normalizedAziendaId,
+            normalizedAgentId,
+            bot_token,
+            chat_id,
+            enabled !== false,
+            notify_agent_offline !== false,
+            notify_ip_changes !== false,
+            notify_mac_changes !== false,
+            notify_status_changes !== false
+          ]
+        );
+      }
 
       res.json(result.rows[0]);
     } catch (err) {
       console.error('❌ Errore configurazione Telegram:', err);
-      res.status(500).json({ error: 'Errore interno del server' });
+      console.error('❌ Stack trace:', err.stack);
+      res.status(500).json({ 
+        error: 'Errore interno del server',
+        details: err.message 
+      });
     }
   });
 
