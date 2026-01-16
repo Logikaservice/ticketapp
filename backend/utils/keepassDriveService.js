@@ -191,6 +191,10 @@ class KeepassDriveService {
             // Accediamo direttamente alle proprietà
             const titleField = entry.fields && entry.fields['Title'];
             const titleStr = titleField ? (titleField instanceof ProtectedValue ? titleField.getText() : String(titleField)) : '';
+            
+            // Estrai anche il campo UserName (Nome Utente)
+            const usernameField = entry.fields && entry.fields['UserName'];
+            const usernameStr = usernameField ? (usernameField instanceof ProtectedValue ? usernameField.getText() : String(usernameField)) : '';
 
             // Cerca MAC in TUTTI i campi (inclusi campi personalizzati)
             // Prima ottieni tutti i nomi dei campi disponibili
@@ -237,8 +241,8 @@ class KeepassDriveService {
               if (normalizedMac) {
                 // Se ci sono più entry con lo stesso MAC, mantieni la prima trovata
                 if (!macMap.has(normalizedMac)) {
-                  macMap.set(normalizedMac, { title: titleStr || '', path: currentPath || '' });
-                  console.log(`  📝 MAC ${mac} (normalizzato: ${normalizedMac}) -> Titolo: "${titleStr || ''}", Campo: "${field}", Percorso: "${currentPath || ''}"`);
+                  macMap.set(normalizedMac, { title: titleStr || '', path: currentPath || '', username: usernameStr || '' });
+                  console.log(`  📝 MAC ${mac} (normalizzato: ${normalizedMac}) -> Titolo: "${titleStr || ''}", Utente: "${usernameStr || ''}", Campo: "${field}", Percorso: "${currentPath || ''}"`);
                 } else {
                   console.log(`  ⚠️ MAC ${mac} (normalizzato: ${normalizedMac}) già presente nella mappa, ignoro duplicato`);
                 }
@@ -274,7 +278,7 @@ class KeepassDriveService {
         const examples = Array.from(macMap.entries()).slice(0, 5);
         console.log(`   Esempi MAC nella mappa:`);
         examples.forEach(([mac, result]) => {
-          console.log(`     - ${mac} -> Titolo: "${result.title}", Percorso: "${result.path}"`);
+          console.log(`     - ${mac} -> Titolo: "${result.title}", Utente: "${result.username || ''}", Percorso: "${result.path}"`);
         });
       } else {
         console.log(`   ⚠️ ATTENZIONE: Nessun MAC trovato nel file KeePass!`);
@@ -409,7 +413,7 @@ class KeepassDriveService {
       const result = macMap.get(normalizedMac);
       
       if (result) {
-        console.log(`✅ MAC ${macAddress} (normalizzato: ${normalizedMac}) trovato in KeePass -> Titolo: "${result.title}", Percorso: "${result.path}"`);
+        console.log(`✅ MAC ${macAddress} (normalizzato: ${normalizedMac}) trovato in KeePass -> Titolo: "${result.title}", Utente: "${result.username || ''}", Percorso: "${result.path}"`);
         return result;
       } else {
         console.log(`ℹ️ MAC ${macAddress} (normalizzato: ${normalizedMac}) non trovato in KeePass`);

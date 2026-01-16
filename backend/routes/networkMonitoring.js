@@ -163,6 +163,19 @@ module.exports = (pool, io) => {
         }
       }
 
+      // Aggiungi colonna device_username per memorizzare il Nome Utente da KeePass
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS device_username TEXT;
+        `);
+      } catch (err) {
+        // Ignora errore se colonna esiste già
+        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna device_username:', err.message);
+        }
+      }
+
       // Crea tabella network_changes
       await pool.query(`
         CREATE TABLE IF NOT EXISTS network_changes (
@@ -1320,7 +1333,7 @@ module.exports = (pool, io) => {
     try {
       await ensureTables();
       
-      // Assicurati che le colonne is_static, device_path, previous_ip, previous_mac esistano (migrazione)
+      // Assicurati che le colonne is_static, device_path, previous_ip, previous_mac, device_username esistano (migrazione)
       try {
         await pool.query(`
           ALTER TABLE network_devices 
@@ -1337,6 +1350,10 @@ module.exports = (pool, io) => {
         await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS previous_mac VARCHAR(17);
+        `);
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS device_username TEXT;
         `);
       } catch (migrationErr) {
         // Ignora errore se colonna esiste già
@@ -1411,7 +1428,7 @@ module.exports = (pool, io) => {
             ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor, 
-          nd.device_type, nd.device_path, nd.status, nd.is_static, nd.first_seen, nd.last_seen,
+          nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.first_seen, nd.last_seen,
           nd.previous_ip, nd.previous_mac, nd.has_ping_failures,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
@@ -1462,6 +1479,7 @@ module.exports = (pool, io) => {
               const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
               row.device_type = keepassResult.title;
               row.device_path = lastPathElement;
+              row.device_username = keepassResult.username || null;
             }
             // Se non trovato, mantieni i valori esistenti dal database
           } catch (keepassErr) {
@@ -1575,6 +1593,10 @@ module.exports = (pool, io) => {
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS has_ping_failures BOOLEAN DEFAULT false;
         `);
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS device_username TEXT;
+        `);
       } catch (migrationErr) {
         // Ignora errore se colonna esiste già
         if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
@@ -1597,7 +1619,7 @@ module.exports = (pool, io) => {
             ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor, 
-          nd.device_type, nd.device_path, nd.status, nd.is_static, nd.first_seen, nd.last_seen,
+          nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.first_seen, nd.last_seen,
           nd.previous_ip, nd.previous_mac, nd.has_ping_failures,
           na.agent_name, na.azienda_id, na.last_heartbeat as agent_last_seen, na.status as agent_status,
           u.azienda
@@ -1645,6 +1667,7 @@ module.exports = (pool, io) => {
               const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
               row.device_type = keepassResult.title;
               row.device_path = lastPathElement;
+              row.device_username = keepassResult.username || null;
             }
             // Se non trovato, mantieni i valori esistenti dal database
           } catch (keepassErr) {
@@ -2921,7 +2944,7 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
 
       // Ottieni tutti i dispositivi con MAC address
       const devicesResult = await pool.query(
-        `SELECT id, mac_address, device_type, device_path 
+        `SELECT id, mac_address, device_type, device_path, device_username 
          FROM network_devices 
          WHERE mac_address IS NOT NULL AND mac_address != ''`
       );
@@ -2976,22 +2999,24 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
             const needsUpdate = 
               (device.device_type !== keepassResult.title) || 
               (device.device_path !== lastPathElement) ||
+              (device.device_username !== (keepassResult.username || null)) ||
               (device.device_type === null && keepassResult.title !== null) ||
-              (device.device_path === null && lastPathElement !== null);
+              (device.device_path === null && lastPathElement !== null) ||
+              (device.device_username === null && keepassResult.username !== null && keepassResult.username !== '');
             
             if (needsUpdate) {
               // Aggiorna il dispositivo nel database
               await pool.query(
                 `UPDATE network_devices 
-                 SET device_type = $1, device_path = $2 
-                 WHERE id = $3`,
-                [keepassResult.title, lastPathElement, device.id]
+                 SET device_type = $1, device_path = $2, device_username = $3 
+                 WHERE id = $4`,
+                [keepassResult.title, lastPathElement, keepassResult.username || null, device.id]
               );
               
               if (normalizedMac === '101331CDFF6C') {
-                console.log(`  ✅✅✅ MAC ${device.mac_address} AGGIORNATO: device_type="${keepassResult.title}", device_path="${lastPathElement}"`);
+                console.log(`  ✅✅✅ MAC ${device.mac_address} AGGIORNATO: device_type="${keepassResult.title}", device_path="${lastPathElement}", device_username="${keepassResult.username || ''}"`);
               } else {
-                console.log(`  ✅ Dispositivo ID ${device.id} (MAC: ${device.mac_address}) aggiornato: device_type="${keepassResult.title}", device_path="${lastPathElement}"`);
+                console.log(`  ✅ Dispositivo ID ${device.id} (MAC: ${device.mac_address}) aggiornato: device_type="${keepassResult.title}", device_path="${lastPathElement}", device_username="${keepassResult.username || ''}"`);
               }
               updatedCount++;
             } else {
@@ -3002,14 +3027,14 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
             }
           } else {
             // MAC non trovato in KeePass: resetta i valori se erano presenti
-            if (device.device_type !== null || device.device_path !== null) {
+            if (device.device_type !== null || device.device_path !== null || device.device_username !== null) {
               console.log(`  🔍 MAC ${device.mac_address} (normalizzato: ${normalizedMac}) NON trovato in KeePass`);
-              console.log(`     Valori attuali: device_type="${device.device_type}", device_path="${device.device_path}"`);
+              console.log(`     Valori attuali: device_type="${device.device_type}", device_path="${device.device_path}", device_username="${device.device_username}"`);
               console.log(`     Reset in corso...`);
               
               await pool.query(
                 `UPDATE network_devices 
-                 SET device_type = NULL, device_path = NULL 
+                 SET device_type = NULL, device_path = NULL, device_username = NULL 
                  WHERE id = $1`,
                 [device.id]
               );
