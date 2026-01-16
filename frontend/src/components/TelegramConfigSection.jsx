@@ -28,6 +28,8 @@ const TelegramConfigSection = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [testing, setTesting] = useState(null);
+  const [testResult, setTestResult] = useState(null);
 
   const handleEdit = (config) => {
     setEditingConfig(config.id);
@@ -388,6 +390,17 @@ const TelegramConfigSection = ({
                 </div>
                 <div className="flex gap-2 ml-4">
                   <button
+                    onClick={() => handleToggleEnabled(config)}
+                    className={`p-2 rounded-lg transition-colors ${
+                      config.enabled 
+                        ? 'text-orange-600 hover:bg-orange-50' 
+                        : 'text-green-600 hover:bg-green-50'
+                    }`}
+                    title={config.enabled ? 'Disabilita notifiche' : 'Abilita notifiche'}
+                  >
+                    {config.enabled ? <BellOff size={18} /> : <Bell size={18} />}
+                  </button>
+                  <button
                     onClick={() => handleEdit(config)}
                     className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
                     title="Modifica configurazione"
@@ -403,6 +416,97 @@ const TelegramConfigSection = ({
                   </button>
                 </div>
               </div>
+              
+              {/* Pulsanti Test Notifiche */}
+              {config.enabled && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <TestTube size={16} className="text-purple-600" />
+                    <span className="text-sm font-semibold text-gray-700">Test Notifiche:</span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {config.notify_agent_offline && (
+                      <button
+                        onClick={() => handleTestNotification(config.id, 'agent_offline')}
+                        disabled={testing === 'agent_offline'}
+                        className="px-3 py-2 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                        title="Test notifica agent offline"
+                      >
+                        {testing === 'agent_offline' ? (
+                          <>⏳ Invio...</>
+                        ) : (
+                          <>🔴 Agent Offline</>
+                        )}
+                      </button>
+                    )}
+                    {config.notify_ip_changes && (
+                      <button
+                        onClick={() => handleTestNotification(config.id, 'ip_changed')}
+                        disabled={testing === 'ip_changed'}
+                        className="px-3 py-2 text-xs bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                        title="Test notifica cambio IP"
+                      >
+                        {testing === 'ip_changed' ? (
+                          <>⏳ Invio...</>
+                        ) : (
+                          <>⚠️ Cambio IP</>
+                        )}
+                      </button>
+                    )}
+                    {config.notify_mac_changes && (
+                      <button
+                        onClick={() => handleTestNotification(config.id, 'mac_changed')}
+                        disabled={testing === 'mac_changed'}
+                        className="px-3 py-2 text-xs bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                        title="Test notifica cambio MAC"
+                      >
+                        {testing === 'mac_changed' ? (
+                          <>⏳ Invio...</>
+                        ) : (
+                          <>⚠️ Cambio MAC</>
+                        )}
+                      </button>
+                    )}
+                    {config.notify_status_changes && (
+                      <>
+                        <button
+                          onClick={() => handleTestNotification(config.id, 'status_changed_online')}
+                          disabled={testing === 'status_changed_online'}
+                          className="px-3 py-2 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                          title="Test notifica dispositivo online"
+                        >
+                          {testing === 'status_changed_online' ? (
+                            <>⏳ Invio...</>
+                          ) : (
+                            <>🟢 Online</>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleTestNotification(config.id, 'status_changed_offline')}
+                          disabled={testing === 'status_changed_offline'}
+                          className="px-3 py-2 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                          title="Test notifica dispositivo offline"
+                        >
+                          {testing === 'status_changed_offline' ? (
+                            <>⏳ Invio...</>
+                          ) : (
+                            <>🔴 Offline</>
+                          )}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {testResult && testResult.type && (
+                    <div className={`mt-3 p-2 rounded-lg text-xs ${
+                      testResult.success 
+                        ? 'bg-green-100 text-green-700 border border-green-300' 
+                        : 'bg-red-100 text-red-700 border border-red-300'
+                    }`}>
+                      {testResult.success ? '✅' : '❌'} {testResult.message}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
