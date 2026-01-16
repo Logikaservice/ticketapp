@@ -674,7 +674,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Appena ora';
+    if (diffMins < 1) return 'Ora';
     if (diffMins < 60) return `${diffMins} min fa`;
     if (diffHours < 24) return `${diffHours} ore fa`;
     if (diffDays < 7) return `${diffDays} giorni fa`;
@@ -1327,7 +1327,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Titolo</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Utente</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Ultimo Visto</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Scan</th>
                   </tr>
                 </thead>
                 <tbody>
