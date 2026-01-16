@@ -2146,8 +2146,8 @@ module.exports = (pool, io) => {
         scan_interval_minutes: agent.scan_interval_minutes || 15
       };
 
-      // Nome file ZIP
-      const zipFileName = `NetworkMonitor-Agent-${agent.agent_name.replace(/\s+/g, '-')}.zip`;
+      // Nome file ZIP con versione
+      const zipFileName = `NetworkMonitor-Agent-${agent.agent_name.replace(/\s+/g, '-')}-v${agentVersion}.zip`;
 
       console.log('📦 Creazione ZIP:', zipFileName);
 
@@ -2179,17 +2179,43 @@ module.exports = (pool, io) => {
       // Pipe ZIP alla risposta
       archive.pipe(res);
 
-      // Aggiungi file al ZIP
+      // Aggiungi file al ZIP (SOLO FILE ESSENZIALI)
       try {
         // File principali (obbligatori)
         archive.append(JSON.stringify(configJson, null, 2), { name: 'config.json' });
         console.log('✅ Aggiunto config.json');
         
-        archive.append(networkMonitorContent, { name: 'NetworkMonitor.ps1' });
-        console.log('✅ Aggiunto NetworkMonitor.ps1');
+        // NetworkMonitorService.ps1 (script principale servizio)
+        if (fs.existsSync(servicePath)) {
+          const serviceContent = fs.readFileSync(servicePath, 'utf8');
+          archive.append(serviceContent, { name: 'NetworkMonitorService.ps1' });
+          console.log('✅ Aggiunto NetworkMonitorService.ps1');
+        }
         
-        archive.append(installerContent, { name: 'InstallerCompleto.ps1' });
-        console.log('✅ Aggiunto InstallerCompleto.ps1');
+        // NetworkMonitorTrayIcon.ps1 (tray icon)
+        const trayIconPath = path.join(agentDir, 'NetworkMonitorTrayIcon.ps1');
+        if (fs.existsSync(trayIconPath)) {
+          const trayIconContent = fs.readFileSync(trayIconPath, 'utf8');
+          archive.append(trayIconContent, { name: 'NetworkMonitorTrayIcon.ps1' });
+          console.log('✅ Aggiunto NetworkMonitorTrayIcon.ps1');
+        }
+        
+        // Start-TrayIcon-Hidden.vbs (launcher tray icon)
+        const startTrayIconPath = path.join(agentDir, 'Start-TrayIcon-Hidden.vbs');
+        if (fs.existsSync(startTrayIconPath)) {
+          const startTrayIconContent = fs.readFileSync(startTrayIconPath, 'utf8');
+          archive.append(startTrayIconContent, { name: 'Start-TrayIcon-Hidden.vbs' });
+          console.log('✅ Aggiunto Start-TrayIcon-Hidden.vbs');
+        }
+        
+        // Installa-Agent.ps1 (installer unico)
+        const installAgentPath = path.join(agentDir, 'Installa-Agent.ps1');
+        if (fs.existsSync(installAgentPath)) {
+          const installAgentContent = fs.readFileSync(installAgentPath, 'utf8');
+          archive.append(installAgentContent, { name: 'Installa-Agent.ps1' });
+          console.log('✅ Aggiunto Installa-Agent.ps1');
+        }
+        
       } catch (appendErr) {
         console.error('❌ Errore aggiunta file allo ZIP:', appendErr);
         if (!res.headersSent) {
@@ -2275,7 +2301,51 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
       archive.append(readmeContent, { name: 'README.txt' });
       console.log('✅ Aggiunto README.txt');
 
-      // File servizio Windows (NUOVO) - Aggiungi dopo README per non interrompere il flusso
+      // Crea installer batch con versione nel nome
+      const installBatFileName = `Installa-Agent-v${agentVersion}.bat`;
+      const installBatContent = `@echo off
+REM Installa-Agent-v${agentVersion}.bat
+REM Installer unico per Network Monitor Agent v${agentVersion}
+REM Richiede privilegi amministratore
+
+REM Verifica privilegi admin
+net session >nul 2>&1
+if %errorLevel% neq 0 (
+    echo.
+    echo Richiesta autorizzazioni amministratore...
+    echo.
+    powershell -Command "Start-Process '%~f0' -Verb RunAs -Wait"
+    exit /b %errorLevel%
+)
+
+REM Esegui installer PowerShell
+echo.
+echo ========================================
+echo   Network Monitor Agent v${agentVersion}
+echo   Installazione in corso...
+echo ========================================
+echo.
+
+powershell.exe -ExecutionPolicy Bypass -NoProfile -File "%~dp0Installa-Agent.ps1"
+
+if %errorLevel% equ 0 (
+    echo.
+    echo ========================================
+    echo   Installazione completata!
+    echo ========================================
+    echo.
+) else (
+    echo.
+    echo ERRORE durante l'installazione!
+    echo.
+)
+
+pause
+`;
+      archive.append(installBatContent, { name: installBatFileName });
+      console.log(`✅ Aggiunto ${installBatFileName}`);
+
+      // File servizio Windows - SOLO FILE ESSENZIALI
       try {
         // NetworkMonitorService.ps1
         if (fs.existsSync(servicePath)) {
@@ -2286,162 +2356,11 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
           console.warn('⚠️  NetworkMonitorService.ps1 non trovato!');
         }
 
-        // Installa-Servizio.ps1
-        if (fs.existsSync(installServicePath)) {
-          const installServiceContent = fs.readFileSync(installServicePath, 'utf8');
-          archive.append(installServiceContent, { name: 'Installa-Servizio.ps1' });
-          console.log('✅ Aggiunto Installa-Servizio.ps1');
-        } else {
-          console.warn('⚠️  Installa-Servizio.ps1 non trovato!');
-        }
-
-        // Rimuovi-Servizio.ps1
+        // Rimuovi-Servizio.ps1 (utile per disinstallazione)
         if (fs.existsSync(removeServicePath)) {
           const removeServiceContent = fs.readFileSync(removeServicePath, 'utf8');
           archive.append(removeServiceContent, { name: 'Rimuovi-Servizio.ps1' });
           console.log('✅ Aggiunto Rimuovi-Servizio.ps1');
-        } else {
-          console.warn('⚠️  Rimuovi-Servizio.ps1 non trovato!');
-        }
-
-        // Installa-Automatico.ps1 (INSTALLER AUTOMATICO)
-        if (fs.existsSync(installAutoPath)) {
-          const installAutoContent = fs.readFileSync(installAutoPath, 'utf8');
-          archive.append(installAutoContent, { name: 'Installa-Automatico.ps1' });
-          console.log('✅ Aggiunto Installa-Automatico.ps1');
-        } else {
-          console.warn('⚠️  Installa-Automatico.ps1 non trovato!');
-        }
-
-        // Installa.bat (INSTALLER BATCH - DOPPIO CLICK)
-        if (fs.existsSync(installBatPath)) {
-          const installBatContent = fs.readFileSync(installBatPath, 'utf8');
-          archive.append(installBatContent, { name: 'Installa.bat' });
-          console.log('✅ Aggiunto Installa.bat');
-        } else {
-          console.warn('⚠️  Installa.bat non trovato!');
-        }
-        
-        // Installa-Servizio.bat (WRAPPER BATCH - BYPASSA EXECUTION POLICY)
-        if (fs.existsSync(installServizioBatPath)) {
-          const installServizioBatContent = fs.readFileSync(installServizioBatPath, 'utf8');
-          archive.append(installServizioBatContent, { name: 'Installa-Servizio.bat' });
-          console.log('✅ Aggiunto Installa-Servizio.bat');
-        } else {
-          console.warn('⚠️  Installa-Servizio.bat non trovato!');
-        }
-
-        // Installa-Servizio-Batch.bat (INSTALLER BATCH COMPLETO - USA SOLO NSSM, NO POWERSHELL)
-        if (fs.existsSync(installServizioBatchBatPath)) {
-          const installServizioBatchBatContent = fs.readFileSync(installServizioBatchBatPath, 'utf8');
-          archive.append(installServizioBatchBatContent, { name: 'Installa-Servizio-Batch.bat' });
-          console.log('✅ Aggiunto Installa-Servizio-Batch.bat');
-        } else {
-          console.warn('⚠️  Installa-Servizio-Batch.bat non trovato!');
-        }
-
-        // README_SERVICE.md
-        if (fs.existsSync(readmeServicePath)) {
-          const readmeServiceContent = fs.readFileSync(readmeServicePath, 'utf8');
-          archive.append(readmeServiceContent, { name: 'README_SERVICE.md' });
-          console.log('✅ Aggiunto README_SERVICE.md');
-        }
-
-        // GUIDA_INSTALLAZIONE_SERVIZIO.md
-        if (fs.existsSync(guidaInstallazionePath)) {
-          const guidaContent = fs.readFileSync(guidaInstallazionePath, 'utf8');
-          archive.append(guidaContent, { name: 'GUIDA_INSTALLAZIONE_SERVIZIO.md' });
-          console.log('✅ Aggiunto GUIDA_INSTALLAZIONE_SERVIZIO.md');
-        }
-
-        // Diagnostica-Agent.ps1
-        if (fs.existsSync(diagnosticaPath)) {
-          const diagnosticaContent = fs.readFileSync(diagnosticaPath, 'utf8');
-          archive.append(diagnosticaContent, { name: 'Diagnostica-Agent.ps1' });
-          console.log('✅ Aggiunto Diagnostica-Agent.ps1');
-        }
-        
-        // Diagnostica-Servizio.ps1 (per Windows Server 2012)
-        if (fs.existsSync(diagnosticaServizioPath)) {
-          const diagnosticaServizioContent = fs.readFileSync(diagnosticaServizioPath, 'utf8');
-          archive.append(diagnosticaServizioContent, { name: 'Diagnostica-Servizio.ps1' });
-          console.log('✅ Aggiunto Diagnostica-Servizio.ps1');
-        }
-
-        // Genera-Report-Diagnostico.ps1 (per generare report completo)
-        if (fs.existsSync(generaReportPath)) {
-          const generaReportContent = fs.readFileSync(generaReportPath, 'utf8');
-          archive.append(generaReportContent, { name: 'Genera-Report-Diagnostico.ps1' });
-          console.log('✅ Aggiunto Genera-Report-Diagnostico.ps1');
-        } else {
-          console.warn('⚠️  Genera-Report-Diagnostico.ps1 non trovato!');
-        }
-
-        // Diagnostica-Rapida.ps1 (diagnostica veloce)
-        if (fs.existsSync(diagnosticaRapidaPath)) {
-          const diagnosticaRapidaContent = fs.readFileSync(diagnosticaRapidaPath, 'utf8');
-          archive.append(diagnosticaRapidaContent, { name: 'Diagnostica-Rapida.ps1' });
-          console.log('✅ Aggiunto Diagnostica-Rapida.ps1');
-        }
-
-        // Avvia-TrayIcon.bat (per avviare manualmente la tray icon)
-        if (fs.existsSync(avviaTrayIconBatPath)) {
-          const avviaTrayIconBatContent = fs.readFileSync(avviaTrayIconBatPath, 'utf8');
-          archive.append(avviaTrayIconBatContent, { name: 'Avvia-TrayIcon.bat' });
-          console.log('✅ Aggiunto Avvia-TrayIcon.bat');
-        }
-
-        // Verifica-TrayIcon.ps1 (per diagnosticare problemi tray icon)
-        if (fs.existsSync(verificaTrayIconPath)) {
-          const verificaTrayIconContent = fs.readFileSync(verificaTrayIconPath, 'utf8');
-          archive.append(verificaTrayIconContent, { name: 'Verifica-TrayIcon.ps1' });
-          console.log('✅ Aggiunto Verifica-TrayIcon.ps1');
-        }
-        
-        // Ripara-Servizio.ps1 (per riparare configurazione NSSM)
-        if (fs.existsSync(riparaServizioPath)) {
-          const riparaServizioContent = fs.readFileSync(riparaServizioPath, 'utf8');
-          archive.append(riparaServizioContent, { name: 'Ripara-Servizio.ps1' });
-          console.log('✅ Aggiunto Ripara-Servizio.ps1');
-        }
-        
-        // Verifica-Servizio.ps1 (per verificare configurazione e errori)
-        if (fs.existsSync(verificaServizioPath)) {
-          const verificaServizioContent = fs.readFileSync(verificaServizioPath, 'utf8');
-          archive.append(verificaServizioContent, { name: 'Verifica-Servizio.ps1' });
-          console.log('✅ Aggiunto Verifica-Servizio.ps1');
-        }
-
-        // Disinstalla-Tutto.bat (disinstallazione completa in batch)
-        if (fs.existsSync(disinstallaTuttoBatPath)) {
-          const disinstallaTuttoBatContent = fs.readFileSync(disinstallaTuttoBatPath, 'utf8');
-          archive.append(disinstallaTuttoBatContent, { name: 'Disinstalla-Tutto.bat' });
-          console.log('✅ Aggiunto Disinstalla-Tutto.bat');
-        }
-        
-        // NetworkMonitorTrayIcon.ps1 (tray icon separata per avvio automatico)
-        if (fs.existsSync(trayIconPath)) {
-          const trayIconContent = fs.readFileSync(trayIconPath, 'utf8');
-          archive.append(trayIconContent, { name: 'NetworkMonitorTrayIcon.ps1' });
-          console.log('✅ Aggiunto NetworkMonitorTrayIcon.ps1');
-        } else {
-          console.warn('⚠️  NetworkMonitorTrayIcon.ps1 non trovato!');
-        }
-        
-        // Disinstalla-Tutto.ps1 e .bat
-        const disinstallaTuttoPath = path.join(agentDir, 'Disinstalla-Tutto.ps1');
-        const disinstallaTuttoBatPath = path.join(agentDir, 'Disinstalla-Tutto.bat');
-        
-        if (fs.existsSync(disinstallaTuttoPath)) {
-          const disinstallaTuttoContent = fs.readFileSync(disinstallaTuttoPath, 'utf8');
-          archive.append(disinstallaTuttoContent, { name: 'Disinstalla-Tutto.ps1' });
-          console.log('✅ Aggiunto Disinstalla-Tutto.ps1');
-        }
-        
-        if (fs.existsSync(disinstallaTuttoBatPath)) {
-          const disinstallaTuttoBatContent = fs.readFileSync(disinstallaTuttoBatPath, 'utf8');
-          archive.append(disinstallaTuttoBatContent, { name: 'Disinstalla-Tutto.bat' });
-          console.log('✅ Aggiunto Disinstalla-Tutto.bat');
         }
         
       } catch (serviceErr) {
