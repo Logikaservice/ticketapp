@@ -115,35 +115,72 @@ set "FILES_COPIED=0"
 set "FILES_FAILED=0"
 
 REM File obbligatori
-for %%F in (
-    "NetworkMonitorService.ps1"
-    "NetworkMonitorTrayIcon.ps1"
-    "Start-TrayIcon-Hidden.vbs"
-    "config.json"
-    "nssm.exe"
-) do (
-    set "FILE_NAME=%%~F"
-    if exist "%SCRIPT_DIR%\%%~F" (
-        copy /Y "%SCRIPT_DIR%\%%~F" "%INSTALL_DIR%\%%~F" >nul 2>&1
-        if !errorLevel! equ 0 (
-            echo    [OK] %%~F
-            set /a FILES_COPIED+=1
-        ) else (
-            echo    [X] %%~F (fallito)
-            set /a FILES_FAILED+=1
-        )
+if exist "%SCRIPT_DIR%\NetworkMonitorService.ps1" (
+    copy /Y "%SCRIPT_DIR%\NetworkMonitorService.ps1" "%INSTALL_DIR%\NetworkMonitorService.ps1" >nul 2>&1
+    if !errorLevel! equ 0 (
+        echo    [OK] NetworkMonitorService.ps1
+        set /a FILES_COPIED+=1
     ) else (
-        if "!FILE_NAME!"=="NetworkMonitorTrayIcon.ps1" (
-            echo    [INFO] %%~F non trovato (opzionale)
-        ) else (
-            if "!FILE_NAME!"=="Start-TrayIcon-Hidden.vbs" (
-                echo    [INFO] %%~F non trovato (opzionale)
-            ) else (
-                echo    [X] %%~F non trovato
-                set /a FILES_FAILED+=1
-            )
-        )
+        echo    [X] NetworkMonitorService.ps1 (fallito)
+        set /a FILES_FAILED+=1
     )
+) else (
+    echo    [X] NetworkMonitorService.ps1 non trovato
+    set /a FILES_FAILED+=1
+)
+
+if exist "%SCRIPT_DIR%\NetworkMonitorTrayIcon.ps1" (
+    copy /Y "%SCRIPT_DIR%\NetworkMonitorTrayIcon.ps1" "%INSTALL_DIR%\NetworkMonitorTrayIcon.ps1" >nul 2>&1
+    if !errorLevel! equ 0 (
+        echo    [OK] NetworkMonitorTrayIcon.ps1
+        set /a FILES_COPIED+=1
+    ) else (
+        echo    [X] NetworkMonitorTrayIcon.ps1 (fallito)
+        set /a FILES_FAILED+=1
+    )
+) else (
+    echo    [INFO] NetworkMonitorTrayIcon.ps1 non trovato (opzionale)
+)
+
+if exist "%SCRIPT_DIR%\Start-TrayIcon-Hidden.vbs" (
+    copy /Y "%SCRIPT_DIR%\Start-TrayIcon-Hidden.vbs" "%INSTALL_DIR%\Start-TrayIcon-Hidden.vbs" >nul 2>&1
+    if !errorLevel! equ 0 (
+        echo    [OK] Start-TrayIcon-Hidden.vbs
+        set /a FILES_COPIED+=1
+    ) else (
+        echo    [X] Start-TrayIcon-Hidden.vbs (fallito)
+        set /a FILES_FAILED+=1
+    )
+) else (
+    echo    [INFO] Start-TrayIcon-Hidden.vbs non trovato (opzionale)
+)
+
+if exist "%SCRIPT_DIR%\config.json" (
+    copy /Y "%SCRIPT_DIR%\config.json" "%INSTALL_DIR%\config.json" >nul 2>&1
+    if !errorLevel! equ 0 (
+        echo    [OK] config.json
+        set /a FILES_COPIED+=1
+    ) else (
+        echo    [X] config.json (fallito)
+        set /a FILES_FAILED+=1
+    )
+) else (
+    echo    [X] config.json non trovato
+    set /a FILES_FAILED+=1
+)
+
+if exist "%SCRIPT_DIR%\nssm.exe" (
+    copy /Y "%SCRIPT_DIR%\nssm.exe" "%INSTALL_DIR%\nssm.exe" >nul 2>&1
+    if !errorLevel! equ 0 (
+        echo    [OK] nssm.exe
+        set /a FILES_COPIED+=1
+    ) else (
+        echo    [X] nssm.exe (fallito)
+        set /a FILES_FAILED+=1
+    )
+) else (
+    echo    [X] nssm.exe non trovato
+    set /a FILES_FAILED+=1
 )
 
 REM File opzionali
