@@ -246,16 +246,6 @@ if (-not (Test-Path $psPath)) {
     exit 1
 }
 
-# Parametri per PowerShell - usa array invece di stringa per evitare problemi con virgolette
-$appParamsArray = @(
-    '-ExecutionPolicy', 'Bypass',
-    '-NoProfile',
-    '-WindowStyle', 'Hidden',
-    '-File', $serviceScriptPath,
-    '-ConfigPath', $configPath
-)
-$appParams = $appParamsArray -join ' '
-
 # Rimuovi servizio esistente se presente
 try {
     & $nssmPath remove $serviceName confirm 2>&1 | Out-Null
@@ -266,14 +256,18 @@ try {
 
 # Installa servizio
 try {
-    & $nssmPath install $serviceName $psPath $appParams
+    # NSSM richiede i parametri come stringa singola - costruisci senza virgolette problematiche
+    $filePart = '-File'
+    $configPart = '-ConfigPath'
+    $appParamsString = "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden $filePart `"$serviceScriptPath`" $configPart `"$configPath`""
+    & $nssmPath install $serviceName $psPath $appParamsString
     if ($LASTEXITCODE -eq 0) {
         Write-Host "   ✅ Servizio installato" -ForegroundColor Green
         
         # Configura servizio
         & $nssmPath set $serviceName AppDirectory $installDir | Out-Null
         & $nssmPath set $serviceName Application $psPath | Out-Null
-        & $nssmPath set $serviceName AppParameters $appParams | Out-Null
+        & $nssmPath set $serviceName AppParameters $appParamsString | Out-Null
         & $nssmPath set $serviceName DisplayName "Network Monitor Agent Service" | Out-Null
         & $nssmPath set $serviceName Description "Servizio permanente per il monitoraggio della rete locale e invio dati al sistema TicketApp" | Out-Null
         & $nssmPath set $serviceName Start SERVICE_AUTO_START | Out-Null
