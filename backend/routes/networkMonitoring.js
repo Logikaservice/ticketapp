@@ -3863,6 +3863,39 @@ pause
       const normalizedAziendaId = azienda_id && azienda_id !== '' ? parseInt(azienda_id) : null;
       const normalizedAgentId = agent_id && agent_id !== '' ? parseInt(agent_id) : null;
 
+      // Verifica che la tabella esista (se non esiste, creala)
+      try {
+        await pool.query('SELECT 1 FROM network_telegram_config LIMIT 1');
+      } catch (tableErr) {
+        // Tabella non esiste, creala
+        console.log('⚠️ Tabella network_telegram_config non esiste, creazione...');
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS network_telegram_config (
+            id SERIAL PRIMARY KEY,
+            azienda_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
+            bot_token VARCHAR(255) NOT NULL,
+            chat_id VARCHAR(50) NOT NULL,
+            enabled BOOLEAN DEFAULT true,
+            notify_agent_offline BOOLEAN DEFAULT true,
+            notify_ip_changes BOOLEAN DEFAULT true,
+            notify_mac_changes BOOLEAN DEFAULT true,
+            notify_status_changes BOOLEAN DEFAULT true,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+          );
+        `);
+        await pool.query(`
+          CREATE INDEX IF NOT EXISTS idx_network_telegram_config_azienda 
+          ON network_telegram_config(azienda_id);
+        `);
+        await pool.query(`
+          CREATE INDEX IF NOT EXISTS idx_network_telegram_config_agent 
+          ON network_telegram_config(agent_id);
+        `);
+        console.log('✅ Tabella network_telegram_config creata');
+      }
+
       // Verifica se esiste già una configurazione con gli stessi valori
       const existingCheck = await pool.query(
         `SELECT id FROM network_telegram_config 
