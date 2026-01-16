@@ -262,12 +262,61 @@ function Get-NetworkDevices {
     # Ottieni IP locale del PC dove gira l'agent
     $localIP = $null
     $localIPOctet = $null
+    $localMAC = $null
+    $localHostname = $env:COMPUTERNAME
     try {
         $networkAdapters = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { 
             $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" 
         }
         if ($networkAdapters) {
             $localIP = $networkAdapters[0].IPAddress
+            
+            # Ottieni MAC address dell'interfaccia locale (IMPORTANTE: sempre incluso nei risultati)
+            try {
+                $localIPConfig = Get-NetIPAddress -AddressFamily IPv4 -IPAddress $localIP -ErrorAction SilentlyContinue
+                if ($localIPConfig) {
+                    $interfaceIndex = $localIPConfig.InterfaceIndex
+                    $adapter = Get-NetAdapter -InterfaceIndex $interfaceIndex -ErrorAction SilentlyContinue
+                    if ($adapter -and $adapter.MacAddress) {
+                        $localMAC = $adapter.MacAddress
+                        # Normalizza formato MAC (usa trattini)
+                        $localMAC = $localMAC -replace ':', '-' -replace ' ', ''
+                        $localMAC = $localMAC.ToUpper()
+                        
+                        # Verifica che sia un MAC valido
+                        if (-not ($localMAC -match '^([0-9A-F]{2}-){5}[0-9A-F]{2}$')) {
+                            $localMAC = $null
+                        } else {
+                            Write-Log "MAC locale rilevato: $localMAC per IP $localIP" "DEBUG"
+                            # Salva nel dizionario MAC trovati
+                            $foundMACs[$localIP] = $localMAC
+                        }
+                    }
+                }
+                
+                # Se non trovato con metodo diretto, prova a cercare tra tutte le interfacce attive
+                if (-not $localMAC) {
+                    $adapters = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq "Up" }
+                    foreach ($adapter in $adapters) {
+                        if ($adapter.MacAddress) {
+                            $macNormalized = $adapter.MacAddress -replace '[:-]', '' -replace ' ', ''
+                            # Preferisci interfacce fisiche (non virtuali)
+                            if ($macNormalized -notmatch '^(005056|000C29|000569|080027|00155D)') {
+                                $localMAC = $adapter.MacAddress
+                                $localMAC = $localMAC -replace ':', '-' -replace ' ', ''
+                                $localMAC = $localMAC.ToUpper()
+                                if ($localMAC -match '^([0-9A-F]{2}-){5}[0-9A-F]{2}$') {
+                                    Write-Log "MAC locale rilevato (interfaccia fisica): $localMAC" "DEBUG"
+                                    $foundMACs[$localIP] = $localMAC
+                                    break
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch {
+                Write-Log "Errore recupero MAC locale: $_" "WARN"
+            }
         }
     } catch {
         Write-Log "Impossibile ottenere IP locale: $_" "WARN"
@@ -1327,6 +1376,37 @@ public class ArpHelper {
         } else {
             Write-Log "Formato range IP non supportato: $range (atteso: x.x.x.x/24)" "WARN"
         }
+    }
+    
+    # IMPORTANTE: Aggiungi sempre il PC locale ai risultati (anche se non appare nella scansione ARP)
+    if ($localIP -and $localMAC) {
+        $localDeviceExists = $false
+        foreach ($device in $devices) {
+            if ($device.ip_address -eq $localIP) {
+                $localDeviceExists = $true
+                # Se esiste ma non ha MAC, aggiorna il MAC
+                if (-not $device.mac_address -or $device.mac_address -eq $null) {
+                    $device.mac_address = $localMAC
+                    Write-Log "MAC locale aggiunto al dispositivo esistente: $localIP -> $localMAC" "DEBUG"
+                }
+                break
+            }
+        }
+        
+        # Se il PC locale non è presente nei risultati, aggiungilo
+        if (-not $localDeviceExists) {
+            $localDevice = @{
+                ip_address = $localIP
+                mac_address = $localMAC
+                hostname = $localHostname
+                vendor = $null
+                status = "online"
+            }
+            $devices += $localDevice
+            Write-Log "PC locale aggiunto ai risultati: $localIP ($localMAC)" "INFO"
+        }
+    } elseif ($localIP -and -not $localMAC) {
+        Write-Log "ATTENZIONE: IP locale $localIP trovato ma MAC non rilevato" "WARN"
     }
     
     return $devices
