@@ -91,22 +91,46 @@ if not exist "%INSTALL_DIR%" (
 )
 echo.
 
-REM 3. GESTIONE SERVIZIO ESISTENTE
-echo 3. GESTIONE SERVIZIO ESISTENTE
+REM 3. DISATTIVAZIONE AGENT ESISTENTE
+echo 3. DISATTIVAZIONE AGENT ESISTENTE
+
+REM 3.1 Rimuovi servizio Windows esistente (se presente)
 sc query "%SERVICE_NAME%" >nul 2>&1
 if !errorLevel! equ 0 (
+    echo    Rimozione servizio Windows esistente...
     sc query "%SERVICE_NAME%" | findstr /C:"RUNNING" >nul 2>&1
     if !errorLevel! equ 0 (
-        echo    Arresto servizio esistente...
+        echo    Arresto servizio...
         sc stop "%SERVICE_NAME%" >nul 2>&1
-        timeout /t 3 /nobreak >nul
-        echo    [OK] Servizio arrestato
-    ) else (
-        echo    [INFO] Servizio gia' fermo
+        timeout /t 5 /nobreak >nul
     )
+    
+    REM Rimuovi servizio usando NSSM se disponibile
+    if exist "%INSTALL_DIR%\nssm.exe" (
+        "%INSTALL_DIR%\nssm.exe" remove "%SERVICE_NAME%" confirm >nul 2>&1
+        timeout /t 2 /nobreak >nul
+    )
+    
+    REM Rimuovi servizio usando sc.exe
+    sc delete "%SERVICE_NAME%" >nul 2>&1
+    timeout /t 2 /nobreak >nul
+    echo    [OK] Servizio Windows rimosso
 ) else (
-    echo    [INFO] Nessun servizio esistente
+    echo    [INFO] Nessun servizio Windows esistente
 )
+
+REM 3.2 Rimuovi Scheduled Task vecchio (metodo legacy)
+echo    Verifica Scheduled Task vecchio...
+powershell -NoProfile -Command "$task = Get-ScheduledTask -TaskName 'NetworkMonitorAgent' -ErrorAction SilentlyContinue; if ($task) { Stop-ScheduledTask -TaskName 'NetworkMonitorAgent' -ErrorAction SilentlyContinue; Unregister-ScheduledTask -TaskName 'NetworkMonitorAgent' -Confirm:$false -ErrorAction SilentlyContinue; Write-Host 'Rimosso' } else { Write-Host 'Nessuno' }" >nul 2>&1
+if !errorLevel! equ 0 (
+    echo    [OK] Scheduled Task vecchio rimosso (se presente)
+) else (
+    echo    [INFO] Nessun Scheduled Task vecchio trovato
+)
+
+REM 3.3 Rimuovi anche altri possibili nomi di task
+powershell -NoProfile -Command "$taskNames = @('NetworkMonitor', 'NetworkMonitorService', 'NetworkMonitorAgent'); foreach ($name in $taskNames) { $task = Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue; if ($task) { Stop-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue; Unregister-ScheduledTask -TaskName $name -Confirm:$false -ErrorAction SilentlyContinue } }" >nul 2>&1
+
 echo.
 
 REM 4. COPIA FILE
