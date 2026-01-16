@@ -73,12 +73,20 @@ sc query %SERVICE_NAME% >nul 2>&1
 if %errorLevel% equ 0 (
     echo Servizio esistente trovato. Arresto...
     sc stop %SERVICE_NAME% >nul 2>&1
-    timeout /t 2 /nobreak >nul
+    timeout /t 5 /nobreak >nul
+    
+    REM Attendi che il servizio si fermi completamente
+    :wait_stop
+    sc query %SERVICE_NAME% | findstr /C:"STOPPED" >nul
+    if %errorLevel% neq 0 (
+        timeout /t 1 /nobreak >nul
+        goto wait_stop
+    )
     
     REM Rimuovi servizio esistente
     echo Rimozione servizio esistente...
     "%SCRIPT_DIR%nssm.exe" remove %SERVICE_NAME% confirm >nul 2>&1
-    timeout /t 2 /nobreak >nul
+    timeout /t 3 /nobreak >nul
     echo OK
 ) else (
     echo Nessun servizio esistente
@@ -87,17 +95,30 @@ echo.
 
 REM Copia file necessari
 echo [3/7] Copia file nella directory di installazione...
-set "FILES_TO_COPY=NetworkMonitorService.ps1 NetworkMonitorTrayIcon.ps1 Start-TrayIcon-Hidden.vbs config.json nssm.exe Installa-Servizio.ps1 Installa-Automatico.ps1 Rimuovi-Servizio.ps1 Diagnostica-Servizio.ps1 Verifica-Servizio.ps1 Ripara-Servizio.ps1 Installa-Servizio.bat Installa-Servizio-Batch.bat Avvia-TrayIcon.bat Verifica-TrayIcon.ps1"
+set "FILES_TO_COPY=NetworkMonitorService.ps1 NetworkMonitorTrayIcon.ps1 Start-TrayIcon-Hidden.vbs config.json nssm.exe Installa-Servizio.ps1 Installa-Automatico.ps1 Rimuovi-Servizio.ps1 Diagnostica-Servizio.ps1 Verifica-Servizio.ps1 Ripara-Servizio.ps1 Installa-Servizio.bat Installa-Servizio-Batch.bat Avvia-TrayIcon.bat Verifica-TrayIcon.ps1 Verifica-Aggiorna-Versione.ps1"
 
 set "FILES_MISSING="
+set "FILES_COPIED=0"
 for %%f in (%FILES_TO_COPY%) do (
     if exist "%%f" (
-        copy /Y "%%f" "%INSTALL_DIR%\" >nul 2>&1
-        if !errorLevel! equ 0 (
-            echo   Copiato: %%f
-        ) else (
-            echo   ATTENZIONE: Impossibile copiare %%f (potrebbe essere in uso)
-            set "FILES_MISSING=!FILES_MISSING! %%f"
+        REM Prova a copiare fino a 3 volte
+        set "COPY_SUCCESS=0"
+        for /L %%i in (1,1,3) do (
+            if !COPY_SUCCESS! equ 0 (
+                copy /Y "%%f" "%INSTALL_DIR%\" >nul 2>&1
+                if !errorLevel! equ 0 (
+                    echo   Copiato: %%f
+                    set "COPY_SUCCESS=1"
+                    set /a FILES_COPIED+=1
+                ) else (
+                    if %%i equ 3 (
+                        echo   ATTENZIONE: Impossibile copiare %%f dopo 3 tentativi
+                        set "FILES_MISSING=!FILES_MISSING! %%f"
+                    ) else (
+                        timeout /t 1 /nobreak >nul
+                    )
+                )
+            )
         )
     ) else (
         echo   ATTENZIONE: %%f non trovato nella directory corrente
@@ -109,9 +130,14 @@ if not "!FILES_MISSING!"=="" (
     echo.
     echo ATTENZIONE: Alcuni file non sono stati copiati:!FILES_MISSING!
     echo Verifica che tutti i file siano presenti nella directory corrente.
+    echo.
+    echo Se il problema persiste, prova a:
+    echo   1. Chiudere eventuali processi PowerShell in esecuzione
+    echo   2. Eseguire Verifica-Aggiorna-Versione.ps1 dalla directory dell'agent
+    echo.
+) else (
+    echo OK - !FILES_COPIED! file copiati con successo
 )
-
-echo OK
 echo.
 
 REM Trova percorso PowerShell
