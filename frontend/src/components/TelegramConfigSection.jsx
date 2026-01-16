@@ -147,7 +147,7 @@ const TelegramConfigSection = ({
   };
 
   const handleTestNotification = async (configId, notificationType) => {
-    setTesting(notificationType);
+    setTesting(configId + '_' + notificationType);
     setTestResult(null);
     setError(null);
     
@@ -161,29 +161,37 @@ const TelegramConfigSection = ({
         body: JSON.stringify({ notification_type: notificationType })
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        // Se la risposta non è JSON valido, probabilmente è un errore 500 del server
+        const text = await response.text();
+        throw new Error(`Errore del server (${response.status}): ${text || 'Risposta non valida'}`);
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || 'Errore durante il test');
+        throw new Error(data.error || data.details || `Errore ${response.status} durante il test`);
       }
 
       setTestResult({
         success: true,
         type: notificationType,
-        message: data.message
+        message: data.message || 'Notifica di test inviata con successo!'
       });
       setTimeout(() => {
         setTestResult(null);
       }, 5000);
     } catch (err) {
+      console.error('Errore test notifica:', err);
       setTestResult({
         success: false,
         type: notificationType,
-        message: err.message || 'Errore durante il test'
+        message: err.message || 'Errore durante il test. Verifica che il backend sia aggiornato e che node-telegram-bot-api sia installato.'
       });
       setTimeout(() => {
         setTestResult(null);
-      }, 5000);
+      }, 8000);
     } finally {
       setTesting(null);
     }
@@ -471,11 +479,11 @@ const TelegramConfigSection = ({
                     {config.notify_agent_offline && (
                       <button
                         onClick={() => handleTestNotification(config.id, 'agent_offline')}
-                        disabled={testing === 'agent_offline'}
+                        disabled={testing === config.id + '_agent_offline'}
                         className="px-3 py-2 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
                         title="Test notifica agent offline"
                       >
-                        {testing === 'agent_offline' ? (
+                        {testing === config.id + '_agent_offline' ? (
                           <>⏳ Invio...</>
                         ) : (
                           <>🔴 Agent Offline</>
@@ -485,11 +493,11 @@ const TelegramConfigSection = ({
                     {config.notify_ip_changes && (
                       <button
                         onClick={() => handleTestNotification(config.id, 'ip_changed')}
-                        disabled={testing === 'ip_changed'}
+                        disabled={testing === config.id + '_ip_changed'}
                         className="px-3 py-2 text-xs bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
                         title="Test notifica cambio IP"
                       >
-                        {testing === 'ip_changed' ? (
+                        {testing === config.id + '_ip_changed' ? (
                           <>⏳ Invio...</>
                         ) : (
                           <>⚠️ Cambio IP</>
@@ -499,11 +507,11 @@ const TelegramConfigSection = ({
                     {config.notify_mac_changes && (
                       <button
                         onClick={() => handleTestNotification(config.id, 'mac_changed')}
-                        disabled={testing === 'mac_changed'}
+                        disabled={testing === config.id + '_mac_changed'}
                         className="px-3 py-2 text-xs bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
                         title="Test notifica cambio MAC"
                       >
-                        {testing === 'mac_changed' ? (
+                        {testing === config.id + '_mac_changed' ? (
                           <>⏳ Invio...</>
                         ) : (
                           <>⚠️ Cambio MAC</>
@@ -514,11 +522,11 @@ const TelegramConfigSection = ({
                       <>
                         <button
                           onClick={() => handleTestNotification(config.id, 'status_changed_online')}
-                          disabled={testing === 'status_changed_online'}
+                          disabled={testing === config.id + '_status_changed_online'}
                           className="px-3 py-2 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
                           title="Test notifica dispositivo online"
                         >
-                          {testing === 'status_changed_online' ? (
+                          {testing === config.id + '_status_changed_online' ? (
                             <>⏳ Invio...</>
                           ) : (
                             <>🟢 Online</>
@@ -526,11 +534,11 @@ const TelegramConfigSection = ({
                         </button>
                         <button
                           onClick={() => handleTestNotification(config.id, 'status_changed_offline')}
-                          disabled={testing === 'status_changed_offline'}
+                          disabled={testing === config.id + '_status_changed_offline'}
                           className="px-3 py-2 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
                           title="Test notifica dispositivo offline"
                         >
-                          {testing === 'status_changed_offline' ? (
+                          {testing === config.id + '_status_changed_offline' ? (
                             <>⏳ Invio...</>
                           ) : (
                             <>🔴 Offline</>

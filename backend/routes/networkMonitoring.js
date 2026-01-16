@@ -4037,10 +4037,16 @@ pause
       }
       
       // Inizializza bot
+      console.log(`🔧 Test notifica: Inizializzazione bot per config ID ${id}, tipo: ${notification_type}`);
       const initialized = telegramService.initialize(config.bot_token, config.chat_id);
       if (!initialized) {
-        return res.status(500).json({ error: 'Errore inizializzazione bot Telegram' });
+        console.error(`❌ Test notifica: Errore inizializzazione bot per config ID ${id}`);
+        return res.status(500).json({ 
+          error: 'Errore inizializzazione bot Telegram',
+          details: 'Verifica che il bot token e chat ID siano corretti. Controlla i log del backend per dettagli.'
+        });
       }
+      console.log(`✅ Test notifica: Bot inizializzato correttamente per config ID ${id}`);
       
       // Crea dati di test in base al tipo
       let testData = {};
@@ -4121,19 +4127,22 @@ pause
       }
       
       // Invia messaggio di test
+      console.log(`📤 Test notifica: Invio messaggio per config ID ${id}, tipo: ${notification_type}`);
       const sent = await telegramService.sendMessage(message);
       
       if (sent) {
+        console.log(`✅ Test notifica: Messaggio inviato con successo per config ID ${id}`);
         res.json({ 
           success: true, 
-          message: 'Notifica di test inviata con successo!',
+          message: 'Notifica di test inviata con successo! Controlla Telegram.',
           notification_type,
           test_data: testData
         });
       } else {
+        console.error(`❌ Test notifica: Errore invio messaggio per config ID ${id}`);
         res.status(500).json({ 
           error: 'Errore invio notifica di test',
-          details: 'Controlla i log del backend per dettagli'
+          details: 'Controlla i log del backend per dettagli. Verifica che il bot token e chat ID siano corretti e che il bot possa inviare messaggi al chat ID specificato.'
         });
       }
     } catch (err) {
