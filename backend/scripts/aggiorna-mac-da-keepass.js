@@ -105,25 +105,62 @@ async function main() {
     
     if (!keepassResult) {
       console.log(`❌ MAC ${normalizedMac} NON trovato in Keepass`);
+      
+      // Cerca MAC che contengono parti del MAC cercato
+      console.log(`\n🔍 Cerca MAC che contengono parti del MAC cercato:`);
+      const searchParts = [
+        normalizedMac.slice(0, 6),  // Primi 6 caratteri
+        normalizedMac.slice(-6),     // Ultimi 6 caratteri
+        normalizedMac.slice(0, 4),   // Primi 4 caratteri
+        normalizedMac.slice(-4)      // Ultimi 4 caratteri
+      ];
+      
+      let foundPartial = false;
+      for (const [mac, entry] of macMap.entries()) {
+        for (const part of searchParts) {
+          if (mac.includes(part) && mac !== normalizedMac) {
+            console.log(`   - ${mac} -> "${entry.title}" (${entry.path}) [contiene "${part}"]`);
+            foundPartial = true;
+            break;
+          }
+        }
+      }
+      if (!foundPartial) {
+        console.log(`   Nessun MAC parziale trovato`);
+      }
+      
+      // Cerca MAC nel percorso "Theorica"
+      console.log(`\n🔍 Cerca tutti i MAC nel percorso "Theorica":`);
+      let foundTheorica = false;
+      for (const [mac, entry] of macMap.entries()) {
+        if (entry.path && entry.path.toLowerCase().includes('theorica')) {
+          console.log(`   - ${mac} -> "${entry.title}" (${entry.path})`);
+          foundTheorica = true;
+        }
+      }
+      if (!foundTheorica) {
+        console.log(`   Nessun MAC trovato nel percorso Theorica`);
+      }
+      
+      // Cerca MAC che iniziano con "101331"
+      console.log(`\n🔍 Cerca MAC che iniziano con "101331":`);
+      let foundStart = false;
+      for (const [mac, entry] of macMap.entries()) {
+        if (mac.startsWith('101331')) {
+          console.log(`   - ${mac} -> "${entry.title}" (${entry.path})`);
+          foundStart = true;
+        }
+      }
+      if (!foundStart) {
+        console.log(`   Nessun MAC trovato che inizia con "101331"`);
+      }
+      
       console.log('\n📋 Esempi MAC presenti in Keepass (primi 10):');
       const sampleMacs = Array.from(macMap.keys()).slice(0, 10);
       sampleMacs.forEach((mac, idx) => {
         const entry = macMap.get(mac);
         console.log(`   ${idx + 1}. ${mac} -> "${entry.title}" (${entry.path})`);
       });
-      
-      // Cerca MAC simili
-      console.log(`\n🔍 Cerca MAC simili (ultimi 6 caratteri: ${normalizedMac.slice(-6)}):`);
-      let foundSimilar = false;
-      for (const [mac, entry] of macMap.entries()) {
-        if (mac.slice(-6) === normalizedMac.slice(-6) && mac !== normalizedMac) {
-          console.log(`   - ${mac} -> "${entry.title}" (${entry.path})`);
-          foundSimilar = true;
-        }
-      }
-      if (!foundSimilar) {
-        console.log(`   Nessun MAC simile trovato`);
-      }
       
       process.exit(1);
     }
