@@ -4156,9 +4156,20 @@ pause
       }
     } catch (err) {
       console.error('❌ Errore test notifica Telegram:', err);
+      console.error('❌ Stack trace completo:', err.stack);
+      
+      // Fornisci dettagli più specifici sull'errore
+      let errorDetails = err.message || 'Errore sconosciuto';
+      if (err.message && err.message.includes('Cannot find module')) {
+        errorDetails = 'Il modulo node-telegram-bot-api non è stato trovato. Esegui "npm install node-telegram-bot-api" e riavvia il backend.';
+      } else if (err.message && err.message.includes('telegramService')) {
+        errorDetails = 'Il servizio Telegram non è disponibile. Verifica che backend/services/TelegramService.js esista e sia accessibile.';
+      }
+      
       res.status(500).json({ 
         error: 'Errore interno del server',
-        details: err.message 
+        details: errorDetails,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
       });
     }
   });
