@@ -1827,6 +1827,7 @@ module.exports = (pool, io) => {
       );
       
       // Per ogni azienda, conta gli agent associati (solo quelli non cancellati)
+      // Filtra solo le aziende che hanno almeno un agent
       const companiesWithAgents = await Promise.all(
         companiesResult.rows.map(async (row) => {
           const agentCount = await pool.query(
@@ -1836,15 +1837,19 @@ module.exports = (pool, io) => {
              WHERE u.azienda = $1 AND na.deleted_at IS NULL`,
             [row.azienda]
           );
+          const count = parseInt(agentCount.rows[0].count) || 0;
           return {
             id: row.id,
             azienda: row.azienda,
-            agents_count: parseInt(agentCount.rows[0].count) || 0
+            agents_count: count
           };
         })
       );
       
-      res.json(companiesWithAgents);
+      // Filtra solo le aziende che hanno almeno un agent
+      const companiesWithAgentsFiltered = companiesWithAgents.filter(company => company.agents_count > 0);
+      
+      res.json(companiesWithAgentsFiltered);
     } catch (err) {
       console.error('❌ Errore recupero aziende:', err);
       res.status(500).json({ error: 'Errore interno del server' });
