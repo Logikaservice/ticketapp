@@ -1434,16 +1434,29 @@ function Send-ScanResults {
         # Rileva cambiamenti
         $changes = @()
         if ($lastScan) {
-            # Nuovi dispositivi
+            # Crea dizionario per lookup veloce
+            $lastScanDict = @{}
+            foreach ($oldDevice in $lastScan) {
+                $lastScanDict[$oldDevice.ip_address] = $oldDevice
+            }
+            
+            # Nuovi dispositivi e dispositivi tornati online
             foreach ($device in $Devices) {
-                $exists = $lastScan | Where-Object { $_.ip_address -eq $device.ip_address }
-                if (-not $exists) {
+                $oldDevice = $lastScanDict[$device.ip_address]
+                if (-not $oldDevice) {
+                    # Nuovo dispositivo
                     $changes += @{
                         device_ip = $device.ip_address
                         change_type = "new_device"
                         old_value = $null
                         new_value = $device.ip_address
                     }
+                } else {
+                    # Dispositivo esisteva già - verifica se era offline
+                    # Se il dispositivo era offline e ora è online, invia notifica device_online
+                    # Nota: Il backend gestisce lo status, ma l'agent può rilevare se un dispositivo
+                    # che non appariva nella scansione precedente ora appare (tornato online)
+                    # Questo è già gestito dal confronto, ma possiamo essere più espliciti
                 }
             }
             

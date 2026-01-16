@@ -1435,6 +1435,80 @@ module.exports = (pool, io) => {
               ['offline', device.id]
             );
             console.log(`    📴 Dispositivo ${device.ip_address} marcato come offline`);
+            
+            // Invia notifica Telegram se dispositivo statico
+            if (device.is_static) {
+              try {
+                const agentInfo = await pool.query(
+                  'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
+                  [agentId]
+                );
+                
+                if (agentInfo.rows.length > 0) {
+                  await sendTelegramNotification(
+                    agentId,
+                    agentInfo.rows[0].azienda_id,
+                    'status_changed',
+                    {
+                      hostname: device.hostname,
+                      ip: device.ip_address,
+                      mac: device.mac_address,
+                      oldStatus: 'online',
+                      status: 'offline',
+                      agentName: agentInfo.rows[0].agent_name
+                    }
+                  );
+                }
+              } catch (telegramErr) {
+                console.error('❌ Errore invio notifica Telegram per dispositivo offline:', telegramErr);
+              }
+            }
+          }
+        }
+        
+        // Rileva dispositivi tornati online (erano offline e ora sono nella scansione)
+        const devicesToMarkOnline = allAgentDevices.rows.filter(device => {
+          const normalizedDeviceIp = (device.ip_address || '').replace(/[{}"]/g, '').trim();
+          return normalizedReceivedIPs.has(normalizedDeviceIp) && device.status === 'offline';
+        });
+        
+        if (devicesToMarkOnline.length > 0) {
+          console.log(`  🟢 Marcatura ${devicesToMarkOnline.length} dispositivi come online (tornati online)`);
+          
+          for (const device of devicesToMarkOnline) {
+            await pool.query(
+              'UPDATE network_devices SET status = $1, last_seen = NOW() WHERE id = $2',
+              ['online', device.id]
+            );
+            console.log(`    ✅ Dispositivo ${device.ip_address} marcato come online`);
+            
+            // Invia notifica Telegram se dispositivo statico
+            if (device.is_static) {
+              try {
+                const agentInfo = await pool.query(
+                  'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
+                  [agentId]
+                );
+                
+                if (agentInfo.rows.length > 0) {
+                  await sendTelegramNotification(
+                    agentId,
+                    agentInfo.rows[0].azienda_id,
+                    'status_changed',
+                    {
+                      hostname: device.hostname,
+                      ip: device.ip_address,
+                      mac: device.mac_address,
+                      oldStatus: 'offline',
+                      status: 'online',
+                      agentName: agentInfo.rows[0].agent_name
+                    }
+                  );
+                }
+              } catch (telegramErr) {
+                console.error('❌ Errore invio notifica Telegram per dispositivo online:', telegramErr);
+              }
+            }
           }
         }
       } catch (offlineErr) {
