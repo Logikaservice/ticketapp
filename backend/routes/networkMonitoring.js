@@ -1811,17 +1811,17 @@ module.exports = (pool, io) => {
     let count24h = null;
     if (req.query.count24h === 'true') {
       try {
-        // Costruisci la condizione per le 24h
+        // Costruisci la condizione per le ultime 24 ore (non da mezzanotte!)
         let count24hCondition = '';
         let countParams = [];
         
         if (searchConditions) {
-          // Se c'è già una condizione WHERE, aggiungi AND per oggi (si resetta a mezzanotte)
-          count24hCondition = searchConditions + ` AND nc.detected_at >= CURRENT_DATE`;
+          // Se c'è già una condizione WHERE, aggiungi AND per le ultime 24 ore
+          count24hCondition = searchConditions + ` AND nc.detected_at >= NOW() - INTERVAL '24 hours'`;
           countParams = queryParams.slice(0, -1); // Rimuovi il limit dai params
         } else {
-          // Altrimenti crea una nuova condizione WHERE per oggi (si resetta a mezzanotte)
-          count24hCondition = `WHERE nc.detected_at >= CURRENT_DATE`;
+          // Altrimenti crea una nuova condizione WHERE per le ultime 24 ore
+          count24hCondition = `WHERE nc.detected_at >= NOW() - INTERVAL '24 hours'`;
           countParams = [];
         }
         
