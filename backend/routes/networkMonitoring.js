@@ -904,7 +904,8 @@ module.exports = (pool, io) => {
       telegramService.initialize(config.bot_token, config.chat_id);
 
       // Invia messaggio
-      return await telegramService.sendMessage(message);
+      const result = await telegramService.sendMessage(message);
+      return result && result.success ? true : false;
     } catch (error) {
       console.error('❌ Errore invio notifica Telegram:', error);
       return false;
@@ -4137,9 +4138,9 @@ pause
       
       // Invia messaggio di test
       console.log(`📤 Test notifica: Invio messaggio per config ID ${id}, tipo: ${notification_type}`);
-      const sent = await telegramService.sendMessage(message);
+      const result = await telegramService.sendMessage(message);
       
-      if (sent) {
+      if (result && result.success) {
         console.log(`✅ Test notifica: Messaggio inviato con successo per config ID ${id}`);
         res.json({ 
           success: true, 
@@ -4149,9 +4150,16 @@ pause
         });
       } else {
         console.error(`❌ Test notifica: Errore invio messaggio per config ID ${id}`);
+        const errorMsg = result && result.error 
+          ? result.error 
+          : 'Errore invio notifica di test';
+        const errorDetails = result && result.details 
+          ? result.details 
+          : 'Verifica che il bot token e chat ID siano corretti e che il bot possa inviare messaggi al chat ID specificato.';
+        
         res.status(500).json({ 
-          error: 'Errore invio notifica di test',
-          details: 'Controlla i log del backend per dettagli. Verifica che il bot token e chat ID siano corretti e che il bot possa inviare messaggi al chat ID specificato.'
+          error: errorMsg,
+          details: errorDetails
         });
       }
     } catch (err) {

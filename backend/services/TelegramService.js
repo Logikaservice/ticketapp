@@ -33,7 +33,7 @@ class TelegramService {
   async sendMessage(message, options = {}) {
     if (!this.enabled || !this.bot || !this.chatId) {
       console.warn('⚠️ TelegramService: Bot non configurato, messaggio non inviato');
-      return false;
+      return { success: false, error: 'Bot non configurato' };
     }
 
     try {
@@ -41,10 +41,20 @@ class TelegramService {
         parse_mode: 'HTML',
         ...options
       });
-      return true;
+      return { success: true };
     } catch (error) {
       console.error('❌ Errore invio messaggio Telegram:', error.message);
-      return false;
+      
+      let errorMessage = 'Errore invio messaggio Telegram';
+      if (error.response && error.response.statusCode === 401) {
+        errorMessage = 'Token bot o Chat ID non validi. Verifica che il bot token sia corretto e che tu abbia avviato il bot con /start.';
+      } else if (error.response && error.response.statusCode === 400) {
+        errorMessage = 'Chat ID non valido o bot non autorizzato. Assicurati di aver avviato il bot con /start.';
+      } else if (error.response && error.response.statusCode === 403) {
+        errorMessage = 'Bot bloccato o senza permessi. Controlla che il bot non sia stato bloccato dall\'utente.';
+      }
+      
+      return { success: false, error: errorMessage, details: error.message };
     }
   }
 
