@@ -341,6 +341,28 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     }
   }, [editingAgentId, editAgentData, getAuthHeader, loadAgents]);
 
+  // Carica dispositivi per un'azienda specifica
+  const loadCompanyDevices = useCallback(async (aziendaId) => {
+    try {
+      setLoadingCompanyDevices(true);
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaId}/devices`), {
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore caricamento dispositivi azienda');
+      }
+
+      const data = await response.json();
+      setCompanyDevices(data);
+    } catch (err) {
+      console.error('Errore caricamento dispositivi azienda:', err);
+      setError(err.message);
+    } finally {
+      setLoadingCompanyDevices(false);
+    }
+  }, [getAuthHeader]);
+
   // Aggiorna dati da Keepass e ricarica tutto
   const handleRefresh = useCallback(async () => {
     try {
@@ -378,28 +400,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       setLoading(false);
     }
   }, [getAuthHeader, loadDevices, loadChanges, loadCompanyDevices, selectedCompanyId]);
-
-  // Carica dispositivi per un'azienda specifica
-  const loadCompanyDevices = useCallback(async (aziendaId) => {
-    try {
-      setLoadingCompanyDevices(true);
-      const response = await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaId}/devices`), {
-        headers: getAuthHeader()
-      });
-
-      if (!response.ok) {
-        throw new Error('Errore caricamento dispositivi azienda');
-      }
-
-      const data = await response.json();
-      setCompanyDevices(data);
-    } catch (err) {
-      console.error('Errore caricamento dispositivi azienda:', err);
-      setError(err.message);
-    } finally {
-      setLoadingCompanyDevices(false);
-    }
-  }, [getAuthHeader]);
 
   // Disabilita agent (blocca ricezione dati, ma NON disinstalla)
   const disableAgent = useCallback(async (agentId, agentName) => {
