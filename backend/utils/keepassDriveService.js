@@ -123,26 +123,40 @@ class KeepassDriveService {
 
   /**
    * Estrae MAC address da un campo del KeePass (può essere in Title, UserName, Notes, URL, etc.)
+   * Gestisce anche campi con più MAC address separati da virgole, spazi, newline, ecc.
+   * Ritorna il primo MAC trovato (per compatibilità con codice esistente)
    */
   extractMacFromField(value) {
-    if (!value) return null;
+    const allMacs = this.extractAllMacsFromField(value);
+    return allMacs.length > 0 ? allMacs[0] : null;
+  }
+
+  /**
+   * Estrae TUTTI i MAC address da un campo del KeePass
+   * Gestisce campi con più MAC address separati da virgole, spazi, newline, ecc.
+   */
+  extractAllMacsFromField(value) {
+    if (!value) return [];
     const str = String(value).toUpperCase();
+    const macs = [];
     
     // Pattern per MAC address: XX-XX-XX-XX-XX-XX o XX:XX:XX:XX:XX:XX o XXXXXXXXXXXX
-    const macPattern = /([0-9A-F]{2}[:-]){5}[0-9A-F]{2}|[0-9A-F]{12}/;
-    const match = str.match(macPattern);
+    // Usa flag 'g' per trovare TUTTI i MAC nel campo
+    const macPattern = /([0-9A-F]{2}[:-]){5}[0-9A-F]{2}|[0-9A-F]{12}/g;
+    const matches = str.match(macPattern);
     
-    if (match) {
-      let mac = match[0];
-      // Normalizza: rimuovi separatori e aggiungi trattini
-      mac = mac.replace(/[:-]/g, '');
-      if (mac.length === 12) {
-        mac = mac.replace(/(..)(..)(..)(..)(..)(..)/, '$1-$2-$3-$4-$5-$6');
+    if (matches && matches.length > 0) {
+      for (const match of matches) {
+        // Normalizza: rimuovi separatori e aggiungi trattini
+        let mac = match.replace(/[:-]/g, '');
+        if (mac.length === 12) {
+          mac = mac.replace(/(..)(..)(..)(..)(..)(..)/, '$1-$2-$3-$4-$5-$6');
+          macs.push(mac.toUpperCase());
+        }
       }
-      return mac.toUpperCase();
     }
     
-    return null;
+    return macs;
   }
 
   /**
@@ -190,6 +204,9 @@ class KeepassDriveService {
             let foundMac = null;
             let foundMacField = null;
 
+            // Cerca TUTTI i MAC in TUTTI i campi (un campo può contenere più MAC)
+            const foundMacs = [];
+            
             for (const fieldName of fieldsToCheck) {
               // Prova prima in entry.fields, poi in entry.customFields
               let fieldValue = null;
@@ -204,30 +221,29 @@ class KeepassDriveService {
                   ? fieldValue.getText() 
                   : String(fieldValue);
                 
-                const mac = this.extractMacFromField(valueStr);
-                if (mac) {
-                  foundMac = mac;
-                  foundMacField = fieldName;
-                  break; // Prendi il primo MAC trovato
+                // Estrai TUTTI i MAC da questo campo (non solo il primo)
+                const allMacsInField = this.extractAllMacsFromField(valueStr);
+                for (const mac of allMacsInField) {
+                  foundMacs.push({ mac, field: fieldName });
                 }
               }
             }
 
-            // Se trovato un MAC, aggiungilo alla mappa (anche se il titolo è vuoto)
-            if (foundMac) {
-              // foundMac è già normalizzato da extractMacFromField (formato XX-XX-XX-XX-XX-XX)
+            // Aggiungi TUTTI i MAC trovati alla mappa
+            for (const { mac, field } of foundMacs) {
+              // mac è già normalizzato da extractAllMacsFromField (formato XX-XX-XX-XX-XX-XX)
               // Normalizziamo per la ricerca (rimuoviamo separatori)
-              const normalizedMac = this.normalizeMacForSearch(foundMac);
+              const normalizedMac = this.normalizeMacForSearch(mac);
               if (normalizedMac) {
                 // Se ci sono più entry con lo stesso MAC, mantieni la prima trovata
                 if (!macMap.has(normalizedMac)) {
                   macMap.set(normalizedMac, { title: titleStr || '', path: currentPath || '' });
-                  console.log(`  📝 MAC ${foundMac} (normalizzato: ${normalizedMac}) -> Titolo: "${titleStr || ''}", Campo: "${foundMacField}", Percorso: "${currentPath || ''}"`);
+                  console.log(`  📝 MAC ${mac} (normalizzato: ${normalizedMac}) -> Titolo: "${titleStr || ''}", Campo: "${field}", Percorso: "${currentPath || ''}"`);
                 } else {
-                  console.log(`  ⚠️ MAC ${foundMac} (normalizzato: ${normalizedMac}) già presente nella mappa, ignoro duplicato`);
+                  console.log(`  ⚠️ MAC ${mac} (normalizzato: ${normalizedMac}) già presente nella mappa, ignoro duplicato`);
                 }
               } else {
-                console.log(`  ⚠️ MAC ${foundMac} non può essere normalizzato per la ricerca`);
+                console.log(`  ⚠️ MAC ${mac} non può essere normalizzato per la ricerca`);
               }
             }
           }
