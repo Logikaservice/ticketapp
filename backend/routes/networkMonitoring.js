@@ -9,6 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
 const keepassDriveService = require('../utils/keepassDriveService');
+const telegramService = require('../services/TelegramService');
 
 module.exports = (pool, io) => {
   // Funzione helper per inizializzare le tabelle se non esistono
@@ -219,6 +220,35 @@ module.exports = (pool, io) => {
           created_at TIMESTAMP DEFAULT NOW(),
           UNIQUE(agent_id, ip_address)
         );
+      `);
+
+      // Crea tabella network_telegram_config (configurazione notifiche Telegram)
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS network_telegram_config (
+          id SERIAL PRIMARY KEY,
+          azienda_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
+          bot_token VARCHAR(255) NOT NULL,
+          chat_id VARCHAR(50) NOT NULL,
+          enabled BOOLEAN DEFAULT true,
+          notify_agent_offline BOOLEAN DEFAULT true,
+          notify_ip_changes BOOLEAN DEFAULT true,
+          notify_mac_changes BOOLEAN DEFAULT true,
+          notify_status_changes BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW(),
+          UNIQUE(azienda_id, agent_id)
+        );
+      `);
+
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_network_telegram_config_azienda 
+        ON network_telegram_config(azienda_id);
+      `);
+
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_network_telegram_config_agent 
+        ON network_telegram_config(agent_id);
       `);
 
       // Crea tabella network_device_types (tipi personalizzati dispositivi)
@@ -804,6 +834,83 @@ module.exports = (pool, io) => {
     }
   });
 
+  // Funzione helper per inviare notifiche Telegram
+  async function sendTelegramNotification(agentId, aziendaId, messageType, data) {
+    try {
+      // Ottieni configurazione Telegram per questo agent/azienda
+      const configResult = await pool.query(
+        `SELECT bot_token, chat_id, enabled, 
+                notify_agent_offline, notify_ip_changes, 
+                notify_mac_changes, notify_status_changes
+         FROM network_telegram_config
+         WHERE (agent_id = $1 OR azienda_id = $2)
+           AND enabled = true
+         ORDER BY agent_id DESC NULLS LAST
+         LIMIT 1`,
+        [agentId, aziendaId]
+      );
+
+      if (configResult.rows.length === 0) {
+        return false; // Nessuna configurazione Telegram
+      }
+
+      const config = configResult.rows[0];
+      
+      // Verifica se questo tipo di notifica è abilitato
+      let shouldNotify = false;
+      let message = '';
+
+      switch (messageType) {
+        case 'agent_offline':
+          shouldNotify = config.notify_agent_offline;
+          if (shouldNotify) {
+            message = telegramService.formatAgentOfflineMessage(
+              data.agentName,
+              data.lastHeartbeat
+            );
+          }
+          break;
+
+        case 'ip_changed':
+          shouldNotify = config.notify_ip_changes;
+          if (shouldNotify) {
+            message = telegramService.formatIPChangedMessage(data);
+          }
+          break;
+
+        case 'mac_changed':
+          shouldNotify = config.notify_mac_changes;
+          if (shouldNotify) {
+            message = telegramService.formatMACChangedMessage(data);
+          }
+          break;
+
+        case 'status_changed':
+          shouldNotify = config.notify_status_changes;
+          if (shouldNotify) {
+            message = telegramService.formatDeviceStatusMessage(data);
+          }
+          break;
+
+        default:
+          return false;
+      }
+
+      if (!shouldNotify || !message) {
+        return false;
+      }
+
+      // Inizializza bot se non già fatto o aggiorna se token/chat cambiati
+      telegramService.initialize(config.bot_token, config.chat_id);
+
+      // Invia messaggio
+      return await telegramService.sendMessage(message);
+    } catch (error) {
+      console.error('❌ Errore invio notifica Telegram:', error);
+      return false;
+    }
+  }
+
   // POST /api/network-monitoring/agent/scan-results
   // Agent invia risultati della scansione (dispositivi rilevati)
   router.post('/agent/scan-results', authenticateAgent, async (req, res) => {
@@ -1061,6 +1168,31 @@ module.exports = (pool, io) => {
               // Aggiorna anche l'IP
               updates.push(`ip_address = $${paramIndex++}`);
               values.push(normalizedCurrentIp);
+              
+              // Invia notifica Telegram
+              try {
+                const agentInfo = await pool.query(
+                  'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
+                  [agentId]
+                );
+                
+                if (agentInfo.rows.length > 0) {
+                  await sendTelegramNotification(
+                    agentId,
+                    agentInfo.rows[0].azienda_id,
+                    'ip_changed',
+                    {
+                      hostname: existingDevice.hostname,
+                      mac: existingDevice.mac_address,
+                      oldIP: existingIp,
+                      newIP: normalizedCurrentIp,
+                      agentName: agentInfo.rows[0].agent_name
+                    }
+                  );
+                }
+              } catch (telegramErr) {
+                console.error('❌ Errore invio notifica Telegram per cambio IP:', telegramErr);
+              }
             }
           }
 
@@ -1086,6 +1218,31 @@ module.exports = (pool, io) => {
                 values.push(existingDevice.mac_address);
                 updates.push(`mac_address = $${paramIndex++}`);
                 values.push(normalizedMac);
+                
+                // Invia notifica Telegram
+                try {
+                  const agentInfo = await pool.query(
+                    'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
+                    [agentId]
+                  );
+                  
+                  if (agentInfo.rows.length > 0) {
+                    await sendTelegramNotification(
+                      agentId,
+                      agentInfo.rows[0].azienda_id,
+                      'mac_changed',
+                      {
+                        hostname: existingDevice.hostname,
+                        ip: existingDevice.ip_address,
+                        oldMAC: existingDevice.mac_address,
+                        newMAC: normalizedMac,
+                        agentName: agentInfo.rows[0].agent_name
+                      }
+                    );
+                  }
+                } catch (telegramErr) {
+                  console.error('❌ Errore invio notifica Telegram per cambio MAC:', telegramErr);
+                }
               }
             } else {
               // Dispositivo non statico o senza MAC precedente, aggiorna normalmente
@@ -1311,6 +1468,40 @@ module.exports = (pool, io) => {
                 'UPDATE network_devices SET status = $1, last_seen = NOW() WHERE id = $2',
                 ['online', deviceId]
               );
+            }
+            
+            // Verifica se è un dispositivo statico e invia notifica Telegram
+            try {
+              const deviceCheck = await pool.query(
+                'SELECT is_static, hostname, ip_address, mac_address, status FROM network_devices WHERE id = $1',
+                [deviceId]
+              );
+              
+              if (deviceCheck.rows.length > 0 && deviceCheck.rows[0].is_static) {
+                const device = deviceCheck.rows[0];
+                const agentInfo = await pool.query(
+                  'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
+                  [agentId]
+                );
+                
+                if (agentInfo.rows.length > 0) {
+                  await sendTelegramNotification(
+                    agentId,
+                    agentInfo.rows[0].azienda_id,
+                    'status_changed',
+                    {
+                      hostname: device.hostname,
+                      ip: device.ip_address,
+                      mac: device.mac_address,
+                      oldStatus: change_type === 'device_offline' ? 'online' : 'offline',
+                      status: change_type === 'device_offline' ? 'offline' : 'online',
+                      agentName: agentInfo.rows[0].agent_name
+                    }
+                  );
+                }
+              }
+            } catch (telegramErr) {
+              console.error('❌ Errore invio notifica Telegram per cambio status:', telegramErr);
             }
             
             // Verifica se questo IP è configurato per notifiche
@@ -3333,6 +3524,28 @@ pause
         );
         
         console.log(`✅ checkOfflineAgents: agent ${agent.id} aggiornato a offline nel database`);
+        
+        // Invia notifica Telegram
+        try {
+          const agentInfo = await pool.query(
+            'SELECT azienda_id FROM network_agents WHERE id = $1',
+            [agent.id]
+          );
+          
+          if (agentInfo.rows.length > 0) {
+            await sendTelegramNotification(
+              agent.id,
+              agentInfo.rows[0].azienda_id,
+              'agent_offline',
+              {
+                agentName: agent.agent_name,
+                lastHeartbeat: agent.last_heartbeat
+              }
+            );
+          }
+        } catch (telegramErr) {
+          console.error('❌ Errore invio notifica Telegram per agent offline:', telegramErr);
+        }
 
         // Emetti evento WebSocket per aggiornare la lista agenti in tempo reale
         if (io) {
