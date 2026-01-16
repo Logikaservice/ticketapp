@@ -199,13 +199,15 @@ for %%F in (
     )
 )
 
+echo.
 if %FILES_FAILED% gtr 0 (
-    echo.
     echo ATTENZIONE: %FILES_FAILED% file non copiati!
     echo Prova a chiudere eventuali processi in esecuzione.
+    echo.
 )
-echo.
-echo    [OK] %FILES_COPIED% file copiati con successo
+if %FILES_COPIED% gtr 0 (
+    echo [OK] %FILES_COPIED% file copiati con successo
+)
 echo.
 
 REM 5. AGGIORNAMENTO CONFIGURAZIONE
