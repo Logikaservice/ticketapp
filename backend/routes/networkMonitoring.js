@@ -4003,6 +4003,137 @@ pause
     }
   });
 
+  // POST /api/network-monitoring/telegram/config/:id/test
+  // Testa invio notifica Telegram
+  router.post('/telegram/config/:id/test', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      
+      const { id } = req.params;
+      const { notification_type } = req.body; // 'agent_offline', 'ip_changed', 'mac_changed', 'status_changed'
+      
+      // Ottieni configurazione
+      const configResult = await pool.query(
+        'SELECT * FROM network_telegram_config WHERE id = $1',
+        [id]
+      );
+      
+      if (configResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Configurazione non trovata' });
+      }
+      
+      const config = configResult.rows[0];
+      
+      if (!config.enabled) {
+        return res.status(400).json({ error: 'Configurazione non abilitata' });
+      }
+      
+      // Inizializza bot
+      telegramService.initialize(config.bot_token, config.chat_id);
+      
+      // Crea dati di test in base al tipo
+      let testData = {};
+      let message = '';
+      
+      switch (notification_type) {
+        case 'agent_offline':
+          if (!config.notify_agent_offline) {
+            return res.status(400).json({ error: 'Notifica agent offline non abilitata' });
+          }
+          testData = {
+            agentName: 'Agent di Test',
+            lastHeartbeat: new Date(Date.now() - 10 * 60 * 1000).toISOString() // 10 minuti fa
+          };
+          message = telegramService.formatAgentOfflineMessage(testData.agentName, testData.lastHeartbeat);
+          break;
+          
+        case 'ip_changed':
+          if (!config.notify_ip_changes) {
+            return res.status(400).json({ error: 'Notifica cambio IP non abilitata' });
+          }
+          testData = {
+            hostname: 'Dispositivo di Test',
+            mac: 'AA-BB-CC-DD-EE-FF',
+            oldIP: '192.168.1.100',
+            newIP: '192.168.1.200',
+            agentName: 'Agent di Test'
+          };
+          message = telegramService.formatIPChangedMessage(testData);
+          break;
+          
+        case 'mac_changed':
+          if (!config.notify_mac_changes) {
+            return res.status(400).json({ error: 'Notifica cambio MAC non abilitata' });
+          }
+          testData = {
+            hostname: 'Dispositivo di Test',
+            ip: '192.168.1.100',
+            oldMAC: 'AA-BB-CC-DD-EE-FF',
+            newMAC: '11-22-33-44-55-66',
+            agentName: 'Agent di Test'
+          };
+          message = telegramService.formatMACChangedMessage(testData);
+          break;
+          
+        case 'status_changed_online':
+          if (!config.notify_status_changes) {
+            return res.status(400).json({ error: 'Notifica cambio status non abilitata' });
+          }
+          testData = {
+            hostname: 'Dispositivo di Test',
+            ip: '192.168.1.100',
+            mac: 'AA-BB-CC-DD-EE-FF',
+            oldStatus: 'offline',
+            status: 'online',
+            agentName: 'Agent di Test'
+          };
+          message = telegramService.formatDeviceStatusMessage(testData);
+          break;
+          
+        case 'status_changed_offline':
+          if (!config.notify_status_changes) {
+            return res.status(400).json({ error: 'Notifica cambio status non abilitata' });
+          }
+          testData = {
+            hostname: 'Dispositivo di Test',
+            ip: '192.168.1.100',
+            mac: 'AA-BB-CC-DD-EE-FF',
+            oldStatus: 'online',
+            status: 'offline',
+            agentName: 'Agent di Test'
+          };
+          message = telegramService.formatDeviceStatusMessage(testData);
+          break;
+          
+        default:
+          return res.status(400).json({ error: 'Tipo di notifica non valido' });
+      }
+      
+      // Invia messaggio di test
+      const sent = await telegramService.sendMessage(message);
+      
+      if (sent) {
+        res.json({ 
+          success: true, 
+          message: 'Notifica di test inviata con successo!',
+          notification_type,
+          test_data: testData
+        });
+      } else {
+        res.status(500).json({ 
+          error: 'Errore invio notifica di test',
+          details: 'Controlla i log del backend per dettagli'
+        });
+      }
+    } catch (err) {
+      console.error('❌ Errore test notifica Telegram:', err);
+      res.status(500).json({ 
+        error: 'Errore interno del server',
+        details: err.message 
+      });
+    }
+  });
+
   // DELETE /api/network-monitoring/telegram/config/:id
   // Rimuovi configurazione Telegram
   router.delete('/telegram/config/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {

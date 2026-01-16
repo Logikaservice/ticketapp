@@ -1,6 +1,6 @@
 // frontend/src/components/TelegramConfigSection.jsx
 import React, { useState } from 'react';
-import { MessageSquare, X, Save, Trash, Bell, BellOff, CheckCircle, AlertCircle, Edit } from 'lucide-react';
+import { MessageSquare, X, Save, Trash, Bell, BellOff, CheckCircle, AlertCircle, Edit, Send, TestTube } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
 const TelegramConfigSection = ({ 
