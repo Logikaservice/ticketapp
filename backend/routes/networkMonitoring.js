@@ -4007,6 +4007,15 @@ pause
   // Testa invio notifica Telegram
   router.post('/telegram/config/:id/test', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
+      // Verifica che telegramService sia disponibile
+      if (!telegramService) {
+        console.error('❌ Test notifica: telegramService non disponibile');
+        return res.status(500).json({ 
+          error: 'Servizio Telegram non disponibile',
+          details: 'Il modulo telegramService non è stato caricato correttamente. Verifica che node-telegram-bot-api sia installato.'
+        });
+      }
+
       await ensureTables();
       
       const { id } = req.params;
