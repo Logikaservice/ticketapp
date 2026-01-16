@@ -2309,12 +2309,22 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
       archive.append(readmeContent, { name: 'README.txt' });
       console.log('✅ Aggiunto README.txt');
 
-      // Crea installer batch con versione nel nome
+      // Crea installer batch con versione nel nome - SOLO COMANDI NATIVI, NO POWERSHELL
       const installBatFileName = `Installa-Agent-v${agentVersion}.bat`;
-      const installBatContent = `@echo off
+      
+      // Leggi il contenuto di Installa-Agent.bat e sostituisci la versione
+      let installBatContent;
+      const installAgentBatPath = path.join(agentDir, 'Installa-Agent.bat');
+      if (fs.existsSync(installAgentBatPath)) {
+        installBatContent = fs.readFileSync(installAgentBatPath, 'utf8');
+        // Sostituisci la versione nel file
+        installBatContent = installBatContent.replace(/set "AGENT_VERSION=.*"/, `set "AGENT_VERSION=${agentVersion}"`);
+      } else {
+        // Fallback: crea un wrapper semplice che chiama Installa-Agent.bat
+        installBatContent = `@echo off
 REM Installa-Agent-v${agentVersion}.bat
 REM Installer unico per Network Monitor Agent v${agentVersion}
-REM Richiede privilegi amministratore
+REM SOLO COMANDI NATIVI WINDOWS - NO POWERSHELL
 
 REM Verifica privilegi admin
 net session >nul 2>&1
@@ -2326,30 +2336,12 @@ if %errorLevel% neq 0 (
     exit /b %errorLevel%
 )
 
-REM Esegui installer PowerShell
-echo.
-echo ========================================
-echo   Network Monitor Agent v${agentVersion}
-echo   Installazione in corso...
-echo ========================================
-echo.
-
-powershell.exe -ExecutionPolicy Bypass -NoProfile -File "%~dp0Installa-Agent.ps1"
-
-if %errorLevel% equ 0 (
-    echo.
-    echo ========================================
-    echo   Installazione completata!
-    echo ========================================
-    echo.
-) else (
-    echo.
-    echo ERRORE durante l'installazione!
-    echo.
-)
+REM Esegui installer batch nativo
+call "%~dp0Installa-Agent.bat"
 
 pause
 `;
+      }
       archive.append(installBatContent, { name: installBatFileName });
       console.log(`✅ Aggiunto ${installBatFileName}`);
 
