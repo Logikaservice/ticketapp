@@ -12,14 +12,52 @@ async function main() {
     console.log('============================================================');
     console.log(`\nMAC da aggiornare: ${macAddress}\n`);
 
-    // Connessione al database
-    const pool = new Pool({
-      host: process.env.DB_HOST,
-      port: process.env.DB_PORT || 5432,
-      database: process.env.DB_NAME,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-    });
+    // Connessione al database - usa la stessa logica del backend principale
+    let poolConfig = {};
+    
+    if (process.env.DATABASE_URL) {
+      // Parsing manuale robusto per gestire caratteri speciali nella password
+      const dbUrl = process.env.DATABASE_URL;
+      const match = dbUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
+      
+      if (match) {
+        poolConfig.user = decodeURIComponent(match[1]);
+        poolConfig.password = decodeURIComponent(match[2]);
+        poolConfig.host = match[3];
+        poolConfig.port = parseInt(match[4]);
+        poolConfig.database = match[5];
+        
+        // Verifica che la password sia una stringa
+        if (typeof poolConfig.password !== 'string') {
+          poolConfig.password = String(poolConfig.password);
+        }
+        
+        // SSL
+        if (poolConfig.host === 'localhost' || poolConfig.host === '127.0.0.1') {
+          poolConfig.ssl = false;
+        } else {
+          poolConfig.ssl = { rejectUnauthorized: false };
+        }
+      } else {
+        poolConfig.connectionString = process.env.DATABASE_URL;
+      }
+    } else {
+      // Fallback a variabili separate se DATABASE_URL non è disponibile
+      poolConfig = {
+        host: process.env.DB_HOST || process.env.PGHOST,
+        port: parseInt(process.env.DB_PORT || process.env.PGPORT || 5432),
+        database: process.env.DB_NAME || process.env.PGDATABASE,
+        user: process.env.DB_USER || process.env.PGUSER,
+        password: process.env.DB_PASSWORD || process.env.PGPASSWORD,
+      };
+      
+      // Verifica che la password sia una stringa
+      if (poolConfig.password && typeof poolConfig.password !== 'string') {
+        poolConfig.password = String(poolConfig.password);
+      }
+    }
+    
+    const pool = new Pool(poolConfig);
 
     const keepassPassword = process.env.KEEPASS_PASSWORD;
     if (!keepassPassword) {
