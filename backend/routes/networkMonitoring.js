@@ -4010,7 +4010,11 @@ pause
       await ensureTables();
       
       const { id } = req.params;
-      const { notification_type } = req.body; // 'agent_offline', 'ip_changed', 'mac_changed', 'status_changed'
+      const { notification_type } = req.body; // 'agent_offline', 'ip_changed', 'mac_changed', 'status_changed_online', 'status_changed_offline'
+      
+      if (!notification_type) {
+        return res.status(400).json({ error: 'notification_type è obbligatorio' });
+      }
       
       // Ottieni configurazione
       const configResult = await pool.query(
@@ -4028,8 +4032,15 @@ pause
         return res.status(400).json({ error: 'Configurazione non abilitata' });
       }
       
+      if (!config.bot_token || !config.chat_id) {
+        return res.status(400).json({ error: 'Bot Token o Chat ID mancanti nella configurazione' });
+      }
+      
       // Inizializza bot
-      telegramService.initialize(config.bot_token, config.chat_id);
+      const initialized = telegramService.initialize(config.bot_token, config.chat_id);
+      if (!initialized) {
+        return res.status(500).json({ error: 'Errore inizializzazione bot Telegram' });
+      }
       
       // Crea dati di test in base al tipo
       let testData = {};
