@@ -134,11 +134,13 @@ for %%F in (
     ) else (
         if "%%~F"=="NetworkMonitorTrayIcon.ps1" (
             echo    [INFO] %%~F non trovato (opzionale)
-        ) else if "%%~F"=="Start-TrayIcon-Hidden.vbs" (
-            echo    [INFO] %%~F non trovato (opzionale)
         ) else (
-            echo    [X] %%~F non trovato
-            set /a FILES_FAILED+=1
+            if "%%~F"=="Start-TrayIcon-Hidden.vbs" (
+                echo    [INFO] %%~F non trovato (opzionale)
+            ) else (
+                echo    [X] %%~F non trovato
+                set /a FILES_FAILED+=1
+            )
         )
     )
 )
