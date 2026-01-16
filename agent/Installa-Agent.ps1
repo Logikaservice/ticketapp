@@ -256,10 +256,8 @@ try {
 
 # Installa servizio
 try {
-    # NSSM richiede i parametri come stringa singola - costruisci senza virgolette problematiche
-    $filePart = '-File'
-    $configPart = '-ConfigPath'
-    $appParamsString = "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden $filePart `"$serviceScriptPath`" $configPart `"$configPath`""
+    # NSSM richiede i parametri come stringa singola - usa stesso formato di Installa-Servizio.ps1
+    $appParamsString = "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$serviceScriptPath`" -ConfigPath `"$configPath`""
     & $nssmPath install $serviceName $psPath $appParamsString
     if ($LASTEXITCODE -eq 0) {
         Write-Host "   ✅ Servizio installato" -ForegroundColor Green
