@@ -325,7 +325,8 @@ if (Test-Path $vbsLauncher) {
         Set-ItemProperty -Path $regPath -Name "NetworkMonitorTrayIcon" -Value $regValue -ErrorAction SilentlyContinue
         
         # Avvia tray icon
-        Start-Process "wscript.exe" -ArgumentList "`"$vbsLauncher`"" -WindowStyle Hidden -ErrorAction SilentlyContinue
+        $vbsArg = "`"$vbsLauncher`""
+        Start-Process "wscript.exe" -ArgumentList $vbsArg -WindowStyle Hidden -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 2
         
         Write-Host "   ✅ Tray icon configurata e avviata" -ForegroundColor Green
