@@ -118,6 +118,20 @@ const TelegramConfigSection = ({
     }
   };
 
+  const handleToggleEnabled = async (config) => {
+    try {
+      const updatedConfig = {
+        ...config,
+        enabled: !config.enabled
+      };
+      await onSave(updatedConfig);
+      setSuccess(`Notifiche ${updatedConfig.enabled ? 'abilitate' : 'disabilitate'} con successo!`);
+      setTimeout(() => setSuccess(null), 2000);
+    } catch (err) {
+      setError(err.message || 'Errore durante l\'aggiornamento');
+    }
+  };
+
   const getCompanyName = (aziendaId) => {
     if (!aziendaId) return 'Tutte le aziende';
     const company = companies.find(c => c.id === aziendaId);
@@ -376,9 +390,9 @@ const TelegramConfigSection = ({
                   <button
                     onClick={() => handleEdit(config)}
                     className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                    title="Modifica"
+                    title="Modifica configurazione"
                   >
-                    <Save size={18} />
+                    <Edit size={18} />
                   </button>
                   <button
                     onClick={() => handleDelete(config.id)}
