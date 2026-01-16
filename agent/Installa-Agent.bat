@@ -122,6 +122,7 @@ for %%F in (
     "config.json"
     "nssm.exe"
 ) do (
+    set "FILE_NAME=%%~F"
     if exist "%SCRIPT_DIR%\%%~F" (
         copy /Y "%SCRIPT_DIR%\%%~F" "%INSTALL_DIR%\%%~F" >nul 2>&1
         if !errorLevel! equ 0 (
@@ -132,10 +133,10 @@ for %%F in (
             set /a FILES_FAILED+=1
         )
     ) else (
-        if "%%~F"=="NetworkMonitorTrayIcon.ps1" (
+        if "!FILE_NAME!"=="NetworkMonitorTrayIcon.ps1" (
             echo    [INFO] %%~F non trovato (opzionale)
         ) else (
-            if "%%~F"=="Start-TrayIcon-Hidden.vbs" (
+            if "!FILE_NAME!"=="Start-TrayIcon-Hidden.vbs" (
                 echo    [INFO] %%~F non trovato (opzionale)
             ) else (
                 echo    [X] %%~F non trovato
