@@ -1861,6 +1861,10 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                                       }
                                       try {
                                         const authHeader = getAuthHeader();
+                                        // Per entry da Drive, invia password_encrypted; per entry dal database, invia entryId
+                                        const body = entry.password_encrypted 
+                                          ? { password_encrypted: entry.password_encrypted }
+                                          : { entryId: entry.id };
                                         const response = await fetch(buildApiUrl('/api/keepass/decrypt-password'), {
                                           method: 'POST',
                                           headers: {
@@ -1869,7 +1873,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                                             'x-user-id': currentUser?.id?.toString() || authHeader['x-user-id'] || '',
                                             'x-user-role': currentUser?.ruolo || ''
                                           },
-                                          body: JSON.stringify({ entryId: entry.id })
+                                          body: JSON.stringify(body)
                                         });
                                         if (!response.ok) throw new Error('Errore nella decifratura della password');
                                         const data = await response.json();
@@ -1898,6 +1902,10 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                                       if (!password) {
                                         try {
                                           const authHeader = getAuthHeader();
+                                          // Per entry da Drive, invia password_encrypted; per entry dal database, invia entryId
+                                          const body = entry.password_encrypted 
+                                            ? { password_encrypted: entry.password_encrypted }
+                                            : { entryId: entry.id };
                                           const response = await fetch(buildApiUrl('/api/keepass/decrypt-password'), {
                                             method: 'POST',
                                             headers: {
@@ -1906,7 +1914,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                                               'x-user-id': currentUser?.id?.toString() || authHeader['x-user-id'] || '',
                                               'x-user-role': currentUser?.ruolo || ''
                                             },
-                                            body: JSON.stringify({ entryId: entry.id })
+                                            body: JSON.stringify(body)
                                           });
                                           if (!response.ok) throw new Error('Errore nella decifratura della password');
                                           const data = await response.json();

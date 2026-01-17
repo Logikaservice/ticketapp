@@ -882,44 +882,57 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
-  // POST /api/keepass/decrypt-password - Decifra password per visualizzazione (solo per il cliente proprietario)
+  // POST /api/keepass/decrypt-password - Decifra password per visualizzazione
+  // Accetta sia entryId (per entry del database) che password_encrypted (per entry da Drive)
   router.post('/decrypt-password', async (req, res) => {
     try {
       // Usa req.user.id dal middleware authenticateToken invece di req.headers
       const userId = req.user?.id || req.headers['x-user-id'];
       const role = req.user?.ruolo || (req.headers['x-user-role'] || '').toString();
-      const { entryId } = req.body;
+      const { entryId, password_encrypted } = req.body;
 
-      if (!userId || !entryId) {
-        console.error('❌ Parametri mancanti - userId:', userId, 'entryId:', entryId);
-        return res.status(400).json({ error: 'Parametri mancanti' });
+      if (!userId) {
+        console.error('❌ Parametri mancanti - userId:', userId);
+        return res.status(400).json({ error: 'Parametri mancanti: userId' });
       }
 
-      console.log('🔓 Decifratura password per entry:', entryId, 'utente:', userId, 'ruolo:', role);
+      let encryptedPassword = null;
 
-      // Verifica che l'entry appartenga al cliente (o che sia un tecnico)
-      let query, params;
-      if (role === 'tecnico') {
-        query = `SELECT e.password_encrypted 
-                 FROM keepass_entries e
-                 WHERE e.id = $1`;
-        params = [entryId];
+      // Se viene fornita password_encrypted direttamente (entry da Drive), usala
+      if (password_encrypted) {
+        console.log('🔓 Decifratura password da Drive per utente:', userId, 'ruolo:', role);
+        encryptedPassword = password_encrypted;
+      } else if (entryId) {
+        // Se viene fornito entryId (entry del database), caricala dal database
+        console.log('🔓 Decifratura password per entry:', entryId, 'utente:', userId, 'ruolo:', role);
+
+        // Verifica che l'entry appartenga al cliente (o che sia un tecnico)
+        let query, params;
+        if (role === 'tecnico') {
+          query = `SELECT e.password_encrypted 
+                   FROM keepass_entries e
+                   WHERE e.id = $1`;
+          params = [entryId];
+        } else {
+          query = `SELECT e.password_encrypted 
+                   FROM keepass_entries e
+                   JOIN keepass_groups g ON g.id = e.group_id
+                   WHERE e.id = $1 AND g.client_id = $2`;
+          params = [entryId, userId];
+        }
+
+        const entryCheck = await pool.query(query, params);
+
+        if (entryCheck.rows.length === 0) {
+          console.error('❌ Credenziale non trovata o non autorizzata - entryId:', entryId, 'userId:', userId);
+          return res.status(404).json({ error: 'Credenziale non trovata o non autorizzata' });
+        }
+
+        encryptedPassword = entryCheck.rows[0].password_encrypted;
       } else {
-        query = `SELECT e.password_encrypted 
-                 FROM keepass_entries e
-                 JOIN keepass_groups g ON g.id = e.group_id
-                 WHERE e.id = $1 AND g.client_id = $2`;
-        params = [entryId, userId];
+        console.error('❌ Parametri mancanti - entryId o password_encrypted richiesti');
+        return res.status(400).json({ error: 'Parametri mancanti: entryId o password_encrypted richiesti' });
       }
-
-      const entryCheck = await pool.query(query, params);
-
-      if (entryCheck.rows.length === 0) {
-        console.error('❌ Credenziale non trovata o non autorizzata - entryId:', entryId, 'userId:', userId);
-        return res.status(404).json({ error: 'Credenziale non trovata o non autorizzata' });
-      }
-
-      let encryptedPassword = entryCheck.rows[0].password_encrypted;
       console.log('🔐 Password cifrata trovata, tipo:', typeof encryptedPassword);
       console.log('🔐 Password cifrata, lunghezza:', encryptedPassword?.length || 0);
       
