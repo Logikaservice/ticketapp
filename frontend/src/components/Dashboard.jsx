@@ -1861,7 +1861,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                                       }
                                       try {
                                         const authHeader = getAuthHeader();
-                                        const response = await fetch(`${apiBase}/api/keepass/decrypt-password`, {
+                                        const response = await fetch(buildApiUrl('/api/keepass/decrypt-password'), {
                                           method: 'POST',
                                           headers: {
                                             'Content-Type': 'application/json',
@@ -1898,7 +1898,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                                       if (!password) {
                                         try {
                                           const authHeader = getAuthHeader();
-                                          const response = await fetch(`${apiBase}/api/keepass/decrypt-password`, {
+                                          const response = await fetch(buildApiUrl('/api/keepass/decrypt-password'), {
                                             method: 'POST',
                                             headers: {
                                               'Content-Type': 'application/json',
