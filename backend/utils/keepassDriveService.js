@@ -349,13 +349,20 @@ class KeepassDriveService {
               // Raccogli il nome azienda trovato dopo "gestione" per debug
               foundAziendeAfterGestione.add(aziendaSegmentInPath.trim());
               
-              // Confronto ESATTO case-insensitive (NO normalizzazione di spazi/caratteri speciali)
-              // "Theorica" deve matchare "Theorica", "theorica", "THEORICA" ma NON "theorica_old", "Theorica qualcosa"
+              // Confronto case-insensitive
+              // Match esatto: "Theorica" = "Theorica", "theorica", "THEORICA"
+              // Match con underscore: "Theorica" = "Theorica_old", "Theorica_new" (solo se inizia con il nome seguito da underscore)
               const aziendaNameNormalized = aziendaName.trim().toLowerCase();
               const segmentNormalized = aziendaSegmentInPath.trim().toLowerCase();
               
-              // Match identico esatto: solo case-insensitive, nessuna altra variazione
-              shouldInclude = (aziendaNameNormalized === segmentNormalized);
+              // Match identico esatto
+              const exactMatch = (aziendaNameNormalized === segmentNormalized);
+              
+              // Match con underscore (es. "Theorica" matcha "Theorica_old")
+              // Il nome in Keepass deve iniziare esattamente con il nome azienda seguito da underscore
+              const underscoreMatch = segmentNormalized.startsWith(aziendaNameNormalized + '_');
+              
+              shouldInclude = (exactMatch || underscoreMatch);
             }
           }
           
