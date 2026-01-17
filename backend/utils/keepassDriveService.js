@@ -320,7 +320,14 @@ class KeepassDriveService {
 
       // Funzione ricorsiva per processare gruppi ed entry
       const processGroup = (group, groupPath = '') => {
-        const currentPath = groupPath ? `${groupPath} > ${group.name || 'Root'}` : (group.name || 'Root');
+        const groupName = group.name || 'Root';
+        const currentPath = groupPath ? `${groupPath} > ${groupName}` : groupName;
+        
+        // Log tutti i percorsi per debug (solo i primi 10 livelli per evitare spam)
+        const pathDepth = currentPath.split('>').length;
+        if (pathDepth <= 3) {
+          console.log(`  🔍 Processando gruppo: "${groupName}" (percorso: "${currentPath}")`);
+        }
         
         // Se è specificata un'azienda, verifica se il percorso appartiene all'azienda
         // IMPORTANTE: Verifica solo il primo segmento dopo "gestione"
@@ -350,6 +357,9 @@ class KeepassDriveService {
               // Non raccogliere segmenti più profondi (es. "Theorica_old" in "gestione > dismessi > Theorica_old")
               foundAziendeAfterGestione.add(aziendaSegmentInPath.trim());
               
+              // Log TUTTI i percorsi che contengono "gestione" per debug
+              console.log(`  🔍 Percorso processato: "${currentPath}" → segmento dopo "gestione": "${aziendaSegmentInPath}"`);
+              
               // Confronto ESATTO case-insensitive
               // "Theorica" deve matchare SOLO "Theorica", "theorica", "THEORICA"
               // NON deve matchare "Theorica_old", "Theorica_new", ecc.
@@ -360,8 +370,9 @@ class KeepassDriveService {
               // Match IDENTICO esatto: solo case-insensitive, nessuna variazione accettata
               shouldInclude = (aziendaNameNormalized === segmentNormalized);
               
-              // Log per debug (solo per match/non-match interessanti)
-              if (!shouldInclude && segmentNormalized.includes(aziendaNameNormalized)) {
+              if (shouldInclude) {
+                console.log(`  ✅ MATCH trovato! Segmento "${aziendaSegmentInPath}" matcha "${aziendaName}" nel percorso "${currentPath}"`);
+              } else if (segmentNormalized.includes(aziendaNameNormalized)) {
                 console.log(`  ⚠️ Segmento "${aziendaSegmentInPath}" dopo "gestione" non matcha "${aziendaName}" (percorso: "${currentPath}")`);
               }
             }
@@ -419,9 +430,14 @@ class KeepassDriveService {
 
       // Processa tutti i gruppi root
       if (db.groups && db.groups.length > 0) {
+        console.log(`📁 Gruppi root trovati nel Keepass: ${db.groups.length}`);
         for (const group of db.groups) {
+          const groupName = group.name || 'Senza nome';
+          console.log(`  📂 Gruppo root: "${groupName}"`);
           processGroup(group);
         }
+      } else {
+        console.log(`⚠️ Nessun gruppo root trovato nel Keepass!`);
       }
 
       console.log(`✅ Entry Keepass caricate: ${entries.length} entry${aziendaName ? ` filtrate per "${aziendaName}"` : ''}`);

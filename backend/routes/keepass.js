@@ -1215,12 +1215,14 @@ module.exports = function createKeepassRouter(pool) {
 
       // Carica tutte le entry Keepass filtrate per azienda
       const allEntries = await keepassDriveService.getAllEntriesByAzienda(keepassPassword, aziendaName);
+      console.log(`📊 Entry caricate da Keepass Drive: ${allEntries.length} entry per azienda "${aziendaName}"`);
 
       // Se c'è un termine di ricerca, filtra i risultati
       const cleanTerm = searchTerm.trim().toLowerCase();
       let filteredEntries = allEntries;
 
       if (cleanTerm && cleanTerm.length >= 2) {
+        console.log(`🔍 Filtro ricerca applicato: "${cleanTerm}"`);
         filteredEntries = allEntries.filter(entry => {
           const titleMatch = entry.title && entry.title.toLowerCase().includes(cleanTerm);
           const usernameMatch = entry.username && entry.username.toLowerCase().includes(cleanTerm);
@@ -1230,6 +1232,9 @@ module.exports = function createKeepassRouter(pool) {
           
           return titleMatch || usernameMatch || urlMatch || notesMatch || groupMatch;
         });
+        console.log(`📊 Entry dopo filtro ricerca: ${filteredEntries.length} (da ${allEntries.length})`);
+      } else {
+        console.log(`ℹ️ Nessun termine di ricerca, mostrando tutte le ${allEntries.length} entry dell'azienda`);
       }
 
       // Cripta le password prima di inviarle
