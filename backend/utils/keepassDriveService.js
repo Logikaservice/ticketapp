@@ -348,8 +348,10 @@ class KeepassDriveService {
             const aziendaSegmentIndex = gestioneIndex + 1;
             
             if (aziendaSegmentIndex >= pathSegments.length) {
-              // Se non c'è un segmento dopo "gestione", escludi tutto
-              shouldInclude = false;
+              // Se non c'è ancora un segmento dopo "gestione" (es. percorso = "gestione"),
+              // continua a processare i sottogruppi (non escludere ancora)
+              // Il controllo verrà fatto quando processeremo i sottogruppi (es. "gestione > Theorica")
+              shouldInclude = true; // Continua a processare i sottogruppi
             } else {
               const aziendaSegmentInPath = pathSegments[aziendaSegmentIndex];
               
