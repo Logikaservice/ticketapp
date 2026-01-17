@@ -316,6 +316,7 @@ class KeepassDriveService {
       console.log(`✅ File KDBX caricato: ${db.name || 'Senza nome'}`);
 
       const entries = [];
+      const foundAziendeAfterGestione = new Set(); // Raccogli nomi aziende trovate dopo "gestione" per debug
 
       // Funzione ricorsiva per processare gruppi ed entry
       const processGroup = (group, groupPath = '') => {
@@ -344,6 +345,9 @@ class KeepassDriveService {
               shouldInclude = false;
             } else {
               const aziendaSegmentInPath = pathSegments[aziendaSegmentIndex];
+              
+              // Raccogli il nome azienda trovato dopo "gestione" per debug
+              foundAziendeAfterGestione.add(aziendaSegmentInPath.trim());
               
               // Confronto ESATTO case-insensitive (NO normalizzazione di spazi/caratteri speciali)
               // "Theorica" deve matchare "Theorica", "theorica", "THEORICA" ma NON "theorica_old", "Theorica qualcosa"
@@ -413,6 +417,18 @@ class KeepassDriveService {
       }
 
       console.log(`✅ Entry Keepass caricate: ${entries.length} entry${aziendaName ? ` filtrate per "${aziendaName}"` : ''}`);
+      
+      // Se non sono state trovate entry e c'era un filtro azienda, mostra le aziende disponibili dopo "gestione"
+      if (entries.length === 0 && aziendaName && foundAziendeAfterGestione.size > 0) {
+        const aziendeList = Array.from(foundAziendeAfterGestione).sort();
+        console.log(`⚠️ Nessuna entry trovata per azienda "${aziendaName}"`);
+        console.log(`   Aziende disponibili dopo "gestione" in Keepass: ${aziendeList.join(', ')}`);
+        console.log(`   Il nome azienda cercato deve corrispondere ESATTAMENTE (case-insensitive) a uno di questi nomi.`);
+      } else if (entries.length === 0 && aziendaName && foundAziendeAfterGestione.size === 0) {
+        console.log(`⚠️ Nessuna entry trovata per azienda "${aziendaName}"`);
+        console.log(`   Nessuna cartella trovata dopo "gestione" in Keepass. Verifica la struttura del file Keepass.`);
+      }
+      
       return entries;
     } catch (error) {
       console.error('❌ Errore caricamento entry Keepass:', error.message);
