@@ -838,23 +838,44 @@ module.exports = (pool, io) => {
   async function sendTelegramNotification(agentId, aziendaId, messageType, data) {
     try {
       // Ottieni configurazione Telegram per questo agent/azienda
+      // Cerca prima una configurazione specifica, poi una globale (NULL)
       const configResult = await pool.query(
         `SELECT bot_token, chat_id, enabled, 
                 notify_agent_offline, notify_ip_changes, 
                 notify_mac_changes, notify_status_changes
          FROM network_telegram_config
-         WHERE (agent_id = $1 OR azienda_id = $2)
-           AND enabled = true
-         ORDER BY agent_id DESC NULLS LAST
+         WHERE enabled = true
+           AND (
+             (agent_id = $1 AND azienda_id = $2)
+             OR (agent_id = $1 AND azienda_id IS NULL)
+             OR (agent_id IS NULL AND azienda_id = $2)
+             OR (agent_id IS NULL AND azienda_id IS NULL)
+           )
+         ORDER BY 
+           CASE WHEN agent_id IS NOT NULL AND azienda_id IS NOT NULL THEN 1
+                WHEN agent_id IS NOT NULL THEN 2
+                WHEN azienda_id IS NOT NULL THEN 3
+                ELSE 4
+           END
          LIMIT 1`,
         [agentId, aziendaId]
       );
 
       if (configResult.rows.length === 0) {
+        console.log(`⚠️ Nessuna configurazione Telegram trovata per agent ${agentId}, azienda ${aziendaId}`);
         return false; // Nessuna configurazione Telegram
       }
 
       const config = configResult.rows[0];
+      console.log(`📋 Configurazione Telegram trovata per agent ${agentId}, azienda ${aziendaId}:`, {
+        enabled: config.enabled,
+        notify_agent_offline: config.notify_agent_offline,
+        notify_ip_changes: config.notify_ip_changes,
+        notify_mac_changes: config.notify_mac_changes,
+        notify_status_changes: config.notify_status_changes,
+        bot_token: config.bot_token ? `${config.bot_token.substring(0, 10)}...` : 'N/A',
+        chat_id: config.chat_id || 'N/A'
+      });
       
       // Verifica se questo tipo di notifica è abilitato
       let shouldNotify = false;
