@@ -245,11 +245,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   }, [getAuthHeader]);
 
   // Carica cambiamenti
-  const loadChanges = useCallback(async (silent = false) => {
+  const loadChanges = useCallback(async (silent = false, companyId = undefined) => {
     try {
       const searchParam = changesSearchTerm ? `&search=${encodeURIComponent(changesSearchTerm)}` : '';
+      // Usa companyId se passato esplicitamente, altrimenti usa selectedCompanyId
+      const aziendaIdToUse = companyId !== undefined ? companyId : selectedCompanyId;
+      const aziendaParam = aziendaIdToUse ? `&azienda_id=${aziendaIdToUse}` : '';
       // Richiedi anche il conteggio delle ultime 24 ore
-      const response = await fetch(buildApiUrl(`/api/network-monitoring/all/changes?limit=500&count24h=true${searchParam}`), {
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/all/changes?limit=500&count24h=true${searchParam}${aziendaParam}`), {
         headers: getAuthHeader()
       });
 
@@ -460,7 +463,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       // Poi ricarica tutti i dati
       await Promise.all([
         loadDevices(),
-        loadChanges(),
+        loadChanges(false, selectedCompanyId),
         selectedCompanyId ? loadCompanyDevices(selectedCompanyId) : Promise.resolve()
       ]);
     } catch (err) {
@@ -620,7 +623,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     const interval = setInterval(() => {
       // Usa modalità "silent" per evitare flicker durante auto-refresh
       loadDevices(true);
-      loadChanges(true);
+      loadChanges(true, selectedCompanyId);
       // Se un'azienda è selezionata, ricarica anche i dispositivi dell'azienda (già silenzioso)
       if (selectedCompanyId) {
         loadCompanyDevices(selectedCompanyId);
@@ -629,6 +632,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
     return () => clearInterval(interval);
   }, [autoRefresh, loadDevices, loadChanges, loadCompanyDevices, selectedCompanyId, showCreateAgentModal]);
+
+  // Ricarica i cambiamenti quando cambia l'azienda selezionata
+  useEffect(() => {
+    loadChanges(false, selectedCompanyId);
+  }, [selectedCompanyId, loadChanges]);
 
   // Ascolta eventi WebSocket per aggiornamenti real-time - DISABILITATO se il modal di creazione è aperto
   useEffect(() => {
@@ -934,8 +942,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 setSelectedCompanyId(companyId);
                 if (companyId) {
                   loadCompanyDevices(companyId);
+                  loadChanges(false, companyId);
                 } else {
                   setCompanyDevices([]);
+                  loadChanges(false, null);
                 }
               }}
               className="px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer min-w-[200px]"

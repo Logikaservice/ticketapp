@@ -2017,6 +2017,7 @@ module.exports = (pool, io) => {
       
       const limit = parseInt(req.query.limit) || 200;
       const searchTerm = req.query.search ? req.query.search.trim() : '';
+      const aziendaId = req.query.azienda_id ? parseInt(req.query.azienda_id) : null;
 
       // Assicurati che la colonna is_static esista (migrazione)
       try {
@@ -2034,6 +2035,7 @@ module.exports = (pool, io) => {
       // Costruisci condizioni di ricerca
       let searchConditions = '';
       let queryParams = [];
+      let paramIndex = 1;
       
       if (searchTerm) {
         const searchPattern = `%${searchTerm}%`;
@@ -2056,21 +2058,34 @@ module.exports = (pool, io) => {
             nd.device_type ILIKE $1
           )`;
           queryParams.push(searchPattern, macSearchPattern);
-      } else {
-        searchConditions = `WHERE (
-          nd.ip_address::text ILIKE $1 OR
-          nd.mac_address ILIKE $1 OR
-          nd.hostname ILIKE $1 OR
-          nc.change_type::text ILIKE $1 OR
-          nc.old_value ILIKE $1 OR
-          nc.new_value ILIKE $1 OR
-          na.agent_name ILIKE $1 OR
-          COALESCE(u.azienda, '') ILIKE $1 OR
-          nd.device_type ILIKE $1
-        )`;
-        queryParams.push(searchPattern);
+        } else {
+          searchConditions = `WHERE (
+            nd.ip_address::text ILIKE $1 OR
+            nd.mac_address ILIKE $1 OR
+            nd.hostname ILIKE $1 OR
+            nc.change_type::text ILIKE $1 OR
+            nc.old_value ILIKE $1 OR
+            nc.new_value ILIKE $1 OR
+            na.agent_name ILIKE $1 OR
+            COALESCE(u.azienda, '') ILIKE $1 OR
+            nd.device_type ILIKE $1
+          )`;
+          queryParams.push(searchPattern);
+        }
       }
-    }
+      
+      // Aggiungi filtro per azienda se specificato
+      if (aziendaId) {
+        if (searchConditions) {
+          // Se c'è già una condizione WHERE, aggiungi AND per l'azienda
+          searchConditions += ` AND na.azienda_id = $${queryParams.length + 1}`;
+          queryParams.push(aziendaId);
+        } else {
+          // Altrimenti crea una nuova condizione WHERE per l'azienda
+          searchConditions = `WHERE na.azienda_id = $1`;
+          queryParams.push(aziendaId);
+        }
+      }
     
     // Se richiesto, conta i cambiamenti delle ultime 24 ore
     // IMPORTANTE: Esegui questa query PRIMA della query principale per evitare timeout
@@ -2078,22 +2093,31 @@ module.exports = (pool, io) => {
     if (req.query.count24h === 'true') {
       try {
         // Costruisci la condizione per le ultime 24 ore (non da mezzanotte!)
+        // Usa NOW() - INTERVAL '24 hours' per calcolare esattamente le ultime 24 ore
+        // Riutilizza searchConditions che già include il filtro azienda se presente
         let count24hCondition = '';
         let countParams = [];
         
         if (searchConditions) {
-          // Se c'è già una condizione WHERE, aggiungi AND per le ultime 24 ore
+          // Se c'è già una condizione WHERE (con ricerca e/o filtro azienda), aggiungi AND per le ultime 24 ore
           count24hCondition = searchConditions + ` AND nc.detected_at >= NOW() - INTERVAL '24 hours'`;
-          countParams = queryParams.slice(0, -1); // Rimuovi il limit dai params
+          countParams = [...queryParams];
         } else {
           // Altrimenti crea una nuova condizione WHERE per le ultime 24 ore
-          count24hCondition = `WHERE nc.detected_at >= NOW() - INTERVAL '24 hours'`;
-          countParams = [];
+          // Se c'è un filtro azienda, aggiungilo anche qui
+          const conditions = [];
+          if (aziendaId) {
+            conditions.push(`na.azienda_id = $1`);
+            countParams.push(aziendaId);
+          }
+          conditions.push(`nc.detected_at >= NOW() - INTERVAL '24 hours'`);
+          count24hCondition = `WHERE ${conditions.join(' AND ')}`;
         }
         
-        // Query semplificata e veloce con timeout
+        // Query semplificata e veloce con COUNT DISTINCT per evitare duplicati
+        // Conta solo cambiamenti unici basati su id, device_id, change_type e detected_at
         const countQuery = `
-          SELECT COUNT(*) as count
+          SELECT COUNT(DISTINCT nc.id) as count
           FROM network_changes nc
           INNER JOIN network_devices nd ON nc.device_id = nd.id
           INNER JOIN network_agents na ON nc.agent_id = na.id
@@ -2109,6 +2133,8 @@ module.exports = (pool, io) => {
         
         const countResult = await Promise.race([countPromise, timeoutPromise]);
         count24h = parseInt(countResult.rows[0].count, 10);
+        
+        console.log(`📊 Conteggio cambiamenti ultime 24h: ${count24h} (query eseguita alle ${new Date().toISOString()})`);
       } catch (countErr) {
         console.warn('⚠️ Errore conteggio 24h (non critico):', countErr.message);
         // Non bloccare la risposta principale se il conteggio fallisce
