@@ -7,7 +7,7 @@ import {
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
   Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit, Menu,
-  CircleAlert, Stethoscope
+  CircleAlert, Stethoscope, Eye, EyeOff
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
@@ -46,6 +46,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [companyDevices, setCompanyDevices] = useState([]);
   const [loadingCompanyDevices, setLoadingCompanyDevices] = useState(false);
+  const [showOfflineDevices, setShowOfflineDevices] = useState(true); // Mostra dispositivi offline di default
   const [changesSearchTerm, setChangesSearchTerm] = useState('');
   // selectedStaticIPs non serve più, usiamo is_static dal database
 
@@ -637,6 +638,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   useEffect(() => {
     loadChanges(false, selectedCompanyId);
   }, [selectedCompanyId, loadChanges]);
+
+  // Resetta il toggle quando cambia l'azienda selezionata
+  useEffect(() => {
+    setShowOfflineDevices(true); // Mostra sempre i dispositivi offline quando si cambia azienda
+  }, [selectedCompanyId]);
 
   // Ascolta eventi WebSocket per aggiornamenti real-time - DISABILITATO se il modal di creazione è aperto
   useEffect(() => {
@@ -1413,32 +1419,67 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               <Building size={24} className="text-purple-600" />
               {companies.find(c => c.id === selectedCompanyId)?.azienda || 'Dispositivi'}
             </h2>
+            <button
+              onClick={() => setShowOfflineDevices(!showOfflineDevices)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                showOfflineDevices
+                  ? 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                  : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
+              }`}
+              title={showOfflineDevices ? 'Nascondi dispositivi offline' : 'Mostra dispositivi offline'}
+            >
+              {showOfflineDevices ? (
+                <>
+                  <EyeOff size={18} />
+                  <span className="text-sm font-medium">Nascondi Offline</span>
+                </>
+              ) : (
+                <>
+                  <Eye size={18} />
+                  <span className="text-sm font-medium">Mostra Offline</span>
+                </>
+              )}
+            </button>
           </div>
           {loadingCompanyDevices ? (
             <div className="p-8 flex items-center justify-center">
               <Loader className="w-8 h-8 animate-spin text-blue-600" />
               <span className="ml-3 text-gray-600">Caricamento dispositivi...</span>
             </div>
-          ) : companyDevices.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">Nessun dispositivo trovato per questa azienda</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12"></th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Prod.</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Titolo</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Utente</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Scan</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {companyDevices.map((device) => {
+          ) : (() => {
+            // Filtra i dispositivi in base al toggle
+            const filteredDevices = companyDevices.filter(device => showOfflineDevices || device.status === 'online');
+            
+            if (companyDevices.length === 0) {
+              return <p className="text-gray-500 text-center py-4">Nessun dispositivo trovato per questa azienda</p>;
+            }
+            
+            if (filteredDevices.length === 0) {
+              return (
+                <p className="text-gray-500 text-center py-4">
+                  Nessun dispositivo online. Attiva "Mostra Offline" per vedere tutti i dispositivi.
+                </p>
+              );
+            }
+            
+            return (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12"></th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Prod.</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Titolo</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Utente</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Scan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredDevices.map((device) => {
                     const isStatic = device.is_static === true;
                     return (
                       <tr 
@@ -1597,7 +1638,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 </tbody>
               </table>
             </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
