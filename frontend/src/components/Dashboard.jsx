@@ -932,11 +932,11 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         
         // I clienti usano l'endpoint Drive (legge da Google Drive, filtrato per azienda)
         // I tecnici usano l'endpoint database tradizionale
-        const endpoint = userRole === 'cliente' 
-          ? `${apiBase}/api/keepass/search-drive?q=${encodeURIComponent(term || '')}`
-          : `${apiBase}/api/keepass/search?q=${encodeURIComponent(term)}`;
+        const searchPath = userRole === 'cliente' 
+          ? `/api/keepass/search-drive?q=${encodeURIComponent(term || '')}`
+          : `/api/keepass/search?q=${encodeURIComponent(term)}`;
         
-        const response = await fetch(endpoint, {
+        const response = await fetch(buildApiUrl(searchPath), {
           headers: {
             ...authHeader,
             'x-user-id': currentUser?.id?.toString() || authHeader['x-user-id'] || '',
