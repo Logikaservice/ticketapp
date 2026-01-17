@@ -1475,7 +1475,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Titolo</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Utente</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Scan</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Scan</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1631,7 +1631,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                       <td className="py-3 px-4">
                         <StatusBadge status={device.status} />
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-500">{formatDate(device.last_seen)}</td>
+                      <td className="py-3 px-4 text-sm text-gray-500 whitespace-nowrap">{formatDate(device.last_seen)}</td>
                     </tr>
                     );
                   })}
