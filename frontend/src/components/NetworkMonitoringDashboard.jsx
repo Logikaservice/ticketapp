@@ -612,7 +612,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   // Carica dati iniziali
   useEffect(() => {
     loadDevices();
-    loadChanges();
+    loadChanges(false, selectedCompanyId);
     loadAgents();
     loadCompanies();
   }, [loadDevices, loadChanges, loadAgents, loadCompanies]);
@@ -655,7 +655,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       // Usa modalità "silent" per evitare flicker (gli aggiornamenti WebSocket sono già real-time)
       if (!showCreateAgentModal) {
         loadDevices(true);
-        loadChanges(true);
+        loadChanges(true, selectedCompanyId);
         
         // Se l'evento riguarda un cambio di status dell'agent, ricarica anche la lista agenti
         if (data && data.type === 'agent-status-changed') {
@@ -691,11 +691,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   // Ricarica cambiamenti quando cambia il termine di ricerca (con debounce)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      loadChanges();
+      loadChanges(false, selectedCompanyId);
     }, 300); // Debounce di 300ms
 
     return () => clearTimeout(timeoutId);
-  }, [changesSearchTerm, loadChanges]);
+  }, [changesSearchTerm, selectedCompanyId, loadChanges]);
 
   // Icona dispositivo per tipo
   const getDeviceIcon = (deviceType) => {
@@ -1659,7 +1659,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    loadChanges();
+                    loadChanges(false, selectedCompanyId);
                   }
                 }}
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
@@ -1668,7 +1668,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 <button
                   onClick={() => {
                     setChangesSearchTerm('');
-                    loadChanges();
+                    loadChanges(false, selectedCompanyId);
                   }}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
@@ -1762,7 +1762,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             if (shouldRefresh) {
               setTimeout(() => {
                 loadDevices();
-                loadChanges();
+                loadChanges(false, selectedCompanyId);
                 loadAgents();
                 // opzionale: aggiorna lista aziende (se UI mostra conteggi o dropdown dipende dal backend)
                 loadCompanies();
