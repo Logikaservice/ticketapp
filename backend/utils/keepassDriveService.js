@@ -322,27 +322,38 @@ class KeepassDriveService {
         const currentPath = groupPath ? `${groupPath} > ${group.name || 'Root'}` : (group.name || 'Root');
         
         // Se è specificata un'azienda, verifica se il percorso appartiene all'azienda
+        // IMPORTANTE: Verifica solo il primo segmento dopo "gestione"
+        // Deve essere un match IDENTICO esatto (case-insensitive) - nessuna variazione accettata
         let shouldInclude = true;
         if (aziendaName) {
-          // Funzione per normalizzare un nome (rimuovi spazi, lowercase, rimuovi caratteri speciali)
-          const normalizeName = (name) => {
-            if (!name) return '';
-            return name.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
-          };
-          
-          // Normalizza il nome azienda una volta
-          const normalizedAziendaName = normalizeName(aziendaName);
-          
           // Dividi il percorso in segmenti (separati da ">")
           const pathSegments = currentPath.split('>').map(seg => seg.trim()).filter(seg => seg);
           
-          // Verifica se uno dei segmenti del percorso corrisponde esattamente al nome azienda (normalizzato)
-          // Il match deve essere esatto normalizzato per evitare match parziali (es. "Theorica2" non deve matchare "Theorica")
-          shouldInclude = pathSegments.some(segment => {
-            const normalizedSegment = normalizeName(segment);
-            // Match esatto normalizzato: gestisce anche variazioni di spazi (es. "Theorica" = "Theo rica")
-            return normalizedSegment === normalizedAziendaName;
-          });
+          // Cerca "gestione" nel percorso (case-insensitive)
+          const gestioneIndex = pathSegments.findIndex(seg => seg.toLowerCase() === 'gestione');
+          
+          if (gestioneIndex === -1) {
+            // Se non c'è "gestione", escludi tutto
+            shouldInclude = false;
+          } else {
+            // Prendi il segmento immediatamente dopo "gestione"
+            const aziendaSegmentIndex = gestioneIndex + 1;
+            
+            if (aziendaSegmentIndex >= pathSegments.length) {
+              // Se non c'è un segmento dopo "gestione", escludi tutto
+              shouldInclude = false;
+            } else {
+              const aziendaSegmentInPath = pathSegments[aziendaSegmentIndex];
+              
+              // Confronto ESATTO case-insensitive (NO normalizzazione di spazi/caratteri speciali)
+              // "Theorica" deve matchare "Theorica", "theorica", "THEORICA" ma NON "theorica_old", "Theorica qualcosa"
+              const aziendaNameNormalized = aziendaName.trim().toLowerCase();
+              const segmentNormalized = aziendaSegmentInPath.trim().toLowerCase();
+              
+              // Match identico esatto: solo case-insensitive, nessuna altra variazione
+              shouldInclude = (aziendaNameNormalized === segmentNormalized);
+            }
+          }
           
           if (!shouldInclude) {
             // Salta questo gruppo e i suoi figli se non appartiene all'azienda
