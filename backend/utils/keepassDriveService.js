@@ -346,23 +346,24 @@ class KeepassDriveService {
             } else {
               const aziendaSegmentInPath = pathSegments[aziendaSegmentIndex];
               
-              // Raccogli il nome azienda trovato dopo "gestione" per debug
+              // IMPORTANTE: Raccogli SOLO il segmento direttamente dopo "gestione"
+              // Non raccogliere segmenti più profondi (es. "Theorica_old" in "gestione > dismessi > Theorica_old")
               foundAziendeAfterGestione.add(aziendaSegmentInPath.trim());
               
-              // Confronto case-insensitive
-              // Match esatto: "Theorica" = "Theorica", "theorica", "THEORICA"
-              // Match con underscore: "Theorica" = "Theorica_old", "Theorica_new" (solo se inizia con il nome seguito da underscore)
+              // Confronto ESATTO case-insensitive
+              // "Theorica" deve matchare SOLO "Theorica", "theorica", "THEORICA"
+              // NON deve matchare "Theorica_old", "Theorica_new", ecc.
+              // NON deve matchare "Theorica_old" anche se è in "gestione > dismessi > Theorica_old" (il segmento dopo "gestione" è "dismessi", non "Theorica_old")
               const aziendaNameNormalized = aziendaName.trim().toLowerCase();
               const segmentNormalized = aziendaSegmentInPath.trim().toLowerCase();
               
-              // Match identico esatto
-              const exactMatch = (aziendaNameNormalized === segmentNormalized);
+              // Match IDENTICO esatto: solo case-insensitive, nessuna variazione accettata
+              shouldInclude = (aziendaNameNormalized === segmentNormalized);
               
-              // Match con underscore (es. "Theorica" matcha "Theorica_old")
-              // Il nome in Keepass deve iniziare esattamente con il nome azienda seguito da underscore
-              const underscoreMatch = segmentNormalized.startsWith(aziendaNameNormalized + '_');
-              
-              shouldInclude = (exactMatch || underscoreMatch);
+              // Log per debug (solo per match/non-match interessanti)
+              if (!shouldInclude && segmentNormalized.includes(aziendaNameNormalized)) {
+                console.log(`  ⚠️ Segmento "${aziendaSegmentInPath}" dopo "gestione" non matcha "${aziendaName}" (percorso: "${currentPath}")`);
+              }
             }
           }
           
