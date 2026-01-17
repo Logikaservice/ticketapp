@@ -48,6 +48,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [loadingCompanyDevices, setLoadingCompanyDevices] = useState(false);
   const [showOfflineDevices, setShowOfflineDevices] = useState(true); // Mostra dispositivi offline di default
   const [changesSearchTerm, setChangesSearchTerm] = useState('');
+  const [ipContextMenu, setIpContextMenu] = useState({ show: false, ip: '', x: 0, y: 0 });
   // selectedStaticIPs non serve più, usiamo is_static dal database
 
   const [editingAgentId, setEditingAgentId] = useState(null);
@@ -644,6 +645,20 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     setShowOfflineDevices(true); // Mostra sempre i dispositivi offline quando si cambia azienda
   }, [selectedCompanyId]);
 
+  // Chiude il menu contestuale quando si preme ESC
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && ipContextMenu.show) {
+        closeIpContextMenu();
+      }
+    };
+    
+    if (ipContextMenu.show) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [ipContextMenu.show]);
+
   // Ascolta eventi WebSocket per aggiornamenti real-time - DISABILITATO se il modal di creazione è aperto
   useEffect(() => {
     if (!socket || showCreateAgentModal) return; // Non aggiornare se il modal è aperto
@@ -770,6 +785,69 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // Gestisce il click sull'IP per mostrare il menu contestuale
+  const handleIpClick = (e, ip) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIpContextMenu({
+      show: true,
+      ip: ip,
+      x: e.clientX,
+      y: e.clientY
+    });
+  };
+
+  // Chiude il menu contestuale
+  const closeIpContextMenu = () => {
+    setIpContextMenu({ show: false, ip: '', x: 0, y: 0 });
+  };
+
+  // Apre PowerShell/CMD con comando ping
+  const handlePing = (ip) => {
+    closeIpContextMenu();
+    
+    // Crea un file .bat con il comando ping continuo
+    const batContent = `@echo off
+chcp 65001 >nul
+title Ping continuo a ${ip}
+color 0A
+echo ========================================
+echo    PING CONTINUO A ${ip}
+echo ========================================
+echo.
+echo Premere CTRL+C per interrompere
+echo.
+ping ${ip} -t
+pause`;
+    
+    const blob = new Blob([batContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ping_${ip.replace(/\./g, '_')}.bat`;
+    
+    // Scarica il file
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Pulisci l'URL
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 100);
+    
+    // Mostra un messaggio informativo
+    setTimeout(() => {
+      alert(`File batch creato: ping_${ip.replace(/\./g, '_')}.bat\n\nIl file è stato scaricato nella cartella Downloads.\nEseguilo per avviare il ping continuo a ${ip}.`);
+    }, 300);
+  };
+
+  // Apre l'IP nel browser
+  const handleWeb = (ip) => {
+    closeIpContextMenu();
+    window.open(`http://${ip}`, '_blank');
   };
 
   // Filtra e ordina dispositivi
@@ -1575,7 +1653,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 </button>
                               </div>
                             )}
-                            <span>{device.ip_address}</span>
+                            <span 
+                              onClick={(e) => handleIpClick(e, device.ip_address)}
+                              className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                              title="Clicca per opzioni"
+                            >
+                              {device.ip_address}
+                            </span>
                           </div>
                         </td>
                       <td className="py-3 px-4 text-sm font-mono text-gray-600">
@@ -1641,6 +1725,42 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             );
           })()}
         </div>
+      )}
+
+      {/* Menu contestuale per IP */}
+      {ipContextMenu.show && (
+        <>
+          {/* Overlay per chiudere il menu cliccando fuori */}
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={closeIpContextMenu}
+          />
+          {/* Menu contestuale */}
+          <div 
+            className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 py-2 min-w-[150px]"
+            style={{
+              left: `${ipContextMenu.x}px`,
+              top: `${ipContextMenu.y}px`,
+              transform: 'translate(-50%, 10px)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => handlePing(ipContextMenu.ip)}
+              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors"
+            >
+              <Activity size={16} />
+              Ping
+            </button>
+            <button
+              onClick={() => handleWeb(ipContextMenu.ip)}
+              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors"
+            >
+              <Monitor size={16} />
+              Web
+            </button>
+          </div>
+        </>
       )}
 
       {/* Sezione cambiamenti recenti - PRIORITARIA */}
