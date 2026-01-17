@@ -901,13 +901,25 @@ module.exports = (pool, io) => {
       }
 
       // Inizializza bot se non già fatto o aggiorna se token/chat cambiati
-      telegramService.initialize(config.bot_token, config.chat_id);
+      const initResult = telegramService.initialize(config.bot_token, config.chat_id);
+      if (!initResult) {
+        console.error('❌ Errore inizializzazione TelegramService per agent', agentId, 'azienda', aziendaId);
+        return false;
+      }
 
       // Invia messaggio
+      console.log(`📤 Invio notifica Telegram (${messageType}) per agent ${agentId}, azienda ${aziendaId}`);
       const result = await telegramService.sendMessage(message);
-      return result && result.success ? true : false;
+      
+      if (result && result.success) {
+        console.log(`✅ Notifica Telegram inviata con successo (${messageType})`);
+        return true;
+      } else {
+        console.error(`❌ Errore invio notifica Telegram (${messageType}):`, result?.error || 'Errore sconosciuto');
+        return false;
+      }
     } catch (error) {
-      console.error('❌ Errore invio notifica Telegram:', error);
+      console.error('❌ Errore invio notifica Telegram:', error.message, error.stack);
       return false;
     }
   }
@@ -4229,6 +4241,115 @@ pause
     } catch (err) {
       console.error('❌ Errore rimozione configurazione Telegram:', err);
       res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // POST /api/network-monitoring/telegram/simulate-event
+  // Simula un evento reale per testare le notifiche Telegram
+  router.post('/telegram/simulate-event', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { event_type, agent_id, azienda_id } = req.body;
+
+      if (!event_type) {
+        return res.status(400).json({ error: 'event_type richiesto' });
+      }
+
+      // Ottieni agent_id e azienda_id se non forniti
+      let finalAgentId = agent_id;
+      let finalAziendaId = azienda_id;
+
+      if (!finalAgentId || !finalAziendaId) {
+        // Prendi il primo agent disponibile
+        const agentResult = await pool.query(
+          'SELECT id, azienda_id, agent_name FROM network_agents WHERE deleted_at IS NULL AND enabled = true LIMIT 1'
+        );
+        
+        if (agentResult.rows.length === 0) {
+          return res.status(404).json({ error: 'Nessun agent disponibile per il test' });
+        }
+
+        finalAgentId = finalAgentId || agentResult.rows[0].id;
+        finalAziendaId = finalAziendaId || agentResult.rows[0].azienda_id;
+      }
+
+      console.log(`🧪 Simulazione evento ${event_type} per agent ${finalAgentId}, azienda ${finalAziendaId}`);
+
+      // Prepara dati di test in base al tipo di evento
+      let testData = {};
+      
+      switch (event_type) {
+        case 'agent_offline':
+          const agentInfo = await pool.query(
+            'SELECT agent_name, last_heartbeat FROM network_agents WHERE id = $1',
+            [finalAgentId]
+          );
+          testData = {
+            agentName: agentInfo.rows[0]?.agent_name || 'Test Agent',
+            lastHeartbeat: agentInfo.rows[0]?.last_heartbeat || new Date()
+          };
+          break;
+
+        case 'ip_changed':
+          testData = {
+            hostname: 'Test Device',
+            mac: 'AA:BB:CC:DD:EE:FF',
+            oldIP: '192.168.1.100',
+            newIP: '192.168.1.101',
+            agentName: 'Test Agent'
+          };
+          break;
+
+        case 'mac_changed':
+          testData = {
+            hostname: 'Test Device',
+            ip: '192.168.1.100',
+            oldMAC: 'AA:BB:CC:DD:EE:FF',
+            newMAC: '11:22:33:44:55:66',
+            agentName: 'Test Agent'
+          };
+          break;
+
+        case 'status_changed':
+          testData = {
+            hostname: 'Test Device',
+            ip: '192.168.1.100',
+            mac: 'AA:BB:CC:DD:EE:FF',
+            oldStatus: 'offline',
+            status: 'online',
+            agentName: 'Test Agent'
+          };
+          break;
+
+        default:
+          return res.status(400).json({ error: `Tipo evento non valido: ${event_type}` });
+      }
+
+      // Chiama la funzione di notifica come se fosse un evento reale
+      const result = await sendTelegramNotification(finalAgentId, finalAziendaId, event_type, testData);
+
+      if (result) {
+        res.json({ 
+          success: true, 
+          message: `Evento ${event_type} simulato e notifica inviata`,
+          event_type,
+          agent_id: finalAgentId,
+          azienda_id: finalAziendaId
+        });
+      } else {
+        res.status(500).json({ 
+          success: false,
+          error: 'Notifica non inviata. Verifica la configurazione Telegram e i log del backend.',
+          event_type,
+          agent_id: finalAgentId,
+          azienda_id: finalAziendaId
+        });
+      }
+    } catch (err) {
+      console.error('❌ Errore simulazione evento Telegram:', err);
+      res.status(500).json({ 
+        error: 'Errore interno del server',
+        details: err.message 
+      });
     }
   });
 
