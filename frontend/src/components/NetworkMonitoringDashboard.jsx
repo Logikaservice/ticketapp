@@ -804,44 +804,33 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     setIpContextMenu({ show: false, ip: '', x: 0, y: 0 });
   };
 
-  // Apre PowerShell/CMD con comando ping
+  // Apre PowerShell/CMD con comando ping direttamente
   const handlePing = (ip) => {
     closeIpContextMenu();
     
-    // Crea un file .bat con il comando ping continuo
-    const batContent = `@echo off
-chcp 65001 >nul
-title Ping continuo a ${ip}
-color 0A
-echo ========================================
-echo    PING CONTINUO A ${ip}
-echo ========================================
-echo.
-echo Premere CTRL+C per interrompere
-echo.
-ping ${ip} -t
-pause`;
-    
-    const blob = new Blob([batContent], { type: 'text/plain;charset=utf-8' });
+    // Su Windows, crea un file .bat temporaneo che viene eseguito immediatamente
+    // Questo è l'unico modo pratico per aprire PowerShell/CMD da un browser web
+    const batContent = `@echo off\nchcp 65001 >nul\ntitle Ping continuo a ${ip}\ncolor 0A\necho PING CONTINUO A ${ip}\necho.\necho Premere CTRL+C per interrompere\necho.\nping ${ip} -t\npause`;
+    const blob = new Blob([batContent], { type: 'application/x-msdos-program' });
     const url = URL.createObjectURL(blob);
+    
+    // Crea un link per il download
     const link = document.createElement('a');
     link.href = url;
     link.download = `ping_${ip.replace(/\./g, '_')}.bat`;
     
-    // Scarica il file
+    // Clicca il link per avviare il download
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
     
-    // Pulisci l'URL
+    // Pulisci immediatamente dopo il click
     setTimeout(() => {
+      document.body.removeChild(link);
       URL.revokeObjectURL(url);
-    }, 100);
-    
-    // Mostra un messaggio informativo
-    setTimeout(() => {
-      alert(`File batch creato: ping_${ip.replace(/\./g, '_')}.bat\n\nIl file è stato scaricato nella cartella Downloads.\nEseguilo per avviare il ping continuo a ${ip}.`);
-    }, 300);
+      
+      // Nota: Il browser potrebbe chiedere conferma prima di aprire/eseguire il file .bat
+      // Questo è un comportamento normale per sicurezza. L'utente deve confermare l'apertura.
+    }, 50);
   };
 
   // Apre l'IP nel browser

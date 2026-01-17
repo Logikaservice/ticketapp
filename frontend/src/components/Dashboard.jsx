@@ -926,11 +926,19 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       try {
         setKeepassSearchLoadingResults(true);
         const authHeader = getAuthHeader();
-        const response = await fetch(`${apiBase}/api/keepass/search?q=${encodeURIComponent(term)}`, {
+        const userRole = currentUser?.ruolo || '';
+        
+        // I clienti usano l'endpoint Drive (legge da Google Drive, filtrato per azienda)
+        // I tecnici usano l'endpoint database tradizionale
+        const endpoint = userRole === 'cliente' 
+          ? `${apiBase}/api/keepass/search-drive?q=${encodeURIComponent(term)}`
+          : `${apiBase}/api/keepass/search?q=${encodeURIComponent(term)}`;
+        
+        const response = await fetch(endpoint, {
           headers: {
             ...authHeader,
             'x-user-id': currentUser?.id?.toString() || authHeader['x-user-id'] || '',
-            'x-user-role': currentUser?.ruolo || ''
+            'x-user-role': userRole
           }
         });
 

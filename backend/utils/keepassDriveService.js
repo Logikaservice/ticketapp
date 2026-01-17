@@ -293,6 +293,122 @@ class KeepassDriveService {
   }
 
   /**
+   * Carica tutte le entry Keepass filtrate per percorso azienda
+   * @param {string} password - Password del file Keepass
+   * @param {string} aziendaName - Nome azienda per filtrare (es. "Theorica")
+   * @returns {Array} Array di entry Keepass con tutti i campi
+   */
+  async getAllEntriesByAzienda(password, aziendaName = null) {
+    try {
+      console.log('🔄 Caricamento entry Keepass da Drive...');
+      if (aziendaName) {
+        console.log(`   Filtro per azienda: "${aziendaName}"`);
+      }
+
+      // Scarica il file da Google Drive
+      const fileData = await this.downloadKeepassFile(password);
+      const fileBuffer = fileData.buffer;
+
+      // Carica il file KDBX
+      const credentials = new Credentials(ProtectedValue.fromString(password));
+      const db = await Kdbx.load(fileBuffer.buffer, credentials);
+
+      console.log(`✅ File KDBX caricato: ${db.name || 'Senza nome'}`);
+
+      const entries = [];
+
+      // Funzione ricorsiva per processare gruppi ed entry
+      const processGroup = (group, groupPath = '') => {
+        const currentPath = groupPath ? `${groupPath} > ${group.name || 'Root'}` : (group.name || 'Root');
+        
+        // Se è specificata un'azienda, verifica se il percorso contiene il nome azienda
+        let shouldInclude = true;
+        if (aziendaName) {
+          // Normalizza il nome azienda per il confronto (rimuovi spazi, case insensitive)
+          const normalizedAziendaName = aziendaName.toLowerCase().replace(/\s+/g, '');
+          const normalizedPath = currentPath.toLowerCase().replace(/\s+/g, '');
+          
+          // Cerca il nome azienda nel percorso (con variazione spazi, es. "Theorica" -> "Theo rica")
+          const aziendaVariations = [
+            normalizedAziendaName,
+            normalizedAziendaName.replace(/(.)/g, '$1 ').trim(), // Aggiungi spazi tra caratteri
+            normalizedAziendaName.replace(/\s/g, ''), // Rimuovi spazi
+          ];
+          
+          // Inoltre, cerca il nome originale con spazi
+          if (aziendaName.includes(' ')) {
+            aziendaVariations.push(aziendaName.toLowerCase());
+          }
+          
+          // Verifica se il percorso contiene una delle varianti
+          shouldInclude = aziendaVariations.some(variant => normalizedPath.includes(variant));
+          
+          if (!shouldInclude) {
+            // Salta questo gruppo e i suoi figli se non corrisponde all'azienda
+            return;
+          }
+        }
+        
+        // Processa le entry del gruppo
+        if (group.entries && group.entries.length > 0) {
+          for (const entry of group.entries) {
+            // Estrai tutti i campi dell'entry
+            const titleField = entry.fields && entry.fields['Title'];
+            const title = titleField ? (titleField instanceof ProtectedValue ? titleField.getText() : String(titleField)) : '';
+            
+            const usernameField = entry.fields && entry.fields['UserName'];
+            const username = usernameField ? (usernameField instanceof ProtectedValue ? usernameField.getText() : String(usernameField)) : '';
+            
+            const passwordField = entry.fields && entry.fields['Password'];
+            const password = passwordField ? (passwordField instanceof ProtectedValue ? passwordField.getText() : String(passwordField)) : '';
+            
+            const urlField = entry.fields && entry.fields['URL'];
+            const url = urlField ? (urlField instanceof ProtectedValue ? urlField.getText() : String(urlField)) : '';
+            
+            const notesField = entry.fields && entry.fields['Notes'];
+            const notes = notesField ? (notesField instanceof ProtectedValue ? notesField.getText() : String(notesField)) : '';
+            
+            // Salta entry senza password
+            if (!password || password.trim() === '') {
+              continue;
+            }
+            
+            entries.push({
+              title: title || 'Senza titolo',
+              username: username || '',
+              password: password, // Password in chiaro (sarà criptata prima di essere inviata)
+              url: url || '',
+              notes: notes || '',
+              groupPath: currentPath,
+              icon_id: entry.icon ? entry.icon.id : 0
+            });
+          }
+        }
+
+        // Processa i sottogruppi
+        if (group.groups && group.groups.length > 0) {
+          for (const subGroup of group.groups) {
+            processGroup(subGroup, currentPath);
+          }
+        }
+      };
+
+      // Processa tutti i gruppi root
+      if (db.groups && db.groups.length > 0) {
+        for (const group of db.groups) {
+          processGroup(group);
+        }
+      }
+
+      console.log(`✅ Entry Keepass caricate: ${entries.length} entry${aziendaName ? ` filtrate per "${aziendaName}"` : ''}`);
+      return entries;
+    } catch (error) {
+      console.error('❌ Errore caricamento entry Keepass:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Verifica se il file KeePass è stato modificato su Google Drive
    */
   async checkFileModified(password) {

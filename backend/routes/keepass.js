@@ -7,6 +7,7 @@ const fs = require('fs');
 const xml2js = require('xml2js');
 const crypto = require('crypto');
 const { requireRole } = require('../middleware/authMiddleware');
+const keepassDriveService = require('../utils/keepassDriveService');
 
 module.exports = function createKeepassRouter(pool) {
   const router = express.Router();
@@ -1172,6 +1173,82 @@ module.exports = function createKeepassRouter(pool) {
     } catch (err) {
       console.error('❌ Errore ricerca KeePass:', err);
       res.status(500).json({ error: 'Errore durante la ricerca' });
+    }
+  });
+
+  // GET /api/keepass/search-drive - Ricerca password da Keepass Drive filtrata per azienda
+  // Legge direttamente da Google Drive senza bisogno di import XML
+  router.get('/search-drive', async (req, res) => {
+    try {
+      const userId = req.user?.id || req.headers['x-user-id'];
+      const role = req.user?.ruolo || (req.headers['x-user-role'] || '').toString();
+      const searchTerm = req.query.q || '';
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Utente non autenticato' });
+      }
+
+      // Ottieni il nome azienda dell'utente se è cliente
+      let aziendaName = null;
+      if (role === 'cliente') {
+        const userResult = await pool.query('SELECT azienda FROM users WHERE id = $1', [userId]);
+        if (userResult.rows.length > 0 && userResult.rows[0].azienda) {
+          aziendaName = userResult.rows[0].azienda;
+          console.log(`📋 Ricerca password per azienda: "${aziendaName}"`);
+        }
+      } else if (role === 'tecnico') {
+        // I tecnici possono specificare un'azienda opzionalmente
+        aziendaName = req.query.azienda || null;
+      } else {
+        return res.status(403).json({ error: 'Ruolo non autorizzato' });
+      }
+
+      if (!aziendaName) {
+        return res.status(400).json({ error: 'Nome azienda non specificato' });
+      }
+
+      // Ottieni la password Keepass dall'environment
+      const keepassPassword = process.env.KEEPASS_PASSWORD;
+      if (!keepassPassword) {
+        return res.status(500).json({ error: 'Password Keepass non configurata' });
+      }
+
+      // Carica tutte le entry Keepass filtrate per azienda
+      const allEntries = await keepassDriveService.getAllEntriesByAzienda(keepassPassword, aziendaName);
+
+      // Se c'è un termine di ricerca, filtra i risultati
+      const cleanTerm = searchTerm.trim().toLowerCase();
+      let filteredEntries = allEntries;
+
+      if (cleanTerm && cleanTerm.length >= 2) {
+        filteredEntries = allEntries.filter(entry => {
+          const titleMatch = entry.title && entry.title.toLowerCase().includes(cleanTerm);
+          const usernameMatch = entry.username && entry.username.toLowerCase().includes(cleanTerm);
+          const urlMatch = entry.url && entry.url.toLowerCase().includes(cleanTerm);
+          const notesMatch = entry.notes && entry.notes.toLowerCase().includes(cleanTerm);
+          const groupMatch = entry.groupPath && entry.groupPath.toLowerCase().includes(cleanTerm);
+          
+          return titleMatch || usernameMatch || urlMatch || notesMatch || groupMatch;
+        });
+      }
+
+      // Cripta le password prima di inviarle
+      const results = filteredEntries.slice(0, 15).map(entry => ({
+        title: entry.title || 'Senza titolo',
+        username: entry.username || '',
+        password_encrypted: encryptPassword(entry.password), // Cripta la password
+        url: entry.url || '',
+        notes: entry.notes || '',
+        groupPath: entry.groupPath || '',
+        icon_id: entry.icon_id || 0
+      }));
+
+      console.log(`✅ Ricerca Keepass Drive completata: ${results.length} risultati${searchTerm ? ` per "${searchTerm}"` : ''} per azienda "${aziendaName}"`);
+
+      res.json({ results });
+    } catch (err) {
+      console.error('❌ Errore ricerca KeePass Drive:', err);
+      res.status(500).json({ error: 'Errore durante la ricerca', details: err.message });
     }
   });
 
