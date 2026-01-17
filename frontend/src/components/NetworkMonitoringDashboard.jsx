@@ -774,9 +774,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     const diffDays = Math.floor(diffMs / 86400000);
 
     if (diffMins < 1) return 'Ora';
-    if (diffMins < 60) return `${diffMins} min fa`;
-    if (diffHours < 24) return `${diffHours} ore fa`;
-    if (diffDays < 7) return `${diffDays} giorni fa`;
+    if (diffMins < 60) return `${diffMins} min`;
+    if (diffHours < 24) return `${diffHours} ore`;
+    if (diffDays < 7) return `${diffDays} giorni`;
     
     return date.toLocaleDateString('it-IT', {
       day: '2-digit',
