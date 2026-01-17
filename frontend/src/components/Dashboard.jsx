@@ -912,8 +912,11 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     }
 
     const term = keepassSearchQuery.trim().toLowerCase().replace(/^["']+|["']+$/g, '').trim();
+    const userRole = currentUser?.ruolo || '';
 
-    if (term.length < 2) {
+    // Per i clienti, permetti la ricerca anche senza termine (mostra tutte le password dell'azienda)
+    // Per i tecnici, richiedi almeno 2 caratteri (come prima)
+    if (userRole !== 'cliente' && term.length < 2) {
       setKeepassSearchResults([]);
       return;
     }
@@ -926,12 +929,11 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       try {
         setKeepassSearchLoadingResults(true);
         const authHeader = getAuthHeader();
-        const userRole = currentUser?.ruolo || '';
         
         // I clienti usano l'endpoint Drive (legge da Google Drive, filtrato per azienda)
         // I tecnici usano l'endpoint database tradizionale
         const endpoint = userRole === 'cliente' 
-          ? `${apiBase}/api/keepass/search-drive?q=${encodeURIComponent(term)}`
+          ? `${apiBase}/api/keepass/search-drive?q=${encodeURIComponent(term || '')}`
           : `${apiBase}/api/keepass/search?q=${encodeURIComponent(term)}`;
         
         const response = await fetch(endpoint, {
