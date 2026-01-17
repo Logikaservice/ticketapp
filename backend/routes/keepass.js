@@ -1235,15 +1235,14 @@ module.exports = function createKeepassRouter(pool) {
       let filteredEntries = allEntries;
 
       if (cleanTerm && cleanTerm.length >= 2) {
-        console.log(`🔍 Filtro ricerca applicato: "${cleanTerm}"`);
+        console.log(`🔍 Filtro ricerca applicato: "${cleanTerm}" (solo campo "Nome utente", match "inizia con")`);
         filteredEntries = allEntries.filter(entry => {
-          const titleMatch = entry.title && entry.title.toLowerCase().includes(cleanTerm);
-          const usernameMatch = entry.username && entry.username.toLowerCase().includes(cleanTerm);
-          const urlMatch = entry.url && entry.url.toLowerCase().includes(cleanTerm);
-          const notesMatch = entry.notes && entry.notes.toLowerCase().includes(cleanTerm);
-          const groupMatch = entry.groupPath && entry.groupPath.toLowerCase().includes(cleanTerm);
-          
-          return titleMatch || usernameMatch || urlMatch || notesMatch || groupMatch;
+          // Ricerca SOLO nel campo "Nome utente" (username)
+          // Match "inizia con" (startsWith) invece di "contiene" (includes)
+          // Es. "francesco" trova "francesco", "francesco123" ma NON "fran" o "alfran"
+          if (!entry.username) return false;
+          const usernameLower = entry.username.toLowerCase();
+          return usernameLower.startsWith(cleanTerm);
         });
         console.log(`📊 Entry dopo filtro ricerca: ${filteredEntries.length} (da ${allEntries.length})`);
       } else {
