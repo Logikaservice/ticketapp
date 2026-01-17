@@ -321,30 +321,31 @@ class KeepassDriveService {
       const processGroup = (group, groupPath = '') => {
         const currentPath = groupPath ? `${groupPath} > ${group.name || 'Root'}` : (group.name || 'Root');
         
-        // Se è specificata un'azienda, verifica se il percorso contiene il nome azienda
+        // Se è specificata un'azienda, verifica se il percorso appartiene all'azienda
         let shouldInclude = true;
         if (aziendaName) {
-          // Normalizza il nome azienda per il confronto (rimuovi spazi, case insensitive)
-          const normalizedAziendaName = aziendaName.toLowerCase().replace(/\s+/g, '');
-          const normalizedPath = currentPath.toLowerCase().replace(/\s+/g, '');
+          // Funzione per normalizzare un nome (rimuovi spazi, lowercase, rimuovi caratteri speciali)
+          const normalizeName = (name) => {
+            if (!name) return '';
+            return name.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
+          };
           
-          // Cerca il nome azienda nel percorso (con variazione spazi, es. "Theorica" -> "Theo rica")
-          const aziendaVariations = [
-            normalizedAziendaName,
-            normalizedAziendaName.replace(/(.)/g, '$1 ').trim(), // Aggiungi spazi tra caratteri
-            normalizedAziendaName.replace(/\s/g, ''), // Rimuovi spazi
-          ];
+          // Normalizza il nome azienda una volta
+          const normalizedAziendaName = normalizeName(aziendaName);
           
-          // Inoltre, cerca il nome originale con spazi
-          if (aziendaName.includes(' ')) {
-            aziendaVariations.push(aziendaName.toLowerCase());
-          }
+          // Dividi il percorso in segmenti (separati da ">")
+          const pathSegments = currentPath.split('>').map(seg => seg.trim()).filter(seg => seg);
           
-          // Verifica se il percorso contiene una delle varianti
-          shouldInclude = aziendaVariations.some(variant => normalizedPath.includes(variant));
+          // Verifica se uno dei segmenti del percorso corrisponde esattamente al nome azienda (normalizzato)
+          // Il match deve essere esatto normalizzato per evitare match parziali (es. "Theorica2" non deve matchare "Theorica")
+          shouldInclude = pathSegments.some(segment => {
+            const normalizedSegment = normalizeName(segment);
+            // Match esatto normalizzato: gestisce anche variazioni di spazi (es. "Theorica" = "Theo rica")
+            return normalizedSegment === normalizedAziendaName;
+          });
           
           if (!shouldInclude) {
-            // Salta questo gruppo e i suoi figli se non corrisponde all'azienda
+            // Salta questo gruppo e i suoi figli se non appartiene all'azienda
             return;
           }
         }
