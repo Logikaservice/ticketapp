@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table, Wifi, Server as ServerIcon } from 'lucide-react';
 import AgentNotifications from './AgentNotifications';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, openNetworkMonitoring, openNetworkMonitoringAgents, openNetworkMonitoringCreateAgent, openNetworkMonitoringDeviceTypes, isOrariDomain = false, getAuthHeader = null, socket = null }) => {
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, openNetworkMonitoring, openNetworkMonitoringAgents, openNetworkMonitoringCreateAgent, openNetworkMonitoringDeviceTypes, isOrariDomain = false, getAuthHeader = null, socket = null }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [expandedAction, setExpandedAction] = useState(null);
@@ -33,7 +33,6 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       setExpandedAction(expandedAction === action ? null : action);
     } else {
       if (action === 'alerts') openAlertsHistory();
-      else if (action === 'importKeepass') openImportKeepass();
       else if (action === 'analytics') openAnalytics();
       else if (action === 'settings') openSettings();
       else if (action === 'accessLogs') openAccessLogs();
@@ -88,14 +87,6 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
         { label: 'Nuovo Contratto', icon: Plus, color: 'emerald', onClick: openCreateContract },
         { label: 'Lista Contratti', icon: Table, color: 'sky', onClick: openContractsList }
       ]
-    },
-    {
-      id: 'importKeepass',
-      label: 'Importa KeePass',
-      icon: Key,
-      color: 'amber',
-      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openImportKeepass,
-      onClick: () => handleQuickActionClick('importKeepass')
     },
     {
       id: 'analytics',

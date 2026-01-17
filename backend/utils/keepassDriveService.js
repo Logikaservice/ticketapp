@@ -300,11 +300,6 @@ class KeepassDriveService {
    */
   async getAllEntriesByAzienda(password, aziendaName = null) {
     try {
-      console.log('🔄 Caricamento entry Keepass da Drive...');
-      if (aziendaName) {
-        console.log(`   Filtro per azienda: "${aziendaName}"`);
-      }
-
       // Scarica il file da Google Drive
       const fileData = await this.downloadKeepassFile(password);
       const fileBuffer = fileData.buffer;
@@ -323,11 +318,6 @@ class KeepassDriveService {
         const groupName = group.name || 'Root';
         const currentPath = groupPath ? `${groupPath} > ${groupName}` : groupName;
         
-        // Log tutti i percorsi per debug (solo i primi 10 livelli per evitare spam)
-        const pathDepth = currentPath.split('>').length;
-        if (pathDepth <= 3) {
-          console.log(`  🔍 Processando gruppo: "${groupName}" (percorso: "${currentPath}")`);
-        }
         
         // Se è specificata un'azienda, verifica se il percorso appartiene all'azienda
         // IMPORTANTE: Verifica solo il primo segmento dopo "gestione"
@@ -358,9 +348,6 @@ class KeepassDriveService {
               // IMPORTANTE: Raccogli SOLO il segmento direttamente dopo "gestione"
               // Non raccogliere segmenti più profondi (es. "Theorica_old" in "gestione > dismessi > Theorica_old")
               foundAziendeAfterGestione.add(aziendaSegmentInPath.trim());
-              
-              // Log TUTTI i percorsi che contengono "gestione" per debug
-              console.log(`  🔍 Percorso processato: "${currentPath}" → segmento dopo "gestione": "${aziendaSegmentInPath}"`);
               
               // Confronto ESATTO case-insensitive
               // "Theorica" deve matchare SOLO "Theorica", "theorica", "THEORICA"
@@ -432,14 +419,9 @@ class KeepassDriveService {
 
       // Processa tutti i gruppi root
       if (db.groups && db.groups.length > 0) {
-        console.log(`📁 Gruppi root trovati nel Keepass: ${db.groups.length}`);
         for (const group of db.groups) {
-          const groupName = group.name || 'Senza nome';
-          console.log(`  📂 Gruppo root: "${groupName}"`);
           processGroup(group);
         }
-      } else {
-        console.log(`⚠️ Nessun gruppo root trovato nel Keepass!`);
       }
 
       console.log(`✅ Entry Keepass caricate: ${entries.length} entry${aziendaName ? ` filtrate per "${aziendaName}"` : ''}`);

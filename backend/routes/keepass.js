@@ -1207,7 +1207,6 @@ module.exports = function createKeepassRouter(pool) {
         const userResult = await pool.query('SELECT azienda FROM users WHERE id = $1', [userId]);
         if (userResult.rows.length > 0 && userResult.rows[0].azienda) {
           aziendaName = userResult.rows[0].azienda;
-          console.log(`📋 Ricerca password per azienda: "${aziendaName}"`);
         }
       } else if (role === 'tecnico') {
         // I tecnici possono specificare un'azienda opzionalmente
@@ -1228,14 +1227,12 @@ module.exports = function createKeepassRouter(pool) {
 
       // Carica tutte le entry Keepass filtrate per azienda
       const allEntries = await keepassDriveService.getAllEntriesByAzienda(keepassPassword, aziendaName);
-      console.log(`📊 Entry caricate da Keepass Drive: ${allEntries.length} entry per azienda "${aziendaName}"`);
 
       // Se c'è un termine di ricerca, filtra i risultati
       const cleanTerm = searchTerm.trim().toLowerCase();
       let filteredEntries = allEntries;
 
       if (cleanTerm && cleanTerm.length >= 2) {
-        console.log(`🔍 Filtro ricerca applicato: "${cleanTerm}" (solo campo "Nome utente", match "inizia con")`);
         filteredEntries = allEntries.filter(entry => {
           // Ricerca SOLO nel campo "Nome utente" (username)
           // Match "inizia con" (startsWith) invece di "contiene" (includes)
@@ -1244,9 +1241,6 @@ module.exports = function createKeepassRouter(pool) {
           const usernameLower = entry.username.toLowerCase();
           return usernameLower.startsWith(cleanTerm);
         });
-        console.log(`📊 Entry dopo filtro ricerca: ${filteredEntries.length} (da ${allEntries.length})`);
-      } else {
-        console.log(`ℹ️ Nessun termine di ricerca, mostrando tutte le ${allEntries.length} entry dell'azienda`);
       }
 
       // Cripta le password prima di inviarle
@@ -1259,8 +1253,6 @@ module.exports = function createKeepassRouter(pool) {
         groupPath: entry.groupPath || '',
         icon_id: entry.icon_id || 0
       }));
-
-      console.log(`✅ Ricerca Keepass Drive completata: ${results.length} risultati${searchTerm ? ` per "${searchTerm}"` : ''} per azienda "${aziendaName}"`);
 
       res.json({ results });
     } catch (err) {

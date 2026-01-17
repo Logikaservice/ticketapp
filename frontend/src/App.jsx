@@ -1776,7 +1776,6 @@ export default function TicketApp() {
   const openManageClientsModal = () => setModalState({ type: 'manageClients' });
   const openNewClientModal = () => setModalState({ type: 'newClient' });
   const openAlertsHistory = () => setModalState({ type: 'alertsHistory' });
-  const openImportKeepass = () => setModalState({ type: 'importKeepass' });
   const openAnalytics = () => setModalState({ type: 'analytics' });
   const openAccessLogs = () => setModalState({ type: 'accessLogs' });
   const openInactivityTimer = () => setModalState({ type: 'inactivityTimer' });
@@ -2910,7 +2909,6 @@ export default function TicketApp() {
               openSettings,
               openManageClientsModal,
               openAlertsHistory,
-              openImportKeepass,
               openAnalytics,
               openAccessLogs,
               openInactivityTimer,

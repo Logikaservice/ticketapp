@@ -11,7 +11,6 @@ import EmailConfirmModal from './EmailConfirmModal';
 import AlertEmailConfirmModal from './AlertEmailConfirmModal';
 import SendEmailConfirmModal from './SendEmailConfirmModal';
 import AlertsHistoryModal from './AlertsHistoryModal';
-import ImportKeepassModal from './ImportKeepassModal';
 import KeepassCredentialsModal from './KeepassCredentialsModal';
 import AnalyticsModal from './AnalyticsModal';
 import AccessLogsModal from './AccessLogsModal';
@@ -117,17 +116,6 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             getAuthHeader={handlers.getAuthHeader}
             alertsRefreshTrigger={handlers.alertsRefreshTrigger}
             initialAlertId={modalState.data?.alertId || null}
-          />
-        );
-
-      case 'importKeepass':
-        return (
-          <ImportKeepassModal
-            isOpen={true}
-            onClose={closeModal}
-            users={handlers.users}
-            getAuthHeader={handlers.getAuthHeader}
-            onSuccess={handlers.onKeepassImportSuccess}
           />
         );
 
