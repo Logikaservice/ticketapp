@@ -3,6 +3,9 @@
  * Invia notifiche push su Telegram invece che via email
  */
 
+// Carica variabili d'ambiente dal file .env
+require('dotenv').config();
+
 const https = require('https');
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
