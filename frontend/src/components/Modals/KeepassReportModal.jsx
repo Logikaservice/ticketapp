@@ -1,5 +1,6 @@
 // Modale per segnalare problemi dalle credenziali KeePass
 import React, { useState, useRef, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { X, AlertTriangle, Info, AlertCircle, Upload, Trash2 } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
 
@@ -174,8 +175,21 @@ const KeepassReportModal = ({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed left-0 right-0 top-0 bottom-0 bg-black/50 flex items-center justify-center z-[9999] overflow-y-auto">
+  // Renderizza il modal usando un Portal direttamente nel body
+  return ReactDOM.createPortal(
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center overflow-y-auto"
+      style={{ 
+        zIndex: 99999,
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh'
+      }}
+    >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col m-4">
         {/* Header */}
         <div className="p-6 border-b bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-t-2xl">
@@ -356,7 +370,8 @@ const KeepassReportModal = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
