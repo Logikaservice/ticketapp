@@ -1735,6 +1735,147 @@ module.exports = function createKeepassRouter(pool) {
         // Non bloccare la risposta se la creazione dell'avviso fallisce
       }
 
+      // Invia email al tecnico
+      try {
+        const nodemailer = require('nodemailer');
+        const emailUser = process.env.EMAIL_USER;
+        const emailPass = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
+
+        if (emailUser && emailPass) {
+          // Recupera informazioni cliente
+          const clientResult = await pool.query(
+            'SELECT nome, cognome, email, azienda FROM users WHERE id = $1',
+            [userId]
+          );
+          const cliente = clientResult.rows[0];
+
+          // Recupera email di tutti i tecnici
+          const tecniciResult = await pool.query(
+            'SELECT email, nome, cognome FROM users WHERE ruolo = $1 AND email IS NOT NULL',
+            ['tecnico']
+          );
+
+          if (tecniciResult.rows.length > 0) {
+            // Configurazione trasporter (rileva automaticamente Gmail/Aruba)
+            const isAruba = emailUser.includes('@logikaservice.it') || emailUser.includes('@aruba.it');
+            const isGmail = emailUser.includes('@gmail.com');
+            
+            let smtpConfig;
+            if (isAruba) {
+              smtpConfig = {
+                host: 'smtps.aruba.it',
+                port: 465,
+                secure: true,
+                auth: { user: emailUser, pass: emailPass },
+                tls: { rejectUnauthorized: false, minVersion: 'TLSv1.2' }
+              };
+            } else if (isGmail) {
+              smtpConfig = {
+                service: 'gmail',
+                auth: { user: emailUser, pass: emailPass }
+              };
+            } else {
+              smtpConfig = {
+                host: 'smtp.' + emailUser.split('@')[1],
+                port: 587,
+                secure: false,
+                auth: { user: emailUser, pass: emailPass }
+              };
+            }
+
+            const transporter = nodemailer.createTransport(smtpConfig);
+
+            // Mappa tipo per emoji e colore
+            const tipoEmoji = {
+              'informazione': 'ℹ️',
+              'avviso': '⚠️',
+              'critico': '🚨'
+            };
+            const tipoColor = {
+              'informazione': '#3b82f6',
+              'avviso': '#f59e0b',
+              'critico': '#ef4444'
+            };
+
+            // Componi email HTML
+            let emailBody = `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, ${tipoColor[tipo] || '#3b82f6'} 0%, ${tipoColor[tipo] || '#1e40af'} 100%); color: white; padding: 20px; border-radius: 10px 10px 0 0;">
+                  <h2 style="margin: 0;">${tipoEmoji[tipo] || '🔐'} Nuova Segnalazione KeePass</h2>
+                  <p style="margin: 5px 0 0 0; opacity: 0.9;">Tipo: <strong>${tipo.charAt(0).toUpperCase() + tipo.slice(1)}</strong></p>
+                </div>
+                
+                <div style="background: #f9fafb; padding: 20px; border-left: 4px solid ${tipoColor[tipo] || '#3b82f6'};">
+                  <h3 style="margin-top: 0; color: #1f2937;">${titolo}</h3>
+                  <p style="color: #4b5563; white-space: pre-wrap;">${descrizione}</p>
+                </div>
+            `;
+
+            // Aggiungi dettagli credenziale se presenti
+            if (credenziale_titolo || credenziale_username || credenziale_url || credenziale_path) {
+              emailBody += `
+                <div style="background: white; padding: 20px; border-left: 4px solid #8b5cf6;">
+                  <h4 style="margin-top: 0; color: #1f2937;">📋 Credenziale Associata</h4>
+              `;
+              if (credenziale_path) emailBody += `<p style="margin: 5px 0;"><strong>📁 Percorso:</strong> ${credenziale_path}</p>`;
+              if (credenziale_titolo) emailBody += `<p style="margin: 5px 0;"><strong>🏷️ Titolo:</strong> ${credenziale_titolo}</p>`;
+              if (credenziale_username) emailBody += `<p style="margin: 5px 0;"><strong>👤 Username:</strong> ${credenziale_username}</p>`;
+              if (credenziale_url) emailBody += `<p style="margin: 5px 0;"><strong>🔗 URL:</strong> <a href="${credenziale_url}" target="_blank">${credenziale_url}</a></p>`;
+              emailBody += `</div>`;
+            }
+
+            // Aggiungi info cliente
+            emailBody += `
+              <div style="background: #eff6ff; padding: 20px; margin-top: 1px;">
+                <h4 style="margin-top: 0; color: #1f2937;">👤 Segnalato da</h4>
+                <p style="margin: 5px 0;"><strong>Cliente:</strong> ${cliente.nome} ${cliente.cognome}</p>
+                <p style="margin: 5px 0;"><strong>Email:</strong> ${cliente.email}</p>
+                ${cliente.azienda ? `<p style="margin: 5px 0;"><strong>Azienda:</strong> ${cliente.azienda}</p>` : ''}
+              </div>
+            `;
+
+            // Aggiungi info allegati
+            if (allegatiNames.length > 0) {
+              emailBody += `
+                <div style="background: #fef3c7; padding: 20px; margin-top: 1px;">
+                  <h4 style="margin-top: 0; color: #1f2937;">📎 Allegati (${allegatiNames.length})</h4>
+                  <ul style="margin: 5px 0; padding-left: 20px;">
+                    ${allegatiNames.map(name => `<li>${name}</li>`).join('')}
+                  </ul>
+                </div>
+              `;
+            }
+
+            emailBody += `
+              <div style="background: #f3f4f6; padding: 15px; text-align: center; border-radius: 0 0 10px 10px;">
+                <p style="margin: 0; color: #6b7280; font-size: 12px;">
+                  Questa email è stata generata automaticamente dal Sistema di Gestione Ticket
+                </p>
+              </div>
+            </div>
+            `;
+
+            // Invia email a tutti i tecnici
+            for (const tecnico of tecniciResult.rows) {
+              try {
+                await transporter.sendMail({
+                  from: emailUser,
+                  to: tecnico.email,
+                  subject: `${tipoEmoji[tipo] || '🔐'} Nuova Segnalazione KeePass: ${titolo}`,
+                  html: emailBody
+                });
+                console.log(`📧 Email segnalazione KeePass inviata a ${tecnico.email}`);
+              } catch (emailErr) {
+                console.error(`❌ Errore invio email a ${tecnico.email}:`, emailErr.message);
+              }
+            }
+          }
+        }
+      } catch (emailErr) {
+        console.error('⚠️ Errore invio email tecnici (segnalazione comunque salvata):', emailErr);
+        // Non bloccare la risposta se l'invio email fallisce
+      }
+
       res.json({
         success: true,
         message: 'Segnalazione inviata con successo! Il team tecnico la prenderà in carico al più presto.',
