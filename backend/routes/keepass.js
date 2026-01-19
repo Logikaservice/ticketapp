@@ -1871,21 +1871,23 @@ module.exports = function createKeepassRouter(pool) {
             </div>
             `;
 
-            // Invia email a tutti i tecnici
+            // Invia email a tutti i tecnici (ASINCRONO - non blocca la risposta HTTP)
             console.log('🔍 DEBUG: Inizio ciclo invio email a', tecniciResult.rows.length, 'tecnici');
             for (const tecnico of tecniciResult.rows) {
-              try {
-                console.log('🔍 DEBUG: Tentativo invio email a', tecnico.email);
-                await transporter.sendMail({
-                  from: emailUser,
-                  to: tecnico.email,
-                  subject: `${tipoEmoji[tipo] || '🔐'} Nuova Segnalazione KeePass: ${titolo}`,
-                  html: emailBody
-                });
+              console.log('🔍 DEBUG: Avvio invio email ASINCRONO a', tecnico.email);
+              // NON uso await - l'email viene inviata in background
+              transporter.sendMail({
+                from: emailUser,
+                to: tecnico.email,
+                subject: `${tipoEmoji[tipo] || '🔐'} Nuova Segnalazione KeePass: ${titolo}`,
+                html: emailBody
+              })
+              .then(() => {
                 console.log(`📧 Email segnalazione KeePass inviata a ${tecnico.email}`);
-              } catch (emailErr) {
+              })
+              .catch(emailErr => {
                 console.error(`❌ Errore invio email a ${tecnico.email}:`, emailErr.message);
-              }
+              });
             }
           } else {
             console.log('⚠️ DEBUG: Nessun tecnico trovato con email nel database!');
