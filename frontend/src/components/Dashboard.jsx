@@ -51,13 +51,31 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, car
 };
 
 
-const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDelete, isEditable, onManageAlerts, onEditAlert, currentUser, users = [], setModalState }) => {
+const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDelete, onManageAlerts, onEditAlert, currentUser, users = [], setModalState }) => {
   const [now, setNow] = React.useState(Date.now());
 
   React.useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // Funzione per verificare se l'utente corrente può modificare/eliminare un avviso
+  const canEditAlert = (alert) => {
+    if (!currentUser) return false;
+    
+    // I tecnici possono sempre modificare/eliminare tutti gli avvisi
+    if (currentUser.ruolo === 'tecnico') return true;
+    
+    // I clienti possono modificare/eliminare solo gli avvisi che hanno creato loro
+    if (currentUser.ruolo === 'cliente') {
+      // Confronta l'ID dell'utente corrente con il created_by dell'avviso
+      // created_by potrebbe essere una stringa o un numero
+      const alertCreatorId = alert.createdBy || alert.created_by;
+      return alertCreatorId && Number(alertCreatorId) === Number(currentUser.id);
+    }
+    
+    return false;
+  };
 
   const formatDateTime = (dateValue) => {
     if (!dateValue) return 'Data non disponibile';
@@ -319,7 +337,7 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
                     </div>
                   )}
                 </div>
-                {isEditable && (
+                {canEditAlert(avv) && (
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => onEditAlert && onEditAlert(avv)}
@@ -1644,8 +1662,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           <div className="mb-6">
             <AlertsPanel
               alerts={alerts}
-              onDelete={currentUser?.ruolo === 'tecnico' ? deleteAlert : undefined}
-              isEditable={currentUser?.ruolo === 'tecnico'}
+              onDelete={deleteAlert}
               onOpenTicket={(t) => {
                 if (!t || !t.id) return;
                 // Integrazione futura: handlers.handleSelectTicket

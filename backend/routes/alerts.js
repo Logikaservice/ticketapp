@@ -364,7 +364,7 @@ module.exports = function createAlertsRouter(pool) {
     }
   });
 
-  // PUT /api/alerts/:id - modifica avviso (solo tecnico)
+  // PUT /api/alerts/:id - modifica avviso (tecnico può modificare tutti, cliente solo i propri)
   router.put('/:id', upload.array('attachments', 5), async (req, res) => {
     try {
       const { id } = req.params;
@@ -373,8 +373,33 @@ module.exports = function createAlertsRouter(pool) {
       if (!id) return res.status(400).json({ error: 'ID mancante' });
       if (!title || !body) return res.status(400).json({ error: 'title e body sono obbligatori' });
 
-      const role = (req.headers['x-user-role'] || req.body?.role || '').toString();
-      if (role !== 'tecnico') return res.status(403).json({ error: 'Solo i tecnici possono modificare avvisi' });
+      const userId = req.user?.id || req.headers['x-user-id'];
+      const role = req.user?.ruolo || (req.headers['x-user-role'] || req.body?.role || '').toString();
+      
+      if (!userId) {
+        return res.status(401).json({ error: 'Utente non autenticato' });
+      }
+
+      // Per i clienti, verifica che possano modificare questo avviso
+      if (role === 'cliente') {
+        const alertCheck = await pool.query(
+          'SELECT id, created_by FROM alerts WHERE id = $1',
+          [id]
+        );
+
+        if (alertCheck.rows.length === 0) {
+          return res.status(404).json({ error: 'Avviso non trovato' });
+        }
+
+        const alert = alertCheck.rows[0];
+        const alertCreatorId = alert.created_by;
+
+        // Verifica che l'utente corrente sia il creatore dell'avviso
+        if (!alertCreatorId || Number(alertCreatorId) !== Number(userId)) {
+          return res.status(403).json({ error: 'Non hai i permessi per modificare questo avviso' });
+        }
+      }
+      // I tecnici possono modificare qualsiasi avviso (nessun controllo aggiuntivo necessario)
 
       // Gestione allegati esistenti e nuovi
       let attachments = [];
@@ -413,17 +438,51 @@ module.exports = function createAlertsRouter(pool) {
     }
   });
 
-  // DELETE /api/alerts/:id - elimina avviso (solo tecnico)
+  // DELETE /api/alerts/:id - elimina avviso (tecnico può eliminare tutti, cliente solo i propri)
   router.delete('/:id', async (req, res) => {
     try {
       const { id } = req.params;
       if (!id) return res.status(400).json({ error: 'ID mancante' });
 
-      const role = (req.headers['x-user-role'] || req.body?.role || '').toString();
-      if (role !== 'tecnico') return res.status(403).json({ error: 'Solo i tecnici possono eliminare avvisi' });
+      const userId = req.user?.id || req.headers['x-user-id'];
+      const role = req.user?.ruolo || (req.headers['x-user-role'] || req.body?.role || '').toString();
+      
+      if (!userId) {
+        return res.status(401).json({ error: 'Utente non autenticato' });
+      }
 
-      await pool.query('DELETE FROM alerts WHERE id = $1', [id]);
-      res.json({ success: true });
+      // I tecnici possono eliminare qualsiasi avviso
+      if (role === 'tecnico') {
+        await pool.query('DELETE FROM alerts WHERE id = $1', [id]);
+        return res.json({ success: true });
+      }
+
+      // I clienti possono eliminare solo gli avvisi che hanno creato loro
+      if (role === 'cliente') {
+        // Prima verifica che l'avviso esista e che sia stato creato dall'utente corrente
+        const alertCheck = await pool.query(
+          'SELECT id, created_by FROM alerts WHERE id = $1',
+          [id]
+        );
+
+        if (alertCheck.rows.length === 0) {
+          return res.status(404).json({ error: 'Avviso non trovato' });
+        }
+
+        const alert = alertCheck.rows[0];
+        const alertCreatorId = alert.created_by;
+
+        // Verifica che l'utente corrente sia il creatore dell'avviso
+        if (!alertCreatorId || Number(alertCreatorId) !== Number(userId)) {
+          return res.status(403).json({ error: 'Non hai i permessi per eliminare questo avviso' });
+        }
+
+        // Elimina l'avviso
+        await pool.query('DELETE FROM alerts WHERE id = $1', [id]);
+        return res.json({ success: true });
+      }
+
+      return res.status(403).json({ error: 'Permessi insufficienti' });
     } catch (err) {
       console.error('Errore DELETE /alerts/:id:', err);
       res.status(500).json({ error: 'Errore nell\'eliminazione dell\'avviso' });

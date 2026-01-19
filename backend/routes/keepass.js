@@ -1724,7 +1724,7 @@ module.exports = function createKeepassRouter(pool) {
           JSON.stringify([userId]), // Solo per il cliente che ha creato la segnalazione
           false, // Non permanente
           7, // Scade dopo 7 giorni
-          'Sistema KeePass' // created_by
+          userId.toString() // Salva l'ID del cliente come created_by per permettergli di modificarlo/eliminarlo
         ]);
 
         const alertId = alertResult.rows[0].id;
