@@ -911,20 +911,24 @@ module.exports = (pool) => {
         
         // Cancella anche tutti gli eventi intervento associati a questo ticket
         try {
-          const eventsList = await calendar.events.list({
-            calendarId: deleteCalendarId,
-            timeMin: new Date(new Date().getFullYear() - 1, 0, 1).toISOString(),
-            timeMax: new Date(new Date().getFullYear() + 1, 11, 31).toISOString(),
-            maxResults: 2500,
-            singleEvents: true
-          });
-          
-          const interventiEvents = eventsList.data.items?.filter(e => 
-            e.extendedProperties?.private?.ticketId === ticket.id.toString() &&
-            e.extendedProperties?.private?.isIntervento === 'true'
-          ) || [];
-          
-          console.log(`Trovati ${interventiEvents.length} eventi intervento da cancellare per ticket #${ticket.id}`);
+          // Verifica che ticket e ticket.id esistano prima di cercare gli interventi
+          if (!ticket || !ticket.id) {
+            console.log('ℹ️ Ticket ID non disponibile, skip ricerca eventi intervento');
+          } else {
+            const eventsList = await calendar.events.list({
+              calendarId: deleteCalendarId,
+              timeMin: new Date(new Date().getFullYear() - 1, 0, 1).toISOString(),
+              timeMax: new Date(new Date().getFullYear() + 1, 11, 31).toISOString(),
+              maxResults: 2500,
+              singleEvents: true
+            });
+            
+            const interventiEvents = eventsList.data.items?.filter(e => 
+              e.extendedProperties?.private?.ticketId === ticket.id.toString() &&
+              e.extendedProperties?.private?.isIntervento === 'true'
+            ) || [];
+            
+            console.log(`Trovati ${interventiEvents.length} eventi intervento da cancellare per ticket #${ticket.id}`);
           
           for (const interventoEvent of interventiEvents) {
             try {
@@ -938,6 +942,7 @@ module.exports = (pool) => {
               console.log(`⚠️ Errore cancellazione evento intervento:`, deleteErr.message);
             }
           }
+          } // Chiusura if (ticket && ticket.id)
         } catch (interventiErr) {
           console.log('⚠️ Errore cancellazione eventi intervento:', interventiErr.message);
         }
