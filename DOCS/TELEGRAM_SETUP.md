@@ -10,8 +10,8 @@ Il sistema TicketApp è configurato per inviare notifiche push su Telegram ai te
 
 - **Bot Name**: TicketApp Notifiche
 - **Username**: @LogikaService_TicketApp_Bot
-- **Bot Token**: `8296841638:AAFi4tL5GlhamwDTDGflHhjJjPZpP2IRMAw`
-- **Tecnico Chat ID**: `418962811` (Alessandro - @Saxxes)
+- **Bot Token**: *(Configurato nel file `.env` - NON committare)*
+- **Tecnico Chat ID**: *(Configurato nel file `.env` - Ottienilo con `/start` al bot)*
 
 ---
 
@@ -21,8 +21,8 @@ Aggiungi queste variabili al file `.env` del backend:
 
 ```bash
 # Telegram Bot Configuration
-TELEGRAM_BOT_TOKEN=8296841638:AAFi4tL5GlhamwDTDGflHhjJjPZpP2IRMAw
-TELEGRAM_CHAT_ID=418962811
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_CHAT_ID=your_chat_id_here
 ```
 
 ### Comandi per configurare sulla VPS:
@@ -30,11 +30,11 @@ TELEGRAM_CHAT_ID=418962811
 ```bash
 cd /var/www/ticketapp/TicketApp/backend
 
-# Aggiungi le variabili al file .env
+# Aggiungi le variabili al file .env (sostituisci con i tuoi valori)
 echo "" >> .env
 echo "# Telegram Bot Configuration" >> .env
-echo "TELEGRAM_BOT_TOKEN=8296841638:AAFi4tL5GlhamwDTDGflHhjJjPZpP2IRMAw" >> .env
-echo "TELEGRAM_CHAT_ID=418962811" >> .env
+echo "TELEGRAM_BOT_TOKEN=your_bot_token_here" >> .env
+echo "TELEGRAM_CHAT_ID=your_chat_id_here" >> .env
 
 # Riavvia il backend per caricare le nuove variabili
 pm2 restart backend
@@ -160,15 +160,15 @@ pm2 logs backend | grep "📱\|Telegram"
 
 3. **Test connettività API Telegram**:
    ```bash
-   curl "https://api.telegram.org/bot8296841638:AAFi4tL5GlhamwDTDGflHhjJjPZpP2IRMAw/getMe"
+   curl "https://api.telegram.org/bot<TUO_BOT_TOKEN>/getMe"
    ```
    Risposta attesa: `{"ok":true,"result":{...}}`
 
 4. **Verifica Chat ID**:
    ```bash
-   curl "https://api.telegram.org/bot8296841638:AAFi4tL5GlhamwDTDGflHhjJjPZpP2IRMAw/getUpdates"
+   curl "https://api.telegram.org/bot<TUO_BOT_TOKEN>/getUpdates"
    ```
-   Cerca il campo `"chat":{"id":418962811}`
+   Cerca il campo `"chat":{"id":XXXXXX}` (il tuo Chat ID)
 
 5. **Riavvia backend**:
    ```bash
@@ -189,7 +189,7 @@ Per ricevere notifiche su più chat Telegram:
 
 2. **Ottenere il Chat ID**:
    ```bash
-   curl "https://api.telegram.org/bot8296841638:AAFi4tL5GlhamwDTDGflHhjJjPZpP2IRMAw/getUpdates"
+   curl "https://api.telegram.org/bot<TUO_BOT_TOKEN>/getUpdates"
    ```
 
 3. **Modificare `telegramService.js`**:
