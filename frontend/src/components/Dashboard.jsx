@@ -2019,6 +2019,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         currentUser={currentUser}
         getAuthHeader={getAuthHeader}
         credentialData={keepassReportCredentialData}
+        onReportCreated={fetchAlerts} // Ricarica gli avvisi dopo la creazione
       />
 
     </div>

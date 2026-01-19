@@ -9,7 +9,8 @@ const KeepassReportModal = ({
   onClose, 
   currentUser, 
   getAuthHeader,
-  credentialData = null // Dati della credenziale (opzionale)
+  credentialData = null, // Dati della credenziale (opzionale)
+  onReportCreated = null // Callback chiamato dopo la creazione della segnalazione
 }) => {
   const [formData, setFormData] = useState({
     titolo: '',
@@ -134,6 +135,11 @@ const KeepassReportModal = ({
 
       const result = await response.json();
       alert(result.message || 'Segnalazione inviata con successo!');
+      
+      // Ricarica gli avvisi se è stato fornito il callback
+      if (onReportCreated) {
+        onReportCreated();
+      }
       
       // Reset form e chiudi
       setFormData({
