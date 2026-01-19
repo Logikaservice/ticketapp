@@ -305,8 +305,8 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
                     </div>
                   )}
 
-                  {/* Pulsante per creare ticket dall'avviso - solo per clienti, solo per avvisi Informazione, Avviso e Critico */}
-                  {currentUser?.ruolo === 'cliente' && onCreateTicketFromAlert && (avv.level === 'info' || avv.level === 'warning' || avv.level === 'danger') && (
+                  {/* Pulsante per creare ticket dall'avviso - per clienti E tecnici, solo per avvisi Informazione, Avviso e Critico */}
+                  {(currentUser?.ruolo === 'cliente' || currentUser?.ruolo === 'tecnico') && onCreateTicketFromAlert && (avv.level === 'info' || avv.level === 'warning' || avv.level === 'danger') && (
                     <div className="mt-3">
                       <button
                         onClick={() => onCreateTicketFromAlert(avv)}
