@@ -426,15 +426,18 @@ class KeepassDriveService {
 
       console.log(`✅ Entry Keepass caricate: ${entries.length} entry${aziendaName ? ` filtrate per "${aziendaName}"` : ''}`);
       
-      // Se non sono state trovate entry e c'era un filtro azienda, mostra le aziende disponibili dopo "gestione"
+      // Se non sono state trovate entry e c'era un filtro azienda, mostra suggerimenti
       if (entries.length === 0 && aziendaName && foundAziendeAfterGestione.size > 0) {
         const aziendeList = Array.from(foundAziendeAfterGestione).sort();
-        console.log(`⚠️ Nessuna entry trovata per azienda "${aziendaName}"`);
-        console.log(`   Aziende disponibili dopo "gestione" in Keepass: ${aziendeList.join(', ')}`);
-        console.log(`   Il nome azienda cercato deve corrispondere ESATTAMENTE (case-insensitive) a uno di questi nomi.`);
+        const firstTen = aziendeList.slice(0, 10);
+        const remaining = aziendeList.length - 10;
+        
+        console.log(`ℹ️ Nessuna credenziale trovata per "${aziendaName}" in Keepass`);
+        console.log(`   💡 Suggerimento: Verifica che il nome azienda nel database corrisponda esattamente a quello in Keepass`);
+        console.log(`   📁 Prime ${firstTen.length} aziende disponibili: ${firstTen.join(', ')}${remaining > 0 ? ` (+${remaining} altre)` : ''}`);
       } else if (entries.length === 0 && aziendaName && foundAziendeAfterGestione.size === 0) {
-        console.log(`⚠️ Nessuna entry trovata per azienda "${aziendaName}"`);
-        console.log(`   Nessuna cartella trovata dopo "gestione" in Keepass. Verifica la struttura del file Keepass.`);
+        console.log(`ℹ️ Nessuna credenziale trovata per "${aziendaName}" in Keepass`);
+        console.log(`   💡 Suggerimento: Verifica la struttura del file Keepass (deve avere una cartella "gestione")`);
       }
       
       return entries;

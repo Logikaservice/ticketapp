@@ -893,11 +893,21 @@ module.exports = (pool) => {
         }
         
         // Cancella l'evento da Google Calendar
-        result = await calendar.events.delete({
-          calendarId: deleteCalendarId,
-          eventId
-        });
-        console.log('Evento cancellato da Google Calendar:', eventId, 'dal calendario:', deleteCalendarId);
+        try {
+          result = await calendar.events.delete({
+            calendarId: deleteCalendarId,
+            eventId
+          });
+          console.log('✅ Evento cancellato da Google Calendar:', eventId, 'dal calendario:', deleteCalendarId);
+        } catch (deleteErr) {
+          // Se l'evento è già stato eliminato (410), non è un errore
+          if (deleteErr.code === 410 || deleteErr.message?.includes('deleted')) {
+            console.log('ℹ️ Evento già eliminato in precedenza:', eventId);
+            result = { status: 'già eliminato' };
+          } else {
+            throw deleteErr; // Rilancia altri errori
+          }
+        }
         
         // Cancella anche tutti gli eventi intervento associati a questo ticket
         try {
@@ -967,16 +977,22 @@ module.exports = (pool) => {
     } catch (err) {
       console.error('❌ Errore sincronizzazione Google Calendar:', err);
       console.error('❌ Stack trace:', err.stack);
-      console.error('❌ Ticket ID:', ticket?.id);
-      console.error('❌ Action:', action);
+      
+      // Verifica che ticket sia definito prima di accedervi
+      const ticketId = (typeof ticket !== 'undefined' && ticket) ? ticket.id : 'N/A';
+      const actionName = (typeof action !== 'undefined') ? action : 'N/A';
+      
+      console.error('❌ Ticket ID:', ticketId);
+      console.error('❌ Action:', actionName);
       console.error('❌ Error message:', err.message);
       console.error('❌ Error code:', err.code);
+      
       res.status(500).json({ 
         success: false,
         error: 'Errore sincronizzazione Google Calendar',
         details: err.message,
-        ticketId: ticket?.id,
-        action: action
+        ticketId: ticketId,
+        action: actionName
       });
     }
   });
