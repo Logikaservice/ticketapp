@@ -673,6 +673,35 @@ module.exports = (pool, io) => {
         });
       }
 
+      // Invia notifica Telegram quando agent torna online
+      if (wasOffline && isNowOnline) {
+        try {
+          const agentInfo = await pool.query(
+            'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
+            [agentId]
+          );
+          
+          if (agentInfo.rows.length > 0) {
+            await sendTelegramNotification(
+              agentId,
+              agentInfo.rows[0].azienda_id,
+              'status_changed',
+              {
+                hostname: agentInfo.rows[0].agent_name,
+                deviceType: 'Agent',
+                ip: 'N/A',
+                mac: 'N/A',
+                status: 'online',
+                agentName: agentInfo.rows[0].agent_name
+              }
+            );
+            console.log(`📱 Notifica Telegram inviata: Agent ${agentInfo.rows[0].agent_name} tornato online`);
+          }
+        } catch (telegramErr) {
+          console.error('❌ Errore invio notifica Telegram per agent online:', telegramErr);
+        }
+      }
+
       // Crea eventi se necessario (proteggiamo tutte le operazioni con try-catch)
       try {
         // Assicurati che la tabella esista prima di usarla
