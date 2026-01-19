@@ -1624,7 +1624,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 }}
                                 className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                               />
-                              <span className="text-xs text-gray-600">📱 Notifica</span>
+                              <span className="text-xs text-gray-600">Notifica</span>
                             </label>
                           </div>
                         </td>
