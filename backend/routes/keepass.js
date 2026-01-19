@@ -1736,12 +1736,21 @@ module.exports = function createKeepassRouter(pool) {
       }
 
       // Invia email al tecnico
+      console.log('🔍 DEBUG: Inizio blocco invio email tecnici');
+      console.log('🔍 userId:', userId);
+      console.log('🔍 reportId:', reportId);
+      
       try {
         const nodemailer = require('nodemailer');
         const emailUser = process.env.EMAIL_USER;
         const emailPass = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
 
+        console.log('🔍 DEBUG: Dentro try email');
+        console.log('🔍 emailUser:', emailUser ? 'CONFIGURATO' : '❌ MANCANTE');
+        console.log('🔍 emailPass:', emailPass ? 'CONFIGURATO' : '❌ MANCANTE');
+
         if (emailUser && emailPass) {
+          console.log('🔍 DEBUG: Condizioni email OK, procedo con query tecnici');
           // Recupera informazioni cliente
           const clientResult = await pool.query(
             'SELECT nome, cognome, email, azienda FROM users WHERE id = $1',
@@ -1755,7 +1764,14 @@ module.exports = function createKeepassRouter(pool) {
             ['tecnico']
           );
 
+          console.log('🔍 DEBUG: Query tecnici completata');
+          console.log('🔍 Tecnici trovati:', tecniciResult.rows.length);
           if (tecniciResult.rows.length > 0) {
+            tecniciResult.rows.forEach(t => console.log('🔍   -', t.email, t.nome, t.cognome));
+          }
+
+          if (tecniciResult.rows.length > 0) {
+            console.log('🔍 DEBUG: Procedo con configurazione SMTP...');
             // Configurazione trasporter (rileva automaticamente Gmail/Aruba)
             const isAruba = emailUser.includes('@logikaservice.it') || emailUser.includes('@aruba.it');
             const isGmail = emailUser.includes('@gmail.com');
@@ -1856,8 +1872,10 @@ module.exports = function createKeepassRouter(pool) {
             `;
 
             // Invia email a tutti i tecnici
+            console.log('🔍 DEBUG: Inizio ciclo invio email a', tecniciResult.rows.length, 'tecnici');
             for (const tecnico of tecniciResult.rows) {
               try {
+                console.log('🔍 DEBUG: Tentativo invio email a', tecnico.email);
                 await transporter.sendMail({
                   from: emailUser,
                   to: tecnico.email,
@@ -1869,10 +1887,15 @@ module.exports = function createKeepassRouter(pool) {
                 console.error(`❌ Errore invio email a ${tecnico.email}:`, emailErr.message);
               }
             }
+          } else {
+            console.log('⚠️ DEBUG: Nessun tecnico trovato con email nel database!');
           }
+        } else {
+          console.log('⚠️ DEBUG: emailUser o emailPass mancanti! Non invio email.');
         }
       } catch (emailErr) {
         console.error('⚠️ Errore invio email tecnici (segnalazione comunque salvata):', emailErr);
+        console.error('🔍 DEBUG Stack trace:', emailErr.stack);
         // Non bloccare la risposta se l'invio email fallisce
       }
 
