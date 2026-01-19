@@ -1232,29 +1232,31 @@ module.exports = (pool, io) => {
               updates.push(`ip_address = $${paramIndex++}`);
               values.push(normalizedCurrentIp);
               
-              // Invia notifica Telegram
-              try {
-                const agentInfo = await pool.query(
-                  'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
-                  [agentId]
-                );
-                
-                if (agentInfo.rows.length > 0) {
-                  await sendTelegramNotification(
-                    agentId,
-                    agentInfo.rows[0].azienda_id,
-                    'ip_changed',
-                    {
-                      hostname: existingDevice.hostname,
-                      mac: existingDevice.mac_address,
-                      oldIP: existingIp,
-                      newIP: normalizedCurrentIp,
-                      agentName: agentInfo.rows[0].agent_name
-                    }
+              // Invia notifica Telegram (SOLO se notify_telegram è attivo)
+              if (existingDevice.notify_telegram) {
+                try {
+                  const agentInfo = await pool.query(
+                    'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
+                    [agentId]
                   );
+                  
+                  if (agentInfo.rows.length > 0) {
+                    await sendTelegramNotification(
+                      agentId,
+                      agentInfo.rows[0].azienda_id,
+                      'ip_changed',
+                      {
+                        hostname: existingDevice.hostname,
+                        mac: existingDevice.mac_address,
+                        oldIP: existingIp,
+                        newIP: normalizedCurrentIp,
+                        agentName: agentInfo.rows[0].agent_name
+                      }
+                    );
+                  }
+                } catch (telegramErr) {
+                  console.error('❌ Errore invio notifica Telegram per cambio IP:', telegramErr);
                 }
-              } catch (telegramErr) {
-                console.error('❌ Errore invio notifica Telegram per cambio IP:', telegramErr);
               }
             }
           }
@@ -1282,29 +1284,31 @@ module.exports = (pool, io) => {
                 updates.push(`mac_address = $${paramIndex++}`);
                 values.push(normalizedMac);
                 
-                // Invia notifica Telegram
-                try {
-                  const agentInfo = await pool.query(
-                    'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
-                    [agentId]
-                  );
-                  
-                  if (agentInfo.rows.length > 0) {
-                    await sendTelegramNotification(
-                      agentId,
-                      agentInfo.rows[0].azienda_id,
-                      'mac_changed',
-                      {
-                        hostname: existingDevice.hostname,
-                        ip: existingDevice.ip_address,
-                        oldMAC: existingDevice.mac_address,
-                        newMAC: normalizedMac,
-                        agentName: agentInfo.rows[0].agent_name
-                      }
+                // Invia notifica Telegram (SOLO se notify_telegram è attivo)
+                if (existingDevice.notify_telegram) {
+                  try {
+                    const agentInfo = await pool.query(
+                      'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
+                      [agentId]
                     );
+                    
+                    if (agentInfo.rows.length > 0) {
+                      await sendTelegramNotification(
+                        agentId,
+                        agentInfo.rows[0].azienda_id,
+                        'mac_changed',
+                        {
+                          hostname: existingDevice.hostname,
+                          ip: existingDevice.ip_address,
+                          oldMAC: existingDevice.mac_address,
+                          newMAC: normalizedMac,
+                          agentName: agentInfo.rows[0].agent_name
+                        }
+                      );
+                    }
+                  } catch (telegramErr) {
+                    console.error('❌ Errore invio notifica Telegram per cambio MAC:', telegramErr);
                   }
-                } catch (telegramErr) {
-                  console.error('❌ Errore invio notifica Telegram per cambio MAC:', telegramErr);
                 }
               }
             } else {
@@ -1474,7 +1478,7 @@ module.exports = (pool, io) => {
       // (cioè non sono stati rilevati nella scansione corrente)
       try {
         const allAgentDevices = await pool.query(
-          'SELECT id, ip_address, status FROM network_devices WHERE agent_id = $1',
+          'SELECT id, ip_address, status, is_static, notify_telegram FROM network_devices WHERE agent_id = $1',
           [agentId]
         );
 
@@ -1499,8 +1503,8 @@ module.exports = (pool, io) => {
             );
             console.log(`    📴 Dispositivo ${device.ip_address} marcato come offline`);
             
-            // Invia notifica Telegram se dispositivo statico
-            if (device.is_static) {
+            // Invia notifica Telegram se notify_telegram è attivo
+            if (device.notify_telegram) {
               try {
                 const agentInfo = await pool.query(
                   'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
@@ -1545,8 +1549,8 @@ module.exports = (pool, io) => {
             );
             console.log(`    ✅ Dispositivo ${device.ip_address} marcato come online`);
             
-            // Invia notifica Telegram se dispositivo statico
-            if (device.is_static) {
+            // Invia notifica Telegram se notify_telegram è attivo
+            if (device.notify_telegram) {
               try {
                 const agentInfo = await pool.query(
                   'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
@@ -1607,14 +1611,14 @@ module.exports = (pool, io) => {
               );
             }
             
-            // Verifica se è un dispositivo statico e invia notifica Telegram
+            // Verifica se è un dispositivo con notifiche Telegram attive
             try {
               const deviceCheck = await pool.query(
-                'SELECT is_static, hostname, ip_address, mac_address, status FROM network_devices WHERE id = $1',
+                'SELECT notify_telegram, hostname, ip_address, mac_address, status FROM network_devices WHERE id = $1',
                 [deviceId]
               );
               
-              if (deviceCheck.rows.length > 0 && deviceCheck.rows[0].is_static) {
+              if (deviceCheck.rows.length > 0 && deviceCheck.rows[0].notify_telegram) {
                 const device = deviceCheck.rows[0];
                 const agentInfo = await pool.query(
                   'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
@@ -1805,7 +1809,7 @@ module.exports = (pool, io) => {
             ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor, 
-          nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.first_seen, nd.last_seen,
+          nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.first_seen, nd.last_seen,
           nd.previous_ip, nd.previous_mac, nd.has_ping_failures,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
@@ -2004,7 +2008,7 @@ module.exports = (pool, io) => {
             ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor, 
-          nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.first_seen, nd.last_seen,
+          nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.first_seen, nd.last_seen,
           nd.previous_ip, nd.previous_mac, nd.has_ping_failures,
           na.agent_name, na.azienda_id, na.last_heartbeat as agent_last_seen, na.status as agent_status,
           u.azienda
@@ -3116,21 +3120,25 @@ pause
     try {
       await ensureTables();
       
-      // Assicurati che la colonna is_static esista (migrazione)
+      // Assicurati che le colonne is_static e notify_telegram esistano (migrazione)
       try {
         await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;
         `);
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS notify_telegram BOOLEAN DEFAULT false;
+        `);
       } catch (migrationErr) {
         // Ignora errore se colonna esiste già
         if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonna is_static in PATCH static:', migrationErr.message);
+          console.warn('⚠️ Avviso aggiunta colonne in PATCH static:', migrationErr.message);
         }
       }
       
       const { id } = req.params;
-      const { is_static } = req.body;
+      const { is_static, notify_telegram } = req.body;
 
       // Verifica che il dispositivo esista
       const deviceCheck = await pool.query(
@@ -3142,10 +3150,29 @@ pause
         return res.status(404).json({ error: 'Dispositivo non trovato' });
       }
 
-      // Aggiorna il dispositivo
+      // Costruisci query dinamica basata sui campi forniti
+      const updates = [];
+      const values = [];
+      let paramIndex = 1;
+
+      if (is_static !== undefined) {
+        updates.push(`is_static = $${paramIndex++}`);
+        values.push(is_static === true || is_static === 'true');
+      }
+
+      if (notify_telegram !== undefined) {
+        updates.push(`notify_telegram = $${paramIndex++}`);
+        values.push(notify_telegram === true || notify_telegram === 'true');
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({ error: 'Nessun campo da aggiornare' });
+      }
+
+      values.push(id); // WHERE id = $N
       const result = await pool.query(
-        'UPDATE network_devices SET is_static = $1 WHERE id = $2 RETURNING id, ip_address, is_static',
-        [is_static === true || is_static === 'true', id]
+        `UPDATE network_devices SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING id, ip_address, is_static, notify_telegram`,
+        values
       );
 
       res.json(result.rows[0]);

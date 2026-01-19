@@ -1554,40 +1554,79 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
                       >
                         <td className="py-3 px-4">
-                          <input
-                            type="checkbox"
-                            checked={isStatic}
-                            onChange={async (e) => {
-                              const newIsStatic = e.target.checked;
-                              try {
-                                const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/static`), {
-                                  method: 'PATCH',
-                                  headers: {
-                                    ...getAuthHeader(),
-                                    'Content-Type': 'application/json'
-                                  },
-                                  body: JSON.stringify({ is_static: newIsStatic })
-                                });
+                          <div className="flex flex-col gap-2">
+                            {/* Checkbox Statico (colora riga di blu) */}
+                            <label className="flex items-center gap-1 cursor-pointer" title="IP Statico - Dispositivo con IP fisso">
+                              <input
+                                type="checkbox"
+                                checked={isStatic}
+                                onChange={async (e) => {
+                                  const newIsStatic = e.target.checked;
+                                  try {
+                                    const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/static`), {
+                                      method: 'PATCH',
+                                      headers: {
+                                        ...getAuthHeader(),
+                                        'Content-Type': 'application/json'
+                                      },
+                                      body: JSON.stringify({ is_static: newIsStatic })
+                                    });
 
-                                if (!response.ok) {
-                                  const errorData = await response.json();
-                                  throw new Error(errorData.error || 'Errore aggiornamento stato statico');
-                                }
+                                    if (!response.ok) {
+                                      const errorData = await response.json();
+                                      throw new Error(errorData.error || 'Errore aggiornamento');
+                                    }
 
-                                // Aggiorna il dispositivo nella lista locale
-                                setCompanyDevices(prev => prev.map(d => 
-                                  d.id === device.id ? { ...d, is_static: newIsStatic } : d
-                                ));
-                              } catch (err) {
-                                console.error('Errore aggiornamento stato statico:', err);
-                                alert(`Errore: ${err.message}`);
-                                // Ripristina lo stato precedente
-                                e.target.checked = !newIsStatic;
-                              }
-                            }}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
-                            title="IP Statico"
-                          />
+                                    setCompanyDevices(prev => prev.map(d => 
+                                      d.id === device.id ? { ...d, is_static: newIsStatic } : d
+                                    ));
+                                  } catch (err) {
+                                    console.error('Errore aggiornamento statico:', err);
+                                    alert(`Errore: ${err.message}`);
+                                    e.target.checked = !newIsStatic;
+                                  }
+                                }}
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <span className="text-xs text-gray-600">Statico</span>
+                            </label>
+
+                            {/* Checkbox Notifiche Telegram */}
+                            <label className="flex items-center gap-1 cursor-pointer" title="Monitora con Telegram - Ricevi notifiche per cambio IP/MAC/status">
+                              <input
+                                type="checkbox"
+                                checked={device.notify_telegram === true}
+                                onChange={async (e) => {
+                                  const newNotifyTelegram = e.target.checked;
+                                  try {
+                                    const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/static`), {
+                                      method: 'PATCH',
+                                      headers: {
+                                        ...getAuthHeader(),
+                                        'Content-Type': 'application/json'
+                                      },
+                                      body: JSON.stringify({ notify_telegram: newNotifyTelegram })
+                                    });
+
+                                    if (!response.ok) {
+                                      const errorData = await response.json();
+                                      throw new Error(errorData.error || 'Errore aggiornamento');
+                                    }
+
+                                    setCompanyDevices(prev => prev.map(d => 
+                                      d.id === device.id ? { ...d, notify_telegram: newNotifyTelegram } : d
+                                    ));
+                                  } catch (err) {
+                                    console.error('Errore aggiornamento notifiche:', err);
+                                    alert(`Errore: ${err.message}`);
+                                    e.target.checked = !newNotifyTelegram;
+                                  }
+                                }}
+                                className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                              />
+                              <span className="text-xs text-gray-600">📱 Notifica</span>
+                            </label>
+                          </div>
                         </td>
                         <td className="py-3 px-4 text-sm font-mono text-gray-900">
                           <div className="flex items-center gap-2">
