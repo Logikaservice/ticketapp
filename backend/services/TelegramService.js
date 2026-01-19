@@ -59,13 +59,14 @@ class TelegramService {
   }
 
   // Formatta messaggio per agent offline
-  formatAgentOfflineMessage(agentName, lastHeartbeat) {
+  formatAgentOfflineMessage(agentName, lastHeartbeat, aziendaName) {
     const lastSeen = lastHeartbeat 
       ? new Date(lastHeartbeat).toLocaleString('it-IT')
       : 'Mai';
     
     return `🔴 <b>Agent Offline</b>
 
+<b>Azienda:</b> ${aziendaName || 'N/A'}
 <b>Agent:</b> ${agentName}
 <b>Ultimo heartbeat:</b> ${lastSeen}
 <b>Timestamp:</b> ${new Date().toLocaleString('it-IT')}`;
@@ -73,25 +74,27 @@ class TelegramService {
 
   // Formatta messaggio per cambio IP (dispositivo statico)
   formatIPChangedMessage(deviceInfo) {
-    return `⚠️ <b>IP Cambiato (Dispositivo Statico)</b>
+    return `⚠️ <b>IP Cambiato</b>
 
-<b>Dispositivo:</b> ${deviceInfo.hostname || deviceInfo.mac || 'Sconosciuto'}
-<b>MAC:</b> ${deviceInfo.mac || 'N/A'}
+<b>Azienda:</b> ${deviceInfo.aziendaName || 'N/A'}
+<b>Agent:</b> ${deviceInfo.agentName || 'N/A'}
+<b>Dispositivo:</b> ${deviceInfo.hostname || deviceInfo.deviceType || 'Sconosciuto'}
 <b>IP Precedente:</b> ${deviceInfo.oldIP}
 <b>IP Nuovo:</b> ${deviceInfo.newIP}
-<b>Agent:</b> ${deviceInfo.agentName}
+<b>MAC:</b> ${deviceInfo.mac || 'N/A'}
 <b>Timestamp:</b> ${new Date().toLocaleString('it-IT')}`;
   }
 
   // Formatta messaggio per cambio MAC (dispositivo statico)
   formatMACChangedMessage(deviceInfo) {
-    return `⚠️ <b>MAC Cambiato (Dispositivo Statico)</b>
+    return `⚠️ <b>MAC Cambiato</b>
 
-<b>Dispositivo:</b> ${deviceInfo.hostname || deviceInfo.ip || 'Sconosciuto'}
+<b>Azienda:</b> ${deviceInfo.aziendaName || 'N/A'}
+<b>Agent:</b> ${deviceInfo.agentName || 'N/A'}
+<b>Dispositivo:</b> ${deviceInfo.hostname || deviceInfo.deviceType || 'Sconosciuto'}
 <b>IP:</b> ${deviceInfo.ip || 'N/A'}
 <b>MAC Precedente:</b> ${deviceInfo.oldMAC}
 <b>MAC Nuovo:</b> ${deviceInfo.newMAC}
-<b>Agent:</b> ${deviceInfo.agentName}
 <b>Timestamp:</b> ${new Date().toLocaleString('it-IT')}`;
   }
 
@@ -100,14 +103,14 @@ class TelegramService {
     const emoji = deviceInfo.status === 'online' ? '🟢' : '🔴';
     const statusText = deviceInfo.status === 'online' ? 'Online' : 'Offline';
     
-    return `${emoji} <b>Dispositivo Statico ${statusText}</b>
+    return `${emoji} <b>Dispositivo ${statusText}</b>
 
-<b>Dispositivo:</b> ${deviceInfo.hostname || deviceInfo.mac || deviceInfo.ip || 'Sconosciuto'}
+<b>Azienda:</b> ${deviceInfo.aziendaName || 'N/A'}
+<b>Agent:</b> ${deviceInfo.agentName || 'N/A'}
+<b>Dispositivo:</b> ${deviceInfo.hostname || deviceInfo.deviceType || 'Sconosciuto'}
 <b>IP:</b> ${deviceInfo.ip || 'N/A'}
 <b>MAC:</b> ${deviceInfo.mac || 'N/A'}
 <b>Stato Precedente:</b> ${deviceInfo.oldStatus || 'N/A'}
-<b>Stato Attuale:</b> ${statusText}
-<b>Agent:</b> ${deviceInfo.agentName}
 <b>Timestamp:</b> ${new Date().toLocaleString('it-IT')}`;
   }
 }

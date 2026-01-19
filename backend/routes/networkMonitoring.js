@@ -677,7 +677,7 @@ module.exports = (pool, io) => {
       if (wasOffline && isNowOnline) {
         try {
           const agentInfo = await pool.query(
-            'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
+            'SELECT na.agent_name, na.azienda_id, u.username as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
             [agentId]
           );
           
@@ -692,7 +692,8 @@ module.exports = (pool, io) => {
                 ip: 'N/A',
                 mac: 'N/A',
                 status: 'online',
-                agentName: agentInfo.rows[0].agent_name
+                agentName: agentInfo.rows[0].agent_name,
+                aziendaName: agentInfo.rows[0].azienda_name
               }
             );
             console.log(`📱 Notifica Telegram inviata: Agent ${agentInfo.rows[0].agent_name} tornato online`);
@@ -916,7 +917,8 @@ module.exports = (pool, io) => {
           if (shouldNotify) {
             message = telegramService.formatAgentOfflineMessage(
               data.agentName,
-              data.lastHeartbeat
+              data.lastHeartbeat,
+              data.aziendaName
             );
           }
           break;
@@ -1236,7 +1238,7 @@ module.exports = (pool, io) => {
               if (existingDevice.notify_telegram) {
                 try {
                   const agentInfo = await pool.query(
-                    'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
+                    'SELECT na.agent_name, na.azienda_id, u.username as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
                     [agentId]
                   );
                   
@@ -1247,10 +1249,12 @@ module.exports = (pool, io) => {
                       'ip_changed',
                       {
                         hostname: existingDevice.hostname,
+                        deviceType: existingDevice.device_type,
                         mac: existingDevice.mac_address,
                         oldIP: existingIp,
                         newIP: normalizedCurrentIp,
-                        agentName: agentInfo.rows[0].agent_name
+                        agentName: agentInfo.rows[0].agent_name,
+                        aziendaName: agentInfo.rows[0].azienda_name
                       }
                     );
                   }
@@ -1288,7 +1292,7 @@ module.exports = (pool, io) => {
                 if (existingDevice.notify_telegram) {
                   try {
                     const agentInfo = await pool.query(
-                      'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
+                      'SELECT na.agent_name, na.azienda_id, u.username as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
                       [agentId]
                     );
                     
@@ -1299,10 +1303,12 @@ module.exports = (pool, io) => {
                         'mac_changed',
                         {
                           hostname: existingDevice.hostname,
+                          deviceType: existingDevice.device_type,
                           ip: existingDevice.ip_address,
                           oldMAC: existingDevice.mac_address,
                           newMAC: normalizedMac,
-                          agentName: agentInfo.rows[0].agent_name
+                          agentName: agentInfo.rows[0].agent_name,
+                          aziendaName: agentInfo.rows[0].azienda_name
                         }
                       );
                     }
@@ -1507,7 +1513,7 @@ module.exports = (pool, io) => {
             if (device.notify_telegram) {
               try {
                 const agentInfo = await pool.query(
-                  'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
+                  'SELECT na.agent_name, na.azienda_id, u.username as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
                   [agentId]
                 );
                 
@@ -1518,11 +1524,13 @@ module.exports = (pool, io) => {
                     'status_changed',
                     {
                       hostname: device.hostname,
+                      deviceType: device.device_type,
                       ip: device.ip_address,
                       mac: device.mac_address,
                       oldStatus: 'online',
                       status: 'offline',
-                      agentName: agentInfo.rows[0].agent_name
+                      agentName: agentInfo.rows[0].agent_name,
+                      aziendaName: agentInfo.rows[0].azienda_name
                     }
                   );
                 }
@@ -1553,7 +1561,7 @@ module.exports = (pool, io) => {
             if (device.notify_telegram) {
               try {
                 const agentInfo = await pool.query(
-                  'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
+                  'SELECT na.agent_name, na.azienda_id, u.username as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
                   [agentId]
                 );
                 
@@ -1564,11 +1572,13 @@ module.exports = (pool, io) => {
                     'status_changed',
                     {
                       hostname: device.hostname,
+                      deviceType: device.device_type,
                       ip: device.ip_address,
                       mac: device.mac_address,
                       oldStatus: 'offline',
                       status: 'online',
-                      agentName: agentInfo.rows[0].agent_name
+                      agentName: agentInfo.rows[0].agent_name,
+                      aziendaName: agentInfo.rows[0].azienda_name
                     }
                   );
                 }
@@ -1614,14 +1624,14 @@ module.exports = (pool, io) => {
             // Verifica se è un dispositivo con notifiche Telegram attive
             try {
               const deviceCheck = await pool.query(
-                'SELECT notify_telegram, hostname, ip_address, mac_address, status FROM network_devices WHERE id = $1',
+                'SELECT notify_telegram, hostname, ip_address, mac_address, status, device_type FROM network_devices WHERE id = $1',
                 [deviceId]
               );
               
               if (deviceCheck.rows.length > 0 && deviceCheck.rows[0].notify_telegram) {
                 const device = deviceCheck.rows[0];
                 const agentInfo = await pool.query(
-                  'SELECT agent_name, azienda_id FROM network_agents WHERE id = $1',
+                  'SELECT na.agent_name, na.azienda_id, u.username as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
                   [agentId]
                 );
                 
@@ -1632,11 +1642,13 @@ module.exports = (pool, io) => {
                     'status_changed',
                     {
                       hostname: device.hostname,
+                      deviceType: device.device_type,
                       ip: device.ip_address,
                       mac: device.mac_address,
                       oldStatus: change_type === 'device_offline' ? 'online' : 'offline',
                       status: change_type === 'device_offline' ? 'offline' : 'online',
-                      agentName: agentInfo.rows[0].agent_name
+                      agentName: agentInfo.rows[0].agent_name,
+                      aziendaName: agentInfo.rows[0].azienda_name
                     }
                   );
                 }
@@ -3718,7 +3730,7 @@ pause
         // Invia notifica Telegram
         try {
           const agentInfo = await pool.query(
-            'SELECT azienda_id FROM network_agents WHERE id = $1',
+            'SELECT na.azienda_id, u.username as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
             [agent.id]
           );
           
@@ -3729,7 +3741,8 @@ pause
               'agent_offline',
               {
                 agentName: agent.agent_name,
-                lastHeartbeat: agent.last_heartbeat
+                lastHeartbeat: agent.last_heartbeat,
+                aziendaName: agentInfo.rows[0].azienda_name
               }
             );
           }
