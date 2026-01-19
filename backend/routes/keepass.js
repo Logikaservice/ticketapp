@@ -1680,6 +1680,61 @@ module.exports = function createKeepassRouter(pool) {
 
       console.log(`✅ Segnalazione KeePass creata: ID ${reportId}, User ${userId}, Tipo: ${tipo || 'informazione'}`);
 
+      // Crea anche un avviso nella tabella alerts per renderlo visibile negli "Avvisi Importanti"
+      try {
+        // Mappa il tipo della segnalazione al level dell'avviso
+        const tipoToLevel = {
+          'informazione': 'info',
+          'avviso': 'warning',
+          'critico': 'danger'
+        };
+        const alertLevel = tipoToLevel[tipo] || 'info';
+
+        // Costruisci il body dell'avviso con i dettagli della segnalazione
+        let alertBody = descrizione;
+        
+        // Se è associata a una credenziale, aggiungi i dettagli
+        if (credenziale_titolo || credenziale_username || credenziale_url || credenziale_path) {
+          alertBody += '\n\n📋 Credenziale associata:\n';
+          if (credenziale_path) alertBody += `📁 Percorso: ${credenziale_path}\n`;
+          if (credenziale_titolo) alertBody += `🏷️ Titolo: ${credenziale_titolo}\n`;
+          if (credenziale_username) alertBody += `👤 Username: ${credenziale_username}\n`;
+          if (credenziale_url) alertBody += `🔗 URL: ${credenziale_url}\n`;
+        }
+
+        // Aggiungi info sugli allegati
+        if (allegatiNames.length > 0) {
+          alertBody += `\n📎 Allegati (${allegatiNames.length}): ${allegatiNames.join(', ')}`;
+        }
+
+        // Inserisci l'avviso nella tabella alerts
+        // L'avviso è destinato solo al cliente che ha creato la segnalazione
+        const alertQuery = `
+          INSERT INTO alerts (
+            title, body, level, clients, is_permanent, days_to_expire, created_by
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING id
+        `;
+        
+        const alertResult = await pool.query(alertQuery, [
+          `🔐 ${titolo}`, // Aggiungi emoji per distinguere le segnalazioni KeePass
+          alertBody,
+          alertLevel,
+          JSON.stringify([userId]), // Solo per il cliente che ha creato la segnalazione
+          false, // Non permanente
+          7, // Scade dopo 7 giorni
+          'Sistema KeePass' // created_by
+        ]);
+
+        const alertId = alertResult.rows[0].id;
+        console.log(`✅ Avviso creato negli "Avvisi Importanti": ID ${alertId}`);
+
+      } catch (alertErr) {
+        console.error('⚠️ Errore creazione avviso (segnalazione comunque salvata):', alertErr);
+        // Non bloccare la risposta se la creazione dell'avviso fallisce
+      }
+
       res.json({
         success: true,
         message: 'Segnalazione inviata con successo! Il team tecnico la prenderà in carico al più presto.',
