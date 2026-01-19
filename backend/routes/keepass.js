@@ -8,6 +8,7 @@ const xml2js = require('xml2js');
 const crypto = require('crypto');
 const { requireRole } = require('../middleware/authMiddleware');
 const keepassDriveService = require('../utils/keepassDriveService');
+const telegramService = require('../utils/telegramService');
 
 module.exports = function createKeepassRouter(pool) {
   const router = express.Router();
@@ -1733,6 +1734,31 @@ module.exports = function createKeepassRouter(pool) {
       } catch (alertErr) {
         console.error('⚠️ Errore creazione avviso (segnalazione comunque salvata):', alertErr);
         // Non bloccare la risposta se la creazione dell'avviso fallisce
+      }
+
+      // Invia notifica Telegram al tecnico
+      try {
+        const clientResult = await pool.query(
+          'SELECT nome, cognome, email, azienda FROM users WHERE id = $1',
+          [userId]
+        );
+        const cliente = clientResult.rows[0];
+
+        await telegramService.notifyKeePassReport({
+          reportId,
+          titolo,
+          tipo: tipo || 'informazione',
+          descrizione,
+          cliente: cliente || { nome: 'Sconosciuto', cognome: '', azienda: '' },
+          credenziale: {
+            title: credenziale_titolo,
+            username: credenziale_username,
+            url: credenziale_url,
+            groupPath: credenziale_path
+          }
+        });
+      } catch (telegramErr) {
+        console.error('⚠️ Errore invio notifica Telegram (segnalazione comunque salvata):', telegramErr.message);
       }
 
       // Invia email al tecnico

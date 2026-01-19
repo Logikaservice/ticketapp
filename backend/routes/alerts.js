@@ -4,6 +4,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const telegramService = require('../utils/telegramService');
 
 module.exports = function createAlertsRouter(pool) {
   const router = express.Router();
@@ -157,6 +158,28 @@ module.exports = function createAlertsRouter(pool) {
         'INSERT INTO alerts (title, body, level, ticket_id, created_by, clients, is_permanent, days_to_expire, attachments) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, title, body, level, ticket_id as "ticketId", created_at as "createdAt", created_by as "createdBy", clients, is_permanent as "isPermanent", days_to_expire as "daysToExpire", attachments',
         [title, body, level || 'warning', ticketId || null, createdBy || null, clientsJson, isPermanentValue, daysToExpire || 7, JSON.stringify(attachments)]
       );
+      
+      // Invia notifica Telegram al tecnico
+      try {
+        let creatoDaNome = 'Sistema';
+        if (createdBy) {
+          const userResult = await pool.query('SELECT nome, cognome, email FROM users WHERE id = $1', [createdBy]);
+          if (userResult.rows.length > 0) {
+            const user = userResult.rows[0];
+            creatoDaNome = `${user.nome || ''} ${user.cognome || ''}`.trim() || user.email;
+          }
+        }
+
+        await telegramService.notifyImportantAlert({
+          alertId: rows[0].id,
+          titolo: title,
+          messaggio: body,
+          livello: level || 'warning',
+          creatoDa: creatoDaNome
+        });
+      } catch (telegramErr) {
+        console.error('⚠️ Errore invio notifica Telegram per avviso importante:', telegramErr.message);
+      }
       
       // Gestione invio email in base all'opzione selezionata
       if (emailOption && emailOption !== 'none') {

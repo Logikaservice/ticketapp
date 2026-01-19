@@ -5,6 +5,7 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const telegramService = require('../utils/telegramService');
 
 // Importa fetch per Node.js (se non disponibile globalmente)
 let fetch;
@@ -388,6 +389,23 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       // Usa setImmediate per eseguire dopo che la risposta è stata inviata
       setImmediate(async () => {
         try {
+          // Invia notifica Telegram al tecnico
+          try {
+            const clientData = await pool.query('SELECT nome, cognome, azienda FROM users WHERE id = $1', [clienteid]);
+            const cliente = clientData.rows[0];
+            
+            await telegramService.notifyNewTicket({
+              ticketId: numero,
+              titolo,
+              descrizione,
+              priorita,
+              cliente: cliente ? `${cliente.nome} ${cliente.cognome}` : nomerichiedente || 'Sconosciuto',
+              azienda: azienda || (cliente ? cliente.azienda : 'N/A')
+            });
+          } catch (telegramErr) {
+            console.error('⚠️ Errore invio notifica Telegram per nuovo ticket:', telegramErr.message);
+          }
+
           // Invia notifica email al cliente (solo se sendEmail è true)
 
           if (result.rows[0] && sendEmail === true) {
@@ -757,6 +775,24 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
 
       if (result.rows.length > 0) {
         const updatedTicket = result.rows[0];
+
+        // Invia notifica Telegram al tecnico per cambio stato
+        if (oldStatus !== status) {
+          try {
+            const clientData = await pool.query('SELECT nome, cognome FROM users WHERE id = $1', [updatedTicket.clienteid]);
+            const cliente = clientData.rows[0];
+            const modificatoDa = req.user ? `${req.user.nome || ''} ${req.user.cognome || ''}`.trim() || req.user.email : 'Sistema';
+
+            await telegramService.notifyTicketUpdate({
+              ticketId: updatedTicket.numero,
+              titolo: updatedTicket.titolo,
+              stato: status,
+              modificatoDa
+            });
+          } catch (telegramErr) {
+            console.error('⚠️ Errore invio notifica Telegram per aggiornamento ticket:', telegramErr.message);
+          }
+        }
 
         // Invia notifica email per le azioni specifiche (solo se sendEmail è true o undefined)
 
