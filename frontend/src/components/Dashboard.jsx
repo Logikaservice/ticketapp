@@ -6,6 +6,7 @@ import TicketListContainer from './TicketListContainer';
 import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
 import ContractTimelineCard from './ContractTimelineCard';
+import KeepassReportModal from './Modals/KeepassReportModal';
 
 
 import { formatDate } from '../utils/formatters';
@@ -797,6 +798,8 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   const [keepassHasLoaded, setKeepassHasLoaded] = React.useState(false);
   const [keepassVisiblePasswords, setKeepassVisiblePasswords] = React.useState({});
   const [keepassHighlightEntryId, setKeepassHighlightEntryId] = React.useState(null);
+  const [isKeepassReportModalOpen, setIsKeepassReportModalOpen] = React.useState(false);
+  const [keepassReportCredentialData, setKeepassReportCredentialData] = React.useState(null);
 
   const loadKeepassEntries = React.useCallback(async () => {
     if (!getAuthHeader) return;
@@ -915,8 +918,8 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     const userRole = currentUser?.ruolo || '';
 
     // Per i clienti, permetti la ricerca anche senza termine (mostra tutte le password dell'azienda)
-    // Per i tecnici, richiedi almeno 2 caratteri (come prima)
-    if (userRole !== 'cliente' && term.length < 2) {
+    // Per i tecnici, richiedi almeno 3 caratteri (come prima)
+    if (userRole !== 'cliente' && term.length < 3) {
       setKeepassSearchResults([]);
       return;
     }
@@ -1753,25 +1756,39 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                 </button>
 
                 <div className="p-4 border-t border-indigo-100 bg-white space-y-3">
-                  <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent transition bg-gray-50">
-                    <Search size={16} className="text-gray-400" />
-                    <input
-                      type="text"
-                      value={keepassSearchQuery}
-                      onChange={(e) => setKeepassSearchQuery(e.target.value)}
-                      placeholder="Ricerca veloce..."
-                      className="flex-1 text-sm text-gray-700 bg-transparent focus:outline-none"
-                    />
-                    {keepassSearchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => setKeepassSearchQuery('')}
-                        className="text-gray-400 hover:text-gray-600 transition"
-                        title="Pulisci ricerca"
-                      >
-                        <X size={14} />
-                      </button>
-                    )}
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent transition bg-gray-50">
+                      <Search size={16} className="text-gray-400" />
+                      <input
+                        type="text"
+                        value={keepassSearchQuery}
+                        onChange={(e) => setKeepassSearchQuery(e.target.value)}
+                        placeholder="Ricerca veloce..."
+                        className="flex-1 text-sm text-gray-700 bg-transparent focus:outline-none"
+                      />
+                      {keepassSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setKeepassSearchQuery('')}
+                          className="text-gray-400 hover:text-gray-600 transition"
+                          title="Pulisci ricerca"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setKeepassReportCredentialData(null); // Segnalazione generica
+                        setIsKeepassReportModalOpen(true);
+                      }}
+                      className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center gap-2 whitespace-nowrap"
+                      title="Segnala un problema o fai una richiesta"
+                    >
+                      <AlertTriangle size={16} />
+                      <span className="text-sm font-medium">Segnala</span>
+                    </button>
                   </div>
 
                   {keepassSearchLoadingResults && (
@@ -1788,9 +1805,9 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
                   {!keepassSearchLoadingResults && !keepassSearchError && (
                     <>
-                      {keepassSearchQuery.trim().length < 2 ? (
+                      {keepassSearchQuery.trim().length < 3 ? (
                         <p className="text-xs text-gray-500">
-                          Inserisci almeno 2 caratteri per cercare le tue credenziali. La ricerca avviene solo tra i dati a te associati.
+                          Inserisci almeno 3 caratteri per cercare le tue credenziali. La ricerca avviene solo tra i dati a te associati.
                         </p>
                       ) : keepassResults.length === 0 ? (
                         <p className="text-sm text-gray-500">Nessuna credenziale trovata.</p>
@@ -1823,18 +1840,6 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                                     <Copy size={14} />
                                   </button>
                                 </div>
-                              )}
-
-                              {entry.url && (
-                                <a
-                                  href={entry.url.startsWith('http') ? entry.url : `http://${entry.url}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-2 text-sm text-blue-600 hover:underline mt-2"
-                                >
-                                  <Globe size={14} className="text-blue-500" />
-                                  <span className="truncate">{entry.url}</span>
-                                </a>
                               )}
 
                               {/* Password */}
@@ -1940,6 +1945,18 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                                 </div>
                               </div>
 
+                              {entry.url && (
+                                <a
+                                  href={entry.url.startsWith('http') ? entry.url : `http://${entry.url}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 text-sm text-blue-600 hover:underline mt-2"
+                                >
+                                  <Globe size={14} className="text-blue-500" />
+                                  <span className="truncate">{entry.url}</span>
+                                </a>
+                              )}
+
                               {entry.notes && (
                                 <p className="text-xs text-gray-500 mt-2 line-clamp-2 whitespace-pre-wrap">
                                   {entry.notes}
@@ -1949,16 +1966,18 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setKeepassHighlightEntryId(entry.id);
-                                  const url = new URL(window.location);
-                                  url.searchParams.set('modal', 'keepass');
-                                  url.searchParams.set('entryId', entry.id.toString());
-                                  window.history.pushState({}, '', url);
-                                  setModalState({ type: 'keepassCredentials', data: { highlightEntryId: entry.id } });
+                                  setKeepassReportCredentialData({
+                                    title: entry.title,
+                                    username: entry.username,
+                                    url: entry.url,
+                                    groupPath: entry.groupPath
+                                  });
+                                  setIsKeepassReportModalOpen(true);
                                 }}
-                                className="mt-3 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition"
+                                className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 rounded-lg transition text-sm font-medium"
                               >
-                                Apri credenziali complete
+                                <AlertTriangle size={16} />
+                                Segnala Problema
                               </button>
                             </li>
                           ))}
@@ -1973,6 +1992,17 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         </div>
       </div>
 
+      {/* Modal Segnalazione Problemi KeePass */}
+      <KeepassReportModal
+        isOpen={isKeepassReportModalOpen}
+        onClose={() => {
+          setIsKeepassReportModalOpen(false);
+          setKeepassReportCredentialData(null);
+        }}
+        currentUser={currentUser}
+        getAuthHeader={getAuthHeader}
+        credentialData={keepassReportCredentialData}
+      />
 
     </div>
   );

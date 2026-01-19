@@ -1562,6 +1562,135 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
+  // Configurazione multer per allegati segnalazioni
+  const reportStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      const uploadPath = path.join(__dirname, '..', 'uploads', 'keepass-reports');
+      if (!fs.existsSync(uploadPath)) {
+        fs.mkdirSync(uploadPath, { recursive: true });
+      }
+      cb(null, uploadPath);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const ext = path.extname(file.originalname);
+      const baseName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9]/g, '_');
+      cb(null, `report-${uniqueSuffix}-${baseName}${ext}`);
+    }
+  });
+
+  const uploadReportFiles = multer({
+    storage: reportStorage,
+    limits: {
+      fileSize: 50 * 1024 * 1024, // 50MB per file
+      files: 10 // Max 10 files
+    }
+  });
+
+  /**
+   * POST /api/keepass/report-issue
+   * Crea una segnalazione/problema dalla sezione KeePass
+   * Può essere associata a una credenziale specifica o essere una segnalazione generica
+   */
+  router.post('/report-issue', uploadReportFiles.any(), async (req, res) => {
+    try {
+      const userId = req.user?.id || parseInt(req.headers['x-user-id']);
+      const userRole = req.user?.ruolo || req.headers['x-user-role'];
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Utente non autenticato' });
+      }
+
+      const {
+        titolo,
+        descrizione,
+        tipo, // 'informazione', 'avviso', 'critico'
+        fonte, // 'keepass'
+        credenziale_titolo,
+        credenziale_username,
+        credenziale_url,
+        credenziale_path
+      } = req.body;
+
+      // Validazione
+      if (!titolo || !descrizione) {
+        return res.status(400).json({ error: 'Titolo e descrizione sono obbligatori' });
+      }
+
+      const tipiValidi = ['informazione', 'avviso', 'critico'];
+      if (tipo && !tipiValidi.includes(tipo)) {
+        return res.status(400).json({ error: 'Tipo non valido. Usa: informazione, avviso, critico' });
+      }
+
+      // Prepara i percorsi degli allegati
+      const allegatiPaths = req.files ? req.files.map(file => file.path) : [];
+      const allegatiNames = req.files ? req.files.map(file => file.originalname) : [];
+
+      // Crea una entry nella tabella keepass_reports
+      // Prima verifica se la tabella esiste, altrimenti creala
+      const createTableQuery = `
+        CREATE TABLE IF NOT EXISTS keepass_reports (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          titolo TEXT NOT NULL,
+          descrizione TEXT NOT NULL,
+          tipo VARCHAR(50) DEFAULT 'informazione',
+          fonte VARCHAR(50) DEFAULT 'keepass',
+          credenziale_titolo TEXT,
+          credenziale_username TEXT,
+          credenziale_url TEXT,
+          credenziale_path TEXT,
+          allegati_paths TEXT[],
+          allegati_names TEXT[],
+          stato VARCHAR(50) DEFAULT 'aperto',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          resolved_at TIMESTAMP,
+          resolved_by INTEGER,
+          note_risoluzione TEXT
+        )
+      `;
+      await pool.query(createTableQuery);
+
+      // Inserisci la segnalazione
+      const insertQuery = `
+        INSERT INTO keepass_reports (
+          user_id, titolo, descrizione, tipo, fonte,
+          credenziale_titolo, credenziale_username, credenziale_url, credenziale_path,
+          allegati_paths, allegati_names
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        RETURNING id
+      `;
+      
+      const result = await pool.query(insertQuery, [
+        userId,
+        titolo,
+        descrizione,
+        tipo || 'informazione',
+        fonte || 'keepass',
+        credenziale_titolo || null,
+        credenziale_username || null,
+        credenziale_url || null,
+        credenziale_path || null,
+        allegatiPaths.length > 0 ? allegatiPaths : null,
+        allegatiNames.length > 0 ? allegatiNames : null
+      ]);
+
+      const reportId = result.rows[0].id;
+
+      console.log(`✅ Segnalazione KeePass creata: ID ${reportId}, User ${userId}, Tipo: ${tipo || 'informazione'}`);
+
+      res.json({
+        success: true,
+        message: 'Segnalazione inviata con successo! Il team tecnico la prenderà in carico al più presto.',
+        reportId: reportId
+      });
+    } catch (err) {
+      console.error('❌ Errore creazione segnalazione KeePass:', err);
+      res.status(500).json({ error: 'Errore interno del server', details: err.message });
+    }
+  });
+
   return router;
 };
 
