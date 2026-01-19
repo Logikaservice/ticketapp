@@ -63,13 +63,12 @@ if (smtpRelayHost && smtpRelayPort && smtpRelayUser && smtpRelayPass) {
   const isAruba = emailUser.includes('@logikaservice.it') || emailUser.includes('@aruba.it') || emailUser.includes('aruba');
 
 if (isAruba) {
-  console.log('📧 Configurazione SMTP Aruba');
-  // Prova prima porta 587 (TLS) - più comune e spesso non bloccata
+  console.log('📧 Configurazione SMTP Aruba (smtps.aruba.it:465)');
+  // Usa smtps.aruba.it porta 465 con SSL - più affidabile e meno soggetto a blocchi firewall
   smtpConfig = {
-    host: 'smtp.aruba.it',
-    port: 587,
-    secure: false, // TLS/STARTTLS per porta 587
-    // Non forzare requireTLS - lascia che Nodemailer gestisca STARTTLS automaticamente
+    host: 'smtps.aruba.it',
+    port: 465,
+    secure: true, // SSL per porta 465
     auth: {
       user: emailUser,
       pass: emailPass
@@ -78,7 +77,7 @@ if (isAruba) {
     socketTimeout: 60000,
     greetingTimeout: 30000,
     tls: {
-      rejectUnauthorized: false, // Permetti certificati self-signed o con problemi (temporaneo per debug)
+      rejectUnauthorized: false,
       minVersion: 'TLSv1.2'
     },
     debug: true,
@@ -173,7 +172,8 @@ transporter.verify((error, success) => {
     } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {
       console.error('\n⚠️  ERRORE CONNESSIONE!');
       console.error('Possibili cause:');
-      if (isAruba) {
+      const isArubaCheck = emailUser && (emailUser.includes('@logikaservice.it') || emailUser.includes('@aruba.it') || emailUser.includes('aruba'));
+      if (isArubaCheck) {
         console.error('1. Firewall blocca porta 587 (TLS)');
         console.error('2. Problema di rete con Aruba');
         console.error('3. SMTP Aruba non raggiungibile');

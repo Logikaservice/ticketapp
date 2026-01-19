@@ -166,10 +166,40 @@ module.exports = function createAlertsRouter(pool) {
           const emailPass = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
           
           if (emailUser && emailPass) {
-            const transporter = nodemailer.createTransport({
-              service: 'gmail',
-              auth: { user: emailUser, pass: emailPass }
-            });
+            // Rileva il provider in base al dominio email
+            const isAruba = emailUser.includes('@logikaservice.it') || emailUser.includes('@aruba.it');
+            const isGmail = emailUser.includes('@gmail.com');
+            
+            let smtpConfig;
+            if (isAruba) {
+              // Configurazione Aruba
+              smtpConfig = {
+                host: 'smtps.aruba.it',
+                port: 465,
+                secure: true, // SSL
+                auth: { user: emailUser, pass: emailPass },
+                tls: {
+                  rejectUnauthorized: false,
+                  minVersion: 'TLSv1.2'
+                }
+              };
+            } else if (isGmail) {
+              // Configurazione Gmail
+              smtpConfig = {
+                service: 'gmail',
+                auth: { user: emailUser, pass: emailPass }
+              };
+            } else {
+              // Generico
+              smtpConfig = {
+                host: 'smtp.' + emailUser.split('@')[1],
+                port: 587,
+                secure: false,
+                auth: { user: emailUser, pass: emailPass }
+              };
+            }
+            
+            const transporter = nodemailer.createTransport(smtpConfig);
 
             // Determina i destinatari in base all'opzione
             let recipients = [];
