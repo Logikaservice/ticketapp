@@ -677,7 +677,7 @@ module.exports = (pool, io) => {
       if (wasOffline && isNowOnline) {
         try {
           const agentInfo = await pool.query(
-            'SELECT na.agent_name, na.azienda_id, u.username as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
+            'SELECT na.agent_name, na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
             [agentId]
           );
           
@@ -3730,7 +3730,7 @@ pause
         // Invia notifica Telegram
         try {
           const agentInfo = await pool.query(
-            'SELECT na.azienda_id, u.username as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
+            'SELECT na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
             [agent.id]
           );
           
