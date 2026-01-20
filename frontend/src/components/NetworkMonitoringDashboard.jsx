@@ -87,13 +87,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             margin-top: 20px;
             table-layout: fixed;
           }
-          /* Larghezze colonne ottimizzate */
-          table th:nth-child(1), table td:nth-child(1) { width: 13%; } /* IP */
-          table th:nth-child(2), table td:nth-child(2) { width: 15%; } /* MAC */
-          table th:nth-child(3), table td:nth-child(3) { width: 18%; } /* Prodotto */
+          /* Larghezze colonne ottimizzate - Status più a destra con meno spazio */
+          table th:nth-child(1), table td:nth-child(1) { width: 14%; } /* IP */
+          table th:nth-child(2), table td:nth-child(2) { width: 20%; } /* MAC - più largo per MAC completi */
+          table th:nth-child(3), table td:nth-child(3) { width: 13%; } /* Prod. */
           table th:nth-child(4), table td:nth-child(4) { width: 20%; } /* Titolo */
-          table th:nth-child(5), table td:nth-child(5) { width: 18%; } /* Utente */
-          table th:nth-child(6), table td:nth-child(6) { width: 16%; } /* Status */
+          table th:nth-child(5), table td:nth-child(5) { width: 21%; } /* Utente */
+          table th:nth-child(6), table td:nth-child(6) { width: 12%; } /* Status - ridotto */
           th {
             background-color: #f3f4f6;
             padding: 8px;
@@ -114,7 +114,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 150px;
           }
           tr:nth-child(even) {
             background-color: #f9fafb;
@@ -155,7 +154,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             <tr>
               <th>IP</th>
               <th>MAC</th>
-              <th>Prodotto</th>
+              <th>Prod.</th>
               <th>Titolo</th>
               <th>Utente</th>
               <th>Status</th>
@@ -171,7 +170,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 <tr class="${rowClass}">
                   <td>${device.ip_address || '-'}</td>
                   <td>${device.mac_address || '-'}</td>
-                  <td>${device.vendor || '-'}</td>
+                  <td>${device.device_path || '-'}</td>
                   <td>${device.device_type || '-'}</td>
                   <td>${device.device_username || '-'}</td>
                   <td>
