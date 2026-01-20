@@ -7,7 +7,7 @@ import {
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
   Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit, Menu,
-  CircleAlert, Stethoscope, Eye, EyeOff
+  CircleAlert, Stethoscope, Eye, EyeOff, FileText
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
@@ -53,6 +53,142 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedDeviceForSchedule, setSelectedDeviceForSchedule] = useState(null);
   // selectedStaticIPs non serve più, usiamo is_static dal database
+
+  // Funzione per generare report stampabile
+  const generatePrintableReport = () => {
+    const companyName = companies.find(c => c.id === selectedCompanyId)?.azienda || 'Dispositivi';
+    
+    // Prepara HTML per la stampa (include tutti i dispositivi, anche offline)
+    const printHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Report Dispositivi - ${companyName}</title>
+        <style>
+          @media print {
+            @page { margin: 1.5cm; }
+          }
+          body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+          }
+          h1 {
+            text-align: center;
+            color: #1f2937;
+            margin-bottom: 30px;
+            font-size: 24px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+          }
+          th {
+            background-color: #f3f4f6;
+            padding: 10px;
+            text-align: left;
+            border-bottom: 2px solid #d1d5db;
+            font-weight: bold;
+            color: #374151;
+            font-size: 11px;
+          }
+          td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 10px;
+            color: #1f2937;
+          }
+          tr:nth-child(even) {
+            background-color: #f9fafb;
+          }
+          tr.static-row {
+            background-color: #dbeafe !important;
+          }
+          tr.offline-row {
+            background-color: #fee2e2 !important;
+          }
+          .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 9px;
+            font-weight: bold;
+          }
+          .status-online {
+            background-color: #d1fae5;
+            color: #065f46;
+          }
+          .status-offline {
+            background-color: #fee2e2;
+            color: #991b1b;
+          }
+          .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 10px;
+            color: #6b7280;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Report Dispositivi di Rete - ${companyName}</h1>
+        <table>
+          <thead>
+            <tr>
+              <th>IP</th>
+              <th>MAC</th>
+              <th>Hostname</th>
+              <th>Prodotto</th>
+              <th>Titolo</th>
+              <th>Utente</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${companyDevices.map(device => {
+              const isStatic = device.is_static === true;
+              const isOffline = device.status === 'offline';
+              const rowClass = isOffline ? 'offline-row' : (isStatic ? 'static-row' : '');
+              
+              return `
+                <tr class="${rowClass}">
+                  <td>${device.ip_address || '-'}</td>
+                  <td>${device.mac_address || '-'}</td>
+                  <td>${device.hostname || '-'}</td>
+                  <td>${device.vendor || '-'}</td>
+                  <td>${device.device_type || '-'}</td>
+                  <td>${device.device_username || '-'}</td>
+                  <td>
+                    <span class="status-badge status-${device.status === 'online' ? 'online' : 'offline'}">
+                      ${device.status === 'online' ? '● Online' : '○ Offline'}
+                    </span>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+        <div class="footer">
+          Generato il ${new Date().toLocaleString('it-IT')} | Totale dispositivi: ${companyDevices.length}
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Apri in nuova finestra
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printHTML);
+    printWindow.document.close();
+    
+    // Attendi caricamento e stampa
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    };
+  };
 
   const [editingAgentId, setEditingAgentId] = useState(null);
   const [editAgentData, setEditAgentData] = useState({
@@ -1489,27 +1625,39 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               <Building size={24} className="text-purple-600" />
               {companies.find(c => c.id === selectedCompanyId)?.azienda || 'Dispositivi'}
             </h2>
-            <button
-              onClick={() => setShowOfflineDevices(!showOfflineDevices)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-                showOfflineDevices
-                  ? 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
-                  : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
-              }`}
-              title={showOfflineDevices ? 'Nascondi dispositivi offline' : 'Mostra dispositivi offline'}
-            >
-              {showOfflineDevices ? (
-                <>
-                  <EyeOff size={18} />
-                  <span className="text-sm font-medium">Nascondi Offline</span>
-                </>
-              ) : (
-                <>
-                  <Eye size={18} />
-                  <span className="text-sm font-medium">Mostra Offline</span>
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowOfflineDevices(!showOfflineDevices)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                  showOfflineDevices
+                    ? 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                    : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
+                }`}
+                title={showOfflineDevices ? 'Nascondi dispositivi offline' : 'Mostra dispositivi offline'}
+              >
+                {showOfflineDevices ? (
+                  <>
+                    <EyeOff size={18} />
+                    <span className="text-sm font-medium">Nascondi Offline</span>
+                  </>
+                ) : (
+                  <>
+                    <Eye size={18} />
+                    <span className="text-sm font-medium">Mostra Offline</span>
+                  </>
+                )}
+              </button>
+              
+              <button
+                onClick={generatePrintableReport}
+                className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-300 text-green-700 rounded-lg hover:bg-green-100 transition-colors"
+                title="Genera report stampabile (include tutti i dispositivi)"
+                disabled={companyDevices.length === 0}
+              >
+                <FileText size={18} />
+                <span className="text-sm font-medium">Report Stampabile</span>
+              </button>
+            </div>
           </div>
           {loadingCompanyDevices ? (
             <div className="p-8 flex items-center justify-center">
