@@ -49,6 +49,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [loadingCompanyDevices, setLoadingCompanyDevices] = useState(false);
   const [showOfflineDevices, setShowOfflineDevices] = useState(true); // Mostra dispositivi offline di default
   const [changesSearchTerm, setChangesSearchTerm] = useState('');
+  const [changesCompanyFilter, setChangesCompanyFilter] = useState(null); // Filtro azienda separato per "Cambiamenti Rilevati"
   const [ipContextMenu, setIpContextMenu] = useState({ show: false, ip: '', x: 0, y: 0 });
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedDeviceForSchedule, setSelectedDeviceForSchedule] = useState(null);
@@ -386,12 +387,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   }, [getAuthHeader]);
 
   // Carica cambiamenti
-  const loadChanges = useCallback(async (silent = false, companyId = undefined) => {
+  const loadChanges = useCallback(async (silent = false) => {
     try {
       const searchParam = changesSearchTerm ? `&search=${encodeURIComponent(changesSearchTerm)}` : '';
-      // Usa companyId se passato esplicitamente, altrimenti usa selectedCompanyId
-      const aziendaIdToUse = companyId !== undefined ? companyId : selectedCompanyId;
-      const aziendaParam = aziendaIdToUse ? `&azienda_id=${aziendaIdToUse}` : '';
+      // Usa il filtro azienda specifico per i cambiamenti (changesCompanyFilter), NON selectedCompanyId
+      const aziendaParam = changesCompanyFilter ? `&azienda_id=${changesCompanyFilter}` : '';
       // Richiedi anche il conteggio delle ultime 24 ore
       const response = await fetch(buildApiUrl(`/api/network-monitoring/all/changes?limit=500&count24h=true${searchParam}${aziendaParam}`), {
         headers: getAuthHeader()
@@ -417,7 +417,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         console.error('Errore caricamento cambiamenti:', err);
       }
     }
-  }, [getAuthHeader, changesSearchTerm]);
+  }, [getAuthHeader, changesSearchTerm, changesCompanyFilter]);
 
   // Carica lista aziende
   const loadCompanies = useCallback(async () => {
@@ -604,7 +604,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       // Poi ricarica tutti i dati
       await Promise.all([
         loadDevices(),
-        loadChanges(false, selectedCompanyId),
+        loadChanges(false),
         selectedCompanyId ? loadCompanyDevices(selectedCompanyId) : Promise.resolve()
       ]);
     } catch (err) {
@@ -752,7 +752,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   // Carica dati iniziali
   useEffect(() => {
     loadDevices();
-    loadChanges(false, selectedCompanyId);
+    loadChanges(false);
     loadAgents();
     loadCompanies();
   }, [loadDevices, loadChanges, loadAgents, loadCompanies]);
@@ -764,7 +764,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     const interval = setInterval(() => {
       // Usa modalità "silent" per evitare flicker durante auto-refresh
       loadDevices(true);
-      loadChanges(true, selectedCompanyId);
+      loadChanges(true);
       // Se un'azienda è selezionata, ricarica anche i dispositivi dell'azienda (già silenzioso)
       if (selectedCompanyId) {
         loadCompanyDevices(selectedCompanyId);
@@ -774,10 +774,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     return () => clearInterval(interval);
   }, [autoRefresh, loadDevices, loadChanges, loadCompanyDevices, selectedCompanyId, showCreateAgentModal]);
 
-  // Ricarica i cambiamenti quando cambia l'azienda selezionata
+  // Ricarica i cambiamenti quando cambia il filtro azienda per i cambiamenti
   useEffect(() => {
-    loadChanges(false, selectedCompanyId);
-  }, [selectedCompanyId, loadChanges]);
+    loadChanges(false);
+  }, [changesCompanyFilter, loadChanges]);
 
   // Resetta il toggle quando cambia l'azienda selezionata
   useEffect(() => {
@@ -809,7 +809,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       // Usa modalità "silent" per evitare flicker (gli aggiornamenti WebSocket sono già real-time)
       if (!showCreateAgentModal) {
         loadDevices(true);
-        loadChanges(true, selectedCompanyId);
+        loadChanges(true);
         
         // Se l'evento riguarda un cambio di status dell'agent, ricarica anche la lista agenti
         if (data && data.type === 'agent-status-changed') {
@@ -845,11 +845,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   // Ricarica cambiamenti quando cambia il termine di ricerca (con debounce)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      loadChanges(false, selectedCompanyId);
+      loadChanges(false);
     }, 300); // Debounce di 300ms
 
     return () => clearTimeout(timeoutId);
-  }, [changesSearchTerm, selectedCompanyId, loadChanges]);
+  }, [changesSearchTerm, loadChanges]);
 
   // Icona dispositivo per tipo
   const getDeviceIcon = (deviceType) => {
@@ -1154,10 +1154,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 setSelectedCompanyId(companyId);
                 if (companyId) {
                   loadCompanyDevices(companyId);
-                  loadChanges(false, companyId);
                 } else {
                   setCompanyDevices([]);
-                  loadChanges(false, null);
                 }
               }}
               className="px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer min-w-[200px]"
@@ -1961,18 +1959,45 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900">Cambiamenti Rilevati</h2>
           <div className="flex items-center gap-4">
+            {/* Filtro Azienda - Solo aziende con agent attivi */}
+            <div className="relative">
+              <select
+                value={changesCompanyFilter || ''}
+                onChange={(e) => {
+                  const companyId = e.target.value ? parseInt(e.target.value) : null;
+                  setChangesCompanyFilter(companyId);
+                }}
+                className="px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer min-w-[180px]"
+              >
+                <option value="">Tutte le Aziende</option>
+                {companies
+                  .filter(company => company.agent_count > 0) // Solo aziende con agent
+                  .map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.azienda}
+                    </option>
+                  ))
+                }
+              </select>
+              <Building 
+                size={16} 
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" 
+              />
+            </div>
+            
+            {/* Barra di ricerca */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Cerca (IP, MAC, hostname, azienda...)"
+                placeholder="Cerca (IP, MAC, hostname...)"
                 value={changesSearchTerm}
                 onChange={(e) => {
                   setChangesSearchTerm(e.target.value);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    loadChanges(false, selectedCompanyId);
+                    loadChanges(false);
                   }
                 }}
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
@@ -1981,7 +2006,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 <button
                   onClick={() => {
                     setChangesSearchTerm('');
-                    loadChanges(false, selectedCompanyId);
+                    loadChanges(false);
                   }}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
@@ -2079,7 +2104,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             if (shouldRefresh) {
               setTimeout(() => {
                 loadDevices();
-                loadChanges(false, selectedCompanyId);
+                loadChanges(false);
                 loadAgents();
                 // opzionale: aggiorna lista aziende (se UI mostra conteggi o dropdown dipende dal backend)
                 loadCompanies();
