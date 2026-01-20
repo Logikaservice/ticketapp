@@ -1967,7 +1967,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               >
                 <option value="">Tutte le Aziende</option>
                 {companies
-                  .filter(company => company.agent_count > 0) // Solo aziende con agent
+                  .filter(company => company.agents_count > 0) // Solo aziende con agent
                   .map((company) => (
                     <option key={company.id} value={company.id}>
                       {company.azienda}
