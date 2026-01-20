@@ -85,21 +85,36 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
+            table-layout: fixed;
           }
+          /* Larghezze colonne ottimizzate */
+          table th:nth-child(1), table td:nth-child(1) { width: 13%; } /* IP */
+          table th:nth-child(2), table td:nth-child(2) { width: 15%; } /* MAC */
+          table th:nth-child(3), table td:nth-child(3) { width: 18%; } /* Prodotto */
+          table th:nth-child(4), table td:nth-child(4) { width: 20%; } /* Titolo */
+          table th:nth-child(5), table td:nth-child(5) { width: 18%; } /* Utente */
+          table th:nth-child(6), table td:nth-child(6) { width: 16%; } /* Status */
           th {
             background-color: #f3f4f6;
-            padding: 10px;
+            padding: 8px;
             text-align: left;
             border-bottom: 2px solid #d1d5db;
             font-weight: bold;
             color: #374151;
-            font-size: 11px;
+            font-size: 10px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
           td {
-            padding: 8px 10px;
+            padding: 6px 8px;
             border-bottom: 1px solid #e5e7eb;
-            font-size: 10px;
+            font-size: 9px;
             color: #1f2937;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 150px;
           }
           tr:nth-child(even) {
             background-color: #f9fafb;
