@@ -140,7 +140,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             <tr>
               <th>IP</th>
               <th>MAC</th>
-              <th>Hostname</th>
               <th>Prodotto</th>
               <th>Titolo</th>
               <th>Utente</th>
@@ -157,7 +156,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 <tr class="${rowClass}">
                   <td>${device.ip_address || '-'}</td>
                   <td>${device.mac_address || '-'}</td>
-                  <td>${device.hostname || '-'}</td>
                   <td>${device.vendor || '-'}</td>
                   <td>${device.device_type || '-'}</td>
                   <td>${device.device_username || '-'}</td>
@@ -1686,7 +1684,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12"></th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Prod.</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Titolo</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Utente</th>
@@ -1899,7 +1896,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           <span>{device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}</span>
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-900">{device.hostname || '-'}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">{device.device_path || '-'}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">{device.device_type || '-'}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">{device.device_username || '-'}</td>
