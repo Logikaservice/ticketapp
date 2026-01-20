@@ -864,6 +864,73 @@ module.exports = (pool, io) => {
     }
   });
 
+  // ========================================
+  // FUNZIONI HELPER PER MONITORING SCHEDULE
+  // ========================================
+
+  /**
+   * Verifica se siamo nella finestra di monitoraggio schedulato
+   * @param {Object} schedule - {enabled, days, expected_time, grace_minutes}
+   * @returns {boolean} - true se siamo nella finestra
+   */
+  function isWithinMonitoringWindow(schedule) {
+    if (!schedule || !schedule.enabled) {
+      return false; // Nessuno schedule = modalità continua
+    }
+
+    const now = new Date();
+    const currentDay = now.getDay(); // 0=Domenica, 1=Lunedì, ...
+    const currentTime = now.getHours() * 60 + now.getMinutes(); // Minuti da mezzanotte
+
+    // Controlla se oggi è un giorno di monitoraggio
+    if (!schedule.days || !Array.isArray(schedule.days) || !schedule.days.includes(currentDay)) {
+      return false;
+    }
+
+    // Parse expected_time (formato "HH:MM")
+    const [expectedHours, expectedMinutes] = (schedule.expected_time || '00:00').split(':').map(Number);
+    const expectedTime = expectedHours * 60 + expectedMinutes;
+    const graceMinutes = schedule.grace_minutes || 60;
+
+    // Finestra: expected_time fino a expected_time + grace_minutes
+    const windowStart = expectedTime;
+    const windowEnd = expectedTime + graceMinutes;
+
+    return currentTime >= windowStart && currentTime <= windowEnd;
+  }
+
+  /**
+   * Determina se inviare notifica basandosi sulla modalità (continua vs schedulata)
+   * @param {Object} device - Dispositivo con notify_telegram e monitoring_schedule
+   * @param {string} eventType - 'status_changed', 'ip_changed', 'mac_changed'
+   * @returns {boolean} - true se deve notificare
+   */
+  function shouldNotifyForEvent(device, eventType) {
+    if (!device.notify_telegram) {
+      return false; // Notifiche disabilitate
+    }
+
+    const schedule = device.monitoring_schedule;
+    
+    // MODALITÀ CONTINUA (schedule NULL o disabled)
+    if (!schedule || !schedule.enabled) {
+      return true; // Notifica sempre per ogni evento
+    }
+
+    // MODALITÀ SCHEDULATA
+    // Per status_changed (online/offline): NON notificare (è normale che si accenda/spenga)
+    if (eventType === 'status_changed') {
+      return false;
+    }
+
+    // Per ip_changed e mac_changed: notifica SOLO se siamo nella finestra di monitoraggio
+    if (eventType === 'ip_changed' || eventType === 'mac_changed') {
+      return isWithinMonitoringWindow(schedule);
+    }
+
+    return false;
+  }
+
   // Funzione helper per inviare notifiche Telegram
   async function sendTelegramNotification(agentId, aziendaId, messageType, data) {
     try {
@@ -1234,11 +1301,11 @@ module.exports = (pool, io) => {
               updates.push(`ip_address = $${paramIndex++}`);
               values.push(normalizedCurrentIp);
               
-              // Invia notifica Telegram (SOLO se notify_telegram è attivo)
-              if (existingDevice.notify_telegram) {
+              // Invia notifica Telegram (controlla modalità continua vs schedulata)
+              if (shouldNotifyForEvent(existingDevice, 'ip_changed')) {
                 try {
                   const agentInfo = await pool.query(
-                    'SELECT na.agent_name, na.azienda_id, u.username as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
+                    'SELECT na.agent_name, na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
                     [agentId]
                   );
                   
@@ -1288,11 +1355,11 @@ module.exports = (pool, io) => {
                 updates.push(`mac_address = $${paramIndex++}`);
                 values.push(normalizedMac);
                 
-                // Invia notifica Telegram (SOLO se notify_telegram è attivo)
-                if (existingDevice.notify_telegram) {
+                // Invia notifica Telegram (controlla modalità continua vs schedulata)
+                if (shouldNotifyForEvent(existingDevice, 'mac_changed')) {
                   try {
                     const agentInfo = await pool.query(
-                      'SELECT na.agent_name, na.azienda_id, u.username as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
+                      'SELECT na.agent_name, na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
                       [agentId]
                     );
                     
@@ -1509,11 +1576,11 @@ module.exports = (pool, io) => {
             );
             console.log(`    📴 Dispositivo ${device.ip_address} marcato come offline`);
             
-            // Invia notifica Telegram se notify_telegram è attivo
-            if (device.notify_telegram) {
+            // Invia notifica Telegram (controlla modalità continua vs schedulata)
+            if (shouldNotifyForEvent(device, 'status_changed')) {
               try {
                 const agentInfo = await pool.query(
-                  'SELECT na.agent_name, na.azienda_id, u.username as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
+                  'SELECT na.agent_name, na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
                   [agentId]
                 );
                 
@@ -1557,11 +1624,11 @@ module.exports = (pool, io) => {
             );
             console.log(`    ✅ Dispositivo ${device.ip_address} marcato come online`);
             
-            // Invia notifica Telegram se notify_telegram è attivo
-            if (device.notify_telegram) {
+            // Invia notifica Telegram (controlla modalità continua vs schedulata)
+            if (shouldNotifyForEvent(device, 'status_changed')) {
               try {
                 const agentInfo = await pool.query(
-                  'SELECT na.agent_name, na.azienda_id, u.username as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
+                  'SELECT na.agent_name, na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
                   [agentId]
                 );
                 
