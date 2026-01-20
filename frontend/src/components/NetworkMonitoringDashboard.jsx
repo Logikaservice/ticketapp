@@ -2008,6 +2008,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Prod.</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Azienda</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Agente</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Data</th>
@@ -2039,6 +2040,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-600">
                           {change.hostname || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {change.vendor || '-'}
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-600">
                           {change.azienda || 'N/A'}
