@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
+import MonitoringScheduleModal from './Modals/MonitoringScheduleModal';
 import AgentNotifications from './AgentNotifications';
 import TelegramConfigSection from './TelegramConfigSection';
 
@@ -49,6 +50,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [showOfflineDevices, setShowOfflineDevices] = useState(true); // Mostra dispositivi offline di default
   const [changesSearchTerm, setChangesSearchTerm] = useState('');
   const [ipContextMenu, setIpContextMenu] = useState({ show: false, ip: '', x: 0, y: 0 });
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [selectedDeviceForSchedule, setSelectedDeviceForSchedule] = useState(null);
   // selectedStaticIPs non serve più, usiamo is_static dal database
 
   const [editingAgentId, setEditingAgentId] = useState(null);
@@ -1624,7 +1627,21 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 }}
                                 className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                               />
-                              <span className="text-xs text-gray-600">Notifica</span>
+                              <span 
+                                className="text-xs text-gray-600 hover:text-blue-600 cursor-pointer flex items-center gap-0.5"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setSelectedDeviceForSchedule(device);
+                                  setShowScheduleModal(true);
+                                }}
+                                title="Clicca per configurare orari e giorni"
+                              >
+                                Notifica
+                                {device.monitoring_schedule?.enabled && (
+                                  <span className="text-[10px]" title="Orari personalizzati">⏰</span>
+                                )}
+                              </span>
                             </label>
                           </div>
                         </td>
@@ -1924,6 +1941,25 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             loadCompanies();
           }}
           getAuthHeader={getAuthHeader}
+        />
+      )}
+
+      {/* Modal Configurazione Monitoring Schedule */}
+      {showScheduleModal && selectedDeviceForSchedule && (
+        <MonitoringScheduleModal
+          device={selectedDeviceForSchedule}
+          onClose={() => {
+            setShowScheduleModal(false);
+            setSelectedDeviceForSchedule(null);
+          }}
+          onSave={(updatedDevice) => {
+            // Aggiorna il dispositivo nella lista
+            setCompanyDevices(prev => prev.map(d => 
+              d.id === updatedDevice.id ? { ...d, ...updatedDevice } : d
+            ));
+          }}
+          getAuthHeader={getAuthHeader}
+          buildApiUrl={buildApiUrl}
         />
       )}
       </div>

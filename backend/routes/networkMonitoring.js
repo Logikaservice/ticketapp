@@ -1888,7 +1888,7 @@ module.exports = (pool, io) => {
             ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor, 
-          nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.first_seen, nd.last_seen,
+          nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
           nd.previous_ip, nd.previous_mac, nd.has_ping_failures,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
@@ -2087,7 +2087,7 @@ module.exports = (pool, io) => {
             ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor, 
-          nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.first_seen, nd.last_seen,
+          nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
           nd.previous_ip, nd.previous_mac, nd.has_ping_failures,
           na.agent_name, na.azienda_id, na.last_heartbeat as agent_last_seen, na.status as agent_status,
           u.azienda
@@ -3217,7 +3217,7 @@ pause
       }
       
       const { id } = req.params;
-      const { is_static, notify_telegram } = req.body;
+      const { is_static, notify_telegram, monitoring_schedule } = req.body;
 
       // Verifica che il dispositivo esista
       const deviceCheck = await pool.query(
@@ -3244,13 +3244,18 @@ pause
         values.push(notify_telegram === true || notify_telegram === 'true');
       }
 
+      if (monitoring_schedule !== undefined) {
+        updates.push(`monitoring_schedule = $${paramIndex++}`);
+        values.push(monitoring_schedule ? JSON.stringify(monitoring_schedule) : null);
+      }
+
       if (updates.length === 0) {
         return res.status(400).json({ error: 'Nessun campo da aggiornare' });
       }
 
       values.push(id); // WHERE id = $N
       const result = await pool.query(
-        `UPDATE network_devices SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING id, ip_address, is_static, notify_telegram`,
+        `UPDATE network_devices SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING id, ip_address, is_static, notify_telegram, monitoring_schedule`,
         values
       );
 
