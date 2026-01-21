@@ -1,9 +1,9 @@
 // src/components/NetworkMonitoringDashboard.jsx
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Wifi, WifiOff, Monitor, Server, Printer, Router, 
-  AlertCircle, AlertTriangle, CheckCircle, Clock, RefreshCw, 
+import {
+  Wifi, WifiOff, Monitor, Server, Printer, Router,
+  AlertCircle, AlertTriangle, CheckCircle, Clock, RefreshCw,
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
   Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit, Menu,
@@ -58,7 +58,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   // Funzione per generare report stampabile
   const generatePrintableReport = () => {
     const companyName = companies.find(c => c.id === selectedCompanyId)?.azienda || 'Dispositivi';
-    
+
     // Prepara HTML per la stampa (include tutti i dispositivi, anche offline)
     const printHTML = `
       <!DOCTYPE html>
@@ -166,11 +166,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           </thead>
           <tbody>
             ${companyDevices.map(device => {
-              const isStatic = device.is_static === true;
-              const isOffline = device.status === 'offline';
-              const rowClass = isOffline ? 'offline-row' : (isStatic ? 'static-row' : '');
-              
-              return `
+      const isStatic = device.is_static === true;
+      const isOffline = device.status === 'offline';
+      const rowClass = isOffline ? 'offline-row' : (isStatic ? 'static-row' : '');
+
+      return `
                 <tr class="${rowClass}">
                   <td>${device.ip_address || '-'}</td>
                   <td>${device.mac_address || '-'}</td>
@@ -178,21 +178,19 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                   <td>${device.device_type || '-'}</td>
                   <td>${device.device_username || '-'}</td>
                   <td>
-                    <span class="status-badge status-${
-                      device.status === 'offline' ? 'offline' : 
-                      (device.status === 'online' && device.ping_responsive === false) ? 'no-ping' : 
-                      'online'
-                    }">
-                      ${
-                        device.status === 'offline' ? '○ Offline' : 
-                        (device.status === 'online' && device.ping_responsive === false) ? '⚠ No Ping' : 
-                        '● Online'
-                      }
+                    <span class="status-badge status-${device.status === 'offline' ? 'offline' :
+          (device.status === 'online' && device.ping_responsive === false) ? 'no-ping' :
+            'online'
+        }">
+                      ${device.status === 'offline' ? '○ Offline' :
+          (device.status === 'online' && device.ping_responsive === false) ? '⚠ No Ping' :
+            '● Online'
+        }
                     </span>
                   </td>
                 </tr>
               `;
-            }).join('')}
+    }).join('')}
           </tbody>
         </table>
         <div class="footer">
@@ -206,7 +204,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     const printWindow = window.open('', '_blank');
     printWindow.document.write(printHTML);
     printWindow.document.close();
-    
+
     // Attendi caricamento e stampa
     printWindow.onload = () => {
       setTimeout(() => {
@@ -376,7 +374,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         setTimeout(() => onViewReset(), 100);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialView]);
 
   // Carica dispositivi
@@ -570,7 +568,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
       const result = await response.json();
       alert(`✅ ${result.message || 'Configurazione agent aggiornata con successo. Le modifiche saranno applicate al prossimo heartbeat dell\'agent.'}`);
-      
+
       handleCancelEditAgent();
       loadAgents(); // Ricarica lista agent
     } catch (err) {
@@ -730,7 +728,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       }
 
       const diagnostics = await response.json();
-      
+
       // Formatta i dati per la visualizzazione
       const formatDiagnostics = (diag) => {
         let message = `🔍 DIAGNOSTICA AGENT: ${diag.agent.name}\n\n`;
@@ -742,13 +740,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         message += `  • Eliminato: ${diag.agent.deleted ? 'Sì' : 'No'}\n`;
         message += `  • Reti: ${(diag.agent.network_ranges || []).join(', ') || 'Nessuna'}\n`;
         message += `  • Intervallo: ${diag.agent.scan_interval_minutes || 15} minuti\n\n`;
-        
+
         message += `💓 HEARTBEAT:\n`;
         message += `  • Ultimo heartbeat: ${diag.heartbeat.last_heartbeat ? new Date(diag.heartbeat.last_heartbeat).toLocaleString('it-IT') : 'Mai'}\n`;
         message += `  • Minuti fa: ${diag.heartbeat.minutes_ago !== null ? diag.heartbeat.minutes_ago : 'N/A'}\n`;
         message += `  • Scaduto: ${diag.heartbeat.is_stale ? 'Sì (>8 min)' : 'No'}\n`;
         message += `  • Intervallo atteso: ${diag.heartbeat.expected_interval_minutes} minuti\n\n`;
-        
+
         if (diag.events.unresolved_offline_count > 0) {
           message += `⚠️ EVENTI OFFLINE NON RISOLTI: ${diag.events.unresolved_offline_count}\n`;
           diag.events.unresolved_offline_events.forEach((ev, idx) => {
@@ -756,12 +754,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           });
           message += `\n`;
         }
-        
+
         message += `🔬 ANALISI:\n`;
         message += `  • Dovrebbe essere offline: ${diag.analysis.should_be_offline ? 'Sì' : 'No'}\n`;
         message += `  • Motivo: ${diag.analysis.reason}\n\n`;
         message += `💡 RACCOMANDAZIONE:\n  ${diag.analysis.recommendation}`;
-        
+
         return message;
       };
 
@@ -815,7 +813,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         closeIpContextMenu();
       }
     };
-    
+
     if (ipContextMenu.show) {
       document.addEventListener('keydown', handleEscape);
       return () => document.removeEventListener('keydown', handleEscape);
@@ -828,18 +826,18 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
     const handleNetworkUpdate = (data) => {
       console.log('📡 Network monitoring update ricevuto:', data);
-      
+
       // Ricarica dati quando arriva un aggiornamento SOLO se il modal non è aperto
       // Usa modalità "silent" per evitare flicker (gli aggiornamenti WebSocket sono già real-time)
       if (!showCreateAgentModal) {
         loadDevices(true);
         loadChanges(true);
-        
+
         // Se l'evento riguarda un cambio di status dell'agent, ricarica anche la lista agenti
         if (data && data.type === 'agent-status-changed') {
           loadAgents();
         }
-        
+
         // Se un'azienda è selezionata, ricarica anche i dispositivi dell'azienda (già silenzioso)
         if (selectedCompanyId) {
           loadCompanyDevices(selectedCompanyId);
@@ -849,7 +847,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
     const handleAgentEvent = (data) => {
       console.log('🔔 Agent event ricevuto:', data);
-      
+
       // Quando arriva un evento agent (offline, online, reboot, network_issue)
       // ricarica la lista agenti per aggiornare lo status in tempo reale
       if (!showCreateAgentModal) {
@@ -897,7 +895,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         </span>
       );
     }
-    
+
     // Online ma non risponde al ping: presente via ARP
     if (status === 'online' && pingResponsive === false) {
       return (
@@ -907,7 +905,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         </span>
       );
     }
-    
+
     // Online con ping responsive: tutto ok
     return (
       <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 flex items-center gap-1">
@@ -942,7 +940,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return 'N/A';
-    
+
     const now = new Date();
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / 60000);
@@ -953,7 +951,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     if (diffMins < 60) return `${diffMins} min`;
     if (diffHours < 24) return `${diffHours} ore`;
     if (diffDays < 7) return `${diffDays} giorni`;
-    
+
     return date.toLocaleDateString('it-IT', {
       day: '2-digit',
       month: '2-digit',
@@ -983,27 +981,27 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   // Apre PowerShell/CMD con comando ping direttamente
   const handlePing = (ip) => {
     closeIpContextMenu();
-    
+
     // Su Windows, crea un file .bat temporaneo che viene eseguito immediatamente
     // Questo è l'unico modo pratico per aprire PowerShell/CMD da un browser web
     const batContent = `@echo off\nchcp 65001 >nul\ntitle Ping continuo a ${ip}\ncolor 0A\necho PING CONTINUO A ${ip}\necho.\necho Premere CTRL+C per interrompere\necho.\nping ${ip} -t\npause`;
     const blob = new Blob([batContent], { type: 'application/x-msdos-program' });
     const url = URL.createObjectURL(blob);
-    
+
     // Crea un link per il download
     const link = document.createElement('a');
     link.href = url;
     link.download = `ping_${ip.replace(/\./g, '_')}.bat`;
-    
+
     // Clicca il link per avviare il download
     document.body.appendChild(link);
     link.click();
-    
+
     // Pulisci immediatamente dopo il click
     setTimeout(() => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      
+
       // Nota: Il browser potrebbe chiedere conferma prima di aprire/eseguire il file .bat
       // Questo è un comportamento normale per sicurezza. L'utente deve confermare l'apertura.
     }, 50);
@@ -1019,7 +1017,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const filteredDevices = devices
     .filter(device => {
       // Filtro ricerca
-      const matchesSearch = !searchTerm || 
+      const matchesSearch = !searchTerm ||
         device.ip_address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         device.hostname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         device.mac_address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1087,1107 +1085,1105 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         </div>
       )}
       <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {/* Menu hamburger */}
-          <div className="relative" ref={networkMenuRef} style={{ position: 'relative' }}>
-            <button
-              onClick={() => setShowNetworkMenu(!showNetworkMenu)}
-              className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
-              title="Menu Monitoraggio Rete"
-            >
-              <Menu size={24} />
-            </button>
-            
-            {/* Dropdown menu - posizionato sotto il pulsante */}
-            {showNetworkMenu && (
-              <div className="absolute left-0 top-full mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50" style={{ position: 'absolute' }}>
-                <div className="py-1">
-                  <button
-                    onClick={() => {
-                      setShowAgentsList(true);
-                      setShowAgentNotificationsList(false);
-                      loadAgents();
-                      setShowNetworkMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                  >
-                    <ServerIcon size={18} className="text-cyan-600" />
-                    Agent Esistenti
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowAgentNotificationsList(true);
-                      setShowAgentsList(false);
-                      setShowNetworkMenu(false);
-                      // Carica dati necessari
-                      loadAgents();
-                      loadAgentEvents({ limit: 200, unreadOnly: false });
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                  >
-                    <AlertTriangle size={18} className="text-yellow-600" />
-                    Notifiche Agent
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowCreateAgentModal(true);
-                      setShowAgentNotificationsList(false);
-                      setShowNetworkMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                  >
-                    <Plus size={18} className="text-cyan-600" />
-                    Crea Agent
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowTelegramConfig(true);
-                      setShowAgentsList(false);
-                      setShowAgentNotificationsList(false);
-                      setShowNetworkMenu(false);
-                      loadTelegramConfigs();
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                  >
-                    <AlertCircle size={18} className="text-blue-600" />
-                    Notifiche Telegram
-                  </button>
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Menu hamburger */}
+            <div className="relative" ref={networkMenuRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowNetworkMenu(!showNetworkMenu)}
+                className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                title="Menu Monitoraggio Rete"
+              >
+                <Menu size={24} />
+              </button>
+
+              {/* Dropdown menu - posizionato sotto il pulsante */}
+              {showNetworkMenu && (
+                <div className="absolute left-0 top-full mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50" style={{ position: 'absolute' }}>
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setShowAgentsList(true);
+                        setShowAgentNotificationsList(false);
+                        loadAgents();
+                        setShowNetworkMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    >
+                      <ServerIcon size={18} className="text-cyan-600" />
+                      Agent Esistenti
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAgentNotificationsList(true);
+                        setShowAgentsList(false);
+                        setShowNetworkMenu(false);
+                        // Carica dati necessari
+                        loadAgents();
+                        loadAgentEvents({ limit: 200, unreadOnly: false });
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    >
+                      <AlertTriangle size={18} className="text-yellow-600" />
+                      Notifiche Agent
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowCreateAgentModal(true);
+                        setShowAgentNotificationsList(false);
+                        setShowNetworkMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    >
+                      <Plus size={18} className="text-cyan-600" />
+                      Crea Agent
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowTelegramConfig(true);
+                        setShowAgentsList(false);
+                        setShowAgentNotificationsList(false);
+                        setShowNetworkMenu(false);
+                        loadTelegramConfigs();
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    >
+                      <AlertCircle size={18} className="text-blue-600" />
+                      Notifiche Telegram
+                    </button>
+                  </div>
                 </div>
+              )}
+            </div>
+
+            {/* Notifiche Agent */}
+            {getAuthHeader && socket && (
+              <AgentNotifications
+                getAuthHeader={getAuthHeader}
+                socket={socket}
+                onOpenNetworkMonitoring={null}
+              />
+            )}
+
+            {!onClose && (
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                  <Wifi className="w-8 h-8 text-blue-600" />
+                  Monitoraggio Rete
+                </h1>
+                <p className="text-gray-500 mt-1">
+                  {lastUpdate && `Ultimo aggiornamento: ${formatDate(lastUpdate)}`}
+                </p>
               </div>
             )}
           </div>
-          
-          {/* Notifiche Agent */}
-          {getAuthHeader && socket && (
-            <AgentNotifications
-              getAuthHeader={getAuthHeader}
-              socket={socket}
-              onOpenNetworkMonitoring={null}
-            />
-          )}
-          
-          {!onClose && (
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                <Wifi className="w-8 h-8 text-blue-600" />
-                Monitoraggio Rete
-              </h1>
-              <p className="text-gray-500 mt-1">
-                {lastUpdate && `Ultimo aggiornamento: ${formatDate(lastUpdate)}`}
-              </p>
+
+          <div className="flex items-center gap-3">
+            {/* Dropdown selezione azienda */}
+            <div className="relative">
+              <select
+                value={selectedCompanyId || ''}
+                onChange={(e) => {
+                  const companyId = e.target.value ? parseInt(e.target.value) : null;
+                  setSelectedCompanyId(companyId);
+                  if (companyId) {
+                    loadCompanyDevices(companyId);
+                  } else {
+                    setCompanyDevices([]);
+                  }
+                }}
+                className="px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer min-w-[200px]"
+              >
+                <option value="">Tutte le Aziende</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.azienda}
+                  </option>
+                ))}
+              </select>
+              <Building
+                size={18}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
+              />
             </div>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-3">
-          {/* Dropdown selezione azienda */}
-          <div className="relative">
-            <select
-              value={selectedCompanyId || ''}
-              onChange={(e) => {
-                const companyId = e.target.value ? parseInt(e.target.value) : null;
-                setSelectedCompanyId(companyId);
-                if (companyId) {
-                  loadCompanyDevices(companyId);
-                } else {
-                  setCompanyDevices([]);
-                }
-              }}
-              className="px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer min-w-[200px]"
-            >
-              <option value="">Tutte le Aziende</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.azienda}
-                </option>
-              ))}
-            </select>
-            <Building 
-              size={18} 
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" 
-            />
-          </div>
 
-          <button
-            onClick={() => setAutoRefresh(!autoRefresh)}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-              autoRefresh 
-                ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            <Activity size={18} />
-            Auto-refresh {autoRefresh ? 'ON' : 'OFF'}
-          </button>
-          
-          <button
-            onClick={handleRefresh}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-            disabled={loading}
-            title="Aggiorna dati da Keepass e ricarica dispositivi"
-          >
-            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-            Aggiorna
-          </button>
-          
-          {/* Versione agent più alta */}
-          {agents.length > 0 && (() => {
-            // Trova la versione più alta tra tutti gli agent
-            const compareVersions = (v1, v2) => {
-              if (!v1) return 1;
-              if (!v2) return -1;
-              const parts1 = v1.split('.').map(Number);
-              const parts2 = v2.split('.').map(Number);
-              for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
-                const part1 = parts1[i] || 0;
-                const part2 = parts2[i] || 0;
-                if (part1 > part2) return -1;
-                if (part1 < part2) return 1;
-              }
-              return 0;
-            };
-            
-            const highestVersionAgent = agents.reduce((highest, agent) => {
-              if (!highest) return agent;
-              if (!agent.version) return highest;
-              if (!highest.version) return agent;
-              return compareVersions(agent.version, highest.version) < 0 ? agent : highest;
-            }, null);
-            
-            if (highestVersionAgent && highestVersionAgent.version) {
-              return (
-                <div className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex items-center gap-2 min-w-[140px]">
-                  <span className="text-xs text-gray-500">Versione:</span>
-                  <span className="font-mono font-semibold text-blue-600">{highestVersionAgent.version}</span>
-                </div>
-              );
-            }
-            return null;
-          })()}
-        </div>
-      </div>
-
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
-          <AlertCircle className="w-5 h-5 inline mr-2" />
-          {error}
-        </div>
-      )}
-
-{/* Lista Agent Esistenti */}
-      {showAgentsList && (
-        <div className="mb-6 bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <ServerIcon size={24} className="text-purple-600" />
-              Agent Registrati
-            </h2>
             <button
-              onClick={() => setShowAgentsList(false)}
-              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${autoRefresh
+                  ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
             >
-              <X size={20} />
+              <Activity size={18} />
+              Auto-refresh {autoRefresh ? 'ON' : 'OFF'}
             </button>
-          </div>
-          
-          {agents.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">Nessun agent registrato</p>
-          ) : (
-            <div className="space-y-3">
-              {agents.map((agent) => (
-                <div key={agent.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-semibold text-gray-900">{agent.agent_name || `Agent #${agent.id}`}</h3>
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          agent.status === 'online' ? 'bg-green-100 text-green-800' :
-                          agent.status === 'offline' ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {agent.status || 'unknown'}
-                        </span>
-                      </div>
-                      <div className="mt-2 text-sm text-gray-600 space-y-1">
-                        <p><strong>Azienda:</strong> {agent.azienda || 'N/A'}</p>
-                        {editingAgentId === agent.id ? (
-                          <div className="space-y-2 mt-2">
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Nome Agent:</label>
-                              <input
-                                type="text"
-                                value={editAgentData.agent_name}
-                                onChange={(e) => setEditAgentData({ ...editAgentData, agent_name: e.target.value })}
-                                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="Nome agent"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Reti (una per riga, formato: 192.168.1.0/24):</label>
-                              <textarea
-                                value={editAgentData.network_ranges.join('\n')}
-                                onChange={(e) => {
-                                  const ranges = e.target.value.split('\n').filter(r => r.trim());
-                                  setEditAgentData({ ...editAgentData, network_ranges: ranges });
-                                }}
-                                rows={3}
-                                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
-                                placeholder="192.168.1.0/24&#10;10.0.0.0/16"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Intervallo Scansione (minuti):</label>
-                              <input
-                                type="number"
-                                min="1"
-                                max="1440"
-                                value={editAgentData.scan_interval_minutes}
-                                onChange={(e) => setEditAgentData({ ...editAgentData, scan_interval_minutes: parseInt(e.target.value) || 15 })}
-                                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              />
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <p><strong>Versione:</strong> <span className="font-mono text-blue-600 font-semibold">{agent.version || 'N/A'}</span></p>
-                            <p><strong>Reti:</strong> {(agent.network_ranges || []).join(', ') || 'Nessuna'}</p>
-                            <p><strong>Intervallo:</strong> {agent.scan_interval_minutes || 15} minuti</p>
-                            <p><strong>Ultimo heartbeat:</strong> {agent.last_heartbeat ? formatDate(new Date(agent.last_heartbeat)) : 'Mai'}</p>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="ml-4 flex flex-col gap-2">
-                      {editingAgentId === agent.id ? (
-                        <>
-                          <button
-                            onClick={handleSaveAgent}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-                          >
-                            <CheckCircle size={18} />
-                            Salva
-                          </button>
-                          <button
-                            onClick={handleCancelEditAgent}
-                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
-                          >
-                            <X size={18} />
-                            Annulla
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => handleEditAgent(agent)}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                            title="Modifica configurazione agent (nome, reti, intervallo scansione)"
-                          >
-                            <Edit size={18} />
-                            Modifica
-                          </button>
-                          <button
-                            onClick={() => showAgentDiagnostics(agent.id, agent.agent_name)}
-                            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
-                            title="Mostra diagnostica agent (heartbeat, eventi, analisi)"
-                          >
-                            <Stethoscope size={18} />
-                            Diagnostica
-                          </button>
-                          <button
-                            onClick={() => downloadAgentPackage(agent.id, agent.agent_name)}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
-                            title="Scarica pacchetto completo (ZIP con config.json, NetworkMonitor.ps1, InstallerCompleto.ps1)"
-                          >
-                            <Download size={18} />
-                            Scarica Pacchetto
-                          </button>
-                          <button
-                            onClick={() => disableAgent(agent.id, agent.agent_name)}
-                            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"
-                            title="Disabilita agent (disinstallazione remota al prossimo heartbeat)"
-                          >
-                            <PowerOff size={18} />
-                            Disabilita
-                          </button>
-                          <button
-                            onClick={() => deleteAgent(agent.id, agent.agent_name)}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
-                            title="Elimina agent definitivamente"
-                          >
-                            <Trash2 size={18} />
-                            Elimina
-                          </button>
-                        </>
-                      )}
-                    </div>
+
+            <button
+              onClick={handleRefresh}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              disabled={loading}
+              title="Aggiorna dati da Keepass e ricarica dispositivi"
+            >
+              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+              Aggiorna
+            </button>
+
+            {/* Versione agent più alta */}
+            {agents.length > 0 && (() => {
+              // Trova la versione più alta tra tutti gli agent
+              const compareVersions = (v1, v2) => {
+                if (!v1) return 1;
+                if (!v2) return -1;
+                const parts1 = v1.split('.').map(Number);
+                const parts2 = v2.split('.').map(Number);
+                for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+                  const part1 = parts1[i] || 0;
+                  const part2 = parts2[i] || 0;
+                  if (part1 > part2) return -1;
+                  if (part1 < part2) return 1;
+                }
+                return 0;
+              };
+
+              const highestVersionAgent = agents.reduce((highest, agent) => {
+                if (!highest) return agent;
+                if (!agent.version) return highest;
+                if (!highest.version) return agent;
+                return compareVersions(agent.version, highest.version) < 0 ? agent : highest;
+              }, null);
+
+              if (highestVersionAgent && highestVersionAgent.version) {
+                return (
+                  <div className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex items-center gap-2 min-w-[140px]">
+                    <span className="text-xs text-gray-500">Versione:</span>
+                    <span className="font-mono font-semibold text-blue-600">{highestVersionAgent.version}</span>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                );
+              }
+              return null;
+            })()}
+          </div>
         </div>
-      )}
 
-      {/* Configurazione Notifiche Telegram */}
-      {showTelegramConfig && (
-        <TelegramConfigSection
-          companies={companies}
-          agents={agents}
-          telegramConfigs={telegramConfigs}
-          loading={telegramConfigLoading}
-          onSave={saveTelegramConfig}
-          onDelete={deleteTelegramConfig}
-          onClose={() => setShowTelegramConfig(false)}
-          getAuthHeader={getAuthHeader}
-        />
-      )}
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+            <AlertCircle className="w-5 h-5 inline mr-2" />
+            {error}
+          </div>
+        )}
 
-      {/* Lista Notifiche Agent */}
-      {showAgentNotificationsList && (
-        <div className="mb-6 bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <AlertTriangle size={24} className="text-yellow-600" />
-              Notifiche Agent
-            </h2>
-            <div className="flex items-center gap-2">
+        {/* Lista Agent Esistenti */}
+        {showAgentsList && (
+          <div className="mb-6 bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <ServerIcon size={24} className="text-purple-600" />
+                Agent Registrati
+              </h2>
               <button
-                onClick={() => loadAgentEvents({ limit: 200, unreadOnly: false })}
-                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2"
-                disabled={agentEventsLoading}
-                title="Aggiorna notifiche"
-              >
-                <RefreshCw size={16} className={agentEventsLoading ? 'animate-spin' : ''} />
-                Aggiorna
-              </button>
-              <button
-                onClick={clearAllAgentNotifications}
-                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                title="Segna tutte come lette (lo storico resta)"
-              >
-                <Trash2 size={16} />
-                Segna tutte lette
-              </button>
-              <button
-                onClick={() => setShowAgentNotificationsList(false)}
+                onClick={() => setShowAgentsList(false)}
                 className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
-                title="Chiudi"
               >
                 <X size={20} />
               </button>
             </div>
-          </div>
 
-          {/* Filtri */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-            <select
-              value={agentEventsFilters.azienda}
-              onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, azienda: e.target.value }))}
-              className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-700"
-            >
-              <option value="">Tutte le aziende</option>
-              {companies.map(c => (
-                <option key={c.id} value={c.azienda}>{c.azienda}</option>
-              ))}
-            </select>
-
-            <select
-              value={agentEventsFilters.agentId}
-              onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, agentId: e.target.value }))}
-              className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-700"
-            >
-              <option value="">Tutti gli agent</option>
-              {agents.map(a => (
-                <option key={a.id} value={String(a.id)}>
-                  {a.agent_name || `Agent #${a.id}`}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={agentEventsFilters.eventType}
-              onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, eventType: e.target.value }))}
-              className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-700"
-            >
-              <option value="">Tutti i tipi</option>
-              <option value="offline">Offline</option>
-              <option value="online">Online</option>
-              <option value="reboot">Riavvio</option>
-              <option value="network_issue">Problema rete</option>
-            </select>
-
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-sm text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={agentEventsFilters.unreadOnly}
-                  onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, unreadOnly: e.target.checked }))}
-                />
-                Solo non lette
-              </label>
-              <div className="flex-1 relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  value={agentEventsFilters.search}
-                  onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, search: e.target.value }))}
-                  placeholder="Cerca..."
-                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
-              </div>
-            </div>
-          </div>
-
-          {agentEventsError && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-800 text-sm">
-              {agentEventsError}
-            </div>
-          )}
-
-          {/* Lista */}
-          {agentEventsLoading ? (
-            <div className="py-8 flex items-center justify-center text-gray-600">
-              <Loader className="w-5 h-5 animate-spin mr-2" />
-              Caricamento notifiche...
-            </div>
-          ) : (() => {
-            const filtered = (agentEvents || [])
-              .filter(ev => {
-                if (agentEventsFilters.unreadOnly && ev.is_read) return false;
-                if (agentEventsFilters.azienda && (ev.azienda || '') !== agentEventsFilters.azienda) return false;
-                if (agentEventsFilters.agentId && String(ev.agent_id) !== String(agentEventsFilters.agentId)) return false;
-                if (agentEventsFilters.eventType && ev.event_type !== agentEventsFilters.eventType) return false;
-
-                const q = (agentEventsFilters.search || '').trim().toLowerCase();
-                if (!q) return true;
-                const hay = [
-                  ev.azienda,
-                  ev.agent_name,
-                  ev.event_type,
-                  getAgentEventLabel(ev),
-                ].filter(Boolean).join(' ').toLowerCase();
-                return hay.includes(q);
-              });
-
-            if (filtered.length === 0) {
-              return <div className="py-8 text-center text-gray-500">Nessuna notifica</div>;
-            }
-
-            return (
-              <div className="divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
-                {filtered.map(ev => {
-                  const isUnread = !ev.is_read;
-                  return (
-                    <div
-                      key={ev.id}
-                      className={`p-4 hover:bg-gray-50 flex items-start justify-between gap-4 ${isUnread ? 'bg-blue-50' : ''}`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                            ev.event_type === 'offline' ? 'bg-red-100 text-red-800' :
-                            ev.event_type === 'online' ? 'bg-green-100 text-green-800' :
-                            ev.event_type === 'reboot' ? 'bg-blue-100 text-blue-800' :
-                            ev.event_type === 'network_issue' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {ev.event_type}
+            {agents.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">Nessun agent registrato</p>
+            ) : (
+              <div className="space-y-3">
+                {agents.map((agent) => (
+                  <div key={agent.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-semibold text-gray-900">{agent.agent_name || `Agent #${agent.id}`}</h3>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${agent.status === 'online' ? 'bg-green-100 text-green-800' :
+                              agent.status === 'offline' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                            }`}>
+                            {agent.status || 'unknown'}
                           </span>
-                          {isUnread && <span className="text-xs font-semibold text-blue-700">NON LETTA</span>}
                         </div>
-                        <div className="text-sm text-gray-900 font-medium truncate">
-                          {getAgentEventLabel(ev)}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {ev.detected_at ? formatDate(ev.detected_at) : 'N/A'}
-                          {ev.azienda ? ` • ${ev.azienda}` : ''}
-                          {ev.agent_name ? ` • ${ev.agent_name}` : ''}
+                        <div className="mt-2 text-sm text-gray-600 space-y-1">
+                          <p><strong>Azienda:</strong> {agent.azienda || 'N/A'}</p>
+                          {editingAgentId === agent.id ? (
+                            <div className="space-y-2 mt-2">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Nome Agent:</label>
+                                <input
+                                  type="text"
+                                  value={editAgentData.agent_name}
+                                  onChange={(e) => setEditAgentData({ ...editAgentData, agent_name: e.target.value })}
+                                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  placeholder="Nome agent"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Reti (una per riga, formato: 192.168.1.0/24):</label>
+                                <textarea
+                                  value={editAgentData.network_ranges.join('\n')}
+                                  onChange={(e) => {
+                                    const ranges = e.target.value.split('\n').filter(r => r.trim());
+                                    setEditAgentData({ ...editAgentData, network_ranges: ranges });
+                                  }}
+                                  rows={3}
+                                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                                  placeholder="192.168.1.0/24&#10;10.0.0.0/16"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Intervallo Scansione (minuti):</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="1440"
+                                  value={editAgentData.scan_interval_minutes}
+                                  onChange={(e) => setEditAgentData({ ...editAgentData, scan_interval_minutes: parseInt(e.target.value) || 15 })}
+                                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p><strong>Versione:</strong> <span className="font-mono text-blue-600 font-semibold">{agent.version || 'N/A'}</span></p>
+                              <p><strong>Reti:</strong> {(agent.network_ranges || []).join(', ') || 'Nessuna'}</p>
+                              <p><strong>Intervallo:</strong> {agent.scan_interval_minutes || 15} minuti</p>
+                              <p><strong>Ultimo heartbeat:</strong> {agent.last_heartbeat ? formatDate(new Date(agent.last_heartbeat)) : 'Mai'}</p>
+                            </>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {!ev.is_read && (
-                          <button
-                            onClick={() => markAgentEventAsRead(ev.id)}
-                            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-                            title="Segna come letta"
-                          >
-                            Segna letta
-                          </button>
+                      <div className="ml-4 flex flex-col gap-2">
+                        {editingAgentId === agent.id ? (
+                          <>
+                            <button
+                              onClick={handleSaveAgent}
+                              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+                            >
+                              <CheckCircle size={18} />
+                              Salva
+                            </button>
+                            <button
+                              onClick={handleCancelEditAgent}
+                              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
+                            >
+                              <X size={18} />
+                              Annulla
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleEditAgent(agent)}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                              title="Modifica configurazione agent (nome, reti, intervallo scansione)"
+                            >
+                              <Edit size={18} />
+                              Modifica
+                            </button>
+                            <button
+                              onClick={() => showAgentDiagnostics(agent.id, agent.agent_name)}
+                              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+                              title="Mostra diagnostica agent (heartbeat, eventi, analisi)"
+                            >
+                              <Stethoscope size={18} />
+                              Diagnostica
+                            </button>
+                            <button
+                              onClick={() => downloadAgentPackage(agent.id, agent.agent_name)}
+                              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+                              title="Scarica pacchetto completo (ZIP con config.json, NetworkMonitor.ps1, InstallerCompleto.ps1)"
+                            >
+                              <Download size={18} />
+                              Scarica Pacchetto
+                            </button>
+                            <button
+                              onClick={() => disableAgent(agent.id, agent.agent_name)}
+                              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"
+                              title="Disabilita agent (disinstallazione remota al prossimo heartbeat)"
+                            >
+                              <PowerOff size={18} />
+                              Disabilita
+                            </button>
+                            <button
+                              onClick={() => deleteAgent(agent.id, agent.agent_name)}
+                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                              title="Elimina agent definitivamente"
+                            >
+                              <Trash2 size={18} />
+                              Elimina
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
-            );
-          })()}
-        </div>
-      )}
+            )}
+          </div>
+        )}
 
-      {/* Statistiche */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
-            <CheckCircle size={16} className="text-green-600" />
-            Online
-          </div>
-          <div className="text-3xl font-bold text-green-600">{stats.online}</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
-            <WifiOff size={16} className="text-red-600" />
-            Offline
-          </div>
-          <div className="text-3xl font-bold text-red-600">{stats.offline}</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
-            <Activity size={16} className="text-blue-600" />
-            Cambiamenti (24h)
-          </div>
-          <div className="text-3xl font-bold text-blue-600">{stats.recentChanges}</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
-            <ServerIcon size={16} className="text-blue-600" />
-            Agent Online
-          </div>
-          <div className="text-3xl font-bold text-blue-600">{stats.agentsOnline}</div>
-          <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
-            <WifiOff size={16} className="text-orange-600" />
-            Agent Offline
-          </div>
-          <div className="text-3xl font-bold text-orange-600">{stats.agentsOffline}</div>
-          <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
-        </div>
-      </div>
+        {/* Configurazione Notifiche Telegram */}
+        {showTelegramConfig && (
+          <TelegramConfigSection
+            companies={companies}
+            agents={agents}
+            telegramConfigs={telegramConfigs}
+            loading={telegramConfigLoading}
+            onSave={saveTelegramConfig}
+            onDelete={deleteTelegramConfig}
+            onClose={() => setShowTelegramConfig(false)}
+            getAuthHeader={getAuthHeader}
+          />
+        )}
 
-      {/* Vista Dettaglio Dispositivi Azienda (mostrata solo se un'azienda è selezionata) */}
-      {selectedCompanyId && (
-        <div className="mb-6 bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <Building size={24} className="text-purple-600" />
-              {companies.find(c => c.id === selectedCompanyId)?.azienda || 'Dispositivi'}
-            </h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowOfflineDevices(!showOfflineDevices)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-                  showOfflineDevices
-                    ? 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
-                    : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
-                }`}
-                title={showOfflineDevices ? 'Nascondi dispositivi offline' : 'Mostra dispositivi offline'}
-              >
-                {showOfflineDevices ? (
-                  <>
-                    <EyeOff size={18} />
-                    <span className="text-sm font-medium">Nascondi Offline</span>
-                  </>
-                ) : (
-                  <>
-                    <Eye size={18} />
-                    <span className="text-sm font-medium">Mostra Offline</span>
-                  </>
-                )}
-              </button>
-              
-              <button
-                onClick={generatePrintableReport}
-                className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-300 text-green-700 rounded-lg hover:bg-green-100 transition-colors"
-                title="Genera report stampabile (include tutti i dispositivi)"
-                disabled={companyDevices.length === 0}
-              >
-                <FileText size={18} />
-                <span className="text-sm font-medium">Report Stampabile</span>
-              </button>
+        {/* Lista Notifiche Agent */}
+        {showAgentNotificationsList && (
+          <div className="mb-6 bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <AlertTriangle size={24} className="text-yellow-600" />
+                Notifiche Agent
+              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => loadAgentEvents({ limit: 200, unreadOnly: false })}
+                  className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+                  disabled={agentEventsLoading}
+                  title="Aggiorna notifiche"
+                >
+                  <RefreshCw size={16} className={agentEventsLoading ? 'animate-spin' : ''} />
+                  Aggiorna
+                </button>
+                <button
+                  onClick={clearAllAgentNotifications}
+                  className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                  title="Segna tutte come lette (lo storico resta)"
+                >
+                  <Trash2 size={16} />
+                  Segna tutte lette
+                </button>
+                <button
+                  onClick={() => setShowAgentNotificationsList(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+                  title="Chiudi"
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
-          </div>
-          {loadingCompanyDevices ? (
-            <div className="p-8 flex items-center justify-center">
-              <Loader className="w-8 h-8 animate-spin text-blue-600" />
-              <span className="ml-3 text-gray-600">Caricamento dispositivi...</span>
+
+            {/* Filtri */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+              <select
+                value={agentEventsFilters.azienda}
+                onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, azienda: e.target.value }))}
+                className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-700"
+              >
+                <option value="">Tutte le aziende</option>
+                {companies.map(c => (
+                  <option key={c.id} value={c.azienda}>{c.azienda}</option>
+                ))}
+              </select>
+
+              <select
+                value={agentEventsFilters.agentId}
+                onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, agentId: e.target.value }))}
+                className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-700"
+              >
+                <option value="">Tutti gli agent</option>
+                {agents.map(a => (
+                  <option key={a.id} value={String(a.id)}>
+                    {a.agent_name || `Agent #${a.id}`}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={agentEventsFilters.eventType}
+                onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, eventType: e.target.value }))}
+                className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-700"
+              >
+                <option value="">Tutti i tipi</option>
+                <option value="offline">Offline</option>
+                <option value="online">Online</option>
+                <option value="reboot">Riavvio</option>
+                <option value="network_issue">Problema rete</option>
+              </select>
+
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={agentEventsFilters.unreadOnly}
+                    onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, unreadOnly: e.target.checked }))}
+                  />
+                  Solo non lette
+                </label>
+                <div className="flex-1 relative">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    value={agentEventsFilters.search}
+                    onChange={(e) => setAgentEventsFilters(prev => ({ ...prev, search: e.target.value }))}
+                    placeholder="Cerca..."
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+              </div>
             </div>
-          ) : (() => {
-            // Filtra i dispositivi in base al toggle
-            const filteredDevices = companyDevices.filter(device => showOfflineDevices || device.status === 'online');
-            
-            if (companyDevices.length === 0) {
-              return <p className="text-gray-500 text-center py-4">Nessun dispositivo trovato per questa azienda</p>;
-            }
-            
-            if (filteredDevices.length === 0) {
+
+            {agentEventsError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-800 text-sm">
+                {agentEventsError}
+              </div>
+            )}
+
+            {/* Lista */}
+            {agentEventsLoading ? (
+              <div className="py-8 flex items-center justify-center text-gray-600">
+                <Loader className="w-5 h-5 animate-spin mr-2" />
+                Caricamento notifiche...
+              </div>
+            ) : (() => {
+              const filtered = (agentEvents || [])
+                .filter(ev => {
+                  if (agentEventsFilters.unreadOnly && ev.is_read) return false;
+                  if (agentEventsFilters.azienda && (ev.azienda || '') !== agentEventsFilters.azienda) return false;
+                  if (agentEventsFilters.agentId && String(ev.agent_id) !== String(agentEventsFilters.agentId)) return false;
+                  if (agentEventsFilters.eventType && ev.event_type !== agentEventsFilters.eventType) return false;
+
+                  const q = (agentEventsFilters.search || '').trim().toLowerCase();
+                  if (!q) return true;
+                  const hay = [
+                    ev.azienda,
+                    ev.agent_name,
+                    ev.event_type,
+                    getAgentEventLabel(ev),
+                  ].filter(Boolean).join(' ').toLowerCase();
+                  return hay.includes(q);
+                });
+
+              if (filtered.length === 0) {
+                return <div className="py-8 text-center text-gray-500">Nessuna notifica</div>;
+              }
+
               return (
-                <p className="text-gray-500 text-center py-4">
-                  Nessun dispositivo online. Attiva "Mostra Offline" per vedere tutti i dispositivi.
-                </p>
+                <div className="divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
+                  {filtered.map(ev => {
+                    const isUnread = !ev.is_read;
+                    return (
+                      <div
+                        key={ev.id}
+                        className={`p-4 hover:bg-gray-50 flex items-start justify-between gap-4 ${isUnread ? 'bg-blue-50' : ''}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${ev.event_type === 'offline' ? 'bg-red-100 text-red-800' :
+                                ev.event_type === 'online' ? 'bg-green-100 text-green-800' :
+                                  ev.event_type === 'reboot' ? 'bg-blue-100 text-blue-800' :
+                                    ev.event_type === 'network_issue' ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-gray-100 text-gray-800'
+                              }`}>
+                              {ev.event_type}
+                            </span>
+                            {isUnread && <span className="text-xs font-semibold text-blue-700">NON LETTA</span>}
+                          </div>
+                          <div className="text-sm text-gray-900 font-medium truncate">
+                            {getAgentEventLabel(ev)}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {ev.detected_at ? formatDate(ev.detected_at) : 'N/A'}
+                            {ev.azienda ? ` • ${ev.azienda}` : ''}
+                            {ev.agent_name ? ` • ${ev.agent_name}` : ''}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {!ev.is_read && (
+                            <button
+                              onClick={() => markAgentEventAsRead(ev.id)}
+                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                              title="Segna come letta"
+                            >
+                              Segna letta
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               );
-            }
-            
-            return (
+            })()}
+          </div>
+        )}
+
+        {/* Statistiche */}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+              <CheckCircle size={16} className="text-green-600" />
+              Online
+            </div>
+            <div className="text-3xl font-bold text-green-600">{stats.online}</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+              <WifiOff size={16} className="text-red-600" />
+              Offline
+            </div>
+            <div className="text-3xl font-bold text-red-600">{stats.offline}</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+              <Activity size={16} className="text-blue-600" />
+              Cambiamenti (24h)
+            </div>
+            <div className="text-3xl font-bold text-blue-600">{stats.recentChanges}</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+              <ServerIcon size={16} className="text-blue-600" />
+              Agent Online
+            </div>
+            <div className="text-3xl font-bold text-blue-600">{stats.agentsOnline}</div>
+            <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+              <WifiOff size={16} className="text-orange-600" />
+              Agent Offline
+            </div>
+            <div className="text-3xl font-bold text-orange-600">{stats.agentsOffline}</div>
+            <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
+          </div>
+        </div>
+
+        {/* Vista Dettaglio Dispositivi Azienda (mostrata solo se un'azienda è selezionata) */}
+        {selectedCompanyId && (
+          <div className="mb-6 bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Building size={24} className="text-purple-600" />
+                {companies.find(c => c.id === selectedCompanyId)?.azienda || 'Dispositivi'}
+              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowOfflineDevices(!showOfflineDevices)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${showOfflineDevices
+                      ? 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                      : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
+                    }`}
+                  title={showOfflineDevices ? 'Nascondi dispositivi offline' : 'Mostra dispositivi offline'}
+                >
+                  {showOfflineDevices ? (
+                    <>
+                      <EyeOff size={18} />
+                      <span className="text-sm font-medium">Nascondi Offline</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye size={18} />
+                      <span className="text-sm font-medium">Mostra Offline</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={generatePrintableReport}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-300 text-green-700 rounded-lg hover:bg-green-100 transition-colors"
+                  title="Genera report stampabile (include tutti i dispositivi)"
+                  disabled={companyDevices.length === 0}
+                >
+                  <FileText size={18} />
+                  <span className="text-sm font-medium">Report Stampabile</span>
+                </button>
+              </div>
+            </div>
+            {loadingCompanyDevices ? (
+              <div className="p-8 flex items-center justify-center">
+                <Loader className="w-8 h-8 animate-spin text-blue-600" />
+                <span className="ml-3 text-gray-600">Caricamento dispositivi...</span>
+              </div>
+            ) : (() => {
+              // Filtra i dispositivi in base al toggle
+              const filteredDevices = companyDevices.filter(device => showOfflineDevices || device.status === 'online');
+
+              if (companyDevices.length === 0) {
+                return <p className="text-gray-500 text-center py-4">Nessun dispositivo trovato per questa azienda</p>;
+              }
+
+              if (filteredDevices.length === 0) {
+                return (
+                  <p className="text-gray-500 text-center py-4">
+                    Nessun dispositivo online. Attiva "Mostra Offline" per vedere tutti i dispositivi.
+                  </p>
+                );
+              }
+
+              return (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12"></th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Prod.</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Titolo</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Utente</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Scan</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDevices.map((device) => {
+                        const isStatic = device.is_static === true;
+                        return (
+                          <tr
+                            key={device.id}
+                            className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
+                          >
+                            <td className="py-3 px-4">
+                              <div className="flex flex-col gap-2">
+                                {/* Checkbox Statico (colora riga di blu) */}
+                                <label className="flex items-center gap-1 cursor-pointer" title="IP Statico - Dispositivo con IP fisso">
+                                  <input
+                                    type="checkbox"
+                                    checked={isStatic}
+                                    onChange={async (e) => {
+                                      const newIsStatic = e.target.checked;
+                                      try {
+                                        const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/static`), {
+                                          method: 'PATCH',
+                                          headers: {
+                                            ...getAuthHeader(),
+                                            'Content-Type': 'application/json'
+                                          },
+                                          body: JSON.stringify({ is_static: newIsStatic })
+                                        });
+
+                                        if (!response.ok) {
+                                          const errorData = await response.json();
+                                          throw new Error(errorData.error || 'Errore aggiornamento');
+                                        }
+
+                                        setCompanyDevices(prev => prev.map(d =>
+                                          d.id === device.id ? { ...d, is_static: newIsStatic } : d
+                                        ));
+                                      } catch (err) {
+                                        console.error('Errore aggiornamento statico:', err);
+                                        alert(`Errore: ${err.message}`);
+                                        e.target.checked = !newIsStatic;
+                                      }
+                                    }}
+                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                  />
+                                  <span className="text-xs text-gray-600">Statico</span>
+                                </label>
+
+                                {/* Checkbox Notifiche Telegram */}
+                                <label className="flex items-center gap-1 cursor-pointer" title="Monitora con Telegram - Ricevi notifiche per cambio IP/MAC/status">
+                                  <input
+                                    type="checkbox"
+                                    checked={device.notify_telegram === true}
+                                    onChange={async (e) => {
+                                      const newNotifyTelegram = e.target.checked;
+                                      try {
+                                        const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/static`), {
+                                          method: 'PATCH',
+                                          headers: {
+                                            ...getAuthHeader(),
+                                            'Content-Type': 'application/json'
+                                          },
+                                          body: JSON.stringify({ notify_telegram: newNotifyTelegram })
+                                        });
+
+                                        if (!response.ok) {
+                                          const errorData = await response.json();
+                                          throw new Error(errorData.error || 'Errore aggiornamento');
+                                        }
+
+                                        setCompanyDevices(prev => prev.map(d =>
+                                          d.id === device.id ? { ...d, notify_telegram: newNotifyTelegram } : d
+                                        ));
+                                      } catch (err) {
+                                        console.error('Errore aggiornamento notifiche:', err);
+                                        alert(`Errore: ${err.message}`);
+                                        e.target.checked = !newNotifyTelegram;
+                                      }
+                                    }}
+                                    className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                                  />
+                                  <span
+                                    className="text-xs text-gray-600 hover:text-blue-600 cursor-pointer flex items-center gap-0.5"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setSelectedDeviceForSchedule(device);
+                                      setShowScheduleModal(true);
+                                    }}
+                                    title="Clicca per configurare orari e giorni"
+                                  >
+                                    Notifica
+                                    {device.monitoring_schedule?.enabled && (
+                                      <span className="text-[10px]" title="Orari personalizzati">⏰</span>
+                                    )}
+                                  </span>
+                                </label>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-sm font-mono text-gray-900">
+                              <div className="flex items-center gap-2">
+                                {device.has_ping_failures && (
+                                  <div className="relative group flex items-center">
+                                    <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
+                                      <span className="text-white text-xs font-bold leading-none">+</span>
+                                    </div>
+                                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                      Disconnessioni rilevate
+                                    </div>
+                                  </div>
+                                )}
+                                {device.previous_ip && (
+                                  <div className="flex items-center gap-1">
+                                    <div className="relative group">
+                                      <AlertTriangle className="w-4 h-4 text-orange-500" />
+                                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                        IP precedente: {device.previous_ip}
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/reset-warnings`), {
+                                            method: 'PATCH',
+                                            headers: {
+                                              ...getAuthHeader(),
+                                              'Content-Type': 'application/json'
+                                            }
+                                          });
+
+                                          if (!response.ok) {
+                                            const errorData = await response.json();
+                                            throw new Error(errorData.error || 'Errore reset warning');
+                                          }
+
+                                          // Aggiorna il dispositivo nella lista locale
+                                          setCompanyDevices(prev => prev.map(d =>
+                                            d.id === device.id ? { ...d, previous_ip: null, previous_mac: null } : d
+                                          ));
+                                        } catch (err) {
+                                          console.error('Errore reset warning:', err);
+                                          alert(`Errore: ${err.message}`);
+                                        }
+                                      }}
+                                      className="text-orange-500 hover:text-orange-700 transition-colors"
+                                      title="Rimuovi warning"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                )}
+                                <span
+                                  onClick={(e) => handleIpClick(e, device.ip_address)}
+                                  className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                                  title="Clicca per opzioni"
+                                >
+                                  {device.ip_address}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-sm font-mono text-gray-600">
+                              <div className="flex items-center gap-2">
+                                {device.previous_mac && (
+                                  <div className="flex items-center gap-1">
+                                    <div className="relative group">
+                                      <AlertTriangle className="w-4 h-4 text-orange-500" />
+                                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                        MAC precedente: {device.previous_mac ? device.previous_mac.replace(/-/g, ':') : '-'}
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/reset-warnings`), {
+                                            method: 'PATCH',
+                                            headers: {
+                                              ...getAuthHeader(),
+                                              'Content-Type': 'application/json'
+                                            }
+                                          });
+
+                                          if (!response.ok) {
+                                            const errorData = await response.json();
+                                            throw new Error(errorData.error || 'Errore reset warning');
+                                          }
+
+                                          // Aggiorna il dispositivo nella lista locale
+                                          setCompanyDevices(prev => prev.map(d =>
+                                            d.id === device.id ? { ...d, previous_ip: null, previous_mac: null } : d
+                                          ));
+                                        } catch (err) {
+                                          console.error('Errore reset warning:', err);
+                                          alert(`Errore: ${err.message}`);
+                                        }
+                                      }}
+                                      className="text-orange-500 hover:text-orange-700 transition-colors"
+                                      title="Rimuovi warning"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                )}
+                                <span>{device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-600">{device.device_path || '-'}</td>
+                            <td className="py-3 px-4 text-sm text-gray-600">{device.device_type || '-'}</td>
+                            <td className="py-3 px-4 text-sm text-gray-600">{device.device_username || '-'}</td>
+                            <td className="py-3 px-4">
+                              <StatusBadge status={device.status} pingResponsive={device.ping_responsive} />
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-500 whitespace-nowrap">{formatDate(device.last_seen)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* Menu contestuale per IP */}
+        {ipContextMenu.show && (
+          <>
+            {/* Overlay per chiudere il menu cliccando fuori */}
+            <div
+              className="fixed inset-0 z-40"
+              onClick={closeIpContextMenu}
+            />
+            {/* Menu contestuale */}
+            <div
+              className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 py-2 min-w-[150px]"
+              style={{
+                left: `${ipContextMenu.x}px`,
+                top: `${ipContextMenu.y}px`,
+                transform: 'translate(-50%, 10px)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => handlePing(ipContextMenu.ip)}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors"
+              >
+                <Activity size={16} />
+                Ping
+              </button>
+              <button
+                onClick={() => handleWeb(ipContextMenu.ip)}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors"
+              >
+                <Monitor size={16} />
+                Web
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Sezione cambiamenti recenti - PRIORITARIA */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">Cambiamenti Rilevati</h2>
+            <div className="flex items-center gap-4">
+              {/* Filtro Azienda - Solo aziende con agent attivi */}
+              <div className="relative">
+                <select
+                  value={changesCompanyFilter || ''}
+                  onChange={(e) => {
+                    const companyId = e.target.value ? parseInt(e.target.value) : null;
+                    setChangesCompanyFilter(companyId);
+                  }}
+                  className="px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer min-w-[180px]"
+                >
+                  <option value="">Tutte le Aziende</option>
+                  {companies
+                    .filter(company => company.agents_count > 0) // Solo aziende con agent
+                    .map((company) => (
+                      <option key={company.id} value={company.id}>
+                        {company.azienda}
+                      </option>
+                    ))
+                  }
+                </select>
+                <Building
+                  size={16}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
+                />
+              </div>
+
+              {/* Barra di ricerca */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Cerca (IP, MAC, hostname...)"
+                  value={changesSearchTerm}
+                  onChange={(e) => {
+                    setChangesSearchTerm(e.target.value);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      loadChanges(false);
+                    }
+                  }}
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
+                />
+                {changesSearchTerm && (
+                  <button
+                    onClick={() => {
+                      setChangesSearchTerm('');
+                      loadChanges(false);
+                    }}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              <span className="text-sm text-gray-500">{changes.length} totali</span>
+            </div>
+          </div>
+          <div className="p-6">
+            {changes.length === 0 ? (
+              <div className="text-center py-12">
+                <Activity className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg">Nessun cambiamento rilevato</p>
+                <p className="text-gray-400 text-sm mt-2">I cambiamenti di rete verranno visualizzati qui</p>
+              </div>
+            ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12"></th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Prod.</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Titolo</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Utente</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Scan</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Azienda</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Agente</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Data</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredDevices.map((device) => {
-                    const isStatic = device.is_static === true;
-                    return (
-                      <tr 
-                        key={device.id} 
-                        className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
-                      >
-                        <td className="py-3 px-4">
-                          <div className="flex flex-col gap-2">
-                            {/* Checkbox Statico (colora riga di blu) */}
-                            <label className="flex items-center gap-1 cursor-pointer" title="IP Statico - Dispositivo con IP fisso">
-                              <input
-                                type="checkbox"
-                                checked={isStatic}
-                                onChange={async (e) => {
-                                  const newIsStatic = e.target.checked;
-                                  try {
-                                    const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/static`), {
-                                      method: 'PATCH',
-                                      headers: {
-                                        ...getAuthHeader(),
-                                        'Content-Type': 'application/json'
-                                      },
-                                      body: JSON.stringify({ is_static: newIsStatic })
-                                    });
-
-                                    if (!response.ok) {
-                                      const errorData = await response.json();
-                                      throw new Error(errorData.error || 'Errore aggiornamento');
-                                    }
-
-                                    setCompanyDevices(prev => prev.map(d => 
-                                      d.id === device.id ? { ...d, is_static: newIsStatic } : d
-                                    ));
-                                  } catch (err) {
-                                    console.error('Errore aggiornamento statico:', err);
-                                    alert(`Errore: ${err.message}`);
-                                    e.target.checked = !newIsStatic;
-                                  }
-                                }}
-                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                              />
-                              <span className="text-xs text-gray-600">Statico</span>
-                            </label>
-
-                            {/* Checkbox Notifiche Telegram */}
-                            <label className="flex items-center gap-1 cursor-pointer" title="Monitora con Telegram - Ricevi notifiche per cambio IP/MAC/status">
-                              <input
-                                type="checkbox"
-                                checked={device.notify_telegram === true}
-                                onChange={async (e) => {
-                                  const newNotifyTelegram = e.target.checked;
-                                  try {
-                                    const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/static`), {
-                                      method: 'PATCH',
-                                      headers: {
-                                        ...getAuthHeader(),
-                                        'Content-Type': 'application/json'
-                                      },
-                                      body: JSON.stringify({ notify_telegram: newNotifyTelegram })
-                                    });
-
-                                    if (!response.ok) {
-                                      const errorData = await response.json();
-                                      throw new Error(errorData.error || 'Errore aggiornamento');
-                                    }
-
-                                    setCompanyDevices(prev => prev.map(d => 
-                                      d.id === device.id ? { ...d, notify_telegram: newNotifyTelegram } : d
-                                    ));
-                                  } catch (err) {
-                                    console.error('Errore aggiornamento notifiche:', err);
-                                    alert(`Errore: ${err.message}`);
-                                    e.target.checked = !newNotifyTelegram;
-                                  }
-                                }}
-                                className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                              />
-                              <span 
-                                className="text-xs text-gray-600 hover:text-blue-600 cursor-pointer flex items-center gap-0.5"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setSelectedDeviceForSchedule(device);
-                                  setShowScheduleModal(true);
-                                }}
-                                title="Clicca per configurare orari e giorni"
-                              >
-                                Notifica
-                                {device.monitoring_schedule?.enabled && (
-                                  <span className="text-[10px]" title="Orari personalizzati">⏰</span>
-                                )}
-                              </span>
-                            </label>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-sm font-mono text-gray-900">
-                          <div className="flex items-center gap-2">
-                            {device.has_ping_failures && (
-                              <div className="relative group flex items-center">
-                                <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
-                                  <span className="text-white text-xs font-bold leading-none">+</span>
-                                </div>
-                                <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                                  Disconnessioni rilevate
-                                </div>
-                              </div>
-                            )}
-                            {device.previous_ip && (
-                              <div className="flex items-center gap-1">
-                                <div className="relative group">
-                                  <AlertTriangle className="w-4 h-4 text-orange-500" />
-                                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                                    IP precedente: {device.previous_ip}
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    try {
-                                      const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/reset-warnings`), {
-                                        method: 'PATCH',
-                                        headers: {
-                                          ...getAuthHeader(),
-                                          'Content-Type': 'application/json'
-                                        }
-                                      });
-
-                                      if (!response.ok) {
-                                        const errorData = await response.json();
-                                        throw new Error(errorData.error || 'Errore reset warning');
-                                      }
-
-                                      // Aggiorna il dispositivo nella lista locale
-                                      setCompanyDevices(prev => prev.map(d => 
-                                        d.id === device.id ? { ...d, previous_ip: null, previous_mac: null } : d
-                                      ));
-                                    } catch (err) {
-                                      console.error('Errore reset warning:', err);
-                                      alert(`Errore: ${err.message}`);
-                                    }
-                                  }}
-                                  className="text-orange-500 hover:text-orange-700 transition-colors"
-                                  title="Rimuovi warning"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            )}
-                            <span 
-                              onClick={(e) => handleIpClick(e, device.ip_address)}
-                              className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
-                              title="Clicca per opzioni"
-                            >
-                              {device.ip_address}
-                            </span>
-                          </div>
-                        </td>
-                      <td className="py-3 px-4 text-sm font-mono text-gray-600">
-                        <div className="flex items-center gap-2">
-                          {device.previous_mac && (
-                            <div className="flex items-center gap-1">
-                              <div className="relative group">
-                                <AlertTriangle className="w-4 h-4 text-orange-500" />
-                                <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                                  MAC precedente: {device.previous_mac ? device.previous_mac.replace(/-/g, ':') : '-'}
-                                </div>
-                              </div>
-                              <button
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/reset-warnings`), {
-                                      method: 'PATCH',
-                                      headers: {
-                                        ...getAuthHeader(),
-                                        'Content-Type': 'application/json'
-                                      }
-                                    });
-
-                                    if (!response.ok) {
-                                      const errorData = await response.json();
-                                      throw new Error(errorData.error || 'Errore reset warning');
-                                    }
-
-                                    // Aggiorna il dispositivo nella lista locale
-                                    setCompanyDevices(prev => prev.map(d => 
-                                      d.id === device.id ? { ...d, previous_ip: null, previous_mac: null } : d
-                                    ));
-                                  } catch (err) {
-                                    console.error('Errore reset warning:', err);
-                                    alert(`Errore: ${err.message}`);
-                                  }
-                                }}
-                                className="text-orange-500 hover:text-orange-700 transition-colors"
-                                title="Rimuovi warning"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
+                    {changes.slice(0, 50).map((change) => {
+                      const isStatic = change.is_static === true;
+                      return (
+                        <tr
+                          key={change.id}
+                          className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
+                        >
+                          <td className="py-3 px-4">
+                            <ChangeTypeBadge changeType={change.change_type} />
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {change.ip_address}
+                              {isStatic && (
+                                <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-200 text-blue-800 font-semibold">
+                                  STATICO
+                                </span>
+                              )}
                             </div>
-                          )}
-                          <span>{device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-600">{device.device_path || '-'}</td>
-                      <td className="py-3 px-4 text-sm text-gray-600">{device.device_type || '-'}</td>
-                      <td className="py-3 px-4 text-sm text-gray-600">{device.device_username || '-'}</td>
-                      <td className="py-3 px-4">
-                        <StatusBadge status={device.status} pingResponsive={device.ping_responsive} />
-                      </td>
-                      <td className="py-3 px-4 text-sm text-gray-500 whitespace-nowrap">{formatDate(device.last_seen)}</td>
-                    </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            );
-          })()}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600 font-mono">
+                            {change.mac_address ? change.mac_address.replace(/-/g, ':') : '-'}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {change.hostname || '-'}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            <span title={change.keepass_username ? `Utente: ${change.keepass_username}` : ''}>
+                              {change.keepass_title || change.vendor || '-'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {change.azienda || 'N/A'}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {change.agent_name || 'Agent'}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-500">
+                            {formatDate(change.detected_at)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {changes.length > 50 && (
+                  <div className="text-center py-4 text-sm text-gray-500 border-t border-gray-200">
+                    Mostrati i primi 50 cambiamenti di {changes.length} totali
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      )}
 
-      {/* Menu contestuale per IP */}
-      {ipContextMenu.show && (
-        <>
-          {/* Overlay per chiudere il menu cliccando fuori */}
-          <div 
-            className="fixed inset-0 z-40" 
-            onClick={closeIpContextMenu}
-          />
-          {/* Menu contestuale */}
-          <div 
-            className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 py-2 min-w-[150px]"
-            style={{
-              left: `${ipContextMenu.x}px`,
-              top: `${ipContextMenu.y}px`,
-              transform: 'translate(-50%, 10px)'
+        {/* Modal creazione agent - NON aggiornare dati durante creazione */}
+        {showCreateAgentModal && (
+          <CreateAgentModal
+            key="create-agent-modal"
+            isOpen={showCreateAgentModal}
+            setShowCreateAgentModal={setShowCreateAgentModal}
+            onClose={(shouldRefresh = false) => {
+              // Ricarica dati SOLO quando il modal viene chiuso esplicitamente
+              if (shouldRefresh) {
+                setTimeout(() => {
+                  loadDevices();
+                  loadChanges(false);
+                  loadAgents();
+                  // opzionale: aggiorna lista aziende (se UI mostra conteggi o dropdown dipende dal backend)
+                  loadCompanies();
+                }, 200);
+              }
             }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => handlePing(ipContextMenu.ip)}
-              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors"
-            >
-              <Activity size={16} />
-              Ping
-            </button>
-            <button
-              onClick={() => handleWeb(ipContextMenu.ip)}
-              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors"
-            >
-              <Monitor size={16} />
-              Web
-            </button>
-          </div>
-        </>
-      )}
+            onAgentCreated={(agent) => {
+              // Aggiorna subito lista agent: evita che l'utente debba fare refresh pagina
+              console.log('✅ Agent creato con successo:', agent);
+              loadAgents();
+              loadCompanies();
+            }}
+            getAuthHeader={getAuthHeader}
+          />
+        )}
 
-      {/* Sezione cambiamenti recenti - PRIORITARIA */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">Cambiamenti Rilevati</h2>
-          <div className="flex items-center gap-4">
-            {/* Filtro Azienda - Solo aziende con agent attivi */}
-            <div className="relative">
-              <select
-                value={changesCompanyFilter || ''}
-                onChange={(e) => {
-                  const companyId = e.target.value ? parseInt(e.target.value) : null;
-                  setChangesCompanyFilter(companyId);
-                }}
-                className="px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer min-w-[180px]"
-              >
-                <option value="">Tutte le Aziende</option>
-                {companies
-                  .filter(company => company.agents_count > 0) // Solo aziende con agent
-                  .map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.azienda}
-                    </option>
-                  ))
-                }
-              </select>
-              <Building 
-                size={16} 
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" 
-              />
-            </div>
-            
-            {/* Barra di ricerca */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Cerca (IP, MAC, hostname...)"
-                value={changesSearchTerm}
-                onChange={(e) => {
-                  setChangesSearchTerm(e.target.value);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    loadChanges(false);
-                  }
-                }}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
-              />
-              {changesSearchTerm && (
-                <button
-                  onClick={() => {
-                    setChangesSearchTerm('');
-                    loadChanges(false);
-                  }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            <span className="text-sm text-gray-500">{changes.length} totali</span>
-          </div>
-        </div>
-        <div className="p-6">
-          {changes.length === 0 ? (
-            <div className="text-center py-12">
-              <Activity className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg">Nessun cambiamento rilevato</p>
-              <p className="text-gray-400 text-sm mt-2">I cambiamenti di rete verranno visualizzati qui</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Prod.</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Azienda</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Agente</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Data</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {changes.slice(0, 50).map((change) => {
-                    const isStatic = change.is_static === true;
-                    return (
-                      <tr 
-                        key={change.id} 
-                        className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
-                      >
-                        <td className="py-3 px-4">
-                          <ChangeTypeBadge changeType={change.change_type} />
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {change.ip_address}
-                            {isStatic && (
-                              <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-200 text-blue-800 font-semibold">
-                                STATICO
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600 font-mono">
-                          {change.mac_address ? change.mac_address.replace(/-/g, ':') : '-'}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {change.hostname || '-'}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {change.vendor || '-'}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {change.azienda || 'N/A'}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {change.agent_name || 'Agent'}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-500">
-                          {formatDate(change.detected_at)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {changes.length > 50 && (
-                <div className="text-center py-4 text-sm text-gray-500 border-t border-gray-200">
-                  Mostrati i primi 50 cambiamenti di {changes.length} totali
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Modal creazione agent - NON aggiornare dati durante creazione */}
-      {showCreateAgentModal && (
-        <CreateAgentModal
-          key="create-agent-modal"
-          isOpen={showCreateAgentModal}
-          setShowCreateAgentModal={setShowCreateAgentModal}
-          onClose={(shouldRefresh = false) => {
-            // Ricarica dati SOLO quando il modal viene chiuso esplicitamente
-            if (shouldRefresh) {
-              setTimeout(() => {
-                loadDevices();
-                loadChanges(false);
-                loadAgents();
-                // opzionale: aggiorna lista aziende (se UI mostra conteggi o dropdown dipende dal backend)
-                loadCompanies();
-              }, 200);
-            }
-          }}
-          onAgentCreated={(agent) => {
-            // Aggiorna subito lista agent: evita che l'utente debba fare refresh pagina
-            console.log('✅ Agent creato con successo:', agent);
-            loadAgents();
-            loadCompanies();
-          }}
-          getAuthHeader={getAuthHeader}
-        />
-      )}
-
-      {/* Modal Configurazione Monitoring Schedule */}
-      {showScheduleModal && selectedDeviceForSchedule && (
-        <MonitoringScheduleModal
-          device={selectedDeviceForSchedule}
-          onClose={() => {
-            setShowScheduleModal(false);
-            setSelectedDeviceForSchedule(null);
-          }}
-          onSave={(updatedDevice) => {
-            // Aggiorna il dispositivo nella lista
-            setCompanyDevices(prev => prev.map(d => 
-              d.id === updatedDevice.id ? { ...d, ...updatedDevice } : d
-            ));
-          }}
-          getAuthHeader={getAuthHeader}
-          buildApiUrl={buildApiUrl}
-        />
-      )}
+        {/* Modal Configurazione Monitoring Schedule */}
+        {showScheduleModal && selectedDeviceForSchedule && (
+          <MonitoringScheduleModal
+            device={selectedDeviceForSchedule}
+            onClose={() => {
+              setShowScheduleModal(false);
+              setSelectedDeviceForSchedule(null);
+            }}
+            onSave={(updatedDevice) => {
+              // Aggiorna il dispositivo nella lista
+              setCompanyDevices(prev => prev.map(d =>
+                d.id === updatedDevice.id ? { ...d, ...updatedDevice } : d
+              ));
+            }}
+            getAuthHeader={getAuthHeader}
+            buildApiUrl={buildApiUrl}
+          />
+        )}
       </div>
     </div>
   );
