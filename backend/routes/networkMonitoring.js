@@ -2679,6 +2679,14 @@ module.exports = (pool, io) => {
           console.warn('⚠️  nssm.exe non trovato! L\'installazione del servizio potrebbe fallire!');
         }
         
+        // Ripara-Agent.ps1 (script di auto-riparazione)
+        const riparaAgentPath = path.join(agentDir, 'Ripara-Agent.ps1');
+        if (fs.existsSync(riparaAgentPath)) {
+          const riparaAgentContent = fs.readFileSync(riparaAgentPath, 'utf8');
+          archive.append(riparaAgentContent, { name: 'Ripara-Agent.ps1' });
+          console.log('✅ Aggiunto Ripara-Agent.ps1');
+        }
+        
       } catch (appendErr) {
         console.error('❌ Errore aggiunta file allo ZIP:', appendErr);
         if (!res.headersSent) {
