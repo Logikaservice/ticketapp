@@ -1,13 +1,13 @@
 # NetworkMonitor.ps1
 # Agent PowerShell per monitoraggio rete - Invio dati al server TicketApp
-# Versione: 2.1.0 - Trust ARP (rileva dispositivi anche se non rispondono a ping)
+# Versione: 2.2.0 - Trust ARP + Auto-update
 
 param(
     [string]$ConfigPath = "config.json",
     [switch]$TestMode = $false
 )
 
-$AGENT_VERSION = "2.1.0"
+$AGENT_VERSION = "2.2.0"
 
 # Forza TLS 1.2 per Invoke-RestMethod (compatibilità hardening TLS su Windows/Server)
 function Enable-Tls12 {
@@ -28,6 +28,83 @@ function Write-Log {
     Write-Host $logMessage
     # Opzionale: salva anche in file log
     # $logMessage | Out-File -FilePath "NetworkMonitor.log" -Append
+}
+
+function Check-AgentUpdate {
+    param(
+        [string]$ServerUrl,
+        [string]$CurrentVersion
+    )
+    
+    try {
+        Write-Log "🔍 Controllo aggiornamenti agent... (versione corrente: $CurrentVersion)" "INFO"
+        
+        # Endpoint per controllare versione
+        $versionUrl = "$ServerUrl/api/network-monitoring/agent-version"
+        
+        # Richiedi informazioni versione
+        $response = Invoke-RestMethod -Uri $versionUrl -Method Get -TimeoutSec 10 -ErrorAction Stop
+        
+        $serverVersion = $response.version
+        $downloadUrl = $response.download_url
+        
+        Write-Log "📡 Versione disponibile sul server: $serverVersion" "INFO"
+        
+        # Confronta versioni (semplice confronto stringa)
+        if ($serverVersion -ne $CurrentVersion) {
+            Write-Log "🆕 Nuova versione disponibile! Avvio aggiornamento..." "INFO"
+            
+            # Percorso file corrente
+            $currentScriptPath = $PSCommandPath
+            if (-not $currentScriptPath) {
+                $currentScriptPath = Join-Path $PSScriptRoot "NetworkMonitor.ps1"
+            }
+            
+            # Percorso temporaneo per download
+            $tempFilePath = Join-Path $PSScriptRoot "NetworkMonitor.ps1.new"
+            $backupFilePath = Join-Path $PSScriptRoot "NetworkMonitor.ps1.backup"
+            
+            # Scarica nuova versione
+            Write-Log "📥 Download nuova versione da: $downloadUrl" "INFO"
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFilePath -TimeoutSec 30 -ErrorAction Stop
+            
+            # Verifica download
+            if (Test-Path $tempFilePath) {
+                $fileSize = (Get-Item $tempFilePath).Length
+                Write-Log "✅ Download completato ($fileSize bytes)" "INFO"
+                
+                # Backup versione corrente
+                if (Test-Path $currentScriptPath) {
+                    Copy-Item $currentScriptPath $backupFilePath -Force
+                    Write-Log "💾 Backup versione precedente creato" "INFO"
+                }
+                
+                # Sostituisci file
+                Move-Item $tempFilePath $currentScriptPath -Force
+                Write-Log "✅ File aggiornato con successo!" "INFO"
+                
+                # Riavvia il servizio per applicare l'aggiornamento
+                Write-Log "🔄 Riavvio servizio NetworkMonitorAgent..." "INFO"
+                try {
+                    Restart-Service -Name "NetworkMonitorAgent" -Force -ErrorAction Stop
+                    Write-Log "✅ Servizio riavviato! Aggiornamento completato alla v$serverVersion" "INFO"
+                } catch {
+                    Write-Log "⚠️ Impossibile riavviare servizio: $_" "WARN"
+                    Write-Log "⚠️ Riavviare manualmente il servizio per applicare l'aggiornamento" "WARN"
+                }
+                
+                # Termina script corrente (verrà riavviato dal servizio)
+                exit 0
+            } else {
+                Write-Log "❌ Download fallito, file non trovato" "ERROR"
+            }
+        } else {
+            Write-Log "✅ Agent già aggiornato alla versione corrente" "INFO"
+        }
+    } catch {
+        Write-Log "⚠️ Errore controllo aggiornamenti: $_" "WARN"
+        Write-Log "⚠️ Continuo con la versione corrente..." "WARN"
+    }
 }
 
 function Get-ArpTable {
@@ -513,6 +590,9 @@ Write-Log "Server URL: $($config.server_url)"
 Write-Log "Network ranges: $($config.network_ranges -join ', ')"
 Write-Log "Scan interval: $($config.scan_interval_minutes) minuti"
 
+# Controlla aggiornamenti agent (all'avvio)
+Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $AGENT_VERSION
+
 if ($TestMode) {
     Write-Log "=== MODO TEST - Esecuzione singola ==="
     
@@ -546,6 +626,9 @@ if ($TestMode) {
 Write-Log "=== Esecuzione scansione ==="
 
 try {
+    # 0. Controlla aggiornamenti (ogni scansione)
+    Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $AGENT_VERSION
+    
     # 1. Heartbeat (indica che l'agent è online)
     Write-Log "Invio heartbeat..."
     $heartbeatResult = Send-Heartbeat -ServerUrl $config.server_url -ApiKey $config.api_key -Version $config.version

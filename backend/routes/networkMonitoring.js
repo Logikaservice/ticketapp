@@ -4523,5 +4523,63 @@ pause
     }
   });
 
+  // GET /api/network-monitoring/agent-version
+  // Restituisce la versione corrente dell'agent disponibile per download
+  router.get('/agent-version', async (req, res) => {
+    try {
+      const CURRENT_AGENT_VERSION = '2.2.0'; // Trust ARP + Auto-update
+      const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
+      
+      res.json({
+        version: CURRENT_AGENT_VERSION,
+        download_url: `${baseUrl}/api/network-monitoring/download/agent/NetworkMonitor.ps1`,
+        release_date: '2025-01-21',
+        features: [
+          'Trust ARP - Rileva tutti i dispositivi presenti',
+          'Ping responsive tracking',
+          '3 stati status: Online, No Ping, Offline',
+          'Auto-update automatico'
+        ]
+      });
+    } catch (err) {
+      console.error('❌ Errore endpoint agent-version:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/download/agent/NetworkMonitor.ps1
+  // Serve il file NetworkMonitor.ps1 per download
+  router.get('/download/agent/NetworkMonitor.ps1', async (req, res) => {
+    try {
+      const path = require('path');
+      const fs = require('fs').promises;
+      
+      // Percorso al file agent (nella stessa repo, directory agent)
+      const agentFilePath = path.join(__dirname, '../../agent/NetworkMonitor.ps1');
+      
+      // Verifica che il file esista
+      try {
+        await fs.access(agentFilePath);
+      } catch (err) {
+        console.error('❌ File agent non trovato:', agentFilePath);
+        return res.status(404).json({ error: 'File agent non trovato' });
+      }
+      
+      // Log download
+      const clientIp = req.ip || req.connection.remoteAddress;
+      console.log(`📥 Download agent richiesto da: ${clientIp}`);
+      
+      // Imposta headers per download
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="NetworkMonitor.ps1"');
+      
+      // Invia file
+      res.sendFile(agentFilePath);
+    } catch (err) {
+      console.error('❌ Errore download agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   return router;
 };
