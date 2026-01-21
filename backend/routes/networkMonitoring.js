@@ -4527,7 +4527,7 @@ pause
   // Restituisce la versione corrente dell'agent disponibile per download
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.2.2'; // Trust ARP + Auto-update + Cleanup all'avvio servizio
+      const CURRENT_AGENT_VERSION = '2.3.0'; // Auto-update COMPLETO nel servizio
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
       
       res.json({
@@ -4538,8 +4538,9 @@ pause
           'Trust ARP - Rileva tutti i dispositivi presenti',
           'Ping responsive tracking',
           '3 stati status: Online, No Ping, Offline',
-          'Auto-update automatico',
-          'Cleanup automatico processi vecchi all\'avvio del servizio'
+          'Auto-update automatico per NetworkMonitorService.ps1 (finalmente funziona!)',
+          'Cleanup automatico processi vecchi all\'avvio del servizio',
+          'Controllo aggiornamenti ogni 5 minuti durante l\'esecuzione'
         ]
       });
     } catch (err) {
@@ -4578,6 +4579,40 @@ pause
       res.sendFile(agentFilePath);
     } catch (err) {
       console.error('❌ Errore download agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/download/agent/NetworkMonitorService.ps1
+  // Serve il file NetworkMonitorService.ps1 per download
+  router.get('/download/agent/NetworkMonitorService.ps1', async (req, res) => {
+    try {
+      const path = require('path');
+      const fs = require('fs').promises;
+      
+      // Percorso al file agent (nella stessa repo, directory agent)
+      const agentFilePath = path.join(__dirname, '../../agent/NetworkMonitorService.ps1');
+      
+      // Verifica che il file esista
+      try {
+        await fs.access(agentFilePath);
+      } catch (err) {
+        console.error('❌ File NetworkMonitorService.ps1 non trovato:', agentFilePath);
+        return res.status(404).json({ error: 'File NetworkMonitorService.ps1 non trovato' });
+      }
+      
+      // Log download
+      const clientIp = req.ip || req.connection.remoteAddress;
+      console.log(`📥 Download NetworkMonitorService.ps1 richiesto da: ${clientIp}`);
+      
+      // Imposta headers per download
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="NetworkMonitorService.ps1"');
+      
+      // Invia file
+      res.sendFile(agentFilePath);
+    } catch (err) {
+      console.error('❌ Errore download NetworkMonitorService.ps1:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });

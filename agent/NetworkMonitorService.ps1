@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.2.2
+# Versione: 2.3.0
 # Data ultima modifica: 2026-01-21
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.2.2"
+$SCRIPT_VERSION = "2.3.0"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -1653,6 +1653,151 @@ function Send-Heartbeat {
     }
 }
 
+function Check-AgentUpdate {
+    param(
+        [string]$ServerUrl,
+        [string]$CurrentVersion
+    )
+    
+    try {
+        Write-Log "🔍 Controllo aggiornamenti agent... (versione corrente: $CurrentVersion)" "INFO"
+        
+        # Endpoint per controllare versione
+        $versionUrl = "$ServerUrl/api/network-monitoring/agent-version"
+        
+        # Richiedi informazioni versione
+        $response = Invoke-RestMethod -Uri $versionUrl -Method Get -TimeoutSec 10 -ErrorAction Stop
+        
+        $serverVersion = $response.version
+        
+        Write-Log "📡 Versione disponibile sul server: $serverVersion" "INFO"
+        
+        # Confronta versioni
+        if ($serverVersion -ne $CurrentVersion) {
+            Write-Log "🆕 Nuova versione disponibile! Avvio aggiornamento..." "INFO"
+            
+            # Directory installazione
+            $installDir = Split-Path -Parent $PSCommandPath
+            if (-not $installDir) {
+                $installDir = "C:\ProgramData\NetworkMonitorAgent"
+            }
+            
+            # File da aggiornare
+            $serviceFile = Join-Path $installDir "NetworkMonitorService.ps1"
+            $monitorFile = Join-Path $installDir "NetworkMonitor.ps1"
+            
+            # URL download
+            $baseUrl = $ServerUrl -replace '/api.*', ''
+            $serviceDownloadUrl = "$baseUrl/api/network-monitoring/download/agent/NetworkMonitorService.ps1"
+            $monitorDownloadUrl = "$baseUrl/api/network-monitoring/download/agent/NetworkMonitor.ps1"
+            
+            # Backup
+            $serviceBackup = "$serviceFile.backup"
+            $monitorBackup = "$monitorFile.backup"
+            
+            # Download NetworkMonitorService.ps1
+            Write-Log "📥 Download NetworkMonitorService.ps1..." "INFO"
+            $tempService = "$serviceFile.new"
+            Invoke-WebRequest -Uri $serviceDownloadUrl -OutFile $tempService -TimeoutSec 30 -ErrorAction Stop
+            
+            if (Test-Path $tempService) {
+                $serviceSize = (Get-Item $tempService).Length
+                Write-Log "✅ NetworkMonitorService.ps1 scaricato ($serviceSize bytes)" "INFO"
+                
+                # Backup versione corrente
+                if (Test-Path $serviceFile) {
+                    Copy-Item $serviceFile $serviceBackup -Force
+                    Write-Log "💾 Backup NetworkMonitorService.ps1 creato" "INFO"
+                }
+                
+                # Sostituisci file (prova fino a 3 volte)
+                $replaced = $false
+                for ($i = 1; $i -le 3; $i++) {
+                    try {
+                        Move-Item $tempService $serviceFile -Force -ErrorAction Stop
+                        $replaced = $true
+                        Write-Log "✅ NetworkMonitorService.ps1 aggiornato!" "INFO"
+                        break
+                    } catch {
+                        if ($i -lt 3) {
+                            Write-Log "⚠️ Tentativo $i fallito, riprovo..." "WARN"
+                            Start-Sleep -Seconds 2
+                        } else {
+                            throw $_
+                        }
+                    }
+                }
+                
+                if (-not $replaced) {
+                    throw "Impossibile sostituire NetworkMonitorService.ps1 dopo 3 tentativi"
+                }
+            }
+            
+            # Download NetworkMonitor.ps1 (se esiste)
+            if (Test-Path $monitorFile) {
+                try {
+                    Write-Log "📥 Download NetworkMonitor.ps1..." "INFO"
+                    $tempMonitor = "$monitorFile.new"
+                    Invoke-WebRequest -Uri $monitorDownloadUrl -OutFile $tempMonitor -TimeoutSec 30 -ErrorAction Stop
+                    
+                    if (Test-Path $tempMonitor) {
+                        $monitorSize = (Get-Item $tempMonitor).Length
+                        Write-Log "✅ NetworkMonitor.ps1 scaricato ($monitorSize bytes)" "INFO"
+                        
+                        # Backup
+                        if (Test-Path $monitorFile) {
+                            Copy-Item $monitorFile $monitorBackup -Force
+                        }
+                        
+                        # Sostituisci
+                        Move-Item $tempMonitor $monitorFile -Force
+                        Write-Log "✅ NetworkMonitor.ps1 aggiornato!" "INFO"
+                    }
+                } catch {
+                    Write-Log "⚠️ Errore aggiornamento NetworkMonitor.ps1: $_" "WARN"
+                    Write-Log "⚠️ Continuo con NetworkMonitorService.ps1 aggiornato" "WARN"
+                }
+            }
+            
+            # Aggiorna config.json con nuova versione
+            $configPath = Join-Path $installDir "config.json"
+            if (Test-Path $configPath) {
+                try {
+                    $config = Get-Content $configPath -Raw | ConvertFrom-Json
+                    $config.version = $serverVersion
+                    $config | ConvertTo-Json -Depth 10 | Out-File -FilePath $configPath -Encoding UTF8 -Force
+                    Write-Log "✅ config.json aggiornato con versione $serverVersion" "INFO"
+                } catch {
+                    Write-Log "⚠️ Errore aggiornamento config.json: $_" "WARN"
+                }
+            }
+            
+            # Riavvia il servizio per applicare l'aggiornamento
+            Write-Log "🔄 Riavvio servizio NetworkMonitorService..." "INFO"
+            Write-Log "⚠️ Lo script terminerà e il servizio verrà riavviato automaticamente" "INFO"
+            
+            # Ferma il servizio (NSSM lo riavvierà automaticamente)
+            try {
+                Stop-Service -Name "NetworkMonitorService" -Force -ErrorAction Stop
+                Write-Log "✅ Servizio arrestato, NSSM lo riavvierà con la nuova versione" "INFO"
+            } catch {
+                Write-Log "⚠️ Impossibile arrestare servizio: $_" "WARN"
+                Write-Log "⚠️ Riavviare manualmente il servizio per applicare l'aggiornamento" "WARN"
+            }
+            
+            # Termina script corrente (NSSM riavvierà il servizio con la nuova versione)
+            $script:isRunning = $false
+            exit 0
+            
+        } else {
+            Write-Log "✅ Agent già aggiornato alla versione corrente" "INFO"
+        }
+    } catch {
+        Write-Log "⚠️ Errore controllo aggiornamenti: $_" "WARN"
+        Write-Log "⚠️ Continuo con la versione corrente..." "WARN"
+    }
+}
+
 # ============================================
 # MAIN
 # ============================================
@@ -1747,6 +1892,10 @@ Write-Log "Scan interval: $script:scanIntervalMinutes minuti"
 # Inizializza status
 Update-StatusFile -Status "running" -Message "Servizio avviato"
 
+# Controlla aggiornamenti agent (all'avvio)
+$version = if ($config.version) { $config.version } else { $SCRIPT_VERSION }
+Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $version
+
 # Loop principale
 Write-Log "Avvio loop principale..."
 # Imposta nextScanTime a 5 secondi fa per forzare la prima scansione immediata
@@ -1792,6 +1941,14 @@ while ($script:isRunning) {
             
             # Prossimo heartbeat tra 5 minuti
             $nextHeartbeatTime = $now.AddMinutes(5)
+            
+            # Controlla aggiornamenti agent (ogni heartbeat)
+            try {
+                $version = if ($config.version) { $config.version } else { $SCRIPT_VERSION }
+                Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $version
+            } catch {
+                Write-Log "Errore controllo aggiornamenti: $_" "WARN"
+            }
         }
         
         # Controlla se c'è una richiesta di scansione forzata
