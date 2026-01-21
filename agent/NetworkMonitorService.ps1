@@ -494,6 +494,8 @@ function Get-NetworkDevices {
                             hostname = $hostname
                             vendor = $null
                             status = "online"
+                            has_ping_failures = $false
+                            ping_responsive = $true  # IP locale risponde sempre al ping
                         }
                         
                         # Salva MAC trovato per uso successivo
@@ -555,6 +557,7 @@ function Get-NetworkDevices {
                                 return @{
                                     ip = $targetIP
                                     has_ping_failures = ($failureCount -gt 0)
+                                    ping_responsive = $true  # Risponde al ping
                                 }
                             }
                         } catch {
@@ -1314,6 +1317,10 @@ public class ArpHelper {
                             $hasPingFailures = $script:pingFailures[$ip]
                         }
                         
+                        # Calcola ping_responsive: true se l'IP è in activeIPs (ha risposto al ping)
+                        # false se presente solo in ARP ma non ha risposto al ping (Trust ARP)
+                        $pingResponsive = $activeIPs.Contains($ip)
+                        
                         $device = @{
                             ip_address = $ip
                             mac_address = $macAddress
@@ -1321,6 +1328,7 @@ public class ArpHelper {
                             vendor = $vendor
                             status = "online"
                             has_ping_failures = $hasPingFailures
+                            ping_responsive = $pingResponsive
                         }
                         
                         # Salva MAC trovato per uso successivo
@@ -1332,18 +1340,94 @@ public class ArpHelper {
                     }
                 }
                 
-                # Salva IP trovati con MAC in batch (una sola volta invece che per ogni IP)
+                # TRUST ARP: Aggiungi dispositivi presenti in ARP ma non in activeIPs (non rispondono al ping)
+                # Questo è cruciale per rilevare tutti i dispositivi presenti sulla rete
+                try {
+                    # Assicura che activeIPs sia inizializzato (potrebbe non esserlo se non ci sono IP da scansionare)
+                    if (-not $activeIPs) {
+                        $activeIPs = New-Object System.Collections.ArrayList
+                    }
+                    
+                    Write-Log "Trust ARP: Verifica dispositivi in ARP ma non in activeIPs..." "INFO"
+                    $trustArpCount = 0
+                    foreach ($arpIP in $arpTable.Keys) {
+                        try {
+                            # Verifica che l'IP sia nel range configurato
+                            if ($arpIP -like "$baseIP.*") {
+                                # Se l'IP non è in activeIPs (non ha risposto al ping) ma è in ARP, aggiungilo
+                                if (-not $activeIPs.Contains($arpIP)) {
+                                    # Verifica che non sia già stato aggiunto ai devices
+                                    $alreadyAdded = $false
+                                    foreach ($existingDevice in $devices) {
+                                        if ($existingDevice.ip_address -eq $arpIP) {
+                                            $alreadyAdded = $true
+                                            break
+                                        }
+                                    }
+                                    
+                                    if (-not $alreadyAdded) {
+                                        $arpMAC = $arpTable[$arpIP]
+                                        # Verifica che il MAC sia valido
+                                        if ($arpMAC -and 
+                                            $arpMAC -notmatch '^00-00-00-00-00-00' -and 
+                                            $arpMAC -ne '00:00:00:00:00:00' -and
+                                            $arpMAC -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                            
+                                            # Aggiungi dispositivo Trust ARP (presente ma non risponde al ping)
+                                            $trustArpDevice = @{
+                                                ip_address = $arpIP
+                                                mac_address = $arpMAC
+                                                hostname = $null
+                                                vendor = $null
+                                                status = "online"
+                                                has_ping_failures = $true  # Non risponde al ping
+                                                ping_responsive = $false   # Trust ARP: presente ma non risponde
+                                            }
+                                            $devices += $trustArpDevice
+                                            $trustArpCount++
+                                            Write-Log "Trust ARP: Aggiunto $arpIP ($arpMAC) - presente ma non risponde al ping" "INFO"
+                                        }
+                                    }
+                                }
+                            }
+                        } catch {
+                            Write-Log "Errore processamento Trust ARP per $arpIP : $_" "WARN"
+                            # Continua con il prossimo IP invece di bloccare tutto
+                        }
+                    }
+                    if ($trustArpCount -gt 0) {
+                        Write-Log "Trust ARP: Aggiunti $trustArpCount dispositivi presenti ma non responsivi al ping" "INFO"
+                    }
+                } catch {
+                    Write-Log "Errore Trust ARP: $_" "WARN"
+                    Write-Log "Stack: $($_.Exception.StackTrace)" "WARN"
+                    # Non bloccare la scansione se Trust ARP fallisce
+                }
+                
+                # Salva IP trovati con MAC in batch (include anche Trust ARP)
                 try {
                     $ipDataArray = @()
+                    # Raccogli tutti gli IP dai devices (include sia ping che Trust ARP)
+                    $allIPs = @()
+                    foreach ($device in $devices) {
+                        if ($device.ip_address -and $device.ip_address -like "$baseIP.*") {
+                            $allIPs += $device.ip_address
+                        }
+                    }
+                    
                     # Ordina IP numericamente invece che alfabeticamente
-                    $sortedIPs = $foundIPs | Sort-Object -Unique | Sort-Object {
+                    $sortedIPs = $allIPs | Sort-Object -Unique | Sort-Object {
                         $parts = $_ -split '\.'
                         [int]$parts[0] * 16777216 + [int]$parts[1] * 65536 + [int]$parts[2] * 256 + [int]$parts[3]
                     }
+                    
                     foreach ($ip in $sortedIPs) {
-                        # Usa MAC trovato durante scansione (da lookup diretto) o dalla tabella ARP iniziale
+                        # Cerca MAC dal device corrispondente (più affidabile)
                         $macAddress = $null
-                        if ($foundMACs.ContainsKey($ip)) {
+                        $deviceMatch = $devices | Where-Object { $_.ip_address -eq $ip } | Select-Object -First 1
+                        if ($deviceMatch -and $deviceMatch.mac_address) {
+                            $macAddress = $deviceMatch.mac_address
+                        } elseif ($foundMACs.ContainsKey($ip)) {
                             $macAddress = $foundMACs[$ip]
                         } elseif ($arpTable.ContainsKey($ip)) {
                             $macAddress = $arpTable[$ip]
@@ -1352,21 +1436,13 @@ public class ArpHelper {
                                 $macAddress = $null
                             }
                         }
-                        # IMPORTANTE: Cerca anche nei devices già costruiti (per MAC trovati nel tentativo finale sequenziale)
-                        if (-not $macAddress) {
-                            $deviceMatch = $devices | Where-Object { $_.ip_address -eq $ip }
-                            if ($deviceMatch -and $deviceMatch.mac_address) {
-                                $macAddress = $deviceMatch.mac_address
-                                # Salva anche in foundMACs per riferimento futuro
-                                $foundMACs[$ip] = $macAddress
-                            }
-                        }
                         $ipDataArray += @{
                             ip = $ip
                             mac = $macAddress
                         }
                     }
                     $ipDataArray | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
+                    Write-Log "IP salvati per tray icon: $($ipDataArray.Count) dispositivi (inclusi Trust ARP)" "INFO"
                 } catch {
                     Write-Log "Errore salvataggio IP per tray icon: $_" "WARN"
                 }
@@ -1401,6 +1477,8 @@ public class ArpHelper {
                 hostname = $localHostname
                 vendor = $null
                 status = "online"
+                has_ping_failures = $false
+                ping_responsive = $true  # IP locale risponde sempre al ping
             }
             $devices += $localDevice
             Write-Log "PC locale aggiunto ai risultati: $localIP ($localMAC)" "INFO"
