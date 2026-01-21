@@ -1340,13 +1340,14 @@ public class ArpHelper {
                     }
                 }
                 
+                # IMPORTANTE: Inizializza activeIPs se non è stato inizializzato (caso: nessun IP da scansionare)
+                if (-not $activeIPs) {
+                    $activeIPs = New-Object System.Collections.ArrayList
+                }
+                
                 # TRUST ARP: Aggiungi dispositivi presenti in ARP ma non in activeIPs (non rispondono al ping)
                 # Questo è cruciale per rilevare tutti i dispositivi presenti sulla rete
                 try {
-                    # Assicura che activeIPs sia inizializzato (potrebbe non esserlo se non ci sono IP da scansionare)
-                    if (-not $activeIPs) {
-                        $activeIPs = New-Object System.Collections.ArrayList
-                    }
                     
                     Write-Log "Trust ARP: Verifica dispositivi in ARP ma non in activeIPs..." "INFO"
                     $trustArpCount = 0
