@@ -1,0 +1,8 @@
+﻿{
+    "updated_at":  "2026-01-21 23:10:54",
+    "message":  "File config.json non trovato! Crea un file config.json con le impostazioni.",
+    "scan_interval_minutes":  15,
+    "last_scan":  null,
+    "status":  "error",
+    "devices_found":  0
+}

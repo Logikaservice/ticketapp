@@ -1,0 +1,5 @@
+﻿[2026-01-21 23:10:54] [INFO] === Network Monitor Service Avviato ===
+[2026-01-21 23:10:54] [INFO] Modalita: Servizio Windows (senza GUI)
+[2026-01-21 23:10:54] [INFO] Cleanup processi vecchi/duplicati...
+[2026-01-21 23:10:54] [INFO] Nessun processo vecchio da terminare
+[2026-01-21 23:10:54] [ERROR] File config.json non trovato! Crea un file config.json con le impostazioni.

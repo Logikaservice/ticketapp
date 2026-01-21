@@ -5,25 +5,27 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.2.4
-# Data ultima modifica: 2026-01-21
+# Versione: 2.3.0
+# Data ultima modifica: 2026-01-22
 
 param(
     [string]$ConfigPath = "config.json"
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.2.4"
+$SCRIPT_VERSION = "2.3.0"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
     try {
         [Net.ServicePointManager]::SecurityProtocol = `
-            ([Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls)
-    } catch {
+        ([Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls)
+    }
+    catch {
         try {
             [Net.ServicePointManager]::SecurityProtocol = 192 -bor 768 -bor 3072
-        } catch { }
+        }
+        catch { }
     }
 }
 Enable-Tls12
@@ -34,14 +36,16 @@ try {
     if (-not (Test-Path $script:bootstrapLogDir)) {
         New-Item -ItemType Directory -Path $script:bootstrapLogDir -Force | Out-Null
     }
-} catch { }
+}
+catch { }
 $script:bootstrapLogPath = Join-Path $script:bootstrapLogDir "NetworkMonitorService_bootstrap.log"
 function Write-BootstrapLog {
     param([string]$Message)
     try {
         $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
         "[$ts] $Message" | Out-File -FilePath $script:bootstrapLogPath -Append -Encoding UTF8
-    } catch { }
+    }
+    catch { }
 }
 
 $script:arpHelperAvailable = $false
@@ -145,7 +149,8 @@ public class ArpHelper {
 }
 "@
     $script:arpHelperAvailable = $true
-} catch {
+}
+catch {
     Write-BootstrapLog "WARN: Add-Type ArpHelper fallito: $($_.Exception.Message)"
     try { Write-BootstrapLog "Stack: $($_.Exception.StackTrace)" } catch { }
     # Non bloccare il servizio: useremo fallback (Get-NetNeighbor/arp.exe) dove possibile.
@@ -158,7 +163,8 @@ public class ArpHelper {
 $script:scriptDir = $null
 if ($PSScriptRoot) {
     $script:scriptDir = $PSScriptRoot
-} elseif ($MyInvocation.MyCommand.Path) {
+}
+elseif ($MyInvocation.MyCommand.Path) {
     $script:scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path -ErrorAction SilentlyContinue
 }
 if (-not $script:scriptDir) {
@@ -214,7 +220,8 @@ function Update-StatusFile {
             if ($currentStatus.last_scan -and $currentStatus.last_scan.ToString().Trim() -ne '') {
                 $currentLastScan = $currentStatus.last_scan.ToString().Trim()
             }
-        } catch {
+        }
+        catch {
             # Ignora errori lettura status corrente
         }
     }
@@ -222,24 +229,27 @@ function Update-StatusFile {
     # Usa LastScan fornito o preserva quello corrente (mai null o vuoto se esisteva prima)
     $lastScanValue = if ($LastScan) { 
         $LastScan.ToString("yyyy-MM-dd HH:mm:ss") 
-    } elseif ($currentLastScan) { 
+    }
+    elseif ($currentLastScan) { 
         $currentLastScan 
-    } else { 
+    }
+    else { 
         $null 
     }
     
     $statusData = @{
-        status = $Status
-        devices_found = $DevicesFound
-        last_scan = $lastScanValue
-        message = $Message
-        updated_at = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+        status                = $Status
+        devices_found         = $DevicesFound
+        last_scan             = $lastScanValue
+        message               = $Message
+        updated_at            = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
         scan_interval_minutes = $script:scanIntervalMinutes
     } | ConvertTo-Json
     
     try {
         $statusData | Out-File -FilePath $script:statusFile -Encoding UTF8 -Force
-    } catch {
+    }
+    catch {
         # Ignora errori scrittura status
     }
 }
@@ -286,7 +296,8 @@ function Get-NetworkDevices {
                         # Verifica che sia un MAC valido
                         if (-not ($localMAC -match '^([0-9A-F]{2}-){5}[0-9A-F]{2}$')) {
                             $localMAC = $null
-                        } else {
+                        }
+                        else {
                             Write-Log "MAC locale rilevato: $localMAC per IP $localIP" "DEBUG"
                             # Salva nel dizionario MAC trovati
                             $foundMACs[$localIP] = $localMAC
@@ -314,11 +325,13 @@ function Get-NetworkDevices {
                         }
                     }
                 }
-            } catch {
+            }
+            catch {
                 Write-Log "Errore recupero MAC locale: $_" "WARN"
             }
         }
-    } catch {
+    }
+    catch {
         Write-Log "Impossibile ottenere IP locale: $_" "WARN"
     }
     
@@ -331,7 +344,8 @@ function Get-NetworkDevices {
                 $arpTable[$entry.IPAddress] = $entry.LinkLayerAddress
             }
         }
-    } catch {
+    }
+    catch {
         # Fallback: arp.exe
         try {
             $arpOutput = arp -a 2>$null
@@ -340,7 +354,8 @@ function Get-NetworkDevices {
                     $arpTable[$matches[1]] = $matches[2]
                 }
             }
-        } catch {
+        }
+        catch {
             # Ignora errori
         }
     }
@@ -388,7 +403,8 @@ function Get-NetworkDevices {
                             $adapters = $null
                             try {
                                 $adapters = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq "Up" } | Sort-Object InterfaceDescription
-                            } catch {
+                            }
+                            catch {
                                 Write-Log "Errore Get-NetAdapter: $_" "WARN"
                                 # Fallback: usa Get-NetIPAddress per trovare l'interfaccia corretta
                                 try {
@@ -400,7 +416,8 @@ function Get-NetworkDevices {
                                             $adapters = @($adapter)
                                         }
                                     }
-                                } catch {
+                                }
+                                catch {
                                     Write-Log "Errore fallback Get-NetIPAddress: $_" "WARN"
                                 }
                             }
@@ -434,12 +451,14 @@ function Get-NetworkDevices {
                                             if (-not $virtualAdapter) {
                                                 $virtualAdapter = $adapter
                                             }
-                                        } else {
+                                        }
+                                        else {
                                             if (-not $physicalAdapter) {
                                                 $physicalAdapter = $adapter
                                             }
                                         }
-                                    } catch {
+                                    }
+                                    catch {
                                         # Ignora errori su singolo adapter, continua con il prossimo
                                         continue
                                     }
@@ -470,15 +489,18 @@ function Get-NetworkDevices {
                                     if ($macAddress) {
                                         if ($physicalAdapter) {
                                             Write-Log "MAC locale (fisico) per ${ip}: ${macAddress}" "DEBUG"
-                                        } else {
+                                        }
+                                        else {
                                             Write-Log "MAC locale (virtuale) per ${ip}: ${macAddress}" "WARN"
                                         }
                                     }
                                 }
-                            } else {
+                            }
+                            else {
                                 Write-Log "Nessuna interfaccia di rete attiva trovata per IP locale $ip" "WARN"
                             }
-                        } catch {
+                        }
+                        catch {
                             Write-Log "Errore recupero MAC locale: $_" "WARN"
                             Write-Log "Stack: $($_.Exception.StackTrace)" "WARN"
                             # Continua anche se c'è un errore nel recupero MAC locale
@@ -489,13 +511,13 @@ function Get-NetworkDevices {
                         $hostname = $env:COMPUTERNAME
                         
                         $device = @{
-                            ip_address = $ip
-                            mac_address = $macAddress
-                            hostname = $hostname
-                            vendor = $null
-                            status = "online"
+                            ip_address        = $ip
+                            mac_address       = $macAddress
+                            hostname          = $hostname
+                            vendor            = $null
+                            status            = "online"
                             has_ping_failures = $false
-                            ping_responsive = $true  # IP locale risponde sempre al ping
+                            ping_responsive   = $true  # IP locale risponde sempre al ping
                         }
                         
                         # Salva MAC trovato per uso successivo
@@ -505,7 +527,8 @@ function Get-NetworkDevices {
                         
                         $devices += $device
                         $foundIPs.Add($ip)
-                    } else {
+                    }
+                    else {
                         $ipListToScan += $ip
                     }
                 }
@@ -516,87 +539,120 @@ function Get-NetworkDevices {
                     $runspacePool.Open()
                     $jobs = New-Object System.Collections.ArrayList
                     
-                    # ScriptBlock per ping parallelo
-                    # IMPORTANTE: Fa più tentativi per dispositivi con ping intermittenti
-                    # Come Advanced IP Scanner, considera attivo se almeno un ping ha successo
-                    # Traccia anche i ping falliti per mostrare warning nel frontend
-                    $pingScriptBlock = {
+                    # ScriptBlock per DISCOVERY ibrida (Ping + TCP Port Fallback)
+                    # Migliorato per rilevare dispositivi che bloccano ICMP (Ping) come PC Windows con Firewall
+                    $discoveryScriptBlock = {
                         param($targetIP, $timeoutMs)
                         
                         $ping = $null
                         $successCount = 0
                         $failureCount = 0
+                        $openPort = 0
                         
+                        # --- FASE 1: PING (ICMP) ---
                         try {
                             $ping = New-Object System.Net.NetworkInformation.Ping
                             
-                            # Fai 3 tentativi di ping (per gestire ping intermittenti)
-                            # Se almeno uno ha successo, il dispositivo è considerato attivo
-                            for ($attempt = 1; $attempt -le 3; $attempt++) {
+                            # Fai tentativi di ping
+                            for ($attempt = 1; $attempt -le 2; $attempt++) {
                                 try {
                                     $reply = $ping.Send($targetIP, $timeoutMs)
                                     if ($reply.Status -eq 'Success') {
                                         $successCount++
-                                        # Almeno un ping ha avuto successo -> dispositivo attivo
+                                        break # Se risponde, inutile insistere troppo
                                     } else {
                                         $failureCount++
                                     }
-                                } catch {
-                                    # Errore ping -> conta come fallimento
-                                    $failureCount++
                                 }
+                                catch { $failureCount++ }
                                 
-                                # Attesa breve tra tentativi (solo se non è l'ultimo)
-                                if ($attempt -lt 3) {
-                                    Start-Sleep -Milliseconds 100
-                                }
+                                if ($attempt -lt 2) { Start-Sleep -Milliseconds 50 }
                             }
                             
-                            # Se almeno un ping ha avuto successo, restituisci risultato con info fallimenti
                             if ($successCount -gt 0) {
                                 return @{
-                                    ip = $targetIP
+                                    ip                = $targetIP
                                     has_ping_failures = ($failureCount -gt 0)
-                                    ping_responsive = $true  # Risponde al ping
+                                    ping_responsive   = $true
+                                    discovery_method  = "icmp"
                                 }
                             }
-                        } catch {
-                            # Ignora errori ping
-                        } finally {
-                            if ($ping) {
-                                $ping.Dispose()
+                        }
+                        catch {}
+                        finally {
+                            if ($ping) { $ping.Dispose() }
+                        }
+                        
+                        # --- FASE 2: TCP PORT SCAN (FALLBACK) ---
+                        # Se il ping fallisce, proviamo le porte più comuni.
+                        # Molti PC Windows bloccano il ping ma hanno la 445 (SMB) o 135 (RPC) aperta.
+                        # Stampanti e Router hanno spesso la 80 o 443.
+                        $portsToCheck = @(445, 135, 80, 443, 3389, 22) 
+                        
+                        foreach ($port in $portsToCheck) {
+                            $tcp = $null
+                            try {
+                                $tcp = New-Object System.Net.Sockets.TcpClient
+                                # Timeout molto breve (200ms) per non rallentare troppo
+                                $connect = $tcp.BeginConnect($targetIP, $port, $null, $null)
+                                if ($connect.AsyncWaitHandle.WaitOne(200, $false)) {
+                                    try {
+                                        $tcp.EndConnect($connect)
+                                        $openPort = $port
+                                        $tcp.Close()
+                                        break # Trovata una porta aperta! Dispositivo online.
+                                    } catch {}
+                                }
+                            }
+                            catch {}
+                            finally {
+                                if ($tcp) { 
+                                    $tcp.Dispose() 
+                                }
                             }
                         }
+                        
+                        if ($openPort -gt 0) {
+                            return @{
+                                ip                = $targetIP
+                                has_ping_failures = $true # Ping fallito
+                                ping_responsive   = $false # Non risponde al ping (firewall)
+                                discovery_method  = "tcp/$openPort"
+                            }
+                        }
+
                         return $null
                     }
                     
-                    # Avvia ping paralleli
+                    # Avvia discovery ibrida parallela
                     # Timeout aumentato a 300ms per gestire dispositivi con latenza maggiore o ping intermittenti
                     foreach ($ip in $ipListToScan) {
                         # PowerShell 4.0/5.0 compatibility: crea PowerShell tramite RunspacePool
                         try {
                             $job = [System.Management.Automation.PowerShell]::Create()
                             $job.RunspacePool = $runspacePool
-                            $job.AddScript($pingScriptBlock).AddArgument($ip).AddArgument(300) | Out-Null
+                            $job.AddScript($discoveryScriptBlock).AddArgument($ip).AddArgument(300) | Out-Null
                             $asyncResult = $job.BeginInvoke()
-                        } catch {
+                        }
+                        catch {
                             # Fallback per PowerShell 4.0
                             try {
                                 $runspace = $runspacePool.AcquireRunspace()
                                 $job = [System.Management.Automation.PowerShell]::Create()
                                 $job.Runspace = $runspace
-                                $job.AddScript($pingScriptBlock).AddArgument($ip).AddArgument(300) | Out-Null
+                                $job.AddScript($discoveryScriptBlock).AddArgument($ip).AddArgument(300) | Out-Null
                                 $asyncResult = $job.BeginInvoke()
-                            } catch {
+                            }
+                            catch {
                                 Write-Log "Errore creazione PowerShell per ping $ip : $_" "WARN"
                                 continue
                             }
                         }
                         [void]$jobs.Add(@{
-                            Job = $job
-                            AsyncResult = $asyncResult
-                            IP = $ip
-                        })
+                                Job         = $job
+                                AsyncResult = $asyncResult
+                                IP          = $ip
+                            })
                     }
                     
                     # Raccogli risultati con timeout per evitare blocchi
@@ -605,7 +661,7 @@ function Get-NetworkDevices {
                     $pingTimeout = 10  # Timeout 10 secondi per raccolta risultati ping
                     $pingStartTime = Get-Date
                     
-                    Write-Log "Raccolta risultati ping paralleli per $($jobs.Count) job..." "INFO"
+                    Write-Log "Raccolta risultati scansione ibrida (Ping+TCP) per $($jobs.Count) job..." "INFO"
                     $jobIndex = 0
                     foreach ($jobInfo in $jobs) {
                         $jobIndex++
@@ -620,7 +676,8 @@ function Get-NetworkDevices {
                                         if ($jobs[$i].AsyncResult -and -not $jobs[$i].AsyncResult.IsCompleted) {
                                             $jobs[$i].Job.Stop()
                                         }
-                                    } catch { }
+                                    }
+                                    catch { }
                                 }
                                 break
                             }
@@ -636,7 +693,8 @@ function Get-NetworkDevices {
                                             # Gestisci sia formato vecchio (stringa IP) che nuovo (oggetto con has_ping_failures)
                                             if ($result -is [string]) {
                                                 [void]$activeIPs.Add($result)
-                                            } elseif ($result -is [hashtable] -or $result -is [PSCustomObject]) {
+                                            }
+                                            elseif ($result -is [hashtable] -or $result -is [PSCustomObject]) {
                                                 [void]$activeIPs.Add($result.ip)
                                                 # Salva info ping failures per uso successivo
                                                 if ($result.has_ping_failures) {
@@ -645,7 +703,8 @@ function Get-NetworkDevices {
                                                     }
                                                     $script:pingFailures[$result.ip] = $true
                                                 }
-                                            } else {
+                                            }
+                                            else {
                                                 # Fallback: se è un oggetto con proprietà ip
                                                 $ipValue = if ($result.ip) { $result.ip } else { $result }
                                                 if ($ipValue) {
@@ -674,7 +733,8 @@ function Get-NetworkDevices {
                                                                     }
                                                                 }
                                                             }
-                                                        } catch { }
+                                                        }
+                                                        catch { }
                                                     }
                                                 }
                                                 
@@ -690,33 +750,41 @@ function Get-NetworkDevices {
                                                     $currentIPs += @{ ip = $resultIP; mac = $null }
                                                     $currentIPs | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
                                                 }
-                                            } catch {
+                                            }
+                                            catch {
                                                 # Ignora errori salvataggio in tempo reale
                                             }
                                         }
-                                    } catch {
+                                    }
+                                    catch {
                                         $ipStr = if ($jobInfo.IP) { $jobInfo.IP } else { "sconosciuto" }
                                         Write-Log "Errore EndInvoke ping per $ipStr : $_" "WARN"
                                     }
-                                } else {
+                                }
+                                else {
                                     $ipStr = if ($jobInfo.IP) { $jobInfo.IP } else { "sconosciuto" }
                                     Write-Log "Timeout ping per $ipStr , continuo..." "WARN"
                                     try {
                                         $jobInfo.Job.Stop()
-                                    } catch { }
+                                    }
+                                    catch { }
                                 }
-                            } else {
+                            }
+                            else {
                                 Write-Log "AsyncResult nullo per job $jobIndex, salto..." "WARN"
                             }
-                        } catch {
+                        }
+                        catch {
                             $ipStr = if ($jobInfo.IP) { $jobInfo.IP } else { "sconosciuto" }
                             Write-Log "Errore raccolta ping per $ipStr : $_" "WARN"
-                        } finally {
+                        }
+                        finally {
                             try {
                                 if ($jobInfo.Job) {
                                     $jobInfo.Job.Dispose()
                                 }
-                            } catch { }
+                            }
+                            catch { }
                         }
                     }
                     
@@ -725,7 +793,8 @@ function Get-NetworkDevices {
                     try {
                         $runspacePool.Close()
                         $runspacePool.Dispose()
-                    } catch {
+                    }
+                    catch {
                         Write-Log "Errore chiusura runspace pool ping: $_" "WARN"
                     }
                     
@@ -739,31 +808,34 @@ function Get-NetworkDevices {
                         }
                         $tempIPArray | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
                         Write-Log "IP trovati salvati SUBITO per tray icon: $($tempIPArray.Count) IP" "INFO"
-                    } catch {
+                    }
+                    catch {
                         Write-Log "Errore salvataggio IP temporanei: $_" "ERROR"
                     }
                     
                     # Processa IP attivi trovati - PARALLELIZZATO per recupero MAC
                     if ($activeIPs.Count -gt 0) {
-                    } else {
+                    }
+                    else {
                     }
                     
                     # Se non ci sono IP attivi, salta il recupero MAC
                     if ($activeIPs.Count -eq 0) {
-                    } else {
+                    }
+                    else {
                         # Crea RunspacePool per recupero MAC parallelo
                         try {
                             $macRunspacePool = [runspacefactory]::CreateRunspacePool(1, [Math]::Min(20, $activeIPs.Count))
                             $macRunspacePool.Open()
                             $macJobs = New-Object System.Collections.ArrayList
                     
-                    # ScriptBlock per recupero MAC parallelo
-                    $macRecoveryScriptBlock = {
-                        param($targetIP, $arpTableData)
+                            # ScriptBlock per recupero MAC parallelo
+                            $macRecoveryScriptBlock = {
+                                param($targetIP, $arpTableData)
                         
-                        # Ricrea ArpHelper nel runspace (necessario per SendARP)
-                        try {
-                        Add-Type -TypeDefinition @"
+                                # Ricrea ArpHelper nel runspace (necessario per SendARP)
+                                try {
+                                    Add-Type -TypeDefinition @"
 using System;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -824,263 +896,276 @@ public class ArpHelper {
     }
 }
 "@
-                        } catch { }
+                                }
+                                catch { }
                         
-                        $macAddress = $null
+                                $macAddress = $null
                         
-                        # PRIORITÀ 1: Tabella ARP pre-caricata (più affidabile di SendARP diretto)
-                        # Get-NetNeighbor è più accurato perché legge direttamente dalla cache ARP aggiornata
-                        if ($arpTableData -and $arpTableData.ContainsKey($targetIP)) {
-                            $macFromTable = $arpTableData[$targetIP]
-                            if ($macFromTable -and 
-                                $macFromTable -notmatch '^00-00-00-00-00-00' -and 
-                                $macFromTable -ne '00:00:00:00:00:00' -and
-                                $macFromTable -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                $macAddress = $macFromTable
-                                return @{ ip = $targetIP; mac = $macAddress }
-                            }
-                        }
+                                # PRIORITÀ 1: Tabella ARP pre-caricata (più affidabile di SendARP diretto)
+                                # Get-NetNeighbor è più accurato perché legge direttamente dalla cache ARP aggiornata
+                                if ($arpTableData -and $arpTableData.ContainsKey($targetIP)) {
+                                    $macFromTable = $arpTableData[$targetIP]
+                                    if ($macFromTable -and 
+                                        $macFromTable -notmatch '^00-00-00-00-00-00' -and 
+                                        $macFromTable -ne '00:00:00:00:00:00' -and
+                                        $macFromTable -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                        $macAddress = $macFromTable
+                                        return @{ ip = $targetIP; mac = $macAddress }
+                                    }
+                                }
                         
-                        # PRIORITÀ 2: Get-NetNeighbor diretto (più affidabile di SendARP)
-                        # Questo legge direttamente dalla cache ARP di Windows, più accurato
-                        # IMPORTANTE: Filtra MAC virtuali (VMware, VirtualBox, Hyper-V) e preferisci interfacce fisiche
-                        try {
-                            $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
-                            $physicalMacs = @()
-                            $virtualMacs = @()
+                                # PRIORITÀ 2: Get-NetNeighbor diretto (più affidabile di SendARP)
+                                # Questo legge direttamente dalla cache ARP di Windows, più accurato
+                                # IMPORTANTE: Filtra MAC virtuali (VMware, VirtualBox, Hyper-V) e preferisci interfacce fisiche
+                                try {
+                                    $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
+                                    $physicalMacs = @()
+                                    $virtualMacs = @()
                             
-                            foreach ($arpEntry in $arpEntries) {
-                                if ($arpEntry.LinkLayerAddress) {
-                                    $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                    # Normalizza formato MAC per confronto
-                                    $macNormalized = $macFromNeighbor -replace '[:-]', '' -replace ' ', ''
+                                    foreach ($arpEntry in $arpEntries) {
+                                        if ($arpEntry.LinkLayerAddress) {
+                                            $macFromNeighbor = $arpEntry.LinkLayerAddress
+                                            # Normalizza formato MAC per confronto
+                                            $macNormalized = $macFromNeighbor -replace '[:-]', '' -replace ' ', ''
                                     
-                                    # Verifica che sia un MAC valido
-                                    if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                        $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                        $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                            # Verifica che sia un MAC valido
+                                            if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
+                                                $macFromNeighbor -ne '00:00:00:00:00:00' -and
+                                                $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
                                         
-                                        # Filtra MAC virtuali (prefissi OUI comuni)
-                                        # VMware: 00:50:56, 00:0C:29, 00:05:69
-                                        # VirtualBox: 08:00:27
-                                        # Hyper-V: 00:15:5D
-                                        $isVirtual = $false
-                                        if ($macNormalized -match '^(005056|000C29|000569|080027|00155D)') {
-                                            $isVirtual = $true
-                                        }
+                                                # Filtra MAC virtuali (prefissi OUI comuni)
+                                                # VMware: 00:50:56, 00:0C:29, 00:05:69
+                                                # VirtualBox: 08:00:27
+                                                # Hyper-V: 00:15:5D
+                                                $isVirtual = $false
+                                                if ($macNormalized -match '^(005056|000C29|000569|080027|00155D)') {
+                                                    $isVirtual = $true
+                                                }
                                         
-                                        if ($isVirtual) {
-                                            $virtualMacs += $macFromNeighbor
-                                        } else {
-                                            $physicalMacs += $macFromNeighbor
+                                                if ($isVirtual) {
+                                                    $virtualMacs += $macFromNeighbor
+                                                }
+                                                else {
+                                                    $physicalMacs += $macFromNeighbor
+                                                }
+                                            }
                                         }
                                     }
-                                }
-                            }
                             
-                            # Preferisci MAC fisici rispetto a virtuali
-                            if ($physicalMacs.Count -gt 0) {
-                                return @{ ip = $targetIP; mac = $physicalMacs[0] }
-                            } elseif ($virtualMacs.Count -gt 0) {
-                                # Se ci sono solo MAC virtuali, usa il primo (meglio di niente)
-                                return @{ ip = $targetIP; mac = $virtualMacs[0] }
-                            }
-                        } catch { }
-                        
-                        # PRIORITÀ 3: Ping multipli per forzare ARP + Get-NetNeighbor (come Advanced IP Scanner)
-                        # IMPORTANTE: Advanced IP Scanner fa SEMPRE ping prima di leggere MAC
-                        # Questo aggiorna la cache ARP e garantisce MAC corretti
-                        # CRITICO: Deve essere fatto SEMPRE, anche se la tabella ARP ha già il MAC
-                        # perché potrebbe essere vecchio o riferirsi all'interfaccia sbagliata
-                        try {
-                            $ping = New-Object System.Net.NetworkInformation.Ping
-                            # Fai 3 ping per forzare aggiornamento ARP cache (come Advanced IP Scanner)
-                            $pingSuccess = $false
-                            for ($i = 1; $i -le 3; $i++) {
-                                $pingReply = $ping.Send($targetIP, 500)
-                                if ($pingReply.Status -eq 'Success') {
-                                    $pingSuccess = $true
-                                    # Attesa per aggiornamento ARP cache (importante!)
-                                    Start-Sleep -Milliseconds 400
+                                    # Preferisci MAC fisici rispetto a virtuali
+                                    if ($physicalMacs.Count -gt 0) {
+                                        return @{ ip = $targetIP; mac = $physicalMacs[0] }
+                                    }
+                                    elseif ($virtualMacs.Count -gt 0) {
+                                        # Se ci sono solo MAC virtuali, usa il primo (meglio di niente)
+                                        return @{ ip = $targetIP; mac = $virtualMacs[0] }
+                                    }
                                 }
-                            }
+                                catch { }
+                        
+                                # PRIORITÀ 3: Ping multipli per forzare ARP + Get-NetNeighbor (come Advanced IP Scanner)
+                                # IMPORTANTE: Advanced IP Scanner fa SEMPRE ping prima di leggere MAC
+                                # Questo aggiorna la cache ARP e garantisce MAC corretti
+                                # CRITICO: Deve essere fatto SEMPRE, anche se la tabella ARP ha già il MAC
+                                # perché potrebbe essere vecchio o riferirsi all'interfaccia sbagliata
+                                try {
+                                    $ping = New-Object System.Net.NetworkInformation.Ping
+                                    # Fai 3 ping per forzare aggiornamento ARP cache (come Advanced IP Scanner)
+                                    $pingSuccess = $false
+                                    for ($i = 1; $i -le 3; $i++) {
+                                        $pingReply = $ping.Send($targetIP, 500)
+                                        if ($pingReply.Status -eq 'Success') {
+                                            $pingSuccess = $true
+                                            # Attesa per aggiornamento ARP cache (importante!)
+                                            Start-Sleep -Milliseconds 400
+                                        }
+                                    }
                             
-                            # DOPO tutti i ping, attendi un po' per garantire aggiornamento ARP cache
-                            if ($pingSuccess) {
-                                Start-Sleep -Milliseconds 500  # Attesa extra per ARP cache
+                                    # DOPO tutti i ping, attendi un po' per garantire aggiornamento ARP cache
+                                    if ($pingSuccess) {
+                                        Start-Sleep -Milliseconds 500  # Attesa extra per ARP cache
                                 
-                                # Leggi da Get-NetNeighbor (più affidabile di SendARP e tabella ARP pre-caricata)
-                                # Questo legge direttamente dalla cache ARP aggiornata dopo i ping
-                                # IMPORTANTE: Filtra MAC virtuali e preferisci interfacce fisiche
-                                $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
-                                $physicalMacs = @()
-                                $virtualMacs = @()
+                                        # Leggi da Get-NetNeighbor (più affidabile di SendARP e tabella ARP pre-caricata)
+                                        # Questo legge direttamente dalla cache ARP aggiornata dopo i ping
+                                        # IMPORTANTE: Filtra MAC virtuali e preferisci interfacce fisiche
+                                        $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
+                                        $physicalMacs = @()
+                                        $virtualMacs = @()
                                 
-                                foreach ($arpEntry in $arpEntries) {
-                                    if ($arpEntry.LinkLayerAddress) {
-                                        $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                        # Normalizza formato MAC per confronto
-                                        $macNormalized = $macFromNeighbor -replace '[:-]', '' -replace ' ', ''
+                                        foreach ($arpEntry in $arpEntries) {
+                                            if ($arpEntry.LinkLayerAddress) {
+                                                $macFromNeighbor = $arpEntry.LinkLayerAddress
+                                                # Normalizza formato MAC per confronto
+                                                $macNormalized = $macFromNeighbor -replace '[:-]', '' -replace ' ', ''
                                         
-                                        # Verifica che sia un MAC valido
-                                        if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                            $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                            $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                                # Verifica che sia un MAC valido
+                                                if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
+                                                    $macFromNeighbor -ne '00:00:00:00:00:00' -and
+                                                    $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
                                             
-                                            # Filtra MAC virtuali (prefissi OUI comuni)
-                                            $isVirtual = $false
-                                            if ($macNormalized -match '^(005056|000C29|000569|080027|00155D)') {
-                                                $isVirtual = $true
-                                            }
+                                                    # Filtra MAC virtuali (prefissi OUI comuni)
+                                                    $isVirtual = $false
+                                                    if ($macNormalized -match '^(005056|000C29|000569|080027|00155D)') {
+                                                        $isVirtual = $true
+                                                    }
                                             
-                                            if ($isVirtual) {
-                                                $virtualMacs += $macFromNeighbor
-                                            } else {
-                                                $physicalMacs += $macFromNeighbor
+                                                    if ($isVirtual) {
+                                                        $virtualMacs += $macFromNeighbor
+                                                    }
+                                                    else {
+                                                        $physicalMacs += $macFromNeighbor
+                                                    }
+                                                }
                                             }
                                         }
-                                    }
-                                }
                                 
-                                # Preferisci MAC fisici rispetto a virtuali
-                                if ($physicalMacs.Count -gt 0) {
-                                    $ping.Dispose()
-                                    return @{ ip = $targetIP; mac = $physicalMacs[0] }
-                                } elseif ($virtualMacs.Count -gt 0) {
-                                    # Se ci sono solo MAC virtuali, usa il primo (meglio di niente)
-                                    $ping.Dispose()
-                                    return @{ ip = $targetIP; mac = $virtualMacs[0] }
-                                }
+                                        # Preferisci MAC fisici rispetto a virtuali
+                                        if ($physicalMacs.Count -gt 0) {
+                                            $ping.Dispose()
+                                            return @{ ip = $targetIP; mac = $physicalMacs[0] }
+                                        }
+                                        elseif ($virtualMacs.Count -gt 0) {
+                                            # Se ci sono solo MAC virtuali, usa il primo (meglio di niente)
+                                            $ping.Dispose()
+                                            return @{ ip = $targetIP; mac = $virtualMacs[0] }
+                                        }
                                 
-                                # Se Get-NetNeighbor non ha trovato nulla dopo ping, riprova dopo altra attesa
-                                Start-Sleep -Milliseconds 300
-                                $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
-                                $physicalMacs = @()
-                                $virtualMacs = @()
+                                        # Se Get-NetNeighbor non ha trovato nulla dopo ping, riprova dopo altra attesa
+                                        Start-Sleep -Milliseconds 300
+                                        $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
+                                        $physicalMacs = @()
+                                        $virtualMacs = @()
                                 
-                                foreach ($arpEntry in $arpEntries) {
-                                    if ($arpEntry.LinkLayerAddress) {
-                                        $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                        $macNormalized = $macFromNeighbor -replace '[:-]', '' -replace ' ', ''
+                                        foreach ($arpEntry in $arpEntries) {
+                                            if ($arpEntry.LinkLayerAddress) {
+                                                $macFromNeighbor = $arpEntry.LinkLayerAddress
+                                                $macNormalized = $macFromNeighbor -replace '[:-]', '' -replace ' ', ''
                                         
-                                        if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                            $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                            $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                                if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
+                                                    $macFromNeighbor -ne '00:00:00:00:00:00' -and
+                                                    $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
                                             
-                                            $isVirtual = $false
-                                            if ($macNormalized -match '^(005056|000C29|000569|080027|00155D)') {
-                                                $isVirtual = $true
-                                            }
+                                                    $isVirtual = $false
+                                                    if ($macNormalized -match '^(005056|000C29|000569|080027|00155D)') {
+                                                        $isVirtual = $true
+                                                    }
                                             
-                                            if ($isVirtual) {
-                                                $virtualMacs += $macFromNeighbor
-                                            } else {
-                                                $physicalMacs += $macFromNeighbor
+                                                    if ($isVirtual) {
+                                                        $virtualMacs += $macFromNeighbor
+                                                    }
+                                                    else {
+                                                        $physicalMacs += $macFromNeighbor
+                                                    }
+                                                }
                                             }
                                         }
+                                
+                                        if ($physicalMacs.Count -gt 0) {
+                                            $ping.Dispose()
+                                            return @{ ip = $targetIP; mac = $physicalMacs[0] }
+                                        }
+                                        elseif ($virtualMacs.Count -gt 0) {
+                                            $ping.Dispose()
+                                            return @{ ip = $targetIP; mac = $virtualMacs[0] }
+                                        }
+                                
+                                        # Fallback: SendARP solo se Get-NetNeighbor non ha trovato nulla dopo ping
+                                        # NOTA: SendARP può restituire MAC sbagliato se ci sono più interfacce
+                                        $macFromSendArp = [ArpHelper]::GetMacAddress($targetIP)
+                                        if ($macFromSendArp -and 
+                                            $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
+                                            $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                            $ping.Dispose()
+                                            return @{ ip = $targetIP; mac = $macFromSendArp }
+                                        }
                                     }
-                                }
-                                
-                                if ($physicalMacs.Count -gt 0) {
                                     $ping.Dispose()
-                                    return @{ ip = $targetIP; mac = $physicalMacs[0] }
-                                } elseif ($virtualMacs.Count -gt 0) {
-                                    $ping.Dispose()
-                                    return @{ ip = $targetIP; mac = $virtualMacs[0] }
-                                }
-                                
-                                # Fallback: SendARP solo se Get-NetNeighbor non ha trovato nulla dopo ping
-                                # NOTA: SendARP può restituire MAC sbagliato se ci sono più interfacce
-                                $macFromSendArp = [ArpHelper]::GetMacAddress($targetIP)
-                                if ($macFromSendArp -and 
-                                    $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
-                                    $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                    $ping.Dispose()
-                                    return @{ ip = $targetIP; mac = $macFromSendArp }
-                                }
-                            }
-                            $ping.Dispose()
                             
-                            # Se ping ha funzionato ma non abbiamo ancora MAC, attendi e riprova Get-NetNeighbor
-                            if ($pingSuccess) {
-                                Start-Sleep -Milliseconds 500  # Attesa extra per ARP cache
-                                $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
-                                foreach ($arpEntry in $arpEntries) {
-                                    if ($arpEntry.LinkLayerAddress) {
-                                        $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                        if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                            $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                            $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            return @{ ip = $targetIP; mac = $macFromNeighbor }
+                                    # Se ping ha funzionato ma non abbiamo ancora MAC, attendi e riprova Get-NetNeighbor
+                                    if ($pingSuccess) {
+                                        Start-Sleep -Milliseconds 500  # Attesa extra per ARP cache
+                                        $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
+                                        foreach ($arpEntry in $arpEntries) {
+                                            if ($arpEntry.LinkLayerAddress) {
+                                                $macFromNeighbor = $arpEntry.LinkLayerAddress
+                                                if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
+                                                    $macFromNeighbor -ne '00:00:00:00:00:00' -and
+                                                    $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                                    return @{ ip = $targetIP; mac = $macFromNeighbor }
+                                                }
+                                            }
+                                        }
+                                        # Ultimo tentativo con SendARP
+                                        $macFromSendArp = [ArpHelper]::GetMacAddress($targetIP)
+                                        if ($macFromSendArp -and 
+                                            $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
+                                            $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                            return @{ ip = $targetIP; mac = $macFromSendArp }
                                         }
                                     }
                                 }
-                                # Ultimo tentativo con SendARP
-                                $macFromSendArp = [ArpHelper]::GetMacAddress($targetIP)
-                                if ($macFromSendArp -and 
-                                    $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
-                                    $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                    return @{ ip = $targetIP; mac = $macFromSendArp }
+                                catch { }
+                        
+                                # PRIORITÀ 4: SendARP diretto (solo come ultimo fallback - può essere impreciso)
+                                # NOTA: SendARP senza ping può restituire MAC del gateway invece del dispositivo
+                                try {
+                                    $macFromSendArp = [ArpHelper]::GetMacAddress($targetIP)
+                                    if ($macFromSendArp -and 
+                                        $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
+                                        $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                        return @{ ip = $targetIP; mac = $macFromSendArp }
+                                    }
                                 }
-                            }
-                        } catch { }
+                                catch { }
                         
-                        # PRIORITÀ 4: SendARP diretto (solo come ultimo fallback - può essere impreciso)
-                        # NOTA: SendARP senza ping può restituire MAC del gateway invece del dispositivo
-                        try {
-                            $macFromSendArp = [ArpHelper]::GetMacAddress($targetIP)
-                            if ($macFromSendArp -and 
-                                $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
-                                $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                return @{ ip = $targetIP; mac = $macFromSendArp }
-                            }
-                        } catch { }
-                        
-                        # PRIORITÀ 5: arp.exe (fallback finale)
-                        try {
-                            $arpOutput = arp -a 2>$null
-                            if ($arpOutput -match "(?m)^\s*$([regex]::Escape($targetIP))\s+([0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2})") {
-                                $macFromArp = $matches[2]
-                                if ($macFromArp -notmatch '^00-00-00-00-00-00' -and 
-                                    $macFromArp -ne '00:00:00:00:00:00' -and
-                                    $macFromArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                    return @{ ip = $targetIP; mac = $macFromArp }
+                                # PRIORITÀ 5: arp.exe (fallback finale)
+                                try {
+                                    $arpOutput = arp -a 2>$null
+                                    if ($arpOutput -match "(?m)^\s*$([regex]::Escape($targetIP))\s+([0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2})") {
+                                        $macFromArp = $matches[2]
+                                        if ($macFromArp -notmatch '^00-00-00-00-00-00' -and 
+                                            $macFromArp -ne '00:00:00:00:00:00' -and
+                                            $macFromArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                            return @{ ip = $targetIP; mac = $macFromArp }
+                                        }
+                                    }
                                 }
-                            }
-                        } catch { }
+                                catch { }
                         
-                        # Nessun MAC trovato
-                        return @{ ip = $targetIP; mac = $null }
-                    }
+                                # Nessun MAC trovato
+                                return @{ ip = $targetIP; mac = $null }
+                            }
                     
-                    # Avvia recupero MAC parallelo
-                    foreach ($ip in $activeIPs) {
-                        $foundIPs.Add($ip)
-                        # PowerShell 4.0/5.0 compatibility: crea PowerShell tramite RunspacePool
-                        try {
-                            $job = [System.Management.Automation.PowerShell]::Create()
-                            $job.RunspacePool = $macRunspacePool
-                            $job.AddScript($macRecoveryScriptBlock).AddArgument($ip).AddArgument($arpTable) | Out-Null
-                            $asyncResult = $job.BeginInvoke()
-                        } catch {
-                            # Fallback per PowerShell 4.0
-                            try {
-                                $runspace = $macRunspacePool.AcquireRunspace()
-                                $job = [System.Management.Automation.PowerShell]::Create()
-                                $job.Runspace = $runspace
-                                $job.AddScript($macRecoveryScriptBlock).AddArgument($ip).AddArgument($arpTable) | Out-Null
-                                $asyncResult = $job.BeginInvoke()
-                            } catch {
-                                Write-Log "Errore creazione PowerShell per MAC $ip : $_" "WARN"
-                                continue
+                            # Avvia recupero MAC parallelo
+                            foreach ($ip in $activeIPs) {
+                                $foundIPs.Add($ip)
+                                # PowerShell 4.0/5.0 compatibility: crea PowerShell tramite RunspacePool
+                                try {
+                                    $job = [System.Management.Automation.PowerShell]::Create()
+                                    $job.RunspacePool = $macRunspacePool
+                                    $job.AddScript($macRecoveryScriptBlock).AddArgument($ip).AddArgument($arpTable) | Out-Null
+                                    $asyncResult = $job.BeginInvoke()
+                                }
+                                catch {
+                                    # Fallback per PowerShell 4.0
+                                    try {
+                                        $runspace = $macRunspacePool.AcquireRunspace()
+                                        $job = [System.Management.Automation.PowerShell]::Create()
+                                        $job.Runspace = $runspace
+                                        $job.AddScript($macRecoveryScriptBlock).AddArgument($ip).AddArgument($arpTable) | Out-Null
+                                        $asyncResult = $job.BeginInvoke()
+                                    }
+                                    catch {
+                                        Write-Log "Errore creazione PowerShell per MAC $ip : $_" "WARN"
+                                        continue
+                                    }
+                                }
+                                [void]$macJobs.Add(@{
+                                        Job         = $job
+                                        AsyncResult = $asyncResult
+                                        IP          = $ip
+                                    })
                             }
-                        }
-                        [void]$macJobs.Add(@{
-                            Job = $job
-                            AsyncResult = $asyncResult
-                            IP = $ip
-                        })
-                    }
                     
                             # Raccogli risultati MAC con timeout per evitare blocchi
                             $macResults = @{}
@@ -1102,7 +1187,8 @@ public class ArpHelper {
                                                     if ($remainingJob.AsyncResult -and -not $remainingJob.AsyncResult.IsCompleted) {
                                                         $remainingJob.Job.Stop()
                                                     }
-                                                } catch { }
+                                                }
+                                                catch { }
                                             }
                                         }
                                         break
@@ -1110,31 +1196,38 @@ public class ArpHelper {
                                     
                                     # Attendi risultato con timeout per singolo job (ridotto a 1.5 secondi per velocità)
                                     $asyncWait = $jobInfo.AsyncResult.AsyncWaitHandle
-                                    if ($asyncWait.WaitOne(1500)) {  # Timeout 1.5 secondi per job
+                                    if ($asyncWait.WaitOne(1500)) {
+                                        # Timeout 1.5 secondi per job
                                         try {
                                             $result = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
                                             if ($result) {
                                                 $macResults[$result.ip] = $result.mac
                                             }
                                             $processedJobs++
-                                        } catch {
+                                        }
+                                        catch {
                                             Write-Log "Errore EndInvoke per $($jobInfo.IP): $_" "WARN"
                                         }
-                                    } else {
+                                    }
+                                    else {
                                         Write-Log "Timeout per recupero MAC di $($jobInfo.IP), continuo con altri..." "WARN"
                                         # Interrompi job in timeout
                                         try {
                                             $jobInfo.Job.Stop()
-                                        } catch { }
+                                        }
+                                        catch { }
                                     }
-                                } catch {
+                                }
+                                catch {
                                     Write-Log "Errore recupero MAC per $($jobInfo.IP): $_" "WARN"
-                                } finally {
+                                }
+                                finally {
                                     try {
                                         if ($jobInfo.Job) {
                                             $jobInfo.Job.Dispose()
                                         }
-                                    } catch { }
+                                    }
+                                    catch { }
                                 }
                             }
                             
@@ -1142,11 +1235,13 @@ public class ArpHelper {
                             try {
                                 $macRunspacePool.Close()
                                 $macRunspacePool.Dispose()
-                            } catch {
+                            }
+                            catch {
                                 Write-Log "Errore chiusura runspace pool: $_" "WARN"
                             }
                             
-                        } catch {
+                        }
+                        catch {
                             Write-Log "Errore critico durante recupero MAC parallelo: $_" "ERROR"
                             Write-Log "Stack: $($_.Exception.StackTrace)" "ERROR"
                             $macResults = @{}  # Reset risultati in caso di errore
@@ -1199,7 +1294,8 @@ public class ArpHelper {
                                                 $macAddress = $macFromSendArp
                                                 break
                                             }
-                                        } else {
+                                        }
+                                        else {
                                             break  # MAC trovato, esci dal loop ping
                                         }
                                     }
@@ -1231,7 +1327,8 @@ public class ArpHelper {
                                         }
                                     }
                                 }
-                            } catch {
+                            }
+                            catch {
                             }
                             
                             # Metodo 2: WMI PingStatus + Get-NetNeighbor (fallback)
@@ -1263,7 +1360,8 @@ public class ArpHelper {
                                             }
                                         }
                                     }
-                                } catch {
+                                }
+                                catch {
                                 }
                             }
                             
@@ -1285,7 +1383,8 @@ public class ArpHelper {
                                             }
                                         }
                                     }
-                                } catch {
+                                }
+                                catch {
                                 }
                             }
                             
@@ -1322,13 +1421,13 @@ public class ArpHelper {
                         $pingResponsive = $activeIPs.Contains($ip)
                         
                         $device = @{
-                            ip_address = $ip
-                            mac_address = $macAddress
-                            hostname = $hostname
-                            vendor = $vendor
-                            status = "online"
+                            ip_address        = $ip
+                            mac_address       = $macAddress
+                            hostname          = $hostname
+                            vendor            = $vendor
+                            status            = "online"
                             has_ping_failures = $hasPingFailures
-                            ping_responsive = $pingResponsive
+                            ping_responsive   = $pingResponsive
                         }
                         
                         # Salva MAC trovato per uso successivo
@@ -1356,56 +1455,59 @@ public class ArpHelper {
                             try {
                                 # Verifica che l'IP sia nel range configurato
                                 if ($arpIP -like "$baseIP.*") {
-                                # Se l'IP non è in activeIPs (non ha risposto al ping) ma è in ARP, aggiungilo
-                                if (-not $activeIPs.Contains($arpIP)) {
-                                    # Verifica che non sia già stato aggiunto ai devices
-                                    $alreadyAdded = $false
-                                    foreach ($existingDevice in $devices) {
-                                        if ($existingDevice.ip_address -eq $arpIP) {
-                                            $alreadyAdded = $true
-                                            break
-                                        }
-                                    }
-                                    
-                                    if (-not $alreadyAdded) {
-                                        $arpMAC = $arpTable[$arpIP]
-                                        # Verifica che il MAC sia valido
-                                        if ($arpMAC -and 
-                                            $arpMAC -notmatch '^00-00-00-00-00-00' -and 
-                                            $arpMAC -ne '00:00:00:00:00:00' -and
-                                            $arpMAC -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            
-                                            # Aggiungi dispositivo Trust ARP (presente ma non risponde al ping)
-                                            $trustArpDevice = @{
-                                                ip_address = $arpIP
-                                                mac_address = $arpMAC
-                                                hostname = $null
-                                                vendor = $null
-                                                status = "online"
-                                                has_ping_failures = $true  # Non risponde al ping
-                                                ping_responsive = $false   # Trust ARP: presente ma non risponde
+                                    # Se l'IP non è in activeIPs (non ha risposto al ping) ma è in ARP, aggiungilo
+                                    if (-not $activeIPs.Contains($arpIP)) {
+                                        # Verifica che non sia già stato aggiunto ai devices
+                                        $alreadyAdded = $false
+                                        foreach ($existingDevice in $devices) {
+                                            if ($existingDevice.ip_address -eq $arpIP) {
+                                                $alreadyAdded = $true
+                                                break
                                             }
-                                            $devices += $trustArpDevice
-                                            $trustArpCount++
-                                            Write-Log "Trust ARP: Aggiunto $arpIP ($arpMAC) - presente ma non risponde al ping" "INFO"
+                                        }
+                                    
+                                        if (-not $alreadyAdded) {
+                                            $arpMAC = $arpTable[$arpIP]
+                                            # Verifica che il MAC sia valido
+                                            if ($arpMAC -and 
+                                                $arpMAC -notmatch '^00-00-00-00-00-00' -and 
+                                                $arpMAC -ne '00:00:00:00:00:00' -and
+                                                $arpMAC -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
+                                            
+                                                # Aggiungi dispositivo Trust ARP (presente ma non risponde al ping)
+                                                $trustArpDevice = @{
+                                                    ip_address        = $arpIP
+                                                    mac_address       = $arpMAC
+                                                    hostname          = $null
+                                                    vendor            = $null
+                                                    status            = "online"
+                                                    has_ping_failures = $true  # Non risponde al ping
+                                                    ping_responsive   = $false   # Trust ARP: presente ma non risponde
+                                                }
+                                                $devices += $trustArpDevice
+                                                $trustArpCount++
+                                                Write-Log "Trust ARP: Aggiunto $arpIP ($arpMAC) - presente ma non risponde al ping" "INFO"
+                                            }
                                         }
                                     }
                                 }
                             }
-                        } catch {
-                            Write-Log "Errore processamento Trust ARP per $arpIP : $_" "WARN"
-                            # Continua con il prossimo IP invece di bloccare tutto
+                            catch {
+                                Write-Log "Errore processamento Trust ARP per $arpIP : $_" "WARN"
+                                # Continua con il prossimo IP invece di bloccare tutto
+                            }
                         }
-                    }
                         if ($trustArpCount -gt 0) {
                             Write-Log "Trust ARP: Aggiunti $trustArpCount dispositivi presenti ma non responsivi al ping" "INFO"
                         }
-                    } catch {
+                    }
+                    catch {
                         Write-Log "Errore Trust ARP: $_" "WARN"
                         Write-Log "Stack: $($_.Exception.StackTrace)" "WARN"
                         # Non bloccare la scansione se Trust ARP fallisce
                     }
-                } else {
+                }
+                else {
                     Write-Log "Trust ARP: Saltato (arpTable vuota o baseIP non definito)" "DEBUG"
                 }
                 
@@ -1432,9 +1534,11 @@ public class ArpHelper {
                         $deviceMatch = $devices | Where-Object { $_.ip_address -eq $ip } | Select-Object -First 1
                         if ($deviceMatch -and $deviceMatch.mac_address) {
                             $macAddress = $deviceMatch.mac_address
-                        } elseif ($foundMACs.ContainsKey($ip)) {
+                        }
+                        elseif ($foundMACs.ContainsKey($ip)) {
                             $macAddress = $foundMACs[$ip]
-                        } elseif ($arpTable.ContainsKey($ip)) {
+                        }
+                        elseif ($arpTable.ContainsKey($ip)) {
                             $macAddress = $arpTable[$ip]
                             # Verifica che non sia un MAC invalido
                             if ($macAddress -match '^00-00-00-00-00-00' -or $macAddress -eq '00:00:00:00:00:00') {
@@ -1442,19 +1546,22 @@ public class ArpHelper {
                             }
                         }
                         $ipDataArray += @{
-                            ip = $ip
+                            ip  = $ip
                             mac = $macAddress
                         }
                     }
                     $ipDataArray | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
                     Write-Log "IP salvati per tray icon: $($ipDataArray.Count) dispositivi (inclusi Trust ARP)" "INFO"
-                } catch {
+                }
+                catch {
                     Write-Log "Errore salvataggio IP per tray icon: $_" "WARN"
                 }
-            } else {
+            }
+            else {
                 Write-Log "Subnet mask troppo grande per scansione completa: $range" "WARN"
             }
-        } else {
+        }
+        else {
             Write-Log "Formato range IP non supportato: $range (atteso: x.x.x.x/24)" "WARN"
         }
     }
@@ -1477,18 +1584,19 @@ public class ArpHelper {
         # Se il PC locale non è presente nei risultati, aggiungilo
         if (-not $localDeviceExists) {
             $localDevice = @{
-                ip_address = $localIP
-                mac_address = $localMAC
-                hostname = $localHostname
-                vendor = $null
-                status = "online"
+                ip_address        = $localIP
+                mac_address       = $localMAC
+                hostname          = $localHostname
+                vendor            = $null
+                status            = "online"
                 has_ping_failures = $false
-                ping_responsive = $true  # IP locale risponde sempre al ping
+                ping_responsive   = $true  # IP locale risponde sempre al ping
             }
             $devices += $localDevice
             Write-Log "PC locale aggiunto ai risultati: $localIP ($localMAC)" "INFO"
         }
-    } elseif ($localIP -and -not $localMAC) {
+    }
+    elseif ($localIP -and -not $localMAC) {
         Write-Log "ATTENZIONE: IP locale $localIP trovato ma MAC non rilevato" "WARN"
     }
     
@@ -1509,7 +1617,8 @@ function Send-ScanResults {
             try {
                 $lastScanJson = Get-Content $script:lastScanPath -Raw | ConvertFrom-Json
                 $lastScan = $lastScanJson.devices
-            } catch {
+            }
+            catch {
                 Write-Log "Errore lettura last_scan.json: $_" "WARN"
             }
         }
@@ -1529,12 +1638,13 @@ function Send-ScanResults {
                 if (-not $oldDevice) {
                     # Nuovo dispositivo
                     $changes += @{
-                        device_ip = $device.ip_address
+                        device_ip   = $device.ip_address
                         change_type = "new_device"
-                        old_value = $null
-                        new_value = $device.ip_address
+                        old_value   = $null
+                        new_value   = $device.ip_address
                     }
-                } else {
+                }
+                else {
                     # Dispositivo esisteva già - verifica se era offline
                     # Se il dispositivo era offline e ora è online, invia notifica device_online
                     # Nota: Il backend gestisce lo status, ma l'agent può rilevare se un dispositivo
@@ -1548,21 +1658,22 @@ function Send-ScanResults {
                 $exists = $Devices | Where-Object { $_.ip_address -eq $oldDevice.ip_address }
                 if (-not $exists) {
                     $changes += @{
-                        device_ip = $oldDevice.ip_address
+                        device_ip   = $oldDevice.ip_address
                         change_type = "device_offline"
-                        old_value = $oldDevice.ip_address
-                        new_value = $null
+                        old_value   = $oldDevice.ip_address
+                        new_value   = $null
                     }
                 }
             }
-        } else {
+        }
+        else {
             # Primo scan: tutti i dispositivi sono nuovi
             foreach ($device in $Devices) {
                 $changes += @{
-                    device_ip = $device.ip_address
+                    device_ip   = $device.ip_address
                     change_type = "new_device"
-                    old_value = $null
-                    new_value = $device.ip_address
+                    old_value   = $null
+                    new_value   = $device.ip_address
                 }
             }
         }
@@ -1576,7 +1687,7 @@ function Send-ScanResults {
         # Invio dati al server
         $headers = @{
             "Content-Type" = "application/json"
-            "X-API-Key" = $ApiKey
+            "X-API-Key"    = $ApiKey
         }
         
         $url = "$ServerUrl/api/network-monitoring/agent/scan-results"
@@ -1589,13 +1700,14 @@ function Send-ScanResults {
         # Salva scan corrente come last_scan.json
         $scanData = @{
             timestamp = (Get-Date -Format "o")
-            devices = $Devices
+            devices   = $Devices
         } | ConvertTo-Json -Depth 10
         
         $scanData | Out-File -FilePath $script:lastScanPath -Encoding UTF8
         
         return $response
-    } catch {
+    }
+    catch {
         Write-Log "Errore invio dati: $_" "ERROR"
         Write-Log "Stack trace: $($_.Exception.StackTrace)" "ERROR"
         throw
@@ -1618,9 +1730,10 @@ function Get-ServerConfig {
         
         return @{
             success = $true
-            config = $response
+            config  = $response
         }
-    } catch {
+    }
+    catch {
         Write-Log "Errore recupero configurazione server: $_" "WARN"
         return @{ success = $false; error = $_.Exception.Message }
     }
@@ -1636,7 +1749,7 @@ function Send-Heartbeat {
     try {
         $headers = @{
             "Content-Type" = "application/json"
-            "X-API-Key" = $ApiKey
+            "X-API-Key"    = $ApiKey
         }
         
         # Ottieni system uptime (in secondi)
@@ -1646,7 +1759,8 @@ function Send-Heartbeat {
             if ($os) {
                 $systemUptime = [Math]::Floor((Get-Date).Subtract($os.ConvertToDateTime($os.LastBootUpTime)).TotalSeconds)
             }
-        } catch {
+        }
+        catch {
             # Ignora errori recupero uptime
         }
         
@@ -1659,23 +1773,21 @@ function Send-Heartbeat {
             $networkIssueDetected = $true
             if ($script:networkIssueStartTime) {
                 $networkIssueDuration = [Math]::Floor((Get-Date).Subtract($script:networkIssueStartTime).TotalMinutes)
-            } else {
+            }
+            else {
                 $networkIssueDuration = $script:failedHeartbeatCount * 5 # Stima: ogni heartbeat è ogni 5 minuti
             }
             Write-Log "Rilevato problema rete risolto: durata $networkIssueDuration minuti" "INFO"
         }
         
+        # Prepara payload
         $payload = @{
-            version = $Version
-        }
-        
-        if ($systemUptime -ne $null) {
-            $payload.system_uptime = $systemUptime
-        }
-        
-        if ($networkIssueDetected) {
-            $payload.network_issue_detected = $true
-            $payload.network_issue_duration = $networkIssueDuration
+            agent_id       = $script:config.agent_id
+            version        = $Version
+            timestamp      = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+            system_uptime  = $systemUptime
+            network_issue  = $networkIssueDetected
+            issue_duration = $networkIssueDuration
         }
         
         $payloadJson = $payload | ConvertTo-Json
@@ -1718,12 +1830,14 @@ function Send-Heartbeat {
                     }
                 }
             }
-        } catch {
+        }
+        catch {
             # Non bloccare l'esecuzione se il controllo configurazione fallisce
         }
         
         return @{ success = $true; uninstall = $false; config = $serverConfigResult.config }
-    } catch {
+    }
+    catch {
         Write-Log "Errore heartbeat: $_" "WARN"
         
         # Traccia tentativo fallito
@@ -1743,7 +1857,7 @@ function Check-AgentUpdate {
     )
     
     try {
-        Write-Log "🔍 Controllo aggiornamenti agent... (versione corrente: $CurrentVersion)" "INFO"
+        Write-Log "[INFO] Controllo aggiornamenti agent... (versione corrente: $CurrentVersion)" "INFO"
         
         # Endpoint per controllare versione
         $versionUrl = "$ServerUrl/api/network-monitoring/agent-version"
@@ -1753,11 +1867,11 @@ function Check-AgentUpdate {
         
         $serverVersion = $response.version
         
-        Write-Log "📡 Versione disponibile sul server: $serverVersion" "INFO"
+        Write-Log "[INFO] Versione disponibile sul server: $serverVersion" "INFO"
         
         # Confronta versioni
         if ($serverVersion -ne $CurrentVersion) {
-            Write-Log "🆕 Nuova versione disponibile! Avvio aggiornamento..." "INFO"
+            Write-Log "[INFO] Nuova versione disponibile! Avvio aggiornamento..." "INFO"
             
             # Directory installazione
             $installDir = Split-Path -Parent $PSCommandPath
@@ -1779,18 +1893,18 @@ function Check-AgentUpdate {
             $monitorBackup = "$monitorFile.backup"
             
             # Download NetworkMonitorService.ps1
-            Write-Log "📥 Download NetworkMonitorService.ps1..." "INFO"
+            Write-Log "[DOWNLOAD] Download NetworkMonitorService.ps1..." "INFO"
             $tempService = "$serviceFile.new"
             Invoke-WebRequest -Uri $serviceDownloadUrl -OutFile $tempService -TimeoutSec 30 -ErrorAction Stop
             
             if (Test-Path $tempService) {
                 $serviceSize = (Get-Item $tempService).Length
-                Write-Log "✅ NetworkMonitorService.ps1 scaricato ($serviceSize bytes)" "INFO"
+                Write-Log "[OK] NetworkMonitorService.ps1 scaricato ($serviceSize bytes)" "INFO"
                 
                 # Backup versione corrente
                 if (Test-Path $serviceFile) {
                     Copy-Item $serviceFile $serviceBackup -Force
-                    Write-Log "💾 Backup NetworkMonitorService.ps1 creato" "INFO"
+                    Write-Log "[BACKUP] Backup NetworkMonitorService.ps1 creato" "INFO"
                 }
                 
                 # Sostituisci file (prova fino a 3 volte)
@@ -1799,13 +1913,15 @@ function Check-AgentUpdate {
                     try {
                         Move-Item $tempService $serviceFile -Force -ErrorAction Stop
                         $replaced = $true
-                        Write-Log "✅ NetworkMonitorService.ps1 aggiornato!" "INFO"
+                        Write-Log "[OK] NetworkMonitorService.ps1 aggiornato!" "INFO"
                         break
-                    } catch {
+                    }
+                    catch {
                         if ($i -lt 3) {
-                            Write-Log "⚠️ Tentativo $i fallito, riprovo..." "WARN"
+                            Write-Log "[WARN] Tentativo $i fallito, riprovo..." "WARN"
                             Start-Sleep -Seconds 2
-                        } else {
+                        }
+                        else {
                             throw $_
                         }
                     }
@@ -1819,13 +1935,13 @@ function Check-AgentUpdate {
             # Download NetworkMonitor.ps1 (se esiste)
             if (Test-Path $monitorFile) {
                 try {
-                    Write-Log "📥 Download NetworkMonitor.ps1..." "INFO"
+                    Write-Log "[DOWNLOAD] Download NetworkMonitor.ps1..." "INFO"
                     $tempMonitor = "$monitorFile.new"
                     Invoke-WebRequest -Uri $monitorDownloadUrl -OutFile $tempMonitor -TimeoutSec 30 -ErrorAction Stop
                     
                     if (Test-Path $tempMonitor) {
                         $monitorSize = (Get-Item $tempMonitor).Length
-                        Write-Log "✅ NetworkMonitor.ps1 scaricato ($monitorSize bytes)" "INFO"
+                        Write-Log "[OK] NetworkMonitor.ps1 scaricato ($monitorSize bytes)" "INFO"
                         
                         # Backup
                         if (Test-Path $monitorFile) {
@@ -1834,11 +1950,12 @@ function Check-AgentUpdate {
                         
                         # Sostituisci
                         Move-Item $tempMonitor $monitorFile -Force
-                        Write-Log "✅ NetworkMonitor.ps1 aggiornato!" "INFO"
+                        Write-Log "[OK] NetworkMonitor.ps1 aggiornato!" "INFO"
                     }
-                } catch {
-                    Write-Log "⚠️ Errore aggiornamento NetworkMonitor.ps1: $_" "WARN"
-                    Write-Log "⚠️ Continuo con NetworkMonitorService.ps1 aggiornato" "WARN"
+                }
+                catch {
+                    Write-Log "[WARN] Errore aggiornamento NetworkMonitor.ps1: $_" "WARN"
+                    Write-Log "[WARN] Continuo con NetworkMonitorService.ps1 aggiornato" "WARN"
                 }
             }
             
@@ -1849,14 +1966,15 @@ function Check-AgentUpdate {
                     $config = Get-Content $configPath -Raw | ConvertFrom-Json
                     $config.version = $serverVersion
                     $config | ConvertTo-Json -Depth 10 | Out-File -FilePath $configPath -Encoding UTF8 -Force
-                    Write-Log "✅ config.json aggiornato con versione $serverVersion" "INFO"
-                } catch {
-                    Write-Log "⚠️ Errore aggiornamento config.json: $_" "WARN"
+                    Write-Log "[OK] config.json aggiornato con versione $serverVersion" "INFO"
+                }
+                catch {
+                    Write-Log "[WARN] Errore aggiornamento config.json: $_" "WARN"
                 }
             }
             
             # Riavvia il servizio per applicare l'aggiornamento
-            Write-Log "🔄 Riavvio servizio NetworkMonitorService..." "INFO"
+            Write-Log "[INFO] Riavvio servizio NetworkMonitorService..." "INFO"
             
             # Procedura robusta: ferma, elimina e reinstalla servizio
             try {
@@ -1869,10 +1987,11 @@ function Check-AgentUpdate {
                 Write-Log "   Rimozione servizio esistente..." "INFO"
                 $deleteResult = sc.exe delete "NetworkMonitorService" 2>&1
                 if ($LASTEXITCODE -eq 0 -or $deleteResult -like "*OPERAZIONI RIUSCITE*" -or $deleteResult -like "*marked for deletion*") {
-                    Write-Log "   ✅ Servizio rimosso correttamente" "INFO"
+                    Write-Log "   [OK] Servizio rimosso correttamente" "INFO"
                     Start-Sleep -Seconds 5
-                } else {
-                    Write-Log "   ⚠️  Rimozione servizio: $deleteResult" "WARN"
+                }
+                else {
+                    Write-Log "   [WARN] Rimozione servizio: $deleteResult" "WARN"
                 }
                 
                 # 3. Reinstalla servizio con NSSM (se disponibile)
@@ -1900,34 +2019,39 @@ function Check-AgentUpdate {
                         & $nssmPath set "NetworkMonitorService" AppStdout $stdoutLog | Out-Null
                         & $nssmPath set "NetworkMonitorService" AppStderr $stderrLog | Out-Null
                         
-                        Write-Log "   ✅ Servizio reinstallato" "INFO"
+                        Write-Log "   [OK] Servizio reinstallato" "INFO"
                         
                         # 4. Avvia servizio
                         Start-Sleep -Seconds 2
                         Start-Service -Name "NetworkMonitorService" -ErrorAction SilentlyContinue
-                        Write-Log "   ✅ Servizio avviato con nuova versione" "INFO"
-                    } else {
-                        Write-Log "   ⚠️  Errore reinstallazione servizio con NSSM" "WARN"
+                        Write-Log "   [OK] Servizio avviato con nuova versione" "INFO"
                     }
-                } else {
-                    Write-Log "   ⚠️  nssm.exe non trovato, servizio non reinstallato automaticamente" "WARN"
-                    Write-Log "   ⚠️  Reinstallare manualmente il servizio per applicare l'aggiornamento" "WARN"
+                    else {
+                        Write-Log "   [WARN] Errore reinstallazione servizio con NSSM" "WARN"
+                    }
                 }
-            } catch {
-                Write-Log "⚠️ Errore durante riavvio servizio: $_" "WARN"
-                Write-Log "⚠️ Reinstallare manualmente il servizio per applicare l'aggiornamento" "WARN"
+                else {
+                    Write-Log "   [WARN] nssm.exe non trovato, servizio non reinstallato automaticamente" "WARN"
+                    Write-Log "   [WARN] Reinstallare manualmente il servizio per applicare l'aggiornamento" "WARN"
+                }
+            }
+            catch {
+                Write-Log "[WARN] Errore durante riavvio servizio: $_" "WARN"
+                Write-Log "[WARN] Reinstallare manualmente il servizio per applicare l'aggiornamento" "WARN"
             }
             
             # Termina script corrente
             $script:isRunning = $false
             exit 0
             
-        } else {
-            Write-Log "✅ Agent già aggiornato alla versione corrente" "INFO"
         }
-    } catch {
-        Write-Log "⚠️ Errore controllo aggiornamenti: $_" "WARN"
-        Write-Log "⚠️ Continuo con la versione corrente..." "WARN"
+        else {
+            Write-Log "[OK] Agent già aggiornato alla versione corrente" "INFO"
+        }
+    }
+    catch {
+        Write-Log "[WARN] Errore controllo aggiornamenti: $_" "WARN"
+        Write-Log "[WARN] Continuo con la versione corrente..." "WARN"
     }
 }
 
@@ -1955,7 +2079,8 @@ try {
                 Write-Log "  Terminazione vecchia tray icon PID $($proc.ProcessId)"
                 Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
                 $cleanupCount++
-            } catch {
+            }
+            catch {
                 Write-Log "  Warning: impossibile terminare PID $($proc.ProcessId): $_" "WARN"
             }
         }
@@ -1973,7 +2098,8 @@ try {
                 Write-Log "  Terminazione vecchio processo monitor PID $($proc.ProcessId)"
                 Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
                 $cleanupCount++
-            } catch {
+            }
+            catch {
                 Write-Log "  Warning: impossibile terminare PID $($proc.ProcessId): $_" "WARN"
             }
         }
@@ -1982,10 +2108,12 @@ try {
     if ($cleanupCount -gt 0) {
         Write-Log "Cleanup completato: $cleanupCount processi terminati"
         Start-Sleep -Seconds 1
-    } else {
+    }
+    else {
         Write-Log "Nessun processo vecchio da terminare"
     }
-} catch {
+}
+catch {
     Write-Log "Errore durante cleanup processi: $_" "WARN"
 }
 
@@ -1999,7 +2127,8 @@ if (-not (Test-Path $ConfigPath)) {
 
 try {
     $config = Get-Content $ConfigPath -Raw | ConvertFrom-Json
-} catch {
+}
+catch {
     $errorMsg = "Errore lettura config.json: $_"
     Write-Log $errorMsg "ERROR"
     Update-StatusFile -Status "error" -Message $errorMsg
@@ -2060,10 +2189,12 @@ while ($script:isRunning) {
                 # L'intervallo viene aggiornato automaticamente da Send-Heartbeat se diverso
                 if ($heartbeatResult.success) {
                     Write-Log "Heartbeat completato"
-                } else {
+                }
+                else {
                     Write-Log "Heartbeat fallito: $($heartbeatResult.error)" "WARN"
                 }
-            } catch {
+            }
+            catch {
                 Write-Log "Errore heartbeat: $_" "WARN"
                 # Traccia tentativo fallito
                 $script:failedHeartbeatCount++
@@ -2079,7 +2210,8 @@ while ($script:isRunning) {
             try {
                 $version = if ($config.version) { $config.version } else { $SCRIPT_VERSION }
                 Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $version
-            } catch {
+            }
+            catch {
                 Write-Log "Errore controllo aggiornamenti: $_" "WARN"
             }
         }
@@ -2092,7 +2224,8 @@ while ($script:isRunning) {
             # Elimina il file trigger dopo averlo letto
             try {
                 Remove-Item $script:forceScanTriggerFile -Force -ErrorAction SilentlyContinue
-            } catch {
+            }
+            catch {
                 # Ignora errori eliminazione file
             }
         }
@@ -2101,7 +2234,8 @@ while ($script:isRunning) {
         if ($now -ge $nextScanTime -or $forceScan) {
             if ($forceScan) {
                 Write-Log "Esecuzione scansione FORZATA..."
-            } else {
+            }
+            else {
                 Write-Log "Esecuzione scansione programmata..."
             }
             Update-StatusFile -Status "scanning" -Message "Scansione in corso..."
@@ -2109,7 +2243,8 @@ while ($script:isRunning) {
             # Reset lista IP trovati per la tray icon
             try {
                 @() | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
-            } catch {
+            }
+            catch {
                 # Ignora errori reset file IP
             }
             
@@ -2120,7 +2255,8 @@ while ($script:isRunning) {
                     $devices = Get-NetworkDevices -NetworkRanges $config.network_ranges
                     Write-Log "Trovati $($devices.Count) dispositivi" "INFO"
                     $script:lastScanDevices = $devices.Count
-                } catch {
+                }
+                catch {
                     Write-Log "ERRORE CRITICO durante Get-NetworkDevices: $_" "ERROR"
                     Write-Log "Stack trace: $($_.Exception.StackTrace)" "ERROR"
                     # Continua con array vuoto invece di bloccare tutto
@@ -2140,21 +2276,24 @@ while ($script:isRunning) {
                         $ipDataArray = @()
                         foreach ($device in $devices) {
                             $ipDataArray += @{
-                                ip = $device.ip_address
+                                ip  = $device.ip_address
                                 mac = if ($device.mac_address) { $device.mac_address } else { $null }
                             }
                         }
                         $ipDataArray | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
                         Write-Log "IP salvati per tray icon: $($ipDataArray.Count) dispositivi" "INFO"
-                    } catch {
+                    }
+                    catch {
                         Write-Log "Errore salvataggio IP finali per tray icon: $_" "WARN"
                     }
-                } else {
+                }
+                else {
                     Write-Log "Nessun dispositivo trovato, skip invio"
                     # Salva array vuoto per indicare che non ci sono IP
                     try {
                         @() | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
-                    } catch {
+                    }
+                    catch {
                         # Ignora errori
                     }
                 }
@@ -2169,11 +2308,13 @@ while ($script:isRunning) {
                 $nextScanTime = $script:lastScanTime.AddMinutes($script:scanIntervalMinutes)
                 if ($forceScan) {
                     Write-Log "Scansione forzata completata. Prossima scansione programmata: $($nextScanTime.ToString('HH:mm:ss')) (intervallo: $script:scanIntervalMinutes minuti)"
-                } else {
+                }
+                else {
                     Write-Log "Prossima scansione: $($nextScanTime.ToString('HH:mm:ss')) (intervallo: $script:scanIntervalMinutes minuti)"
                 }
                 
-            } catch {
+            }
+            catch {
                 Write-Log "Errore durante scansione: $_" "ERROR"
                 Write-Log "Stack trace: $($_.Exception.StackTrace)" "ERROR"
                 Update-StatusFile -Status "error" -Message "Errore: $_"
@@ -2182,7 +2323,8 @@ while ($script:isRunning) {
                 if ($forceScan) {
                     # Per scansione forzata fallita, ricalcola comunque basandosi su ora
                     $nextScanTime = (Get-Date).AddMinutes($script:scanIntervalMinutes)
-                } else {
+                }
+                else {
                     # Per scansione programmata fallita, ricalcola normalmente
                     $nextScanTime = (Get-Date).AddMinutes($script:scanIntervalMinutes)
                 }
@@ -2193,7 +2335,8 @@ while ($script:isRunning) {
         # Questo permette di rilevare scansioni forzate più rapidamente
         Start-Sleep -Seconds 5
         
-    } catch {
+    }
+    catch {
         Write-Log "Errore nel loop principale: $_" "ERROR"
         Start-Sleep -Seconds 60
     }

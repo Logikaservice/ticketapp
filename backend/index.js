@@ -12,6 +12,7 @@ const fs = require('fs');
 const { Pool } = require('pg');
 const http = require('http');
 const { Server } = require('socket.io');
+const NetworkMonitorCron = require('./services/NetworkMonitorCron');
 
 const app = express();
 const server = http.createServer(app);
@@ -2022,6 +2023,10 @@ const startServer = async () => {
       console.log(`🚀 Server backend OTTIMIZZATO in ascolto sulla porta ${PORT}`);
       console.log(`📁 Routes organizzate in moduli separati`);
       console.log(`🔌 WebSocket server attivo`);
+
+      // Avvia Network Monitor Cron
+      const networkMonitorCron = new NetworkMonitorCron(pool);
+      networkMonitorCron.start();
     });
   } catch (err) {
     console.error("❌ Errore critico - Impossibile connettersi al database:", err);

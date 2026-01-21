@@ -66,7 +66,7 @@ if (Test-Path $serviceFile) {
     Write-Host "  Testando esecuzione con -WhatIf..." -ForegroundColor Yellow
     try {
         $testOutput = powershell.exe -NoProfile -Command "& { `$ErrorActionPreference='Stop'; . '$serviceFile' -WhatIf 2>&1 }" 2>&1
-        if ($LASTEXITCODE -ne 0 -or $testOutput -match "error|exception|parsererror" -i) {
+        if ($LASTEXITCODE -ne 0 -or $testOutput -match "error|exception|parsererror") {
             Write-Host "  ERRORE TROVATO:" -ForegroundColor Red
             Write-Host $testOutput
         } else {

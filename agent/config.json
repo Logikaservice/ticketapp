@@ -1,0 +1,10 @@
+﻿{
+    "server_url":  "http://ticket.logikaservice.it",
+    "api_key":  "dbb753efa5af96ff66f652d04358ea379c35c22155038339280892730b49f0ef",
+    "agent_name":  "Casa Mia",
+    "version":  "2.2.4",
+    "network_ranges":  [
+                           "192.168.100.0/24"
+                       ],
+    "scan_interval_minutes":  5
+}

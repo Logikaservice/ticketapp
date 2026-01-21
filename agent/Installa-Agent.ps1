@@ -35,8 +35,9 @@ if (Test-Path $serviceFile) {
         if ($content -match '\$SCRIPT_VERSION\s*=\s*"([\d\.]+)"') {
             $agentVersion = $matches[1]
         }
-    } catch {
-        Write-Host "⚠️  Impossibile leggere versione, uso default: $agentVersion" -ForegroundColor Yellow
+    }
+    catch {
+        Write-Host "[WARN] Impossibile leggere versione, uso default: $agentVersion" -ForegroundColor Yellow
     }
 }
 
@@ -59,9 +60,10 @@ $missingFiles = @()
 foreach ($file in $requiredFiles) {
     $filePath = Join-Path $scriptDir $file
     if (Test-Path $filePath) {
-        Write-Host "   ✅ $file" -ForegroundColor Green
-    } else {
-        Write-Host "   ❌ $file NON TROVATO!" -ForegroundColor Red
+        Write-Host "   [OK] $file" -ForegroundColor Green
+    }
+    else {
+        Write-Host "   [ERROR] $file NON TROVATO!" -ForegroundColor Red
         $missingFiles += $file
     }
 }
@@ -83,14 +85,16 @@ Write-Host "2. PREPARAZIONE DIRECTORY" -ForegroundColor Yellow
 if (-not (Test-Path $installDir)) {
     try {
         New-Item -ItemType Directory -Path $installDir -Force | Out-Null
-        Write-Host "   ✅ Directory creata: $installDir" -ForegroundColor Green
-    } catch {
-        Write-Host "   ❌ Impossibile creare directory: $_" -ForegroundColor Red
+        Write-Host "   [OK] Directory creata: $installDir" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "   [ERROR] Impossibile creare directory: $_" -ForegroundColor Red
         pause
         exit 1
     }
-} else {
-    Write-Host "   ✅ Directory esistente: $installDir" -ForegroundColor Green
+}
+else {
+    Write-Host "   [OK] Directory esistente: $installDir" -ForegroundColor Green
 }
 Write-Host ""
 
@@ -98,14 +102,15 @@ Write-Host ""
 Write-Host "3. CLEANUP PROCESSI VECCHI" -ForegroundColor Yellow
 $processesKilled = 0
 
-# Termina TUTTI i processi PowerShell e NSSM (potrebbero bloccare il servizio)
-Write-Host "   Terminazione processi PowerShell e NSSM..." -ForegroundColor Cyan
-Get-Process | Where-Object { $_.ProcessName -eq "powershell" -or $_.ProcessName -eq "nssm" } | ForEach-Object {
-    try {
-        Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
-        $processesKilled++
-    } catch { }
-}
+# Termina solo processi specifici dell'agent (la chiusura brutale di powershell.exe chiude anche questo terminale!)
+    # Write-Host "   Terminazione processi PowerShell e NSSM..." -ForegroundColor Cyan
+    # Il blocco seguente è troppo aggressivo e chiude VS Code terminal. Disabilitato.
+    # Get-Process | Where-Object { ($_.ProcessName -eq "powershell" -or $_.ProcessName -eq "nssm") -and $_.Id -ne $PID } | ForEach-Object {
+    #    try {
+    #        Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+    #        $processesKilled++
+    #    } catch { }
+    # }
 Start-Sleep -Seconds 2
 
 # Termina tutte le vecchie tray icon
@@ -121,9 +126,10 @@ if ($trayProcesses) {
             Write-Host "   Terminazione processo PID $($proc.ProcessId)..." -ForegroundColor Gray
             Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
             $processesKilled++
-            Write-Host "   ✅ Processo $($proc.ProcessId) terminato" -ForegroundColor Green
-        } catch {
-            Write-Host "   ⚠️  Impossibile terminare processo $($proc.ProcessId): $_" -ForegroundColor Yellow
+            Write-Host "   [OK] Processo $($proc.ProcessId) terminato" -ForegroundColor Green
+        }
+        catch {
+            Write-Host "   [WARN] Impossibile terminare processo $($proc.ProcessId): $_" -ForegroundColor Yellow
         }
     }
     Start-Sleep -Seconds 2
@@ -140,18 +146,20 @@ if ($monitorProcesses) {
             Write-Host "   Terminazione processo monitor PID $($proc.ProcessId)..." -ForegroundColor Gray
             Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
             $processesKilled++
-            Write-Host "   ✅ Processo $($proc.ProcessId) terminato" -ForegroundColor Green
-        } catch {
-            Write-Host "   ⚠️  Impossibile terminare processo $($proc.ProcessId): $_" -ForegroundColor Yellow
+            Write-Host "   [OK] Processo $($proc.ProcessId) terminato" -ForegroundColor Green
+        }
+        catch {
+            Write-Host "   [WARN] Impossibile terminare processo $($proc.ProcessId): $_" -ForegroundColor Yellow
         }
     }
     Start-Sleep -Seconds 2
 }
 
 if ($processesKilled -gt 0) {
-    Write-Host "   ✅ $processesKilled processi vecchi terminati" -ForegroundColor Green
-} else {
-    Write-Host "   ℹ️  Nessun processo vecchio da terminare" -ForegroundColor Gray
+    Write-Host "   [OK] $processesKilled processi vecchi terminati" -ForegroundColor Green
+}
+else {
+    Write-Host "   [INFO] Nessun processo vecchio da terminare" -ForegroundColor Gray
 }
 Write-Host ""
 
@@ -182,12 +190,14 @@ try {
             }
             
             if ($service.Status -eq "Stopped") {
-                Write-Host "   ✅ Servizio arrestato" -ForegroundColor Green
-            } else {
-                Write-Host "   ⚠️  Servizio ancora in esecuzione dopo $timeout secondi" -ForegroundColor Yellow
+                Write-Host "   [OK] Servizio arrestato" -ForegroundColor Green
             }
-        } else {
-            Write-Host "   ℹ️  Servizio già fermo" -ForegroundColor Gray
+            else {
+                Write-Host "   [WARN] Servizio ancora in esecuzione dopo $timeout secondi" -ForegroundColor Yellow
+            }
+        }
+        else {
+            Write-Host "   [INFO] Servizio già fermo" -ForegroundColor Gray
         }
         
         # RIMUOVI il servizio prima di reinstallarlo (procedura robusta)
@@ -195,12 +205,14 @@ try {
         sc.exe delete $serviceName | Out-Null
         # ATTESA LUNGA per permettere a Windows di rilasciare il servizio (CRITICO!)
         Start-Sleep -Seconds 10
-        Write-Host "   ✅ Servizio rimosso" -ForegroundColor Green
-    } else {
-        Write-Host "   ℹ️  Nessun servizio esistente" -ForegroundColor Gray
+        Write-Host "   [OK] Servizio rimosso" -ForegroundColor Green
     }
-} catch {
-    Write-Host "   ⚠️  Errore gestione servizio: $_" -ForegroundColor Yellow
+    else {
+        Write-Host "   [INFO] Nessun servizio esistente" -ForegroundColor Gray
+    }
+}
+catch {
+    Write-Host "   [WARN] Errore gestione servizio: $_" -ForegroundColor Yellow
 }
 Write-Host ""
 
@@ -239,7 +251,8 @@ foreach ($file in $filesToCopy) {
                     Copy-Item $src $dst -Force -ErrorAction Stop
                     $copied = $true
                     break
-                } catch {
+                }
+                catch {
                     if ($i -lt 3) {
                         Start-Sleep -Seconds 1
                     }
@@ -247,18 +260,21 @@ foreach ($file in $filesToCopy) {
             }
             
             if ($copied) {
-                Write-Host "   ✅ $file" -ForegroundColor Green
+                Write-Host "   [OK] $file" -ForegroundColor Green
                 $filesCopied++
-            } else {
-                Write-Host "   ❌ $file (fallito dopo 3 tentativi)" -ForegroundColor Red
+            }
+            else {
+                Write-Host "   [ERROR] $file (fallito dopo 3 tentativi)" -ForegroundColor Red
                 $filesFailed++
             }
-        } catch {
-            Write-Host "   ❌ $file : $_" -ForegroundColor Red
+        }
+        catch {
+            Write-Host "   [ERROR] $file : $_" -ForegroundColor Red
             $filesFailed++
         }
-    } else {
-        Write-Host "   ⚠️  $file non trovato" -ForegroundColor Yellow
+    }
+    else {
+        Write-Host "   [WARN] $file non trovato" -ForegroundColor Yellow
         $filesFailed++
     }
 }
@@ -271,8 +287,9 @@ foreach ($file in $optionalFiles) {
     if (Test-Path $src) {
         try {
             Copy-Item $src $dst -Force -ErrorAction SilentlyContinue
-            Write-Host "   ✅ $file (opzionale)" -ForegroundColor Gray
-        } catch {
+            Write-Host "   [OK] $file (opzionale)" -ForegroundColor Gray
+        }
+        catch {
             # Ignora errori per file opzionali
         }
     }
@@ -280,12 +297,12 @@ foreach ($file in $optionalFiles) {
 
 if ($filesFailed -gt 0) {
     Write-Host ""
-    Write-Host "⚠️  ATTENZIONE: $filesFailed file non copiati!" -ForegroundColor Yellow
+    Write-Host "[WARN] ATTENZIONE: $filesFailed file non copiati!" -ForegroundColor Yellow
     Write-Host "Prova a chiudere eventuali processi PowerShell in esecuzione." -ForegroundColor Yellow
 }
 
 Write-Host ""
-Write-Host "   ✅ $filesCopied file copiati con successo" -ForegroundColor Green
+Write-Host "   [OK] $filesCopied file copiati con successo" -ForegroundColor Green
 Write-Host ""
 
 # Aggiorna versione nel config.json
@@ -296,9 +313,10 @@ if (Test-Path $configFile) {
         $config = Get-Content $configFile -Raw | ConvertFrom-Json
         $config.version = $agentVersion
         $config | ConvertTo-Json -Depth 10 | Set-Content -Path $configFile -Encoding UTF8
-        Write-Host "   ✅ Versione aggiornata in config.json: $agentVersion" -ForegroundColor Green
-    } catch {
-        Write-Host "   ⚠️  Errore aggiornamento config.json: $_" -ForegroundColor Yellow
+        Write-Host "   [OK] Versione aggiornata in config.json: $agentVersion" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "   [WARN] Errore aggiornamento config.json: $_" -ForegroundColor Yellow
     }
 }
 Write-Host ""
@@ -316,7 +334,7 @@ if (-not (Test-Path $psPath)) {
 }
 
 if (-not (Test-Path $psPath)) {
-    Write-Host "   ❌ PowerShell non trovato!" -ForegroundColor Red
+    Write-Host "   [ERROR] PowerShell non trovato!" -ForegroundColor Red
     pause
     exit 1
 }
@@ -325,7 +343,8 @@ if (-not (Test-Path $psPath)) {
 try {
     & $nssmPath remove $serviceName confirm 2>&1 | Out-Null
     Start-Sleep -Seconds 2
-} catch {
+}
+catch {
     # Ignora se non esiste
 }
 
@@ -335,7 +354,7 @@ try {
     $appParamsString = "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$serviceScriptPath`" -ConfigPath `"$configPath`""
     & $nssmPath install $serviceName $psPath $appParamsString
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "   ✅ Servizio installato" -ForegroundColor Green
+        Write-Host "   [OK] Servizio installato" -ForegroundColor Green
         
         # Configura servizio
         & $nssmPath set $serviceName AppDirectory $installDir | Out-Null
@@ -357,14 +376,16 @@ try {
         & $nssmPath set $serviceName AppRotateSeconds 86400 | Out-Null
         & $nssmPath set $serviceName AppRotateBytes 10485760 | Out-Null
         
-        Write-Host "   ✅ Configurazione servizio completata" -ForegroundColor Green
-    } else {
-        Write-Host "   ❌ Errore installazione servizio!" -ForegroundColor Red
+        Write-Host "   [OK] Configurazione servizio completata" -ForegroundColor Green
+    }
+    else {
+        Write-Host "   [ERROR] Errore installazione servizio!" -ForegroundColor Red
         pause
         exit 1
     }
-} catch {
-    Write-Host "   ❌ Errore installazione servizio: $_" -ForegroundColor Red
+}
+catch {
+    Write-Host "   [ERROR] Errore installazione servizio: $_" -ForegroundColor Red
     pause
     exit 1
 }
@@ -378,12 +399,14 @@ try {
     
     $service = Get-Service -Name $serviceName -ErrorAction Stop
     if ($service.Status -eq "Running") {
-        Write-Host "   ✅ Servizio avviato correttamente" -ForegroundColor Green
-    } else {
-        Write-Host "   ⚠️  Servizio avviato ma stato: $($service.Status)" -ForegroundColor Yellow
+        Write-Host "   [OK] Servizio avviato correttamente" -ForegroundColor Green
     }
-} catch {
-    Write-Host "   ❌ Errore avvio servizio: $_" -ForegroundColor Red
+    else {
+        Write-Host "   [WARN] Servizio avviato ma stato: $($service.Status)" -ForegroundColor Yellow
+    }
+}
+catch {
+    Write-Host "   [ERROR] Errore avvio servizio: $_" -ForegroundColor Red
     Write-Host "   Controlla i log in $installDir" -ForegroundColor Yellow
 }
 Write-Host ""
@@ -403,13 +426,15 @@ if (Test-Path $vbsLauncher) {
         Start-Process "wscript.exe" -ArgumentList $vbsLauncher -WindowStyle Hidden -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 2
         
-        Write-Host "   ✅ Tray icon configurata e avviata" -ForegroundColor Green
-        Write-Host "   ℹ️  Se non vedi l'icona, controlla l'area nascosta della system tray" -ForegroundColor Gray
-    } catch {
-        Write-Host "   ⚠️  Errore configurazione tray icon: $_" -ForegroundColor Yellow
+        Write-Host "   [OK] Tray icon configurata e avviata" -ForegroundColor Green
+        Write-Host "   [INFO] Se non vedi l'icona, controlla l'area nascosta della system tray" -ForegroundColor Gray
     }
-} else {
-    Write-Host "   ℹ️  Tray icon non disponibile" -ForegroundColor Gray
+    catch {
+        Write-Host "   [WARN] Errore configurazione tray icon: $_" -ForegroundColor Yellow
+    }
+}
+else {
+    Write-Host "   [INFO] Tray icon non disponibile" -ForegroundColor Gray
 }
 Write-Host ""
 

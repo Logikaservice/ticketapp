@@ -1,4 +1,4 @@
-// routes/networkMonitoring.js
+﻿// routes/networkMonitoring.js
 // Route per il Network Monitoring - ricezione dati dagli agent PowerShell
 
 const express = require('express');
@@ -89,7 +89,7 @@ module.exports = (pool, io) => {
           updated_at TIMESTAMP DEFAULT NOW()
         );
       `);
-      
+
       // Aggiungi colonna deleted_at se non esiste (migrazione)
       try {
         await pool.query(`
@@ -366,9 +366,9 @@ module.exports = (pool, io) => {
         `);
       } catch (err) {
         // Ignora errori se funzione/trigger esistono già o altri errori non critici
-        if (!err.message.includes('already exists') && 
-            !err.message.includes('duplicate') &&
-            !err.message.includes('does not exist')) {
+        if (!err.message.includes('already exists') &&
+          !err.message.includes('duplicate') &&
+          !err.message.includes('does not exist')) {
           console.warn('⚠️ Errore creazione funzione/trigger:', err.message);
         }
       }
@@ -397,7 +397,7 @@ module.exports = (pool, io) => {
         return;
       }
     }
-    
+
     tablesCheckInProgress = true;
     try {
       // Verifica rapida se le tabelle principali esistono già (più veloce che eseguire initTables)
@@ -413,17 +413,17 @@ module.exports = (pool, io) => {
           AND table_name = 'network_agent_events'
         ) as events_exists;
       `);
-      
+
       const agentsExists = checkResult.rows && checkResult.rows[0] && checkResult.rows[0].agents_exists;
       const eventsExists = checkResult.rows && checkResult.rows[0] && checkResult.rows[0].events_exists;
-      
+
       if (agentsExists && eventsExists) {
         // Tutte le tabelle necessarie esistono, non fare nulla
         tablesCheckDone = true;
         tablesCheckInProgress = false;
         return;
       }
-      
+
       // Se manca almeno una tabella, resetta il flag e inizializza (creerà tutte le tabelle necessarie)
       tablesCheckDone = false; // Reset per forzare la ricreazione
       await initTables();
@@ -444,13 +444,13 @@ module.exports = (pool, io) => {
   const authenticateAgent = async (req, res, next) => {
     try {
       const apiKey = req.headers['x-api-key'] || req.body.api_key || req.query.api_key;
-      
+
       if (!apiKey) {
         return res.status(401).json({ error: 'API Key richiesta' });
       }
 
       await ensureTables();
-      
+
       const result = await pool.query(
         'SELECT id, azienda_id, agent_name, enabled, deleted_at FROM network_agents WHERE api_key = $1 AND deleted_at IS NULL',
         [apiKey]
@@ -461,7 +461,7 @@ module.exports = (pool, io) => {
       }
 
       const agent = result.rows[0];
-      
+
       if (!agent.enabled) {
         return res.status(403).json({ error: 'Agent disabilitato' });
       }
@@ -479,7 +479,7 @@ module.exports = (pool, io) => {
   router.post('/agent/register', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       await ensureTables();
-      
+
       const { azienda_id, agent_name, network_ranges, scan_interval_minutes } = req.body;
 
       if (!azienda_id) {
@@ -515,7 +515,7 @@ module.exports = (pool, io) => {
   router.get('/agent/config', async (req, res) => {
     try {
       const apiKey = req.query.api_key || req.headers['x-api-key'];
-      
+
       if (!apiKey) {
         return res.status(400).json({ error: 'API Key richiesta' });
       }
@@ -536,7 +536,7 @@ module.exports = (pool, io) => {
           if (serviceContent.charCodeAt(0) === 0xFEFF) {
             serviceContent = serviceContent.slice(1);
           }
-          
+
           // Cerca versione con pattern multipli
           const versionPatterns = [
             /\$SCRIPT_VERSION\s*=\s*["']([\d\.]+)["']/,
@@ -545,7 +545,7 @@ module.exports = (pool, io) => {
             /Versione[:\s]+([\d\.]+)/i,
             /Version[:\s]+([\d\.]+)/i
           ];
-          
+
           for (const pattern of versionPatterns) {
             const versionMatch = serviceContent.match(pattern);
             if (versionMatch && versionMatch[1]) {
@@ -559,7 +559,7 @@ module.exports = (pool, io) => {
         console.warn('⚠️ Impossibile leggere versione pacchetto agent:', versionErr.message);
         console.warn(`⚠️ Uso versione fallback: ${CURRENT_AGENT_VERSION}`);
       }
-      
+
       const result = await pool.query(
         `SELECT id, agent_name, network_ranges, scan_interval_minutes, enabled 
          FROM network_agents 
@@ -572,7 +572,7 @@ module.exports = (pool, io) => {
       }
 
       const agent = result.rows[0];
-      
+
       if (!agent.enabled) {
         return res.status(403).json({ error: 'Agent disabilitato' });
       }
@@ -608,8 +608,8 @@ module.exports = (pool, io) => {
 
       if (agentCheck.rows.length === 0) {
         // Agent non esiste più -> comando disinstallazione
-        return res.json({ 
-          success: false, 
+        return res.json({
+          success: false,
           uninstall: true,
           message: 'Agent non trovato nel database'
         });
@@ -623,8 +623,8 @@ module.exports = (pool, io) => {
       // Se l'agent è eliminato (soft delete) -> comando disinstallazione
       if (agentDeletedAt) {
         console.log(`🗑️ Agent ${agentId} eliminato - comando disinstallazione`);
-        return res.json({ 
-          success: false, 
+        return res.json({
+          success: false,
           uninstall: true,
           message: 'Agent eliminato dal server'
         });
@@ -633,8 +633,8 @@ module.exports = (pool, io) => {
       // Se l'agent è disabilitato ma non eliminato -> rifiuta heartbeat (non aggiorna, non disinstalla)
       if (!agentEnabled) {
         console.log(`🔴 Agent ${agentId} disabilitato - rifiuto heartbeat (non disinstallo)`);
-        return res.status(403).json({ 
-          success: false, 
+        return res.status(403).json({
+          success: false,
           uninstall: false,
           error: 'Agent disabilitato',
           message: 'L\'agent è disabilitato ma non disinstallato. I dati non verranno accettati.'
@@ -669,7 +669,7 @@ module.exports = (pool, io) => {
          WHERE id = $2`,
         [version, agentId]
       );
-      
+
       // Log per debug
       if (wasOfflineByStatus) {
         console.log(`🟢 Agent ${agentId} (${req.agent.agent_name || 'N/A'}) tornato online (era offline nel database)`);
@@ -677,12 +677,12 @@ module.exports = (pool, io) => {
         console.log(`🟢 Agent ${agentId} (${req.agent.agent_name || 'N/A'}) tornato online (ultimo heartbeat > 10 min fa)`);
       } else {
         // Log ogni heartbeat per debug (anche se già online)
-        const minutesSinceLastHeartbeat = lastHeartbeat 
+        const minutesSinceLastHeartbeat = lastHeartbeat
           ? Math.floor((Date.now() - new Date(lastHeartbeat).getTime()) / 60000)
           : 'N/A';
         console.log(`💓 Heartbeat ricevuto da agent ${agentId} (${req.agent.agent_name || 'N/A'}) - ultimo: ${minutesSinceLastHeartbeat} min fa`);
       }
-      
+
       // Emetti evento WebSocket per aggiornare la lista agenti in tempo reale
       if (io && wasOffline) {
         io.to(`role:tecnico`).to(`role:admin`).emit('network-monitoring-update', {
@@ -699,7 +699,7 @@ module.exports = (pool, io) => {
             'SELECT na.agent_name, na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
             [agentId]
           );
-          
+
           if (agentInfo.rows.length > 0) {
             await sendTelegramNotification(
               agentId,
@@ -750,7 +750,7 @@ module.exports = (pool, io) => {
                 detected_at: new Date().toISOString()
               })]
             );
-            
+
             // Emetti evento WebSocket
             if (io) {
               io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
@@ -776,7 +776,7 @@ module.exports = (pool, io) => {
 
           // Crea evento "tornato online"
           const offlineDuration = lastHeartbeat ? Math.floor((Date.now() - new Date(lastHeartbeat).getTime()) / 60000) : 0;
-          
+
           // Verifica se esiste già un evento online recente (ultimi 2 minuti)
           const existingOnline = await pool.query(
             `SELECT id FROM network_agent_events 
@@ -797,7 +797,7 @@ module.exports = (pool, io) => {
                 detected_at: new Date().toISOString()
               })]
             );
-            
+
             // Emetti evento WebSocket
             if (io) {
               io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
@@ -832,7 +832,7 @@ module.exports = (pool, io) => {
                 resolved_at: new Date().toISOString()
               })]
             );
-            
+
             // Emetti evento WebSocket
             if (io) {
               io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
@@ -930,7 +930,7 @@ module.exports = (pool, io) => {
     }
 
     const schedule = device.monitoring_schedule;
-    
+
     // MODALITÀ CONTINUA (schedule NULL o disabled)
     if (!schedule || !schedule.enabled) {
       return true; // Notifica sempre per ogni evento
@@ -992,7 +992,7 @@ module.exports = (pool, io) => {
         bot_token: config.bot_token ? `${config.bot_token.substring(0, 10)}...` : 'N/A',
         chat_id: config.chat_id || 'N/A'
       });
-      
+
       // Verifica se questo tipo di notifica è abilitato
       let shouldNotify = false;
       let message = '';
@@ -1048,7 +1048,7 @@ module.exports = (pool, io) => {
       // Invia messaggio
       console.log(`📤 Invio notifica Telegram (${messageType}) per agent ${agentId}, azienda ${aziendaId}`);
       const result = await telegramService.sendMessage(message);
-      
+
       if (result && result.success) {
         console.log(`✅ Notifica Telegram inviata con successo (${messageType})`);
         return true;
@@ -1079,18 +1079,18 @@ module.exports = (pool, io) => {
       // Aggiorna/inserisci dispositivi
       const deviceResults = [];
       const receivedIPs = new Set(); // Traccia gli IP ricevuti in questa scansione
-      
+
       for (let i = 0; i < devices.length; i++) {
         const device = devices[i];
         let { ip_address, mac_address, hostname, vendor, status, has_ping_failures, ping_responsive } = device;
         // device_type non viene più inviato dall'agent, sarà gestito manualmente
         // ping_responsive (nuovo): true se risponde al ping, false se presente solo via ARP
-        
+
         // Normalizza hostname: potrebbe essere stringa, array, o oggetto JSON
         if (hostname) {
           if (typeof hostname === 'string') {
             hostname = hostname.trim();
-            
+
             // Se sembra un array JSON come stringa (es: {"Android_RPRTJQAR.local", "Android_RPRTJQAR.local", ...})
             // Prova a estrarre il primo valore valido
             if (hostname.startsWith('{') || hostname.includes('", "')) {
@@ -1121,7 +1121,7 @@ module.exports = (pool, io) => {
               .filter(h => h && typeof h === 'string' && h.trim() !== '')
               .map(h => h.trim().replace(/[{}"]/g, ''))
               .filter(h => h !== '' && !h.startsWith('_') && !h.includes('._tcp.local')); // Filtra nomi tecnici
-            
+
             hostname = validHostnames.length > 0 ? validHostnames[0] : null;
           } else if (typeof hostname === 'object') {
             // Se è un oggetto, prova a convertirlo in stringa o prendi il primo valore
@@ -1132,7 +1132,7 @@ module.exports = (pool, io) => {
               hostname = String(hostname).replace(/[{}"]/g, '').trim();
             }
           }
-          
+
           // Rimuovi prefissi tecnici comuni (es: "I013Q1b8n14AAA._FC9F5ED42C8A._tcp.local")
           if (hostname && (hostname.includes('._tcp.local') || hostname.startsWith('_'))) {
             // Se contiene solo nomi tecnici, prova a trovare un nome più leggibile
@@ -1148,18 +1148,18 @@ module.exports = (pool, io) => {
               }
             }
           }
-          
+
           // Tronca hostname troppo lungo (max 100 caratteri per evitare problemi di impaginazione)
           if (hostname && hostname.length > 100) {
             hostname = hostname.substring(0, 97) + '...';
           }
-          
+
           // Rimuovi stringhe vuote o invalide
           if (hostname === '' || hostname === 'null' || hostname === 'undefined' || hostname === '-') {
             hostname = null;
           }
         }
-        
+
         // Normalizza ip_address: potrebbe essere stringa, array, o oggetto JSON
         if (ip_address) {
           if (typeof ip_address === 'string') {
@@ -1182,7 +1182,7 @@ module.exports = (pool, io) => {
             }
           }
         }
-        
+
         if (!ip_address || ip_address === '') {
           console.warn(`⚠️ Dispositivo ${i + 1}/${devices.length} senza IP valido, saltato:`, JSON.stringify(device));
           continue;
@@ -1198,7 +1198,7 @@ module.exports = (pool, io) => {
 
         // Cerca dispositivo esistente (per IP+MAC o solo IP se MAC non disponibile)
         let existingDevice;
-        
+
         // Normalizza mac_address: potrebbe essere stringa, array, o altro
         let macAddressStr = null;
         if (mac_address) {
@@ -1216,14 +1216,14 @@ module.exports = (pool, io) => {
             macAddressStr = null;
           }
         }
-        
+
         // Normalizza anche l'IP per la ricerca (rimuovi caratteri JSON se presenti)
         const normalizedIpForSearch = ip_address.replace(/[{}"]/g, '').trim();
-        
+
         // Cerca dispositivo esistente: sempre per IP, opzionalmente anche per MAC se disponibile
         let existingQuery;
         let existingParams;
-        
+
         // Normalizza MAC address PRIMA della query per confronti corretti
         let normalizedMacForSearch = null;
         if (macAddressStr && macAddressStr !== '') {
@@ -1247,17 +1247,17 @@ module.exports = (pool, io) => {
         // SEMPLIFICAZIONE: Cerca PRIMA per IP (più affidabile per matching immediato)
         // Se non trova per IP, cerca per MAC (per gestire cambi di IP)
         // Questo evita confusione e duplicati
-        
+
         // 1. Cerca PRIMA per IP (priorità massima - l'agent ha trovato questo IP ora)
         existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac, accepted_ip, accepted_mac, has_ping_failures
                          FROM network_devices 
                          WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2
                          LIMIT 1`;
         existingParams = [agentId, normalizedIpForSearch];
-        
+
         let existingResult = await pool.query(existingQuery, existingParams);
         existingDevice = existingResult.rows[0];
-        
+
         // 2. Se non trovato per IP E abbiamo MAC, cerca per MAC (per gestire cambi di IP)
         if (!existingDevice && normalizedMacForSearch && normalizedMacForSearch !== '') {
           existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac, accepted_ip, accepted_mac, has_ping_failures
@@ -1267,7 +1267,7 @@ module.exports = (pool, io) => {
           existingParams = [agentId, normalizedMacForSearch];
           existingResult = await pool.query(existingQuery, existingParams);
           existingDevice = existingResult.rows[0];
-          
+
           if (existingDevice) {
             console.log(`  🔄 Dispositivo trovato per MAC ${normalizedMacForSearch}, ma IP cambiato: ${existingDevice.ip_address} -> ${ip_address}`);
           }
@@ -1320,7 +1320,7 @@ module.exports = (pool, io) => {
               // Aggiorna anche l'IP
               updates.push(`ip_address = $${paramIndex++}`);
               values.push(normalizedCurrentIp);
-              
+
               // Invia notifica Telegram (controlla modalità continua vs schedulata)
               if (shouldNotifyForEvent(existingDevice, 'ip_changed')) {
                 try {
@@ -1328,7 +1328,7 @@ module.exports = (pool, io) => {
                     'SELECT na.agent_name, na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
                     [agentId]
                   );
-                  
+
                   if (agentInfo.rows.length > 0) {
                     await sendTelegramNotification(
                       agentId,
@@ -1356,7 +1356,7 @@ module.exports = (pool, io) => {
           // IMPORTANTE: Normalizza anche il MAC esistente per confronto corretto (ignora differenze formato : vs -)
           const existingMacNormalized = existingDevice.mac_address ? existingDevice.mac_address.toUpperCase().replace(/[:-]/g, '-') : null;
           const newMacNormalized = normalizedMac ? normalizedMac.toUpperCase().replace(/[:-]/g, '-') : null;
-          
+
           if (normalizedMac && newMacNormalized !== existingMacNormalized) {
             // Se il dispositivo è statico e il MAC cambia, controlla se è quello accettato
             if (existingDevice.is_static && existingDevice.mac_address) {
@@ -1374,7 +1374,7 @@ module.exports = (pool, io) => {
                 values.push(existingDevice.mac_address);
                 updates.push(`mac_address = $${paramIndex++}`);
                 values.push(normalizedMac);
-                
+
                 // Invia notifica Telegram (controlla modalità continua vs schedulata)
                 if (shouldNotifyForEvent(existingDevice, 'mac_changed')) {
                   try {
@@ -1382,7 +1382,7 @@ module.exports = (pool, io) => {
                       'SELECT na.agent_name, na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
                       [agentId]
                     );
-                    
+
                     if (agentInfo.rows.length > 0) {
                       await sendTelegramNotification(
                         agentId,
@@ -1419,19 +1419,19 @@ module.exports = (pool, io) => {
             // MAC è lo stesso (anche se formato diverso), non serve aggiornare
             console.log(`  ℹ️ MAC per ${ip_address} già corretto: ${normalizedMac} (formato normalizzato: ${newMacNormalized})`);
           }
-          
+
           // Aggiorna has_ping_failures se presente nei dati
           if (has_ping_failures !== undefined && has_ping_failures !== existingDevice.has_ping_failures) {
             updates.push(`has_ping_failures = $${paramIndex++}`);
             values.push(has_ping_failures === true);
           }
-          
+
           // Aggiorna ping_responsive se presente nei dati (nuovo: Trust ARP)
           if (ping_responsive !== undefined && ping_responsive !== existingDevice.ping_responsive) {
             updates.push(`ping_responsive = $${paramIndex++}`);
             values.push(ping_responsive === true);
           }
-          
+
           // Usa hostname già normalizzato (troncato a max 100 caratteri)
           if (hostname && hostname !== existingDevice.hostname) {
             updates.push(`hostname = $${paramIndex++}`);
@@ -1446,27 +1446,27 @@ module.exports = (pool, io) => {
           // IMPORTANTE: Cerca sempre in KeePass se il MAC è disponibile, anche se device_type esiste già
           if (normalizedMac && process.env.KEEPASS_PASSWORD) {
             try {
-            const keepassResult = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
-            if (keepassResult) {
-              // Estrai solo l'ultimo elemento del percorso (es: "gestione > logikaservice.it > Pippo2" -> "Pippo2")
-              const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
-              // Aggiorna sempre il device_type e device_path con i valori da KeePass (sovrascrive quelli esistenti)
-              console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${keepassResult.title}", device_path: "${lastPathElement}"`);
-              updates.push(`device_type = $${paramIndex++}`);
-              values.push(keepassResult.title);
-              updates.push(`device_path = $${paramIndex++}`);
-              values.push(lastPathElement);
-            } else {
-              // MAC non trovato in KeePass: resetta i valori se erano presenti
-              // Questo gestisce il caso in cui un MAC è stato rimosso da KeePass
-              if (existingDevice.device_type !== null || existingDevice.device_path !== null) {
-                console.log(`  🔍 MAC ${normalizedMac} NON trovato in KeePass -> Reset device_type e device_path`);
+              const keepassResult = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
+              if (keepassResult) {
+                // Estrai solo l'ultimo elemento del percorso (es: "gestione > logikaservice.it > Pippo2" -> "Pippo2")
+                const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
+                // Aggiorna sempre il device_type e device_path con i valori da KeePass (sovrascrive quelli esistenti)
+                console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${keepassResult.title}", device_path: "${lastPathElement}"`);
                 updates.push(`device_type = $${paramIndex++}`);
-                values.push(null);
+                values.push(keepassResult.title);
                 updates.push(`device_path = $${paramIndex++}`);
-                values.push(null);
+                values.push(lastPathElement);
+              } else {
+                // MAC non trovato in KeePass: resetta i valori se erano presenti
+                // Questo gestisce il caso in cui un MAC è stato rimosso da KeePass
+                if (existingDevice.device_type !== null || existingDevice.device_path !== null) {
+                  console.log(`  🔍 MAC ${normalizedMac} NON trovato in KeePass -> Reset device_type e device_path`);
+                  updates.push(`device_type = $${paramIndex++}`);
+                  values.push(null);
+                  updates.push(`device_path = $${paramIndex++}`);
+                  values.push(null);
+                }
               }
-            }
             } catch (keepassErr) {
               // Non bloccare il processo se c'è un errore con KeePass
               console.warn(`  ⚠️ Errore ricerca MAC ${normalizedMac} in KeePass:`, keepassErr.message);
@@ -1587,7 +1587,7 @@ module.exports = (pool, io) => {
         receivedIPs.forEach(ip => {
           normalizedReceivedIPs.add(ip.replace(/[{}"]/g, '').trim());
         });
-        
+
         const devicesToMarkOffline = allAgentDevices.rows.filter(device => {
           const normalizedDeviceIp = (device.ip_address || '').replace(/[{}"]/g, '').trim();
           return !normalizedReceivedIPs.has(normalizedDeviceIp) && device.status === 'online';
@@ -1595,14 +1595,14 @@ module.exports = (pool, io) => {
 
         if (devicesToMarkOffline.length > 0) {
           console.log(`  ⚠️ Marcatura ${devicesToMarkOffline.length} dispositivi come offline (non trovati nella scansione)`);
-          
+
           for (const device of devicesToMarkOffline) {
             await pool.query(
               'UPDATE network_devices SET status = $1 WHERE id = $2',
               ['offline', device.id]
             );
             console.log(`    📴 Dispositivo ${device.ip_address} marcato come offline`);
-            
+
             // Invia notifica Telegram (controlla modalità continua vs schedulata)
             if (shouldNotifyForEvent(device, 'status_changed')) {
               try {
@@ -1610,7 +1610,7 @@ module.exports = (pool, io) => {
                   'SELECT na.agent_name, na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
                   [agentId]
                 );
-                
+
                 if (agentInfo.rows.length > 0) {
                   await sendTelegramNotification(
                     agentId,
@@ -1634,23 +1634,23 @@ module.exports = (pool, io) => {
             }
           }
         }
-        
+
         // Rileva dispositivi tornati online (erano offline e ora sono nella scansione)
         const devicesToMarkOnline = allAgentDevices.rows.filter(device => {
           const normalizedDeviceIp = (device.ip_address || '').replace(/[{}"]/g, '').trim();
           return normalizedReceivedIPs.has(normalizedDeviceIp) && device.status === 'offline';
         });
-        
+
         if (devicesToMarkOnline.length > 0) {
           console.log(`  🟢 Marcatura ${devicesToMarkOnline.length} dispositivi come online (tornati online)`);
-          
+
           for (const device of devicesToMarkOnline) {
             await pool.query(
               'UPDATE network_devices SET status = $1, last_seen = NOW() WHERE id = $2',
               ['online', device.id]
             );
             console.log(`    ✅ Dispositivo ${device.ip_address} marcato come online`);
-            
+
             // Invia notifica Telegram (controlla modalità continua vs schedulata)
             if (shouldNotifyForEvent(device, 'status_changed')) {
               try {
@@ -1658,7 +1658,7 @@ module.exports = (pool, io) => {
                   'SELECT na.agent_name, na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
                   [agentId]
                 );
-                
+
                 if (agentInfo.rows.length > 0) {
                   await sendTelegramNotification(
                     agentId,
@@ -1692,7 +1692,7 @@ module.exports = (pool, io) => {
       if (changes && Array.isArray(changes)) {
         for (const change of changes) {
           const { device_ip, change_type, old_value, new_value } = change;
-          
+
           // Trova device_id dal IP
           const deviceResult = await pool.query(
             'SELECT id FROM network_devices WHERE agent_id = $1 AND ip_address = $2',
@@ -1701,7 +1701,7 @@ module.exports = (pool, io) => {
 
           if (deviceResult.rows.length > 0) {
             const deviceId = deviceResult.rows[0].id;
-            
+
             // Aggiorna status del dispositivo se il cambiamento è device_offline o device_online
             if (change_type === 'device_offline') {
               await pool.query(
@@ -1714,21 +1714,21 @@ module.exports = (pool, io) => {
                 ['online', deviceId]
               );
             }
-            
+
             // Verifica se è un dispositivo con notifiche Telegram attive
             try {
               const deviceCheck = await pool.query(
                 'SELECT notify_telegram, hostname, ip_address, mac_address, status, device_type FROM network_devices WHERE id = $1',
                 [deviceId]
               );
-              
+
               if (deviceCheck.rows.length > 0 && deviceCheck.rows[0].notify_telegram) {
                 const device = deviceCheck.rows[0];
                 const agentInfo = await pool.query(
                   'SELECT na.agent_name, na.azienda_id, u.username as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
                   [agentId]
                 );
-                
+
                 if (agentInfo.rows.length > 0) {
                   await sendTelegramNotification(
                     agentId,
@@ -1750,7 +1750,7 @@ module.exports = (pool, io) => {
             } catch (telegramErr) {
               console.error('❌ Errore invio notifica Telegram per cambio status:', telegramErr);
             }
-            
+
             // Verifica se questo IP è configurato per notifiche
             const notificationConfig = await pool.query(
               'SELECT enabled FROM network_notification_config WHERE agent_id = $1 AND ip_address = $2',
@@ -1789,8 +1789,8 @@ module.exports = (pool, io) => {
       }
 
       console.log(`✅ Scan results processati: ${deviceResults.length} dispositivi, ${changeResults.length} cambiamenti`);
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         devices_processed: deviceResults.length,
         changes_processed: changeResults.length
       });
@@ -1811,7 +1811,7 @@ module.exports = (pool, io) => {
   router.get('/clients/:aziendaId/devices', async (req, res) => {
     try {
       await ensureTables();
-      
+
       // Assicurati che le colonne is_static, device_path, previous_ip, previous_mac, device_username esistano (migrazione)
       try {
         await pool.query(`
@@ -1848,7 +1848,7 @@ module.exports = (pool, io) => {
           console.warn('⚠️ Avviso aggiunta colonne in clients/:aziendaId/devices:', migrationErr.message);
         }
       }
-      
+
       // Migrazione: pulisci IP nel formato JSON errato e rimuovi duplicati
       try {
         // 1. Pulisci IP nel formato errato {"192.168.100.2"} -> 192.168.100.2
@@ -1857,7 +1857,7 @@ module.exports = (pool, io) => {
           SET ip_address = REGEXP_REPLACE(ip_address, '[{}"]', '', 'g')
           WHERE ip_address ~ '[{}"]';
         `);
-        
+
         // 2. Rimuovi duplicati: mantieni il dispositivo più recente o quello con più dati
         await pool.query(`
           DELETE FROM network_devices nd1
@@ -1874,7 +1874,7 @@ module.exports = (pool, io) => {
               )
           );
         `);
-        
+
         // 3. Rimuovi eventuali duplicati rimanenti mantenendo solo quello con ID maggiore
         await pool.query(`
           DELETE FROM network_devices nd1
@@ -1888,12 +1888,12 @@ module.exports = (pool, io) => {
       } catch (migrationErr) {
         console.warn('⚠️ Avviso pulizia IP duplicati:', migrationErr.message);
       }
-      
+
       const aziendaIdParam = req.params.aziendaId;
       console.log('🔍 Route /clients/:aziendaId/devices - aziendaIdParam:', aziendaIdParam, 'type:', typeof aziendaIdParam);
       const aziendaId = parseInt(aziendaIdParam, 10);
       console.log('🔍 Route /clients/:aziendaId/devices - aziendaId parsed:', aziendaId, 'type:', typeof aziendaId, 'isNaN:', isNaN(aziendaId));
-      
+
       if (isNaN(aziendaId) || aziendaId <= 0) {
         console.error('❌ ID azienda non valido:', aziendaIdParam, 'parsed:', aziendaId);
         return res.status(400).json({ error: 'ID azienda non valido' });
@@ -1941,7 +1941,7 @@ module.exports = (pool, io) => {
           console.warn('⚠️ Errore caricamento mappa KeePass:', keepassErr.message);
         }
       }
-      
+
       // Processa i dispositivi in modo sincrono (veloce, senza chiamate async per ogni dispositivo)
       const processedRows = result.rows.map((row) => {
         // Post-processa hostname se necessario
@@ -1960,7 +1960,7 @@ module.exports = (pool, io) => {
             // Normalizza il MAC per la ricerca
             const normalizedMac = row.mac_address.replace(/[:-]/g, '').toUpperCase();
             const keepassResult = keepassMap.get(normalizedMac);
-            
+
             if (keepassResult) {
               // Estrai solo l'ultimo elemento del percorso
               const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
@@ -1990,7 +1990,7 @@ module.exports = (pool, io) => {
   router.get('/clients/:aziendaId/changes', async (req, res) => {
     try {
       await ensureTables();
-      
+
       const { aziendaId } = req.params;
       const limit = parseInt(req.query.limit) || 100;
 
@@ -2032,7 +2032,7 @@ module.exports = (pool, io) => {
   router.get('/clients/:aziendaId/status', async (req, res) => {
     try {
       await ensureTables();
-      
+
       const { aziendaId } = req.params;
 
       const result = await pool.query(
@@ -2057,7 +2057,7 @@ module.exports = (pool, io) => {
   router.get('/all/devices', async (req, res) => {
     try {
       await ensureTables();
-      
+
       // Assicurati che le colonne device_path, is_static, previous_ip, previous_mac esistano (migrazione)
       try {
         await pool.query(`
@@ -2098,7 +2098,7 @@ module.exports = (pool, io) => {
           console.warn('⚠️ Avviso aggiunta colonne in all/devices:', migrationErr.message);
         }
       }
-      
+
       const result = await pool.query(
         `SELECT 
           nd.id, nd.ip_address, nd.mac_address, 
@@ -2137,7 +2137,7 @@ module.exports = (pool, io) => {
           console.warn('⚠️ Errore caricamento mappa KeePass:', keepassErr.message);
         }
       }
-      
+
       // Processa i dispositivi in modo sincrono (veloce, senza chiamate async per ogni dispositivo)
       const processedRows = result.rows.map((row) => {
         // Post-processa hostname se necessario
@@ -2156,7 +2156,7 @@ module.exports = (pool, io) => {
             // Normalizza il MAC per la ricerca
             const normalizedMac = row.mac_address.replace(/[:-]/g, '').toUpperCase();
             const keepassResult = keepassMap.get(normalizedMac);
-            
+
             if (keepassResult) {
               // Estrai solo l'ultimo elemento del percorso
               const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
@@ -2186,7 +2186,7 @@ module.exports = (pool, io) => {
   router.get('/all/changes', async (req, res) => {
     try {
       await ensureTables();
-      
+
       const limit = parseInt(req.query.limit) || 200;
       const searchTerm = req.query.search ? req.query.search.trim() : '';
       const aziendaId = req.query.azienda_id ? parseInt(req.query.azienda_id) : null;
@@ -2208,13 +2208,13 @@ module.exports = (pool, io) => {
       let searchConditions = '';
       let queryParams = [];
       let paramIndex = 1;
-      
+
       if (searchTerm) {
         const searchPattern = `%${searchTerm}%`;
         // Normalizza il MAC per la ricerca (rimuove separatori)
         const normalizedMacSearch = searchTerm.replace(/[:-]/g, '').toUpperCase();
         const macSearchPattern = normalizedMacSearch.length >= 6 ? `%${normalizedMacSearch}%` : null;
-        
+
         // Se il termine di ricerca sembra un MAC (almeno 6 caratteri esadecimali), cerca anche nel MAC normalizzato
         if (macSearchPattern) {
           searchConditions = `WHERE (
@@ -2245,7 +2245,7 @@ module.exports = (pool, io) => {
           queryParams.push(searchPattern);
         }
       }
-      
+
       // Aggiungi filtro per azienda se specificato
       if (aziendaId) {
         if (searchConditions) {
@@ -2258,37 +2258,37 @@ module.exports = (pool, io) => {
           queryParams.push(aziendaId);
         }
       }
-    
-    // Se richiesto, conta i cambiamenti delle ultime 24 ore
-    // IMPORTANTE: Esegui questa query PRIMA della query principale per evitare timeout
-    let count24h = null;
-    if (req.query.count24h === 'true') {
-      try {
-        // Costruisci la condizione per le ultime 24 ore (non da mezzanotte!)
-        // Usa NOW() - INTERVAL '24 hours' per calcolare esattamente le ultime 24 ore
-        // Riutilizza searchConditions che già include il filtro azienda se presente
-        let count24hCondition = '';
-        let countParams = [];
-        
-        if (searchConditions) {
-          // Se c'è già una condizione WHERE (con ricerca e/o filtro azienda), aggiungi AND per le ultime 24 ore
-          count24hCondition = searchConditions + ` AND nc.detected_at >= NOW() - INTERVAL '24 hours'`;
-          countParams = [...queryParams];
-        } else {
-          // Altrimenti crea una nuova condizione WHERE per le ultime 24 ore
-          // Se c'è un filtro azienda, aggiungilo anche qui
-          const conditions = [];
-          if (aziendaId) {
-            conditions.push(`na.azienda_id = $1`);
-            countParams.push(aziendaId);
+
+      // Se richiesto, conta i cambiamenti delle ultime 24 ore
+      // IMPORTANTE: Esegui questa query PRIMA della query principale per evitare timeout
+      let count24h = null;
+      if (req.query.count24h === 'true') {
+        try {
+          // Costruisci la condizione per le ultime 24 ore (non da mezzanotte!)
+          // Usa NOW() - INTERVAL '24 hours' per calcolare esattamente le ultime 24 ore
+          // Riutilizza searchConditions che già include il filtro azienda se presente
+          let count24hCondition = '';
+          let countParams = [];
+
+          if (searchConditions) {
+            // Se c'è già una condizione WHERE (con ricerca e/o filtro azienda), aggiungi AND per le ultime 24 ore
+            count24hCondition = searchConditions + ` AND nc.detected_at >= NOW() - INTERVAL '24 hours'`;
+            countParams = [...queryParams];
+          } else {
+            // Altrimenti crea una nuova condizione WHERE per le ultime 24 ore
+            // Se c'è un filtro azienda, aggiungilo anche qui
+            const conditions = [];
+            if (aziendaId) {
+              conditions.push(`na.azienda_id = $1`);
+              countParams.push(aziendaId);
+            }
+            conditions.push(`nc.detected_at >= NOW() - INTERVAL '24 hours'`);
+            count24hCondition = `WHERE ${conditions.join(' AND ')}`;
           }
-          conditions.push(`nc.detected_at >= NOW() - INTERVAL '24 hours'`);
-          count24hCondition = `WHERE ${conditions.join(' AND ')}`;
-        }
-        
-        // Query semplificata e veloce con COUNT DISTINCT per evitare duplicati
-        // Conta solo cambiamenti unici basati su id, device_id, change_type e detected_at
-        const countQuery = `
+
+          // Query semplificata e veloce con COUNT DISTINCT per evitare duplicati
+          // Conta solo cambiamenti unici basati su id, device_id, change_type e detected_at
+          const countQuery = `
           SELECT COUNT(DISTINCT nc.id) as count
           FROM network_changes nc
           INNER JOIN network_devices nd ON nc.device_id = nd.id
@@ -2296,23 +2296,23 @@ module.exports = (pool, io) => {
           LEFT JOIN users u ON na.azienda_id = u.id
           ${count24hCondition}
         `;
-        
-        // Timeout di 5 secondi per evitare 502
-        const countPromise = pool.query(countQuery, countParams);
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Query timeout dopo 5 secondi')), 5000)
-        );
-        
-        const countResult = await Promise.race([countPromise, timeoutPromise]);
-        count24h = parseInt(countResult.rows[0].count, 10);
-        
-        console.log(`📊 Conteggio cambiamenti ultime 24h: ${count24h} (query eseguita alle ${new Date().toISOString()})`);
-      } catch (countErr) {
-        console.warn('⚠️ Errore conteggio 24h (non critico):', countErr.message);
-        // Non bloccare la risposta principale se il conteggio fallisce
-        count24h = null;
+
+          // Timeout di 5 secondi per evitare 502
+          const countPromise = pool.query(countQuery, countParams);
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Query timeout dopo 5 secondi')), 5000)
+          );
+
+          const countResult = await Promise.race([countPromise, timeoutPromise]);
+          count24h = parseInt(countResult.rows[0].count, 10);
+
+          console.log(`📊 Conteggio cambiamenti ultime 24h: ${count24h} (query eseguita alle ${new Date().toISOString()})`);
+        } catch (countErr) {
+          console.warn('⚠️ Errore conteggio 24h (non critico):', countErr.message);
+          // Non bloccare la risposta principale se il conteggio fallisce
+          count24h = null;
+        }
       }
-    }
 
       const result = await pool.query(
         `SELECT 
@@ -2369,7 +2369,7 @@ module.exports = (pool, io) => {
          GROUP BY u.azienda
          ORDER BY u.azienda ASC`
       );
-      
+
       // Per ogni azienda, conta gli agent associati (solo quelli non cancellati)
       // Filtra solo le aziende che hanno almeno un agent
       const companiesWithAgents = await Promise.all(
@@ -2389,10 +2389,10 @@ module.exports = (pool, io) => {
           };
         })
       );
-      
+
       // Filtra solo le aziende che hanno almeno un agent
       const companiesWithAgentsFiltered = companiesWithAgents.filter(company => company.agents_count > 0);
-      
+
       res.json(companiesWithAgentsFiltered);
     } catch (err) {
       console.error('❌ Errore recupero aziende:', err);
@@ -2405,7 +2405,7 @@ module.exports = (pool, io) => {
   router.get('/agents', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       await ensureTables();
-      
+
       const result = await pool.query(
         `SELECT 
           na.id, na.agent_name, 
@@ -2436,13 +2436,13 @@ module.exports = (pool, io) => {
   router.get('/agent/:id/config', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       const agentId = parseInt(req.params.id);
-      
+
       if (!agentId) {
         return res.status(400).json({ error: 'ID agent richiesto' });
       }
 
       await ensureTables();
-      
+
       const result = await pool.query(
         `SELECT 
           na.id, na.agent_name, na.api_key, na.network_ranges, 
@@ -2457,7 +2457,7 @@ module.exports = (pool, io) => {
       }
 
       const agent = result.rows[0];
-      
+
       // Restituisci configurazione per download
       res.json({
         agent_id: agent.id,
@@ -2478,13 +2478,13 @@ module.exports = (pool, io) => {
   router.get('/agent/:id/download', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       const agentId = parseInt(req.params.id);
-      
+
       if (!agentId) {
         return res.status(400).json({ error: 'ID agent richiesto' });
       }
 
       await ensureTables();
-      
+
       const result = await pool.query(
         `SELECT 
           na.id, na.agent_name, na.api_key, na.network_ranges, 
@@ -2499,7 +2499,7 @@ module.exports = (pool, io) => {
       }
 
       const agent = result.rows[0];
-      
+
       // Path dei file agent (relativo alla root del progetto)
       // __dirname è backend/routes, quindi risaliamo di 2 livelli per arrivare alla root
       const projectRoot = path.resolve(__dirname, '..', '..');
@@ -2550,7 +2550,7 @@ module.exports = (pool, io) => {
         console.log(`🔍 Tentativo path: ${pathSet.label}`);
         console.log(`   NetworkMonitor: ${pathSet.network} (exists: ${fs.existsSync(pathSet.network)})`);
         console.log(`   InstallerCompleto: ${pathSet.installer} (exists: ${fs.existsSync(pathSet.installer)})`);
-        
+
         if (fs.existsSync(pathSet.network) && fs.existsSync(pathSet.installer)) {
           try {
             console.log(`✅ File trovati usando: ${pathSet.label}`);
@@ -2588,7 +2588,7 @@ module.exports = (pool, io) => {
           if (serviceContent.charCodeAt(0) === 0xFEFF) {
             serviceContent = serviceContent.slice(1);
           }
-          
+
           // Cerca $SCRIPT_VERSION = "X.Y.Z" con regex più robusto
           // Gestisce: spazi vari, tab, virgolette normali/tipografiche, BOM
           const versionPatterns = [
@@ -2598,7 +2598,7 @@ module.exports = (pool, io) => {
             /Versione[:\s]+([\d\.]+)/i,                    // Commento italiano
             /Version[:\s]+([\d\.]+)/i                      // Commento inglese
           ];
-          
+
           let versionFound = false;
           for (const pattern of versionPatterns) {
             const versionMatch = serviceContent.match(pattern);
@@ -2609,7 +2609,7 @@ module.exports = (pool, io) => {
               break;
             }
           }
-          
+
           if (!versionFound) {
             console.warn(`⚠️  Versione non trovata in NetworkMonitorService.ps1, uso fallback: ${CURRENT_AGENT_VERSION}`);
             // Log prime righe del file per debug
@@ -2673,16 +2673,16 @@ module.exports = (pool, io) => {
         // File principali (obbligatori)
         archive.append(JSON.stringify(configJson, null, 2), { name: 'config.json' });
         console.log('✅ Aggiunto config.json');
-        
+
         // NetworkMonitorService.ps1 (script principale servizio)
         if (fs.existsSync(servicePath)) {
           let serviceContent = fs.readFileSync(servicePath, 'utf8');
-          
+
           // Rimuovi BOM se presente
           if (serviceContent.charCodeAt(0) === 0xFEFF) {
             serviceContent = serviceContent.slice(1);
           }
-          
+
           // Verifica bilanciamento parentesi graffe (sanity check)
           const openBraces = (serviceContent.match(/{/g) || []).length;
           const closeBraces = (serviceContent.match(/}/g) || []).length;
@@ -2694,11 +2694,11 @@ module.exports = (pool, io) => {
           } else {
             console.log(`✅ Verifica sintassi: ${openBraces}/${closeBraces} parentesi graffe bilanciate`);
           }
-          
+
           archive.append(serviceContent, { name: 'NetworkMonitorService.ps1' });
           console.log('✅ Aggiunto NetworkMonitorService.ps1');
         }
-        
+
         // NetworkMonitorTrayIcon.ps1 (tray icon)
         const trayIconPath = path.join(agentDir, 'NetworkMonitorTrayIcon.ps1');
         if (fs.existsSync(trayIconPath)) {
@@ -2706,7 +2706,7 @@ module.exports = (pool, io) => {
           archive.append(trayIconContent, { name: 'NetworkMonitorTrayIcon.ps1' });
           console.log('✅ Aggiunto NetworkMonitorTrayIcon.ps1');
         }
-        
+
         // Start-TrayIcon-Hidden.vbs (launcher tray icon)
         const startTrayIconPath = path.join(agentDir, 'Start-TrayIcon-Hidden.vbs');
         if (fs.existsSync(startTrayIconPath)) {
@@ -2714,7 +2714,7 @@ module.exports = (pool, io) => {
           archive.append(startTrayIconContent, { name: 'Start-TrayIcon-Hidden.vbs' });
           console.log('✅ Aggiunto Start-TrayIcon-Hidden.vbs');
         }
-        
+
         // Installa-Agent.bat (installer unico - SOLO COMANDI NATIVI, NO POWERSHELL)
         const installAgentBatPath = path.join(agentDir, 'Installa-Agent.bat');
         if (fs.existsSync(installAgentBatPath)) {
@@ -2722,7 +2722,7 @@ module.exports = (pool, io) => {
           archive.append(installAgentBatContent, { name: 'Installa-Agent.bat' });
           console.log('✅ Aggiunto Installa-Agent.bat');
         }
-        
+
         // Installa-Agent.ps1 (backup, opzionale)
         const installAgentPath = path.join(agentDir, 'Installa-Agent.ps1');
         if (fs.existsSync(installAgentPath)) {
@@ -2730,7 +2730,7 @@ module.exports = (pool, io) => {
           archive.append(installAgentContent, { name: 'Installa-Agent.ps1' });
           console.log('✅ Aggiunto Installa-Agent.ps1 (backup)');
         }
-        
+
         // nssm.exe (CRITICO per installazione servizio Windows)
         const nssmPath = path.join(agentDir, 'nssm.exe');
         if (fs.existsSync(nssmPath)) {
@@ -2740,7 +2740,7 @@ module.exports = (pool, io) => {
         } else {
           console.warn('⚠️  nssm.exe non trovato! L\'installazione del servizio potrebbe fallire!');
         }
-        
+
         // Ripara-Agent.ps1 (script di auto-riparazione)
         const riparaAgentPath = path.join(agentDir, 'Ripara-Agent.ps1');
         if (fs.existsSync(riparaAgentPath)) {
@@ -2748,7 +2748,7 @@ module.exports = (pool, io) => {
           archive.append(riparaAgentContent, { name: 'Ripara-Agent.ps1' });
           console.log('✅ Aggiunto Ripara-Agent.ps1');
         }
-        
+
       } catch (appendErr) {
         console.error('❌ Errore aggiunta file allo ZIP:', appendErr);
         if (!res.headersSent) {
@@ -2756,8 +2756,8 @@ module.exports = (pool, io) => {
         }
       }
 
-               // Aggiungi README
-               const readmeContent = `# Network Monitor Agent - Installazione
+      // Aggiungi README
+      const readmeContent = `# Network Monitor Agent - Installazione
 
 ## ⚠️ IMPORTANTE: Directory Installazione
 
@@ -2836,7 +2836,7 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
 
       // Crea installer batch con versione nel nome - SOLO COMANDI NATIVI, NO POWERSHELL
       const installBatFileName = `Installa-Agent-v${agentVersion}.bat`;
-      
+
       // Leggi il contenuto di Installa-Agent.bat e sostituisci la versione
       let installBatContent;
       const installAgentBatPath = path.join(agentDir, 'Installa-Agent.bat');
@@ -2887,7 +2887,7 @@ pause
           archive.append(removeServiceContent, { name: 'Rimuovi-Servizio.ps1' });
           console.log('✅ Aggiunto Rimuovi-Servizio.ps1');
         }
-        
+
       } catch (serviceErr) {
         console.error('❌ Errore aggiunta file servizio allo ZIP:', serviceErr);
         // Non bloccare se i file servizio non sono disponibili (compatibilità)
@@ -2902,10 +2902,10 @@ pause
         path.join(process.cwd(), 'agent', 'nssm.exe'),
         path.join(__dirname, '..', 'agent', 'nssm.exe')
       ];
-      
+
       let nssmPath = null;
       let nssmAdded = false;
-      
+
       console.log('🔍 Verifica nssm.exe in multiple percorsi:');
       for (const testPath of possibleNssmPaths) {
         const exists = fs.existsSync(testPath);
@@ -2914,7 +2914,7 @@ pause
           nssmPath = testPath;
         }
       }
-      
+
       if (nssmPath && fs.existsSync(nssmPath)) {
         try {
           console.log(`📦 Leggo nssm.exe da: ${nssmPath}`);
@@ -2922,15 +2922,15 @@ pause
           const nssmSize = nssmContent.length;
           console.log(`   Dimensione file: ${nssmSize} bytes`);
           console.log(`   Tipo: ${Buffer.isBuffer(nssmContent) ? 'Buffer' : typeof nssmContent}`);
-          
+
           if (nssmSize === 0) {
             throw new Error('File nssm.exe è vuoto!');
           }
-          
+
           if (!Buffer.isBuffer(nssmContent)) {
             throw new Error('Contenuto nssm.exe non è un Buffer!');
           }
-          
+
           // Aggiungi come Buffer (stesso metodo degli altri file)
           archive.append(nssmContent, { name: 'nssm.exe' });
           console.log('✅✅✅ AGGIUNTO nssm.exe al ZIP (dimensione: ' + nssmSize + ' bytes) ✅✅✅');
@@ -2955,11 +2955,11 @@ pause
         console.error('   __dirname:', __dirname);
         throw new Error('nssm.exe NON TROVATO in nessun percorso! Il pacchetto ZIP non può essere generato senza questo file.');
       }
-      
+
       if (!nssmAdded) {
         throw new Error('nssm.exe NON AGGIUNTO al ZIP!');
       }
-      
+
       console.log('🔍 ===== FINE AGGIUNTA NSSM.EXE =====');
       console.log('');
 
@@ -2980,7 +2980,7 @@ pause
     try {
       await ensureTables();
       const agentId = parseInt(req.params.id);
-      
+
       if (!agentId) {
         return res.status(400).json({ error: 'ID agent richiesto' });
       }
@@ -2999,9 +2999,9 @@ pause
       }
 
       const agent = agentResult.rows[0];
-      
+
       // Calcola minuti dall'ultimo heartbeat
-      const minutesSinceLastHeartbeat = agent.last_heartbeat 
+      const minutesSinceLastHeartbeat = agent.last_heartbeat
         ? Math.floor((Date.now() - new Date(agent.last_heartbeat).getTime()) / 60000)
         : null;
 
@@ -3059,10 +3059,10 @@ pause
         },
         analysis: {
           should_be_offline: shouldBeOffline,
-          reason: shouldBeOffline 
-            ? (agent.status === 'online' && minutesSinceLastHeartbeat > 8 
-                ? `Agent online ma senza heartbeat da ${minutesSinceLastHeartbeat} minuti (soglia: 8 min)`
-                : `Agent offline ma senza evento offline non risolto`)
+          reason: shouldBeOffline
+            ? (agent.status === 'online' && minutesSinceLastHeartbeat > 8
+              ? `Agent online ma senza heartbeat da ${minutesSinceLastHeartbeat} minuti (soglia: 8 min)`
+              : `Agent offline ma senza evento offline non risolto`)
             : 'Agent dovrebbe essere online (heartbeat recente o evento offline risolto)',
           recommendation: minutesSinceLastHeartbeat === null || minutesSinceLastHeartbeat > 8
             ? `L'agent non sta inviando heartbeat. Verifica: 1) Il servizio è in esecuzione? 2) La connessione internet funziona? 3) L'API key è corretta? 4) Il server URL è raggiungibile?`
@@ -3082,13 +3082,13 @@ pause
   router.put('/agent/:id/disable', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       const agentId = parseInt(req.params.id);
-      
+
       if (!agentId) {
         return res.status(400).json({ error: 'ID agent richiesto' });
       }
 
       await ensureTables();
-      
+
       const result = await pool.query(
         `UPDATE network_agents 
          SET enabled = false, status = 'offline', updated_at = NOW()
@@ -3114,13 +3114,13 @@ pause
   router.put('/agent/:id/enable', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       const agentId = parseInt(req.params.id);
-      
+
       if (!agentId) {
         return res.status(400).json({ error: 'ID agent richiesto' });
       }
 
       await ensureTables();
-      
+
       const result = await pool.query(
         `UPDATE network_agents 
          SET enabled = true, updated_at = NOW()
@@ -3146,13 +3146,13 @@ pause
   router.put('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       const agentId = parseInt(req.params.id);
-      
+
       if (!agentId) {
         return res.status(400).json({ error: 'ID agent richiesto' });
       }
 
       await ensureTables();
-      
+
       const { agent_name, network_ranges, scan_interval_minutes } = req.body;
 
       // Costruisci query dinamica per aggiornare solo i campi forniti
@@ -3192,7 +3192,7 @@ pause
         'SELECT version FROM network_agents WHERE id = $1',
         [agentId]
       );
-      
+
       let newVersion = '1.0.1'; // Default se non esiste versione
       if (currentVersionResult.rows.length > 0 && currentVersionResult.rows[0].version) {
         const currentVersion = currentVersionResult.rows[0].version;
@@ -3205,7 +3205,7 @@ pause
           newVersion = '1.0.1';
         }
       }
-      
+
       updateFields.push(`version = $${paramIndex++}`);
       updateValues.push(newVersion);
 
@@ -3227,10 +3227,10 @@ pause
       }
 
       console.log(`✅ Agent ${agentId} aggiornato: ${updateFields.join(', ')} (versione: ${newVersion})`);
-      res.json({ 
-        success: true, 
-        agent: result.rows[0], 
-        message: `Configurazione agent aggiornata (versione: ${newVersion}). Le modifiche saranno applicate al prossimo heartbeat dell'agent.` 
+      res.json({
+        success: true,
+        agent: result.rows[0],
+        message: `Configurazione agent aggiornata (versione: ${newVersion}). Le modifiche saranno applicate al prossimo heartbeat dell'agent.`
       });
     } catch (err) {
       console.error('❌ Errore aggiornamento agent:', err);
@@ -3243,13 +3243,13 @@ pause
   router.delete('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       const agentId = parseInt(req.params.id);
-      
+
       if (!agentId) {
         return res.status(400).json({ error: 'ID agent richiesto' });
       }
 
       await ensureTables();
-      
+
       // Verifica che l'agent esista e non sia già eliminato
       const checkResult = await pool.query(
         'SELECT id, agent_name, deleted_at FROM network_agents WHERE id = $1',
@@ -3286,7 +3286,7 @@ pause
   router.patch('/devices/:id/static', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       await ensureTables();
-      
+
       // Assicurati che le colonne is_static e notify_telegram esistano (migrazione)
       try {
         await pool.query(`
@@ -3303,7 +3303,7 @@ pause
           console.warn('⚠️ Avviso aggiunta colonne in PATCH static:', migrationErr.message);
         }
       }
-      
+
       const { id } = req.params;
       const { is_static, notify_telegram, monitoring_schedule } = req.body;
 
@@ -3359,7 +3359,7 @@ pause
   router.patch('/devices/:id/reset-warnings', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       await ensureTables();
-      
+
       const { id } = req.params;
 
       // Verifica che il dispositivo esista e ottieni IP/MAC attuali
@@ -3373,7 +3373,7 @@ pause
       }
 
       const device = deviceCheck.rows[0];
-      
+
       // Salva l'IP/MAC attuale come accettato (così non verrà più mostrato il warning per questo valore)
       // Se c'era un previous_ip, accetta l'IP attuale; se c'era un previous_mac, accetta il MAC attuale
       const acceptedIp = device.previous_ip ? device.ip_address : device.accepted_ip || null;
@@ -3435,9 +3435,9 @@ pause
   router.post('/invalidate-keepass-cache', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       keepassDriveService.invalidateCache();
-      res.json({ 
-        success: true, 
-        message: 'Cache KeePass invalidata con successo. Il prossimo caricamento ricaricherà i dati da Google Drive.' 
+      res.json({
+        success: true,
+        message: 'Cache KeePass invalidata con successo. Il prossimo caricamento ricaricherà i dati da Google Drive.'
       });
     } catch (err) {
       console.error('❌ Errore invalidazione cache KeePass:', err);
@@ -3449,26 +3449,26 @@ pause
   router.post('/refresh-keepass-data', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       await ensureTables();
-      
+
       const keepassPassword = process.env.KEEPASS_PASSWORD;
       if (!keepassPassword) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: 'KEEPASS_PASSWORD non configurato',
-          updated: 0 
+          updated: 0
         });
       }
 
       console.log('🔄 Inizio aggiornamento dispositivi da KeePass...');
-      
+
       // Invalida la cache per forzare il ricaricamento
       console.log('🗑️ Invalidazione cache KeePass...');
       keepassDriveService.invalidateCache();
-      
+
       // Carica la mappa KeePass (forza il ricaricamento)
       console.log('📥 Caricamento mappa KeePass da Google Drive...');
       const keepassMap = await keepassDriveService.getMacToTitleMap(keepassPassword);
       console.log(`✅ Mappa KeePass caricata: ${keepassMap.size} MAC address disponibili`);
-      
+
       // Verifica se il MAC specifico è presente (per debug)
       const testMac = '101331CDFF6C';
       if (keepassMap.has(testMac)) {
@@ -3491,7 +3491,7 @@ pause
       );
 
       console.log(`📊 Trovati ${devicesResult.rows.length} dispositivi con MAC address da verificare`);
-      
+
       // Debug: mostra alcuni MAC dalla mappa Keepass per verifica
       if (keepassMap.size > 0) {
         const sampleMacs = Array.from(keepassMap.keys()).slice(0, 5);
@@ -3507,7 +3507,7 @@ pause
         try {
           // Normalizza il MAC per la ricerca
           const normalizedMac = device.mac_address.replace(/[:-]/g, '').toUpperCase();
-          
+
           // Debug per MAC specifico che l'utente sta cercando
           if (normalizedMac === '101331CDFF6C' || device.mac_address.toLowerCase().includes('10:13:31:cd:ff:6c')) {
             console.log(`🔍 DEBUG MAC ${device.mac_address}:`);
@@ -3517,14 +3517,14 @@ pause
             console.log(`   - device_type attuale: "${device.device_type}"`);
             console.log(`   - device_path attuale: "${device.device_path}"`);
           }
-          
+
           // Cerca nella mappa KeePass
           const keepassResult = keepassMap.get(normalizedMac);
-          
+
           if (keepassResult) {
             // Estrai solo l'ultimo elemento del percorso
             const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
-            
+
             // Debug per MAC specifico
             if (normalizedMac === '101331CDFF6C') {
               console.log(`  🔍 MAC ${device.mac_address} trovato in Keepass:`);
@@ -3534,17 +3534,17 @@ pause
               console.log(`     - device_type attuale: "${device.device_type}"`);
               console.log(`     - device_path attuale: "${device.device_path}"`);
             }
-            
+
             // Verifica se i valori sono diversi da quelli attuali
             // IMPORTANTE: considera anche il caso in cui i valori attuali sono NULL
-            const needsUpdate = 
-              (device.device_type !== keepassResult.title) || 
+            const needsUpdate =
+              (device.device_type !== keepassResult.title) ||
               (device.device_path !== lastPathElement) ||
               (device.device_username !== (keepassResult.username || null)) ||
               (device.device_type === null && keepassResult.title !== null) ||
               (device.device_path === null && lastPathElement !== null) ||
               (device.device_username === null && keepassResult.username !== null && keepassResult.username !== '');
-            
+
             if (needsUpdate) {
               // Aggiorna il dispositivo nel database
               await pool.query(
@@ -3553,7 +3553,7 @@ pause
                  WHERE id = $4`,
                 [keepassResult.title, lastPathElement, keepassResult.username || null, device.id]
               );
-              
+
               if (normalizedMac === '101331CDFF6C') {
                 console.log(`  ✅✅✅ MAC ${device.mac_address} AGGIORNATO: device_type="${keepassResult.title}", device_path="${lastPathElement}", device_username="${keepassResult.username || ''}"`);
               } else {
@@ -3572,14 +3572,14 @@ pause
               console.log(`  🔍 MAC ${device.mac_address} (normalizzato: ${normalizedMac}) NON trovato in KeePass`);
               console.log(`     Valori attuali: device_type="${device.device_type}", device_path="${device.device_path}", device_username="${device.device_username}"`);
               console.log(`     Reset in corso...`);
-              
+
               await pool.query(
                 `UPDATE network_devices 
                  SET device_type = NULL, device_path = NULL, device_username = NULL 
                  WHERE id = $1`,
                 [device.id]
               );
-              
+
               console.log(`  ✅ Dispositivo ID ${device.id} (MAC: ${device.mac_address}) - MAC non trovato in KeePass, valori resettati`);
               updatedCount++;
             } else {
@@ -3604,8 +3604,8 @@ pause
       });
     } catch (err) {
       console.error('❌ Errore aggiornamento dispositivi da KeePass:', err);
-      res.status(500).json({ 
-        error: 'Errore interno del server', 
+      res.status(500).json({
+        error: 'Errore interno del server',
         details: err.message,
         updated: 0
       });
@@ -3716,7 +3716,7 @@ pause
     try {
       await ensureTables(); // Assicura che le tabelle esistano
       const userId = req.user.id;
-      
+
       // Marca come letto tutto ciò che è "non letto" per questo utente
       const result = await pool.query(
         `UPDATE network_agent_events nae
@@ -3763,7 +3763,7 @@ pause
             AND table_name = 'network_agent_events'
           );
         `);
-        
+
         if (!tableCheck || !tableCheck.rows || !tableCheck.rows[0] || !tableCheck.rows[0].exists) {
           // Tabella non esiste, creala chiamando initTables
           console.log('⚠️ checkOfflineAgents: tabella network_agent_events non esiste, creazione...');
@@ -3787,11 +3787,11 @@ pause
          FROM network_agents
          WHERE deleted_at IS NULL`
       );
-      
+
       console.log(`🔍 checkOfflineAgents: totale agent nel database: ${allAgents.rows.length}`);
       allAgents.rows.forEach(agent => {
         const lastHeartbeatStr = agent.last_heartbeat ? new Date(agent.last_heartbeat).toISOString() : 'NULL';
-        const minutesAgo = agent.last_heartbeat 
+        const minutesAgo = agent.last_heartbeat
           ? Math.floor((Date.now() - new Date(agent.last_heartbeat).getTime()) / 60000)
           : 'N/A';
         console.log(`  - Agent ${agent.id} (${agent.agent_name}): status=${agent.status}, enabled=${agent.enabled}, last_heartbeat=${lastHeartbeatStr} (${minutesAgo} min fa)`);
@@ -3839,7 +3839,7 @@ pause
           throw queryErr;
         }
       }
-      
+
       console.log(`🔍 checkOfflineAgents: trovati ${offlineAgents.rows.length} agent offline`);
       if (offlineAgents.rows.length > 0) {
         offlineAgents.rows.forEach(agent => {
@@ -3878,22 +3878,22 @@ pause
 
       for (const agent of offlineAgents.rows) {
         console.log(`🔄 checkOfflineAgents: aggiornamento agent ${agent.id} (${agent.agent_name}) a offline...`);
-        
+
         // Aggiorna status a offline
         await pool.query(
           `UPDATE network_agents SET status = 'offline' WHERE id = $1`,
           [agent.id]
         );
-        
+
         console.log(`✅ checkOfflineAgents: agent ${agent.id} aggiornato a offline nel database`);
-        
+
         // Invia notifica Telegram
         try {
           const agentInfo = await pool.query(
             'SELECT na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
             [agent.id]
           );
-          
+
           if (agentInfo.rows.length > 0) {
             await sendTelegramNotification(
               agent.id,
@@ -3938,7 +3938,7 @@ pause
 
           if (existingEvent.rows.length === 0) {
             // Crea nuovo evento offline
-            const offlineDuration = agent.last_heartbeat 
+            const offlineDuration = agent.last_heartbeat
               ? Math.floor((Date.now() - new Date(agent.last_heartbeat).getTime()) / 60000)
               : null;
 
@@ -4029,7 +4029,7 @@ pause
       const { mac, password } = req.query;
 
       if (!password) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: 'Password richiesta',
           message: 'Fornisci la password del file KeePass come parametro ?password=...'
         });
@@ -4139,10 +4139,10 @@ pause
   router.post('/telegram/config', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       await ensureTables();
-      
-      const { azienda_id, agent_id, bot_token, chat_id, enabled, 
-              notify_agent_offline, notify_ip_changes, 
-              notify_mac_changes, notify_status_changes } = req.body;
+
+      const { azienda_id, agent_id, bot_token, chat_id, enabled,
+        notify_agent_offline, notify_ip_changes,
+        notify_mac_changes, notify_status_changes } = req.body;
 
       if (!bot_token || !chat_id) {
         return res.status(400).json({ error: 'bot_token e chat_id sono obbligatori' });
@@ -4251,9 +4251,9 @@ pause
     } catch (err) {
       console.error('❌ Errore configurazione Telegram:', err);
       console.error('❌ Stack trace:', err.stack);
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Errore interno del server',
-        details: err.message 
+        details: err.message
       });
     }
   });
@@ -4263,9 +4263,9 @@ pause
   router.get('/telegram/config', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       await ensureTables();
-      
+
       const { azienda_id, agent_id } = req.query;
-      
+
       let query = `SELECT id, azienda_id, agent_id, bot_token, chat_id, enabled, 
                           notify_agent_offline, notify_ip_changes, 
                           notify_mac_changes, notify_status_changes, 
@@ -4299,57 +4299,57 @@ pause
       // Verifica che telegramService sia disponibile
       if (!telegramService) {
         console.error('❌ Test notifica: telegramService non disponibile');
-        return res.status(500).json({ 
+        return res.status(500).json({
           error: 'Servizio Telegram non disponibile',
           details: 'Il modulo telegramService non è stato caricato correttamente. Verifica che node-telegram-bot-api sia installato.'
         });
       }
 
       await ensureTables();
-      
+
       const { id } = req.params;
       const { notification_type } = req.body; // 'agent_offline', 'ip_changed', 'mac_changed', 'status_changed_online', 'status_changed_offline'
-      
+
       if (!notification_type) {
         return res.status(400).json({ error: 'notification_type è obbligatorio' });
       }
-      
+
       // Ottieni configurazione
       const configResult = await pool.query(
         'SELECT * FROM network_telegram_config WHERE id = $1',
         [id]
       );
-      
+
       if (configResult.rows.length === 0) {
         return res.status(404).json({ error: 'Configurazione non trovata' });
       }
-      
+
       const config = configResult.rows[0];
-      
+
       if (!config.enabled) {
         return res.status(400).json({ error: 'Configurazione non abilitata' });
       }
-      
+
       if (!config.bot_token || !config.chat_id) {
         return res.status(400).json({ error: 'Bot Token o Chat ID mancanti nella configurazione' });
       }
-      
+
       // Inizializza bot
       console.log(`🔧 Test notifica: Inizializzazione bot per config ID ${id}, tipo: ${notification_type}`);
       const initialized = telegramService.initialize(config.bot_token, config.chat_id);
       if (!initialized) {
         console.error(`❌ Test notifica: Errore inizializzazione bot per config ID ${id}`);
-        return res.status(500).json({ 
+        return res.status(500).json({
           error: 'Errore inizializzazione bot Telegram',
           details: 'Verifica che il bot token e chat ID siano corretti. Controlla i log del backend per dettagli.'
         });
       }
       console.log(`✅ Test notifica: Bot inizializzato correttamente per config ID ${id}`);
-      
+
       // Crea dati di test in base al tipo
       let testData = {};
       let message = '';
-      
+
       switch (notification_type) {
         case 'agent_offline':
           if (!config.notify_agent_offline) {
@@ -4361,7 +4361,7 @@ pause
           };
           message = telegramService.formatAgentOfflineMessage(testData.agentName, testData.lastHeartbeat);
           break;
-          
+
         case 'ip_changed':
           if (!config.notify_ip_changes) {
             return res.status(400).json({ error: 'Notifica cambio IP non abilitata' });
@@ -4375,7 +4375,7 @@ pause
           };
           message = telegramService.formatIPChangedMessage(testData);
           break;
-          
+
         case 'mac_changed':
           if (!config.notify_mac_changes) {
             return res.status(400).json({ error: 'Notifica cambio MAC non abilitata' });
@@ -4389,7 +4389,7 @@ pause
           };
           message = telegramService.formatMACChangedMessage(testData);
           break;
-          
+
         case 'status_changed_online':
           if (!config.notify_status_changes) {
             return res.status(400).json({ error: 'Notifica cambio status non abilitata' });
@@ -4404,7 +4404,7 @@ pause
           };
           message = telegramService.formatDeviceStatusMessage(testData);
           break;
-          
+
         case 'status_changed_offline':
           if (!config.notify_status_changes) {
             return res.status(400).json({ error: 'Notifica cambio status non abilitata' });
@@ -4419,33 +4419,33 @@ pause
           };
           message = telegramService.formatDeviceStatusMessage(testData);
           break;
-          
+
         default:
           return res.status(400).json({ error: 'Tipo di notifica non valido' });
       }
-      
+
       // Invia messaggio di test
       console.log(`📤 Test notifica: Invio messaggio per config ID ${id}, tipo: ${notification_type}`);
       const result = await telegramService.sendMessage(message);
-      
+
       if (result && result.success) {
         console.log(`✅ Test notifica: Messaggio inviato con successo per config ID ${id}`);
-        res.json({ 
-          success: true, 
+        res.json({
+          success: true,
           message: 'Notifica di test inviata con successo! Controlla Telegram.',
           notification_type,
           test_data: testData
         });
       } else {
         console.error(`❌ Test notifica: Errore invio messaggio per config ID ${id}`);
-        const errorMsg = result && result.error 
-          ? result.error 
+        const errorMsg = result && result.error
+          ? result.error
           : 'Errore invio notifica di test';
-        const errorDetails = result && result.details 
-          ? result.details 
+        const errorDetails = result && result.details
+          ? result.details
           : 'Verifica che il bot token e chat ID siano corretti e che il bot possa inviare messaggi al chat ID specificato.';
-        
-        res.status(500).json({ 
+
+        res.status(500).json({
           error: errorMsg,
           details: errorDetails
         });
@@ -4453,7 +4453,7 @@ pause
     } catch (err) {
       console.error('❌ Errore test notifica Telegram:', err);
       console.error('❌ Stack trace completo:', err.stack);
-      
+
       // Fornisci dettagli più specifici sull'errore
       let errorDetails = err.message || 'Errore sconosciuto';
       if (err.message && err.message.includes('Cannot find module')) {
@@ -4461,8 +4461,8 @@ pause
       } else if (err.message && err.message.includes('telegramService')) {
         errorDetails = 'Il servizio Telegram non è disponibile. Verifica che backend/services/TelegramService.js esista e sia accessibile.';
       }
-      
-      res.status(500).json({ 
+
+      res.status(500).json({
         error: 'Errore interno del server',
         details: errorDetails,
         stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
@@ -4475,9 +4475,9 @@ pause
   router.delete('/telegram/config/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       await ensureTables();
-      
+
       const { id } = req.params;
-      
+
       const result = await pool.query(
         'DELETE FROM network_telegram_config WHERE id = $1 RETURNING id',
         [id]
@@ -4513,7 +4513,7 @@ pause
         const agentResult = await pool.query(
           'SELECT id, azienda_id, agent_name FROM network_agents WHERE deleted_at IS NULL AND enabled = true LIMIT 1'
         );
-        
+
         if (agentResult.rows.length === 0) {
           return res.status(404).json({ error: 'Nessun agent disponibile per il test' });
         }
@@ -4526,7 +4526,7 @@ pause
 
       // Prepara dati di test in base al tipo di evento
       let testData = {};
-      
+
       switch (event_type) {
         case 'agent_offline':
           const agentInfo = await pool.query(
@@ -4578,15 +4578,15 @@ pause
       const result = await sendTelegramNotification(finalAgentId, finalAziendaId, event_type, testData);
 
       if (result) {
-        res.json({ 
-          success: true, 
+        res.json({
+          success: true,
           message: `Evento ${event_type} simulato e notifica inviata`,
           event_type,
           agent_id: finalAgentId,
           azienda_id: finalAziendaId
         });
       } else {
-        res.status(500).json({ 
+        res.status(500).json({
           success: false,
           error: 'Notifica non inviata. Verifica la configurazione Telegram e i log del backend.',
           event_type,
@@ -4596,9 +4596,9 @@ pause
       }
     } catch (err) {
       console.error('❌ Errore simulazione evento Telegram:', err);
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Errore interno del server',
-        details: err.message 
+        details: err.message
       });
     }
   });
@@ -4607,18 +4607,19 @@ pause
   // Restituisce la versione corrente dell'agent disponibile per download
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.2.4'; // Fix: Corretti errori sintassi PowerShell (parentesi graffe bilanciate)
+      const CURRENT_AGENT_VERSION = '2.3.0'; // Versione ufficiale con Trust ARP, Hybrid Discovery e Auto-Update
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
-      
+
       res.json({
         version: CURRENT_AGENT_VERSION,
         download_url: `${baseUrl}/api/network-monitoring/download/agent/NetworkMonitor.ps1`,
-        release_date: '2026-01-21',
+        release_date: '2026-01-22',
         features: [
-          'Trust ARP - Rileva tutti i dispositivi presenti',
-          'Ping responsive tracking',
-          '3 stati status: Online, No Ping, Offline',
-          'Cleanup automatico processi vecchi all\'avvio del servizio'
+          'Auto-Update System - Aggiornamento automatico trasparente',
+          'Hybrid Discovery - Ping + TCP Scan per rilevare dispositivi firewalled',
+          'Trust ARP - Rilevamento immediato da cache ARP',
+          'System Tray Icon - Monitorstato locale',
+          'Security - Rimozione emoji per compatibilità Windows Server'
         ]
       });
     } catch (err) {
@@ -4633,10 +4634,10 @@ pause
     try {
       const path = require('path');
       const fs = require('fs').promises;
-      
+
       // Percorso al file agent (nella stessa repo, directory agent)
       const agentFilePath = path.join(__dirname, '../../agent/NetworkMonitor.ps1');
-      
+
       // Verifica che il file esista
       try {
         await fs.access(agentFilePath);
@@ -4644,15 +4645,15 @@ pause
         console.error('❌ File agent non trovato:', agentFilePath);
         return res.status(404).json({ error: 'File agent non trovato' });
       }
-      
+
       // Log download
       const clientIp = req.ip || req.connection.remoteAddress;
       console.log(`📥 Download agent richiesto da: ${clientIp}`);
-      
+
       // Imposta headers per download
       res.setHeader('Content-Type', 'application/octet-stream');
       res.setHeader('Content-Disposition', 'attachment; filename="NetworkMonitor.ps1"');
-      
+
       // Invia file
       res.sendFile(agentFilePath);
     } catch (err) {
@@ -4667,10 +4668,10 @@ pause
     try {
       const path = require('path');
       const fs = require('fs').promises;
-      
+
       // Percorso al file agent (nella stessa repo, directory agent)
       const agentFilePath = path.join(__dirname, '../../agent/NetworkMonitorService.ps1');
-      
+
       // Verifica che il file esista
       try {
         await fs.access(agentFilePath);
@@ -4678,15 +4679,15 @@ pause
         console.error('❌ File NetworkMonitorService.ps1 non trovato:', agentFilePath);
         return res.status(404).json({ error: 'File NetworkMonitorService.ps1 non trovato' });
       }
-      
+
       // Log download
       const clientIp = req.ip || req.connection.remoteAddress;
       console.log(`📥 Download NetworkMonitorService.ps1 richiesto da: ${clientIp}`);
-      
+
       // Imposta headers per download
       res.setHeader('Content-Type', 'application/octet-stream');
       res.setHeader('Content-Disposition', 'attachment; filename="NetworkMonitorService.ps1"');
-      
+
       // Invia file
       res.sendFile(agentFilePath);
     } catch (err) {
