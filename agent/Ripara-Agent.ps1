@@ -83,6 +83,134 @@ if ($missingFiles.Count -gt 0) {
     exit 1
 }
 
+# 2.1 Verifica sintassi NetworkMonitorService.ps1
+Write-Host ""
+Write-Host "2.1 VERIFICA SINTASSI NetworkMonitorService.ps1" -ForegroundColor Yellow
+$serviceScript = Join-Path $installDir "NetworkMonitorService.ps1"
+$configPath = Join-Path $installDir "config.json"
+
+if (Test-Path $serviceScript) {
+    # Verifica bilanciamento parentesi graffe
+    $content = Get-Content $serviceScript -Raw -ErrorAction SilentlyContinue
+    if ($content) {
+        $openBraces = ([regex]::Matches($content, '\{')).Count
+        $closeBraces = ([regex]::Matches($content, '\}')).Count
+        
+        if ($openBraces -ne $closeBraces) {
+            Write-Host "   ❌ ERRORE: Parentesi graffe sbilanciate! ($openBraces aperte, $closeBraces chiuse)" -ForegroundColor Red
+            $needsDownload = $true
+        } else {
+            Write-Host "   ✅ Parentesi graffe bilanciate ($openBraces/$closeBraces)" -ForegroundColor Green
+            
+            # Verifica sintassi PowerShell
+            Write-Host "   Verifica sintassi PowerShell..." -ForegroundColor Cyan
+            $syntaxErrors = $null
+            try {
+                $null = [System.Management.Automation.PSParser]::Tokenize($content, [ref]$syntaxErrors)
+                if ($syntaxErrors.Count -gt 0) {
+                    Write-Host "   ❌ ERRORE: Errori di sintassi trovati!" -ForegroundColor Red
+                    foreach ($err in $syntaxErrors) {
+                        Write-Host "      Linea $($err.Token.StartLine): $($err.Message)" -ForegroundColor Red
+                    }
+                    $needsDownload = $true
+                } else {
+                    Write-Host "   ✅ Sintassi PowerShell valida" -ForegroundColor Green
+                    $needsDownload = $false
+                }
+            } catch {
+                # Se il parser fallisce, prova con PowerShell stesso
+                Write-Host "   ⚠️  Verifica sintassi avanzata..." -ForegroundColor Yellow
+                $testResult = powershell.exe -NoProfile -Command "& { `$ErrorActionPreference='Stop'; try { . '$serviceScript' -WhatIf 2>&1 | Out-Null; `$true } catch { `$false } }" 2>&1
+                if ($LASTEXITCODE -ne 0 -or $testResult -like "*ParserError*" -or $testResult -like "*UnexpectedToken*") {
+                    Write-Host "   ❌ ERRORE: File PowerShell corrotto o con errori di sintassi!" -ForegroundColor Red
+                    $needsDownload = $true
+                } else {
+                    Write-Host "   ✅ File PowerShell valido" -ForegroundColor Green
+                    $needsDownload = $false
+                }
+            }
+        }
+    } else {
+        Write-Host "   ❌ ERRORE: File vuoto o non leggibile!" -ForegroundColor Red
+        $needsDownload = $true
+    }
+    
+    # Se necessario, scarica file corretto dal server
+    if ($needsDownload) {
+        Write-Host ""
+        Write-Host "   📥 Download file corretto dal server..." -ForegroundColor Cyan
+        
+        # Leggi config.json per ottenere server_url
+        $serverUrl = $null
+        if (Test-Path $configPath) {
+            try {
+                $config = Get-Content $configPath -Raw | ConvertFrom-Json
+                $serverUrl = $config.server_url
+            } catch {
+                Write-Host "   ⚠️  Impossibile leggere config.json: $_" -ForegroundColor Yellow
+            }
+        }
+        
+        if (-not $serverUrl) {
+            Write-Host "   ❌ ERRORE: Impossibile determinare server URL da config.json!" -ForegroundColor Red
+            Write-Host "   Reinstalla l'agent dal sito web." -ForegroundColor Yellow
+            pause
+            exit 1
+        }
+        
+        # Costruisci URL download
+        $baseUrl = $serverUrl -replace '/api.*', ''
+        $downloadUrl = "$baseUrl/api/network-monitoring/download/agent/NetworkMonitorService.ps1"
+        
+        Write-Host "   Server: $baseUrl" -ForegroundColor Gray
+        Write-Host "   URL: $downloadUrl" -ForegroundColor Gray
+        
+        try {
+            # Backup file corrotto
+            $backupFile = "$serviceScript.corrupted.backup"
+            Copy-Item $serviceScript $backupFile -Force -ErrorAction SilentlyContinue
+            Write-Host "   💾 Backup file corrotto salvato" -ForegroundColor Gray
+            
+            # Forza TLS 1.2
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            
+            # Download file corretto
+            $tempFile = "$serviceScript.new"
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile -TimeoutSec 30 -ErrorAction Stop
+            
+            if (Test-Path $tempFile) {
+                # Verifica che il file scaricato sia valido
+                $newContent = Get-Content $tempFile -Raw
+                $newOpen = ([regex]::Matches($newContent, '\{')).Count
+                $newClose = ([regex]::Matches($newContent, '\}')).Count
+                
+                if ($newOpen -eq $newClose -and $newOpen -gt 0) {
+                    # Sostituisci file corrotto
+                    Move-Item $tempFile $serviceScript -Force
+                    Write-Host "   ✅ File corretto scaricato e installato!" -ForegroundColor Green
+                    Write-Host "   ✅ Parentesi graffe: $newOpen/$newClose bilanciate" -ForegroundColor Green
+                } else {
+                    Write-Host "   ❌ ERRORE: File scaricato è ancora corrotto!" -ForegroundColor Red
+                    Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+                    pause
+                    exit 1
+                }
+            } else {
+                Write-Host "   ❌ ERRORE: Download fallito!" -ForegroundColor Red
+                pause
+                exit 1
+            }
+        } catch {
+            Write-Host "   ❌ ERRORE durante download: $_" -ForegroundColor Red
+            Write-Host "   Reinstalla l'agent dal sito web." -ForegroundColor Yellow
+            pause
+            exit 1
+        }
+    }
+} else {
+    Write-Host "   ⚠️  File NetworkMonitorService.ps1 non trovato!" -ForegroundColor Yellow
+}
+
 # 3. Rimuovi servizio esistente
 Write-Host ""
 Write-Host "3. RIMOZIONE SERVIZIO ESISTENTE" -ForegroundColor Yellow
