@@ -2613,7 +2613,8 @@ module.exports = (pool, io) => {
       }
 
       // Leggi versione dal file NetworkMonitorService.ps1 se disponibile
-      const CURRENT_AGENT_VERSION = '2.2.4'; // Versione di fallback se non riesce a leggere dal file
+      const CURRENT_AGENT_VERSION = '2.3.0'; // Versione attuale corretta
+      console.log(`ℹ️ Versione corrente sistema: ${CURRENT_AGENT_VERSION}`);
       let agentVersion = CURRENT_AGENT_VERSION; // Default
       if (fs.existsSync(servicePath)) {
         try {
