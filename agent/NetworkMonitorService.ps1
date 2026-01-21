@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.3.0
+# Versione: 2.2.3
 # Data ultima modifica: 2026-01-21
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.3.0"
+$SCRIPT_VERSION = "2.2.3"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -1774,18 +1774,68 @@ function Check-AgentUpdate {
             
             # Riavvia il servizio per applicare l'aggiornamento
             Write-Log "🔄 Riavvio servizio NetworkMonitorService..." "INFO"
-            Write-Log "⚠️ Lo script terminerà e il servizio verrà riavviato automaticamente" "INFO"
             
-            # Ferma il servizio (NSSM lo riavvierà automaticamente)
+            # Procedura robusta: ferma, elimina e reinstalla servizio
             try {
-                Stop-Service -Name "NetworkMonitorService" -Force -ErrorAction Stop
-                Write-Log "✅ Servizio arrestato, NSSM lo riavvierà con la nuova versione" "INFO"
+                # 1. Ferma servizio (anche se Paused)
+                Write-Log "   Arresto servizio esistente..." "INFO"
+                Stop-Service -Name "NetworkMonitorService" -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 3
+                
+                # 2. Elimina servizio con sc.exe (procedura corretta che funziona sempre)
+                Write-Log "   Rimozione servizio esistente..." "INFO"
+                $deleteResult = sc.exe delete "NetworkMonitorService" 2>&1
+                if ($LASTEXITCODE -eq 0 -or $deleteResult -like "*OPERAZIONI RIUSCITE*" -or $deleteResult -like "*marked for deletion*") {
+                    Write-Log "   ✅ Servizio rimosso correttamente" "INFO"
+                    Start-Sleep -Seconds 5
+                } else {
+                    Write-Log "   ⚠️  Rimozione servizio: $deleteResult" "WARN"
+                }
+                
+                # 3. Reinstalla servizio con NSSM (se disponibile)
+                $nssmPath = Join-Path $installDir "nssm.exe"
+                if (Test-Path $nssmPath) {
+                    Write-Log "   Reinstallazione servizio con NSSM..." "INFO"
+                    $psPath = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
+                    if (-not (Test-Path $psPath)) {
+                        $psPath = "C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe"
+                    }
+                    
+                    $configPath = Join-Path $installDir "config.json"
+                    $appParams = "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$serviceFile`" -ConfigPath `"$configPath`""
+                    
+                    & $nssmPath install "NetworkMonitorService" $psPath $appParams | Out-Null
+                    if ($LASTEXITCODE -eq 0) {
+                        & $nssmPath set "NetworkMonitorService" AppDirectory $installDir | Out-Null
+                        & $nssmPath set "NetworkMonitorService" DisplayName "Network Monitor Agent Service" | Out-Null
+                        & $nssmPath set "NetworkMonitorService" Start SERVICE_AUTO_START | Out-Null
+                        & $nssmPath set "NetworkMonitorService" AppRestartDelay 60000 | Out-Null
+                        & $nssmPath set "NetworkMonitorService" AppExit Default Restart | Out-Null
+                        
+                        $stdoutLog = Join-Path $installDir "NetworkMonitorService_stdout.log"
+                        $stderrLog = Join-Path $installDir "NetworkMonitorService_stderr.log"
+                        & $nssmPath set "NetworkMonitorService" AppStdout $stdoutLog | Out-Null
+                        & $nssmPath set "NetworkMonitorService" AppStderr $stderrLog | Out-Null
+                        
+                        Write-Log "   ✅ Servizio reinstallato" "INFO"
+                        
+                        # 4. Avvia servizio
+                        Start-Sleep -Seconds 2
+                        Start-Service -Name "NetworkMonitorService" -ErrorAction SilentlyContinue
+                        Write-Log "   ✅ Servizio avviato con nuova versione" "INFO"
+                    } else {
+                        Write-Log "   ⚠️  Errore reinstallazione servizio con NSSM" "WARN"
+                    }
+                } else {
+                    Write-Log "   ⚠️  nssm.exe non trovato, servizio non reinstallato automaticamente" "WARN"
+                    Write-Log "   ⚠️  Reinstallare manualmente il servizio per applicare l'aggiornamento" "WARN"
+                }
             } catch {
-                Write-Log "⚠️ Impossibile arrestare servizio: $_" "WARN"
-                Write-Log "⚠️ Riavviare manualmente il servizio per applicare l'aggiornamento" "WARN"
+                Write-Log "⚠️ Errore durante riavvio servizio: $_" "WARN"
+                Write-Log "⚠️ Reinstallare manualmente il servizio per applicare l'aggiornamento" "WARN"
             }
             
-            # Termina script corrente (NSSM riavvierà il servizio con la nuova versione)
+            # Termina script corrente
             $script:isRunning = $false
             exit 0
             
