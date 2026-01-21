@@ -2050,8 +2050,30 @@ while ($script:isRunning) {
                     Write-Log "Invio dati al server..."
                     $result = Send-ScanResults -Devices $devices -ServerUrl $config.server_url -ApiKey $config.api_key
                     Write-Log "Dati inviati con successo!"
+                    
+                    # IMPORTANTE: Salva IP trovati nel file per la tray icon (dopo invio dati)
+                    # Questo assicura che gli IP siano sempre visibili anche se Get-NetworkDevices non li ha salvati
+                    try {
+                        $ipDataArray = @()
+                        foreach ($device in $devices) {
+                            $ipDataArray += @{
+                                ip = $device.ip_address
+                                mac = if ($device.mac_address) { $device.mac_address } else { $null }
+                            }
+                        }
+                        $ipDataArray | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
+                        Write-Log "IP salvati per tray icon: $($ipDataArray.Count) dispositivi" "INFO"
+                    } catch {
+                        Write-Log "Errore salvataggio IP finali per tray icon: $_" "WARN"
+                    }
                 } else {
                     Write-Log "Nessun dispositivo trovato, skip invio"
+                    # Salva array vuoto per indicare che non ci sono IP
+                    try {
+                        @() | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
+                    } catch {
+                        # Ignora errori
+                    }
                 }
                 
                 # 3. Aggiorna stato
