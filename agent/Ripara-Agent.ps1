@@ -88,6 +88,7 @@ Write-Host ""
 Write-Host "2.1 VERIFICA SINTASSI NetworkMonitorService.ps1" -ForegroundColor Yellow
 $serviceScript = Join-Path $installDir "NetworkMonitorService.ps1"
 $configPath = Join-Path $installDir "config.json"
+$needsDownload = $false
 
 if (Test-Path $serviceScript) {
     # Verifica bilanciamento parentesi graffe
@@ -153,7 +154,7 @@ if (Test-Path $serviceScript) {
         
         if (-not $serverUrl) {
             Write-Host "   ❌ ERRORE: Impossibile determinare server URL da config.json!" -ForegroundColor Red
-            Write-Host "   Reinstalla l'agent dal sito web." -ForegroundColor Yellow
+            Write-Host "   Reinstalla l agent dal sito web." -ForegroundColor Yellow
             pause
             exit 1
         }
@@ -202,7 +203,7 @@ if (Test-Path $serviceScript) {
             }
         } catch {
             Write-Host "   ❌ ERRORE durante download: $_" -ForegroundColor Red
-            Write-Host "   Reinstalla l'agent dal sito web." -ForegroundColor Yellow
+            Write-Host "   Reinstalla l agent dal sito web." -ForegroundColor Yellow
             pause
             exit 1
         }
