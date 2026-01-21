@@ -1347,14 +1347,15 @@ public class ArpHelper {
                 
                 # TRUST ARP: Aggiungi dispositivi presenti in ARP ma non in activeIPs (non rispondono al ping)
                 # Questo è cruciale per rilevare tutti i dispositivi presenti sulla rete
-                try {
-                    
-                    Write-Log "Trust ARP: Verifica dispositivi in ARP ma non in activeIPs..." "INFO"
-                    $trustArpCount = 0
-                    foreach ($arpIP in $arpTable.Keys) {
-                        try {
-                            # Verifica che l'IP sia nel range configurato
-                            if ($arpIP -like "$baseIP.*") {
+                # IMPORTANTE: Verifica che $arpTable e $baseIP siano inizializzati prima di eseguire Trust ARP
+                if ($arpTable -and $arpTable.Count -gt 0 -and $baseIP) {
+                    try {
+                        Write-Log "Trust ARP: Verifica dispositivi in ARP ma non in activeIPs..." "INFO"
+                        $trustArpCount = 0
+                        foreach ($arpIP in $arpTable.Keys) {
+                            try {
+                                # Verifica che l'IP sia nel range configurato
+                                if ($arpIP -like "$baseIP.*") {
                                 # Se l'IP non è in activeIPs (non ha risposto al ping) ma è in ARP, aggiungilo
                                 if (-not $activeIPs.Contains($arpIP)) {
                                     # Verifica che non sia già stato aggiunto ai devices
@@ -1396,13 +1397,16 @@ public class ArpHelper {
                             # Continua con il prossimo IP invece di bloccare tutto
                         }
                     }
-                    if ($trustArpCount -gt 0) {
-                        Write-Log "Trust ARP: Aggiunti $trustArpCount dispositivi presenti ma non responsivi al ping" "INFO"
+                        if ($trustArpCount -gt 0) {
+                            Write-Log "Trust ARP: Aggiunti $trustArpCount dispositivi presenti ma non responsivi al ping" "INFO"
+                        }
+                    } catch {
+                        Write-Log "Errore Trust ARP: $_" "WARN"
+                        Write-Log "Stack: $($_.Exception.StackTrace)" "WARN"
+                        # Non bloccare la scansione se Trust ARP fallisce
                     }
-                } catch {
-                    Write-Log "Errore Trust ARP: $_" "WARN"
-                    Write-Log "Stack: $($_.Exception.StackTrace)" "WARN"
-                    # Non bloccare la scansione se Trust ARP fallisce
+                } else {
+                    Write-Log "Trust ARP: Saltato (arpTable vuota o baseIP non definito)" "DEBUG"
                 }
                 
                 # Salva IP trovati con MAC in batch (include anche Trust ARP)
