@@ -94,6 +94,13 @@ echo.
 REM 3. DISATTIVAZIONE AGENT ESISTENTE
 echo 3. DISATTIVAZIONE AGENT ESISTENTE
 
+REM 3.0 TERMINA TRAY ICON E PROCESSI VECCHI (PRIMA DI TUTTO!)
+echo    Chiusura tray icon e processi vecchi...
+powershell -NoProfile -Command "$trayProcesses = Get-WmiObject Win32_Process | Where-Object { $_.CommandLine -like '*NetworkMonitorTrayIcon.ps1*' -or $_.CommandLine -like '*Start-TrayIcon-Hidden.vbs*' }; foreach ($proc in $trayProcesses) { try { Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue } catch {} }" >nul 2>&1
+powershell -NoProfile -Command "$monitorProcesses = Get-WmiObject Win32_Process | Where-Object { $_.CommandLine -like '*NetworkMonitor.ps1*' -and $_.CommandLine -notlike '*Installa-Agent*' }; foreach ($proc in $monitorProcesses) { try { Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue } catch {} }" >nul 2>&1
+timeout /t 2 /nobreak >nul
+echo    [OK] Processi vecchi terminati
+
 REM 3.1 Rimuovi servizio Windows esistente (se presente)
 sc query "%SERVICE_NAME%" >nul 2>&1
 if !errorLevel! equ 0 (

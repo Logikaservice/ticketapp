@@ -2669,6 +2669,16 @@ module.exports = (pool, io) => {
           console.log('✅ Aggiunto Installa-Agent.ps1 (backup)');
         }
         
+        // nssm.exe (CRITICO per installazione servizio Windows)
+        const nssmPath = path.join(agentDir, 'nssm.exe');
+        if (fs.existsSync(nssmPath)) {
+          const nssmContent = fs.readFileSync(nssmPath);
+          archive.append(nssmContent, { name: 'nssm.exe' });
+          console.log('✅ Aggiunto nssm.exe');
+        } else {
+          console.warn('⚠️  nssm.exe non trovato! L\'installazione del servizio potrebbe fallire!');
+        }
+        
       } catch (appendErr) {
         console.error('❌ Errore aggiunta file allo ZIP:', appendErr);
         if (!res.headersSent) {
