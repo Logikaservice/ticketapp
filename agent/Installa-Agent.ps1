@@ -94,9 +94,19 @@ if (-not (Test-Path $installDir)) {
 }
 Write-Host ""
 
-# CLEANUP: Termina processi vecchi agent
+# CLEANUP: Termina processi vecchi agent - PROCEDURA ROBUSTA
 Write-Host "3. CLEANUP PROCESSI VECCHI" -ForegroundColor Yellow
 $processesKilled = 0
+
+# Termina TUTTI i processi PowerShell e NSSM (potrebbero bloccare il servizio)
+Write-Host "   Terminazione processi PowerShell e NSSM..." -ForegroundColor Cyan
+Get-Process | Where-Object { $_.ProcessName -eq "powershell" -or $_.ProcessName -eq "nssm" } | ForEach-Object {
+    try {
+        Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+        $processesKilled++
+    } catch { }
+}
+Start-Sleep -Seconds 2
 
 # Termina tutte le vecchie tray icon
 Write-Host "   Chiusura vecchie tray icon..." -ForegroundColor Cyan
@@ -145,14 +155,20 @@ if ($processesKilled -gt 0) {
 }
 Write-Host ""
 
-# Ferma E RIMUOVI servizio esistente
+# Ferma E RIMUOVI servizio esistente - PROCEDURA ROBUSTA
 Write-Host "4. GESTIONE SERVIZIO ESISTENTE" -ForegroundColor Yellow
 try {
     $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
     if ($service) {
         if ($service.Status -eq "Running" -or $service.Status -eq "Paused") {
             Write-Host "   Arresto servizio esistente..." -ForegroundColor Cyan
-            Stop-Service -Name $serviceName -Force -ErrorAction Stop
+            # Gestisci anche stato Paused
+            if ($service.Status -eq "Paused") {
+                Write-Host "   Servizio in pausa, riprende e ferma..." -ForegroundColor Gray
+                Resume-Service -Name $serviceName -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 1
+            }
+            Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 3
             
             # Attendi che si fermi completamente
@@ -174,10 +190,11 @@ try {
             Write-Host "   ℹ️  Servizio già fermo" -ForegroundColor Gray
         }
         
-        # RIMUOVI il servizio prima di reinstallarlo
+        # RIMUOVI il servizio prima di reinstallarlo (procedura robusta)
         Write-Host "   Rimozione servizio esistente..." -ForegroundColor Cyan
         sc.exe delete $serviceName | Out-Null
-        Start-Sleep -Seconds 3
+        # ATTESA LUNGA per permettere a Windows di rilasciare il servizio (CRITICO!)
+        Start-Sleep -Seconds 10
         Write-Host "   ✅ Servizio rimosso" -ForegroundColor Green
     } else {
         Write-Host "   ℹ️  Nessun servizio esistente" -ForegroundColor Gray

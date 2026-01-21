@@ -96,20 +96,30 @@ echo 3. DISATTIVAZIONE AGENT ESISTENTE
 
 REM 3.0 TERMINA TRAY ICON E PROCESSI VECCHI (PRIMA DI TUTTO!)
 echo    Chiusura tray icon e processi vecchi...
+REM Termina processi PowerShell e NSSM (potrebbero bloccare il servizio)
+powershell -NoProfile -Command "Get-Process | Where-Object { $_.ProcessName -eq 'powershell' -or $_.ProcessName -eq 'nssm' } | Stop-Process -Force -ErrorAction SilentlyContinue" >nul 2>&1
+REM Termina processi specifici agent
 powershell -NoProfile -Command "$trayProcesses = Get-WmiObject Win32_Process | Where-Object { $_.CommandLine -like '*NetworkMonitorTrayIcon.ps1*' -or $_.CommandLine -like '*Start-TrayIcon-Hidden.vbs*' }; foreach ($proc in $trayProcesses) { try { Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue } catch {} }" >nul 2>&1
 powershell -NoProfile -Command "$monitorProcesses = Get-WmiObject Win32_Process | Where-Object { $_.CommandLine -like '*NetworkMonitor.ps1*' -and $_.CommandLine -notlike '*Installa-Agent*' }; foreach ($proc in $monitorProcesses) { try { Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue } catch {} }" >nul 2>&1
-timeout /t 2 /nobreak >nul
+timeout /t 3 /nobreak >nul
 echo    [OK] Processi vecchi terminati
 
-REM 3.1 Rimuovi servizio Windows esistente (se presente)
+REM 3.1 Rimuovi servizio Windows esistente (se presente) - PROCEDURA ROBUSTA
 sc query "%SERVICE_NAME%" >nul 2>&1
 if !errorLevel! equ 0 (
     echo    Rimozione servizio Windows esistente...
+    REM Ferma servizio (anche se Paused)
     sc query "%SERVICE_NAME%" | findstr /C:"RUNNING" >nul 2>&1
     if !errorLevel! equ 0 (
         echo    Arresto servizio...
         sc stop "%SERVICE_NAME%" >nul 2>&1
-        timeout /t 5 /nobreak >nul
+        timeout /t 3 /nobreak >nul
+    )
+    sc query "%SERVICE_NAME%" | findstr /C:"PAUSED" >nul 2>&1
+    if !errorLevel! equ 0 (
+        echo    Ripresa servizio in pausa...
+        powershell -NoProfile -Command "Resume-Service -Name '%SERVICE_NAME%' -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1; Stop-Service -Name '%SERVICE_NAME%' -Force -ErrorAction SilentlyContinue" >nul 2>&1
+        timeout /t 3 /nobreak >nul
     )
     
     REM Rimuovi servizio usando NSSM se disponibile
@@ -118,9 +128,10 @@ if !errorLevel! equ 0 (
         timeout /t 2 /nobreak >nul
     )
     
-    REM Rimuovi servizio usando sc.exe
+    REM Rimuovi servizio usando sc.exe (procedura robusta)
     sc delete "%SERVICE_NAME%" >nul 2>&1
-    timeout /t 2 /nobreak >nul
+    REM ATTESA LUNGA per permettere a Windows di rilasciare il servizio (CRITICO!)
+    timeout /t 10 /nobreak >nul
     echo    [OK] Servizio Windows rimosso
 ) else (
     echo    [INFO] Nessun servizio Windows esistente
