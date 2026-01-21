@@ -1232,21 +1232,35 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             Aggiorna
           </button>
           
-          {/* Versione agent più recente */}
+          {/* Versione agent più alta */}
           {agents.length > 0 && (() => {
-            // Trova l'agent con la versione più recente (per updated_at)
-            const latestAgent = agents.reduce((latest, agent) => {
-              if (!latest) return agent;
-              const latestDate = latest.updated_at ? new Date(latest.updated_at) : new Date(0);
-              const agentDate = agent.updated_at ? new Date(agent.updated_at) : new Date(0);
-              return agentDate > latestDate ? agent : latest;
+            // Trova la versione più alta tra tutti gli agent
+            const compareVersions = (v1, v2) => {
+              if (!v1) return 1;
+              if (!v2) return -1;
+              const parts1 = v1.split('.').map(Number);
+              const parts2 = v2.split('.').map(Number);
+              for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+                const part1 = parts1[i] || 0;
+                const part2 = parts2[i] || 0;
+                if (part1 > part2) return -1;
+                if (part1 < part2) return 1;
+              }
+              return 0;
+            };
+            
+            const highestVersionAgent = agents.reduce((highest, agent) => {
+              if (!highest) return agent;
+              if (!agent.version) return highest;
+              if (!highest.version) return agent;
+              return compareVersions(agent.version, highest.version) < 0 ? agent : highest;
             }, null);
             
-            if (latestAgent && latestAgent.version) {
+            if (highestVersionAgent && highestVersionAgent.version) {
               return (
                 <div className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex items-center gap-2 min-w-[140px]">
                   <span className="text-xs text-gray-500">Versione:</span>
-                  <span className="font-mono font-semibold text-blue-600">{latestAgent.version}</span>
+                  <span className="font-mono font-semibold text-blue-600">{highestVersionAgent.version}</span>
                 </div>
               );
             }
