@@ -201,14 +201,19 @@ $filesToCopy = @(
 # CLEANUP: Ferma servizio e termina TUTTI i processi vecchi
 Write-Host "Cleanup processi vecchi agent..." -ForegroundColor Yellow
 
-# 1. Ferma servizio esistente
+# 1. Ferma E RIMUOVI servizio esistente
 try {
     $serviceName = "NetworkMonitorService"
     $svc = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-    if ($svc -and $svc.Status -eq "Running") {
-        Write-Host "  Arresto servizio esistente..." -ForegroundColor Cyan
-        Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 2
+    if ($svc) {
+        if ($svc.Status -eq "Running" -or $svc.Status -eq "Paused") {
+            Write-Host "  Arresto servizio esistente..." -ForegroundColor Cyan
+            Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+        }
+        Write-Host "  Rimozione servizio esistente..." -ForegroundColor Cyan
+        sc.exe delete $serviceName | Out-Null
+        Start-Sleep -Seconds 3
     }
 } catch { }
 

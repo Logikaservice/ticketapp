@@ -145,12 +145,12 @@ if ($processesKilled -gt 0) {
 }
 Write-Host ""
 
-# Ferma servizio esistente
+# Ferma E RIMUOVI servizio esistente
 Write-Host "4. GESTIONE SERVIZIO ESISTENTE" -ForegroundColor Yellow
 try {
     $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
     if ($service) {
-        if ($service.Status -eq "Running") {
+        if ($service.Status -eq "Running" -or $service.Status -eq "Paused") {
             Write-Host "   Arresto servizio esistente..." -ForegroundColor Cyan
             Stop-Service -Name $serviceName -Force -ErrorAction Stop
             Start-Sleep -Seconds 3
@@ -158,6 +158,7 @@ try {
             # Attendi che si fermi completamente
             $timeout = 30
             $elapsed = 0
+            $service.Refresh()
             while ($service.Status -ne "Stopped" -and $elapsed -lt $timeout) {
                 Start-Sleep -Seconds 1
                 $elapsed++
@@ -172,6 +173,12 @@ try {
         } else {
             Write-Host "   ℹ️  Servizio già fermo" -ForegroundColor Gray
         }
+        
+        # RIMUOVI il servizio prima di reinstallarlo
+        Write-Host "   Rimozione servizio esistente..." -ForegroundColor Cyan
+        sc.exe delete $serviceName | Out-Null
+        Start-Sleep -Seconds 3
+        Write-Host "   ✅ Servizio rimosso" -ForegroundColor Green
     } else {
         Write-Host "   ℹ️  Nessun servizio esistente" -ForegroundColor Gray
     }
