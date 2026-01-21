@@ -94,8 +94,59 @@ if (-not (Test-Path $installDir)) {
 }
 Write-Host ""
 
+# CLEANUP: Termina processi vecchi agent
+Write-Host "3. CLEANUP PROCESSI VECCHI" -ForegroundColor Yellow
+$processesKilled = 0
+
+# Termina tutte le vecchie tray icon
+Write-Host "   Chiusura vecchie tray icon..." -ForegroundColor Cyan
+$trayProcesses = Get-WmiObject Win32_Process | Where-Object { 
+    $_.CommandLine -like "*NetworkMonitorTrayIcon.ps1*" -or
+    $_.CommandLine -like "*Start-TrayIcon-Hidden.vbs*"
+} | Select-Object ProcessId, CommandLine
+
+if ($trayProcesses) {
+    foreach ($proc in $trayProcesses) {
+        try {
+            Write-Host "   Terminazione processo PID $($proc.ProcessId)..." -ForegroundColor Gray
+            Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
+            $processesKilled++
+            Write-Host "   ✅ Processo $($proc.ProcessId) terminato" -ForegroundColor Green
+        } catch {
+            Write-Host "   ⚠️  Impossibile terminare processo $($proc.ProcessId): $_" -ForegroundColor Yellow
+        }
+    }
+    Start-Sleep -Seconds 2
+}
+
+# Termina eventuali processi NetworkMonitor.ps1 residui
+$monitorProcesses = Get-WmiObject Win32_Process | Where-Object { 
+    $_.CommandLine -like "*NetworkMonitor.ps1*" -and $_.CommandLine -notlike "*Installa-Agent.ps1*"
+} | Select-Object ProcessId, CommandLine
+
+if ($monitorProcesses) {
+    foreach ($proc in $monitorProcesses) {
+        try {
+            Write-Host "   Terminazione processo monitor PID $($proc.ProcessId)..." -ForegroundColor Gray
+            Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
+            $processesKilled++
+            Write-Host "   ✅ Processo $($proc.ProcessId) terminato" -ForegroundColor Green
+        } catch {
+            Write-Host "   ⚠️  Impossibile terminare processo $($proc.ProcessId): $_" -ForegroundColor Yellow
+        }
+    }
+    Start-Sleep -Seconds 2
+}
+
+if ($processesKilled -gt 0) {
+    Write-Host "   ✅ $processesKilled processi vecchi terminati" -ForegroundColor Green
+} else {
+    Write-Host "   ℹ️  Nessun processo vecchio da terminare" -ForegroundColor Gray
+}
+Write-Host ""
+
 # Ferma servizio esistente
-Write-Host "3. GESTIONE SERVIZIO ESISTENTE" -ForegroundColor Yellow
+Write-Host "4. GESTIONE SERVIZIO ESISTENTE" -ForegroundColor Yellow
 try {
     $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
     if ($service) {
@@ -130,7 +181,7 @@ try {
 Write-Host ""
 
 # Copia file
-Write-Host "4. COPIA FILE" -ForegroundColor Yellow
+Write-Host "5. COPIA FILE" -ForegroundColor Yellow
 $filesToCopy = @(
     "NetworkMonitorService.ps1",
     "NetworkMonitorTrayIcon.ps1",
@@ -214,7 +265,7 @@ Write-Host "   ✅ $filesCopied file copiati con successo" -ForegroundColor Gree
 Write-Host ""
 
 # Aggiorna versione nel config.json
-Write-Host "5. AGGIORNAMENTO CONFIGURAZIONE" -ForegroundColor Yellow
+Write-Host "6. AGGIORNAMENTO CONFIGURAZIONE" -ForegroundColor Yellow
 $configFile = Join-Path $installDir "config.json"
 if (Test-Path $configFile) {
     try {
@@ -229,7 +280,7 @@ if (Test-Path $configFile) {
 Write-Host ""
 
 # Installa servizio con NSSM
-Write-Host "6. INSTALLAZIONE SERVIZIO WINDOWS" -ForegroundColor Yellow
+Write-Host "7. INSTALLAZIONE SERVIZIO WINDOWS" -ForegroundColor Yellow
 $nssmPath = Join-Path $installDir "nssm.exe"
 $serviceScriptPath = Join-Path $installDir "NetworkMonitorService.ps1"
 $configPath = Join-Path $installDir "config.json"
@@ -296,7 +347,7 @@ try {
 Write-Host ""
 
 # Avvia servizio
-Write-Host "7. AVVIO SERVIZIO" -ForegroundColor Yellow
+Write-Host "8. AVVIO SERVIZIO" -ForegroundColor Yellow
 try {
     Start-Service -Name $serviceName -ErrorAction Stop
     Start-Sleep -Seconds 3
@@ -314,7 +365,7 @@ try {
 Write-Host ""
 
 # Configura tray icon (opzionale)
-Write-Host "8. CONFIGURAZIONE TRAY ICON" -ForegroundColor Yellow
+Write-Host "9. CONFIGURAZIONE TRAY ICON" -ForegroundColor Yellow
 $vbsLauncher = Join-Path $installDir "Start-TrayIcon-Hidden.vbs"
 if (Test-Path $vbsLauncher) {
     try {

@@ -50,9 +50,62 @@ try {
     Write-Host "   Avviso: $_" -ForegroundColor Yellow
 }
 
-# 2. Copia file
+# 2. Termina processi vecchi
 Write-Host ""
-Write-Host "2. Copia file aggiornati..." -ForegroundColor Yellow
+Write-Host "2. Cleanup processi vecchi..." -ForegroundColor Yellow
+$processesKilled = 0
+
+# Termina tutte le vecchie tray icon
+try {
+    $trayProcesses = Get-WmiObject Win32_Process | Where-Object { 
+        $_.CommandLine -like "*NetworkMonitorTrayIcon.ps1*" -or
+        $_.CommandLine -like "*Start-TrayIcon-Hidden.vbs*"
+    } | Select-Object ProcessId, CommandLine
+
+    if ($trayProcesses) {
+        foreach ($proc in $trayProcesses) {
+            try {
+                Write-Host "   Terminazione tray icon PID $($proc.ProcessId)..." -ForegroundColor Gray
+                Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
+                $processesKilled++
+            } catch {
+                Write-Host "   Avviso impossibile terminare PID $($proc.ProcessId): $_" -ForegroundColor Yellow
+            }
+        }
+        Start-Sleep -Seconds 1
+    }
+} catch { }
+
+# Termina eventuali processi NetworkMonitor.ps1 residui
+try {
+    $monitorProcesses = Get-WmiObject Win32_Process | Where-Object { 
+        $_.CommandLine -like "*NetworkMonitor.ps1*" -and 
+        $_.CommandLine -notlike "*Aggiorna-Agent.ps1*"
+    } | Select-Object ProcessId, CommandLine
+
+    if ($monitorProcesses) {
+        foreach ($proc in $monitorProcesses) {
+            try {
+                Write-Host "   Terminazione processo monitor PID $($proc.ProcessId)..." -ForegroundColor Gray
+                Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
+                $processesKilled++
+            } catch {
+                Write-Host "   Avviso impossibile terminare PID $($proc.ProcessId): $_" -ForegroundColor Yellow
+            }
+        }
+        Start-Sleep -Seconds 1
+    }
+} catch { }
+
+if ($processesKilled -gt 0) {
+    Write-Host "   OK $processesKilled processi terminati" -ForegroundColor Green
+} else {
+    Write-Host "   Info Nessun processo da terminare" -ForegroundColor Gray
+}
+
+# 3. Copia file
+Write-Host ""
+Write-Host "3. Copia file aggiornati..." -ForegroundColor Yellow
 $files = @(
     "NetworkMonitorService.ps1",
     "NetworkMonitorTrayIcon.ps1",
@@ -88,9 +141,9 @@ if ($filesCopied -eq 0) {
 Write-Host ""
 Write-Host "   OK $filesCopied file copiati con successo" -ForegroundColor Green
 
-# 3. Riavvia servizio
+# 4. Riavvia servizio
 Write-Host ""
-Write-Host "3. Avvio servizio..." -ForegroundColor Yellow
+Write-Host "4. Avvio servizio..." -ForegroundColor Yellow
 try {
     Start-Service -Name $serviceName -ErrorAction Stop
     Start-Sleep -Seconds 2
@@ -108,19 +161,9 @@ try {
     Write-Host "   Start-Service -Name $serviceName" -ForegroundColor Gray
 }
 
-# 4. Ferma tray icon esistente
-Write-Host ""
-Write-Host "4. Riavvio tray icon..." -ForegroundColor Yellow
-Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {
-    try {
-        $cmd = (Get-WmiObject Win32_Process -Filter "ProcessId = $($_.Id)").CommandLine
-        $cmd -like "*NetworkMonitorTrayIcon*"
-    } catch { $false }
-} | Stop-Process -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 1
-Write-Host "   OK Tray icon esistente arrestata" -ForegroundColor Green
-
 # 5. Avvia tray icon aggiornata
+Write-Host ""
+Write-Host "5. Avvio tray icon..." -ForegroundColor Yellow
 $trayScript = Join-Path $targetDir "Avvia-TrayIcon.ps1"
 if (Test-Path $trayScript) {
     try {
@@ -147,7 +190,7 @@ if (Test-Path $trayScript) {
 
 # 6. Aggiorna versione nel config.json se presente
 Write-Host ""
-Write-Host "5. Aggiornamento versione nel config.json..." -ForegroundColor Yellow
+Write-Host "6. Aggiornamento versione nel config.json..." -ForegroundColor Yellow
 $configFile = Join-Path $targetDir "config.json"
 if (Test-Path $configFile) {
     try {

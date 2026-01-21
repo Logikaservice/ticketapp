@@ -198,30 +198,64 @@ $filesToCopy = @(
     "nssm.exe"
 )
 
-# Prova a fermare servizio/tray e processi che possono tenere lock su file nella cartella
+# CLEANUP: Ferma servizio e termina TUTTI i processi vecchi
+Write-Host "Cleanup processi vecchi agent..." -ForegroundColor Yellow
+
+# 1. Ferma servizio esistente
 try {
     $serviceName = "NetworkMonitorService"
     $svc = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
     if ($svc -and $svc.Status -eq "Running") {
-        Write-Host "Arresto servizio esistente..." -ForegroundColor Yellow
+        Write-Host "  Arresto servizio esistente..." -ForegroundColor Cyan
         Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 2
     }
 } catch { }
 
+# 2. Termina NSSM
 try {
     Get-Process -Name "nssm" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 } catch { }
 
+# 3. Termina TUTTE le vecchie tray icon (PowerShell + VBScript)
 try {
-    # Chiudi eventuale tray icon (powershell con NetworkMonitorTrayIcon)
-    Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {
-        try {
-            $cmd = (Get-WmiObject Win32_Process -Filter "ProcessId = $($_.Id)").CommandLine
-            $cmd -like "*NetworkMonitorTrayIcon*"
-        } catch { $false }
-    } | Stop-Process -Force -ErrorAction SilentlyContinue
+    $trayProcesses = Get-WmiObject Win32_Process | Where-Object { 
+        $_.CommandLine -like "*NetworkMonitorTrayIcon.ps1*" -or
+        $_.CommandLine -like "*Start-TrayIcon-Hidden.vbs*"
+    } | Select-Object ProcessId, CommandLine
+
+    if ($trayProcesses) {
+        foreach ($proc in $trayProcesses) {
+            try {
+                Write-Host "  Terminazione tray icon PID $($proc.ProcessId)..." -ForegroundColor Gray
+                Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
+            } catch { }
+        }
+        Start-Sleep -Seconds 1
+    }
 } catch { }
+
+# 4. Termina eventuali processi NetworkMonitor.ps1 residui
+try {
+    $monitorProcesses = Get-WmiObject Win32_Process | Where-Object { 
+        $_.CommandLine -like "*NetworkMonitor.ps1*" -and 
+        $_.CommandLine -notlike "*InstallerCompleto.ps1*" -and
+        $_.CommandLine -notlike "*Installa-Agent.ps1*"
+    } | Select-Object ProcessId, CommandLine
+
+    if ($monitorProcesses) {
+        foreach ($proc in $monitorProcesses) {
+            try {
+                Write-Host "  Terminazione processo monitor PID $($proc.ProcessId)..." -ForegroundColor Gray
+                Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
+            } catch { }
+        }
+        Start-Sleep -Seconds 1
+    }
+} catch { }
+
+Write-Host "  ✅ Cleanup completato" -ForegroundColor Green
+Write-Host ""
 
 foreach ($f in $filesToCopy) {
     $src = Join-Path $SourceDir $f

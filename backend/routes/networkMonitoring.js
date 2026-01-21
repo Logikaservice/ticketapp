@@ -4527,18 +4527,19 @@ pause
   // Restituisce la versione corrente dell'agent disponibile per download
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.2.0'; // Trust ARP + Auto-update
+      const CURRENT_AGENT_VERSION = '2.2.1'; // Trust ARP + Auto-update + Cleanup processi vecchi
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
       
       res.json({
         version: CURRENT_AGENT_VERSION,
         download_url: `${baseUrl}/api/network-monitoring/download/agent/NetworkMonitor.ps1`,
-        release_date: '2025-01-21',
+        release_date: '2026-01-21',
         features: [
           'Trust ARP - Rileva tutti i dispositivi presenti',
           'Ping responsive tracking',
           '3 stati status: Online, No Ping, Offline',
-          'Auto-update automatico'
+          'Auto-update automatico',
+          'Cleanup automatico processi vecchi durante installazione/aggiornamento'
         ]
       });
     } catch (err) {
