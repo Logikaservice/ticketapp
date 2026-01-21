@@ -1063,8 +1063,9 @@ module.exports = (pool, io) => {
       
       for (let i = 0; i < devices.length; i++) {
         const device = devices[i];
-        let { ip_address, mac_address, hostname, vendor, status, has_ping_failures } = device;
+        let { ip_address, mac_address, hostname, vendor, status, has_ping_failures, ping_responsive } = device;
         // device_type non viene più inviato dall'agent, sarà gestito manualmente
+        // ping_responsive (nuovo): true se risponde al ping, false se presente solo via ARP
         
         // Normalizza hostname: potrebbe essere stringa, array, o oggetto JSON
         if (hostname) {
@@ -1406,6 +1407,12 @@ module.exports = (pool, io) => {
             values.push(has_ping_failures === true);
           }
           
+          // Aggiorna ping_responsive se presente nei dati (nuovo: Trust ARP)
+          if (ping_responsive !== undefined && ping_responsive !== existingDevice.ping_responsive) {
+            updates.push(`ping_responsive = $${paramIndex++}`);
+            values.push(ping_responsive === true);
+          }
+          
           // Usa hostname già normalizzato (troncato a max 100 caratteri)
           if (hostname && hostname !== existingDevice.hostname) {
             updates.push(`hostname = $${paramIndex++}`);
@@ -1505,8 +1512,8 @@ module.exports = (pool, io) => {
             }
 
             const insertResult = await pool.query(
-              `INSERT INTO network_devices (agent_id, ip_address, mac_address, hostname, vendor, device_type, device_path, status, has_ping_failures)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+              `INSERT INTO network_devices (agent_id, ip_address, mac_address, hostname, vendor, device_type, device_path, status, has_ping_failures, ping_responsive)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                RETURNING id`,
               [
                 agentId,
@@ -1517,7 +1524,8 @@ module.exports = (pool, io) => {
                 deviceTypeFromKeepass || null, // device_type da KeePass se trovato
                 devicePathFromKeepass || null, // device_path da KeePass se trovato
                 status || 'online',
-                has_ping_failures === true // has_ping_failures (default false)
+                has_ping_failures === true, // has_ping_failures (default false)
+                ping_responsive !== false // ping_responsive (default true, false solo se esplicitamente false)
               ]
             );
 
@@ -1889,7 +1897,7 @@ module.exports = (pool, io) => {
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
-          nd.previous_ip, nd.previous_mac, nd.has_ping_failures,
+          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
@@ -2088,7 +2096,7 @@ module.exports = (pool, io) => {
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
-          nd.previous_ip, nd.previous_mac, nd.has_ping_failures,
+          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive,
           na.agent_name, na.azienda_id, na.last_heartbeat as agent_last_seen, na.status as agent_status,
           u.azienda
          FROM network_devices nd

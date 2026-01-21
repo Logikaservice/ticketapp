@@ -1,10 +1,13 @@
 # NetworkMonitor.ps1
 # Agent PowerShell per monitoraggio rete - Invio dati al server TicketApp
+# Versione: 2.1.0 - Trust ARP (rileva dispositivi anche se non rispondono a ping)
 
 param(
     [string]$ConfigPath = "config.json",
     [switch]$TestMode = $false
 )
+
+$AGENT_VERSION = "2.1.0"
 
 # Forza TLS 1.2 per Invoke-RestMethod (compatibilità hardening TLS su Windows/Server)
 function Enable-Tls12 {
@@ -27,6 +30,51 @@ function Write-Log {
     # $logMessage | Out-File -FilePath "NetworkMonitor.log" -Append
 }
 
+function Get-ArpTable {
+    param([string]$NetworkPrefix)
+    
+    $arpDevices = @{}
+    
+    try {
+        # Metodo 1: Get-NetNeighbor (Windows 8+, più affidabile)
+        $neighbors = Get-NetNeighbor -AddressFamily IPv4 -ErrorAction SilentlyContinue | 
+            Where-Object { $_.IPAddress -like "$NetworkPrefix*" -and $_.State -ne "Unreachable" }
+        
+        foreach ($neighbor in $neighbors) {
+            $ip = $neighbor.IPAddress
+            $mac = $neighbor.LinkLayerAddress
+            
+            if ($mac -and $mac -ne "00-00-00-00-00-00" -and $mac -ne "FF-FF-FF-FF-FF-FF") {
+                $arpDevices[$ip] = $mac
+                Write-Log "ARP: $ip → $mac" "DEBUG"
+            }
+        }
+    } catch {
+        Write-Log "Get-NetNeighbor fallito, provo arp.exe: $_" "WARN"
+    }
+    
+    # Metodo 2: arp.exe (fallback per sistemi più vecchi)
+    if ($arpDevices.Count -eq 0) {
+        try {
+            $arpOutput = arp -a | Select-String -Pattern "^\s+(\d+\.\d+\.\d+\.\d+)\s+([0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2})" -AllMatches
+            
+            foreach ($match in $arpOutput.Matches) {
+                $ip = $match.Groups[1].Value
+                $mac = $match.Groups[2].Value.ToUpper() -replace ':', '-'
+                
+                if ($ip -like "$NetworkPrefix*" -and $mac -ne "00-00-00-00-00-00" -and $mac -ne "FF-FF-FF-FF-FF-FF") {
+                    $arpDevices[$ip] = $mac
+                    Write-Log "ARP (arp.exe): $ip → $mac" "DEBUG"
+                }
+            }
+        } catch {
+            Write-Log "arp.exe fallito: $_" "ERROR"
+        }
+    }
+    
+    return $arpDevices
+}
+
 function Get-NetworkDevices {
     param([string[]]$NetworkRanges)
     
@@ -47,135 +95,100 @@ function Get-NetworkDevices {
     }
     
     foreach ($range in $NetworkRanges) {
-        Write-Log "Scansione range: $range"
+        Write-Log "Scansione range: $range (Trust ARP mode)"
         
         # Estrai subnet e calcola range IP
         if ($range -match '^(\d+\.\d+\.\d+)\.(\d+)/(\d+)$') {
             $baseIP = $matches[1]
             $subnetMask = [int]$matches[3]
             
-            # Calcola numero di host nella subnet
-            $hostBits = 32 - $subnetMask
-            $numHosts = [Math]::Pow(2, $hostBits) - 2  # -2 per network e broadcast
+            # FASE 1: Scansiona tabella ARP per dispositivi già presenti
+            Write-Log "Scansionando tabella ARP per range $baseIP.*" "DEBUG"
+            $arpTable = Get-ArpTable -NetworkPrefix $baseIP
+            Write-Log "Trovati $($arpTable.Count) dispositivi in ARP table" "INFO"
             
-            # Per ora limitiamo a /24 (max 254 host) per performance
+            # FASE 2: Forza aggiornamento ARP con ping broadcast (opzionale, aiuta a popolare ARP)
+            # Questo aiuta a rilevare dispositivi che non hanno comunicato di recente
+            $calcHostBits = 32 - $subnetMask
+            $numHosts = [Math]::Pow(2, $calcHostBits) - 2
+            
             if ($subnetMask -ge 24) {
-                $startIP = if ($range -match '\.(\d+)/') { [int]$matches[1] } else { 1 }
-                $endIP = if ($subnetMask -eq 24) { 254 } else { $numHosts }
+                $maxIP = [Math]::Min(254, $numHosts)
                 
-                # Aggiungi sempre l'IP locale se è nel range configurato
-                $localIPInRange = $false
-                if ($localIP -and $localIP -like "$baseIP.*") {
-                    $localIPInRange = $true
-                    $localIPOctet = [int]($localIP -split '\.')[3]
-                    Write-Log "IP locale ($localIP) è nel range configurato" "DEBUG"
-                }
-                
-                # Scansiona IP range (aumentato a 254 per includere tutti gli IP in una /24)
-                $maxIP = [Math]::Min(254, $endIP)
+                # Ping veloce per popolare ARP table (solo se non già presente)
+                Write-Log "Aggiornando ARP table con ping veloce..." "DEBUG"
+                $jobs = @()
                 for ($i = 1; $i -le $maxIP; $i++) {
                     $ip = "$baseIP.$i"
-                    
-                    # Se è l'IP locale, aggiungilo sempre (anche se il ping fallisce)
-                    if ($localIPInRange -and $i -eq $localIPOctet) {
-                        Write-Log "Aggiungendo IP locale: $ip" "DEBUG"
-                        
-                        # Ottieni MAC address locale
-                        $macAddress = $null
-                        try {
-                            $adapter = Get-NetAdapter | Where-Object { $_.Status -eq "Up" } | Select-Object -First 1
-                            if ($adapter) {
-                                $macAddress = ($adapter.MacAddress -replace '-', '-')  # Mantieni formato originale
-                            }
-                        } catch {
-                            # Ignora errori
-                        }
-                        
-                        # Ottieni hostname locale
-                        $hostname = $env:COMPUTERNAME
-                        
-                        $device = @{
-                            ip_address = $ip
-                            mac_address = $macAddress
-                            hostname = $hostname
-                            vendor = $null
-                            status = "online"
-                        }
-                        
-                        $devices += $device
-                        continue  # Skip ping per IP locale
+                    # Ping async per velocità (max 10 job paralleli)
+                    if ($jobs.Count -ge 10) {
+                        $jobs | Wait-Job -Any | Out-Null
+                        $jobs = $jobs | Where-Object { $_.State -eq 'Running' }
                     }
+                    $jobs += Start-Job -ScriptBlock {
+                        param($targetIP)
+                        Test-Connection -ComputerName $targetIP -Count 1 -Quiet -ErrorAction SilentlyContinue | Out-Null
+                    } -ArgumentList $ip
+                }
+                # Attendi completamento ping jobs
+                $jobs | Wait-Job -Timeout 5 | Out-Null
+                $jobs | Remove-Job -Force -ErrorAction SilentlyContinue
+                
+                # FASE 3: Ri-scansiona ARP dopo ping
+                Start-Sleep -Milliseconds 500
+                $arpTable = Get-ArpTable -NetworkPrefix $baseIP
+                Write-Log "Dopo ping: $($arpTable.Count) dispositivi in ARP table" "INFO"
+                
+                # FASE 4: Processa ogni dispositivo in ARP table
+                foreach ($ip in $arpTable.Keys) {
+                    $macAddress = $arpTable[$ip]
                     
-                    # Ping test
-                    $pingResult = Test-Connection -ComputerName $ip -Count 1 -Quiet -ErrorAction SilentlyContinue
+                    Write-Log "Processando dispositivo ARP: $ip ($macAddress)" "DEBUG"
                     
-                    if ($pingResult) {
-                        Write-Log "Dispositivo rilevato: $ip" "DEBUG"
-                        
-                        # Ottieni MAC address dalla tabella ARP
-                        $macAddress = $null
-                        try {
-                            # Metodo 1: Get-NetNeighbor (Windows 8+)
-                            $arpEntry = Get-NetNeighbor -IPAddress $ip -ErrorAction SilentlyContinue
-                            if ($arpEntry) {
-                                $macAddress = $arpEntry.LinkLayerAddress
-                            }
-                        } catch {
-                            # Metodo 2: arp.exe (compatibilità)
-                            try {
-                                $arpOutput = arp -a $ip 2>$null
-                                if ($arpOutput -match '([0-9A-F]{2}[:-]){5}([0-9A-F]{2})') {
-                                    $macAddress = $matches[0]
-                                }
-                            } catch {
-                                # Ignora se anche questo fallisce
-                            }
-                        }
-                        
+                    # Test se risponde al ping (per distinguere Online vs No Ping)
+                    $pingResponsive = Test-Connection -ComputerName $ip -Count 1 -Quiet -ErrorAction SilentlyContinue
+                    
+                    # Se è l'IP locale, marca sempre come ping responsive
+                    if ($localIP -and $ip -eq $localIP) {
+                        $pingResponsive = $true
+                        $hostname = $env:COMPUTERNAME
+                    } else {
                         # Prova risoluzione hostname
                         $hostname = $null
                         try {
-                            $dnsResult = Resolve-DnsName -Name $ip -ErrorAction SilentlyContinue
-                            if ($dnsResult) {
+                            $dnsResult = Resolve-DnsName -Name $ip -ErrorAction SilentlyContinue -DnsOnly
+                            if ($dnsResult -and $dnsResult.NameHost) {
                                 $hostname = $dnsResult.NameHost
                             }
                         } catch {
-                            # Se DNS fallisce, prova WMI (solo per Windows devices)
-                            try {
-                                $wmiResult = Get-WmiObject -Class Win32_ComputerSystem -ComputerName $ip -ErrorAction SilentlyContinue
-                                if ($wmiResult) {
-                                    $hostname = $wmiResult.Name
-                                }
-                            } catch {
-                                # Ignora errori
-                            }
+                            # Ignora errori DNS
                         }
-                        
-                        # Vendor lookup da MAC (se disponibile)
-                        $vendor = $null
-                        if ($macAddress -and $macAddress -match '^([0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2})') {
-                            $oui = $matches[1] -replace '[:-]', ''
-                            # TODO: Implementa lookup vendor (API o database locale)
-                            # Per ora lasciamo null
-                        }
-                        
-                        # device_type non viene più determinato automaticamente
-                        # Sarà gestito manualmente dall'utente nel dashboard
-                        
-                        $device = @{
-                            ip_address = $ip
-                            mac_address = $macAddress
-                            hostname = $hostname
-                            vendor = $vendor
-                            status = "online"
-                        }
-                        
-                        $devices += $device
                     }
                     
-                    # Piccola pausa per non sovraccaricare la rete
-                    Start-Sleep -Milliseconds 50
+                    # Vendor lookup da MAC (se disponibile)
+                    $vendor = $null
+                    if ($macAddress -and $macAddress -match '^([0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2})') {
+                        $oui = $matches[1] -replace '[:-]', ''
+                        # TODO: Implementa lookup vendor (API o database locale)
+                        # Per ora lasciamo null
+                    }
+                    
+                    # Crea device object con nuovo campo ping_responsive
+                    $device = @{
+                        ip_address = $ip
+                        mac_address = $macAddress
+                        hostname = $hostname
+                        vendor = $vendor
+                        status = "online"  # Sempre online se presente in ARP
+                        ping_responsive = $pingResponsive
+                    }
+                    
+                    $devices += $device
+                    
+                    $statusLabel = if ($pingResponsive) { "✓ Ping OK" } else { "⚠️ No Ping" }
+                    Write-Log "Dispositivo: $ip → $statusLabel" "INFO"
                 }
+                
             } else {
                 Write-Log "Subnet mask troppo grande per scansione completa: $range" "WARN"
             }
@@ -184,6 +197,7 @@ function Get-NetworkDevices {
         }
     }
     
+    Write-Log "Scansione completata: $($devices.Count) dispositivi rilevati" "INFO"
     return $devices
 }
 

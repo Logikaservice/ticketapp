@@ -135,6 +135,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             background-color: #d1fae5;
             color: #065f46;
           }
+          .status-no-ping {
+            background-color: #fef3c7;
+            color: #92400e;
+          }
           .status-offline {
             background-color: #fee2e2;
             color: #991b1b;
@@ -174,8 +178,16 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                   <td>${device.device_type || '-'}</td>
                   <td>${device.device_username || '-'}</td>
                   <td>
-                    <span class="status-badge status-${device.status === 'online' ? 'online' : 'offline'}">
-                      ${device.status === 'online' ? '● Online' : '○ Offline'}
+                    <span class="status-badge status-${
+                      device.status === 'offline' ? 'offline' : 
+                      (device.status === 'online' && device.ping_responsive === false) ? 'no-ping' : 
+                      'online'
+                    }">
+                      ${
+                        device.status === 'offline' ? '○ Offline' : 
+                        (device.status === 'online' && device.ping_responsive === false) ? '⚠ No Ping' : 
+                        '● Online'
+                      }
                     </span>
                   </td>
                 </tr>
@@ -874,20 +886,33 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     }
   };
 
-  // Badge status
-  const StatusBadge = ({ status }) => {
-    if (status === 'online') {
+  // Badge status (3 stati: Online, No Ping, Offline)
+  const StatusBadge = ({ status, pingResponsive }) => {
+    // Offline: dispositivo completamente irraggiungibile
+    if (status === 'offline') {
       return (
-        <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 flex items-center gap-1">
-          <CheckCircle size={12} />
-          Online
+        <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 flex items-center gap-1">
+          <WifiOff size={12} />
+          Offline
         </span>
       );
     }
+    
+    // Online ma non risponde al ping: presente via ARP
+    if (status === 'online' && pingResponsive === false) {
+      return (
+        <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 flex items-center gap-1">
+          <AlertTriangle size={12} />
+          No Ping
+        </span>
+      );
+    }
+    
+    // Online con ping responsive: tutto ok
     return (
-      <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 flex items-center gap-1">
-        <WifiOff size={12} />
-        Offline
+      <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 flex items-center gap-1">
+        <CheckCircle size={12} />
+        Online
       </span>
     );
   };
@@ -1914,7 +1939,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                       <td className="py-3 px-4 text-sm text-gray-600">{device.device_type || '-'}</td>
                       <td className="py-3 px-4 text-sm text-gray-600">{device.device_username || '-'}</td>
                       <td className="py-3 px-4">
-                        <StatusBadge status={device.status} />
+                        <StatusBadge status={device.status} pingResponsive={device.ping_responsive} />
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-500 whitespace-nowrap">{formatDate(device.last_seen)}</td>
                     </tr>
