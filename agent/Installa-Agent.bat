@@ -328,12 +328,30 @@ REM 7. AVVIO SERVIZIO
 echo 7. AVVIO SERVIZIO
 sc start "%SERVICE_NAME%" >nul 2>&1
 if !errorLevel! equ 0 (
-    timeout /t 3 /nobreak >nul
-    sc query "%SERVICE_NAME%" | findstr /C:"RUNNING" >nul 2>&1
-    if !errorLevel! equ 0 (
-        echo    [OK] Servizio avviato correttamente
-    ) else (
-        echo    [INFO] Servizio avviato ma stato sconosciuto
+    REM Attendi fino a 10 secondi che il servizio si avvii
+    set "SERVICE_STARTED=0"
+    for /L %%I in (1,1,10) do (
+        timeout /t 1 /nobreak >nul
+        sc query "%SERVICE_NAME%" | findstr /C:"RUNNING" >nul 2>&1
+        if !errorLevel! equ 0 (
+            echo    [OK] Servizio avviato correttamente (RUNNING)
+            set "SERVICE_STARTED=1"
+            goto :service_verified
+        )
+        sc query "%SERVICE_NAME%" | findstr /C:"START_PENDING" >nul 2>&1
+        if !errorLevel! equ 0 (
+            REM Servizio ancora in avvio, continua ad attendere
+        )
+    )
+    :service_verified
+    if !SERVICE_STARTED! equ 0 (
+        REM Verifica stato finale
+        sc query "%SERVICE_NAME%" >nul 2>&1
+        if !errorLevel! equ 0 (
+            echo    [INFO] Servizio avviato, verifica stato con: sc query %SERVICE_NAME%
+        ) else (
+            echo    [X] Errore: servizio non trovato dopo l'avvio
+        )
     )
 ) else (
     echo    [X] Errore avvio servizio
