@@ -1,13 +1,13 @@
 # NetworkMonitor.ps1
 # Agent PowerShell per monitoraggio rete - Invio dati al server TicketApp
-# Versione: 2.2.1 - Trust ARP + Auto-update + Cleanup processi vecchi
+# Versione: 2.2.2 - Trust ARP + Auto-update + Cleanup automatico all'avvio
 
 param(
     [string]$ConfigPath = "config.json",
     [switch]$TestMode = $false
 )
 
-$AGENT_VERSION = "2.2.1"
+$AGENT_VERSION = "2.2.2"
 
 # Forza TLS 1.2 per Invoke-RestMethod (compatibilità hardening TLS su Windows/Server)
 function Enable-Tls12 {

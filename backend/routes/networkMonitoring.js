@@ -4527,7 +4527,7 @@ pause
   // Restituisce la versione corrente dell'agent disponibile per download
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.2.1'; // Trust ARP + Auto-update + Cleanup processi vecchi
+      const CURRENT_AGENT_VERSION = '2.2.2'; // Trust ARP + Auto-update + Cleanup all'avvio servizio
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
       
       res.json({
@@ -4539,7 +4539,7 @@ pause
           'Ping responsive tracking',
           '3 stati status: Online, No Ping, Offline',
           'Auto-update automatico',
-          'Cleanup automatico processi vecchi durante installazione/aggiornamento'
+          'Cleanup automatico processi vecchi all\'avvio del servizio'
         ]
       });
     } catch (err) {

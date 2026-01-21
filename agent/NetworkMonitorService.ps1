@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.2.1
+# Versione: 2.2.2
 # Data ultima modifica: 2026-01-21
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.2.1"
+$SCRIPT_VERSION = "2.2.2"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -1659,6 +1659,57 @@ function Send-Heartbeat {
 
 Write-Log "=== Network Monitor Service Avviato ==="
 Write-Log "Modalita: Servizio Windows (senza GUI)"
+
+# CLEANUP: Termina eventuali processi vecchi/duplicati all'avvio
+Write-Log "Cleanup processi vecchi/duplicati..."
+try {
+    $cleanupCount = 0
+    
+    # Termina tutte le vecchie tray icon (tranne quella che potrebbe essere avviata dopo)
+    $trayProcesses = Get-WmiObject Win32_Process | Where-Object { 
+        $_.CommandLine -like "*NetworkMonitorTrayIcon.ps1*" -or
+        $_.CommandLine -like "*Start-TrayIcon-Hidden.vbs*"
+    } | Select-Object ProcessId, CommandLine
+    
+    if ($trayProcesses) {
+        foreach ($proc in $trayProcesses) {
+            try {
+                Write-Log "  Terminazione vecchia tray icon PID $($proc.ProcessId)"
+                Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
+                $cleanupCount++
+            } catch {
+                Write-Log "  Warning: impossibile terminare PID $($proc.ProcessId): $_" "WARN"
+            }
+        }
+    }
+    
+    # Termina eventuali processi NetworkMonitor.ps1 standalone residui
+    $monitorProcesses = Get-WmiObject Win32_Process | Where-Object { 
+        $_.CommandLine -like "*NetworkMonitor.ps1*" -and 
+        $_.ProcessId -ne $PID
+    } | Select-Object ProcessId, CommandLine
+    
+    if ($monitorProcesses) {
+        foreach ($proc in $monitorProcesses) {
+            try {
+                Write-Log "  Terminazione vecchio processo monitor PID $($proc.ProcessId)"
+                Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
+                $cleanupCount++
+            } catch {
+                Write-Log "  Warning: impossibile terminare PID $($proc.ProcessId): $_" "WARN"
+            }
+        }
+    }
+    
+    if ($cleanupCount -gt 0) {
+        Write-Log "Cleanup completato: $cleanupCount processi terminati"
+        Start-Sleep -Seconds 1
+    } else {
+        Write-Log "Nessun processo vecchio da terminare"
+    }
+} catch {
+    Write-Log "Errore durante cleanup processi: $_" "WARN"
+}
 
 # Carica configurazione
 if (-not (Test-Path $ConfigPath)) {
