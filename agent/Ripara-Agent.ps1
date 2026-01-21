@@ -77,7 +77,7 @@ foreach ($file in $requiredFiles) {
 
 if ($missingFiles.Count -gt 0) {
     Write-Host ""
-    Write-Host "ERRORE: File mancanti! Reinstalla l'agent dal sito." -ForegroundColor Red
+    Write-Host "ERRORE: File mancanti! Reinstalla l agent dal sito." -ForegroundColor Red
     Write-Host "File mancanti: $($missingFiles -join ', ')" -ForegroundColor Red
     pause
     exit 1
