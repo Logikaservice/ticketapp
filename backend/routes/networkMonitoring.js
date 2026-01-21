@@ -2676,7 +2676,25 @@ module.exports = (pool, io) => {
         
         // NetworkMonitorService.ps1 (script principale servizio)
         if (fs.existsSync(servicePath)) {
-          const serviceContent = fs.readFileSync(servicePath, 'utf8');
+          let serviceContent = fs.readFileSync(servicePath, 'utf8');
+          
+          // Rimuovi BOM se presente
+          if (serviceContent.charCodeAt(0) === 0xFEFF) {
+            serviceContent = serviceContent.slice(1);
+          }
+          
+          // Verifica bilanciamento parentesi graffe (sanity check)
+          const openBraces = (serviceContent.match(/{/g) || []).length;
+          const closeBraces = (serviceContent.match(/}/g) || []).length;
+          if (openBraces !== closeBraces) {
+            console.error(`❌ ERRORE CRITICO: Parentesi graffe sbilanciate in NetworkMonitorService.ps1!`);
+            console.error(`   Aperte: ${openBraces}, Chiuse: ${closeBraces}`);
+            console.error(`   Il file potrebbe avere errori di sintassi!`);
+            // Non blocchiamo il download, ma loggiamo l'errore
+          } else {
+            console.log(`✅ Verifica sintassi: ${openBraces}/${closeBraces} parentesi graffe bilanciate`);
+          }
+          
           archive.append(serviceContent, { name: 'NetworkMonitorService.ps1' });
           console.log('✅ Aggiunto NetworkMonitorService.ps1');
         }
