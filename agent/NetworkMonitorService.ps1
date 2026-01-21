@@ -1,19 +1,19 @@
-﻿# NetworkMonitorService.ps1
+# NetworkMonitorService.ps1
 # Servizio Windows permanente per Network Monitor Agent
 # Rimane sempre attivo e esegue scansioni periodicamente
 # Gestisce tutto internamente senza dipendere da Scheduled Task
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 1.1.3
-# Data ultima modifica: 2026-01-16
+# Versione: 2.2.0
+# Data ultima modifica: 2026-01-21
 
 param(
     [string]$ConfigPath = "config.json"
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "1.1.3"
+$SCRIPT_VERSION = "2.2.0"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
