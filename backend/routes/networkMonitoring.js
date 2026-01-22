@@ -7,43 +7,9 @@ const crypto = require('crypto');
 const archiver = require('archiver');
 const path = require('path');
 const fs = require('fs');
-const path = require('path');
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
 const keepassDriveService = require('../utils/keepassDriveService');
 const telegramService = require('../services/TelegramService');
-
-// Helper per leggere la versione dell'agent dal file ps1
-const resolveAgentVersion = () => {
-  const possiblePaths = [
-    path.join(__dirname, '../../agent/NetworkMonitorService.ps1'),
-    path.join(__dirname, '../../../agent/NetworkMonitorService.ps1'),
-    path.join(process.cwd(), '../agent/NetworkMonitorService.ps1'),
-    path.join(process.cwd(), 'agent/NetworkMonitorService.ps1')
-  ];
-
-  let foundPath = null;
-  for (const p of possiblePaths) {
-    if (fs.existsSync(p)) {
-      foundPath = p;
-      break;
-    }
-  }
-
-  if (foundPath) {
-    try {
-      const content = fs.readFileSync(foundPath, 'utf8');
-      // Regex robusta per trovare $SCRIPT_VERSION = "..."
-      const match = content.match(/\$SCRIPT_VERSION\s*=\s*["']([\d\.]+)["']/);
-      if (match && match[1]) {
-        return match[1];
-      }
-    } catch (e) {
-      console.warn('Errore lettura versione agent da file:', e.message);
-    }
-  }
-  // Fallback sicuro se il file non si trova o non si legge
-  return '2.3.0';
-};
 
 module.exports = (pool, io) => {
   // Funzione helper per inizializzare le tabelle se non esistono
@@ -2395,11 +2361,7 @@ module.exports = (pool, io) => {
             // Per ora usiamo una password di default o vuota se il servizio supporta caching senza ri-auth
             // FIXME: Gestione password KeePass centralizzata
 
-            // Timeout di 2 secondi per il lookup: se KeePass è lento, salta enrichment
-            const lookupPromise = keepassDriveService.findMacTitle(row.mac_address, process.env.KEEPASS_PASSWORD || "Theorica2023!");
-            const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 2000));
-
-            const keepassInfo = await Promise.race([lookupPromise, timeoutPromise]);
+            const keepassInfo = await keepassDriveService.findMacTitle(row.mac_address, process.env.KEEPASS_PASSWORD || "Theorica2023!");
 
             if (keepassInfo) {
               return {
@@ -4644,11 +4606,11 @@ pause
   // Restituisce la versione corrente dell'agent disponibile per download
   router.get('/agent-version', async (req, res) => {
     try {
-      const version = resolveAgentVersion(); // Usa la nuova helper function
+      const CURRENT_AGENT_VERSION = '2.3.0'; // Versione ufficiale con Trust ARP, Hybrid Discovery e Auto-Update
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
-        version: version, // Versione dinamica
+        version: CURRENT_AGENT_VERSION,
         download_url: `${baseUrl}/api/network-monitoring/download/agent/NetworkMonitor.ps1`,
         release_date: '2026-01-22',
         features: [
