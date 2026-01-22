@@ -2342,46 +2342,12 @@ module.exports = (pool, io) => {
         [...queryParams, limit]
       );
 
-      // Arricchisci i dati con informazioni da KeePass per ogni device
-      // Use keepassDriveService singleton instance
-      const keepassDriveService = require('../../utils/keepassDriveService');
-
-      const enrichedRows = await Promise.all(result.rows.map(async (row) => {
-        // Cerca info su KeePass usando il MAC address
-        if (row.mac_address) {
-          try {
-            // Nota: findMacTitle è asincrono e usa la cache interna
-            // Cerchiamo il MAC senza password perché il servizio gestisce la cache e il download se necessario
-            // IMPORTANTE: Assumiamo che la password sia gestita internamente o non necessaria se già in cache
-            // Se necessario, potremmo dover passare la password da qualche parte, ma per ora proviamo così
-            // Il servizio keepassDriveService richiede password solo per il primo load
-
-            // Se non abbiamo password, proviamo a recuperare dalla mappa se già caricata
-            // In un contesto reale, dovremmo avere un modo per accedere al keepass (es. password salvata o richiesta)
-            // Per ora usiamo una password di default o vuota se il servizio supporta caching senza ri-auth
-            // FIXME: Gestione password KeePass centralizzata
-
-            const keepassInfo = await keepassDriveService.findMacTitle(row.mac_address, process.env.KEEPASS_PASSWORD || "Theorica2023!");
-
-            if (keepassInfo) {
-              return {
-                ...row,
-                keepass_title: keepassInfo.title,
-                keepass_username: keepassInfo.username
-              };
-            }
-          } catch (kpErr) {
-            console.warn(`Errore lookup KeePass per MAC ${row.mac_address}:`, kpErr.message);
-          }
-        }
-        return row;
-      }));
 
       // Restituisci anche il conteggio se richiesto
       if (count24h !== null) {
-        res.json({ changes: enrichedRows, count24h });
+        res.json({ changes: result.rows, count24h });
       } else {
-        res.json(enrichedRows);
+        res.json(result.rows);
       }
     } catch (err) {
       console.error('❌ Errore recupero tutti cambiamenti:', err);
