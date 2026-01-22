@@ -2324,12 +2324,15 @@ module.exports = (pool, io) => {
               -- Estrae il primo valore da array JSON come stringa (es: {"Android_RPRTJQAR.local", ...})
               REGEXP_REPLACE(
                 SPLIT_PART(REGEXP_REPLACE(nd.hostname, '^[{\s"]+', ''), '",', 1),
-                '["\s]+$', ''
+                '["\\s]+$', ''
               )
             WHEN LENGTH(nd.hostname) > 100 THEN LEFT(nd.hostname, 97) || '...'
             ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor, nd.device_type, nd.is_static,
+          nd.device_path, nd.device_username,
+          nd.device_type as keepass_title,
+          nd.device_username as keepass_username,
           na.agent_name, na.azienda_id,
           u.azienda
          FROM network_changes nc
