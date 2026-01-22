@@ -52,7 +52,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [changesSearchTerm, setChangesSearchTerm] = useState('');
   const [changesCompanyFilter, setChangesCompanyFilter] = useState(null); // Filtro azienda separato per "Cambiamenti Rilevati"
   const [eventTypeFilter, setEventTypeFilter] = useState('all'); // all, device, agent
-  const [severityFilter, setSeverityFilter] = useState('all'); // all, critical, warning, info
   const [ipContextMenu, setIpContextMenu] = useState({ show: false, ip: '', x: 0, y: 0 });
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedDeviceForSchedule, setSelectedDeviceForSchedule] = useState(null);
@@ -426,11 +425,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       const searchParam = changesSearchTerm ? `&search=${encodeURIComponent(changesSearchTerm)}` : '';
       const aziendaParam = changesCompanyFilter ? `&azienda_id=${changesCompanyFilter}` : '';
       const eventTypeParam = eventTypeFilter !== 'all' ? `&event_type=${eventTypeFilter}` : '';
-      const severityParam = severityFilter !== 'all' ? `&severity=${severityFilter}` : '';
 
       // Usa il nuovo endpoint unificato
       const response = await fetch(
-        buildApiUrl(`/api/network-monitoring/all/events?limit=500&count24h=true${searchParam}${aziendaParam}${eventTypeParam}${severityParam}`),
+        buildApiUrl(`/api/network-monitoring/all/events?limit=500&count24h=true${searchParam}${aziendaParam}${eventTypeParam}`),
         { headers: getAuthHeader() }
       );
 
@@ -454,7 +452,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         console.error('Errore caricamento eventi:', err);
       }
     }
-  }, [getAuthHeader, changesSearchTerm, changesCompanyFilter, eventTypeFilter, severityFilter]);
+  }, [getAuthHeader, changesSearchTerm, changesCompanyFilter, eventTypeFilter]);
 
   // Carica lista aziende
   const loadCompanies = useCallback(async () => {
