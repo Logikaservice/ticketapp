@@ -14,6 +14,7 @@ import CreateAgentModal from './Modals/CreateAgentModal';
 import MonitoringScheduleModal from './Modals/MonitoringScheduleModal';
 import AgentNotifications from './AgentNotifications';
 import TelegramConfigSection from './TelegramConfigSection';
+import { EventBadge, SeverityIndicator } from './EventBadges';
 
 const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null }) => {
   const [devices, setDevices] = useState([]);
@@ -419,27 +420,30 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     }
   }, [getAuthHeader]);
 
-  // Carica cambiamenti
+  // Carica eventi unificati (dispositivi + agent)
   const loadChanges = useCallback(async (silent = false) => {
     try {
       const searchParam = changesSearchTerm ? `&search=${encodeURIComponent(changesSearchTerm)}` : '';
-      // Usa il filtro azienda specifico per i cambiamenti (changesCompanyFilter), NON selectedCompanyId
       const aziendaParam = changesCompanyFilter ? `&azienda_id=${changesCompanyFilter}` : '';
-      // Richiedi anche il conteggio delle ultime 24 ore
-      const response = await fetch(buildApiUrl(`/api/network-monitoring/all/changes?limit=500&count24h=true${searchParam}${aziendaParam}`), {
-        headers: getAuthHeader()
-      });
+      const eventTypeParam = eventTypeFilter !== 'all' ? `&event_type=${eventTypeFilter}` : '';
+      const severityParam = severityFilter !== 'all' ? `&severity=${severityFilter}` : '';
+
+      // Usa il nuovo endpoint unificato
+      const response = await fetch(
+        buildApiUrl(`/api/network-monitoring/all/events?limit=500&count24h=true${searchParam}${aziendaParam}${eventTypeParam}${severityParam}`),
+        { headers: getAuthHeader() }
+      );
 
       if (!response.ok) {
-        throw new Error('Errore caricamento cambiamenti');
+        throw new Error('Errore caricamento eventi');
       }
 
       const data = await response.json();
-      // Gestisci sia formato vecchio (array) che nuovo (oggetto con count24h)
+      // Gestisci sia formato vecchio (array) che nuovo (oggetto con events)
       if (Array.isArray(data)) {
         setChanges(data);
       } else {
-        setChanges(data.changes || []);
+        setChanges(data.events || []);
         // Salva il conteggio delle ultime 24 ore se disponibile
         if (data.count24h !== undefined) {
           setRecentChangesCount(data.count24h);
@@ -447,10 +451,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       }
     } catch (err) {
       if (!silent) {
-        console.error('Errore caricamento cambiamenti:', err);
+        console.error('Errore caricamento eventi:', err);
       }
     }
-  }, [getAuthHeader, changesSearchTerm, changesCompanyFilter]);
+  }, [getAuthHeader, changesSearchTerm, changesCompanyFilter, eventTypeFilter, severityFilter]);
 
   // Carica lista aziende
   const loadCompanies = useCallback(async () => {
