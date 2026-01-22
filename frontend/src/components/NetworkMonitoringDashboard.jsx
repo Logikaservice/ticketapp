@@ -68,33 +68,33 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         <title>Report Dispositivi - ${companyName}</title>
         <style>
           @media print {
-            @page { margin: 1.5cm; }
+            @page { margin: 0.8cm; }
           }
           body {
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 10px;
           }
           h1 {
             text-align: center;
             color: #1f2937;
-            margin-bottom: 30px;
-            font-size: 24px;
+            margin-bottom: 20px;
+            font-size: 22px;
           }
           table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            margin-top: 15px;
             table-layout: fixed;
           }
-          /* Larghezze colonne ottimizzate con colonna Statico */
-          table th:nth-child(1), table td:nth-child(1) { width: 5%; text-align: center; } /* Statico */
-          table th:nth-child(2), table td:nth-child(2) { width: 13%; } /* IP */
-          table th:nth-child(3), table td:nth-child(3) { width: 18%; } /* MAC */
-          table th:nth-child(4), table td:nth-child(4) { width: 12%; } /* Prod. */
-          table th:nth-child(5), table td:nth-child(5) { width: 18%; } /* Titolo */
-          table th:nth-child(6), table td:nth-child(6) { width: 20%; } /* Utente */
-          table th:nth-child(7), table td:nth-child(7) { width: 14%; } /* Status */
+          /* Larghezze colonne ottimizzate - più spazio per Utente */
+          table th:nth-child(1), table td:nth-child(1) { width: 4%; text-align: center; } /* Statico */
+          table th:nth-child(2), table td:nth-child(2) { width: 11%; } /* IP */
+          table th:nth-child(3), table td:nth-child(3) { width: 15%; } /* MAC */
+          table th:nth-child(4), table td:nth-child(4) { width: 10%; } /* Prod. */
+          table th:nth-child(5), table td:nth-child(5) { width: 15%; } /* Titolo */
+          table th:nth-child(6), table td:nth-child(6) { width: 30%; } /* Utente - aumentato */
+          table th:nth-child(7), table td:nth-child(7) { width: 15%; } /* Status */
           .checkbox-icon {
             font-size: 12px;
             font-weight: bold;
