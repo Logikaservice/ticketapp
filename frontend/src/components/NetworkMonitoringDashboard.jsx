@@ -2012,12 +2012,15 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           </>
         )}
 
-        {/* Sezione cambiamenti recenti - PRIORITARIA */}
+        {/* Sezione eventi unificati (dispositivi + agent) */}
         <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Cambiamenti Rilevati</h2>
-            <div className="flex items-center gap-4">
-              {/* Filtro Azienda - Solo aziende con agent attivi */}
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Eventi di Rete</h2>
+              <span className="text-sm text-gray-500">{changes.length} totali</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+              {/* Filtro Azienda */}
               <div className="relative">
                 <select
                   value={changesCompanyFilter || ''}
@@ -2025,11 +2028,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                     const companyId = e.target.value ? parseInt(e.target.value) : null;
                     setChangesCompanyFilter(companyId);
                   }}
-                  className="px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer min-w-[180px]"
+                  className="w-full px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
                 >
                   <option value="">Tutte le Aziende</option>
                   {companies
-                    .filter(company => company.agents_count > 0) // Solo aziende con agent
+                    .filter(company => company.agents_count > 0)
                     .map((company) => (
                       <option key={company.id} value={company.id}>
                         {company.azienda}
@@ -2043,74 +2046,93 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 />
               </div>
 
+              {/* Filtro Tipo Evento */}
+              <select
+                value={eventTypeFilter}
+                onChange={(e) => setEventTypeFilter(e.target.value)}
+                className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="all">Tutti gli Eventi</option>
+                <option value="device">Solo Dispositivi</option>
+                <option value="agent">Solo Agent</option>
+              </select>
+
+              {/* Filtro Gravità */}
+              <select
+                value={severityFilter}
+                onChange={(e) => setSeverityFilter(e.target.value)}
+                className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="all">Tutte le Gravità</option>
+                <option value="critical">🔴 Critici</option>
+                <option value="warning">🟠 Attenzione</option>
+                <option value="info">🔵 Info</option>
+              </select>
+
               {/* Barra di ricerca */}
-              <div className="relative">
+              <div className="relative md:col-span-2">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
-                  placeholder="Cerca (IP, MAC, hostname...)"
+                  placeholder="Cerca (IP, MAC, hostname, agent...)"
                   value={changesSearchTerm}
-                  onChange={(e) => {
-                    setChangesSearchTerm(e.target.value);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      loadChanges(false);
-                    }
-                  }}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
+                  onChange={(e) => setChangesSearchTerm(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && loadChanges(false)}
+                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {changesSearchTerm && (
                   <button
-                    onClick={() => {
-                      setChangesSearchTerm('');
-                      loadChanges(false);
-                    }}
+                    onClick={() => { setChangesSearchTerm(''); loadChanges(false); }}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 )}
               </div>
-              <span className="text-sm text-gray-500">{changes.length} totali</span>
             </div>
           </div>
           <div className="p-6">
             {changes.length === 0 ? (
               <div className="text-center py-12">
                 <Activity className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 text-lg">Nessun cambiamento rilevato</p>
-                <p className="text-gray-400 text-sm mt-2">I cambiamenti di rete verranno visualizzati qui</p>
+                <p className="text-gray-500 text-lg">Nessun evento rilevato</p>
+                <p className="text-gray-400 text-sm mt-2">Gli eventi di rete verranno visualizzati qui</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Gravità</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo Evento</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Prod.</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Azienda</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Agente</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Agent</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Data</th>
                     </tr>
                   </thead>
                   <tbody>
                     {changes.slice(0, 50).map((change) => {
                       const isStatic = change.is_static === true;
+                      const isAgent = change.event_category === 'agent';
                       return (
                         <tr
-                          key={change.id}
-                          className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
+                          key={`${change.event_category || 'device'}-${change.id}`}
+                          className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''
+                            } ${change.severity === 'critical' ? 'bg-red-50' : ''}`}
                         >
                           <td className="py-3 px-4">
-                            <ChangeTypeBadge changeType={change.change_type} />
+                            <SeverityIndicator severity={change.severity || 'info'} />
+                          </td>
+                          <td className="py-3 px-4">
+                            <EventBadge event={change} />
                           </td>
                           <td className="py-3 px-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {change.ip_address}
+                              {change.ip_address || (isAgent ? '-' : 'N/A')}
                               {isStatic && (
                                 <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-200 text-blue-800 font-semibold">
                                   STATICO
