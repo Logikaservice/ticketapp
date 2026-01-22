@@ -50,6 +50,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [showOfflineDevices, setShowOfflineDevices] = useState(true); // Mostra dispositivi offline di default
   const [changesSearchTerm, setChangesSearchTerm] = useState('');
   const [changesCompanyFilter, setChangesCompanyFilter] = useState(null); // Filtro azienda separato per "Cambiamenti Rilevati"
+  const [eventTypeFilter, setEventTypeFilter] = useState('all'); // all, device, agent
+  const [severityFilter, setSeverityFilter] = useState('all'); // all, critical, warning, info
   const [ipContextMenu, setIpContextMenu] = useState({ show: false, ip: '', x: 0, y: 0 });
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedDeviceForSchedule, setSelectedDeviceForSchedule] = useState(null);
