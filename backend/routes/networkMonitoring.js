@@ -2520,6 +2520,10 @@ module.exports = (pool, io) => {
       `;
       params.push(limit);
 
+      // DEBUG: Log query generata
+      console.log('🔍 DEBUG Query unificata:', unifiedQuery);
+      console.log('🔍 DEBUG Params:', params);
+
       // Esegui query
       const result = await pool.query(unifiedQuery, params);
 
