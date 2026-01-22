@@ -2401,7 +2401,16 @@ module.exports = (pool, io) => {
             ELSE 'info'
           END as severity,
           CASE
-            WHEN nc.change_type = 'new_device' THEN true
+            -- Verifica se questo è il PRIMO evento per questo MAC su questa rete
+            WHEN nc.change_type IN ('new_device', 'device_online') AND NOT EXISTS (
+              SELECT 1 
+              FROM network_changes nc2
+              INNER JOIN network_devices nd2 ON nc2.device_id = nd2.id
+              WHERE nd2.mac_address = nd.mac_address
+                AND nd2.agent_id = na.id
+                AND nc2.detected_at < nc.detected_at
+                AND nc2.change_type IN ('new_device', 'device_online')
+            ) THEN true
             ELSE false
           END as is_new_device
         FROM network_changes nc
