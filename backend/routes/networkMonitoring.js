@@ -2612,54 +2612,17 @@ module.exports = (pool, io) => {
         return res.status(500).json({ error: errorMsg });
       }
 
-      // Leggi versione dal file NetworkMonitorService.ps1 se disponibile
-      const CURRENT_AGENT_VERSION = '2.3.0'; // Versione attuale corretta
-      console.log(`ℹ️ Versione corrente sistema: ${CURRENT_AGENT_VERSION}`);
-      let agentVersion = CURRENT_AGENT_VERSION; // Default
+      // IMPONE versione fissa 2.3.0 per risolvere problemi di allineamento file sulla VPS
+      // In futuro si potrà ripristinare la lettura dal file, ma ora serve certezza.
+      const CURRENT_AGENT_VERSION = '2.3.0';
+      const agentVersion = CURRENT_AGENT_VERSION;
+      console.log(`ℹ️ Versione agent forzata per lo ZIP: ${agentVersion}`);
+
+      /* LOGICA LETTURA FILE DISABILITATA TEMPORANEAMENTE PER RISOLVERE PROBLEMA VERSIONE
       if (fs.existsSync(servicePath)) {
-        try {
-          // Leggi file rimuovendo BOM se presente
-          let serviceContent = fs.readFileSync(servicePath, 'utf8');
-          // Rimuovi BOM (Byte Order Mark) se presente
-          if (serviceContent.charCodeAt(0) === 0xFEFF) {
-            serviceContent = serviceContent.slice(1);
-          }
-
-          // Cerca $SCRIPT_VERSION = "X.Y.Z" con regex più robusto
-          // Gestisce: spazi vari, tab, virgolette normali/tipografiche, BOM
-          const versionPatterns = [
-            /\$SCRIPT_VERSION\s*=\s*["']([\d\.]+)["']/,  // Pattern principale
-            /\$SCRIPT_VERSION\s*=\s*[""]([\d\.]+)[""]/,  // Virgolette tipografiche
-            /SCRIPT_VERSION\s*=\s*["']([\d\.]+)["']/,     // Senza $
-            /Versione[:\s]+([\d\.]+)/i,                    // Commento italiano
-            /Version[:\s]+([\d\.]+)/i                      // Commento inglese
-          ];
-
-          let versionFound = false;
-          for (const pattern of versionPatterns) {
-            const versionMatch = serviceContent.match(pattern);
-            if (versionMatch && versionMatch[1]) {
-              agentVersion = versionMatch[1];
-              console.log(`✅ Versione agent letta da NetworkMonitorService.ps1: ${agentVersion} (pattern: ${pattern})`);
-              versionFound = true;
-              break;
-            }
-          }
-
-          if (!versionFound) {
-            console.warn(`⚠️  Versione non trovata in NetworkMonitorService.ps1, uso fallback: ${CURRENT_AGENT_VERSION}`);
-            // Log prime righe del file per debug
-            const firstLines = serviceContent.split('\n').slice(0, 20).join('\n');
-            console.log(`📄 Prime 20 righe del file:\n${firstLines}`);
-          }
-        } catch (versionErr) {
-          console.warn(`⚠️  Errore lettura versione da NetworkMonitorService.ps1: ${versionErr.message}`);
-          console.warn(`⚠️  Uso versione fallback: ${CURRENT_AGENT_VERSION}`);
-        }
-      } else {
-        console.warn(`⚠️  File NetworkMonitorService.ps1 non trovato: ${servicePath}`);
-        console.warn(`⚠️  Uso versione fallback: ${CURRENT_AGENT_VERSION}`);
-      }
+        // ... (codice rimosso per garantire l'update) ...
+      } 
+      */
 
       // Crea config.json
       const configJson = {
