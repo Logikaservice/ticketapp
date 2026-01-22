@@ -87,13 +87,18 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             margin-top: 20px;
             table-layout: fixed;
           }
-          /* Larghezze colonne ottimizzate - Status più a destra con meno spazio */
-          table th:nth-child(1), table td:nth-child(1) { width: 14%; } /* IP */
-          table th:nth-child(2), table td:nth-child(2) { width: 20%; } /* MAC - più largo per MAC completi */
-          table th:nth-child(3), table td:nth-child(3) { width: 13%; } /* Prod. */
-          table th:nth-child(4), table td:nth-child(4) { width: 20%; } /* Titolo */
-          table th:nth-child(5), table td:nth-child(5) { width: 21%; } /* Utente */
-          table th:nth-child(6), table td:nth-child(6) { width: 12%; } /* Status - ridotto */
+          /* Larghezze colonne ottimizzate con colonna Statico */
+          table th:nth-child(1), table td:nth-child(1) { width: 5%; text-align: center; } /* Statico */
+          table th:nth-child(2), table td:nth-child(2) { width: 13%; } /* IP */
+          table th:nth-child(3), table td:nth-child(3) { width: 18%; } /* MAC */
+          table th:nth-child(4), table td:nth-child(4) { width: 12%; } /* Prod. */
+          table th:nth-child(5), table td:nth-child(5) { width: 18%; } /* Titolo */
+          table th:nth-child(6), table td:nth-child(6) { width: 20%; } /* Utente */
+          table th:nth-child(7), table td:nth-child(7) { width: 14%; } /* Status */
+          .checkbox-icon {
+            font-size: 12px;
+            font-weight: bold;
+          }
           th {
             background-color: #f3f4f6;
             padding: 8px;
@@ -156,6 +161,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         <table>
           <thead>
             <tr>
+              <th>Statico</th>
               <th>IP</th>
               <th>MAC</th>
               <th>Prod.</th>
@@ -169,11 +175,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       const isStatic = device.is_static === true;
       const isOffline = device.status === 'offline';
       const rowClass = isOffline ? 'offline-row' : (isStatic ? 'static-row' : '');
+      // Converti MAC da trattini a due punti
+      const macFormatted = device.mac_address ? device.mac_address.replace(/-/g, ':') : '-';
 
       return `
                 <tr class="${rowClass}">
+                  <td style="text-align: center;">${isStatic ? '☑' : '☐'}</td>
                   <td>${device.ip_address || '-'}</td>
-                  <td>${device.mac_address || '-'}</td>
+                  <td>${macFormatted}</td>
                   <td>${device.device_path || '-'}</td>
                   <td>${device.device_type || '-'}</td>
                   <td>${device.device_username || '-'}</td>
@@ -1211,8 +1220,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             <button
               onClick={() => setAutoRefresh(!autoRefresh)}
               className={`px-4 py-2 rounded-lg flex items-center gap-2 ${autoRefresh
-                  ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
             >
               <Activity size={18} />
@@ -1300,8 +1309,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         <div className="flex items-center gap-3">
                           <h3 className="font-semibold text-gray-900">{agent.agent_name || `Agent #${agent.id}`}</h3>
                           <span className={`px-2 py-1 rounded text-xs font-medium ${agent.status === 'online' ? 'bg-green-100 text-green-800' :
-                              agent.status === 'offline' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
+                            agent.status === 'offline' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
                             }`}>
                             {agent.status || 'unknown'}
                           </span>
@@ -1582,10 +1591,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <span className={`px-2 py-0.5 rounded text-xs font-semibold ${ev.event_type === 'offline' ? 'bg-red-100 text-red-800' :
-                                ev.event_type === 'online' ? 'bg-green-100 text-green-800' :
-                                  ev.event_type === 'reboot' ? 'bg-blue-100 text-blue-800' :
-                                    ev.event_type === 'network_issue' ? 'bg-yellow-100 text-yellow-800' :
-                                      'bg-gray-100 text-gray-800'
+                              ev.event_type === 'online' ? 'bg-green-100 text-green-800' :
+                                ev.event_type === 'reboot' ? 'bg-blue-100 text-blue-800' :
+                                  ev.event_type === 'network_issue' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-gray-100 text-gray-800'
                               }`}>
                               {ev.event_type}
                             </span>
@@ -1673,8 +1682,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 <button
                   onClick={() => setShowOfflineDevices(!showOfflineDevices)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${showOfflineDevices
-                      ? 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
-                      : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
+                    ? 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                    : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
                     }`}
                   title={showOfflineDevices ? 'Nascondi dispositivi offline' : 'Mostra dispositivi offline'}
                 >
