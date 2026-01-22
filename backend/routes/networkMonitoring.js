@@ -1233,13 +1233,15 @@ module.exports = (pool, io) => {
           if (normalizedMacForSearch.length > 17) {
             normalizedMacForSearch = normalizedMacForSearch.substring(0, 17);
           }
+          // Converti trattini in due punti per uniformità
+          normalizedMacForSearch = normalizedMacForSearch.replace(/-/g, ':');
           // Se non ha il formato corretto, prova a convertirlo
-          if (normalizedMacForSearch.length === 12 && !normalizedMacForSearch.includes('-') && !normalizedMacForSearch.includes(':')) {
-            // Formato senza separatori, aggiungi trattini ogni 2 caratteri
-            normalizedMacForSearch = normalizedMacForSearch.replace(/(..)(..)(..)(..)(..)(..)/, '$1-$2-$3-$4-$5-$6');
+          if (normalizedMacForSearch.length === 12 && !normalizedMacForSearch.includes(':')) {
+            // Formato senza separatori, aggiungi due punti ogni 2 caratteri
+            normalizedMacForSearch = normalizedMacForSearch.replace(/(..)(..)(..)(..)(..)(..)/, '$1:$2:$3:$4:$5:$6');
           }
-          // Verifica che sia un MAC valido (17 caratteri con trattini)
-          if (normalizedMacForSearch.length !== 17 || !/^([0-9A-F]{2}-){5}[0-9A-F]{2}$/i.test(normalizedMacForSearch)) {
+          // Verifica che sia un MAC valido (17 caratteri con due punti)
+          if (normalizedMacForSearch.length !== 17 || !/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i.test(normalizedMacForSearch)) {
             normalizedMacForSearch = null;
           }
         }
