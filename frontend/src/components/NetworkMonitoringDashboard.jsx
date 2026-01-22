@@ -2116,12 +2116,28 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           </td>
                           <td className="py-3 px-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {change.ip_address || (isAgent ? '-' : 'N/A')}
-                              {isStatic && (
-                                <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-200 text-blue-800 font-semibold">
-                                  STATICO
-                                </span>
-                              )}
+                              <div className="flex items-center gap-2">
+                                {/* Indicatore disconnessioni frequenti */}
+                                {change.has_ping_failures && (
+                                  <div className="relative group flex items-center">
+                                    <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
+                                      <span className="text-white text-xs font-bold leading-none">+</span>
+                                    </div>
+                                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                      Disconnessioni frequenti rilevate
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* IP Address */}
+                                {change.ip_address || (isAgent ? '-' : 'N/A')}
+
+                                {isStatic && (
+                                  <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-200 text-blue-800 font-semibold">
+                                    STATICO
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-600 font-mono">

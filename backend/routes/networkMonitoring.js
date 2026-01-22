@@ -2386,6 +2386,7 @@ module.exports = (pool, io) => {
           nd.device_path,
           nd.device_username,
           nd.is_static,
+          nd.has_ping_failures,
           nd.device_type as keepass_title,
           nd.device_username as keepass_username,
           nc.old_value,
