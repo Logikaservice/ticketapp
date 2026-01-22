@@ -2426,6 +2426,7 @@ module.exports = (pool, io) => {
           NULL as device_path,
           NULL as device_username,
           false as is_static,
+          false as has_ping_failures,
           NULL as keepass_title,
           NULL as keepass_username,
           NULL as old_value,
