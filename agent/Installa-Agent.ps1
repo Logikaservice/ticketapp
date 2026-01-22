@@ -116,8 +116,8 @@ Start-Sleep -Seconds 2
 # Termina tutte le vecchie tray icon
 Write-Host "   Chiusura vecchie tray icon..." -ForegroundColor Cyan
 $trayProcesses = Get-WmiObject Win32_Process | Where-Object { 
-    $_.CommandLine -like "*NetworkMonitorTrayIcon.ps1*" -or
-    $_.CommandLine -like "*Start-TrayIcon-Hidden.vbs*"
+    ($_.CommandLine -like "*NetworkMonitorTrayIcon.ps1*" -or $_.CommandLine -like "*Start-TrayIcon-Hidden.vbs*") -and
+    $_.ProcessId -ne $PID
 } | Select-Object ProcessId, CommandLine
 
 if ($trayProcesses) {
@@ -137,7 +137,9 @@ if ($trayProcesses) {
 
 # Termina eventuali processi NetworkMonitor.ps1 residui
 $monitorProcesses = Get-WmiObject Win32_Process | Where-Object { 
-    $_.CommandLine -like "*NetworkMonitor.ps1*" -and $_.CommandLine -notlike "*Installa-Agent.ps1*"
+    $_.CommandLine -like "*NetworkMonitor.ps1*" -and 
+    $_.CommandLine -notlike "*Installa-Agent.ps1*" -and
+    $_.ProcessId -ne $PID
 } | Select-Object ProcessId, CommandLine
 
 if ($monitorProcesses) {
