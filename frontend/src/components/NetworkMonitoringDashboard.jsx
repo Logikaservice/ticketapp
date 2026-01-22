@@ -2057,20 +2057,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 <option value="agent">Solo Agent</option>
               </select>
 
-              {/* Filtro Gravità */}
-              <select
-                value={severityFilter}
-                onChange={(e) => setSeverityFilter(e.target.value)}
-                className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-              >
-                <option value="all">Tutte le Gravità</option>
-                <option value="critical">🔴 Critici</option>
-                <option value="warning">🟠 Attenzione</option>
-                <option value="info">🔵 Info</option>
-              </select>
-
               {/* Barra di ricerca */}
-              <div className="relative md:col-span-2">
+              <div className="relative md:col-span-3">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
@@ -2103,7 +2091,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Gravità</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo Evento</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
@@ -2124,9 +2111,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''
                             } ${change.severity === 'critical' ? 'bg-red-50' : ''}`}
                         >
-                          <td className="py-3 px-4">
-                            <SeverityIndicator severity={change.severity || 'info'} />
-                          </td>
                           <td className="py-3 px-4">
                             <EventBadge event={change} />
                           </td>

@@ -15,14 +15,14 @@ export const EventBadge = ({ event }) => {
     const deviceBadges = {
         new_device: {
             icon: '🆕',
-            label: 'Nuovo Dispositivo',
+            label: 'Nuovo',
             bg: 'bg-green-100',
             text: 'text-green-800',
             border: 'border-green-300'
         },
         device_online: {
             icon: is_new_device ? '🆕' : '🔵',
-            label: is_new_device ? 'Nuovo' : 'Riconnesso',
+            label: is_new_device ? 'Nuovo' : 'Online',
             bg: is_new_device ? 'bg-green-100' : 'bg-blue-100',
             text: is_new_device ? 'text-green-800' : 'text-blue-800',
             border: is_new_device ? 'border-green-300' : 'border-blue-300'
