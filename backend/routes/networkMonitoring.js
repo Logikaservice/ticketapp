@@ -2372,7 +2372,6 @@ module.exports = (pool, io) => {
       const searchTerm = req.query.search ? req.query.search.trim() : '';
       const aziendaId = req.query.azienda_id ? parseInt(req.query.azienda_id) : null;
       const eventType = req.query.event_type || ''; // all, device, agent
-      const severity = req.query.severity || ''; // all, critical, warning, info
       const count24h = req.query.count24h === 'true';
 
       // Query per eventi dispositivi (network_changes)
@@ -2510,14 +2509,6 @@ module.exports = (pool, io) => {
           (${deviceEventsQuery}${deviceFilters})
           UNION ALL
           (${agentEventsQuery}${agentFilters})
-        `;
-      }
-
-      // Aggiungi filtro severity se specificato
-      if (severity && severity !== 'all') {
-        unifiedQuery = `
-          SELECT * FROM (${unifiedQuery}) as events
-          WHERE severity = '${severity}'
         `;
       }
 
