@@ -2158,7 +2158,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                               // Configurazione badge per eventi agent (senza icone)
                               const agentBadges = {
                                 offline: {
-                                  label: 'Agent Offline',
+                                  label: 'Agent Off.',
                                   bg: 'bg-red-100',
                                   text: 'text-red-800',
                                   border: 'border-red-300'
@@ -2192,14 +2192,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                               };
                               
                               return (
-                                <div className="flex items-center gap-2">
-                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${badge.bg} ${badge.text} ${badge.border}`}>
-                                    {badge.label}
-                                  </span>
-                                  {change.severity === 'critical' && (
-                                    <span className="text-red-600 font-bold" title="Critico">!</span>
-                                  )}
-                                </div>
+                                <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${badge.bg} ${badge.text} ${badge.border} whitespace-nowrap`}>
+                                  {badge.label}
+                                </span>
                               );
                             })()}
                           </td>
