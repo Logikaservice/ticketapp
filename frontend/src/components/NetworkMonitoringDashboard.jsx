@@ -2093,9 +2093,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Titolo</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Prod.</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Azienda</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Agent</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Data</th>
                     </tr>
                   </thead>
@@ -2146,14 +2146,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-600">
                             <span title={change.keepass_username ? `Utente: ${change.keepass_username}` : ''}>
-                              {change.keepass_title || change.vendor || '-'}
+                              {change.device_path || change.keepass_title || change.vendor || '-'}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-600">
-                            {change.azienda || 'N/A'}
+                            {change.device_type || '-'}
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-600">
-                            {change.agent_name || 'Agent'}
+                            {change.azienda || 'N/A'}
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-500">
                             {formatDate(change.detected_at)}
