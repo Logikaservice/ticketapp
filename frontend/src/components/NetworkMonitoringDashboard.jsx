@@ -1097,7 +1097,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           </div>
         </div>
       )}
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-6 max-w-[95vw] mx-auto">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -2086,7 +2086,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-[1200px]">
                   <thead>
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo Evento</th>
