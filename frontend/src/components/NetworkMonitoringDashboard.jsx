@@ -2093,8 +2093,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Titolo</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Prod.</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Titolo</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Azienda</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Data</th>
                     </tr>
@@ -2109,8 +2109,30 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''
                             } ${change.severity === 'critical' ? 'bg-red-50' : ''}`}
                         >
-                          <td className="py-3 px-4">
-                            <EventBadge event={change} />
+                          <td className="py-3 px-4 text-sm text-gray-700">
+                            {(() => {
+                              const actualEventType = change.event_type || change.change_type;
+                              const actualCategory = change.event_category || 'device';
+                              
+                              const deviceLabels = {
+                                new_device: 'Nuovo',
+                                device_online: 'Online',
+                                device_offline: 'Offline',
+                                ip_changed: 'IP Cambiato',
+                                mac_changed: 'MAC Cambiato',
+                                hostname_changed: 'Hostname Cambiato'
+                              };
+                              
+                              const agentLabels = {
+                                offline: 'Agent Offline',
+                                online: 'Agent Online',
+                                reboot: 'Agent Riavviato',
+                                network_issue: 'Problema Rete'
+                              };
+                              
+                              const labels = actualCategory === 'agent' ? agentLabels : deviceLabels;
+                              return labels[actualEventType] || actualEventType || '-';
+                            })()}
                           </td>
                           <td className="py-3 px-4">
                             <div className="text-sm font-medium text-gray-900">
@@ -2145,12 +2167,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             {change.hostname || '-'}
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-600">
+                            {change.device_type || '-'}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
                             <span title={change.keepass_username ? `Utente: ${change.keepass_username}` : ''}>
                               {change.device_path || change.keepass_title || change.vendor || '-'}
                             </span>
-                          </td>
-                          <td className="py-3 px-4 text-sm text-gray-600">
-                            {change.device_type || '-'}
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-600">
                             {change.azienda || 'N/A'}
