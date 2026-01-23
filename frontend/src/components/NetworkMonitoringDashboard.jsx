@@ -2109,29 +2109,98 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''
                             } ${change.severity === 'critical' ? 'bg-red-50' : ''}`}
                         >
-                          <td className="py-3 px-4 text-sm text-gray-700">
+                          <td className="py-3 px-4">
                             {(() => {
                               const actualEventType = change.event_type || change.change_type;
                               const actualCategory = change.event_category || 'device';
+                              const isNewDevice = change.is_new_device;
                               
-                              const deviceLabels = {
-                                new_device: 'Nuovo',
-                                device_online: 'Online',
-                                device_offline: 'Offline',
-                                ip_changed: 'IP Cambiato',
-                                mac_changed: 'MAC Cambiato',
-                                hostname_changed: 'Hostname Cambiato'
+                              // Configurazione badge per eventi dispositivi (senza icone)
+                              const deviceBadges = {
+                                new_device: {
+                                  label: 'Nuovo',
+                                  bg: 'bg-green-100',
+                                  text: 'text-green-800',
+                                  border: 'border-green-300'
+                                },
+                                device_online: {
+                                  label: isNewDevice ? 'Nuovo' : 'Online',
+                                  bg: isNewDevice ? 'bg-green-100' : 'bg-blue-100',
+                                  text: isNewDevice ? 'text-green-800' : 'text-blue-800',
+                                  border: isNewDevice ? 'border-green-300' : 'border-blue-300'
+                                },
+                                device_offline: {
+                                  label: 'Offline',
+                                  bg: 'bg-red-100',
+                                  text: 'text-red-800',
+                                  border: 'border-red-300'
+                                },
+                                ip_changed: {
+                                  label: 'IP Cambiato',
+                                  bg: 'bg-orange-100',
+                                  text: 'text-orange-800',
+                                  border: 'border-orange-300'
+                                },
+                                mac_changed: {
+                                  label: 'MAC Cambiato',
+                                  bg: 'bg-orange-100',
+                                  text: 'text-orange-800',
+                                  border: 'border-orange-300'
+                                },
+                                hostname_changed: {
+                                  label: 'Hostname Cambiato',
+                                  bg: 'bg-yellow-100',
+                                  text: 'text-yellow-800',
+                                  border: 'border-yellow-300'
+                                }
                               };
                               
-                              const agentLabels = {
-                                offline: 'Agent Offline',
-                                online: 'Agent Online',
-                                reboot: 'Agent Riavviato',
-                                network_issue: 'Problema Rete'
+                              // Configurazione badge per eventi agent (senza icone)
+                              const agentBadges = {
+                                offline: {
+                                  label: 'Agent Offline',
+                                  bg: 'bg-red-100',
+                                  text: 'text-red-800',
+                                  border: 'border-red-300'
+                                },
+                                online: {
+                                  label: 'Agent Online',
+                                  bg: 'bg-green-100',
+                                  text: 'text-green-800',
+                                  border: 'border-green-300'
+                                },
+                                reboot: {
+                                  label: 'Agent Riavviato',
+                                  bg: 'bg-purple-100',
+                                  text: 'text-purple-800',
+                                  border: 'border-purple-300'
+                                },
+                                network_issue: {
+                                  label: 'Problema Rete',
+                                  bg: 'bg-yellow-100',
+                                  text: 'text-yellow-800',
+                                  border: 'border-yellow-300'
+                                }
                               };
                               
-                              const labels = actualCategory === 'agent' ? agentLabels : deviceLabels;
-                              return labels[actualEventType] || actualEventType || '-';
+                              const badges = actualCategory === 'agent' ? agentBadges : deviceBadges;
+                              const badge = badges[actualEventType] || {
+                                label: actualEventType || '-',
+                                bg: 'bg-gray-100',
+                                text: 'text-gray-800',
+                                border: 'border-gray-300'
+                              };
+                              
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${badge.bg} ${badge.text} ${badge.border}`}>
+                                    {badge.label}
+                                  </span>
+                                  {change.severity === 'critical' && (
+                                    <span className="text-red-600 font-bold" title="Critico">!</span>
+                                  )}
+                                </div>
+                              );
                             })()}
                           </td>
                           <td className="py-3 px-4">
