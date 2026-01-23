@@ -2109,7 +2109,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''
                             } ${change.severity === 'critical' ? 'bg-red-50' : ''}`}
                         >
-                          <td className="py-3 px-4">
+                          <td className="py-3 px-4 whitespace-nowrap">
                             {(() => {
                               const actualEventType = change.event_type || change.change_type;
                               const actualCategory = change.event_category || 'device';
@@ -2198,7 +2198,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                               );
                             })()}
                           </td>
-                          <td className="py-3 px-4">
+                          <td className="py-3 px-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">
                               <div className="flex items-center gap-2">
                                 {/* Indicatore disconnessioni frequenti */}
@@ -2217,31 +2217,31 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 {change.ip_address || (isAgent ? '-' : 'N/A')}
 
                                 {isStatic && (
-                                  <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-200 text-blue-800 font-semibold">
+                                  <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-200 text-blue-800 font-semibold whitespace-nowrap">
                                     STATICO
                                   </span>
                                 )}
                               </div>
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-sm text-gray-600 font-mono">
+                          <td className="py-3 px-4 text-sm text-gray-600 font-mono whitespace-nowrap">
                             {change.mac_address ? change.mac_address.replace(/-/g, ':') : '-'}
                           </td>
-                          <td className="py-3 px-4 text-sm text-gray-600">
+                          <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
                             {change.hostname || '-'}
                           </td>
-                          <td className="py-3 px-4 text-sm text-gray-600">
+                          <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
                             {change.device_type || '-'}
                           </td>
-                          <td className="py-3 px-4 text-sm text-gray-600">
+                          <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
                             <span title={change.keepass_username ? `Utente: ${change.keepass_username}` : ''}>
                               {change.device_path || change.keepass_title || change.vendor || '-'}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-sm text-gray-600">
+                          <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
                             {change.azienda || 'N/A'}
                           </td>
-                          <td className="py-3 px-4 text-sm text-gray-500">
+                          <td className="py-3 px-4 text-sm text-gray-500 whitespace-nowrap">
                             {formatDate(change.detected_at)}
                           </td>
                         </tr>
