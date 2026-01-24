@@ -5056,7 +5056,7 @@ pause
   // Restituisce la versione corrente dell'agent disponibile per download
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.5.6'; // Versione ufficiale
+      const CURRENT_AGENT_VERSION = '2.5.7'; // Versione ufficiale
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
