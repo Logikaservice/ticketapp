@@ -1,4 +1,4 @@
-﻿// routes/networkMonitoring.js
+// routes/networkMonitoring.js
 // Route per il Network Monitoring - ricezione dati dagli agent PowerShell
 
 const express = require('express');
@@ -607,7 +607,7 @@ module.exports = (pool, io) => {
 
       // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
       // Serve per far capire all'installer quale versione dovrebbe risultare installata.
-      const CURRENT_AGENT_VERSION = '2.2.4'; // Versione di fallback
+      const CURRENT_AGENT_VERSION = '2.4.0'; // Versione di fallback
       let agentPackageVersion = CURRENT_AGENT_VERSION;
       try {
         const projectRoot = path.resolve(__dirname, '..', '..');
@@ -3025,9 +3025,9 @@ module.exports = (pool, io) => {
         return res.status(500).json({ error: errorMsg });
       }
 
-      // IMPONE versione fissa 2.3.0 per risolvere problemi di allineamento file sulla VPS
+      // IMPONE versione fissa 2.4.0 per allineamento con agent
       // In futuro si potrà ripristinare la lettura dal file, ma ora serve certezza.
-      const CURRENT_AGENT_VERSION = '2.3.0';
+      const CURRENT_AGENT_VERSION = '2.4.0';
       const agentVersion = CURRENT_AGENT_VERSION;
       console.log(`ℹ️ Versione agent forzata per lo ZIP: ${agentVersion}`);
 
@@ -5019,7 +5019,7 @@ pause
   // Restituisce la versione corrente dell'agent disponibile per download
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.3.0'; // Versione ufficiale con Trust ARP, Hybrid Discovery e Auto-Update
+      const CURRENT_AGENT_VERSION = '2.4.0'; // Versione ufficiale
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({

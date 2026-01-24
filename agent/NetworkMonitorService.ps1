@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.3.0
+# Versione: 2.4.0
 # Data ultima modifica: 2026-01-22
 
 param(
