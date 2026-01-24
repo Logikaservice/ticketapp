@@ -1809,7 +1809,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Titolo</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Utente</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Percorso</th>
-                        <th className="text-center py-3 px-2 text-sm font-semibold text-gray-700 w-10 whitespace-nowrap">FW</th>
+                        <th className="text-center py-3 px-2 text-sm font-semibold text-gray-700 w-10 whitespace-nowrap" title="Aggiornamento firmware disponibile (UniFi)">FW</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Scan</th>
                       </tr>
                     </thead>
