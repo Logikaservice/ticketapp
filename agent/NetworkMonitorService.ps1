@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.5.3
+# Versione: 2.5.4
 # Data ultima modifica: 2026-01-22
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.5.3"
+$SCRIPT_VERSION = "2.5.4"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2147,8 +2147,18 @@ function Check-AgentUpdate {
                 }
             }
             
-            # Tentativo di avvio tray (best-effort: servizio in session 0, tray in session utente;
-            # puo non mostrare subito l'icona; al prossimo logon Run la avviera se configurata)
+            # Termina tray esistente (vecchia versione) cosi la nuova partira con file aggiornati
+            try {
+                $old = Get-WmiObject Win32_Process | Where-Object {
+                    $_.CommandLine -like "*NetworkMonitorTrayIcon.ps1*" -or $_.CommandLine -like "*Start-TrayIcon-Hidden.vbs*"
+                }
+                foreach ($p in $old) {
+                    try { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue; Write-Log "[OK] Tray vecchia terminata (PID $($p.ProcessId))" "INFO" } catch {}
+                }
+                if ($old) { Start-Sleep -Seconds 1 }
+            } catch {}
+            # Avvio nuova tray (file gia scaricati sopra; servizio in session 0, icona puo non apparire
+            # subito in session utente; Run o Avvia-TrayIcon al logon la avviera se serve)
             $vbsPath = Join-Path $installDir "Start-TrayIcon-Hidden.vbs"
             if (Test-Path $vbsPath) {
                 try {
@@ -2285,11 +2295,17 @@ try {
     Ensure-TrayFiles -ServerUrl $config.server_url -InstallDir $script:scriptDir
     $vbsTray = Join-Path $script:scriptDir "Start-TrayIcon-Hidden.vbs"
     if (Test-Path $vbsTray) {
-        try {
-            Start-Process wscript.exe -ArgumentList "`"$vbsTray`"" -WindowStyle Hidden -ErrorAction Stop
-            Write-Log "[OK] Avvio tray all'avvio servizio (Start-TrayIcon-Hidden.vbs)" "INFO"
+        $trayAlready = Get-WmiObject Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+            $_.CommandLine -like "*NetworkMonitorTrayIcon.ps1*" -or $_.CommandLine -like "*Start-TrayIcon-Hidden.vbs*"
         }
-        catch { Write-Log "[WARN] Avvio tray all'avvio non riuscito: $_" "WARN" }
+        if (-not $trayAlready) {
+            try {
+                Start-Process wscript.exe -ArgumentList "`"$vbsTray`"" -WindowStyle Hidden -ErrorAction Stop
+                Write-Log "[OK] Avvio tray all'avvio servizio (Start-TrayIcon-Hidden.vbs)" "INFO"
+            }
+            catch { Write-Log "[WARN] Avvio tray all'avvio non riuscito: $_" "WARN" }
+        }
+        else { Write-Log "[INFO] Tray gia in esecuzione, skip avvio" "INFO" }
     }
 }
 catch {
