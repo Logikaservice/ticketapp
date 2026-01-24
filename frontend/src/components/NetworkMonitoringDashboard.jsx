@@ -1820,10 +1820,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             key={device.id}
                             className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
                           >
-                            {/* 1. Opzioni (Statico / Notifica) - una riga */}
-                            <td className="py-3 px-4 whitespace-nowrap">
-                              <div className="flex flex-row flex-nowrap items-center gap-3">
-                                <label className="flex items-center gap-1 cursor-pointer shrink-0" title="IP Statico - Dispositivo con IP fisso">
+                            {/* 1. Opzioni (Statico / Notifica) - su 2 righe */}
+                            <td className="py-3 px-4">
+                              <div className="flex flex-col gap-2">
+                                <label className="flex items-center gap-1 cursor-pointer" title="IP Statico - Dispositivo con IP fisso">
                                   <input
                                     type="checkbox"
                                     checked={isStatic}
@@ -1857,7 +1857,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   />
                                   <span className="text-xs text-gray-600">Statico</span>
                                 </label>
-                                <label className="flex items-center gap-1 cursor-pointer shrink-0" title="Monitora con Telegram - Ricevi notifiche per cambio IP/MAC/status">
+                                <label className="flex items-center gap-1 cursor-pointer" title="Monitora con Telegram - Ricevi notifiche per cambio IP/MAC/status">
                                   <input
                                     type="checkbox"
                                     checked={device.notify_telegram === true}
