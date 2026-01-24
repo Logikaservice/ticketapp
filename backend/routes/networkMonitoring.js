@@ -640,7 +640,7 @@ module.exports = (pool, io) => {
 
       // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
       // Serve per far capire all'installer quale versione dovrebbe risultare installata.
-      const CURRENT_AGENT_VERSION = '2.5.0'; // Versione di fallback
+      const CURRENT_AGENT_VERSION = '2.5.1'; // Versione di fallback
       let agentPackageVersion = CURRENT_AGENT_VERSION;
       try {
         const projectRoot = path.resolve(__dirname, '..', '..');
@@ -3062,7 +3062,7 @@ module.exports = (pool, io) => {
       }
 
       // Versione agent per ZIP e config.json incluso
-      const CURRENT_AGENT_VERSION = '2.5.0';
+      const CURRENT_AGENT_VERSION = '2.5.1';
       const agentVersion = CURRENT_AGENT_VERSION;
       console.log(`ℹ️ Versione agent per ZIP: ${agentVersion}`);
 
@@ -3287,6 +3287,21 @@ pause
           const removeServiceContent = fs.readFileSync(removeServicePath, 'utf8');
           archive.append(removeServiceContent, { name: 'Rimuovi-Servizio.ps1' });
           console.log('✅ Aggiunto Rimuovi-Servizio.ps1');
+        }
+
+        // Tray icon: necessari per riavviare l'icona dopo update o se non compare
+        if (fs.existsSync(trayIconPath)) {
+          archive.append(fs.readFileSync(trayIconPath, 'utf8'), { name: 'NetworkMonitorTrayIcon.ps1' });
+          console.log('✅ Aggiunto NetworkMonitorTrayIcon.ps1');
+        }
+        const vbsTrayPath = path.join(agentDir, 'Start-TrayIcon-Hidden.vbs');
+        if (fs.existsSync(vbsTrayPath)) {
+          archive.append(fs.readFileSync(vbsTrayPath, 'utf8'), { name: 'Start-TrayIcon-Hidden.vbs' });
+          console.log('✅ Aggiunto Start-TrayIcon-Hidden.vbs');
+        }
+        if (fs.existsSync(avviaTrayIconBatPath)) {
+          archive.append(fs.readFileSync(avviaTrayIconBatPath, 'utf8'), { name: 'Avvia-TrayIcon.bat' });
+          console.log('✅ Aggiunto Avvia-TrayIcon.bat');
         }
 
       } catch (serviceErr) {
@@ -5008,7 +5023,7 @@ pause
   // Restituisce la versione corrente dell'agent disponibile per download
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.5.0'; // Versione ufficiale
+      const CURRENT_AGENT_VERSION = '2.5.1'; // Versione ufficiale
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
@@ -5120,6 +5135,42 @@ pause
       res.setHeader('Content-Disposition', 'attachment; filename="Reinstalla-Servizio-Quick.ps1"');
       res.sendFile(agentFilePath);
     } catch (err) { console.error('❌ Errore download Reinstalla-Servizio-Quick.ps1:', err); res.status(500).json({ error: 'Errore interno del server' }); }
+  });
+
+  // GET /api/network-monitoring/download/agent/Avvia-TrayIcon.bat
+  router.get('/download/agent/Avvia-TrayIcon.bat', async (req, res) => {
+    try {
+      const path = require('path');
+      const agentFilePath = path.join(__dirname, '../../agent/Avvia-TrayIcon.bat');
+      try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="Avvia-TrayIcon.bat"');
+      res.sendFile(agentFilePath);
+    } catch (err) { console.error('❌ Errore download Avvia-TrayIcon.bat:', err); res.status(500).json({ error: 'Errore interno del server' }); }
+  });
+
+  // GET /api/network-monitoring/download/agent/NetworkMonitorTrayIcon.ps1
+  router.get('/download/agent/NetworkMonitorTrayIcon.ps1', async (req, res) => {
+    try {
+      const path = require('path');
+      const agentFilePath = path.join(__dirname, '../../agent/NetworkMonitorTrayIcon.ps1');
+      try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="NetworkMonitorTrayIcon.ps1"');
+      res.sendFile(agentFilePath);
+    } catch (err) { console.error('❌ Errore download NetworkMonitorTrayIcon.ps1:', err); res.status(500).json({ error: 'Errore interno del server' }); }
+  });
+
+  // GET /api/network-monitoring/download/agent/Start-TrayIcon-Hidden.vbs
+  router.get('/download/agent/Start-TrayIcon-Hidden.vbs', async (req, res) => {
+    try {
+      const path = require('path');
+      const agentFilePath = path.join(__dirname, '../../agent/Start-TrayIcon-Hidden.vbs');
+      try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="Start-TrayIcon-Hidden.vbs"');
+      res.sendFile(agentFilePath);
+    } catch (err) { console.error('❌ Errore download Start-TrayIcon-Hidden.vbs:', err); res.status(500).json({ error: 'Errore interno del server' }); }
   });
 
   // Endpoint per sincronizzare manualmente Unifi

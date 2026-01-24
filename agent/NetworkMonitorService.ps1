@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.5.0
+# Versione: 2.5.1
 # Data ultima modifica: 2026-01-22
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.5.0"
+$SCRIPT_VERSION = "2.5.1"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -1971,6 +1971,31 @@ function Send-Heartbeat {
     }
 }
 
+# Scarica i file della tray (NetworkMonitorTrayIcon.ps1, VBS, BAT) se mancanti.
+# Da eseguire all'avvio: il download nel blocco di update non basta perche durante l'update
+# e' in esecuzione il vecchio script; dopo restart le versioni coincidono e non si entra nel blocco.
+function Ensure-TrayFiles {
+    param([string]$ServerUrl, [string]$InstallDir)
+    if (-not $ServerUrl -or -not $InstallDir) { return }
+    $baseUrl = $ServerUrl -replace '/api.*', '' -replace '/$', ''
+    $trayFiles = @(
+        @{ Name = "NetworkMonitorTrayIcon.ps1"; Url = "$baseUrl/api/network-monitoring/download/agent/NetworkMonitorTrayIcon.ps1" },
+        @{ Name = "Start-TrayIcon-Hidden.vbs"; Url = "$baseUrl/api/network-monitoring/download/agent/Start-TrayIcon-Hidden.vbs" },
+        @{ Name = "Avvia-TrayIcon.bat"; Url = "$baseUrl/api/network-monitoring/download/agent/Avvia-TrayIcon.bat" }
+    )
+    foreach ($t in $trayFiles) {
+        $dest = Join-Path $InstallDir $t.Name
+        if (Test-Path $dest) { continue }
+        try {
+            Invoke-WebRequest -Uri $t.Url -OutFile $dest -TimeoutSec 15 -ErrorAction Stop
+            if (Test-Path $dest) { Write-Log "[OK] $($t.Name) scaricato (Ensure-TrayFiles)" "INFO" }
+        }
+        catch {
+            Write-Log "[WARN] Ensure-TrayFiles: download $($t.Name) fallito: $_" "WARN"
+        }
+    }
+}
+
 function Check-AgentUpdate {
     param(
         [string]$ServerUrl,
@@ -2085,6 +2110,23 @@ function Check-AgentUpdate {
                 }
             }
             
+            # Download file tray (best-effort: 404 o errore di rete -> log e continua)
+            $trayFiles = @(
+                @{ Name = "NetworkMonitorTrayIcon.ps1"; Url = "$baseUrl/api/network-monitoring/download/agent/NetworkMonitorTrayIcon.ps1" },
+                @{ Name = "Start-TrayIcon-Hidden.vbs"; Url = "$baseUrl/api/network-monitoring/download/agent/Start-TrayIcon-Hidden.vbs" },
+                @{ Name = "Avvia-TrayIcon.bat"; Url = "$baseUrl/api/network-monitoring/download/agent/Avvia-TrayIcon.bat" }
+            )
+            foreach ($t in $trayFiles) {
+                try {
+                    $dest = Join-Path $installDir $t.Name
+                    Invoke-WebRequest -Uri $t.Url -OutFile $dest -TimeoutSec 15 -ErrorAction Stop
+                    if (Test-Path $dest) { Write-Log "[OK] $($t.Name) scaricato" "INFO" }
+                }
+                catch {
+                    Write-Log "[WARN] Download $($t.Name) fallito (continua): $_" "WARN"
+                }
+            }
+            
             # Aggiorna config.json con nuova versione
             $configPath = Join-Path $installDir "config.json"
             if (Test-Path $configPath) {
@@ -2097,6 +2139,22 @@ function Check-AgentUpdate {
                 catch {
                     Write-Log "[WARN] Errore aggiornamento config.json: $_" "WARN"
                 }
+            }
+            
+            # Tentativo di avvio tray (best-effort: servizio in session 0, tray in session utente;
+            # puo non mostrare subito l'icona; al prossimo logon Run la avviera se configurata)
+            $vbsPath = Join-Path $installDir "Start-TrayIcon-Hidden.vbs"
+            if (Test-Path $vbsPath) {
+                try {
+                    Start-Process wscript.exe -ArgumentList "`"$vbsPath`"" -WindowStyle Hidden -ErrorAction Stop
+                    Write-Log "[OK] Avvio tray (Start-TrayIcon-Hidden.vbs) eseguito" "INFO"
+                }
+                catch {
+                    Write-Log "[WARN] Avvio tray non riuscito: $_" "WARN"
+                }
+            }
+            else {
+                Write-Log "[WARN] Start-TrayIcon-Hidden.vbs non trovato, tray non avviata" "WARN"
             }
             
             # Riavvio: usciamo e lasciamo a NSSM il restart (AppExit Default Restart + AppRestartDelay).
@@ -2129,28 +2187,11 @@ Write-Log "=== Network Monitor Service Avviato ==="
 Write-Log "Modalita: Servizio Windows (senza GUI)"
 
 # CLEANUP: Termina eventuali processi vecchi/duplicati all'avvio
+# NOTA: non terminiamo piu' la tray (NetworkMonitorTrayIcon.ps1 / Start-TrayIcon-Hidden.vbs)
+# per evitare che sparisca dopo ogni auto-update; la tray resta in vita.
 Write-Log "Cleanup processi vecchi/duplicati..."
 try {
     $cleanupCount = 0
-    
-    # Termina tutte le vecchie tray icon (tranne quella che potrebbe essere avviata dopo)
-    $trayProcesses = Get-WmiObject Win32_Process | Where-Object { 
-        $_.CommandLine -like "*NetworkMonitorTrayIcon.ps1*" -or
-        $_.CommandLine -like "*Start-TrayIcon-Hidden.vbs*"
-    } | Select-Object ProcessId, CommandLine
-    
-    if ($trayProcesses) {
-        foreach ($proc in $trayProcesses) {
-            try {
-                Write-Log "  Terminazione vecchia tray icon PID $($proc.ProcessId)"
-                Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
-                $cleanupCount++
-            }
-            catch {
-                Write-Log "  Warning: impossibile terminare PID $($proc.ProcessId): $_" "WARN"
-            }
-        }
-    }
     
     # Termina eventuali processi NetworkMonitor.ps1 standalone residui
     $monitorProcesses = Get-WmiObject Win32_Process | Where-Object { 
@@ -2231,6 +2272,19 @@ Update-StatusFile -Status "running" -Message "Servizio avviato"
 # Controlla aggiornamenti agent (all'avvio)
 $version = if ($config.version) { $config.version } else { $SCRIPT_VERSION }
 Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $version
+
+# Assicura file tray (se mancanti: download da server). Poi tenta avvio tray.
+# Necessario perche il download nel blocco di update non viene eseguito (vecchio script in esecuzione
+# durante l'update; dopo restart versioni uguali e non si entra nel blocco).
+Ensure-TrayFiles -ServerUrl $config.server_url -InstallDir $script:scriptDir
+$vbsTray = Join-Path $script:scriptDir "Start-TrayIcon-Hidden.vbs"
+if (Test-Path $vbsTray) {
+    try {
+        Start-Process wscript.exe -ArgumentList "`"$vbsTray`"" -WindowStyle Hidden -ErrorAction Stop
+        Write-Log "[OK] Avvio tray all'avvio servizio (Start-TrayIcon-Hidden.vbs)" "INFO"
+    }
+    catch { Write-Log "[WARN] Avvio tray all'avvio non riuscito: $_" "WARN" }
+}
 
 # Loop principale
 Write-Log "Avvio loop principale..."
