@@ -931,7 +931,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     // Offline: dispositivo completamente irraggiungibile
     if (status === 'offline') {
       return (
-        <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 flex items-center gap-1">
+        <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 flex items-center gap-1 whitespace-nowrap">
           <WifiOff size={12} />
           Offline
         </span>
@@ -941,7 +941,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     // Online ma non risponde al ping: presente via ARP
     if (status === 'online' && pingResponsive === false) {
       return (
-        <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 flex items-center gap-1">
+        <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 flex items-center gap-1 whitespace-nowrap">
           <AlertTriangle size={12} />
           No Ping
         </span>
@@ -950,7 +950,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
     // Online con ping responsive: tutto ok
     return (
-      <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 flex items-center gap-1">
+      <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 flex items-center gap-1 whitespace-nowrap">
         <CheckCircle size={12} />
         Online
       </span>
