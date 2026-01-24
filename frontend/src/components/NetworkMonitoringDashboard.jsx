@@ -1802,14 +1802,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Opzioni</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12" title="Online/Offline"></th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Opzioni</th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Titolo</th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Utente</th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Percorso</th>
-                        <th className="text-center py-3 px-2 text-sm font-semibold text-gray-700 w-10">FW</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">IP</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Titolo</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Utente</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Percorso</th>
+                        <th className="text-center py-3 px-2 text-sm font-semibold text-gray-700 w-10 whitespace-nowrap">FW</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Scan</th>
                       </tr>
                     </thead>
@@ -1821,12 +1820,99 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             key={device.id}
                             className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
                           >
-                            {/* 1. Status (Online/Offline) */}
+                            {/* 1. Opzioni (Statico / Notifica) - una riga */}
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <div className="flex flex-row flex-nowrap items-center gap-3">
+                                <label className="flex items-center gap-1 cursor-pointer shrink-0" title="IP Statico - Dispositivo con IP fisso">
+                                  <input
+                                    type="checkbox"
+                                    checked={isStatic}
+                                    onChange={async (e) => {
+                                      const newIsStatic = e.target.checked;
+                                      try {
+                                        const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/static`), {
+                                          method: 'PATCH',
+                                          headers: {
+                                            ...getAuthHeader(),
+                                            'Content-Type': 'application/json'
+                                          },
+                                          body: JSON.stringify({ is_static: newIsStatic })
+                                        });
+
+                                        if (!response.ok) {
+                                          const errorData = await response.json();
+                                          throw new Error(errorData.error || 'Errore aggiornamento');
+                                        }
+
+                                        setCompanyDevices(prev => prev.map(d =>
+                                          d.id === device.id ? { ...d, is_static: newIsStatic } : d
+                                        ));
+                                      } catch (err) {
+                                        console.error('Errore aggiornamento statico:', err);
+                                        alert(`Errore: ${err.message}`);
+                                        e.target.checked = !newIsStatic;
+                                      }
+                                    }}
+                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                  />
+                                  <span className="text-xs text-gray-600">Statico</span>
+                                </label>
+                                <label className="flex items-center gap-1 cursor-pointer shrink-0" title="Monitora con Telegram - Ricevi notifiche per cambio IP/MAC/status">
+                                  <input
+                                    type="checkbox"
+                                    checked={device.notify_telegram === true}
+                                    onChange={async (e) => {
+                                      const newNotifyTelegram = e.target.checked;
+                                      try {
+                                        const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/static`), {
+                                          method: 'PATCH',
+                                          headers: {
+                                            ...getAuthHeader(),
+                                            'Content-Type': 'application/json'
+                                          },
+                                          body: JSON.stringify({ notify_telegram: newNotifyTelegram })
+                                        });
+
+                                        if (!response.ok) {
+                                          const errorData = await response.json();
+                                          throw new Error(errorData.error || 'Errore aggiornamento');
+                                        }
+
+                                        setCompanyDevices(prev => prev.map(d =>
+                                          d.id === device.id ? { ...d, notify_telegram: newNotifyTelegram } : d
+                                        ));
+                                      } catch (err) {
+                                        console.error('Errore aggiornamento notifiche:', err);
+                                        alert(`Errore: ${err.message}`);
+                                        e.target.checked = !newNotifyTelegram;
+                                      }
+                                    }}
+                                    className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                                  />
+                                  <span
+                                    className="text-xs text-gray-600 hover:text-blue-600 cursor-pointer flex items-center gap-0.5"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setSelectedDeviceForSchedule(device);
+                                      setShowScheduleModal(true);
+                                    }}
+                                    title="Clicca per configurare orari e giorni"
+                                  >
+                                    Notifica
+                                    {device.monitoring_schedule?.enabled && (
+                                      <span className="text-[10px]" title="Orari personalizzati">⏰</span>
+                                    )}
+                                  </span>
+                                </label>
+                              </div>
+                            </td>
+                            {/* 2. Status (Online/Offline) */}
                             <td className="py-3 px-4 w-12">
                               <StatusBadge status={device.status} pingResponsive={device.ping_responsive} />
                             </td>
-                            {/* 2. IP */}
-                            <td className="py-3 px-4 text-sm font-mono text-gray-900">
+                            {/* 3. IP */}
+                            <td className="py-3 px-4 text-sm font-mono text-gray-900 whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 {device.has_ping_failures && (
                                   <div className="relative group flex items-center">
@@ -1887,146 +1973,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 </span>
                               </div>
                             </td>
-                            {/* 3. MAC */}
-                            <td className="py-3 px-4 text-sm font-mono text-gray-600">
-                              <div className="flex items-center gap-2">
-                                {device.previous_mac && (
-                                  <div className="flex items-center gap-1">
-                                    <div className="relative group">
-                                      <AlertTriangle className="w-4 h-4 text-orange-500" />
-                                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                                        MAC precedente: {device.previous_mac ? device.previous_mac.replace(/-/g, ':') : '-'}
-                                      </div>
-                                    </div>
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        try {
-                                          const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/reset-warnings`), {
-                                            method: 'PATCH',
-                                            headers: {
-                                              ...getAuthHeader(),
-                                              'Content-Type': 'application/json'
-                                            }
-                                          });
-
-                                          if (!response.ok) {
-                                            const errorData = await response.json();
-                                            throw new Error(errorData.error || 'Errore reset warning');
-                                          }
-
-                                          setCompanyDevices(prev => prev.map(d =>
-                                            d.id === device.id ? { ...d, previous_ip: null, previous_mac: null } : d
-                                          ));
-                                        } catch (err) {
-                                          console.error('Errore reset warning:', err);
-                                          alert(`Errore: ${err.message}`);
-                                        }
-                                      }}
-                                      className="text-orange-500 hover:text-orange-700 transition-colors"
-                                      title="Rimuovi warning"
-                                    >
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                )}
-                                <span>{device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}</span>
-                              </div>
-                            </td>
-                            {/* 4. Opzioni (Statico / Notifica) */}
-                            <td className="py-3 px-4">
-                              <div className="flex flex-col gap-2">
-                                {/* Checkbox Statico (colora riga di blu) */}
-                                <label className="flex items-center gap-1 cursor-pointer" title="IP Statico - Dispositivo con IP fisso">
-                                  <input
-                                    type="checkbox"
-                                    checked={isStatic}
-                                    onChange={async (e) => {
-                                      const newIsStatic = e.target.checked;
-                                      try {
-                                        const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/static`), {
-                                          method: 'PATCH',
-                                          headers: {
-                                            ...getAuthHeader(),
-                                            'Content-Type': 'application/json'
-                                          },
-                                          body: JSON.stringify({ is_static: newIsStatic })
-                                        });
-
-                                        if (!response.ok) {
-                                          const errorData = await response.json();
-                                          throw new Error(errorData.error || 'Errore aggiornamento');
-                                        }
-
-                                        setCompanyDevices(prev => prev.map(d =>
-                                          d.id === device.id ? { ...d, is_static: newIsStatic } : d
-                                        ));
-                                      } catch (err) {
-                                        console.error('Errore aggiornamento statico:', err);
-                                        alert(`Errore: ${err.message}`);
-                                        e.target.checked = !newIsStatic;
-                                      }
-                                    }}
-                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                                  />
-                                  <span className="text-xs text-gray-600">Statico</span>
-                                </label>
-
-                                {/* Checkbox Notifiche Telegram */}
-                                <label className="flex items-center gap-1 cursor-pointer" title="Monitora con Telegram - Ricevi notifiche per cambio IP/MAC/status">
-                                  <input
-                                    type="checkbox"
-                                    checked={device.notify_telegram === true}
-                                    onChange={async (e) => {
-                                      const newNotifyTelegram = e.target.checked;
-                                      try {
-                                        const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/static`), {
-                                          method: 'PATCH',
-                                          headers: {
-                                            ...getAuthHeader(),
-                                            'Content-Type': 'application/json'
-                                          },
-                                          body: JSON.stringify({ notify_telegram: newNotifyTelegram })
-                                        });
-
-                                        if (!response.ok) {
-                                          const errorData = await response.json();
-                                          throw new Error(errorData.error || 'Errore aggiornamento');
-                                        }
-
-                                        setCompanyDevices(prev => prev.map(d =>
-                                          d.id === device.id ? { ...d, notify_telegram: newNotifyTelegram } : d
-                                        ));
-                                      } catch (err) {
-                                        console.error('Errore aggiornamento notifiche:', err);
-                                        alert(`Errore: ${err.message}`);
-                                        e.target.checked = !newNotifyTelegram;
-                                      }
-                                    }}
-                                    className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                                  />
-                                  <span
-                                    className="text-xs text-gray-600 hover:text-blue-600 cursor-pointer flex items-center gap-0.5"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setSelectedDeviceForSchedule(device);
-                                      setShowScheduleModal(true);
-                                    }}
-                                    title="Clicca per configurare orari e giorni"
-                                  >
-                                    Notifica
-                                    {device.monitoring_schedule?.enabled && (
-                                      <span className="text-[10px]" title="Orari personalizzati">⏰</span>
-                                    )}
-                                  </span>
-                                </label>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4 text-sm text-gray-600">{device.device_type || '-'}</td>
-                            <td className="py-3 px-4 text-sm text-gray-600">{device.device_username || '-'}</td>
-                            <td className="py-3 px-4 text-sm text-gray-600">{device.device_path || '-'}</td>
-                            <td className="py-3 px-2 text-center">
+                            <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_type || '-'}</td>
+                            <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_username || '-'}</td>
+                            <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_path || '-'}</td>
+                            <td className="py-3 px-2 text-center whitespace-nowrap">
                               {device.upgrade_available && (
                                 <div className="flex justify-center" title="Aggiornamento Firmware Disponibile">
                                   <ArrowUpCircle className="w-5 h-5 text-blue-600" />
