@@ -351,15 +351,47 @@ function Check-UnifiUpdates {
             }
         }
         Write-Log "Unifi: trovati $($upgrades.Count) dispositivi aggiornabili" "INFO"
+
+        # 3. Recupera clients attivi (stat/sta) per arricchimento nomi
+        $clientsRes = $null
+        $clientNames = @{}
+        try {
+            $clientsRes = Invoke-RestMethod -Uri "$baseUrl/api/s/default/stat/sta" -Method Get -WebSession $session -ErrorAction Stop
+        }
+        catch {
+            try {
+                $clientsRes = Invoke-RestMethod -Uri "$baseUrl/proxy/network/api/s/default/stat/sta" -Method Get -WebSession $session -ErrorAction Stop
+            }
+            catch {
+                Write-Log "Unifi stat/sta fallito: $_" "WARN"
+            }
+        }
+
+        if ($clientsRes -and $clientsRes.data) {
+            foreach ($cli in $clientsRes.data) {
+                if ($cli.mac) {
+                    $mac = $cli.mac.ToUpper().Replace(':', '-')
+                    # Preferisci 'name' (alias utente), fallback su 'hostname'
+                    $n = if ($cli.name) { $cli.name } elseif ($cli.hostname) { $cli.hostname } else { $null }
+                    if ($n) {
+                        $clientNames[$mac] = $n
+                    }
+                }
+            }
+        }
+        Write-Log "Unifi: trovati $($clientNames.Count) nomi client per arricchimento" "INFO"
+
         $script:lastUnifiOk = $true
         $script:lastUnifiCheckAt = (Get-Date).ToString("o")
+        
+        return @{ Upgrades = $upgrades; Names = $clientNames }
     }
     catch {
         Write-Log "Errore integrazione Unifi: $_" "WARN"
         $script:lastUnifiOk = $false
         $script:lastUnifiCheckAt = (Get-Date).ToString("o")
+        return @{ Upgrades = @{}; Names = @{} }
     }
-    return $upgrades
 }
 
 # Esegue un test di connessione Unifi (login + stat/device) e invia l'esito al server (per "Prova connessione" da interfaccia)
@@ -434,12 +466,14 @@ function Get-NetworkDevices {
     )
     
     $devices = @()
-    $unifiUpgrades = @{}
+    $unifiData = @{ Upgrades = @{}; Names = @{} }
 
-    # Se presente config Unifi, scarica info aggiornamenti
+    # Se presente config Unifi, scarica info aggiornamenti e nomi
     if ($UnifiConfig) {
-        $unifiUpgrades = Check-UnifiUpdates -UnifiConfig $UnifiConfig
+        $unifiData = Check-UnifiUpdates -UnifiConfig $UnifiConfig
     }
+    $unifiUpgrades = $unifiData.Upgrades
+    $unifiNames = $unifiData.Names
 
     # PS 4.0 non supporta ::new(), usa New-Object per compatibilità (Server 2012)
     $foundIPs = New-Object 'System.Collections.Generic.List[string]'
@@ -1614,7 +1648,32 @@ public class ArpHelper {
                         # false se presente solo in ARP ma non ha risposto al ping (Trust ARP)
                         $pingResponsive = $activeIPs.Contains($ip)
                         $upgradeAvailable = $false
-                        if ($macAddress -and $unifiUpgrades.Count -gt 0) { $mn = ($macAddress -replace ':', '-').ToUpper(); $upgradeAvailable = $unifiUpgrades.ContainsKey($mn) }
+                        $unifiName = $null
+
+                        # Arricchimento dati da Unifi (Upgrade + Name)
+                        if ($macAddress) {
+                            $macNorm = ($macAddress -replace ':', '-').ToUpper()
+                            
+                            if ($unifiUpgrades -and $unifiUpgrades.Count -gt 0) {
+                                if ($unifiUpgrades.ContainsKey($macNorm)) {
+                                    $upgradeAvailable = $true
+                                    Write-Log "📦 Aggiornamento Firmware disponibile per $ip ($macAddress)" "INFO"
+                                }
+                            }
+                            
+                            if ($unifiNames -and $unifiNames.Count -gt 0) {
+                                if ($unifiNames.ContainsKey($macNorm)) {
+                                    $unifiName = $unifiNames[$macNorm]
+                                    Write-Log "🏷️ Unifi Name trovato per $ip ($macAddress): $unifiName" "DEBUG"
+                                    
+                                    # Usa nome unifi come hostname se hostname è vuoto
+                                    if (-not $hostname) {
+                                        $hostname = $unifiName
+                                    }
+                                }
+                            }
+                        }
+                        
                         $device = @{
                             ip_address        = $ip
                             mac_address       = $macAddress
@@ -1624,6 +1683,7 @@ public class ArpHelper {
                             has_ping_failures = $hasPingFailures
                             ping_responsive   = $pingResponsive
                             upgrade_available = $upgradeAvailable
+                            unifi_name        = $unifiName
                         }
                         
                         # Salva MAC trovato per uso successivo

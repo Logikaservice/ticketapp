@@ -234,11 +234,42 @@ function Check-UnifiUpdates {
             }
         }
         Write-Log "✅ Unifi: trovati $($upgrades.Count) dispositivi aggiornabili" "INFO"
+
+        # 3. Recupera clients attivi (stat/sta) per arricchimento nomi
+        $clientsRes = $null
+        $clientNames = @{}
+        try {
+            $clientsRes = Invoke-RestMethod -Uri "$baseUrl/api/s/default/stat/sta" -Method Get -WebSession $session -ErrorAction Stop
+        }
+        catch {
+            try {
+                $clientsRes = Invoke-RestMethod -Uri "$baseUrl/proxy/network/api/s/default/stat/sta" -Method Get -WebSession $session -ErrorAction Stop
+            }
+            catch {
+                Write-Log "Unifi stat/sta fallito: $_" "WARN"
+            }
+        }
+
+        if ($clientsRes -and $clientsRes.data) {
+            foreach ($cli in $clientsRes.data) {
+                if ($cli.mac) {
+                    $mac = $cli.mac.ToUpper().Replace(':', '-')
+                    # Preferisci 'name' (alias utente), fallback su 'hostname'
+                    $n = if ($cli.name) { $cli.name } elseif ($cli.hostname) { $cli.hostname } else { $null }
+                    if ($n) {
+                        $clientNames[$mac] = $n
+                    }
+                }
+            }
+        }
+        Write-Log "Unifi: trovati $($clientNames.Count) nomi client per arricchimento" "INFO"
+
+        return @{ Upgrades = $upgrades; Names = $clientNames }
     }
     catch {
         Write-Log "⚠️ Errore integrazione Unifi: $_" "WARN"
+        return @{ Upgrades = @{}; Names = @{} }
     }
-    return $upgrades
 }
 
 # Test connessione Unifi richiesto da interfaccia ("Prova connessione"): esegue login+stat/device e invia esito al server
@@ -277,12 +308,14 @@ function Get-NetworkDevices {
     )
     
     $devices = @()
-    $unifiUpgrades = @{}
+    $unifiData = @{ Upgrades = @{}; Names = @{} }
 
-    # Se presente config Unifi, scarica info aggiornamenti
+    # Se presente config Unifi, scarica info aggiornamenti e nomi
     if ($UnifiConfig) {
-        $unifiUpgrades = Check-UnifiUpdates -UnifiConfig $UnifiConfig
+        $unifiData = Check-UnifiUpdates -UnifiConfig $UnifiConfig
     }
+    $unifiUpgrades = $unifiData.Upgrades
+    $unifiNames = $unifiData.Names
     
     # Ottieni IP locale del PC dove gira l'agent
     $localIP = $null
@@ -382,11 +415,28 @@ function Get-NetworkDevices {
 
                     # Check Upgrade Unifi (normalizza MAC: AA-BB-CC-DD-EE-FF per match)
                     $upgradeAvailable = $false
-                    if ($macAddress -and $unifiUpgrades.Count -gt 0) {
+                    $unifiName = $null
+
+                    if ($macAddress) {
                         $macNorm = ($macAddress -replace ':', '-').ToUpper()
-                        if ($unifiUpgrades.ContainsKey($macNorm)) {
-                            $upgradeAvailable = $true
-                            Write-Log "📦 Aggiornamento Firmware disponibile per $ip ($macAddress)" "INFO"
+                        
+                        if ($unifiUpgrades -and $unifiUpgrades.Count -gt 0) {
+                            if ($unifiUpgrades.ContainsKey($macNorm)) {
+                                $upgradeAvailable = $true
+                                Write-Log "📦 Aggiornamento Firmware disponibile per $ip ($macAddress)" "INFO"
+                            }
+                        }
+                        
+                        if ($unifiNames -and $unifiNames.Count -gt 0) {
+                            if ($unifiNames.ContainsKey($macNorm)) {
+                                $unifiName = $unifiNames[$macNorm]
+                                Write-Log "🏷️ Unifi Name trovato per $ip ($macAddress): $unifiName" "DEBUG"
+                                
+                                # Usa nome unifi come hostname se hostname è vuoto
+                                if (-not $hostname) {
+                                    $hostname = $unifiName
+                                }
+                            }
                         }
                     }
                     
@@ -399,6 +449,7 @@ function Get-NetworkDevices {
                         status            = "online"  # Sempre online se presente in ARP
                         ping_responsive   = $pingResponsive
                         upgrade_available = $upgradeAvailable
+                        unifi_name        = $unifiName
                     }
                     
                     $devices += $device

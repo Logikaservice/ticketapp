@@ -1230,7 +1230,11 @@ module.exports = (pool, io) => {
 
       for (let i = 0; i < devices.length; i++) {
         const device = devices[i];
-        let { ip_address, mac_address, hostname, vendor, status, has_ping_failures, ping_responsive, upgrade_available } = device;
+        let { ip_address, mac_address, hostname, vendor, status, has_ping_failures, ping_responsive, upgrade_available, unifi_name } = device;
+
+        // Determina l'hostname effettivo (Unifi Name > Hostname rilevato)
+        let effectiveHostname = unifi_name || hostname;
+
         // device_type non viene più inviato dall'agent, sarà gestito manualmente
         // ping_responsive (nuovo): true se risponde al ping, false se presente solo via ARP
         // upgrade_available (nuovo): true se il device ha un aggiornamento firmware disponibile (via Unifi)
@@ -1590,9 +1594,10 @@ module.exports = (pool, io) => {
           }
 
           // Usa hostname già normalizzato (troncato a max 100 caratteri)
-          if (hostname && hostname !== existingDevice.hostname) {
+          // PRIORITÀ: Unifi Name > Hostname da scansione
+          if (effectiveHostname && effectiveHostname !== existingDevice.hostname) {
             updates.push(`hostname = $${paramIndex++}`);
-            values.push(hostname); // hostname già normalizzato e troncato sopra
+            values.push(effectiveHostname);
           }
           // Nota: se hostname non viene fornito, preserva quello esistente (non lo cancella)
           if (vendor && vendor !== existingDevice.vendor) {
@@ -1614,18 +1619,21 @@ module.exports = (pool, io) => {
                 updates.push(`device_path = $${paramIndex++}`);
                 values.push(lastPathElement);
               } else {
-                // MAC non trovato in KeePass: resetta i valori se erano presenti
-                // Questo gestisce il caso in cui un MAC è stato rimosso da KeePass
-                if (existingDevice.device_type !== null || existingDevice.device_path !== null) {
-                  console.log(`  🔍 MAC ${normalizedMac} NON trovato in KeePass -> Reset device_type e device_path`);
+                // MAC non trovato in KeePass.
+                // Fallback: Se abbiamo un Unifi Name, usalo come device_type (Titolo).
+                // Altrimenti resetta a NULL.
+                const newDeviceType = unifi_name || null;
+
+                // Aggiorna solo se il valore è diverso
+                if (existingDevice.device_type !== newDeviceType || existingDevice.device_path !== null) {
+                  console.log(`  🔍 MAC ${normalizedMac} NON in KeePass -> Fallback device_type: "${newDeviceType || 'NULL'}"`);
                   updates.push(`device_type = $${paramIndex++}`);
-                  values.push(null);
+                  values.push(newDeviceType);
                   updates.push(`device_path = $${paramIndex++}`);
                   values.push(null);
                 }
               }
             } catch (keepassErr) {
-              // Non bloccare il processo se c'è un errore con KeePass
               console.warn(`  ⚠️ Errore ricerca MAC ${normalizedMac} in KeePass:`, keepassErr.message);
             }
           }
@@ -1679,34 +1687,40 @@ module.exports = (pool, io) => {
                 const keepassResult = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
                 if (keepassResult) {
                   deviceTypeFromKeepass = keepassResult.title;
-                  // Estrai solo l'ultimo elemento del percorso (es: "gestione > logikaservice.it > Pippo2" -> "Pippo2")
                   devicePathFromKeepass = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
                   console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${keepassResult.title}", device_path: "${devicePathFromKeepass}"`);
                 }
               } catch (keepassErr) {
-                // Non bloccare il processo se c'è un errore con KeePass
                 console.warn(`  ⚠️ Errore ricerca MAC ${normalizedMac} in KeePass:`, keepassErr.message);
               }
             }
 
+            // Fallback: Se non trovato in KeePass, usa Unifi Name se presente
+            if (!deviceTypeFromKeepass && unifi_name) {
+              deviceTypeFromKeepass = unifi_name;
+              console.log(`  🏷️ NUOVO DISPOSITIVO: Uso Unifi Name come device_type: "${unifi_name}"`);
+            }
+
             const insertResult = await pool.query(
               `INSERT INTO network_devices (agent_id, ip_address, mac_address, hostname, vendor, device_type, device_path, status, has_ping_failures, ping_responsive, upgrade_available)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-               RETURNING id`,
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+             RETURNING id`,
               [
                 agentId,
                 ip_address,
                 normalizedMac,
-                hostname || null, // hostname già normalizzato e troncato sopra
+                effectiveHostname || null, // Hostname con priorità Unifi
                 (vendor && vendor.trim() !== '') ? vendor.trim() : null,
-                deviceTypeFromKeepass || null, // device_type da KeePass se trovato
-                devicePathFromKeepass || null, // device_path da KeePass se trovato
+                deviceTypeFromKeepass || null, // device_type da KeePass o fallback Unifi
+                devicePathFromKeepass || null,
                 status || 'online',
-                has_ping_failures === true, // has_ping_failures (default false)
-                ping_responsive !== false, // ping_responsive (default true, false solo se esplicitamente false)
-                upgrade_available === true // upgrade_available (default false)
+                has_ping_failures === true,
+                ping_responsive !== false,
+                upgrade_available === true
               ]
             );
+
+            deviceResults.push({ action: 'created', id: insertResult.rows[0].id, ip: ip_address });
 
             deviceResults.push({ action: 'created', id: insertResult.rows[0].id, ip: ip_address });
           } catch (insertErr) {
