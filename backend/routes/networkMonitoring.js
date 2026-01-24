@@ -2691,6 +2691,66 @@ module.exports = (pool, io) => {
     }
   });
 
+  // PUT /api/network-monitoring/agent/:id
+  // Aggiorna un agent esistente (solo tecnici/admin)
+  router.put('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+
+      const agentId = parseInt(req.params.id);
+      const { agent_name, network_ranges_config, scan_interval_minutes } = req.body;
+
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
+
+      // Verifica che l'agent esista
+      const checkResult = await pool.query(
+        'SELECT id FROM network_agents WHERE id = $1 AND deleted_at IS NULL',
+        [agentId]
+      );
+
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato' });
+      }
+
+      // Prepara i dati per l'aggiornamento
+      let rangesConfig = null;
+      let rangesArray = [];
+
+      if (network_ranges_config && Array.isArray(network_ranges_config)) {
+        // Nuovo formato: array di oggetti {range: "192.168.1.0/24", name: "LAN Principale"}
+        rangesConfig = network_ranges_config;
+        rangesArray = network_ranges_config.map(r => r.range);
+      }
+
+      // Aggiorna l'agent
+      const result = await pool.query(
+        `UPDATE network_agents 
+         SET agent_name = $1,
+             network_ranges = $2,
+             network_ranges_config = $3,
+             scan_interval_minutes = $4,
+             updated_at = NOW()
+         WHERE id = $5
+         RETURNING id, agent_name, network_ranges, network_ranges_config, scan_interval_minutes, updated_at`,
+        [
+          agent_name || null,
+          rangesArray,
+          rangesConfig ? JSON.stringify(rangesConfig) : null,
+          scan_interval_minutes || 15,
+          agentId
+        ]
+      );
+
+      console.log(`✅ Agent aggiornato: ID=${agentId}`);
+      res.json({ success: true, agent: result.rows[0] });
+    } catch (err) {
+      console.error('❌ Errore aggiornamento agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // GET /api/network-monitoring/agent/:id/config
   // Ottieni configurazione completa agent per download (solo tecnici/admin)
   router.get('/agent/:id/config', authenticateToken, requireRole('tecnico'), async (req, res) => {

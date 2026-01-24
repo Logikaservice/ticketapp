@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
+import EditAgentModal from './Modals/EditAgentModal';
 import MonitoringScheduleModal from './Modals/MonitoringScheduleModal';
 import AgentNotifications from './AgentNotifications';
 import TelegramConfigSection from './TelegramConfigSection';
@@ -55,6 +56,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [ipContextMenu, setIpContextMenu] = useState({ show: false, ip: '', x: 0, y: 0 });
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedDeviceForSchedule, setSelectedDeviceForSchedule] = useState(null);
+  const [showEditAgentModal, setShowEditAgentModal] = useState(false);
+  const [selectedAgentForEdit, setSelectedAgentForEdit] = useState(null);
   // selectedStaticIPs non serve più, usiamo is_static dal database
 
   // Funzione per generare report stampabile
@@ -541,23 +544,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
   // Apri modal modifica agent
   const handleEditAgent = (agent) => {
-    setEditAgentData({
-      agent_name: agent.agent_name || '',
-      network_ranges: agent.network_ranges || [],
-      scan_interval_minutes: agent.scan_interval_minutes || 15
-    });
-    setEditingAgentId(agent.id);
+    setSelectedAgentForEdit(agent);
+    setShowEditAgentModal(true);
   };
 
-  // Chiudi modal modifica agent
-  const handleCancelEditAgent = () => {
-    setEditingAgentId(null);
-    setEditAgentData({
-      agent_name: '',
-      network_ranges: [],
-      scan_interval_minutes: 15
-    });
-  };
 
   // Salva modifiche agent
   const handleSaveAgent = useCallback(async () => {
@@ -2312,6 +2302,27 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             }}
             getAuthHeader={getAuthHeader}
             buildApiUrl={buildApiUrl}
+          />
+        )}
+
+        {/* Modal Modifica Agent */}
+        {showEditAgentModal && selectedAgentForEdit && (
+          <EditAgentModal
+            isOpen={showEditAgentModal}
+            onClose={() => {
+              setShowEditAgentModal(false);
+              setSelectedAgentForEdit(null);
+            }}
+            agent={selectedAgentForEdit}
+            getAuthHeader={getAuthHeader}
+            onAgentUpdated={(updatedAgent) => {
+              // Aggiorna l'agent nella lista
+              setAgents(prev => prev.map(a =>
+                a.id === updatedAgent.id ? { ...a, ...updatedAgent } : a
+              ));
+              // Ricarica gli agent per avere i dati aggiornati
+              loadAgents();
+            }}
           />
         )}
       </div>
