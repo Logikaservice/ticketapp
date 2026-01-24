@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.5.1
+# Versione: 2.5.2
 # Data ultima modifica: 2026-01-22
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.5.1"
+$SCRIPT_VERSION = "2.5.2"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2024,11 +2024,8 @@ function Check-AgentUpdate {
         if ($serverVersion -ne $CurrentVersion) {
             Write-Log "[INFO] Nuova versione disponibile! Avvio aggiornamento..." "INFO"
             
-            # Directory installazione
-            $installDir = Split-Path -Parent $PSCommandPath
-            if (-not $installDir) {
-                $installDir = "C:\ProgramData\NetworkMonitorAgent"
-            }
+            # Directory installazione (stessa del servizio)
+            $installDir = $script:scriptDir
             
             # File da aggiornare
             $serviceFile = Join-Path $installDir "NetworkMonitorService.ps1"
@@ -2051,7 +2048,13 @@ function Check-AgentUpdate {
             if (Test-Path $tempService) {
                 $serviceSize = (Get-Item $tempService).Length
                 Write-Log "[OK] NetworkMonitorService.ps1 scaricato ($serviceSize bytes)" "INFO"
-                
+                # Validazione: evita di sostituire con HTML di errore o file corrotto (crash loop)
+                $content = Get-Content $tempService -Raw -ErrorAction SilentlyContinue
+                if (-not $content -or $content.Length -lt 5000 -or $content -notmatch 'NetworkMonitorService') {
+                    Write-Log "[WARN] NetworkMonitorService.ps1 scaricato non valido (size o contenuto), skip sostituzione" "WARN"
+                    Remove-Item $tempService -Force -ErrorAction SilentlyContinue
+                    return
+                }
                 # Backup versione corrente
                 if (Test-Path $serviceFile) {
                     Copy-Item $serviceFile $serviceBackup -Force
@@ -2093,15 +2096,16 @@ function Check-AgentUpdate {
                     if (Test-Path $tempMonitor) {
                         $monitorSize = (Get-Item $tempMonitor).Length
                         Write-Log "[OK] NetworkMonitor.ps1 scaricato ($monitorSize bytes)" "INFO"
-                        
-                        # Backup
-                        if (Test-Path $monitorFile) {
-                            Copy-Item $monitorFile $monitorBackup -Force
+                        $mContent = Get-Content $tempMonitor -Raw -ErrorAction SilentlyContinue
+                        if (-not $mContent -or $mContent.Length -lt 3000 -or $mContent -notmatch 'NetworkMonitor') {
+                            Write-Log "[WARN] NetworkMonitor.ps1 scaricato non valido, skip sostituzione" "WARN"
+                            Remove-Item $tempMonitor -Force -ErrorAction SilentlyContinue
                         }
-                        
-                        # Sostituisci
-                        Move-Item $tempMonitor $monitorFile -Force
-                        Write-Log "[OK] NetworkMonitor.ps1 aggiornato!" "INFO"
+                        else {
+                            if (Test-Path $monitorFile) { Copy-Item $monitorFile $monitorBackup -Force }
+                            Move-Item $tempMonitor $monitorFile -Force
+                            Write-Log "[OK] NetworkMonitor.ps1 aggiornato!" "INFO"
+                        }
                     }
                 }
                 catch {
@@ -2274,16 +2278,20 @@ $version = if ($config.version) { $config.version } else { $SCRIPT_VERSION }
 Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $version
 
 # Assicura file tray (se mancanti: download da server). Poi tenta avvio tray.
-# Necessario perche il download nel blocco di update non viene eseguito (vecchio script in esecuzione
-# durante l'update; dopo restart versioni uguali e non si entra nel blocco).
-Ensure-TrayFiles -ServerUrl $config.server_url -InstallDir $script:scriptDir
-$vbsTray = Join-Path $script:scriptDir "Start-TrayIcon-Hidden.vbs"
-if (Test-Path $vbsTray) {
-    try {
-        Start-Process wscript.exe -ArgumentList "`"$vbsTray`"" -WindowStyle Hidden -ErrorAction Stop
-        Write-Log "[OK] Avvio tray all'avvio servizio (Start-TrayIcon-Hidden.vbs)" "INFO"
+# In try/catch: un errore qui non deve bloccare il servizio (loop e invio dati devono partire).
+try {
+    Ensure-TrayFiles -ServerUrl $config.server_url -InstallDir $script:scriptDir
+    $vbsTray = Join-Path $script:scriptDir "Start-TrayIcon-Hidden.vbs"
+    if (Test-Path $vbsTray) {
+        try {
+            Start-Process wscript.exe -ArgumentList "`"$vbsTray`"" -WindowStyle Hidden -ErrorAction Stop
+            Write-Log "[OK] Avvio tray all'avvio servizio (Start-TrayIcon-Hidden.vbs)" "INFO"
+        }
+        catch { Write-Log "[WARN] Avvio tray all'avvio non riuscito: $_" "WARN" }
     }
-    catch { Write-Log "[WARN] Avvio tray all'avvio non riuscito: $_" "WARN" }
+}
+catch {
+    Write-Log "[WARN] Ensure-TrayFiles o avvio tray: $_" "WARN"
 }
 
 # Loop principale
