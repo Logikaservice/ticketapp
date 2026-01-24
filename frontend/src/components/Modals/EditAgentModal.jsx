@@ -2,7 +2,7 @@
 // Modal per modifica agent Network Monitoring esistente
 
 import React, { useState, useEffect } from 'react';
-import { X, Save, AlertCircle, Wifi, CheckCircle } from 'lucide-react';
+import { X, Save, AlertCircle, Wifi, CheckCircle, Clock } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
 
 const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated }) => {
@@ -88,8 +88,11 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
             setUnifiTestMessage('Inserisci URL, username e password prima di provare.');
             return;
         }
+
+        // Reset stato
         setUnifiTestStatus('loading');
-        setUnifiTestMessage('');
+        setUnifiTestMessage('Invio richiesta test all\'agent...');
+
         try {
             const res = await fetch(buildApiUrl('/api/network-monitoring/test-unifi'), {
                 method: 'POST',
@@ -97,45 +100,24 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                 body: JSON.stringify({ agent_id: agent?.id, url, username, password })
             });
             const data = await res.json().catch(() => ({}));
-            if (res.ok && data.success) {
-                setUnifiTestStatus('ok');
-                setUnifiTestMessage('Connessione OK');
-                return;
+
+            if (res.ok) {
+                if (data.success) {
+                    setUnifiTestStatus('ok');
+                    setUnifiTestMessage('Connessione OK (Verificato direttamente dal server)');
+                } else if (data.deferred) {
+                    // Test delegato all'agent (rete locale)
+                    // Non aspettiamo il polling, diamo feedback immediato
+                    setUnifiTestStatus('pending'); // Nuovo stato 'pending' o usa 'ok' con messaggio specifico
+                    setUnifiTestMessage('Richiesta inviata all\'agent. Il controllo avverrà a breve in background. Controlla lo stato aggiornato tra qualche minuto.');
+                } else {
+                    setUnifiTestStatus('error');
+                    setUnifiTestMessage(data.message || 'Errore sconosciuto');
+                }
+            } else {
+                setUnifiTestStatus('error');
+                setUnifiTestMessage(data.error || `Errore ${res.status}`);
             }
-            if (res.ok && data.deferred && data.test_id) {
-                setUnifiTestMessage('L\'agent esegue il test sulla rete locale. Attendi fino a 5 minuti…');
-                const testId = data.test_id;
-                const pollMs = 3000;
-                const maxPolls = 120; // 6 minuti
-                let count = 0;
-                const poll = async () => {
-                    if (count >= maxPolls) {
-                        setUnifiTestStatus('error');
-                        setUnifiTestMessage('Timeout: l\'agent non ha risposto. Verifica che sia online.');
-                        return;
-                    }
-                    count++;
-                    try {
-                        const r = await fetch(buildApiUrl(`/api/network-monitoring/unifi-test-result/${testId}`), { headers: getAuthHeader() });
-                        const j = await r.json().catch(() => ({}));
-                        if (j.status === 'ok') {
-                            setUnifiTestStatus('ok');
-                            setUnifiTestMessage('Connessione OK');
-                            return;
-                        }
-                        if (j.status === 'error') {
-                            setUnifiTestStatus('error');
-                            setUnifiTestMessage(j.message || 'Errore');
-                            return;
-                        }
-                    } catch (_) { /* ignore */ }
-                    setTimeout(poll, pollMs);
-                };
-                setTimeout(poll, pollMs);
-                return;
-            }
-            setUnifiTestStatus('error');
-            setUnifiTestMessage(data.error || `Errore ${res.status}`);
         } catch (e) {
             setUnifiTestStatus('error');
             setUnifiTestMessage(e.message || 'Errore di rete');
@@ -424,6 +406,12 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                                         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-100 text-green-800 border border-green-200">
                                             <CheckCircle size={18} className="flex-shrink-0" />
                                             Connessione OK
+                                        </span>
+                                    )}
+                                    {unifiTestStatus === 'pending' && (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-100 text-blue-800 border border-blue-200">
+                                            <Clock size={18} className="flex-shrink-0" />
+                                            {unifiTestMessage}
                                         </span>
                                     )}
                                     {unifiTestStatus === 'error' && unifiTestMessage && (
