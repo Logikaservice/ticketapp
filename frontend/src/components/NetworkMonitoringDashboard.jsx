@@ -1805,6 +1805,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Opzioni</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12" title="Online/Offline"></th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">IP</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">MAC</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Titolo</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Utente</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Percorso</th>
@@ -1971,6 +1972,52 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 >
                                   {device.ip_address}
                                 </span>
+                              </div>
+                            </td>
+                            {/* 4. MAC */}
+                            <td className="py-3 px-4 text-sm font-mono text-gray-600 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                {device.previous_mac && (
+                                  <div className="flex items-center gap-1">
+                                    <div className="relative group">
+                                      <AlertTriangle className="w-4 h-4 text-orange-500" />
+                                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                        MAC precedente: {device.previous_mac ? device.previous_mac.replace(/-/g, ':') : '-'}
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/reset-warnings`), {
+                                            method: 'PATCH',
+                                            headers: {
+                                              ...getAuthHeader(),
+                                              'Content-Type': 'application/json'
+                                            }
+                                          });
+
+                                          if (!response.ok) {
+                                            const errorData = await response.json();
+                                            throw new Error(errorData.error || 'Errore reset warning');
+                                          }
+
+                                          setCompanyDevices(prev => prev.map(d =>
+                                            d.id === device.id ? { ...d, previous_ip: null, previous_mac: null } : d
+                                          ));
+                                        } catch (err) {
+                                          console.error('Errore reset warning:', err);
+                                          alert(`Errore: ${err.message}`);
+                                        }
+                                      }}
+                                      className="text-orange-500 hover:text-orange-700 transition-colors"
+                                      title="Rimuovi warning"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                )}
+                                <span>{device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}</span>
                               </div>
                             </td>
                             <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_type || '-'}</td>
