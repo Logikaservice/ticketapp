@@ -1802,7 +1802,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12"></th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12" title="Online/Offline"></th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Prod.</th>
@@ -1821,19 +1821,119 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             key={device.id}
                             className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
                           >
-                            {/* ... existing cells ... */}
-                            {/* We need to re-render the whole row or targeted parts. I will target the end of the row */}
-                            <td className="py-3 px-4">
+                            {/* 1. Status (Online/Offline) */}
+                            <td className="py-3 px-4 w-12">
                               <StatusBadge status={device.status} pingResponsive={device.ping_responsive} />
                             </td>
-                            <td className="py-3 px-2 text-center">
-                              {device.upgrade_available && (
-                                <div className="flex justify-center" title="Aggiornamento Firmware Disponibile">
-                                  <ArrowUpCircle className="w-5 h-5 text-blue-600 animate-bounce" />
-                                </div>
-                              )}
+                            {/* 2. IP */}
+                            <td className="py-3 px-4 text-sm font-mono text-gray-900">
+                              <div className="flex items-center gap-2">
+                                {device.has_ping_failures && (
+                                  <div className="relative group flex items-center">
+                                    <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
+                                      <span className="text-white text-xs font-bold leading-none">+</span>
+                                    </div>
+                                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                      Disconnessioni rilevate
+                                    </div>
+                                  </div>
+                                )}
+                                {device.previous_ip && (
+                                  <div className="flex items-center gap-1">
+                                    <div className="relative group">
+                                      <AlertTriangle className="w-4 h-4 text-orange-500" />
+                                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                        IP precedente: {device.previous_ip}
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/reset-warnings`), {
+                                            method: 'PATCH',
+                                            headers: {
+                                              ...getAuthHeader(),
+                                              'Content-Type': 'application/json'
+                                            }
+                                          });
+
+                                          if (!response.ok) {
+                                            const errorData = await response.json();
+                                            throw new Error(errorData.error || 'Errore reset warning');
+                                          }
+
+                                          setCompanyDevices(prev => prev.map(d =>
+                                            d.id === device.id ? { ...d, previous_ip: null, previous_mac: null } : d
+                                          ));
+                                        } catch (err) {
+                                          console.error('Errore reset warning:', err);
+                                          alert(`Errore: ${err.message}`);
+                                        }
+                                      }}
+                                      className="text-orange-500 hover:text-orange-700 transition-colors"
+                                      title="Rimuovi warning"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                )}
+                                <span
+                                  onClick={(e) => handleIpClick(e, device.ip_address)}
+                                  className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                                  title="Clicca per opzioni"
+                                >
+                                  {device.ip_address}
+                                </span>
+                              </div>
                             </td>
-                            <td className="py-3 px-4 text-sm text-gray-500 whitespace-nowrap">{formatDate(device.last_seen)}</td>
+                            {/* 3. MAC */}
+                            <td className="py-3 px-4 text-sm font-mono text-gray-600">
+                              <div className="flex items-center gap-2">
+                                {device.previous_mac && (
+                                  <div className="flex items-center gap-1">
+                                    <div className="relative group">
+                                      <AlertTriangle className="w-4 h-4 text-orange-500" />
+                                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                        MAC precedente: {device.previous_mac ? device.previous_mac.replace(/-/g, ':') : '-'}
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/reset-warnings`), {
+                                            method: 'PATCH',
+                                            headers: {
+                                              ...getAuthHeader(),
+                                              'Content-Type': 'application/json'
+                                            }
+                                          });
+
+                                          if (!response.ok) {
+                                            const errorData = await response.json();
+                                            throw new Error(errorData.error || 'Errore reset warning');
+                                          }
+
+                                          setCompanyDevices(prev => prev.map(d =>
+                                            d.id === device.id ? { ...d, previous_ip: null, previous_mac: null } : d
+                                          ));
+                                        } catch (err) {
+                                          console.error('Errore reset warning:', err);
+                                          alert(`Errore: ${err.message}`);
+                                        }
+                                      }}
+                                      className="text-orange-500 hover:text-orange-700 transition-colors"
+                                      title="Rimuovi warning"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                )}
+                                <span>{device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}</span>
+                              </div>
+                            </td>
+                            {/* 4. Prod. (Statico / Notifica) */}
                             <td className="py-3 px-4">
                               <div className="flex flex-col gap-2">
                                 {/* Checkbox Statico (colora riga di blu) */}
@@ -1923,120 +2023,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 </label>
                               </div>
                             </td>
-                            <td className="py-3 px-4 text-sm font-mono text-gray-900">
-                              <div className="flex items-center gap-2">
-                                {device.has_ping_failures && (
-                                  <div className="relative group flex items-center">
-                                    <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
-                                      <span className="text-white text-xs font-bold leading-none">+</span>
-                                    </div>
-                                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                                      Disconnessioni rilevate
-                                    </div>
-                                  </div>
-                                )}
-                                {device.previous_ip && (
-                                  <div className="flex items-center gap-1">
-                                    <div className="relative group">
-                                      <AlertTriangle className="w-4 h-4 text-orange-500" />
-                                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                                        IP precedente: {device.previous_ip}
-                                      </div>
-                                    </div>
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        try {
-                                          const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/reset-warnings`), {
-                                            method: 'PATCH',
-                                            headers: {
-                                              ...getAuthHeader(),
-                                              'Content-Type': 'application/json'
-                                            }
-                                          });
-
-                                          if (!response.ok) {
-                                            const errorData = await response.json();
-                                            throw new Error(errorData.error || 'Errore reset warning');
-                                          }
-
-                                          // Aggiorna il dispositivo nella lista locale
-                                          setCompanyDevices(prev => prev.map(d =>
-                                            d.id === device.id ? { ...d, previous_ip: null, previous_mac: null } : d
-                                          ));
-                                        } catch (err) {
-                                          console.error('Errore reset warning:', err);
-                                          alert(`Errore: ${err.message}`);
-                                        }
-                                      }}
-                                      className="text-orange-500 hover:text-orange-700 transition-colors"
-                                      title="Rimuovi warning"
-                                    >
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                )}
-                                <span
-                                  onClick={(e) => handleIpClick(e, device.ip_address)}
-                                  className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
-                                  title="Clicca per opzioni"
-                                >
-                                  {device.ip_address}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4 text-sm font-mono text-gray-600">
-                              <div className="flex items-center gap-2">
-                                {device.previous_mac && (
-                                  <div className="flex items-center gap-1">
-                                    <div className="relative group">
-                                      <AlertTriangle className="w-4 h-4 text-orange-500" />
-                                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                                        MAC precedente: {device.previous_mac ? device.previous_mac.replace(/-/g, ':') : '-'}
-                                      </div>
-                                    </div>
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        try {
-                                          const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/reset-warnings`), {
-                                            method: 'PATCH',
-                                            headers: {
-                                              ...getAuthHeader(),
-                                              'Content-Type': 'application/json'
-                                            }
-                                          });
-
-                                          if (!response.ok) {
-                                            const errorData = await response.json();
-                                            throw new Error(errorData.error || 'Errore reset warning');
-                                          }
-
-                                          // Aggiorna il dispositivo nella lista locale
-                                          setCompanyDevices(prev => prev.map(d =>
-                                            d.id === device.id ? { ...d, previous_ip: null, previous_mac: null } : d
-                                          ));
-                                        } catch (err) {
-                                          console.error('Errore reset warning:', err);
-                                          alert(`Errore: ${err.message}`);
-                                        }
-                                      }}
-                                      className="text-orange-500 hover:text-orange-700 transition-colors"
-                                      title="Rimuovi warning"
-                                    >
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                )}
-                                <span>{device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}</span>
-                              </div>
-                            </td>
                             <td className="py-3 px-4 text-sm text-gray-600">{device.device_path || '-'}</td>
-                            <td className="py-3 px-4 text-sm text-gray-600">{device.device_type || '-'}</td>
                             <td className="py-3 px-4 text-sm text-gray-600">{device.device_username || '-'}</td>
-                            <td className="py-3 px-4">
-                              <StatusBadge status={device.status} pingResponsive={device.ping_responsive} />
-                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-600">{device.device_type || '-'}</td>
                             <td className="py-3 px-2 text-center">
                               {device.upgrade_available && (
                                 <div className="flex justify-center" title="Aggiornamento Firmware Disponibile">
