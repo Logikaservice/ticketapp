@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.5.7"
+$SCRIPT_VERSION = "2.5.8"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -314,13 +314,13 @@ function Check-UnifiUpdates {
         $loginBody = @{ username = $username; password = $password } | ConvertTo-Json
         
         try {
-            $loginRes = Invoke-WebRequest -Uri $loginUrl -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -ErrorAction Stop
+            $loginRes = Invoke-WebRequest -Uri $loginUrl -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -ErrorAction Stop
         }
         catch {
             if ($_.Exception.Response.StatusCode -eq "NotFound") {
                 # Fallback per controller vecchi
                 $loginUrl = "$baseUrl/api/login"
-                $loginRes = Invoke-WebRequest -Uri $loginUrl -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -ErrorAction Stop
+                $loginRes = Invoke-WebRequest -Uri $loginUrl -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -ErrorAction Stop
             }
             else {
                 Throw $_
@@ -392,11 +392,11 @@ function Invoke-UnifiConnectionTestAndReport {
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
         $loginBody = @{ username = $Username; password = $Password } | ConvertTo-Json
         try {
-            Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null
+            Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null
         }
         catch {
             if ($_.Exception.Response.StatusCode -eq "NotFound") {
-                Invoke-WebRequest -Uri "$base/api/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null
+                Invoke-WebRequest -Uri "$base/api/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null
             }
             else { throw }
         }

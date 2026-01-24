@@ -198,13 +198,13 @@ function Check-UnifiUpdates {
         $loginBody = @{ username = $username; password = $password } | ConvertTo-Json
         
         try {
-            $loginRes = Invoke-WebRequest -Uri $loginUrl -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -ErrorAction Stop
+            $loginRes = Invoke-WebRequest -Uri $loginUrl -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -ErrorAction Stop
         }
         catch {
             if ($_.Exception.Response.StatusCode -eq "NotFound") {
                 # Fallback per controller vecchi
                 $loginUrl = "$baseUrl/api/login"
-                $loginRes = Invoke-WebRequest -Uri $loginUrl -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -ErrorAction Stop
+                $loginRes = Invoke-WebRequest -Uri $loginUrl -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -ErrorAction Stop
             }
             else {
                 Throw $_
@@ -215,10 +215,12 @@ function Check-UnifiUpdates {
         $devicesRes = $null
         try {
             $devicesRes = Invoke-RestMethod -Uri "$baseUrl/api/s/default/stat/device" -Method Get -WebSession $session -ErrorAction Stop
-        } catch {
+        }
+        catch {
             try {
                 $devicesRes = Invoke-RestMethod -Uri "$baseUrl/proxy/network/api/s/default/stat/device" -Method Get -WebSession $session -ErrorAction Stop
-            } catch {
+            }
+            catch {
                 Write-Log "Unifi stat/device fallito (prova /api e /proxy/network): $_" "WARN"
             }
         }
@@ -253,17 +255,19 @@ function Invoke-UnifiConnectionTestAndReport {
         [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
         $loginBody = @{ username = $Username; password = $Password } | ConvertTo-Json
-        try { Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null }
-        catch { if ($_.Exception.Response.StatusCode -eq "NotFound") { Invoke-WebRequest -Uri "$base/api/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null } else { throw } }
+        try { Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null }
+        catch { if ($_.Exception.Response.StatusCode -eq "NotFound") { Invoke-WebRequest -Uri "$base/api/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null } else { throw } }
         try { Invoke-RestMethod -Uri "$base/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null }
         catch { Invoke-RestMethod -Uri "$base/proxy/network/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null }
         $ok = $true; $msg = "Connessione OK"
-    } catch { $ok = $false; $msg = if ($_.Exception.Message) { $_.Exception.Message } else { "Errore connessione" }; Write-Log "Test Unifi (Prova connessione): $msg" "WARN" }
+    }
+    catch { $ok = $false; $msg = if ($_.Exception.Message) { $_.Exception.Message } else { "Errore connessione" }; Write-Log "Test Unifi (Prova connessione): $msg" "WARN" }
     try {
         $body = @{ test_id = $TestId; success = $ok; message = $msg } | ConvertTo-Json
         Invoke-RestMethod -Uri "$ServerUrl/api/network-monitoring/agent/unifi-test-result" -Method POST -Headers @{ "Content-Type" = "application/json"; "X-API-Key" = $ApiKey } -Body $body -TimeoutSec 10 -ErrorAction Stop | Out-Null
         Write-Log "Esito test Unifi inviato: $(if($ok){'OK'}else{'Errore'})" "INFO"
-    } catch { Write-Log "Invio esito test Unifi fallito: $_" "WARN" }
+    }
+    catch { Write-Log "Invio esito test Unifi fallito: $_" "WARN" }
 }
 
 function Get-NetworkDevices {
@@ -800,7 +804,8 @@ function Update-ScheduledTaskInterval {
             $pu = $heartbeatResult.pending_unifi_test
             try {
                 Invoke-UnifiConnectionTestAndReport -TestId $pu.test_id -Url $pu.url -Username $pu.username -Password $pu.password -ServerUrl $config.server_url -ApiKey $config.api_key
-            } catch { Write-Log "Errore test Unifi (Prova connessione): $_" "WARN" }
+            }
+            catch { Write-Log "Errore test Unifi (Prova connessione): $_" "WARN" }
         }
     
         # Recupera configurazione Unifi (se presente sul server)
