@@ -2268,7 +2268,15 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 )}
 
                                 {/* IP Address */}
-                                {change.ip_address || (isAgent ? '-' : 'N/A')}
+                                {change.ip_address ? (
+                                  <span
+                                    onClick={(e) => handleIpClick(e, change.ip_address)}
+                                    className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                                    title="Clicca per opzioni"
+                                  >
+                                    {change.ip_address}
+                                  </span>
+                                ) : (isAgent ? '-' : 'N/A')}
 
                                 {isStatic && (
                                   <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-200 text-blue-800 font-semibold whitespace-nowrap">
@@ -2293,7 +2301,20 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             </span>
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
-                            {change.azienda || 'N/A'}
+                            {change.azienda ? (
+                              <span
+                                onClick={() => {
+                                  if (change.azienda_id) {
+                                    setSelectedCompanyId(change.azienda_id);
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                  }
+                                }}
+                                className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                                title="Vedi dispositivi azienda"
+                              >
+                                {change.azienda}
+                              </span>
+                            ) : 'N/A'}
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-500 whitespace-nowrap">
                             {formatDate(change.detected_at)}
