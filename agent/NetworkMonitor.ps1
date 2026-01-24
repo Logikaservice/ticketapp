@@ -173,7 +173,7 @@ function Check-UnifiUpdates {
     $password = $UnifiConfig.password
     $upgrades = @{}
 
-    Write-Log "🔍 Controllo aggiornamenti Unifi su $baseUrl..." "INFO"
+    Write-Log "Controllo aggiornamenti firmware Unifi (credenziali da server, mai su disco)..." "INFO"
 
     try {
         # Ignora errori certificato self-signed

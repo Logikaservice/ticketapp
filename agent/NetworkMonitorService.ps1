@@ -194,6 +194,7 @@ $script:lastSuccessfulHeartbeat = $null
 $script:failedHeartbeatCount = 0
 $script:networkIssueStartTime = $null
 $script:forceScanTriggerFile = Join-Path $script:scriptDir ".force_scan.trigger"
+# Unifi: in memoria da /agent/config, mai su config.json o disco
 $script:unifiConfig = $null
 
 # ============================================
@@ -279,7 +280,7 @@ function Check-UnifiUpdates {
     $password = $UnifiConfig.password
     $upgrades = @{}
 
-    Write-Log "Controllo aggiornamenti Unifi su $baseUrl..." "INFO"
+    Write-Log "Controllo aggiornamenti firmware Unifi (credenziali da server, mai su disco)..." "INFO"
 
     try {
         # Ignora errori certificato self-signed
@@ -2263,6 +2264,7 @@ while ($script:isRunning) {
                 if ($heartbeatResult.success) {
                     Write-Log "Heartbeat completato"
                     
+                    # Unifi: credenziali solo da server (GET /agent/config), mai in config.json né su disco
                     if ($heartbeatResult.config -and $heartbeatResult.config.unifi_config) {
                         $script:unifiConfig = $heartbeatResult.config.unifi_config
                     }

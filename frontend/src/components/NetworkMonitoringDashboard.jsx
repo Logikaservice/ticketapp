@@ -2433,10 +2433,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               ));
               loadAgents();
             }}
-            onUnifiSynced={() => {
-              loadDevices();
-              if (selectedCompanyId) loadCompanyDevices(selectedCompanyId);
-            }}
           />
         )}
       </div>
