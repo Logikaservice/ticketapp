@@ -356,6 +356,31 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                         </div>
                         {formData.unifi_enabled && (
                             <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                {/* Stato dall'agent (esito dell'ultimo check Unifi durante la scansione) */}
+                                <div>
+                                    <span className="text-xs font-medium text-gray-600">Stato dall'agent: </span>
+                                    {agent?.unifi_last_check_at ? (
+                                        agent?.unifi_last_ok === true ? (
+                                            <span className="inline-flex items-center gap-1.5 text-green-700">
+                                                <CheckCircle size={16} />
+                                                Si è collegato all'UniFi con successo
+                                                <span className="text-gray-500 font-normal">
+                                                    ({new Date(agent.unifi_last_check_at).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })})
+                                                </span>
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1.5 text-red-700">
+                                                <AlertCircle size={16} />
+                                                Non è riuscito a collegarsi
+                                                <span className="text-gray-500 font-normal">
+                                                    ({new Date(agent.unifi_last_check_at).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })})
+                                                </span>
+                                            </span>
+                                        )
+                                    ) : (
+                                        <span className="text-gray-500">Non ha ancora eseguito un check (avviene durante la scansione con Unifi abilitato e salvato)</span>
+                                    )}
+                                </div>
                                 <div>
                                     <label className="block text-xs font-medium text-gray-600 mb-1">Controller URL</label>
                                     <input

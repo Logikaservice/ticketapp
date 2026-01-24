@@ -85,6 +85,14 @@ module.exports = (pool, io) => {
             console.warn('⚠️ Avviso aggiunta colonna unifi_config (migrazione):', err.message);
           }
         }
+        try {
+          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_ok BOOLEAN;`);
+          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_check_at TIMESTAMPTZ;`);
+        } catch (err) {
+          if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+            console.warn('⚠️ Avviso aggiunta colonne unifi_last_* (migrazione):', err.message);
+          }
+        }
 
         // Migrazione: aggiungi upgrade_available a network_devices se non esiste
         try {
@@ -516,6 +524,8 @@ module.exports = (pool, io) => {
         // Tutte le tabelle necessarie esistono; esegui solo migrazioni colonne (unifi_config, upgrade_available)
         try {
           await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_config JSONB;`);
+          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_ok BOOLEAN;`);
+          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_check_at TIMESTAMPTZ;`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;`);
         } catch (migErr) {
           if (!migErr.message?.includes('does not exist')) {
@@ -719,7 +729,7 @@ module.exports = (pool, io) => {
   router.post('/agent/heartbeat', authenticateAgent, async (req, res) => {
     try {
       const agentId = req.agent.id;
-      const { version, system_uptime, network_issue_detected, network_issue_duration } = req.body;
+      const { version, system_uptime, network_issue_detected, network_issue_duration, unifi_last_ok, unifi_last_check_at } = req.body;
 
       // Verifica se l'agent è eliminato o disabilitato
       const agentCheck = await pool.query(
@@ -790,6 +800,17 @@ module.exports = (pool, io) => {
          WHERE id = $2`,
         [version, agentId]
       );
+
+      // Stato Unifi (l'agent invia unifi_last_ok / unifi_last_check_at dopo ogni scan con Unifi)
+      if (typeof unifi_last_ok === 'boolean' && unifi_last_check_at) {
+        const at = new Date(unifi_last_check_at);
+        if (!isNaN(at.getTime())) {
+          await pool.query(
+            `UPDATE network_agents SET unifi_last_ok = $1, unifi_last_check_at = $2 WHERE id = $3`,
+            [unifi_last_ok, at, agentId]
+          );
+        }
+      }
 
       // Log per debug
       if (wasOfflineByStatus) {
@@ -2766,6 +2787,7 @@ module.exports = (pool, io) => {
             ) as status,
             na.last_heartbeat, 
             na.version, na.network_ranges, na.network_ranges_config, na.scan_interval_minutes, na.unifi_config, na.enabled,
+            na.unifi_last_ok, na.unifi_last_check_at,
             na.created_at, na.azienda_id, na.api_key,
             u.azienda
            FROM network_agents na
@@ -2785,6 +2807,7 @@ module.exports = (pool, io) => {
               ) as status,
               na.last_heartbeat, 
               na.version, na.network_ranges, na.scan_interval_minutes, na.enabled,
+              na.unifi_last_ok, na.unifi_last_check_at,
               na.created_at, na.azienda_id, na.api_key,
               u.azienda
              FROM network_agents na
@@ -2853,7 +2876,7 @@ module.exports = (pool, io) => {
              unifi_config = $5,
              updated_at = NOW()
          WHERE id = $6
-         RETURNING id, agent_name, network_ranges, network_ranges_config, scan_interval_minutes, unifi_config, updated_at`,
+         RETURNING id, agent_name, network_ranges, network_ranges_config, scan_interval_minutes, unifi_config, unifi_last_ok, unifi_last_check_at, updated_at`,
         [
           agent_name || null,
           rangesArray,

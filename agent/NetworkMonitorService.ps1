@@ -196,6 +196,9 @@ $script:networkIssueStartTime = $null
 $script:forceScanTriggerFile = Join-Path $script:scriptDir ".force_scan.trigger"
 # Unifi: in memoria da /agent/config, mai su config.json o disco
 $script:unifiConfig = $null
+# Ultimo esito check Unifi (login+stat/device) in scansione, inviato al server in heartbeat
+$script:lastUnifiOk = $null
+$script:lastUnifiCheckAt = $null
 
 # ============================================
 # FUNZIONI HELPER
@@ -284,17 +287,23 @@ function Check-UnifiUpdates {
 
     try {
         # Ignora errori certificato self-signed
-        add-type @"
-            using System.Net;
-            using System.Security.Cryptography.X509Certificates;
-            public class TrustAllCertsPolicy : ICertificatePolicy {
-                public bool CheckValidationResult(
-                    ServicePoint srvPoint, X509Certificate certificate,
-                    WebRequest request, int certificateProblem) {
-                    return true;
-                }
-            }
+        # Ignora errori certificato self-signed
+        if (-not ("TrustAllCertsPolicy" -as [type])) {
+            try {
+                add-type -ErrorAction Stop @"
+                    using System.Net;
+                    using System.Security.Cryptography.X509Certificates;
+                    public class TrustAllCertsPolicy : ICertificatePolicy {
+                        public bool CheckValidationResult(
+                            ServicePoint srvPoint, X509Certificate certificate,
+                            WebRequest request, int certificateProblem) {
+                            return true;
+                        }
+                    }
 "@
+            }
+            catch { Write-Log "Add-Type TrustAllCertsPolicy error (Check-UnifiUpdates): $_" "WARN" }
+        }
         [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
 
         # Sessione Web per mantenere i cookie
@@ -323,10 +332,12 @@ function Check-UnifiUpdates {
         $devicesRes = $null
         try {
             $devicesRes = Invoke-RestMethod -Uri "$baseUrl/api/s/default/stat/device" -Method Get -WebSession $session -ErrorAction Stop
-        } catch {
+        }
+        catch {
             try {
                 $devicesRes = Invoke-RestMethod -Uri "$baseUrl/proxy/network/api/s/default/stat/device" -Method Get -WebSession $session -ErrorAction Stop
-            } catch {
+            }
+            catch {
                 Write-Log "Unifi stat/device fallito (prova /api e /proxy/network): $_" "WARN"
             }
         }
@@ -340,9 +351,13 @@ function Check-UnifiUpdates {
             }
         }
         Write-Log "Unifi: trovati $($upgrades.Count) dispositivi aggiornabili" "INFO"
+        $script:lastUnifiOk = $true
+        $script:lastUnifiCheckAt = (Get-Date).ToString("o")
     }
     catch {
         Write-Log "Errore integrazione Unifi: $_" "WARN"
+        $script:lastUnifiOk = $false
+        $script:lastUnifiCheckAt = (Get-Date).ToString("o")
     }
     return $upgrades
 }
@@ -362,31 +377,40 @@ function Invoke-UnifiConnectionTestAndReport {
     try {
         $base = ($Url -as [string]).Trim().TrimEnd('/')
         if (-not $base) { $msg = "URL non valido"; throw $msg }
-        add-type -ErrorAction SilentlyContinue @"
-            using System.Net; using System.Security.Cryptography.X509Certificates;
-            public class TrustAllCertsPolicy : ICertificatePolicy {
-                public bool CheckValidationResult(ServicePoint s, X509Certificate c, WebRequest r, int p) { return true; }
-            }
+        if (-not ("TrustAllCertsPolicy" -as [type])) {
+            try {
+                add-type -ErrorAction Stop @"
+                using System.Net; using System.Security.Cryptography.X509Certificates;
+                public class TrustAllCertsPolicy : ICertificatePolicy {
+                    public bool CheckValidationResult(ServicePoint s, X509Certificate c, WebRequest r, int p) { return true; }
+                }
 "@
+            }
+            catch { Write-Log "Add-Type TrustAllCertsPolicy error: $_" "WARN" }
+        }
         [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
         $loginBody = @{ username = $Username; password = $Password } | ConvertTo-Json
         try {
             Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null
-        } catch {
+        }
+        catch {
             if ($_.Exception.Response.StatusCode -eq "NotFound") {
                 Invoke-WebRequest -Uri "$base/api/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null
-            } else { throw }
+            }
+            else { throw }
         }
         $dev = $null
         try {
             $dev = Invoke-RestMethod -Uri "$base/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop
-        } catch {
+        }
+        catch {
             $dev = Invoke-RestMethod -Uri "$base/proxy/network/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop
         }
         $ok = $true
         $msg = "Connessione OK"
-    } catch {
+    }
+    catch {
         $ok = $false
         $msg = if ($_.Exception.Message) { $_.Exception.Message } else { "Errore connessione" }
         Write-Log "Test Unifi (Prova connessione): $msg" "WARN"
@@ -397,7 +421,8 @@ function Invoke-UnifiConnectionTestAndReport {
     try {
         Invoke-RestMethod -Uri $resultUrl -Method POST -Headers $h -Body $body -TimeoutSec 10 -ErrorAction Stop | Out-Null
         Write-Log "Esito test Unifi inviato: $(if($ok){'OK'}else{'Errore'})" "INFO"
-    } catch {
+    }
+    catch {
         Write-Log "Invio esito test Unifi fallito: $_" "WARN"
     }
 }
@@ -1965,7 +1990,10 @@ function Send-Heartbeat {
             network_issue  = $networkIssueDetected
             issue_duration = $networkIssueDuration
         }
-        
+        if ($null -ne $script:lastUnifiOk) {
+            $payload['unifi_last_ok'] = [bool]$script:lastUnifiOk
+            $payload['unifi_last_check_at'] = $script:lastUnifiCheckAt
+        }
         $payloadJson = $payload | ConvertTo-Json
         
         $url = "$ServerUrl/api/network-monitoring/agent/heartbeat"
@@ -2214,7 +2242,8 @@ function Check-AgentUpdate {
                     try { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue; Write-Log "[OK] Tray vecchia terminata (PID $($p.ProcessId))" "INFO" } catch {}
                 }
                 if ($old) { Start-Sleep -Seconds 1 }
-            } catch {}
+            }
+            catch {}
             # Avvio nuova tray (file gia scaricati sopra; servizio in session 0, icona puo non apparire
             # subito in session utente; Run o Avvia-TrayIcon al logon la avviera se serve)
             $vbsPath = Join-Path $installDir "Start-TrayIcon-Hidden.vbs"
@@ -2413,7 +2442,8 @@ while ($script:isRunning) {
                         $pu = $heartbeatResult.pending_unifi_test
                         try {
                             Invoke-UnifiConnectionTestAndReport -TestId $pu.test_id -Url $pu.url -Username $pu.username -Password $pu.password -ServerUrl $config.server_url -ApiKey $config.api_key
-                        } catch {
+                        }
+                        catch {
                             Write-Log "Errore test Unifi (Prova connessione): $_" "WARN"
                         }
                     }

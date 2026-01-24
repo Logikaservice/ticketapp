@@ -1,7 +1,7 @@
 {
   "apps": [
     {
-      "name": "backend",
+      "name": "ticketapp-backend",
       "script": "index.js",
       "cwd": "/var/www/ticketapp/backend",
       "instances": 1,
