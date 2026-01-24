@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.5.5
+# Versione: 2.5.6
 # Data ultima modifica: 2026-01-22
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.5.5"
+$SCRIPT_VERSION = "2.5.6"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -345,6 +345,61 @@ function Check-UnifiUpdates {
         Write-Log "Errore integrazione Unifi: $_" "WARN"
     }
     return $upgrades
+}
+
+# Esegue un test di connessione Unifi (login + stat/device) e invia l'esito al server (per "Prova connessione" da interfaccia)
+function Invoke-UnifiConnectionTestAndReport {
+    param(
+        [string]$TestId,
+        [string]$Url,
+        [string]$Username,
+        [string]$Password,
+        [string]$ServerUrl,
+        [string]$ApiKey
+    )
+    $ok = $false
+    $msg = ""
+    try {
+        $base = ($Url -as [string]).Trim().TrimEnd('/')
+        if (-not $base) { $msg = "URL non valido"; throw $msg }
+        add-type -ErrorAction SilentlyContinue @"
+            using System.Net; using System.Security.Cryptography.X509Certificates;
+            public class TrustAllCertsPolicy : ICertificatePolicy {
+                public bool CheckValidationResult(ServicePoint s, X509Certificate c, WebRequest r, int p) { return true; }
+            }
+"@
+        [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+        $loginBody = @{ username = $Username; password = $Password } | ConvertTo-Json
+        try {
+            Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null
+        } catch {
+            if ($_.Exception.Response.StatusCode -eq "NotFound") {
+                Invoke-WebRequest -Uri "$base/api/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null
+            } else { throw }
+        }
+        $dev = $null
+        try {
+            $dev = Invoke-RestMethod -Uri "$base/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop
+        } catch {
+            $dev = Invoke-RestMethod -Uri "$base/proxy/network/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop
+        }
+        $ok = $true
+        $msg = "Connessione OK"
+    } catch {
+        $ok = $false
+        $msg = if ($_.Exception.Message) { $_.Exception.Message } else { "Errore connessione" }
+        Write-Log "Test Unifi (Prova connessione): $msg" "WARN"
+    }
+    $resultUrl = "$ServerUrl/api/network-monitoring/agent/unifi-test-result"
+    $body = @{ test_id = $TestId; success = $ok; message = $msg } | ConvertTo-Json
+    $h = @{ "Content-Type" = "application/json"; "X-API-Key" = $ApiKey }
+    try {
+        Invoke-RestMethod -Uri $resultUrl -Method POST -Headers $h -Body $body -TimeoutSec 10 -ErrorAction Stop | Out-Null
+        Write-Log "Esito test Unifi inviato: $(if($ok){'OK'}else{'Errore'})" "INFO"
+    } catch {
+        Write-Log "Invio esito test Unifi fallito: $_" "WARN"
+    }
 }
 
 function Get-NetworkDevices {
@@ -1927,7 +1982,8 @@ function Send-Heartbeat {
             Write-Log "Server ha richiesto disinstallazione: $($response.message)" "WARN"
             return @{ success = $false; uninstall = $true; message = $response.message }
         }
-        
+
+        $pendingUnifi = $response.pending_unifi_test
         
         # Recupera configurazione dal server per verificare se scan_interval_minutes è cambiato
         try {
@@ -1956,7 +2012,7 @@ function Send-Heartbeat {
             # Non bloccare l'esecuzione se il controllo configurazione fallisce
         }
         
-        return @{ success = $true; uninstall = $false; config = $serverConfigResult.config }
+        return @{ success = $true; uninstall = $false; config = $serverConfigResult.config; pending_unifi_test = $pendingUnifi }
     }
     catch {
         Write-Log "Errore heartbeat: $_" "WARN"
@@ -2351,6 +2407,15 @@ while ($script:isRunning) {
                     # Unifi: credenziali solo da server (GET /agent/config), mai in config.json né su disco
                     if ($heartbeatResult.config -and $heartbeatResult.config.unifi_config) {
                         $script:unifiConfig = $heartbeatResult.config.unifi_config
+                    }
+                    # Prova connessione Unifi richiesta da interfaccia: esegui test sulla LAN e invia esito
+                    if ($heartbeatResult.pending_unifi_test) {
+                        $pu = $heartbeatResult.pending_unifi_test
+                        try {
+                            Invoke-UnifiConnectionTestAndReport -TestId $pu.test_id -Url $pu.url -Username $pu.username -Password $pu.password -ServerUrl $config.server_url -ApiKey $config.api_key
+                        } catch {
+                            Write-Log "Errore test Unifi (Prova connessione): $_" "WARN"
+                        }
                     }
                 }
                 else {

@@ -15,6 +15,10 @@ const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fet
 const https = require('https');
 
 module.exports = (pool, io) => {
+  // Mappe in-memory per test Unifi delegato all'agent (IP privati: VPS non raggiunge 192.168.x.x)
+  const pendingUnifiTests = new Map(); // agentId -> { test_id, url, username, password, created_at }
+  const unifiTestResults = new Map();  // test_id -> { success, message, at }
+
   // Funzione helper per inizializzare le tabelle se non esistono
   const initTables = async () => {
     try {
@@ -640,7 +644,7 @@ module.exports = (pool, io) => {
 
       // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
       // Serve per far capire all'installer quale versione dovrebbe risultare installata.
-      const CURRENT_AGENT_VERSION = '2.5.5'; // Versione di fallback
+      const CURRENT_AGENT_VERSION = '2.5.6'; // Versione di fallback
       let agentPackageVersion = CURRENT_AGENT_VERSION;
       try {
         const projectRoot = path.resolve(__dirname, '..', '..');
@@ -990,7 +994,13 @@ module.exports = (pool, io) => {
         }
       }
 
-      res.json({ success: true, timestamp: new Date().toISOString(), uninstall: false });
+      const resp = { success: true, timestamp: new Date().toISOString(), uninstall: false };
+      const pt = pendingUnifiTests.get(agentId);
+      if (pt) {
+        resp.pending_unifi_test = { test_id: pt.test_id, url: pt.url, username: pt.username, password: pt.password };
+        pendingUnifiTests.delete(agentId);
+      }
+      res.json(resp);
     } catch (err) {
       // Non loggare come errore se è solo la tabella network_agent_events mancante (già gestito nel catch interno)
       if (err.code !== '42P01' || !err.message.includes('network_agent_events')) {
@@ -3062,7 +3072,7 @@ module.exports = (pool, io) => {
       }
 
       // Versione agent per ZIP e config.json incluso
-      const CURRENT_AGENT_VERSION = '2.5.5';
+      const CURRENT_AGENT_VERSION = '2.5.6';
       const agentVersion = CURRENT_AGENT_VERSION;
       console.log(`ℹ️ Versione agent per ZIP: ${agentVersion}`);
 
@@ -5023,7 +5033,7 @@ pause
   // Restituisce la versione corrente dell'agent disponibile per download
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.5.5'; // Versione ufficiale
+      const CURRENT_AGENT_VERSION = '2.5.6'; // Versione ufficiale
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
@@ -5174,19 +5184,34 @@ pause
   });
 
   // Prova connessione Unifi (url/username/password dal body, per test da form prima di salvare)
+  // Se l'URL è su rete locale (192.168.x, 10.x, 172.16–31.x) la VPS non può raggiungerlo:
+  // il test viene delegato all'agent (riceve il comando al prossimo heartbeat e invia l'esito).
   router.post('/test-unifi', authenticateToken, async (req, res) => {
-    const { url, username, password } = req.body || {};
+    const { agent_id, url, username, password } = req.body || {};
     if (!url || !username || !password) {
       return res.status(400).json({ error: 'Inserisci URL, username e password del controller Unifi' });
     }
+    const baseUrl = String(url).trim().replace(/\/$/, '');
+    if (!/^https?:\/\//i.test(baseUrl)) {
+      return res.status(400).json({ error: 'L\'URL deve iniziare con http:// o https://' });
+    }
+
+    // Rileva se l'URL è su rete privata/locale (la VPS non può raggiungerlo)
+    const isPrivate = /^(https?:\/\/)?(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/i.test(baseUrl) ||
+      /^(https?:\/\/)?(localhost|127\.|\[?::1\]?)/i.test(baseUrl);
+
+    if (isPrivate) {
+      if (!agent_id) {
+        return res.status(400).json({ error: 'Per un controller su rete locale (es. 192.168.x) il test viene eseguito dall\'agent. Seleziona l\'agent e riprova.' });
+      }
+      const testId = 'ut-' + Date.now() + '-' + crypto.randomBytes(4).toString('hex');
+      pendingUnifiTests.set(Number(agent_id), { test_id: testId, url: baseUrl, username: String(username).trim(), password: String(password), created_at: Date.now() });
+      return res.json({ test_id: testId, deferred: true, message: 'L\'agent eseguirà il test sulla rete locale. Attendi fino a 5 minuti (prossimo heartbeat).' });
+    }
+
+    // URL pubblico: la VPS può connettersi direttamente
     try {
       const agent = new https.Agent({ rejectUnauthorized: false });
-      const baseUrl = String(url).trim().replace(/\/$/, '');
-      if (!/^https?:\/\//i.test(baseUrl)) {
-        return res.status(400).json({ error: 'L\'URL deve iniziare con http:// o https://' });
-      }
-
-      // Login
       let loginRes = await fetch(`${baseUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -5201,26 +5226,38 @@ pause
           agent
         });
       }
-      if (!loginRes.ok) {
-        const t = await loginRes.text();
-        throw new Error(`Login fallito (${loginRes.status}): credenziali errate o controller non raggiungibile`);
-      }
-
+      if (!loginRes.ok) throw new Error(`Login fallito (${loginRes.status}): credenziali errate o controller non raggiungibile`);
       const cookies = loginRes.headers.get('set-cookie');
       if (!cookies) throw new Error('Il controller non ha restituito i cookie di sessione');
-
-      // Verifica accesso API (stat/device)
       let devicesRes = await fetch(`${baseUrl}/api/s/default/stat/device`, { headers: { 'Cookie': cookies }, agent });
       if (devicesRes.status === 404) {
         devicesRes = await fetch(`${baseUrl}/proxy/network/api/s/default/stat/device`, { headers: { 'Cookie': cookies }, agent });
       }
       if (!devicesRes.ok) throw new Error('Impossibile accedere alle API del controller (stat/device)');
-
       res.json({ success: true, message: 'Connessione OK' });
     } catch (err) {
-      console.error('❌ Test Unifi:', err);
+      console.error('❌ Test Unifi (VPS):', err);
       res.status(500).json({ error: err.message || 'Errore di connessione al controller Unifi' });
     }
+  });
+
+  // L'agent invia l'esito del test Unifi (dopo aver ricevuto pending_unifi_test nel heartbeat)
+  router.post('/agent/unifi-test-result', authenticateAgent, async (req, res) => {
+    const { test_id, success, message } = req.body || {};
+    if (!test_id) return res.status(400).json({ error: 'test_id richiesto' });
+    unifiTestResults.set(test_id, { success: !!success, message: String(message || ''), at: Date.now() });
+    res.json({ ok: true });
+  });
+
+  // Il frontend interroga l'esito del test (per test delegati all'agent)
+  router.get('/unifi-test-result/:test_id', authenticateToken, async (req, res) => {
+    const r = unifiTestResults.get(req.params.test_id);
+    if (!r) return res.json({ status: 'pending' });
+    if (Date.now() - r.at > 10 * 60 * 1000) {
+      unifiTestResults.delete(req.params.test_id);
+      return res.json({ status: 'pending' });
+    }
+    res.json({ status: r.success ? 'ok' : 'error', message: r.message });
   });
 
   // Endpoint per sincronizzare manualmente Unifi

@@ -7,7 +7,7 @@ param(
     [switch]$TestMode = $false
 )
 
-$AGENT_VERSION = "2.5.5"
+$AGENT_VERSION = "2.5.6"
 
 # Forza TLS 1.2 per Invoke-RestMethod (compatibilità hardening TLS su Windows/Server)
 function Enable-Tls12 {
@@ -237,6 +237,33 @@ function Check-UnifiUpdates {
         Write-Log "⚠️ Errore integrazione Unifi: $_" "WARN"
     }
     return $upgrades
+}
+
+# Test connessione Unifi richiesto da interfaccia ("Prova connessione"): esegue login+stat/device e invia esito al server
+function Invoke-UnifiConnectionTestAndReport {
+    param([string]$TestId, [string]$Url, [string]$Username, [string]$Password, [string]$ServerUrl, [string]$ApiKey)
+    $ok = $false; $msg = ""
+    try {
+        $base = ($Url -as [string]).Trim().TrimEnd('/')
+        if (-not $base) { $msg = "URL non valido"; throw $msg }
+        add-type -ErrorAction SilentlyContinue @"
+            using System.Net; using System.Security.Cryptography.X509Certificates;
+            public class TrustAllCertsPolicy : ICertificatePolicy { public bool CheckValidationResult(ServicePoint s, X509Certificate c, WebRequest r, int p) { return true; } }
+"@
+        [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+        $loginBody = @{ username = $Username; password = $Password } | ConvertTo-Json
+        try { Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null }
+        catch { if ($_.Exception.Response.StatusCode -eq "NotFound") { Invoke-WebRequest -Uri "$base/api/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null } else { throw } }
+        try { Invoke-RestMethod -Uri "$base/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null }
+        catch { Invoke-RestMethod -Uri "$base/proxy/network/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null }
+        $ok = $true; $msg = "Connessione OK"
+    } catch { $ok = $false; $msg = if ($_.Exception.Message) { $_.Exception.Message } else { "Errore connessione" }; Write-Log "Test Unifi (Prova connessione): $msg" "WARN" }
+    try {
+        $body = @{ test_id = $TestId; success = $ok; message = $msg } | ConvertTo-Json
+        Invoke-RestMethod -Uri "$ServerUrl/api/network-monitoring/agent/unifi-test-result" -Method POST -Headers @{ "Content-Type" = "application/json"; "X-API-Key" = $ApiKey } -Body $body -TimeoutSec 10 -ErrorAction Stop | Out-Null
+        Write-Log "Esito test Unifi inviato: $(if($ok){'OK'}else{'Errore'})" "INFO"
+    } catch { Write-Log "Invio esito test Unifi fallito: $_" "WARN" }
 }
 
 function Get-NetworkDevices {
@@ -615,6 +642,8 @@ function Update-ScheduledTaskInterval {
             }
         
             Write-Log "Heartbeat inviato con successo" "DEBUG"
+
+            $pendingUnifi = $response.pending_unifi_test
         
             # Recupera configurazione dal server per verificare se scan_interval_minutes è cambiato
             if ($ConfigPath) {
@@ -648,7 +677,7 @@ function Update-ScheduledTaskInterval {
                 }
             }
         
-            return @{ success = $true; uninstall = $false }
+            return @{ success = $true; uninstall = $false; pending_unifi_test = $pendingUnifi }
         }
         catch {
             Write-Log "Errore heartbeat: $_" "WARN"
@@ -764,6 +793,14 @@ function Update-ScheduledTaskInterval {
             Uninstall-Agent -ScriptDir $scriptDir
             Write-Log "Agent disinstallato. Uscita." "WARN"
             exit 0
+        }
+
+        # Prova connessione Unifi richiesta da interfaccia: esegui test sulla LAN e invia esito
+        if ($heartbeatResult.pending_unifi_test) {
+            $pu = $heartbeatResult.pending_unifi_test
+            try {
+                Invoke-UnifiConnectionTestAndReport -TestId $pu.test_id -Url $pu.url -Username $pu.username -Password $pu.password -ServerUrl $config.server_url -ApiKey $config.api_key
+            } catch { Write-Log "Errore test Unifi (Prova connessione): $_" "WARN" }
         }
     
         # Recupera configurazione Unifi (se presente sul server)

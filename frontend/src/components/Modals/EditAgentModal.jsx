@@ -94,16 +94,48 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
             const res = await fetch(buildApiUrl('/api/network-monitoring/test-unifi'), {
                 method: 'POST',
                 headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url, username, password })
+                body: JSON.stringify({ agent_id: agent?.id, url, username, password })
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok && data.success) {
                 setUnifiTestStatus('ok');
                 setUnifiTestMessage('Connessione OK');
-            } else {
-                setUnifiTestStatus('error');
-                setUnifiTestMessage(data.error || `Errore ${res.status}`);
+                return;
             }
+            if (res.ok && data.deferred && data.test_id) {
+                setUnifiTestMessage('L\'agent esegue il test sulla rete locale. Attendi fino a 5 minuti…');
+                const testId = data.test_id;
+                const pollMs = 3000;
+                const maxPolls = 120; // 6 minuti
+                let count = 0;
+                const poll = async () => {
+                    if (count >= maxPolls) {
+                        setUnifiTestStatus('error');
+                        setUnifiTestMessage('Timeout: l\'agent non ha risposto. Verifica che sia online.');
+                        return;
+                    }
+                    count++;
+                    try {
+                        const r = await fetch(buildApiUrl(`/api/network-monitoring/unifi-test-result/${testId}`), { headers: getAuthHeader() });
+                        const j = await r.json().catch(() => ({}));
+                        if (j.status === 'ok') {
+                            setUnifiTestStatus('ok');
+                            setUnifiTestMessage('Connessione OK');
+                            return;
+                        }
+                        if (j.status === 'error') {
+                            setUnifiTestStatus('error');
+                            setUnifiTestMessage(j.message || 'Errore');
+                            return;
+                        }
+                    } catch (_) { /* ignore */ }
+                    setTimeout(poll, pollMs);
+                };
+                setTimeout(poll, pollMs);
+                return;
+            }
+            setUnifiTestStatus('error');
+            setUnifiTestMessage(data.error || `Errore ${res.status}`);
         } catch (e) {
             setUnifiTestStatus('error');
             setUnifiTestMessage(e.message || 'Errore di rete');
