@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.5.4
+# Versione: 2.5.5
 # Data ultima modifica: 2026-01-22
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.5.4"
+$SCRIPT_VERSION = "2.5.5"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2003,6 +2003,8 @@ function Check-AgentUpdate {
     )
     
     try {
+        # Forza TLS 1.2 (in alcuni contesti servizio puo non ereditare Enable-Tls12)
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         Write-Log "[INFO] Controllo aggiornamenti agent... (versione corrente: $CurrentVersion)" "INFO"
         
         # Normalizza base URL (evita doppio /api se server_url contiene gia /api)
@@ -2287,6 +2289,8 @@ Update-StatusFile -Status "running" -Message "Servizio avviato"
 
 # Controlla aggiornamenti agent (all'avvio)
 $version = if ($config.version) { $config.version } else { $SCRIPT_VERSION }
+$forcePath = Join-Path $script:scriptDir ".force_update.trigger"
+if (Test-Path $forcePath) { Remove-Item $forcePath -Force -ErrorAction SilentlyContinue; $version = "0.0.0"; Write-Log "[INFO] Forzatura update (.force_update.trigger)" "INFO" }
 Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $version
 
 # Assicura file tray (se mancanti: download da server). Poi tenta avvio tray.
@@ -2314,9 +2318,9 @@ catch {
 
 # Loop principale
 Write-Log "Avvio loop principale..."
-# Imposta nextScanTime a 5 secondi fa per forzare la prima scansione immediata
 $nextScanTime = (Get-Date).AddSeconds(-5)
 $nextHeartbeatTime = Get-Date  # Heartbeat ogni 5 minuti
+$script:nextUpdateCheckTime = (Get-Date).AddMinutes(2)  # Check aggiornamenti ogni 2 min (oltre a heartbeat e post-scan)
 Write-Log "Prima scansione programmata immediatamente (nextScanTime: $($nextScanTime.ToString('HH:mm:ss')))"
 
 while ($script:isRunning) {
@@ -2368,11 +2372,24 @@ while ($script:isRunning) {
             # Controlla aggiornamenti agent (ogni heartbeat)
             try {
                 $version = if ($config.version) { $config.version } else { $SCRIPT_VERSION }
+                $fp = Join-Path $script:scriptDir ".force_update.trigger"
+                if (Test-Path $fp) { Remove-Item $fp -Force -ErrorAction SilentlyContinue; $version = "0.0.0"; Write-Log "[INFO] Forzatura update (.force_update.trigger)" "INFO" }
                 Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $version
             }
             catch {
                 Write-Log "Errore controllo aggiornamenti: $_" "WARN"
             }
+        }
+        elseif ($now -ge $script:nextUpdateCheckTime) {
+            # Controlla aggiornamenti ogni 2 min (oltre a heartbeat e post-scan)
+            $script:nextUpdateCheckTime = $now.AddMinutes(2)
+            try {
+                $version = if ($config.version) { $config.version } else { $SCRIPT_VERSION }
+                $fp = Join-Path $script:scriptDir ".force_update.trigger"
+                if (Test-Path $fp) { Remove-Item $fp -Force -ErrorAction SilentlyContinue; $version = "0.0.0"; Write-Log "[INFO] Forzatura update (.force_update.trigger)" "INFO" }
+                Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $version
+            }
+            catch { Write-Log "Errore controllo aggiornamenti (2min): $_" "WARN" }
         }
         
         # Controlla se c'è una richiesta di scansione forzata
@@ -2475,6 +2492,8 @@ while ($script:isRunning) {
                 # Controlla aggiornamenti anche dopo scansione (oltre che a ogni heartbeat)
                 try {
                     $v = if ($config.version) { $config.version.ToString().Trim() } else { $SCRIPT_VERSION }
+                    $fp = Join-Path $script:scriptDir ".force_update.trigger"
+                    if (Test-Path $fp) { Remove-Item $fp -Force -ErrorAction SilentlyContinue; $v = "0.0.0"; Write-Log "[INFO] Forzatura update (.force_update.trigger)" "INFO" }
                     Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $v
                 }
                 catch { Write-Log "Errore controllo aggiornamenti (post-scan): $_" "WARN" }

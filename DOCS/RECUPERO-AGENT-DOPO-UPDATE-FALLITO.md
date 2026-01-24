@@ -14,7 +14,7 @@ copy /Y NetworkMonitorService.ps1.backup NetworkMonitorService.ps1
 Poi riavviare il servizio (servizi Windows o da PowerShell come Amministratore):
 
 ```powershell
-Restart-Service NetworkMonitorAgent
+Restart-Service NetworkMonitorService
 ```
 
 ## 2. Se il backup non c’è o non funziona
@@ -27,3 +27,9 @@ Restart-Service NetworkMonitorAgent
 - **Validazione download**: prima di sostituire `NetworkMonitorService.ps1` e `NetworkMonitor.ps1` si controlla size e contenuto; in caso di file non valido (es. HTML di errore) **non** si sovrascrive e **non** si fa `exit` → niente crash loop.
 - **Ensure-TrayFiles e avvio tray** sono in un `try/catch`: un errore lì non blocca il servizio e l’invio dati.
 - **`$installDir`** in `Check-AgentUpdate` usa `$script:scriptDir` per essere coerente con la directory di installazione.
+
+## 6. Dalla 2.5.5 (aggiornamenti, TLS, force-update)
+
+- **TLS 1.2** forzato in `Check-AgentUpdate` prima di `Invoke-RestMethod` (agent-version e download).
+- **`.force_update.trigger`**: se esiste in `C:\ProgramData\NetworkMonitorAgent`, il prossimo check forza l’update (version=0.0.0) e poi elimina il file.
+- **Check aggiornamenti ogni 2 minuti** oltre a heartbeat (5 min) e post-scan.

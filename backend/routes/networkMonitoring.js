@@ -640,7 +640,7 @@ module.exports = (pool, io) => {
 
       // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
       // Serve per far capire all'installer quale versione dovrebbe risultare installata.
-      const CURRENT_AGENT_VERSION = '2.5.4'; // Versione di fallback
+      const CURRENT_AGENT_VERSION = '2.5.5'; // Versione di fallback
       let agentPackageVersion = CURRENT_AGENT_VERSION;
       try {
         const projectRoot = path.resolve(__dirname, '..', '..');
@@ -3062,7 +3062,7 @@ module.exports = (pool, io) => {
       }
 
       // Versione agent per ZIP e config.json incluso
-      const CURRENT_AGENT_VERSION = '2.5.4';
+      const CURRENT_AGENT_VERSION = '2.5.5';
       const agentVersion = CURRENT_AGENT_VERSION;
       console.log(`ℹ️ Versione agent per ZIP: ${agentVersion}`);
 
@@ -5023,7 +5023,7 @@ pause
   // Restituisce la versione corrente dell'agent disponibile per download
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.5.4'; // Versione ufficiale
+      const CURRENT_AGENT_VERSION = '2.5.5'; // Versione ufficiale
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
