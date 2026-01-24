@@ -13,7 +13,7 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
   const [formData, setFormData] = useState({
     agent_name: '',
     azienda_id: '',
-    network_ranges: ['192.168.1.0/24'], // Array di range IP
+    network_ranges_config: [{ range: '192.168.1.0/24', name: '' }], // Array di oggetti {range, name}
     scan_interval_minutes: 15
   });
   const [createdAgent, setCreatedAgent] = useState(null);
@@ -33,7 +33,7 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
 
   // Usa localStorage per persistere lo stato durante i refresh
   const STORAGE_KEY = 'createAgentModal_state';
-  
+
   // Salva lo stato SEMPRE quando cambia (non solo step 3) per prevenire perdita durante refresh
   useEffect(() => {
     if (isOpen) {
@@ -54,7 +54,7 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
 
   // Ripristina SEMPRE lo stato da localStorage quando il modal si apre
   const prevIsOpenRef = useRef(isOpen);
-  
+
   useEffect(() => {
     // Quando il modal si apre (da false a true) O quando si riapre dopo un refresh
     if (isOpen) {
@@ -74,7 +74,7 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
               if (parsed.formData) {
                 setFormData(parsed.formData);
               }
-            } 
+            }
             // Se siamo in uno step precedente e lo stato salvato è più avanzato, ripristinalo
             else if (parsed.step > step && parsed.step === 3 && parsed.createdAgent) {
               console.log('🔄 Ripristino stato avanzato da localStorage');
@@ -100,12 +100,12 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
         console.error('Errore ripristino stato:', e);
         localStorage.removeItem(STORAGE_KEY);
       }
-    } 
+    }
     // Quando il modal si chiude (da true a false), pulisci localStorage solo se non siamo allo step 3
     else if (prevIsOpenRef.current && !isOpen && step !== 3) {
       localStorage.removeItem(STORAGE_KEY);
     }
-    
+
     prevIsOpenRef.current = isOpen;
   }, [isOpen]); // Solo quando isOpen cambia - NON dipendere da step/createdAgent per evitare loop
 
@@ -120,14 +120,14 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
     setFormData({
       agent_name: '',
       azienda_id: '',
-      network_ranges: ['192.168.1.0/24'],
+      network_ranges_config: [{ range: '192.168.1.0/24', name: '' }],
       scan_interval_minutes: 15
     });
     setCreatedAgent(null);
     setConfigJson(null);
     setError(null);
     setCopied(false);
-    
+
     if (setShowCreateAgentModal) {
       setShowCreateAgentModal(false);
     }
@@ -163,28 +163,31 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
     }));
   };
 
-  const handleNetworkRangeChange = (index, value) => {
-    const newRanges = [...formData.network_ranges];
-    newRanges[index] = value;
+  const handleNetworkRangeChange = (index, field, value) => {
+    const newRanges = [...formData.network_ranges_config];
+    newRanges[index] = {
+      ...newRanges[index],
+      [field]: value
+    };
     setFormData(prev => ({
       ...prev,
-      network_ranges: newRanges
+      network_ranges_config: newRanges
     }));
   };
 
   const addNetworkRange = () => {
     setFormData(prev => ({
       ...prev,
-      network_ranges: [...prev.network_ranges, '']
+      network_ranges_config: [...prev.network_ranges_config, { range: '', name: '' }]
     }));
   };
 
   const removeNetworkRange = (index) => {
-    if (formData.network_ranges.length > 1) {
-      const newRanges = formData.network_ranges.filter((_, i) => i !== index);
+    if (formData.network_ranges_config.length > 1) {
+      const newRanges = formData.network_ranges_config.filter((_, i) => i !== index);
       setFormData(prev => ({
         ...prev,
-        network_ranges: newRanges
+        network_ranges_config: newRanges
       }));
     }
   };
@@ -202,7 +205,7 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
   };
 
   const validateStep2 = () => {
-    const validRanges = formData.network_ranges.filter(r => r.trim() && r.match(/^\d+\.\d+\.\d+\.\d+\/\d+$/));
+    const validRanges = formData.network_ranges_config.filter(r => r.range && r.range.trim() && r.range.match(/^\d+\.\d+\.\d+\.\d+\/\d+$/));
     if (validRanges.length === 0) {
       setError('Inserisci almeno un range IP valido (es: 192.168.1.0/24)');
       return false;
@@ -216,7 +219,7 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
 
   const handleNext = () => {
     setError(null);
-    
+
     if (step === 1) {
       if (!validateStep1()) return;
       setStep(2);
@@ -237,7 +240,7 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
       setError(null);
 
       // Valida range IP (rimuovi vuoti e invalidi)
-      const validRanges = formData.network_ranges.filter(r => r.trim() && r.match(/^\d+\.\d+\.\d+\.\d+\/\d+$/));
+      const validRangesConfig = formData.network_ranges_config.filter(r => r.range && r.range.trim() && r.range.match(/^\d+\.\d+\.\d+\.\d+\/\d+$/));
 
       const response = await fetch(buildApiUrl('/api/network-monitoring/agent/register'), {
         method: 'POST',
@@ -248,7 +251,7 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
         body: JSON.stringify({
           agent_name: formData.agent_name.trim(),
           azienda_id: parseInt(formData.azienda_id),
-          network_ranges: validRanges,
+          network_ranges_config: validRangesConfig,
           scan_interval_minutes: parseInt(formData.scan_interval_minutes)
         })
       });
@@ -259,15 +262,17 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
       }
 
       const data = await response.json();
-      
+
       // Salva immediatamente in localStorage per evitare perdita durante eventuali refresh
       const serverUrl = window.location.origin;
+      // Per il config.json dell'agent, usiamo solo i range (l'agent PowerShell non usa i nomi)
+      const rangesOnly = validRangesConfig.map(r => r.range);
       const config = {
         server_url: serverUrl,
         api_key: data.agent.api_key,
         agent_name: data.agent.agent_name,
         version: "1.0.0",
-        network_ranges: validRanges,
+        network_ranges: rangesOnly,
         scan_interval_minutes: parseInt(formData.scan_interval_minutes)
       };
 
@@ -275,7 +280,7 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
       setCreatedAgent(data.agent);
       setConfigJson(config);
       setStep(3);
-      
+
       // Salva immediatamente in localStorage
       const stateToSave = {
         step: 3,
@@ -339,7 +344,7 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
   // Scarica pacchetto completo agent (ZIP con tutti i file)
   const downloadAgentPackage = async () => {
     if (!createdAgent) return;
-    
+
     try {
       setLoading(true);
       const response = await fetch(buildApiUrl(`/api/network-monitoring/agent/${createdAgent.id}/download`), {
@@ -404,9 +409,8 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
         <div className="p-4 border-b bg-gray-50 flex items-center justify-center gap-2">
           {[1, 2, 3].map((s) => (
             <React.Fragment key={s}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                step >= s ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600'
-              }`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= s ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600'
+                }`}>
                 {step > s ? <CheckCircle size={20} /> : s}
               </div>
               {s < 3 && (
@@ -468,26 +472,47 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Range di Rete da Monitorare *
                 </label>
-                <p className="text-sm text-gray-500 mb-2">
-                  Inserisci i range IP da scansionare (es: 192.168.1.0/24)
+                <p className="text-sm text-gray-500 mb-3">
+                  Inserisci i range IP da scansionare e assegna un nome descrittivo a ciascuna rete
                 </p>
-                {formData.network_ranges.map((range, index) => (
-                  <div key={index} className="flex gap-2 mb-2">
-                    <input
-                      type="text"
-                      value={range}
-                      onChange={(e) => handleNetworkRangeChange(index, e.target.value)}
-                      placeholder="192.168.1.0/24"
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    {formData.network_ranges.length > 1 && (
-                      <button
-                        onClick={() => removeNetworkRange(index)}
-                        className="px-4 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200"
-                      >
-                        Rimuovi
-                      </button>
-                    )}
+                {formData.network_ranges_config.map((rangeConfig, index) => (
+                  <div key={index} className="mb-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                    <div className="flex gap-2 mb-2">
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Range IP *
+                        </label>
+                        <input
+                          type="text"
+                          value={rangeConfig.range}
+                          onChange={(e) => handleNetworkRangeChange(index, 'range', e.target.value)}
+                          placeholder="192.168.1.0/24"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Nome Rete (opzionale)
+                        </label>
+                        <input
+                          type="text"
+                          value={rangeConfig.name || ''}
+                          onChange={(e) => handleNetworkRangeChange(index, 'name', e.target.value)}
+                          placeholder="es: LAN Principale, Telefonia, Videosorveglianza"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        />
+                      </div>
+                      {formData.network_ranges_config.length > 1 && (
+                        <div className="flex items-end">
+                          <button
+                            onClick={() => removeNetworkRange(index)}
+                            className="px-3 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 text-sm"
+                          >
+                            Rimuovi
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
                 <button
@@ -626,7 +651,7 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
                   <li><code className="bg-blue-100 px-1 rounded">NetworkMonitor.ps1</code> (dalla cartella <code className="bg-blue-100 px-1 rounded">agent/</code> del progetto)</li>
                   <li><code className="bg-blue-100 px-1 rounded">NetworkMonitorService.ps1</code> (dalla cartella <code className="bg-blue-100 px-1 rounded">agent/</code> del progetto)</li>
                 </ul>
-                
+
                 <div className="mt-4 p-3 bg-white border border-blue-200 rounded-lg">
                   <h4 className="font-semibold text-blue-900 mb-2">🚀 Installazione automatica (con pacchetto ZIP):</h4>
                   <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">

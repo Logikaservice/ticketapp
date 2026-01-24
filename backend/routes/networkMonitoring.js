@@ -103,6 +103,19 @@ module.exports = (pool, io) => {
         }
       }
 
+      // Aggiungi colonna network_ranges_config per nomi delle reti (migrazione)
+      try {
+        await pool.query(`
+          ALTER TABLE network_agents 
+          ADD COLUMN IF NOT EXISTS network_ranges_config JSONB;
+        `);
+      } catch (err) {
+        // Ignora errore se colonna esiste già
+        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna network_ranges_config:', err.message);
+        }
+      }
+
       // Crea tabella network_devices
       await pool.query(`
         CREATE TABLE IF NOT EXISTS network_devices (
@@ -480,7 +493,7 @@ module.exports = (pool, io) => {
     try {
       await ensureTables();
 
-      const { azienda_id, agent_name, network_ranges, scan_interval_minutes } = req.body;
+      const { azienda_id, agent_name, network_ranges, network_ranges_config, scan_interval_minutes } = req.body;
 
       if (!azienda_id) {
         return res.status(400).json({ error: 'azienda_id richiesto' });
@@ -489,15 +502,32 @@ module.exports = (pool, io) => {
       // Genera API key univoca
       const apiKey = crypto.randomBytes(32).toString('hex');
 
+      // Se abbiamo network_ranges_config (nuovo formato con nomi), usalo
+      // Altrimenti usa network_ranges (vecchio formato, solo range)
+      let rangesConfig = null;
+      let rangesArray = [];
+
+      if (network_ranges_config && Array.isArray(network_ranges_config)) {
+        // Nuovo formato: array di oggetti {range: "192.168.1.0/24", name: "LAN Principale"}
+        rangesConfig = network_ranges_config;
+        rangesArray = network_ranges_config.map(r => r.range);
+      } else if (network_ranges && Array.isArray(network_ranges)) {
+        // Vecchio formato: array di stringhe ["192.168.1.0/24"]
+        rangesArray = network_ranges;
+        // Crea config di default senza nomi
+        rangesConfig = network_ranges.map(range => ({ range, name: null }));
+      }
+
       const result = await pool.query(
-        `INSERT INTO network_agents (azienda_id, api_key, agent_name, network_ranges, scan_interval_minutes)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO network_agents (azienda_id, api_key, agent_name, network_ranges, network_ranges_config, scan_interval_minutes)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id, api_key, agent_name, created_at`,
         [
           azienda_id,
           apiKey,
           agent_name || `Agent ${new Date().toISOString()}`,
-          network_ranges || [],
+          rangesArray,
+          rangesConfig ? JSON.stringify(rangesConfig) : null,
           scan_interval_minutes || 15
         ]
       );
@@ -2616,7 +2646,7 @@ module.exports = (pool, io) => {
             ELSE 'offline'
           END as status,
           na.last_heartbeat, 
-          na.version, na.network_ranges, na.scan_interval_minutes, na.enabled,
+          na.version, na.network_ranges, na.network_ranges_config, na.scan_interval_minutes, na.enabled,
           na.created_at, na.azienda_id, na.api_key,
           u.azienda
          FROM network_agents na

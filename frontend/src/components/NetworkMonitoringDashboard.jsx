@@ -1361,7 +1361,16 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           ) : (
                             <>
                               <p><strong>Versione:</strong> <span className="font-mono text-blue-600 font-semibold">{agent.version || 'N/A'}</span></p>
-                              <p><strong>Reti:</strong> {(agent.network_ranges || []).join(', ') || 'Nessuna'}</p>
+                              <p><strong>Reti:</strong> {(() => {
+                                // Se abbiamo network_ranges_config con nomi, mostrali
+                                if (agent.network_ranges_config && Array.isArray(agent.network_ranges_config)) {
+                                  return agent.network_ranges_config.map(r =>
+                                    r.name ? `${r.range} (${r.name})` : r.range
+                                  ).join(', ') || 'Nessuna';
+                                }
+                                // Altrimenti usa il vecchio formato
+                                return (agent.network_ranges || []).join(', ') || 'Nessuna';
+                              })()}</p>
                               <p><strong>Intervallo:</strong> {agent.scan_interval_minutes || 15} minuti</p>
                               <p><strong>Ultimo heartbeat:</strong> {agent.last_heartbeat ? formatDate(new Date(agent.last_heartbeat)) : 'Mai'}</p>
                             </>
@@ -2114,7 +2123,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                               const actualEventType = change.event_type || change.change_type;
                               const actualCategory = change.event_category || 'device';
                               const isNewDevice = change.is_new_device;
-                              
+
                               // Configurazione badge per eventi dispositivi (senza icone)
                               const deviceBadges = {
                                 new_device: {
@@ -2154,7 +2163,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   border: 'border-yellow-300'
                                 }
                               };
-                              
+
                               // Configurazione badge per eventi agent (senza icone)
                               const agentBadges = {
                                 offline: {
@@ -2182,7 +2191,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   border: 'border-yellow-300'
                                 }
                               };
-                              
+
                               const badges = actualCategory === 'agent' ? agentBadges : deviceBadges;
                               const badge = badges[actualEventType] || {
                                 label: actualEventType || '-',
@@ -2190,7 +2199,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 text: 'text-gray-800',
                                 border: 'border-gray-300'
                               };
-                              
+
                               return (
                                 <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${badge.bg} ${badge.text} ${badge.border} whitespace-nowrap`}>
                                   {badge.label}
