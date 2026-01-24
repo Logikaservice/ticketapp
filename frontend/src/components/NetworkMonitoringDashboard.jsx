@@ -50,6 +50,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [companyDevices, setCompanyDevices] = useState([]);
   const [loadingCompanyDevices, setLoadingCompanyDevices] = useState(false);
   const [showOfflineDevices, setShowOfflineDevices] = useState(true); // Mostra dispositivi offline di default
+  const [showPingFailuresOnly, setShowPingFailuresOnly] = useState(false); // Filtra solo disconnessioni rilevate
   const [changesSearchTerm, setChangesSearchTerm] = useState('');
   const [changesCompanyFilter, setChangesCompanyFilter] = useState(null); // Filtro azienda separato per "Cambiamenti Rilevati"
   const [changesNetworkFilter, setChangesNetworkFilter] = useState(''); // Filtro rete per "Cambiamenti Rilevati"
@@ -1716,6 +1717,18 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               </h2>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => setShowPingFailuresOnly(!showPingFailuresOnly)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${showPingFailuresOnly
+                    ? 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  title={showPingFailuresOnly ? 'Mostra tutti' : 'Mostra solo con disconnessioni'}
+                >
+                  <AlertTriangle size={18} className={showPingFailuresOnly ? 'text-red-700' : 'text-gray-400'} />
+                  <span className="text-sm font-medium">Disconnessioni rilevate</span>
+                </button>
+
+                <button
                   onClick={() => setShowOfflineDevices(!showOfflineDevices)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${showOfflineDevices
                     ? 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
@@ -1745,6 +1758,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                   <FileText size={18} />
                   <span className="text-sm font-medium">Report Stampabile</span>
                 </button>
+
+                <button
+                  onClick={() => setSelectedCompanyId(null)}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors ml-2"
+                  title="Chiudi vista azienda"
+                >
+                  <X size={24} />
+                </button>
               </div>
             </div>
             {loadingCompanyDevices ? (
@@ -1754,7 +1775,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               </div>
             ) : (() => {
               // Filtra i dispositivi in base al toggle
-              const filteredDevices = companyDevices.filter(device => showOfflineDevices || device.status === 'online');
+              const filteredDevices = companyDevices.filter(device =>
+                (showOfflineDevices || device.status === 'online') &&
+                (!showPingFailuresOnly || device.has_ping_failures)
+              );
 
               if (companyDevices.length === 0) {
                 return <p className="text-gray-500 text-center py-4">Nessun dispositivo trovato per questa azienda</p>;
