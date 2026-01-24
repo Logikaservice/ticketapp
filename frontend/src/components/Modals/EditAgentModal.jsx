@@ -2,11 +2,12 @@
 // Modal per modifica agent Network Monitoring esistente
 
 import React, { useState, useEffect } from 'react';
-import { X, Save, AlertCircle, Wifi } from 'lucide-react';
+import { X, Save, AlertCircle, Wifi, RefreshCw } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
 
-const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated }) => {
+const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated, onUnifiSynced }) => {
     const [loading, setLoading] = useState(false);
+    const [syncUnifiLoading, setSyncUnifiLoading] = useState(false);
     const [error, setError] = useState(null);
     const [formData, setFormData] = useState({
         agent_name: '',
@@ -331,6 +332,32 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                                 <p className="text-xs text-gray-500">
                                     Inserisci le credenziali per connetterti al Controller Unifi e rilevare gli aggiornamenti firmware.
                                 </p>
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        if (!agent?.id || !formData.unifi_config?.url?.trim()) return;
+                                        setSyncUnifiLoading(true);
+                                        setError(null);
+                                        try {
+                                            const r = await fetch(buildApiUrl(`/api/network-monitoring/agent/${agent.id}/sync-unifi`), {
+                                                method: 'POST', headers: { ...getAuthHeader(), 'Content-Type': 'application/json' }
+                                            });
+                                            const d = await r.json();
+                                            if (!r.ok) throw new Error(d.error || 'Sincronizzazione fallita');
+                                            alert(d.message || 'Sincronizzazione Unifi completata.');
+                                            if (typeof onUnifiSynced === 'function') onUnifiSynced();
+                                        } catch (e) {
+                                            setError(e.message);
+                                        } finally {
+                                            setSyncUnifiLoading(false);
+                                        }
+                                    }}
+                                    disabled={syncUnifiLoading || !formData.unifi_config?.url?.trim()}
+                                    className="mt-2 px-3 py-1.5 text-sm bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 disabled:opacity-50 flex items-center gap-1.5"
+                                >
+                                    <RefreshCw size={14} className={syncUnifiLoading ? 'animate-spin' : ''} />
+                                    {syncUnifiLoading ? 'Sincronizzazione...' : 'Sincronizza Unifi ora'}
+                                </button>
                             </div>
                         )}
                         {!formData.unifi_enabled && (

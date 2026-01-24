@@ -318,26 +318,31 @@ function Check-UnifiUpdates {
         }
 
         # 2. Recupera devices (site default)
-        $devicesUrl = "$baseUrl/api/s/default/stat/device"
-        $devicesRes = Invoke-RestMethod -Uri $devicesUrl -Method Get -WebSession $session -ErrorAction Stop
-
-        if ($devicesRes.data) {
+        # Controller: /api/s/default/stat/device | UDM/UCG: /proxy/network/api/s/default/stat/device
+        $devicesRes = $null
+        try {
+            $devicesRes = Invoke-RestMethod -Uri "$baseUrl/api/s/default/stat/device" -Method Get -WebSession $session -ErrorAction Stop
+        } catch {
+            try {
+                $devicesRes = Invoke-RestMethod -Uri "$baseUrl/proxy/network/api/s/default/stat/device" -Method Get -WebSession $session -ErrorAction Stop
+            } catch {
+                Write-Log "Unifi stat/device fallito (prova /api e /proxy/network): $_" "WARN"
+            }
+        }
+        if ($devicesRes -and $devicesRes.data) {
             foreach ($dev in $devicesRes.data) {
-                if ($dev.mac -and $dev.upgradable -eq $true) {
-                    # Normalizza MAC (UPPERCASE e trattini) per coerenza
+                $isUpgradable = ($dev.upgradable -eq $true) -or ($dev.need_upgrade -eq $true)
+                if ($dev.mac -and $isUpgradable) {
                     $mac = $dev.mac.ToUpper().Replace(':', '-')
                     $upgrades[$mac] = $true
                 }
             }
         }
-        
         Write-Log "Unifi: trovati $($upgrades.Count) dispositivi aggiornabili" "INFO"
-        
     }
     catch {
         Write-Log "Errore integrazione Unifi: $_" "WARN"
     }
-
     return $upgrades
 }
 
@@ -614,7 +619,8 @@ function Get-NetworkDevices {
                         
                         # Ottieni hostname locale
                         $hostname = $env:COMPUTERNAME
-                        
+                        $upgradeAvailable = $false
+                        if ($macAddress -and $unifiUpgrades.Count -gt 0) { $mn = ($macAddress -replace ':', '-').ToUpper(); $upgradeAvailable = $unifiUpgrades.ContainsKey($mn) }
                         $device = @{
                             ip_address        = $ip
                             mac_address       = $macAddress
@@ -623,6 +629,7 @@ function Get-NetworkDevices {
                             status            = "online"
                             has_ping_failures = $false
                             ping_responsive   = $true  # IP locale risponde sempre al ping
+                            upgrade_available = $upgradeAvailable
                         }
                         
                         # Salva MAC trovato per uso successivo
@@ -1525,7 +1532,8 @@ public class ArpHelper {
                         # Calcola ping_responsive: true se l'IP è in activeIPs (ha risposto al ping)
                         # false se presente solo in ARP ma non ha risposto al ping (Trust ARP)
                         $pingResponsive = $activeIPs.Contains($ip)
-                        
+                        $upgradeAvailable = $false
+                        if ($macAddress -and $unifiUpgrades.Count -gt 0) { $mn = ($macAddress -replace ':', '-').ToUpper(); $upgradeAvailable = $unifiUpgrades.ContainsKey($mn) }
                         $device = @{
                             ip_address        = $ip
                             mac_address       = $macAddress
@@ -1534,6 +1542,7 @@ public class ArpHelper {
                             status            = "online"
                             has_ping_failures = $hasPingFailures
                             ping_responsive   = $pingResponsive
+                            upgrade_available = $upgradeAvailable
                         }
                         
                         # Salva MAC trovato per uso successivo
@@ -1579,7 +1588,8 @@ public class ArpHelper {
                                                 $arpMAC -notmatch '^00-00-00-00-00-00' -and 
                                                 $arpMAC -ne '00:00:00:00:00:00' -and
                                                 $arpMAC -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            
+                                                $upgradeAvailable = $false
+                                                if ($unifiUpgrades.Count -gt 0) { $mn = ($arpMAC -replace ':', '-').ToUpper(); $upgradeAvailable = $unifiUpgrades.ContainsKey($mn) }
                                                 # Aggiungi dispositivo Trust ARP (presente ma non risponde al ping)
                                                 $trustArpDevice = @{
                                                     ip_address        = $arpIP
@@ -1589,6 +1599,7 @@ public class ArpHelper {
                                                     status            = "online"
                                                     has_ping_failures = $true  # Non risponde al ping
                                                     ping_responsive   = $false   # Trust ARP: presente ma non risponde
+                                                    upgrade_available = $upgradeAvailable
                                                 }
                                                 $devices += $trustArpDevice
                                                 $trustArpCount++
@@ -1689,6 +1700,8 @@ public class ArpHelper {
         
         # Se il PC locale non è presente nei risultati, aggiungilo
         if (-not $localDeviceExists) {
+            $upgradeAvailable = $false
+            if ($localMAC -and $unifiUpgrades.Count -gt 0) { $mn = ($localMAC -replace ':', '-').ToUpper(); $upgradeAvailable = $unifiUpgrades.ContainsKey($mn) }
             $localDevice = @{
                 ip_address        = $localIP
                 mac_address       = $localMAC
@@ -1697,6 +1710,7 @@ public class ArpHelper {
                 status            = "online"
                 has_ping_failures = $false
                 ping_responsive   = $true  # IP locale risponde sempre al ping
+                upgrade_available = $upgradeAvailable
             }
             $devices += $localDevice
             Write-Log "PC locale aggiunto ai risultati: $localIP ($localMAC)" "INFO"

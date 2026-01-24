@@ -211,27 +211,31 @@ function Check-UnifiUpdates {
             }
         }
 
-        # 2. Recupera devices (site default)
-        $devicesUrl = "$baseUrl/api/s/default/stat/device"
-        $devicesRes = Invoke-RestMethod -Uri $devicesUrl -Method Get -WebSession $session -ErrorAction Stop
-
-        if ($devicesRes.data) {
+        # 2. Recupera devices (site default). Controller: /api/... | UDM/UCG: /proxy/network/api/...
+        $devicesRes = $null
+        try {
+            $devicesRes = Invoke-RestMethod -Uri "$baseUrl/api/s/default/stat/device" -Method Get -WebSession $session -ErrorAction Stop
+        } catch {
+            try {
+                $devicesRes = Invoke-RestMethod -Uri "$baseUrl/proxy/network/api/s/default/stat/device" -Method Get -WebSession $session -ErrorAction Stop
+            } catch {
+                Write-Log "Unifi stat/device fallito (prova /api e /proxy/network): $_" "WARN"
+            }
+        }
+        if ($devicesRes -and $devicesRes.data) {
             foreach ($dev in $devicesRes.data) {
-                if ($dev.mac -and $dev.upgradable -eq $true) {
-                    # Normalizza MAC (UPPERCASE e trattini) per coerenza
+                $isUpgradable = ($dev.upgradable -eq $true) -or ($dev.need_upgrade -eq $true)
+                if ($dev.mac -and $isUpgradable) {
                     $mac = $dev.mac.ToUpper().Replace(':', '-')
                     $upgrades[$mac] = $true
                 }
             }
         }
-        
         Write-Log "✅ Unifi: trovati $($upgrades.Count) dispositivi aggiornabili" "INFO"
-        
     }
     catch {
         Write-Log "⚠️ Errore integrazione Unifi: $_" "WARN"
     }
-
     return $upgrades
 }
 
@@ -345,11 +349,14 @@ function Get-NetworkDevices {
                         # Per ora lasciamo null
                     }
 
-                    # Check Upgrade Unifi
+                    # Check Upgrade Unifi (normalizza MAC: AA-BB-CC-DD-EE-FF per match)
                     $upgradeAvailable = $false
-                    if ($macAddress -and $unifiUpgrades.ContainsKey($macAddress)) {
-                        $upgradeAvailable = $true
-                        Write-Log "📦 Aggiornamento Firmware disponibile per $ip ($macAddress)" "INFO"
+                    if ($macAddress -and $unifiUpgrades.Count -gt 0) {
+                        $macNorm = ($macAddress -replace ':', '-').ToUpper()
+                        if ($unifiUpgrades.ContainsKey($macNorm)) {
+                            $upgradeAvailable = $true
+                            Write-Log "📦 Aggiornamento Firmware disponibile per $ip ($macAddress)" "INFO"
+                        }
                     }
                     
                     # Crea device object con nuovo campo ping_responsive

@@ -5170,27 +5170,37 @@ pause
       const cookies = finalLoginRes.headers.get('set-cookie');
 
       // 3. Recupera devices (site default)
-      const devicesRes = await fetch(`${baseUrl}/api/s/default/stat/device`, {
+      // Controller classico: /api/s/default/stat/device
+      // UDM Pro / UCG Max: /proxy/network/api/s/default/stat/device
+      let devicesRes = await fetch(`${baseUrl}/api/s/default/stat/device`, {
         headers: { 'Cookie': cookies },
         agent
       });
-
+      if (devicesRes.status === 404) {
+        devicesRes = await fetch(`${baseUrl}/proxy/network/api/s/default/stat/device`, {
+          headers: { 'Cookie': cookies },
+          agent
+        });
+      }
       if (!devicesRes.ok) throw new Error('Impossibile recuperare lista devices');
 
       const { data } = await devicesRes.json();
 
-      // 4. Aggiorna DB
+      // 4. Aggiorna DB (match MAC normalizzato: senza separatori, maiuscolo)
+      const norm = (v) => String(v || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
       let updatedCount = 0;
-      for (const uDevice of data) {
-        if (uDevice.mac && uDevice.upgradable !== undefined) {
-          const result = await pool.query(
-            `UPDATE network_devices 
-              SET upgrade_available = $1 
-              WHERE agent_id = $2 AND mac_address = $3`,
-            [uDevice.upgradable, agentId, uDevice.mac]
-          );
-          if (result.rowCount > 0) updatedCount++;
-        }
+      for (const uDevice of data || []) {
+        if (!uDevice.mac) continue;
+        const upgradable = uDevice.upgradable === true || uDevice.need_upgrade === true;
+        const macNorm = norm(uDevice.mac);
+        if (!macNorm) continue;
+        const result = await pool.query(
+          `UPDATE network_devices 
+            SET upgrade_available = $1 
+            WHERE agent_id = $2 AND REPLACE(REPLACE(REPLACE(UPPER(COALESCE(mac_address,'')), ':', ''), '-', ''), ' ', '') = $3`,
+          [upgradable, agentId, macNorm]
+        );
+        if (result.rowCount > 0) updatedCount++;
       }
 
       res.json({ success: true, message: `Sincronizzazione completata. ${updatedCount} dispositivi aggiornati.` });

@@ -2428,12 +2428,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             agent={selectedAgentForEdit}
             getAuthHeader={getAuthHeader}
             onAgentUpdated={(updatedAgent) => {
-              // Aggiorna l'agent nella lista
               setAgents(prev => prev.map(a =>
                 a.id === updatedAgent.id ? { ...a, ...updatedAgent } : a
               ));
-              // Ricarica gli agent per avere i dati aggiornati
               loadAgents();
+            }}
+            onUnifiSynced={() => {
+              loadDevices();
+              if (selectedCompanyId) loadCompanyDevices(selectedCompanyId);
             }}
           />
         )}
