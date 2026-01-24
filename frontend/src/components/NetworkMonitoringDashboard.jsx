@@ -1805,10 +1805,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12" title="Online/Offline"></th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Prod.</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Opzioni</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Titolo</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Utente</th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Percorso</th>
                         <th className="text-center py-3 px-2 text-sm font-semibold text-gray-700 w-10">FW</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Scan</th>
                       </tr>
@@ -1933,7 +1933,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 <span>{device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}</span>
                               </div>
                             </td>
-                            {/* 4. Prod. (Statico / Notifica) */}
+                            {/* 4. Opzioni (Statico / Notifica) */}
                             <td className="py-3 px-4">
                               <div className="flex flex-col gap-2">
                                 {/* Checkbox Statico (colora riga di blu) */}
@@ -2023,9 +2023,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 </label>
                               </div>
                             </td>
-                            <td className="py-3 px-4 text-sm text-gray-600">{device.device_path || '-'}</td>
-                            <td className="py-3 px-4 text-sm text-gray-600">{device.device_username || '-'}</td>
                             <td className="py-3 px-4 text-sm text-gray-600">{device.device_type || '-'}</td>
+                            <td className="py-3 px-4 text-sm text-gray-600">{device.device_username || '-'}</td>
+                            <td className="py-3 px-4 text-sm text-gray-600">{device.device_path || '-'}</td>
                             <td className="py-3 px-2 text-center">
                               {device.upgrade_available && (
                                 <div className="flex justify-center" title="Aggiornamento Firmware Disponibile">
