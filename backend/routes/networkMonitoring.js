@@ -640,7 +640,7 @@ module.exports = (pool, io) => {
 
       // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
       // Serve per far capire all'installer quale versione dovrebbe risultare installata.
-      const CURRENT_AGENT_VERSION = '2.4.0'; // Versione di fallback
+      const CURRENT_AGENT_VERSION = '2.5.0'; // Versione di fallback
       let agentPackageVersion = CURRENT_AGENT_VERSION;
       try {
         const projectRoot = path.resolve(__dirname, '..', '..');
@@ -3061,11 +3061,10 @@ module.exports = (pool, io) => {
         return res.status(500).json({ error: errorMsg });
       }
 
-      // IMPONE versione fissa 2.4.0 per allineamento con agent
-      // In futuro si potrà ripristinare la lettura dal file, ma ora serve certezza.
-      const CURRENT_AGENT_VERSION = '2.4.0';
+      // Versione agent per ZIP e config.json incluso
+      const CURRENT_AGENT_VERSION = '2.5.0';
       const agentVersion = CURRENT_AGENT_VERSION;
-      console.log(`ℹ️ Versione agent forzata per lo ZIP: ${agentVersion}`);
+      console.log(`ℹ️ Versione agent per ZIP: ${agentVersion}`);
 
       /* LOGICA LETTURA FILE DISABILITATA TEMPORANEAMENTE PER RISOLVERE PROBLEMA VERSIONE
       if (fs.existsSync(servicePath)) {
@@ -5009,15 +5008,16 @@ pause
   // Restituisce la versione corrente dell'agent disponibile per download
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.4.0'; // Versione ufficiale
+      const CURRENT_AGENT_VERSION = '2.5.0'; // Versione ufficiale
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
         version: CURRENT_AGENT_VERSION,
         download_url: `${baseUrl}/api/network-monitoring/download/agent/NetworkMonitor.ps1`,
-        release_date: '2026-01-22',
+        release_date: '2025-01-22',
         features: [
           'Auto-Update System - Aggiornamento automatico trasparente',
+          'Unifi - Rilevamento aggiornamenti firmware da Cloud Key/Controller (credenziali da server, mai su disco)',
           'Hybrid Discovery - Ping + TCP Scan per rilevare dispositivi firewalled',
           'Trust ARP - Rilevamento immediato da cache ARP',
           'System Tray Icon - Monitorstato locale',

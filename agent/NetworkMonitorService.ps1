@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.4.0
+# Versione: 2.5.0
 # Data ultima modifica: 2026-01-22
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.4.0"
+$SCRIPT_VERSION = "2.5.0"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2103,7 +2103,7 @@ function Check-AgentUpdate {
             # NON usare Stop-Service da dentro il servizio: il SCM terminerebbe il processo prima di
             # completare sc delete / nssm / Start-Service, lasciando il servizio STOPPED -> agent offline.
             # Con exit 0, NSSM riavvia il comando dopo AppRestartDelay; il nuovo processo caricherà
-            # il NetworkMonitorService.ps1 gia sostituito su disco (2.4.0). Downtime ~60 sec.
+            # il NetworkMonitorService.ps1 gia sostituito su disco. Downtime ~60 sec.
             Write-Log "[INFO] File aggiornati. Uscita per riavvio tramite NSSM (AppExit Restart, ~60s)..." "INFO"
             $script:isRunning = $false
             exit 0
