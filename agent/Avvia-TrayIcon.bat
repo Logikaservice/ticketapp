@@ -86,4 +86,4 @@ echo      tasklist | findstr /i "wscript powershell"
 echo   3. Verifica eventuali errori nei log:
 echo      type %INSTALL_DIR%\NetworkMonitorTrayIcon.log
 echo.
-pause
+exit /b 0
