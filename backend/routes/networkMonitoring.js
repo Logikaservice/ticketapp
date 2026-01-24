@@ -2575,7 +2575,6 @@ module.exports = (pool, io) => {
       );
 
       // Per ogni azienda, conta gli agent associati (solo quelli non cancellati)
-      // Filtra solo le aziende che hanno almeno un agent
       const companiesWithAgents = await Promise.all(
         companiesResult.rows.map(async (row) => {
           const agentCount = await pool.query(
@@ -2594,10 +2593,8 @@ module.exports = (pool, io) => {
         })
       );
 
-      // Filtra solo le aziende che hanno almeno un agent
-      const companiesWithAgentsFiltered = companiesWithAgents.filter(company => company.agents_count > 0);
-
-      res.json(companiesWithAgentsFiltered);
+      // Restituisci TUTTE le aziende (anche quelle senza agent)
+      res.json(companiesWithAgents);
     } catch (err) {
       console.error('❌ Errore recupero aziende:', err);
       res.status(500).json({ error: 'Errore interno del server' });
