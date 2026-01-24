@@ -2637,27 +2637,56 @@ module.exports = (pool, io) => {
     try {
       await ensureTables();
 
-      const result = await pool.query(
-        `SELECT 
-          na.id, na.agent_name, 
-          CASE 
-            WHEN na.last_heartbeat IS NULL THEN 'offline'
-            WHEN na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online'
-            ELSE 'offline'
-          END as status,
-          na.last_heartbeat, 
-          na.version, na.network_ranges, na.network_ranges_config, na.scan_interval_minutes, na.enabled,
-          na.created_at, na.azienda_id, na.api_key,
-          u.azienda
-         FROM network_agents na
-         LEFT JOIN users u ON na.azienda_id = u.id
-         WHERE na.deleted_at IS NULL
-         ORDER BY na.created_at DESC`
-      );
+      let result;
+      try {
+        // Prova prima con network_ranges_config
+        result = await pool.query(
+          `SELECT 
+            na.id, na.agent_name, 
+            CASE 
+              WHEN na.last_heartbeat IS NULL THEN 'offline'
+              WHEN na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online'
+              ELSE 'offline'
+            END as status,
+            na.last_heartbeat, 
+            na.version, na.network_ranges, na.network_ranges_config, na.scan_interval_minutes, na.enabled,
+            na.created_at, na.azienda_id, na.api_key,
+            u.azienda
+           FROM network_agents na
+           LEFT JOIN users u ON na.azienda_id = u.id
+           WHERE na.deleted_at IS NULL
+           ORDER BY na.created_at DESC`
+        );
+      } catch (queryErr) {
+        // Se la colonna network_ranges_config non esiste, usa solo network_ranges
+        if (queryErr.message && queryErr.message.includes('network_ranges_config')) {
+          console.warn('⚠️ Colonna network_ranges_config non trovata, uso solo network_ranges');
+          result = await pool.query(
+            `SELECT 
+              na.id, na.agent_name, 
+              CASE 
+                WHEN na.last_heartbeat IS NULL THEN 'offline'
+                WHEN na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online'
+                ELSE 'offline'
+              END as status,
+              na.last_heartbeat, 
+              na.version, na.network_ranges, na.scan_interval_minutes, na.enabled,
+              na.created_at, na.azienda_id, na.api_key,
+              u.azienda
+             FROM network_agents na
+             LEFT JOIN users u ON na.azienda_id = u.id
+             WHERE na.deleted_at IS NULL
+             ORDER BY na.created_at DESC`
+          );
+        } else {
+          throw queryErr;
+        }
+      }
 
       res.json(result.rows);
     } catch (err) {
       console.error('❌ Errore recupero agent:', err);
+      console.error('❌ Stack trace:', err.stack);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });
