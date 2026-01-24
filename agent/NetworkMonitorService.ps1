@@ -167,6 +167,12 @@ if ($PSScriptRoot) {
 elseif ($MyInvocation.MyCommand.Path) {
     $script:scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path -ErrorAction SilentlyContinue
 }
+elseif ($ConfigPath) {
+    $parent = Split-Path -Parent $ConfigPath
+    if ($parent -and (Test-Path $parent -ErrorAction SilentlyContinue)) {
+        $script:scriptDir = (Resolve-Path $parent -ErrorAction SilentlyContinue).Path
+    }
+}
 if (-not $script:scriptDir) {
     # Fallback: usa directory di installazione standard (NSSM configura AppDirectory)
     $script:scriptDir = "C:\ProgramData\NetworkMonitorAgent"
@@ -273,7 +279,7 @@ function Check-UnifiUpdates {
     $password = $UnifiConfig.password
     $upgrades = @{}
 
-    Write-Log "🔍 Controllo aggiornamenti Unifi su $baseUrl..." "INFO"
+    Write-Log "Controllo aggiornamenti Unifi su $baseUrl..." "INFO"
 
     try {
         # Ignora errori certificato self-signed
@@ -325,11 +331,11 @@ function Check-UnifiUpdates {
             }
         }
         
-        Write-Log "✅ Unifi: trovati $($upgrades.Count) dispositivi aggiornabili" "INFO"
+        Write-Log "Unifi: trovati $($upgrades.Count) dispositivi aggiornabili" "INFO"
         
     }
     catch {
-        Write-Log "⚠️ Errore integrazione Unifi: $_" "WARN"
+        Write-Log "Errore integrazione Unifi: $_" "WARN"
     }
 
     return $upgrades
@@ -337,7 +343,7 @@ function Check-UnifiUpdates {
 
 function Get-NetworkDevices {
     param(
-        [string[]]$NetworkRanges,
+        $NetworkRanges,
         $UnifiConfig = $null
     )
     
@@ -447,11 +453,23 @@ function Get-NetworkDevices {
         }
     }
     
-    foreach ($range in $NetworkRanges) {
-        Write-Log "Scansione range: $range" "INFO"
+    # Normalizza a array di stringhe CIDR (supporta "192.168.1.0/24" e oggetti con .range)
+    $rangesToScan = @()
+    $raw = if ($NetworkRanges -is [Array]) { @($NetworkRanges) } else { @($NetworkRanges) }
+    foreach ($r in $raw) {
+        $s = if ($null -eq $r) { $null } elseif ($r -is [string]) { $r.Trim() } elseif ($r -and $r.range) { $r.range.ToString().Trim() } else { $null }
+        if ($s -and -not [string]::IsNullOrWhiteSpace($s)) { $rangesToScan += $s }
+    }
+    if ($rangesToScan.Count -eq 0) {
+        Write-Log "Get-NetworkDevices: nessun range valido. Verifica network_ranges in config.json." "WARN"
+        return @()
+    }
+
+    foreach ($rangeStr in $rangesToScan) {
+        Write-Log "Scansione range: $rangeStr" "INFO"
         
         # Estrai subnet e calcola range IP
-        if ($range -match '^(\d+\.\d+\.\d+)\.(\d+)/(\d+)$') {
+        if ($rangeStr -match '^(\d+\.\d+\.\d+)\.(\d+)/(\d+)$') {
             $baseIP = $matches[1]
             $subnetMask = [int]$matches[3]
             
@@ -461,7 +479,7 @@ function Get-NetworkDevices {
             
             # Per ora limitiamo a /24 (max 254 host) per performance
             if ($subnetMask -ge 24) {
-                $startIP = if ($range -match '\.(\d+)/') { [int]$matches[1] } else { 1 }
+                $startIP = if ($rangeStr -match '\.(\d+)/') { [int]$matches[1] } else { 1 }
                 $endIP = if ($subnetMask -eq 24) { 254 } else { $numHosts }
                 
                 # Aggiungi sempre l'IP locale se è nel range configurato
@@ -1646,11 +1664,11 @@ public class ArpHelper {
                 }
             }
             else {
-                Write-Log "Subnet mask troppo grande per scansione completa: $range" "WARN"
+                Write-Log "Subnet mask troppo grande per scansione completa: $rangeStr" "WARN"
             }
         }
         else {
-            Write-Log "Formato range IP non supportato: $range (atteso: x.x.x.x/24)" "WARN"
+            Write-Log "Formato range IP non supportato: $rangeStr (atteso: x.x.x.x/24)" "WARN"
         }
     }
     
@@ -1947,17 +1965,22 @@ function Check-AgentUpdate {
     try {
         Write-Log "[INFO] Controllo aggiornamenti agent... (versione corrente: $CurrentVersion)" "INFO"
         
-        # Endpoint per controllare versione
-        $versionUrl = "$ServerUrl/api/network-monitoring/agent-version"
+        # Normalizza base URL (evita doppio /api se server_url contiene gia /api)
+        $serverBase = $ServerUrl -replace '/api.*', '' -replace '/$', ''
+        $versionUrl = "$serverBase/api/network-monitoring/agent-version"
+        Write-Log "[INFO] URL check versione: $versionUrl" "DEBUG"
         
         # Richiedi informazioni versione
         $response = Invoke-RestMethod -Uri $versionUrl -Method Get -TimeoutSec 10 -ErrorAction Stop
         
         $serverVersion = $response.version
-        
+        if (-not $serverVersion) {
+            Write-Log "[WARN] Risposta agent-version senza campo version, skip aggiornamento" "WARN"
+            return
+        }
         Write-Log "[INFO] Versione disponibile sul server: $serverVersion" "INFO"
         
-        # Confronta versioni
+        # Confronta versioni (confronto stringa)
         if ($serverVersion -ne $CurrentVersion) {
             Write-Log "[INFO] Nuova versione disponibile! Avvio aggiornamento..." "INFO"
             
@@ -2061,74 +2084,12 @@ function Check-AgentUpdate {
                 }
             }
             
-            # Riavvia il servizio per applicare l'aggiornamento
-            Write-Log "[INFO] Riavvio servizio NetworkMonitorService..." "INFO"
-            
-            # Procedura robusta: ferma, elimina e reinstalla servizio
-            try {
-                # 1. Ferma servizio (anche se Paused)
-                Write-Log "   Arresto servizio esistente..." "INFO"
-                Stop-Service -Name "NetworkMonitorService" -Force -ErrorAction SilentlyContinue
-                Start-Sleep -Seconds 3
-                
-                # 2. Elimina servizio con sc.exe (procedura corretta che funziona sempre)
-                Write-Log "   Rimozione servizio esistente..." "INFO"
-                $deleteResult = sc.exe delete "NetworkMonitorService" 2>&1
-                if ($LASTEXITCODE -eq 0 -or $deleteResult -like "*OPERAZIONI RIUSCITE*" -or $deleteResult -like "*marked for deletion*") {
-                    Write-Log "   [OK] Servizio rimosso correttamente" "INFO"
-                    Start-Sleep -Seconds 5
-                }
-                else {
-                    Write-Log "   [WARN] Rimozione servizio: $deleteResult" "WARN"
-                }
-                
-                # 3. Reinstalla servizio con NSSM (se disponibile)
-                $nssmPath = Join-Path $installDir "nssm.exe"
-                if (Test-Path $nssmPath) {
-                    Write-Log "   Reinstallazione servizio con NSSM..." "INFO"
-                    $psPath = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
-                    if (-not (Test-Path $psPath)) {
-                        $psPath = "C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe"
-                    }
-                    
-                    $configPath = Join-Path $installDir "config.json"
-                    $appParams = "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$serviceFile`" -ConfigPath `"$configPath`""
-                    
-                    & $nssmPath install "NetworkMonitorService" $psPath $appParams | Out-Null
-                    if ($LASTEXITCODE -eq 0) {
-                        & $nssmPath set "NetworkMonitorService" AppDirectory $installDir | Out-Null
-                        & $nssmPath set "NetworkMonitorService" DisplayName "Network Monitor Agent Service" | Out-Null
-                        & $nssmPath set "NetworkMonitorService" Start SERVICE_AUTO_START | Out-Null
-                        & $nssmPath set "NetworkMonitorService" AppRestartDelay 60000 | Out-Null
-                        & $nssmPath set "NetworkMonitorService" AppExit Default Restart | Out-Null
-                        
-                        $stdoutLog = Join-Path $installDir "NetworkMonitorService_stdout.log"
-                        $stderrLog = Join-Path $installDir "NetworkMonitorService_stderr.log"
-                        & $nssmPath set "NetworkMonitorService" AppStdout $stdoutLog | Out-Null
-                        & $nssmPath set "NetworkMonitorService" AppStderr $stderrLog | Out-Null
-                        
-                        Write-Log "   [OK] Servizio reinstallato" "INFO"
-                        
-                        # 4. Avvia servizio
-                        Start-Sleep -Seconds 2
-                        Start-Service -Name "NetworkMonitorService" -ErrorAction SilentlyContinue
-                        Write-Log "   [OK] Servizio avviato con nuova versione" "INFO"
-                    }
-                    else {
-                        Write-Log "   [WARN] Errore reinstallazione servizio con NSSM" "WARN"
-                    }
-                }
-                else {
-                    Write-Log "   [WARN] nssm.exe non trovato, servizio non reinstallato automaticamente" "WARN"
-                    Write-Log "   [WARN] Reinstallare manualmente il servizio per applicare l'aggiornamento" "WARN"
-                }
-            }
-            catch {
-                Write-Log "[WARN] Errore durante riavvio servizio: $_" "WARN"
-                Write-Log "[WARN] Reinstallare manualmente il servizio per applicare l'aggiornamento" "WARN"
-            }
-            
-            # Termina script corrente
+            # Riavvio: usciamo e lasciamo a NSSM il restart (AppExit Default Restart + AppRestartDelay).
+            # NON usare Stop-Service da dentro il servizio: il SCM terminerebbe il processo prima di
+            # completare sc delete / nssm / Start-Service, lasciando il servizio STOPPED -> agent offline.
+            # Con exit 0, NSSM riavvia il comando dopo AppRestartDelay; il nuovo processo caricherà
+            # il NetworkMonitorService.ps1 gia sostituito su disco (2.4.0). Downtime ~60 sec.
+            Write-Log "[INFO] File aggiornati. Uscita per riavvio tramite NSSM (AppExit Restart, ~60s)..." "INFO"
             $script:isRunning = $false
             exit 0
             
@@ -2138,7 +2099,9 @@ function Check-AgentUpdate {
         }
     }
     catch {
-        Write-Log "[WARN] Errore controllo aggiornamenti: $_" "WARN"
+        Write-Log "[WARN] Errore controllo aggiornamenti: $($_.Exception.Message)" "WARN"
+        if ($versionUrl) { Write-Log "[WARN] URL tentato: $versionUrl" "WARN" }
+        if ($_.Exception.InnerException) { Write-Log "[WARN] Dettaglio: $($_.Exception.InnerException.Message)" "WARN" }
         Write-Log "[WARN] Continuo con la versione corrente..." "WARN"
     }
 }
@@ -2221,6 +2184,14 @@ catch {
     Write-Log $errorMsg "ERROR"
     Update-StatusFile -Status "error" -Message $errorMsg
     exit 1
+}
+
+# Se network_ranges e' vuoto, prova a derivarlo da network_ranges_config (formato nuovo)
+$nr = $config.network_ranges
+$nrEmpty = (-not $nr) -or (($nr -is [Array]) -and $nr.Count -eq 0)
+if ($nrEmpty -and $config.network_ranges_config -and ($config.network_ranges_config -is [Array])) {
+    $config.network_ranges = @($config.network_ranges_config | ForEach-Object { if ($_.range) { $_.range } else { $_ } })
+    Write-Log "network_ranges derivato da network_ranges_config: $($config.network_ranges -join ', ')" "INFO"
 }
 
 # Verifica parametri obbligatori

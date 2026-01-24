@@ -7,12 +7,14 @@ Sei già connesso alla VPS come root. Esegui questi comandi in ordine:
 ### 1. Verifica se il backend è in ascolto sulla porta 3001
 
 ```bash
+ss -tlnp | grep 3001
+# oppure
 netstat -tuln | grep 3001
 ```
 
 **Risultato atteso:**
-- Se vedi `:3001` → Backend è attivo ✅
-- Se non vedi nulla → Backend NON è attivo ❌
+- Se vedi `:3001` o `*:3001` → Backend è in ascolto ✅
+- Se non vedi nulla → Backend NON è in ascolto (processo bloccato prima di `server.listen` o non avviato) ❌
 
 ### 2. Verifica processi PM2
 
@@ -51,7 +53,8 @@ pm2 logs ticketapp-backend --lines 50 --nostream
 - ✅ `Server backend in ascolto sulla porta 3001` → OK
 - ❌ Errori di connessione database → Problema DB
 - ❌ `Cannot find module` → Problema dipendenze
-- ❌ `Port 3001 already in use` → Porta occupata
+- ❌ `EADDRINUSE: address already in use :::3001` o `Port 3001 already in use` → Porta occupata (vedi sezione sotto)
+- ❌ `column "unifi_config" does not exist` → Dopo deploy, la migrazione aggiunge la colonna; riavviare il backend. Se persiste, verificare che il codice aggiornato sia sul server.
 
 ### 6. Test se il backend risponde localmente
 
@@ -60,8 +63,11 @@ curl http://localhost:3001/api/health
 ```
 
 **Risultato atteso:**
-- HTTP 200 o 404 → Backend risponde ✅
-- `Connection refused` → Backend NON risponde ❌
+- HTTP 200 + JSON `{"status":"OK",...}` → Backend risponde ✅
+- `Connection refused` → Nessun processo in ascolto sulla 3001 (avvio bloccato prima di `server.listen`) ❌
+- Nessun output / timeout → Usa `curl -v --connect-timeout 5 http://127.0.0.1:3001/api/health` per vedere il dettaglio.
+
+**Se PM2 è online ma `curl` non dà risposta:** verifica se la porta e' in ascolto (`ss -tlnp | grep 3001`) e i log (`pm2 logs ticketapp-backend --lines 150`): cerca "Connessione al database riuscita!" e "in ascolto sulla porta 3001". Vedi **DOCS/DIAGNOSTICA_502_ERROR.md** sezione "PM2 online ma curl senza risposta".
 
 ### 7. Se il backend non risponde, prova ad avviarlo manualmente per vedere l'errore
 
@@ -135,17 +141,35 @@ cd /var/www/ticketapp/backend
 npm install
 ```
 
-### Errore: "Port 3001 already in use"
+### Errore: "EADDRINUSE" / "address already in use :::3001" / "Port 3001 already in use"
 
+La porta 3001 è occupata da un altro processo. Il backend va in crash al `server.listen` e PM2 lo riavvia in loop.
+
+**1. Verifica duplicati PM2** (due processi sulla stessa porta):
 ```bash
-# Trova quale processo usa la porta
+pm2 list
+# Se vedi sia "backend" che "ticketapp-backend", elimina il duplicato:
+pm2 delete backend
+```
+
+**2. Libera la porta e riavvia:**
+```bash
+# Ferma il backend
+pm2 stop ticketapp-backend
+
+# Chi usa la 3001?
 lsof -i :3001
 # oppure
+ss -tlnp | grep 3001
+
+# Termina il processo sulla porta (sostituisci PID se lsof ha mostrato un PID)
 fuser -k 3001/tcp
 
-# Poi riavvia PM2
-pm2 restart ticketapp-backend
+# Riavvia
+pm2 start ticketapp-backend
 ```
+
+**Se `fuser -k` non è disponibile:** `kill -9 $(lsof -t -i:3001)`
 
 ---
 

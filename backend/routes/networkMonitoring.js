@@ -28,7 +28,7 @@ module.exports = (pool, io) => {
       `);
 
       if (checkResult.rows[0].exists) {
-        // Tabelle già esistenti, ma verifica che network_device_types esista (per migrazione)
+        // Tabelle già esistenti: esegui solo migrazioni (nuove colonne, nuove tabelle)
         try {
           const deviceTypesCheck = await pool.query(`
             SELECT EXISTS (
@@ -69,6 +69,31 @@ module.exports = (pool, io) => {
         } catch (migrationErr) {
           console.warn('⚠️ Errore migrazione network_device_types:', migrationErr.message);
         }
+
+        // Migrazione: aggiungi unifi_config a network_agents se non esiste (evita "column unifi_config does not exist")
+        try {
+          await pool.query(`
+            ALTER TABLE network_agents 
+            ADD COLUMN IF NOT EXISTS unifi_config JSONB;
+          `);
+        } catch (err) {
+          if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+            console.warn('⚠️ Avviso aggiunta colonna unifi_config (migrazione):', err.message);
+          }
+        }
+
+        // Migrazione: aggiungi upgrade_available a network_devices se non esiste
+        try {
+          await pool.query(`
+            ALTER TABLE network_devices 
+            ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;
+          `);
+        } catch (err) {
+          if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+            console.warn('⚠️ Avviso aggiunta colonna upgrade_available (migrazione):', err.message);
+          }
+        }
+
         return;
       }
 
@@ -484,7 +509,15 @@ module.exports = (pool, io) => {
       const eventsExists = checkResult.rows && checkResult.rows[0] && checkResult.rows[0].events_exists;
 
       if (agentsExists && eventsExists) {
-        // Tutte le tabelle necessarie esistono, non fare nulla
+        // Tutte le tabelle necessarie esistono; esegui solo migrazioni colonne (unifi_config, upgrade_available)
+        try {
+          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_config JSONB;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;`);
+        } catch (migErr) {
+          if (!migErr.message?.includes('does not exist')) {
+            console.warn('⚠️ Migrazione colonne network_*:', migErr.message);
+          }
+        }
         tablesCheckDone = true;
         tablesCheckInProgress = false;
         return;
@@ -2718,11 +2751,9 @@ module.exports = (pool, io) => {
         result = await pool.query(
           `SELECT 
             na.id, na.agent_name, 
-            CASE 
-              WHEN na.last_heartbeat IS NULL THEN 'offline'
-              WHEN na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online'
-              ELSE 'offline'
-            END as status,
+            COALESCE(na.status, 
+              CASE WHEN na.last_heartbeat IS NOT NULL AND na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online' ELSE 'offline' END
+            ) as status,
             na.last_heartbeat, 
             na.version, na.network_ranges, na.network_ranges_config, na.scan_interval_minutes, na.enabled,
             na.created_at, na.azienda_id, na.api_key,
@@ -2739,11 +2770,9 @@ module.exports = (pool, io) => {
           result = await pool.query(
             `SELECT 
               na.id, na.agent_name, 
-              CASE 
-                WHEN na.last_heartbeat IS NULL THEN 'offline'
-                WHEN na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online'
-                ELSE 'offline'
-              END as status,
+              COALESCE(na.status, 
+                CASE WHEN na.last_heartbeat IS NOT NULL AND na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online' ELSE 'offline' END
+              ) as status,
               na.last_heartbeat, 
               na.version, na.network_ranges, na.scan_interval_minutes, na.enabled,
               na.created_at, na.azienda_id, na.api_key,
@@ -5106,6 +5135,30 @@ pause
       console.error('❌ Errore download NetworkMonitorService.ps1:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
+
+  // GET /api/network-monitoring/download/agent/Avvia-Agent-Manuale.ps1
+  router.get('/download/agent/Avvia-Agent-Manuale.ps1', async (req, res) => {
+    try {
+      const path = require('path');
+      const agentFilePath = path.join(__dirname, '../../agent/Avvia-Agent-Manuale.ps1');
+      try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="Avvia-Agent-Manuale.ps1"');
+      res.sendFile(agentFilePath);
+    } catch (err) { console.error('❌ Errore download Avvia-Agent-Manuale.ps1:', err); res.status(500).json({ error: 'Errore interno del server' }); }
+  });
+
+  // GET /api/network-monitoring/download/agent/Reinstalla-Servizio-Quick.ps1
+  router.get('/download/agent/Reinstalla-Servizio-Quick.ps1', async (req, res) => {
+    try {
+      const path = require('path');
+      const agentFilePath = path.join(__dirname, '../../agent/Reinstalla-Servizio-Quick.ps1');
+      try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="Reinstalla-Servizio-Quick.ps1"');
+      res.sendFile(agentFilePath);
+    } catch (err) { console.error('❌ Errore download Reinstalla-Servizio-Quick.ps1:', err); res.status(500).json({ error: 'Errore interno del server' }); }
   });
 
   // Endpoint per sincronizzare manualmente Unifi
