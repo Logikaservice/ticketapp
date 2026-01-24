@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.5.2
+# Versione: 2.5.3
 # Data ultima modifica: 2026-01-22
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.5.2"
+$SCRIPT_VERSION = "2.5.3"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2013,12 +2013,14 @@ function Check-AgentUpdate {
         # Richiedi informazioni versione
         $response = Invoke-RestMethod -Uri $versionUrl -Method Get -TimeoutSec 10 -ErrorAction Stop
         
-        $serverVersion = $response.version
+        $serverVersion = ($response.version -as [string])
         if (-not $serverVersion) {
             Write-Log "[WARN] Risposta agent-version senza campo version, skip aggiornamento" "WARN"
             return
         }
-        Write-Log "[INFO] Versione disponibile sul server: $serverVersion" "INFO"
+        $serverVersion = $serverVersion.Trim()
+        $CurrentVersion = if ($CurrentVersion) { ($CurrentVersion -as [string]).Trim() } else { "" }
+        Write-Log "[INFO] Versione server: $serverVersion, agent: $CurrentVersion" "INFO"
         
         # Confronta versioni (confronto stringa)
         if ($serverVersion -ne $CurrentVersion) {
@@ -2172,7 +2174,7 @@ function Check-AgentUpdate {
             
         }
         else {
-            Write-Log "[OK] Agent già aggiornato alla versione corrente" "INFO"
+            Write-Log "[OK] Agent già aggiornato: server=$serverVersion client=$CurrentVersion" "INFO"
         }
     }
     catch {
@@ -2454,6 +2456,12 @@ while ($script:isRunning) {
                     Write-Log "Prossima scansione: $($nextScanTime.ToString('HH:mm:ss')) (intervallo: $script:scanIntervalMinutes minuti)"
                 }
                 
+                # Controlla aggiornamenti anche dopo scansione (oltre che a ogni heartbeat)
+                try {
+                    $v = if ($config.version) { $config.version.ToString().Trim() } else { $SCRIPT_VERSION }
+                    Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $v
+                }
+                catch { Write-Log "Errore controllo aggiornamenti (post-scan): $_" "WARN" }
             }
             catch {
                 Write-Log "Errore durante scansione: $_" "ERROR"
