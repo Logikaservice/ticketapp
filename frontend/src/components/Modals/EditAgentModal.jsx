@@ -11,26 +11,29 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
     const [formData, setFormData] = useState({
         agent_name: '',
         network_ranges_config: [{ range: '', name: '' }],
-        scan_interval_minutes: 15
+        scan_interval_minutes: 15,
+        unifi_enabled: false,
+        unifi_config: { url: '', username: '', password: '' }
     });
 
     // Inizializza il form con i dati dell'agent quando il modal si apre
     useEffect(() => {
         if (isOpen && agent) {
-            // Se l'agent ha network_ranges_config, usalo
             let rangesConfig = [];
             if (agent.network_ranges_config && Array.isArray(agent.network_ranges_config)) {
                 rangesConfig = agent.network_ranges_config;
             } else if (agent.network_ranges && Array.isArray(agent.network_ranges)) {
-                // Altrimenti converti da network_ranges (vecchio formato)
                 rangesConfig = agent.network_ranges.map(range => ({ range, name: '' }));
             }
+            const uc = agent.unifi_config;
+            const hasUnifi = uc && typeof uc === 'object' && (uc.url || uc.username || uc.password);
 
             setFormData({
                 agent_name: agent.agent_name || '',
                 network_ranges_config: rangesConfig.length > 0 ? rangesConfig : [{ range: '', name: '' }],
                 scan_interval_minutes: agent.scan_interval_minutes || 15,
-                unifi_config: agent.unifi_config || { url: '', username: '', password: '' }
+                unifi_enabled: !!hasUnifi,
+                unifi_config: (hasUnifi && uc) ? { url: uc.url || '', username: uc.username || '', password: uc.password || '' } : { url: '', username: '', password: '' }
             });
             setError(null);
         }
@@ -112,7 +115,13 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                     agent_name: formData.agent_name.trim(),
                     network_ranges_config: validRangesConfig,
                     scan_interval_minutes: parseInt(formData.scan_interval_minutes),
-                    unifi_config: formData.unifi_config
+                    unifi_config: formData.unifi_enabled
+                        ? {
+                            url: (formData.unifi_config?.url || '').trim(),
+                            username: (formData.unifi_config?.username || '').trim(),
+                            password: formData.unifi_config?.password || ''
+                        }
+                        : null
                 })
             });
 
@@ -261,56 +270,72 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                         </p>
                     </div>
 
-                    {/* Integrazione Unifi Controller */}
+                    {/* Integrazione Unifi Controller (opzionale) */}
                     <div className="pt-4 border-t border-gray-200 mt-4">
-                        <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                            <Wifi size={20} className="text-blue-600" />
-                            Integrazione Unifi Controller
-                        </h3>
-                        <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                            <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Controller URL</label>
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                                <Wifi size={20} className="text-blue-600" />
+                                Integrazione Unifi Controller
+                            </h3>
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
                                 <input
-                                    type="text"
-                                    value={formData.unifi_config?.url || ''}
-                                    onChange={(e) => setFormData(prev => ({
-                                        ...prev,
-                                        unifi_config: { ...prev.unifi_config, url: e.target.value }
-                                    }))}
-                                    placeholder="https://192.168.1.5:8443"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                    type="checkbox"
+                                    checked={!!formData.unifi_enabled}
+                                    onChange={(e) => handleInputChange('unifi_enabled', e.target.checked)}
+                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                                 />
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
+                                <span className="text-sm font-medium text-gray-700">Abilita</span>
+                            </label>
+                        </div>
+                        {formData.unifi_enabled && (
+                            <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-600 mb-1">Username</label>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Controller URL</label>
                                     <input
                                         type="text"
-                                        value={formData.unifi_config?.username || ''}
+                                        value={formData.unifi_config?.url || ''}
                                         onChange={(e) => setFormData(prev => ({
                                             ...prev,
-                                            unifi_config: { ...prev.unifi_config, username: e.target.value }
+                                            unifi_config: { ...prev.unifi_config, url: e.target.value }
                                         }))}
+                                        placeholder="https://192.168.1.5:8443"
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-600 mb-1">Password</label>
-                                    <input
-                                        type="password"
-                                        value={formData.unifi_config?.password || ''}
-                                        onChange={(e) => setFormData(prev => ({
-                                            ...prev,
-                                            unifi_config: { ...prev.unifi_config, password: e.target.value }
-                                        }))}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                                    />
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Username</label>
+                                        <input
+                                            type="text"
+                                            value={formData.unifi_config?.username || ''}
+                                            onChange={(e) => setFormData(prev => ({
+                                                ...prev,
+                                                unifi_config: { ...prev.unifi_config, username: e.target.value }
+                                            }))}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Password</label>
+                                        <input
+                                            type="password"
+                                            value={formData.unifi_config?.password || ''}
+                                            onChange={(e) => setFormData(prev => ({
+                                                ...prev,
+                                                unifi_config: { ...prev.unifi_config, password: e.target.value }
+                                            }))}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                        />
+                                    </div>
                                 </div>
+                                <p className="text-xs text-gray-500">
+                                    Inserisci le credenziali per connetterti al Controller Unifi e rilevare gli aggiornamenti firmware.
+                                </p>
                             </div>
-                            <p className="text-xs text-gray-500">
-                                Inserisci le credenziali per connetterti al Controller Unifi e rilevare gli aggiornamenti firmware.
-                            </p>
-                        </div>
+                        )}
+                        {!formData.unifi_enabled && (
+                            <p className="text-sm text-gray-500 italic">Non tutte le aziende usano Ubiquiti/Unifi. Abilita solo se hai un Controller Unifi da integrare.</p>
+                        )}
                     </div>
                 </div>
 

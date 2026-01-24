@@ -2755,7 +2755,7 @@ module.exports = (pool, io) => {
               CASE WHEN na.last_heartbeat IS NOT NULL AND na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online' ELSE 'offline' END
             ) as status,
             na.last_heartbeat, 
-            na.version, na.network_ranges, na.network_ranges_config, na.scan_interval_minutes, na.enabled,
+            na.version, na.network_ranges, na.network_ranges_config, na.scan_interval_minutes, na.unifi_config, na.enabled,
             na.created_at, na.azienda_id, na.api_key,
             u.azienda
            FROM network_agents na
@@ -2802,7 +2802,7 @@ module.exports = (pool, io) => {
       await ensureTables();
 
       const agentId = parseInt(req.params.id);
-      const { agent_name, network_ranges_config, scan_interval_minutes } = req.body;
+      const { agent_name, network_ranges_config, scan_interval_minutes, unifi_config } = req.body;
 
       if (!agentId) {
         return res.status(400).json({ error: 'ID agent richiesto' });
@@ -2828,6 +2828,11 @@ module.exports = (pool, io) => {
         rangesArray = network_ranges_config.map(r => r.range);
       }
 
+      // unifi_config: null se disabilitato, altrimenti oggetto { url, username, password } in JSONB
+      const unifiPayload = (unifi_config === null || unifi_config === undefined)
+        ? null
+        : (typeof unifi_config === 'object' ? unifi_config : null);
+
       // Aggiorna l'agent
       const result = await pool.query(
         `UPDATE network_agents 
@@ -2835,14 +2840,16 @@ module.exports = (pool, io) => {
              network_ranges = $2,
              network_ranges_config = $3,
              scan_interval_minutes = $4,
+             unifi_config = $5,
              updated_at = NOW()
-         WHERE id = $5
-         RETURNING id, agent_name, network_ranges, network_ranges_config, scan_interval_minutes, updated_at`,
+         WHERE id = $6
+         RETURNING id, agent_name, network_ranges, network_ranges_config, scan_interval_minutes, unifi_config, updated_at`,
         [
           agent_name || null,
           rangesArray,
           rangesConfig ? JSON.stringify(rangesConfig) : null,
           scan_interval_minutes || 15,
+          unifiPayload,
           agentId
         ]
       );
@@ -3109,85 +3116,39 @@ module.exports = (pool, io) => {
       // Pipe ZIP alla risposta
       archive.pipe(res);
 
-      // Aggiungi file al ZIP (SOLO FILE ESSENZIALI)
+      // Aggiungi file al ZIP - SOLO 4 FILE ESSENZIALI (tray, riparazione, ecc. si possono aggiungere dopo)
       try {
-        // File principali (obbligatori)
+        // 1. config.json (generato)
         archive.append(JSON.stringify(configJson, null, 2), { name: 'config.json' });
         console.log('✅ Aggiunto config.json');
 
-        // NetworkMonitorService.ps1 (script principale servizio)
+        // 2. NetworkMonitorService.ps1 (script principale servizio)
         if (fs.existsSync(servicePath)) {
           let serviceContent = fs.readFileSync(servicePath, 'utf8');
-
-          // Rimuovi BOM se presente
-          if (serviceContent.charCodeAt(0) === 0xFEFF) {
-            serviceContent = serviceContent.slice(1);
-          }
-
-          // Verifica bilanciamento parentesi graffe (sanity check)
+          if (serviceContent.charCodeAt(0) === 0xFEFF) { serviceContent = serviceContent.slice(1); }
           const openBraces = (serviceContent.match(/{/g) || []).length;
           const closeBraces = (serviceContent.match(/}/g) || []).length;
           if (openBraces !== closeBraces) {
-            console.error(`❌ ERRORE CRITICO: Parentesi graffe sbilanciate in NetworkMonitorService.ps1!`);
-            console.error(`   Aperte: ${openBraces}, Chiuse: ${closeBraces}`);
-            console.error(`   Il file potrebbe avere errori di sintassi!`);
-            // Non blocchiamo il download, ma loggiamo l'errore
-          } else {
-            console.log(`✅ Verifica sintassi: ${openBraces}/${closeBraces} parentesi graffe bilanciate`);
+            console.error(`❌ Parentesi graffe sbilanciate in NetworkMonitorService.ps1 (${openBraces}/${closeBraces})`);
           }
-
           archive.append(serviceContent, { name: 'NetworkMonitorService.ps1' });
           console.log('✅ Aggiunto NetworkMonitorService.ps1');
         }
 
-        // NetworkMonitorTrayIcon.ps1 (tray icon)
-        const trayIconPath = path.join(agentDir, 'NetworkMonitorTrayIcon.ps1');
-        if (fs.existsSync(trayIconPath)) {
-          const trayIconContent = fs.readFileSync(trayIconPath, 'utf8');
-          archive.append(trayIconContent, { name: 'NetworkMonitorTrayIcon.ps1' });
-          console.log('✅ Aggiunto NetworkMonitorTrayIcon.ps1');
-        }
-
-        // Start-TrayIcon-Hidden.vbs (launcher tray icon)
-        const startTrayIconPath = path.join(agentDir, 'Start-TrayIcon-Hidden.vbs');
-        if (fs.existsSync(startTrayIconPath)) {
-          const startTrayIconContent = fs.readFileSync(startTrayIconPath, 'utf8');
-          archive.append(startTrayIconContent, { name: 'Start-TrayIcon-Hidden.vbs' });
-          console.log('✅ Aggiunto Start-TrayIcon-Hidden.vbs');
-        }
-
-        // Installa-Agent.bat (installer unico - SOLO COMANDI NATIVI, NO POWERSHELL)
+        // 3. Installa-Agent.bat (entry point: doppio clic per installare)
         const installAgentBatPath = path.join(agentDir, 'Installa-Agent.bat');
         if (fs.existsSync(installAgentBatPath)) {
-          const installAgentBatContent = fs.readFileSync(installAgentBatPath, 'utf8');
-          archive.append(installAgentBatContent, { name: 'Installa-Agent.bat' });
+          archive.append(fs.readFileSync(installAgentBatPath, 'utf8'), { name: 'Installa-Agent.bat' });
           console.log('✅ Aggiunto Installa-Agent.bat');
         }
 
-        // Installa-Agent.ps1 (backup, opzionale)
-        const installAgentPath = path.join(agentDir, 'Installa-Agent.ps1');
-        if (fs.existsSync(installAgentPath)) {
-          const installAgentContent = fs.readFileSync(installAgentPath, 'utf8');
-          archive.append(installAgentContent, { name: 'Installa-Agent.ps1' });
-          console.log('✅ Aggiunto Installa-Agent.ps1 (backup)');
-        }
-
-        // nssm.exe (CRITICO per installazione servizio Windows)
+        // 4. nssm.exe (necessario per il servizio Windows)
         const nssmPath = path.join(agentDir, 'nssm.exe');
         if (fs.existsSync(nssmPath)) {
-          const nssmContent = fs.readFileSync(nssmPath);
-          archive.append(nssmContent, { name: 'nssm.exe' });
+          archive.append(fs.readFileSync(nssmPath), { name: 'nssm.exe' });
           console.log('✅ Aggiunto nssm.exe');
         } else {
-          console.warn('⚠️  nssm.exe non trovato! L\'installazione del servizio potrebbe fallire!');
-        }
-
-        // Ripara-Agent.ps1 (script di auto-riparazione)
-        const riparaAgentPath = path.join(agentDir, 'Ripara-Agent.ps1');
-        if (fs.existsSync(riparaAgentPath)) {
-          const riparaAgentContent = fs.readFileSync(riparaAgentPath, 'utf8');
-          archive.append(riparaAgentContent, { name: 'Ripara-Agent.ps1' });
-          console.log('✅ Aggiunto Ripara-Agent.ps1');
+          console.warn('⚠️  nssm.exe non trovato! Installazione servizio potrebbe fallire.');
         }
 
       } catch (appendErr) {
@@ -5236,28 +5197,6 @@ pause
 
     } catch (err) {
       console.error('❌ Errore Sync Unifi:', err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // Helper endpoint per aggiornare config agent (inclusa Unifi)
-  router.put('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
-    const agentId = req.params.id;
-    const { agent_name, network_ranges, scan_interval_minutes, unifi_config } = req.body;
-
-    try {
-      await pool.query(
-        `UPDATE network_agents 
-           SET agent_name = COALESCE($1, agent_name),
-               network_ranges = COALESCE($2, network_ranges),
-               scan_interval_minutes = COALESCE($3, scan_interval_minutes),
-               unifi_config = COALESCE($4, unifi_config),
-               updated_at = NOW()
-           WHERE id = $5`,
-        [agent_name, network_ranges, scan_interval_minutes, unifi_config, agentId]
-      );
-      res.json({ success: true, message: 'Configurazione aggiornata' });
-    } catch (err) {
       res.status(500).json({ error: err.message });
     }
   });
