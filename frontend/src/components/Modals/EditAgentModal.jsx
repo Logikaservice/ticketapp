@@ -2,12 +2,14 @@
 // Modal per modifica agent Network Monitoring esistente
 
 import React, { useState, useEffect } from 'react';
-import { X, Save, AlertCircle, Wifi } from 'lucide-react';
+import { X, Save, AlertCircle, Wifi, CheckCircle } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
 
 const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [unifiTestStatus, setUnifiTestStatus] = useState(null); // null | 'loading' | 'ok' | 'error'
+    const [unifiTestMessage, setUnifiTestMessage] = useState('');
     const [formData, setFormData] = useState({
         agent_name: '',
         network_ranges_config: [{ range: '', name: '' }],
@@ -36,6 +38,8 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                 unifi_config: (hasUnifi && uc) ? { url: uc.url || '', username: uc.username || '', password: uc.password || '' } : { url: '', username: '', password: '' }
             });
             setError(null);
+            setUnifiTestStatus(null);
+            setUnifiTestMessage('');
         }
     }, [isOpen, agent]);
 
@@ -72,6 +76,37 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                 ...prev,
                 network_ranges_config: newRanges
             }));
+        }
+    };
+
+    const handleTestUnifi = async () => {
+        const url = (formData.unifi_config?.url || '').trim();
+        const username = (formData.unifi_config?.username || '').trim();
+        const password = formData.unifi_config?.password || '';
+        if (!url || !username || !password) {
+            setUnifiTestStatus('error');
+            setUnifiTestMessage('Inserisci URL, username e password prima di provare.');
+            return;
+        }
+        setUnifiTestStatus('loading');
+        setUnifiTestMessage('');
+        try {
+            const res = await fetch(buildApiUrl('/api/network-monitoring/test-unifi'), {
+                method: 'POST',
+                headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url, username, password })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
+                setUnifiTestStatus('ok');
+                setUnifiTestMessage('Connessione OK');
+            } else {
+                setUnifiTestStatus('error');
+                setUnifiTestMessage(data.error || `Errore ${res.status}`);
+            }
+        } catch (e) {
+            setUnifiTestStatus('error');
+            setUnifiTestMessage(e.message || 'Errore di rete');
         }
     };
 
@@ -294,10 +329,7 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                                     <input
                                         type="text"
                                         value={formData.unifi_config?.url || ''}
-                                        onChange={(e) => setFormData(prev => ({
-                                            ...prev,
-                                            unifi_config: { ...prev.unifi_config, url: e.target.value }
-                                        }))}
+                                        onChange={(e) => { setUnifiTestStatus(null); setUnifiTestMessage(''); setFormData(prev => ({ ...prev, unifi_config: { ...prev.unifi_config, url: e.target.value } })); }}
                                         placeholder="https://192.168.1.5:8443"
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                                     />
@@ -308,10 +340,7 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                                         <input
                                             type="text"
                                             value={formData.unifi_config?.username || ''}
-                                            onChange={(e) => setFormData(prev => ({
-                                                ...prev,
-                                                unifi_config: { ...prev.unifi_config, username: e.target.value }
-                                            }))}
+                                            onChange={(e) => { setUnifiTestStatus(null); setUnifiTestMessage(''); setFormData(prev => ({ ...prev, unifi_config: { ...prev.unifi_config, username: e.target.value } })); }}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                                         />
                                     </div>
@@ -320,13 +349,32 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                                         <input
                                             type="password"
                                             value={formData.unifi_config?.password || ''}
-                                            onChange={(e) => setFormData(prev => ({
-                                                ...prev,
-                                                unifi_config: { ...prev.unifi_config, password: e.target.value }
-                                            }))}
+                                            onChange={(e) => { setUnifiTestStatus(null); setUnifiTestMessage(''); setFormData(prev => ({ ...prev, unifi_config: { ...prev.unifi_config, password: e.target.value } })); }}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                                         />
                                     </div>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={handleTestUnifi}
+                                        disabled={unifiTestStatus === 'loading'}
+                                        className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed text-sm font-medium"
+                                    >
+                                        {unifiTestStatus === 'loading' ? 'Verifica in corso…' : 'Prova connessione'}
+                                    </button>
+                                    {unifiTestStatus === 'ok' && (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-100 text-green-800 border border-green-200">
+                                            <CheckCircle size={18} className="flex-shrink-0" />
+                                            Connessione OK
+                                        </span>
+                                    )}
+                                    {unifiTestStatus === 'error' && unifiTestMessage && (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-100 text-red-800 border border-red-200">
+                                            <AlertCircle size={18} className="flex-shrink-0" />
+                                            {unifiTestMessage}
+                                        </span>
+                                    )}
                                 </div>
                                 <p className="text-xs text-gray-500">
                                     L’agent, locale alla rete, riceve queste credenziali solo dal server (HTTPS) e si connette direttamente al Cloud Key/Controller Unifi per rilevare gli aggiornamenti firmware. Le credenziali non vengono mai scritte su file.

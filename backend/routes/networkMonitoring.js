@@ -5173,6 +5173,56 @@ pause
     } catch (err) { console.error('❌ Errore download Start-TrayIcon-Hidden.vbs:', err); res.status(500).json({ error: 'Errore interno del server' }); }
   });
 
+  // Prova connessione Unifi (url/username/password dal body, per test da form prima di salvare)
+  router.post('/test-unifi', authenticateToken, async (req, res) => {
+    const { url, username, password } = req.body || {};
+    if (!url || !username || !password) {
+      return res.status(400).json({ error: 'Inserisci URL, username e password del controller Unifi' });
+    }
+    try {
+      const agent = new https.Agent({ rejectUnauthorized: false });
+      const baseUrl = String(url).trim().replace(/\/$/, '');
+      if (!/^https?:\/\//i.test(baseUrl)) {
+        return res.status(400).json({ error: 'L\'URL deve iniziare con http:// o https://' });
+      }
+
+      // Login
+      let loginRes = await fetch(`${baseUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: String(username).trim(), password: String(password) }),
+        agent
+      });
+      if (loginRes.status === 404) {
+        loginRes = await fetch(`${baseUrl}/api/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: String(username).trim(), password: String(password) }),
+          agent
+        });
+      }
+      if (!loginRes.ok) {
+        const t = await loginRes.text();
+        throw new Error(`Login fallito (${loginRes.status}): credenziali errate o controller non raggiungibile`);
+      }
+
+      const cookies = loginRes.headers.get('set-cookie');
+      if (!cookies) throw new Error('Il controller non ha restituito i cookie di sessione');
+
+      // Verifica accesso API (stat/device)
+      let devicesRes = await fetch(`${baseUrl}/api/s/default/stat/device`, { headers: { 'Cookie': cookies }, agent });
+      if (devicesRes.status === 404) {
+        devicesRes = await fetch(`${baseUrl}/proxy/network/api/s/default/stat/device`, { headers: { 'Cookie': cookies }, agent });
+      }
+      if (!devicesRes.ok) throw new Error('Impossibile accedere alle API del controller (stat/device)');
+
+      res.json({ success: true, message: 'Connessione OK' });
+    } catch (err) {
+      console.error('❌ Test Unifi:', err);
+      res.status(500).json({ error: err.message || 'Errore di connessione al controller Unifi' });
+    }
+  });
+
   // Endpoint per sincronizzare manualmente Unifi
   router.post('/agent/:id/sync-unifi', authenticateToken, async (req, res) => {
     const agentId = req.params.id;
