@@ -838,10 +838,15 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     loadChanges(false);
   }, [changesCompanyFilter, loadChanges]);
 
-  // Resetta il toggle quando cambia l'azienda selezionata
+  // Resetta il toggle e carica i dati quando cambia l'azienda selezionata
   useEffect(() => {
     setShowOfflineDevices(true); // Mostra sempre i dispositivi offline quando si cambia azienda
-  }, [selectedCompanyId]);
+    if (selectedCompanyId) {
+      loadCompanyDevices(selectedCompanyId);
+    } else {
+      setCompanyDevices([]);
+    }
+  }, [selectedCompanyId, loadCompanyDevices]);
 
   // Chiude il menu contestuale quando si preme ESC
   useEffect(() => {
