@@ -52,6 +52,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [showOfflineDevices, setShowOfflineDevices] = useState(true); // Mostra dispositivi offline di default
   const [changesSearchTerm, setChangesSearchTerm] = useState('');
   const [changesCompanyFilter, setChangesCompanyFilter] = useState(null); // Filtro azienda separato per "Cambiamenti Rilevati"
+  const [changesNetworkFilter, setChangesNetworkFilter] = useState(''); // Filtro rete per "Cambiamenti Rilevati"
+  const [availableNetworks, setAvailableNetworks] = useState([]); // Reti disponibili per l'azienda selezionata
   const [eventTypeFilter, setEventTypeFilter] = useState('all'); // all, device, agent
   const [ipContextMenu, setIpContextMenu] = useState({ show: false, ip: '', x: 0, y: 0 });
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -427,11 +429,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     try {
       const searchParam = changesSearchTerm ? `&search=${encodeURIComponent(changesSearchTerm)}` : '';
       const aziendaParam = changesCompanyFilter ? `&azienda_id=${changesCompanyFilter}` : '';
+      const networkParam = changesNetworkFilter ? `&network=${encodeURIComponent(changesNetworkFilter)}` : '';
       const eventTypeParam = eventTypeFilter !== 'all' ? `&event_type=${eventTypeFilter}` : '';
 
       // Usa il nuovo endpoint unificato
       const response = await fetch(
-        buildApiUrl(`/api/network-monitoring/all/events?limit=500&count24h=true${searchParam}${aziendaParam}${eventTypeParam}`),
+        buildApiUrl(`/api/network-monitoring/all/events?limit=500&count24h=true${searchParam}${aziendaParam}${networkParam}${eventTypeParam}`),
         { headers: getAuthHeader() }
       );
 
@@ -455,7 +458,37 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         console.error('Errore caricamento eventi:', err);
       }
     }
-  }, [getAuthHeader, changesSearchTerm, changesCompanyFilter, eventTypeFilter]);
+  }, [getAuthHeader, changesSearchTerm, changesCompanyFilter, changesNetworkFilter, eventTypeFilter]);
+
+  // Carica reti quando cambia l'azienda selezionata nei filtri eventi
+  useEffect(() => {
+    setChangesNetworkFilter('');
+    const loadNetworks = async () => {
+      if (!changesCompanyFilter) {
+        setAvailableNetworks([]);
+        setChangesNetworkFilter('');
+        return;
+      }
+
+      try {
+        const response = await fetch(buildApiUrl(`/api/network-monitoring/company/${changesCompanyFilter}/networks`), {
+          headers: getAuthHeader()
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setAvailableNetworks(data);
+        }
+      } catch (err) {
+        console.error("Errore caricamento reti:", err);
+      }
+    };
+
+    loadNetworks();
+  }, [changesCompanyFilter, getAuthHeader]);
+
+  useEffect(() => {
+    loadChanges();
+  }, [loadChanges]);
 
   // Carica lista aziende
   const loadCompanies = useCallback(async () => {
@@ -2043,6 +2076,28 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 />
               </div>
 
+              {/* Filtro Rete (visibile solo se azienda selezionata e reti disponibili) */}
+              {changesCompanyFilter && availableNetworks.length > 0 && (
+                <div className="relative">
+                  <select
+                    value={changesNetworkFilter}
+                    onChange={(e) => setChangesNetworkFilter(e.target.value)}
+                    className="w-full px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+                  >
+                    <option value="">Tutte le Reti</option>
+                    {availableNetworks.map((net, idx) => (
+                      <option key={idx} value={net.range || net}>
+                        {net.name ? `${net.name} (${net.range})` : (net.range || net)}
+                      </option>
+                    ))}
+                  </select>
+                  <Wifi
+                    size={16}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
+                  />
+                </div>
+              )}
+
               {/* Filtro Tipo Evento */}
               <select
                 value={eventTypeFilter}
@@ -2055,7 +2110,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               </select>
 
               {/* Barra di ricerca */}
-              <div className="relative md:col-span-3">
+              <div className="relative md:col-span-2">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"

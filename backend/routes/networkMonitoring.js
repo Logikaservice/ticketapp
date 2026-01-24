@@ -2401,6 +2401,7 @@ module.exports = (pool, io) => {
       const limit = parseInt(req.query.limit) || 200;
       const searchTerm = req.query.search ? req.query.search.trim() : '';
       const aziendaId = req.query.azienda_id ? parseInt(req.query.azienda_id) : null;
+      const networkParam = req.query.network ? req.query.network.trim() : '';
       const eventType = req.query.event_type || ''; // all, device, agent
       const count24h = req.query.count24h === 'true';
 
@@ -2503,6 +2504,18 @@ module.exports = (pool, io) => {
         deviceFilters += ` AND na.azienda_id = $${paramIndex}`;
         agentFilters += ` AND na.azienda_id = $${paramIndex}`;
         params.push(aziendaId);
+        paramIndex++;
+      }
+
+      // Filtro rete (network range)
+      if (networkParam) {
+        // Per i dispositivi, controlla se l'IP è nel range
+        deviceFilters += ` AND nd.ip_address::inet <<= $${paramIndex}::inet`;
+
+        // Per gli agent, controlla se l'agent monitora quella rete
+        agentFilters += ` AND $${paramIndex} = ANY(na.network_ranges)`;
+
+        params.push(networkParam);
         paramIndex++;
       }
 
@@ -2747,6 +2760,59 @@ module.exports = (pool, io) => {
       res.json({ success: true, agent: result.rows[0] });
     } catch (err) {
       console.error('❌ Errore aggiornamento agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/company/:aziendaId/networks
+  // Ottieni tutte le reti configurate per un'azienda (solo tecnici/admin)
+  router.get('/company/:aziendaId/networks', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+
+      const aziendaId = parseInt(req.params.aziendaId);
+
+      if (!aziendaId) {
+        return res.status(400).json({ error: 'ID azienda richiesto' });
+      }
+
+      // Ottieni tutti gli agent dell'azienda con le loro reti
+      const result = await pool.query(
+        `SELECT 
+          na.id as agent_id,
+          na.agent_name,
+          na.network_ranges_config
+         FROM network_agents na
+         INNER JOIN users u ON na.azienda_id = u.id
+         WHERE u.id = $1 AND na.deleted_at IS NULL
+         ORDER BY na.agent_name`,
+        [aziendaId]
+      );
+
+      // Estrai tutte le reti uniche da tutti gli agent
+      const networksMap = new Map();
+
+      result.rows.forEach(agent => {
+        if (agent.network_ranges_config && Array.isArray(agent.network_ranges_config)) {
+          agent.network_ranges_config.forEach(netConfig => {
+            const key = netConfig.range;
+            if (!networksMap.has(key)) {
+              networksMap.set(key, {
+                range: netConfig.range,
+                name: netConfig.name || null,
+                agent_name: agent.agent_name
+              });
+            }
+          });
+        }
+      });
+
+      // Converti la Map in array
+      const networks = Array.from(networksMap.values());
+
+      res.json(networks);
+    } catch (err) {
+      console.error('❌ Errore recupero reti azienda:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });
