@@ -10,6 +10,9 @@ const fs = require('fs');
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
 const keepassDriveService = require('../utils/keepassDriveService');
 const telegramService = require('../services/TelegramService');
+// Use dynamic import for node-fetch since it's ESM
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const https = require('https');
 
 module.exports = (pool, io) => {
   // Funzione helper per inizializzare le tabelle se non esistono
@@ -250,9 +253,59 @@ module.exports = (pool, io) => {
           notify_status_changes BOOLEAN DEFAULT true,
           created_at TIMESTAMP DEFAULT NOW(),
           updated_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW(),
           UNIQUE(azienda_id, agent_id)
         );
       `);
+
+      // Aggiungi colonna unifi_config a network_agents (migrazione)
+      try {
+        await pool.query(`
+          ALTER TABLE network_agents 
+          ADD COLUMN IF NOT EXISTS unifi_config JSONB;
+        `);
+      } catch (err) {
+        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna unifi_config:', err.message);
+        }
+      }
+
+      // Aggiungi colonna upgrade_available a network_devices (migrazione)
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;
+        `);
+      } catch (err) {
+        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna upgrade_available:', err.message);
+        }
+      }
+
+      // Aggiungi colonna unifi_config a network_agents (migrazione)
+      try {
+        await pool.query(`
+          ALTER TABLE network_agents 
+          ADD COLUMN IF NOT EXISTS unifi_config JSONB;
+        `);
+      } catch (err) {
+        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna unifi_config:', err.message);
+        }
+      }
+
+      // Aggiungi colonna upgrade_available a network_devices (migrazione)
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;
+        `);
+      } catch (err) {
+        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna upgrade_available:', err.message);
+        }
+      }
 
       await pool.query(`
         CREATE INDEX IF NOT EXISTS idx_network_telegram_config_azienda 
@@ -591,7 +644,7 @@ module.exports = (pool, io) => {
       }
 
       const result = await pool.query(
-        `SELECT id, agent_name, network_ranges, scan_interval_minutes, enabled 
+        `SELECT id, agent_name, network_ranges, scan_interval_minutes, enabled, unifi_config 
          FROM network_agents 
          WHERE api_key = $1`,
         [apiKey]
@@ -613,7 +666,8 @@ module.exports = (pool, io) => {
         agent_name: agent.agent_name,
         version: agentPackageVersion,
         network_ranges: agent.network_ranges || [],
-        scan_interval_minutes: agent.scan_interval_minutes || 15
+        scan_interval_minutes: agent.scan_interval_minutes || 15,
+        unifi_config: agent.unifi_config
       });
     } catch (err) {
       console.error('❌ Errore recupero configurazione agent:', err);
@@ -1112,9 +1166,10 @@ module.exports = (pool, io) => {
 
       for (let i = 0; i < devices.length; i++) {
         const device = devices[i];
-        let { ip_address, mac_address, hostname, vendor, status, has_ping_failures, ping_responsive } = device;
+        let { ip_address, mac_address, hostname, vendor, status, has_ping_failures, ping_responsive, upgrade_available } = device;
         // device_type non viene più inviato dall'agent, sarà gestito manualmente
         // ping_responsive (nuovo): true se risponde al ping, false se presente solo via ARP
+        // upgrade_available (nuovo): true se il device ha un aggiornamento firmware disponibile (via Unifi)
 
         // Normalizza hostname: potrebbe essere stringa, array, o oggetto JSON
         if (hostname) {
@@ -1458,6 +1513,12 @@ module.exports = (pool, io) => {
             values.push(has_ping_failures === true);
           }
 
+          // Aggiorna upgrade_available se presente (nuovo: Unifi Integration)
+          if (upgrade_available !== undefined) {
+            updates.push(`upgrade_available = $${paramIndex++}`);
+            values.push(upgrade_available === true);
+          }
+
           // Aggiorna ping_responsive se presente nei dati (nuovo: Trust ARP)
           if (ping_responsive !== undefined && ping_responsive !== existingDevice.ping_responsive) {
             updates.push(`ping_responsive = $${paramIndex++}`);
@@ -1565,8 +1626,8 @@ module.exports = (pool, io) => {
             }
 
             const insertResult = await pool.query(
-              `INSERT INTO network_devices (agent_id, ip_address, mac_address, hostname, vendor, device_type, device_path, status, has_ping_failures, ping_responsive)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+              `INSERT INTO network_devices (agent_id, ip_address, mac_address, hostname, vendor, device_type, device_path, status, has_ping_failures, ping_responsive, upgrade_available)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                RETURNING id`,
               [
                 agentId,
@@ -1578,7 +1639,8 @@ module.exports = (pool, io) => {
                 devicePathFromKeepass || null, // device_path da KeePass se trovato
                 status || 'online',
                 has_ping_failures === true, // has_ping_failures (default false)
-                ping_responsive !== false // ping_responsive (default true, false solo se esplicitamente false)
+                ping_responsive !== false, // ping_responsive (default true, false solo se esplicitamente false)
+                upgrade_available === true // upgrade_available (default false)
               ]
             );
 
@@ -5043,6 +5105,107 @@ pause
     } catch (err) {
       console.error('❌ Errore download NetworkMonitorService.ps1:', err);
       res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // Endpoint per sincronizzare manualmente Unifi
+  router.post('/agent/:id/sync-unifi', authenticateToken, async (req, res) => {
+    const agentId = req.params.id;
+    try {
+      // 1. Recupera configurazione Unifi
+      const agentResult = await pool.query(
+        'SELECT unifi_config FROM network_agents WHERE id = $1',
+        [agentId]
+      );
+
+      if (agentResult.rows.length === 0) return res.status(404).json({ error: 'Agent non trovato' });
+
+      const config = agentResult.rows[0].unifi_config;
+      if (!config || !config.url || !config.username || !config.password) {
+        return res.status(400).json({ error: 'Configurazione Unifi mancante' });
+      }
+
+      // 2. Tenta la connessione (ignora certificati self-signed per IP locali)
+      const agent = new https.Agent({ rejectUnauthorized: false });
+      const baseUrl = config.url.replace(/\/$/, '');
+
+      // Login
+      const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: config.username, password: config.password }),
+        agent
+      });
+
+      // Supporto per vecchi controller (senza /auth/)
+      let finalLoginRes = loginRes;
+      if (loginRes.status === 404) {
+        finalLoginRes = await fetch(`${baseUrl}/api/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: config.username, password: config.password }),
+          agent
+        });
+      }
+
+      if (!finalLoginRes.ok) {
+        throw new Error(`Login Unifi fallito: ${finalLoginRes.statusText}`);
+      }
+
+      // Estrai cookie
+      const cookies = finalLoginRes.headers.get('set-cookie');
+
+      // 3. Recupera devices (site default)
+      const devicesRes = await fetch(`${baseUrl}/api/s/default/stat/device`, {
+        headers: { 'Cookie': cookies },
+        agent
+      });
+
+      if (!devicesRes.ok) throw new Error('Impossibile recuperare lista devices');
+
+      const { data } = await devicesRes.json();
+
+      // 4. Aggiorna DB
+      let updatedCount = 0;
+      for (const uDevice of data) {
+        if (uDevice.mac && uDevice.upgradable !== undefined) {
+          const result = await pool.query(
+            `UPDATE network_devices 
+              SET upgrade_available = $1 
+              WHERE agent_id = $2 AND mac_address = $3`,
+            [uDevice.upgradable, agentId, uDevice.mac]
+          );
+          if (result.rowCount > 0) updatedCount++;
+        }
+      }
+
+      res.json({ success: true, message: `Sincronizzazione completata. ${updatedCount} dispositivi aggiornati.` });
+
+    } catch (err) {
+      console.error('❌ Errore Sync Unifi:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Helper endpoint per aggiornare config agent (inclusa Unifi)
+  router.put('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    const agentId = req.params.id;
+    const { agent_name, network_ranges, scan_interval_minutes, unifi_config } = req.body;
+
+    try {
+      await pool.query(
+        `UPDATE network_agents 
+           SET agent_name = COALESCE($1, agent_name),
+               network_ranges = COALESCE($2, network_ranges),
+               scan_interval_minutes = COALESCE($3, scan_interval_minutes),
+               unifi_config = COALESCE($4, unifi_config),
+               updated_at = NOW()
+           WHERE id = $5`,
+        [agent_name, network_ranges, scan_interval_minutes, unifi_config, agentId]
+      );
+      res.json({ success: true, message: 'Configurazione aggiornata' });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
   });
 

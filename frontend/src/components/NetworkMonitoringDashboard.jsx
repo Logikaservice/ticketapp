@@ -7,7 +7,7 @@ import {
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
   Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit, Menu,
-  CircleAlert, Stethoscope, Eye, EyeOff, FileText
+  CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
@@ -1809,6 +1809,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Titolo</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Utente</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
+                        <th className="text-center py-3 px-2 text-sm font-semibold text-gray-700 w-10">FW</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Scan</th>
                       </tr>
                     </thead>
@@ -1820,6 +1821,19 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             key={device.id}
                             className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
                           >
+                            {/* ... existing cells ... */}
+                            {/* We need to re-render the whole row or targeted parts. I will target the end of the row */}
+                            <td className="py-3 px-4">
+                              <StatusBadge status={device.status} pingResponsive={device.ping_responsive} />
+                            </td>
+                            <td className="py-3 px-2 text-center">
+                              {device.upgrade_available && (
+                                <div className="flex justify-center" title="Aggiornamento Firmware Disponibile">
+                                  <ArrowUpCircle className="w-5 h-5 text-blue-600 animate-bounce" />
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-500 whitespace-nowrap">{formatDate(device.last_seen)}</td>
                             <td className="py-3 px-4">
                               <div className="flex flex-col gap-2">
                                 {/* Checkbox Statico (colora riga di blu) */}
@@ -2022,6 +2036,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             <td className="py-3 px-4 text-sm text-gray-600">{device.device_username || '-'}</td>
                             <td className="py-3 px-4">
                               <StatusBadge status={device.status} pingResponsive={device.ping_responsive} />
+                            </td>
+                            <td className="py-3 px-2 text-center">
+                              {device.upgrade_available && (
+                                <div className="flex justify-center" title="Aggiornamento Firmware Disponibile">
+                                  <ArrowUpCircle className="w-5 h-5 text-blue-600" />
+                                </div>
+                              )}
                             </td>
                             <td className="py-3 px-4 text-sm text-gray-500 whitespace-nowrap">{formatDate(device.last_seen)}</td>
                           </tr>

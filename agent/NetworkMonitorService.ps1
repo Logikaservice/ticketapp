@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.3.0"
+$SCRIPT_VERSION = "2.4.0"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -188,6 +188,7 @@ $script:lastSuccessfulHeartbeat = $null
 $script:failedHeartbeatCount = 0
 $script:networkIssueStartTime = $null
 $script:forceScanTriggerFile = Join-Path $script:scriptDir ".force_scan.trigger"
+$script:unifiConfig = $null
 
 # ============================================
 # FUNZIONI HELPER
@@ -258,10 +259,96 @@ function Update-StatusFile {
 # FUNZIONI NETWORK SCAN (da NetworkMonitor.ps1)
 # ============================================
 
+function Check-UnifiUpdates {
+    param(
+        $UnifiConfig
+    )
+
+    if (-not $UnifiConfig -or -not $UnifiConfig.url -or -not $UnifiConfig.username -or -not $UnifiConfig.password) {
+        return @{}
+    }
+
+    $baseUrl = $UnifiConfig.url.TrimEnd('/')
+    $username = $UnifiConfig.username
+    $password = $UnifiConfig.password
+    $upgrades = @{}
+
+    Write-Log "🔍 Controllo aggiornamenti Unifi su $baseUrl..." "INFO"
+
+    try {
+        # Ignora errori certificato self-signed
+        add-type @"
+            using System.Net;
+            using System.Security.Cryptography.X509Certificates;
+            public class TrustAllCertsPolicy : ICertificatePolicy {
+                public bool CheckValidationResult(
+                    ServicePoint srvPoint, X509Certificate certificate,
+                    WebRequest request, int certificateProblem) {
+                    return true;
+                }
+            }
+"@
+        [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+
+        # Sessione Web per mantenere i cookie
+        $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+
+        # 1. Login
+        $loginUrl = "$baseUrl/api/auth/login"
+        $loginBody = @{ username = $username; password = $password } | ConvertTo-Json
+        
+        try {
+            $loginRes = Invoke-WebRequest -Uri $loginUrl -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -ErrorAction Stop
+        }
+        catch {
+            if ($_.Exception.Response.StatusCode -eq "NotFound") {
+                # Fallback per controller vecchi
+                $loginUrl = "$baseUrl/api/login"
+                $loginRes = Invoke-WebRequest -Uri $loginUrl -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -ErrorAction Stop
+            }
+            else {
+                Throw $_
+            }
+        }
+
+        # 2. Recupera devices (site default)
+        $devicesUrl = "$baseUrl/api/s/default/stat/device"
+        $devicesRes = Invoke-RestMethod -Uri $devicesUrl -Method Get -WebSession $session -ErrorAction Stop
+
+        if ($devicesRes.data) {
+            foreach ($dev in $devicesRes.data) {
+                if ($dev.mac -and $dev.upgradable -eq $true) {
+                    # Normalizza MAC (UPPERCASE e trattini) per coerenza
+                    $mac = $dev.mac.ToUpper().Replace(':', '-')
+                    $upgrades[$mac] = $true
+                }
+            }
+        }
+        
+        Write-Log "✅ Unifi: trovati $($upgrades.Count) dispositivi aggiornabili" "INFO"
+        
+    }
+    catch {
+        Write-Log "⚠️ Errore integrazione Unifi: $_" "WARN"
+    }
+
+    return $upgrades
+}
+
 function Get-NetworkDevices {
-    param([string[]]$NetworkRanges)
+    param(
+        [string[]]$NetworkRanges,
+        $UnifiConfig = $null
+    )
     
     $devices = @()
+    $unifiUpgrades = @{}
+
+    # Se presente config Unifi, scarica info aggiornamenti
+    if ($UnifiConfig) {
+        $unifiUpgrades = Check-UnifiUpdates -UnifiConfig $UnifiConfig
+    }
+
     # PS 4.0 non supporta ::new(), usa New-Object per compatibilità (Server 2012)
     $foundIPs = New-Object 'System.Collections.Generic.List[string]'
     # Dizionario per tracciare MAC trovati (inclusi quelli da lookup diretto)
@@ -560,7 +647,8 @@ function Get-NetworkDevices {
                                     if ($reply.Status -eq 'Success') {
                                         $successCount++
                                         break # Se risponde, inutile insistere troppo
-                                    } else {
+                                    }
+                                    else {
                                         $failureCount++
                                     }
                                 }
@@ -601,7 +689,8 @@ function Get-NetworkDevices {
                                         $openPort = $port
                                         $tcp.Close()
                                         break # Trovata una porta aperta! Dispositivo online.
-                                    } catch {}
+                                    }
+                                    catch {}
                                 }
                             }
                             catch {}
@@ -1409,8 +1498,7 @@ public class ArpHelper {
                             # TODO: Implementa lookup vendor (API o database locale)
                             # Per ora lasciamo null
                         }
-                        
-                        # Verifica se questo IP ha avuto ping falliti durante i 3 tentativi
+                        # ... (placeholder, requires correct context)
                         $hasPingFailures = $false
                         if ($script:pingFailures -and $script:pingFailures.ContainsKey($ip)) {
                             $hasPingFailures = $script:pingFailures[$ip]
@@ -2189,6 +2277,10 @@ while ($script:isRunning) {
                 # L'intervallo viene aggiornato automaticamente da Send-Heartbeat se diverso
                 if ($heartbeatResult.success) {
                     Write-Log "Heartbeat completato"
+                    
+                    if ($heartbeatResult.config -and $heartbeatResult.config.unifi_config) {
+                        $script:unifiConfig = $heartbeatResult.config.unifi_config
+                    }
                 }
                 else {
                     Write-Log "Heartbeat fallito: $($heartbeatResult.error)" "WARN"
@@ -2252,7 +2344,7 @@ while ($script:isRunning) {
                 # 1. Scan rete
                 Write-Log "Avvio scansione rete..." "INFO"
                 try {
-                    $devices = Get-NetworkDevices -NetworkRanges $config.network_ranges
+                    $devices = Get-NetworkDevices -NetworkRanges $config.network_ranges -UnifiConfig $script:unifiConfig
                     Write-Log "Trovati $($devices.Count) dispositivi" "INFO"
                     $script:lastScanDevices = $devices.Count
                 }

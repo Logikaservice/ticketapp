@@ -29,7 +29,8 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
             setFormData({
                 agent_name: agent.agent_name || '',
                 network_ranges_config: rangesConfig.length > 0 ? rangesConfig : [{ range: '', name: '' }],
-                scan_interval_minutes: agent.scan_interval_minutes || 15
+                scan_interval_minutes: agent.scan_interval_minutes || 15,
+                unifi_config: agent.unifi_config || { url: '', username: '', password: '' }
             });
             setError(null);
         }
@@ -110,7 +111,8 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                 body: JSON.stringify({
                     agent_name: formData.agent_name.trim(),
                     network_ranges_config: validRangesConfig,
-                    scan_interval_minutes: parseInt(formData.scan_interval_minutes)
+                    scan_interval_minutes: parseInt(formData.scan_interval_minutes),
+                    unifi_config: formData.unifi_config
                 })
             });
 
@@ -257,6 +259,58 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                         <p className="text-sm text-gray-500 mt-1">
                             Quanto spesso scansionare la rete (default: 15 minuti)
                         </p>
+                    </div>
+
+                    {/* Integrazione Unifi Controller */}
+                    <div className="pt-4 border-t border-gray-200 mt-4">
+                        <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                            <Wifi size={20} className="text-blue-600" />
+                            Integrazione Unifi Controller
+                        </h3>
+                        <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Controller URL</label>
+                                <input
+                                    type="text"
+                                    value={formData.unifi_config?.url || ''}
+                                    onChange={(e) => setFormData(prev => ({
+                                        ...prev,
+                                        unifi_config: { ...prev.unifi_config, url: e.target.value }
+                                    }))}
+                                    placeholder="https://192.168.1.5:8443"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Username</label>
+                                    <input
+                                        type="text"
+                                        value={formData.unifi_config?.username || ''}
+                                        onChange={(e) => setFormData(prev => ({
+                                            ...prev,
+                                            unifi_config: { ...prev.unifi_config, username: e.target.value }
+                                        }))}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Password</label>
+                                    <input
+                                        type="password"
+                                        value={formData.unifi_config?.password || ''}
+                                        onChange={(e) => setFormData(prev => ({
+                                            ...prev,
+                                            unifi_config: { ...prev.unifi_config, password: e.target.value }
+                                        }))}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                                Inserisci le credenziali per connetterti al Controller Unifi e rilevare gli aggiornamenti firmware.
+                            </p>
+                        </div>
                     </div>
                 </div>
 
