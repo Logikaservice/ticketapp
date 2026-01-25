@@ -16,6 +16,9 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
     const [loading, setLoading] = useState(false);
     const [nodes, setNodes] = useState([]);
     const [links, setLinks] = useState([]);
+    const [virtualNodes, setVirtualNodes] = useState([]); // Nodi virtuali (Switch Unmanaged)
+    const [isLinking, setIsLinking] = useState(false); // Modalità collegamento nodi
+    const [linkingSource, setLinkingSource] = useState(null); // Nodo sorgente per il collegamento
     const canvasRef = useRef(null);
     const simulationRef = useRef(null);
     const [scale, setScale] = useState(1);
@@ -178,6 +181,70 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         return 'pc';
     };
 
+
+    // Aggiungi un nodo virtuale (Switch Unmanaged)
+    const handleAddVirtualNode = () => {
+        if (!simulationRef.current) return;
+
+        const newNodeId = `virtual-${Date.now()}`;
+        const newNode = {
+            id: newNodeId,
+            type: 'unmanaged_switch',
+            label: 'Switch Unmanaged',
+            status: 'online', // Virtuale, sempre online o dipendente dai figli (futuro)
+            x: -offset.x / scale + (window.innerWidth / 2) / scale, // Centro schermo visibile
+            y: -offset.y / scale + (window.innerHeight / 2) / scale,
+            details: { role: 'Switch' }
+        };
+
+        const newNodes = [...nodes, newNode];
+        // Collega al router di default
+        const newLinks = [...links, { source: 'router', target: newNodeId }];
+
+        setNodes(newNodes);
+        setLinks(newLinks);
+
+        // Riavvia simulazione con nuovi dati
+        // Nota: in D3 V4+ bisogna ri-assegnare nodes e links alla simulazione
+        simulationRef.current.nodes(newNodes);
+        simulationRef.current.force("link").links(newLinks);
+        simulationRef.current.alpha(0.5).restart();
+    };
+
+    // Gestione inizio collegamento (Set Parent)
+    const handleStartLinking = (node) => {
+        setIsLinking(true);
+        setLinkingSource(node);
+    };
+
+    // Completa collegamento (Cliccando sul nuovo genitore)
+    const handleCompleteLinking = (targetNode) => {
+        if (!linkingSource || !targetNode || linkingSource.id === targetNode.id) {
+            setIsLinking(false);
+            setLinkingSource(null);
+            return;
+        }
+
+        // Aggiorna i link: rimuovi il vecchio link del source e aggiungi quello nuovo verso target
+        const newLinks = links.filter(l => {
+            const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+            return sourceId !== linkingSource.id;
+        });
+
+        newLinks.push({ source: linkingSource.id, target: targetNode.id });
+
+        setLinks(newLinks);
+
+        // Aggiorna simulazione
+        simulationRef.current.force("link").links(newLinks);
+        simulationRef.current.alpha(0.3).restart();
+
+        setIsLinking(false);
+        setLinkingSource(null);
+        // TODO: Salva su Backend (POST /api/network-topology/update)
+    };
+
+
     // Canvas panning
     const handleCanvasMouseDown = (e) => {
         setIsDraggingCanvas(true);
@@ -209,6 +276,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             case 'printer': return <Printer size={20} className="text-white" />;
             case 'server': return <Server size={20} className="text-white" />;
             case 'wifi': return <Wifi size={20} className="text-white" />;
+            case 'unmanaged_switch': return <ServerIcon size={20} className="text-white bg-gray-600 rounded-sm p-0.5" />; // Icona diversa per switch
             default: return <Monitor size={20} className="text-white" />;
         }
     };
@@ -264,6 +332,19 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                 </div>
             </div>
 
+            {/* Toolbar Strumenti (Modifica Topologia) */}
+            {selectedCompanyId && (
+                <div className="absolute top-20 left-6 flex flex-col gap-2 z-20">
+                    <button
+                        className="bg-white p-2 rounded-lg shadow-md border border-gray-200 hover:bg-gray-50 flex items-center justify-center"
+                        title="Aggiungi Switch Unmanaged (Virtuale)"
+                        onClick={handleAddVirtualNode}
+                    >
+                        <Server size={20} className="text-blue-600" />
+                    </button>
+                </div>
+            )}
+
             {/* Canvas Area Infinito */}
             <div
                 className="flex-1 bg-gray-100 relative overflow-hidden cursor-move"
@@ -275,7 +356,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                 style={{ cursor: isDraggingCanvas ? 'grabbing' : 'grab' }}
             >
                 {/* Background Grid Pattern */}
-                <div className="absolute inset-0 pointer-events-none opacity-10"
+                <div className="absolute -inset-[300%] pointer-events-none opacity-10" // Grid espansa oltre i bordi visibili
                     style={{
                         backgroundImage: 'radial-gradient(#9ca3af 1px, transparent 1px)',
                         backgroundSize: `${20 * scale}px ${20 * scale}px`,
@@ -348,7 +429,11 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                             onMouseDown={(e) => handleNodeMouseDown(e, node)}
                             onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedNode(node);
+                                if (isLinking) {
+                                    handleCompleteLinking(node);
+                                } else {
+                                    setSelectedNode(node);
+                                }
                             }}
                         >
                             {/* Cerchio Icona */}
@@ -392,12 +477,28 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                                 <span>{selectedNode.details.vendor}</span>
                             </div>
                         )}
-                        <div className="mt-4 pt-2">
-                            <button className="w-full py-2 bg-blue-50 text-blue-600 rounded-md font-medium text-xs hover:bg-blue-100 flex items-center justify-center gap-2">
-                                <Move size={14} /> Cambia Genitore (WIP)
+                        <div className="mt-4 pt-2 border-t border-gray-100">
+                            <h4 className="font-bold text-gray-700 mb-2 text-xs uppercase">Azioni Topologia</h4>
+                            <button
+                                onClick={() => handleStartLinking(selectedNode)}
+                                className={`w-full py-2 rounded-md font-medium text-xs flex items-center justify-center gap-2 mb-2 ${isLinking ? 'bg-orange-100 text-orange-700 animate-pulse' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+                            >
+                                <Move size={14} /> {isLinking ? 'Seleziona il NUOVO genitore...' : 'Cambia Genitore (Sposta)'}
                             </button>
+                            {selectedNode.type === 'unmanaged_switch' && (
+                                <div className="text-xs text-gray-500 italic text-center">
+                                    Switch Virtuale creabile manualmente
+                                </div>
+                            )}
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Banner Modalità Linking */}
+            {isLinking && (
+                <div className="absolute top-24 left-1/2 transform -translate-x-1/2 bg-orange-600 text-white px-6 py-2 rounded-full shadow-lg z-50 animate-bounce cursor-pointer" onClick={() => setIsLinking(false)}>
+                    <span className="font-bold">Modalità Collegamento:</span> Clicca sul nodo che deve diventare il PADRE di {linkingSource?.label}
                 </div>
             )}
         </div>
