@@ -111,16 +111,23 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
 
         const safeDevices = Array.isArray(deviceList) ? deviceList : [];
         const safeManaged = Array.isArray(managedSwitchesList) ? managedSwitchesList : [];
+        const normIp = (s) => (String(s || '').replace(/[{}"]/g, '').trim().toLowerCase());
+        const managedSwitchIps = new Set(safeManaged.map(m => normIp(m.ip)));
+        const ipToManagedId = new Map(safeManaged.map(m => [normIp(m.ip), `managed_switch_${m.id}`]));
 
         // 1. Identifica se c'è un Gateway salvato
-        // Il backend ordina già per is_gateway DESC, quindi il primo se true è il gateway
         const savedGateway = safeDevices.find(d => d.is_gateway);
+        const gatewayId = savedGateway?.id;
+
+        // Filtra dispositivi: con IP, escludi il network_device che ha lo stesso IP di uno switch gestito (mostriamo solo il nodo viola)
+        const validDevices = safeDevices.filter(d => {
+            if (!d.ip_address) return false;
+            if (d.id === gatewayId) return true;
+            return !managedSwitchIps.has(normIp(d.ip_address));
+        });
 
         let initialNodes = [];
         let initialLinks = [];
-
-        // Filtra dispositivi validi (ignora quelli senza IP o status)
-        const validDevices = safeDevices.filter(d => d.ip_address);
 
         if (savedGateway) {
             // SCENARIO 1: Abbiamo un Gateway reale salvato
@@ -170,14 +177,21 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
 
             initialNodes = [routerNode, ...otherNodes, ...managedSwitchNodes];
 
-            // Collega tutti al gateway di default, ma rispetta eventuali parent_device_id
+            // Collega tutti al gateway di default, ma rispetta parent_device_id. Se il parent è il
+            // network_device dello switch (stesso IP di uno switch gestito, nodo escluso), collega al nodo viola.
             initialLinks = otherNodes.map(node => {
                 if (node.details && node.details.parent_device_id) {
                     const parentExists = otherNodes.find(n => n.id === node.details.parent_device_id);
                     if (parentExists) {
                         return { source: parentExists.id, target: node.id };
-                    } else if (node.details.parent_device_id === savedGateway.id) {
+                    }
+                    if (node.details.parent_device_id === savedGateway.id) {
                         return { source: 'router', target: node.id };
+                    }
+                    const parent = safeDevices.find(d => d.id === node.details.parent_device_id);
+                    if (parent && managedSwitchIps.has(normIp(parent.ip_address))) {
+                        const mid = ipToManagedId.get(normIp(parent.ip_address));
+                        if (mid) return { source: mid, target: node.id };
                     }
                 }
                 return { source: 'router', target: node.id };
@@ -225,22 +239,20 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
 
             initialNodes = [routerNode, ...deviceNodes, ...managedSwitchNodes];
             initialLinks = deviceNodes.map(node => {
-                // Se il nodo ha un parent_device_id valido, usalo come target (che diventa il source nella logica source->target visuale? D3 link è source->target)
-                // In D3 Force Link: source -> target. Per albero: Parent -> Child.
-                // Se vogliamo rappresentare il flusso dati/dipendenza: Parent (Source) -> Child (Target).
-
-                // Cerca se esiste un nodo genitore nella lista dei nodi
                 if (node.details && node.details.parent_device_id) {
                     const parentExists = deviceNodes.find(n => n.id === node.details.parent_device_id);
                     if (parentExists) {
                         return { source: parentExists.id, target: node.id };
-                    } else if (node.details.parent_device_id === routerNode._realId) {
-                        // Se il parent è il gateway vero (che ora è routerNode)
+                    }
+                    if (routerNode._realId && node.details.parent_device_id === routerNode._realId) {
                         return { source: 'router', target: node.id };
                     }
+                    const parent = safeDevices.find(d => d.id === node.details.parent_device_id);
+                    if (parent && managedSwitchIps.has(normIp(parent.ip_address))) {
+                        const mid = ipToManagedId.get(normIp(parent.ip_address));
+                        if (mid) return { source: mid, target: node.id };
+                    }
                 }
-
-                // Default: collegato al router
                 return { source: 'router', target: node.id };
             });
             // Collegamenti switch SNMP gestiti al router
