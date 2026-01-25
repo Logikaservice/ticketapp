@@ -668,7 +668,7 @@ module.exports = (pool, io) => {
 
       // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
       // Serve per far capire all'installer quale versione dovrebbe risultare installata.
-      const CURRENT_AGENT_VERSION = '2.5.9'; // Versione di fallback (allineata a $SCRIPT_VERSION)
+      const CURRENT_AGENT_VERSION = '2.6.0'; // Versione di fallback (allineata a $SCRIPT_VERSION)
       let agentPackageVersion = CURRENT_AGENT_VERSION;
       try {
         const projectRoot = path.resolve(__dirname, '..', '..');
@@ -3434,7 +3434,7 @@ module.exports = (pool, io) => {
       }
 
       // Versione agent per ZIP e config.json incluso (allineata a NetworkMonitorService.ps1 $SCRIPT_VERSION)
-      const CURRENT_AGENT_VERSION = '2.5.9';
+      const CURRENT_AGENT_VERSION = '2.6.0';
       const agentVersion = CURRENT_AGENT_VERSION;
       console.log(`ℹ️ Versione agent per ZIP: ${agentVersion}`);
 
@@ -5417,7 +5417,7 @@ pause
   // Restituisce la versione corrente dell'agent disponibile per download
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.5.9'; // SNMP switch gestiti: sync eseguita dall'agent in locale (snmpwalk)
+      const CURRENT_AGENT_VERSION = '2.6.0'; // SNMP switch in locale (snmpwalk); fix parsing PowerShell 2.6.0
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({

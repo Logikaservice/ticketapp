@@ -1,0 +1,5 @@
+# Regole progetto TicketApp
+
+## Git
+- **Sempre fare push**: dopo modifiche al codice, eseguire `git add`, `git commit` e `git push` (salvo che l'utente dica diversamente).
+- Se da Cursor/IDE falliscono per `index.lock` o permessi, usare lo script `agent/push-agent-changes.ps1` in un terminale esterno.
