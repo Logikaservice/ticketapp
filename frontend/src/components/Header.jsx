@@ -137,15 +137,11 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       icon: Wifi,
       color: 'cyan',
       visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openNetworkMonitoring,
-      onClick: () => handleQuickActionClick('networkMonitoring')
-    },
-    {
-      id: 'networkMap',
-      label: 'Mappa Rete',
-      icon: Activity,
-      color: 'purple',
-      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openNetworkMonitoring, // Usa permessi simili al monitoring
-      onClick: () => handleQuickActionClick('networkMap')
+      hasSubActions: true,
+      subActions: [
+        { label: 'Dashboard Monitoraggio', icon: Wifi, color: 'cyan', onClick: () => handleQuickActionClick('networkMonitoring') },
+        { label: 'Mappa Rete', icon: Activity, color: 'purple', onClick: () => handleQuickActionClick('networkMap') }
+      ]
     },
     {
       id: 'progetti',
