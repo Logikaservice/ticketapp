@@ -9,6 +9,8 @@ import * as d3 from 'd3-force';
 import { select } from 'd3-selection';
 import { drag } from 'd3-drag';
 
+const formatIpWithPort = (ip, port) => !ip ? 'N/A' : (port != null && port !== '' && String(port).trim() !== '' ? `${ip} #${port}` : ip);
+
 const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId }) => {
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId || '');
@@ -118,7 +120,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             const otherNodes = validDevices.filter(d => d.id !== savedGateway.id).map(d => ({
                 id: d.id,
                 type: mapDeviceType(d),
-                label: d.hostname || d.ip_address,
+                label: d.hostname || formatIpWithPort(d.ip_address, d.port),
                 ip: d.ip_address,
                 status: d.status,
                 details: d,
@@ -157,7 +159,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             const deviceNodes = validDevices.map(d => ({
                 id: d.id,
                 type: mapDeviceType(d),
-                label: d.hostname || d.ip_address,
+                label: d.hostname || formatIpWithPort(d.ip_address, d.port),
                 ip: d.ip_address,
                 status: d.status,
                 details: d,
@@ -500,9 +502,11 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         }
     };
 
-    const getNodeColor = (status) => {
-        if (status === 'offline') return 'bg-red-500 border-red-700';
-        if (status === 'warning') return 'bg-orange-500 border-orange-700';
+    const getNodeColor = (node) => {
+        const isParent = links.some(l => (typeof l.source === 'object' ? l.source.id : l.source) === node.id);
+        if (isParent) return 'bg-blue-500 border-blue-700';
+        if (node.status === 'offline') return 'bg-red-500 border-red-700';
+        if (node.status === 'warning') return 'bg-orange-500 border-orange-700';
         return 'bg-green-500 border-green-700';
     };
 
@@ -663,7 +667,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                             }}
                         >
                             {/* Cerchio Icona */}
-                            <div className={`w-full h-full rounded-full flex items-center justify-center shadow-lg border-2 ${getNodeColor(node.status)} ${selectedNode?.id === node.id ? 'ring-4 ring-blue-300' : ''} bg-white z-10 hover:scale-110 transition-transform`}>
+                            <div className={`w-full h-full rounded-full flex items-center justify-center shadow-lg border-2 ${getNodeColor(node)} ${selectedNode?.id === node.id ? 'ring-4 ring-blue-300' : ''} bg-white z-10 hover:scale-110 transition-transform`}>
                                 {drawIcon(node.type)}
                             </div>
 
@@ -689,8 +693,48 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                     <div className="space-y-3 text-sm">
                         <div className="flex justify-between border-b pb-2">
                             <span className="text-gray-500">IP:</span>
-                            <span className="font-mono font-medium">{selectedNode.ip || 'N/A'}</span>
+                            <span className="font-mono font-medium">{formatIpWithPort(selectedNode.ip, selectedNode.details?.port)}</span>
                         </div>
+                        {selectedNode.id !== 'router' && (
+                            <div className="flex justify-between items-center border-b pb-2 gap-2">
+                                <span className="text-gray-500">Port:</span>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={65535}
+                                    placeholder="vuoto"
+                                    className="border border-gray-300 rounded px-2 py-1 w-24 text-right font-mono text-sm"
+                                    value={selectedNode.details?.port ?? ''}
+                                    onBlur={async (e) => {
+                                        const raw = e.target.value.trim();
+                                        const v = raw === '' ? null : parseInt(raw, 10);
+                                        if (v !== null && (isNaN(v) || v < 1 || v > 65535)) return;
+                                        try {
+                                            const res = await fetch(buildApiUrl(`/api/network-monitoring/devices/${selectedNode.id}/port`), {
+                                                method: 'PATCH',
+                                                headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ port: v })
+                                            });
+                                            if (!res.ok) return;
+                                            const updated = await res.json();
+                                            const newPort = updated.port;
+                                            setSelectedNode(prev => prev ? { ...prev, details: { ...prev.details, port: newPort } } : null);
+                                            const simNodes = simulationRef.current?.nodes() || [];
+                                            const n = simNodes.find(x => x.id === selectedNode.id);
+                                            if (n) {
+                                                n.details = { ...n.details, port: newPort };
+                                                n.label = (n.details?.hostname || formatIpWithPort(n.ip, newPort)) || n.label;
+                                                setNodes([...simNodes]);
+                                            }
+                                        } catch (_) {}
+                                    }}
+                                    onChange={(e) => {
+                                        const v = e.target.value;
+                                        setSelectedNode(prev => prev ? { ...prev, details: { ...prev.details, port: v === '' ? null : parseInt(v, 10) || null } } : null);
+                                    }}
+                                />
+                            </div>
+                        )}
                         <div className="flex justify-between border-b pb-2">
                             <span className="text-gray-500">Status:</span>
                             <span className={`font-bold ${selectedNode.status === 'online' ? 'text-green-600' : 'text-red-600'}`}>

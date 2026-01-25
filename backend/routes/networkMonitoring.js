@@ -2056,6 +2056,10 @@ module.exports = (pool, io) => {
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS parent_device_id INTEGER REFERENCES network_devices(id) ON DELETE SET NULL;
         `);
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS port INTEGER;
+        `);
       } catch (migrationErr) {
         // Ignora errore se colonna esiste già
         if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
@@ -2130,7 +2134,7 @@ module.exports = (pool, io) => {
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
-          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id,
+          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
@@ -2397,6 +2401,10 @@ module.exports = (pool, io) => {
         await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS is_gateway BOOLEAN DEFAULT false;
+        `);
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS port INTEGER;
         `);
       } catch (migrationErr) {
         // Ignora errore se colonna esiste già
@@ -4022,6 +4030,28 @@ pause
       res.json(result.rows[0]);
     } catch (err) {
       console.error('❌ Errore aggiornamento tipo dispositivo:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // PATCH /api/network-monitoring/devices/:id/port
+  // Imposta Port (mostrato come IP #port in topologia)
+  router.patch('/devices/:id/port', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      const { id } = req.params;
+      let { port } = req.body;
+      if (port === '' || port === undefined) port = null;
+      else {
+        port = parseInt(port, 10);
+        if (isNaN(port) || port < 1 || port > 65535) port = null;
+      }
+      const deviceCheck = await pool.query('SELECT id FROM network_devices WHERE id = $1', [id]);
+      if (deviceCheck.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato' });
+      const result = await pool.query('UPDATE network_devices SET port = $1 WHERE id = $2 RETURNING id, ip_address, port', [port, id]);
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error('❌ Errore aggiornamento port:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });
