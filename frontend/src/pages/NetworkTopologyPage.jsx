@@ -255,50 +255,62 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
     const handlePromoteToGateway = (nodeToPromote) => {
         if (!nodeToPromote || nodeToPromote.id === 'router') return;
 
-        // 1. Rimuovi il vecchio router (non serve più, era un placeholder)
-        // 2. Rimuovi il nodo che sta per diventare router dalla lista dei nodi normali
-        const newNodes = nodes.filter(n => n.id !== nodeToPromote.id && n.id !== 'router');
+        // 1. Ferma la simulazione attuale per evitare errori durante l'aggiornamento
+        simulationRef.current.stop();
 
-        // 3. Crea il nuovo nodo router basato su quello promosso
+        // 2. Crea NUOVI array per nodi e link per garantire immutabilità e pulizia
+        const newNodes = nodes
+            .filter(n => n.id !== nodeToPromote.id && n.id !== 'router')
+            .map(n => ({ ...n })); // Deep copy parziale (shallow copy dell'oggetto nodo)
+
+        // 3. Crea il nuovo nodo router
         const promotedNode = {
             ...nodeToPromote,
-            id: 'router', // Prende l'ID speciale del router
-            type: 'router', // Assume icona router
+            id: 'router',
+            type: 'router',
             label: `${nodeToPromote.label} (GW)`,
-            fx: 0, fy: 0, // Fissa al centro
-            x: 0, y: 0
+            fx: 0, fy: 0,
+            x: 0, y: 0,
+            vx: 0, vy: 0 // Reset velocità
         };
 
-        // Aggiungi il nuovo router alla lista
         newNodes.push(promotedNode);
 
-        // 4. Aggiorna i link
-        // - Tutti i link che puntavano a 'router' ora puntano (correttamente) al nuovo 'router' (nessuna modifica necessaria agli ID)
-        // - Tutti i link che puntavano a 'nodeToPromote' ora devono puntare a 'router' (perché l'ID è cambiato)
+        // 4. Ricostruisci i link DA ZERO usando gli ID stringa originali
+        // D3 trasforma source/target in oggetti, quindi dobbiamo estrarre gli ID o usare i dati originali se disponibili.
+        // Qui rigeneriamo i link puliti.
         const newLinks = links.map(link => {
             const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
             const targetId = typeof link.target === 'object' ? link.target.id : link.target;
 
-            // Se il link era connesso al nodo promosso, aggiorniamo l'estremità a 'router'
-            if (sourceId === nodeToPromote.id) return { ...link, source: 'router' };
-            if (targetId === nodeToPromote.id) return { ...link, target: 'router' };
+            let newSource = sourceId;
+            let newTarget = targetId;
 
-            return link;
-        }).filter(link => {
-            // Rimuovi eventuali self-loop (es. link tra vecchio router e nodo promosso, che ora sono lo stesso nodo 'router')
-            const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
-            const targetId = typeof link.target === 'object' ? link.target.id : link.target;
-            return sourceId !== targetId;
-        });
+            // Riemappa gli ID
+            if (sourceId === nodeToPromote.id) newSource = 'router';
+            if (targetId === nodeToPromote.id) newTarget = 'router';
 
+            // Se puntava al vecchio router (che ora è eliminato), puntiamo al nuovo router?
+            // O eliminiamo il link? Se il vecchio router è sparito, i suoi link devono sparire o essere rediretti.
+            // Dato che il vecchio router era il centro stella, tutti i suoi link (verso i device)
+            // devono ora partire dal NUOVO router.
+            if (sourceId === 'router') newSource = 'router';
+            if (targetId === 'router') newTarget = 'router';
+
+            return { source: newSource, target: newTarget };
+        }).filter(link => link.source !== link.target); // Rimuovi self-loops
+
+        // 5. Aggiorna stato e simulazione
         setNodes(newNodes);
         setLinks(newLinks);
 
+        // Re-inizializza la simulazione con i nuovi dati
+        // Nota: D3 vuole oggetti freschi se gli ID sono cambiati in modo strutturale
         simulationRef.current.nodes(newNodes);
         simulationRef.current.force("link").links(newLinks);
-        simulationRef.current.alpha(0.8).restart();
+        simulationRef.current.alpha(1).restart();
 
-        setSelectedNode(null); // Chiudi sidebar
+        setSelectedNode(null);
     };
 
 
