@@ -42,6 +42,11 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
           setShowQuickActions(false);
           setExpandedAction(null);
         }
+      } else if (action === 'networkMap') {
+        // Triggera evento custom per aprire la mappa da App.jsx
+        window.dispatchEvent(new CustomEvent('open-network-map'));
+        setShowQuickActions(false);
+        setExpandedAction(null);
       }
       setShowQuickActions(false);
       setExpandedAction(null);
@@ -133,6 +138,14 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       color: 'cyan',
       visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openNetworkMonitoring,
       onClick: () => handleQuickActionClick('networkMonitoring')
+    },
+    {
+      id: 'networkMap',
+      label: 'Mappa Rete',
+      icon: Activity,
+      color: 'purple',
+      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openNetworkMonitoring, // Usa permessi simili al monitoring
+      onClick: () => handleQuickActionClick('networkMap')
     },
     {
       id: 'progetti',

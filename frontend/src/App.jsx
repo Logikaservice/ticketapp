@@ -31,6 +31,7 @@ import VivaldiManager from './components/VivaldiManager';
 import PackVisionWithAuth from './components/PackVisionWithAuth';
 import PackVision from './components/PackVision';
 import NetworkMonitoringDashboard from './components/NetworkMonitoringDashboard';
+import NetworkTopologyPage from './pages/NetworkTopologyPage';
 import PingTerminalPage from './pages/PingTerminalPage';
 import { buildApiUrl } from './utils/apiConfig';
 
@@ -2954,10 +2955,10 @@ export default function TicketApp() {
           </div>
         )}
 
-        {!showDashboard && !showOrariTurni && !showVivaldi && !showPackVision && !showNetworkMonitoring && (
+        {!showDashboard && !showOrariTurni && !showVivaldi && !showPackVision && !showNetworkMonitoring && !showNetworkMap && (
           <div
             className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200"
-            onClick={() => { setShowDashboard(true); }}
+            onClick={() => { setShowDashboard(true); setShowNetworkMap(false); }}
           >
             Torna alla Dashboard
           </div>
@@ -3008,6 +3009,15 @@ export default function TicketApp() {
               </div>
             </div>
           )
+        )}
+
+
+
+        {showNetworkMap && (
+          <NetworkTopologyPage
+            onClose={() => { setShowNetworkMap(false); setShowDashboard(true); }}
+            getAuthHeader={getAuthHeader}
+          />
         )}
 
         <main className="mx-auto px-4 py-6 max-w-7xl">
