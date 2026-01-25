@@ -251,66 +251,45 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         setLastMousePos({ x: e.clientX, y: e.clientY });
     };
 
-    // Promuovi un nodo a Gateway
+    // Promuovi un nodo a Gateway (Eliminando il vecchio placeholder)
     const handlePromoteToGateway = (nodeToPromote) => {
         if (!nodeToPromote || nodeToPromote.id === 'router') return;
 
-        // 1. Trova il nodo attuale "router" e trasformalo in un nodo normale
-        const oldRouter = nodes.find(n => n.id === 'router');
+        // 1. Rimuovi il vecchio router (non serve più, era un placeholder)
+        // 2. Rimuovi il nodo che sta per diventare router dalla lista dei nodi normali
         const newNodes = nodes.filter(n => n.id !== nodeToPromote.id && n.id !== 'router');
 
-        // Il vecchio router diventa un nodo normale (preserva le sue proprietà se le aveva, o diventa un generic router)
-        const demotedRouter = {
-            ...oldRouter,
-            id: `device-${Date.now()}`, // Nuovo ID univoco
-            type: 'router', // Rimane icona router
-            x: nodeToPromote.x, // Scambia posizione visiva per transizione fluida
-            y: nodeToPromote.y,
-            fx: null, fy: null, // Sblocca posizione
-            label: 'Old Gateway'
-        };
-
-        // Il nodo promosso diventa il nuovo 'router'
+        // 3. Crea il nuovo nodo router basato su quello promosso
         const promotedNode = {
             ...nodeToPromote,
-            id: 'router',
-            type: 'router', // Assume icona router? O mantiene la sua? Manteniamo la sua per ora, o forziamo router?
-            // Meglio mantenere il tipo originale ma con label Gateway? O icona Gateway speciale?
-            // Per ora forziamo type=router per evidenziarlo graficamente come centro stella
-            // type: 'router', 
+            id: 'router', // Prende l'ID speciale del router
+            type: 'router', // Assume icona router
             label: `${nodeToPromote.label} (GW)`,
             fx: 0, fy: 0, // Fissa al centro
             x: 0, y: 0
         };
 
-        // Aggiorna la lista nodi
-        newNodes.push(demotedRouter);
+        // Aggiungi il nuovo router alla lista
         newNodes.push(promotedNode);
 
-        // Aggiorna i link
+        // 4. Aggiorna i link
+        // - Tutti i link che puntavano a 'router' ora puntano (correttamente) al nuovo 'router' (nessuna modifica necessaria agli ID)
+        // - Tutti i link che puntavano a 'nodeToPromote' ora devono puntare a 'router' (perché l'ID è cambiato)
         const newLinks = links.map(link => {
             const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
             const targetId = typeof link.target === 'object' ? link.target.id : link.target;
 
-            if ((sourceId === 'router' && targetId === nodeToPromote.id) ||
-                (sourceId === nodeToPromote.id && targetId === 'router')) {
-                return { source: 'router', target: demotedRouter.id };
-            }
-
+            // Se il link era connesso al nodo promosso, aggiorniamo l'estremità a 'router'
             if (sourceId === nodeToPromote.id) return { ...link, source: 'router' };
             if (targetId === nodeToPromote.id) return { ...link, target: 'router' };
 
             return link;
+        }).filter(link => {
+            // Rimuovi eventuali self-loop (es. link tra vecchio router e nodo promosso, che ora sono lo stesso nodo 'router')
+            const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+            const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+            return sourceId !== targetId;
         });
-
-        // Assicurati che il demotedRouter sia collegato
-        const linkExists = newLinks.find(l =>
-            (l.source === 'router' && l.target === demotedRouter.id) ||
-            (l.source === demotedRouter.id && l.target === 'router')
-        );
-        if (!linkExists) {
-            newLinks.push({ source: 'router', target: demotedRouter.id });
-        }
 
         setNodes(newNodes);
         setLinks(newLinks);
