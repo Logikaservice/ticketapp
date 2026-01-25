@@ -132,19 +132,19 @@ const PingTerminalPage = () => {
 [HKEY_CLASSES_ROOT\\pingtool\\shell\\open]
 
 [HKEY_CLASSES_ROOT\\pingtool\\shell\\open\\command]
-@="powershell -NoProfile -WindowStyle Hidden -Command \\"$ip = '%1'.Replace('pingtool:', '').Replace('/', ''); Start-Process cmd -ArgumentList ('/k ping ' + $ip + ' -t -w 1000')\\""
+@="powershell -NoProfile -WindowStyle Hidden -Command \\"$ip = '%1'.Replace('pingtool:', '').Replace('/', ''); Start-Process cmd -ArgumentList \\"/k ping $ip -t -w 1000\\"\\""
 `;
         const blob = new Blob([regContent], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'SetupPingLocale.reg';
+        a.download = 'SetupPingLocale_v2.reg';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        alert("1. Esegui il file 'SetupPingLocale.reg' scaricato.\n2. Conferma l'inserimento nel registro.\n3. Ora puoi usare 'Ping da Locale'!");
+        alert("1. Esegui il file 'SetupPingLocale_v2.reg' scaricato.\n2. Conferma l'inserimento nel registro.\n3. Ora puoi usare 'Ping da Locale'!");
     };
 
     const launchLocalPing = () => {
