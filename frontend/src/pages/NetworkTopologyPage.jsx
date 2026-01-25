@@ -355,8 +355,8 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                 onWheel={handleWheel}
                 style={{ cursor: isDraggingCanvas ? 'grabbing' : 'grab' }}
             >
-                {/* Background Grid Pattern */}
-                <div className="absolute -inset-[300%] pointer-events-none opacity-10" // Grid espansa oltre i bordi visibili
+                {/* Background Grid Pattern - Truly Infinite Feel */}
+                <div className="absolute -inset-[500%] pointer-events-none opacity-10" // Grid espansa enormemente
                     style={{
                         backgroundImage: 'radial-gradient(#9ca3af 1px, transparent 1px)',
                         backgroundSize: `${20 * scale}px ${20 * scale}px`,
