@@ -33,6 +33,8 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                     if (!selectedCompanyId && data.length > 0) {
                         setSelectedCompanyId(data[0].id);
                     }
+                } else {
+                    console.error("Errore fetch aziende:", response.status);
                 }
             } catch (err) {
                 console.error("Errore caricamento aziende:", err);
@@ -193,6 +195,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                         value={selectedCompanyId}
                         onChange={(e) => setSelectedCompanyId(e.target.value)}
                     >
+                        <option value="">Seleziona Azienda...</option>
                         {companies.map(c => (
                             <option key={c.id} value={c.id}>{c.azienda}</option>
                         ))}
@@ -235,6 +238,28 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                     <div className="absolute inset-0 flex items-center justify-center z-50 bg-white/50 backdrop-blur-sm">
                         <Loader className="w-8 h-8 animate-spin text-blue-600" />
                         <span className="ml-3 font-medium text-gray-700">Generazione mappa in corso...</span>
+                    </div>
+                )}
+
+                {/* Empty State: Nessuna azienda selezionata */}
+                {!selectedCompanyId && !loading && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="bg-white p-6 rounded-lg shadow-lg text-center border border-gray-200 backdrop-blur-sm bg-opacity-90">
+                            <Server size={48} className="mx-auto text-gray-300 mb-2" />
+                            <h3 className="text-lg font-bold text-gray-700">Seleziona un'azienda</h3>
+                            <p className="text-gray-500 text-sm">Scegli un'azienda dal menu in alto per visualizzare la mappa.</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Empty State: Nessun dispositivo trovato */}
+                {selectedCompanyId && !loading && nodes.length <= 1 && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="bg-white p-6 rounded-lg shadow-lg text-center border border-gray-200 backdrop-blur-sm bg-opacity-90">
+                            <WifiOff size={48} className="mx-auto text-gray-300 mb-2" />
+                            <h3 className="text-lg font-bold text-gray-700">Nessun dispositivo rilevato</h3>
+                            <p className="text-gray-500 text-sm">Non ci sono dati di monitoraggio recenti per questa azienda.</p>
+                        </div>
                     </div>
                 )}
 

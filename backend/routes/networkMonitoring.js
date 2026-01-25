@@ -1993,6 +1993,27 @@ module.exports = (pool, io) => {
     }
   });
 
+  // GET /api/network-monitoring/clients
+  // Ottieni lista aziende che hanno almeno un agent attivo
+  router.get('/clients', authenticateToken, async (req, res) => {
+    try {
+      await ensureTables();
+
+      const result = await pool.query(`
+        SELECT DISTINCT u.id, u.azienda 
+        FROM network_agents na 
+        INNER JOIN users u ON na.azienda_id = u.id 
+        WHERE na.deleted_at IS NULL
+        ORDER BY u.azienda
+      `);
+
+      res.json(result.rows);
+    } catch (err) {
+      console.error('❌ Errore recupero clienti monitoring:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // GET /api/network-monitoring/clients/:aziendaId/devices
   // Ottieni lista dispositivi per un'azienda (per frontend)
   router.get('/clients/:aziendaId/devices', async (req, res) => {
