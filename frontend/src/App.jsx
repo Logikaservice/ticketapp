@@ -3221,6 +3221,7 @@ export default function TicketApp() {
       </div>
 
       <AllModals
+        modalState={modalState}
         closeModal={closeModal}
         closeEmptyDescriptionModal={closeEmptyDescriptionModal}
         handleUpdateSettings={handleUpdateSettings}
