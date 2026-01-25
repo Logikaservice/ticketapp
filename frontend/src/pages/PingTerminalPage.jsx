@@ -132,7 +132,7 @@ const PingTerminalPage = () => {
 [HKEY_CLASSES_ROOT\\pingtool\\shell\\open]
 
 [HKEY_CLASSES_ROOT\\pingtool\\shell\\open\\command]
-@="powershell -NoProfile -WindowStyle Hidden -Command \\"$ip = '%1'.Replace('pingtool:', '').Replace('/', ''); Start-Process cmd -ArgumentList '/k ping $ip -t -w 1000'\\""
+@="powershell -NoProfile -WindowStyle Hidden -Command \\"$ip = '%1'.Replace('pingtool:', '').Replace('/', ''); Start-Process cmd -ArgumentList ('/k ping ' + $ip + ' -t -w 1000')\\""
 `;
         const blob = new Blob([regContent], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
@@ -166,8 +166,8 @@ const PingTerminalPage = () => {
                     <button
                         onClick={() => status === 'running' ? stopPing() : startPing(ip)}
                         className={`p-2 rounded flex items-center gap-2 text-xs font-bold transition ${status === 'running'
-                                ? 'bg-red-900/50 text-red-400 hover:bg-red-900/80'
-                                : 'bg-green-900/50 text-green-400 hover:bg-green-900/80'
+                            ? 'bg-red-900/50 text-red-400 hover:bg-red-900/80'
+                            : 'bg-green-900/50 text-green-400 hover:bg-green-900/80'
                             }`}
                     >
                         {status === 'running' ? <PauseCircle size={16} /> : <PlayCircle size={16} />}
