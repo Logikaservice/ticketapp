@@ -253,6 +253,10 @@ export default function TicketApp() {
   const debugNewTickets = () => localStorage.getItem('debugNewTickets') === '1';
   const dbg = (...args) => { if (debugNewTickets()) { console.log('[NEW-TICKETS]', ...args); } };
 
+  if (isPingTerminalPage) {
+    return <PingTerminalPage />;
+  }
+
   // ====================================================================
   // NOTIFICHE
   // ====================================================================
@@ -3215,19 +3219,8 @@ export default function TicketApp() {
           )}
         </main>
       </div>
-      );
-  }
 
-      // Renderizzazione speciale per Ping Terminal Page (senza layout app)
-      if (isPingTerminalPage) {
-    return <PingTerminalPage />;
-  }
-
-      return (
-      <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
-        {/* Header sempre visibile tranne in modalità display PackVision e Orari */}
-        {!isOrariDomain && !isPackVisionDisplayMode && !isVivaldiDomain && (
-          modalState = { modalState }
+      <AllModals
         closeModal={closeModal}
         closeEmptyDescriptionModal={closeEmptyDescriptionModal}
         handleUpdateSettings={handleUpdateSettings}
@@ -3268,118 +3261,117 @@ export default function TicketApp() {
         alertsRefreshTrigger={alertsRefreshTrigger}
       />
 
-        {modalState.type === 'manageClients' && (
-          <ManageClientsModal
-            clienti={users.filter(u => u.ruolo === 'cliente')}
-            onClose={closeModal}
-            onUpdateClient={handleUpdateClient}
-            onDeleteClient={handleDeleteClient}
-            getAuthHeader={getAuthHeader}
-          />
-        )}
-
-        {modalState.type === 'newClient' && (
-          <NewClientModal
-            newClientData={newClientData}
-            setNewClientData={setNewClientData}
-            onClose={closeModal}
-            onSave={wrappedHandleCreateClient}
-            existingCompanies={existingCompanies}
-          />
-        )}
-
-        {modalState.type === 'newTicket' && (
-          <NewTicketModal
-            onClose={closeModal}
-            onSave={isEditingTicket ? wrappedHandleUpdateTicket : wrappedHandleCreateTicket}
-            newTicketData={newTicketData}
-            setNewTicketData={setNewTicketData}
-            isEditingTicket={isEditingTicket}
-            currentUser={currentUser}
-            clientiAttivi={users.filter(u => u.ruolo === 'cliente')}
-            selectedClientForNewTicket={selectedClientForNewTicket}
-            setSelectedClientForNewTicket={setSelectedClientForNewTicket}
-            editingTicket={isEditingTicket ? tickets.find(t => t.id === isEditingTicket) || modalState.data : null}
-          />
-        )}
-
-        {modalState.type === 'inactivityTimer' && (
-          <InactivityTimerModal
-            closeModal={closeModal}
-            currentTimeout={inactivityTimeout}
-            onTimeoutChange={handleInactivityTimeoutChange}
-          />
-        )}
-
-        {fornitureModalTicket && (
-          <FornitureModal
-            ticket={fornitureModalTicket}
-            onClose={() => setFornitureModalTicket(null)}
-            onFornitureCountChange={handleFornitureCountChange}
-            currentUser={currentUser}
-            getAuthHeader={getAuthHeader}
-          />
-        )}
-
-        {showUnreadModal && (
-          <UnreadMessagesModal
-            tickets={tickets}
-            getUnreadCount={getUnreadCount}
-            onClose={() => setShowUnreadModal(false)}
-            onOpenTicket={handleOpenTicketFromModal}
-            currentUser={currentUser}
-          />
-        )}
-
-        {photosModalTicket && (
-          <TicketPhotosModal
-            ticket={photosModalTicket}
-            photos={photosModalTicket.photos || []}
-            onClose={() => {
-              // Aggiorna il ticket dal database prima di chiudere
-              const updatedTicket = tickets.find(t => t.id === photosModalTicket.id);
-              if (updatedTicket) {
-                setPhotosModalTicket(null);
-              } else {
-                setPhotosModalTicket(null);
-              }
-            }}
-            onUploadPhotos={handleUploadTicketPhotos}
-            onDeletePhoto={async (photoFilename) => {
-              const updatedPhotos = await handleDeleteTicketPhoto(photosModalTicket.id, photoFilename);
-              // Aggiorna il ticket nel modal
-              const updatedTicket = tickets.find(t => t.id === photosModalTicket.id);
-              if (updatedTicket) {
-                setPhotosModalTicket({ ...updatedTicket, photos: updatedPhotos });
-              }
-              return updatedPhotos;
-            }}
-            getAuthHeader={getAuthHeader}
-            currentUser={currentUser}
-          />
-        )}
-
-        {showContractModal && (
-          <ManageContractsModal
-            onClose={() => setShowContractModal(false)}
-            onSuccess={() => {
-              // Il contratto è stato creato con successo
-              // I contratti vengono ricaricati automaticamente quando necessario
-              // (ad esempio nella Dashboard quando si ricarica la pagina)
-            }}
-            notify={notify}
-            getAuthHeader={getAuthHeader}
-          />
-        )}
-
-        {showContractsListModal && (
-          <ContractsListModal
-            onClose={() => setShowContractsListModal(false)}
-            getAuthHeader={getAuthHeader}
-            notify={notify}
-          />
-        )}
+      {modalState.type === 'manageClients' && (
+        <ManageClientsModal
+          clienti={users.filter(u => u.ruolo === 'cliente')}
+          onClose={closeModal}
+          onUpdateClient={handleUpdateClient}
+          onDeleteClient={handleDeleteClient}
+          getAuthHeader={getAuthHeader}
+        />
       )}
-      </div>
-      );
+
+      {modalState.type === 'newClient' && (
+        <NewClientModal
+          newClientData={newClientData}
+          setNewClientData={setNewClientData}
+          onClose={closeModal}
+          onSave={wrappedHandleCreateClient}
+          existingCompanies={existingCompanies}
+        />
+      )}
+
+      {modalState.type === 'newTicket' && (
+        <NewTicketModal
+          onClose={closeModal}
+          onSave={isEditingTicket ? wrappedHandleUpdateTicket : wrappedHandleCreateTicket}
+          newTicketData={newTicketData}
+          setNewTicketData={setNewTicketData}
+          isEditingTicket={isEditingTicket}
+          currentUser={currentUser}
+          clientiAttivi={users.filter(u => u.ruolo === 'cliente')}
+          selectedClientForNewTicket={selectedClientForNewTicket}
+          setSelectedClientForNewTicket={setSelectedClientForNewTicket}
+          editingTicket={isEditingTicket ? tickets.find(t => t.id === isEditingTicket) || modalState.data : null}
+        />
+      )}
+
+      {modalState.type === 'inactivityTimer' && (
+        <InactivityTimerModal
+          closeModal={closeModal}
+          currentTimeout={inactivityTimeout}
+          onTimeoutChange={handleInactivityTimeoutChange}
+        />
+      )}
+
+      {fornitureModalTicket && (
+        <FornitureModal
+          ticket={fornitureModalTicket}
+          onClose={() => setFornitureModalTicket(null)}
+          onFornitureCountChange={handleFornitureCountChange}
+          currentUser={currentUser}
+          getAuthHeader={getAuthHeader}
+        />
+      )}
+
+      {showUnreadModal && (
+        <UnreadMessagesModal
+          tickets={tickets}
+          getUnreadCount={getUnreadCount}
+          onClose={() => setShowUnreadModal(false)}
+          onOpenTicket={handleOpenTicketFromModal}
+          currentUser={currentUser}
+        />
+      )}
+
+      {photosModalTicket && (
+        <TicketPhotosModal
+          ticket={photosModalTicket}
+          photos={photosModalTicket.photos || []}
+          onClose={() => {
+            // Aggiorna il ticket dal database prima di chiudere
+            const updatedTicket = tickets.find(t => t.id === photosModalTicket.id);
+            if (updatedTicket) {
+              setPhotosModalTicket(null);
+            } else {
+              setPhotosModalTicket(null);
+            }
+          }}
+          onUploadPhotos={handleUploadTicketPhotos}
+          onDeletePhoto={async (photoFilename) => {
+            const updatedPhotos = await handleDeleteTicketPhoto(photosModalTicket.id, photoFilename);
+            // Aggiorna il ticket nel modal
+            const updatedTicket = tickets.find(t => t.id === photosModalTicket.id);
+            if (updatedTicket) {
+              setPhotosModalTicket({ ...updatedTicket, photos: updatedPhotos });
+            }
+            return updatedPhotos;
+          }}
+          getAuthHeader={getAuthHeader}
+          currentUser={currentUser}
+        />
+      )}
+
+      {showContractModal && (
+        <ManageContractsModal
+          onClose={() => setShowContractModal(false)}
+          onSuccess={() => {
+            // Il contratto è stato creato con successo
+            // I contratti vengono ricaricati automaticamente quando necessario
+            // (ad esempio nella Dashboard quando si ricarica la pagina)
+          }}
+          notify={notify}
+          getAuthHeader={getAuthHeader}
+        />
+      )}
+
+      {showContractsListModal && (
+        <ContractsListModal
+          onClose={() => setShowContractsListModal(false)}
+          getAuthHeader={getAuthHeader}
+          notify={notify}
+        />
+      )}
+    </div>
+  );
 }
