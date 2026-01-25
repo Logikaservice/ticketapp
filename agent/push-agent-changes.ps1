@@ -10,9 +10,9 @@ if (Test-Path .git\index.lock) {
     Start-Sleep -Milliseconds 500
 }
 
-git add agent/NetworkMonitorService.ps1 agent/Find-BadChars.ps1 agent/Fix-Quotes.ps1 agent/Fix-WriteLog-Expand.ps1 agent/Parse-Range.ps1 agent/Test-Parse.ps1 agent/push-agent-changes.ps1 backend/routes/networkMonitoring.js .cursorrules
+git add agent/NetworkMonitorService.ps1 agent/Find-BadChars.ps1 agent/Fix-Quotes.ps1 agent/Fix-WriteLog-Expand.ps1 agent/Parse-Range.ps1 agent/Test-Parse.ps1 agent/push-agent-changes.ps1 agent/DIAGNOSTICA_VPS_OFFLINE_E_SNMP.md backend/routes/networkMonitoring.js .cursorrules
 git status
-git commit -m "fix(agent): correzioni parse NetworkMonitorService, Fix-Quotes, script test/utilita"
+git commit -m "fix(agent): ripristino NetworkMonitorService.ps1 da 2.5.9, fix parse bytes/INFO, v2.6.0, guida diagnostica VPS/SNMP"
 git push
 
 Write-Host "Push completato."
