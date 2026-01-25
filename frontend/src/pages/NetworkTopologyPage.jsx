@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     ArrowLeft, Search, Filter, ZoomIn, ZoomOut, Loader,
     Server, Monitor, Printer, Wifi, Maximize, Router,
-    AlertTriangle, CheckCircle, WifiOff, X, Move
+    AlertTriangle, CheckCircle, WifiOff, X, Move, RotateCw
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import * as d3 from 'd3-force';
@@ -209,6 +209,19 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         simulationRef.current.nodes(newNodes);
         simulationRef.current.force("link").links(newLinks);
         simulationRef.current.alpha(0.5).restart();
+        simulationRef.current.alpha(0.5).restart();
+    };
+
+    // Refresh Layout (Ricalcola posizioni e centra)
+    const handleRefreshLayout = () => {
+        if (!simulationRef.current) return;
+
+        // Risveglia la simulazione con "energia" alta in modo che i nodi si riposizionino
+        simulationRef.current.alpha(1).restart();
+
+        // Opzionale: Resetta anche zoom/pan se l'utente vuole un "reset totale"
+        // setScale(1);
+        // setOffset({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
     };
 
     // Gestione inizio collegamento (Set Parent)
@@ -406,6 +419,13 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                         onClick={handleAddVirtualNode}
                     >
                         <Server size={20} className="text-blue-600" />
+                    </button>
+                    <button
+                        className="bg-white p-2 rounded-lg shadow-md border border-gray-200 hover:bg-gray-50 flex items-center justify-center"
+                        title="Aggiorna Layout (Riposiziona nodi)"
+                        onClick={handleRefreshLayout}
+                    >
+                        <RotateCw size={20} className="text-gray-600" />
                     </button>
                 </div>
             )}
