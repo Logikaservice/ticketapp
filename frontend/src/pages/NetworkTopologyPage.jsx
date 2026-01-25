@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     ArrowLeft, Search, Filter, ZoomIn, ZoomOut, Loader,
     Server, Server as ServerIcon, Monitor, Printer, Wifi, Maximize, Router,
-    AlertTriangle, CheckCircle, WifiOff, X, Move, RotateCw, Link
+    AlertTriangle, CheckCircle, WifiOff, X, Move, RotateCw, Link,
+    Cable, Plus, Trash2, RefreshCw
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import * as d3 from 'd3-force';
@@ -31,6 +32,16 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
     const [isAssociateModalOpen, setIsAssociateModalOpen] = useState(false);
     const [associateIp, setAssociateIp] = useState('');
     const svgRef = useRef(null);
+    const canvasContainerRef = useRef(null);
+    const [dragDropAssociate, setDragDropAssociate] = useState(null); // { childNode, parentNode } quando si rilascia un nodo su un altro
+    const offsetRef = useRef(offset);
+    const scaleRef = useRef(scale);
+    // Dispositivi gestiti (switch SNMP) per topologia
+    const [showManagedPanel, setShowManagedPanel] = useState(false);
+    const [managedSwitches, setManagedSwitches] = useState([]);
+    const [managedAdd, setManagedAdd] = useState({ ip: '', snmp_community: 'public', name: '' });
+    const [syncLoadingId, setSyncLoadingId] = useState(null);
+    const [refreshDevicesKey, setRefreshDevicesKey] = useState(0);
 
     // Carica le aziende al mount
     useEffect(() => {
@@ -80,6 +91,19 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         };
 
         fetchDevices();
+    }, [selectedCompanyId, refreshDevicesKey]);
+
+    // Carica dispositivi gestiti (switch SNMP) per l'azienda
+    useEffect(() => {
+        if (!selectedCompanyId) { setManagedSwitches([]); return; }
+        const fn = async () => {
+            try {
+                const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/managed-switches`), { headers: getAuthHeader() });
+                if (res.ok) setManagedSwitches(await res.json());
+                else setManagedSwitches([]);
+            } catch { setManagedSwitches([]); }
+        };
+        fn();
     }, [selectedCompanyId]);
 
     // Inizializza il layout Force-Directed
@@ -211,6 +235,34 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         };
     }, []);
 
+    // Blocca scroll della pagina: niente scrollbar né spazio bianco; solo pan/zoom nell'area mappa
+    useEffect(() => {
+        const prevBody = document.body.style.overflow;
+        const prevHtml = document.documentElement.style.overflow;
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = prevBody;
+            document.documentElement.style.overflow = prevHtml;
+        };
+    }, []);
+
+    // Rotella solo per zoom: passive:false necessario per preventDefault (blocca scroll pagina)
+    useEffect(() => {
+        const el = canvasContainerRef.current;
+        if (!el) return;
+        const handler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setScale(s => Math.min(Math.max(0.1, s - e.deltaY * 0.001), 4));
+        };
+        el.addEventListener('wheel', handler, { passive: false });
+        return () => el.removeEventListener('wheel', handler);
+    }, []);
+
+    useEffect(() => { offsetRef.current = offset; }, [offset]);
+    useEffect(() => { scaleRef.current = scale; }, [scale]);
+
     // Gestione Drag & Drop dei nodi (D3 integration)
     const handleNodeMouseDown = (e, node) => {
         e.stopPropagation();
@@ -218,24 +270,42 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
 
         const simulation = simulationRef.current;
 
-        // Blocca il nodo durante il trascinamento
+        // Blocca il nodo durante il trascinamento — coordinate corrette: viewport → scena (canvas + pan + zoom)
         const handleDrag = (event) => {
-            // Converti coordinate mouse -> coordinate canvas (tenendo conto di scale e offset)
-            // Nota: event.clientX è relativo alla finestra
-            const canvasX = (event.clientX - offset.x) / scale;
-            const canvasY = (event.clientY - offset.y) / scale;
+            const rect = canvasContainerRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            const o = offsetRef.current || { x: 0, y: 0 };
+            const s = scaleRef.current ?? 1;
+            const sceneX = (event.clientX - rect.left - o.x) / s;
+            const sceneY = (event.clientY - rect.top - o.y) / s;
 
-            node.fx = canvasX;
-            node.fy = canvasY;
-            simulation.alpha(0.3).restart(); // Risveglia la simulazione
+            node.fx = sceneX;
+            node.fy = sceneY;
+            node.x = sceneX;
+            node.y = sceneY;
+            simulation.alpha(0.3).restart();
         };
 
-        const handleDragEnd = () => {
-            if (!event.active) simulation.alphaTarget(0);
-            node.fx = null; // Rilascia il nodo (torna alla fisica)
+        const handleDragEnd = (ev) => {
+            node.fx = null;
             node.fy = null;
             window.removeEventListener('mousemove', handleDrag);
             window.removeEventListener('mouseup', handleDragEnd);
+
+            // Rilasciato sopra un altro nodo? Chiedi se associare (impostare come genitore)
+            if (node.id === 'router') return;
+            const rect = canvasContainerRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            const o = offsetRef.current || { x: 0, y: 0 };
+            const s = scaleRef.current ?? 1;
+            const sceneX = (ev.clientX - rect.left - o.x) / s;
+            const sceneY = (ev.clientY - rect.top - o.y) / s;
+            const simNodes = simulationRef.current?.nodes() || [];
+            const R = 55; // raggio “sopra il pallino” in coordinate scena (nodo ≈ 24–30)
+            const targetNode = simNodes.find(n => n.id !== node.id && Math.hypot(sceneX - n.x, sceneY - n.y) < R);
+            if (targetNode) {
+                setDragDropAssociate({ childNode: node, parentNode: targetNode });
+            }
         };
 
         window.addEventListener('mousemove', handleDrag);
@@ -248,6 +318,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         if (type.includes('printer') || type.includes('stampante')) return 'printer';
         if (type.includes('server') || type.includes('nas')) return 'server';
         if (type.includes('wifi') || type.includes('access point') || type.includes('ap')) return 'wifi';
+        if (type.includes('switch')) return 'unmanaged_switch';
         return 'pc';
     };
 
@@ -468,7 +539,49 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         }
     };
 
+    // Conferma associazione da trascinamento: nodo rilasciato su un altro
+    const handleConfirmDragDropAssociate = async () => {
+        const { childNode, parentNode } = dragDropAssociate || {};
+        if (!childNode || !parentNode) {
+            setDragDropAssociate(null);
+            return;
+        }
 
+        // Aggiorna i link: rimuovi il vecchio link del child, aggiungi parent -> child
+        setLinks(prev => {
+            const next = prev.filter(l => {
+                const tid = typeof l.target === 'object' ? l.target.id : l.target;
+                return tid !== childNode.id;
+            });
+            next.push({ source: parentNode.id, target: childNode.id });
+            if (simulationRef.current) {
+                simulationRef.current.force("link").links(next);
+                simulationRef.current.alpha(0.3).restart();
+            }
+            return next;
+        });
+
+        const parentIp = (parentNode.ip || parentNode.details?.ip_address || '').toString().trim();
+        const canCallApi = parentIp && childNode.id !== 'router' && !String(childNode.id).startsWith('virtual-');
+        if (canCallApi) {
+            try {
+                const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/set-parent/${childNode.id}`), {
+                    method: 'PUT',
+                    headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ parentIp })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    alert(`Errore: ${err.error || 'Impossibile associare'}`);
+                }
+            } catch (e) {
+                console.error("Errore API set-parent:", e);
+                alert("Errore di connessione al server.");
+            }
+        }
+
+        setDragDropAssociate(null);
+    };
 
     // Canvas panning
 
@@ -485,10 +598,50 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         setIsDraggingCanvas(false);
     };
 
-    const handleWheel = (e) => {
-        e.preventDefault();
-        const newScale = Math.min(Math.max(0.1, scale - e.deltaY * 0.001), 4);
-        setScale(newScale);
+    // Dispositivi gestiti: aggiungi switch SNMP
+    const handleManagedAdd = async () => {
+        const ip = (managedAdd.ip || '').trim();
+        if (!ip) { alert('Inserisci l\'IP dello switch'); return; }
+        try {
+            const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/managed-switches`), {
+                method: 'POST',
+                headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ip, snmp_community: managedAdd.snmp_community || 'public', name: managedAdd.name || null })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) { alert(data.error || 'Errore'); return; }
+            setManagedAdd({ ip: '', snmp_community: 'public', name: '' });
+            setManagedSwitches(prev => [...prev, data]);
+        } catch (e) {
+            alert('Errore di connessione');
+        }
+    };
+
+    // Dispositivi gestiti: rimuovi
+    const handleManagedDelete = async (id) => {
+        if (!confirm('Rimuovere questo dispositivo gestito?')) return;
+        try {
+            const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/managed-switches/${id}`), { method: 'DELETE', headers: getAuthHeader() });
+            if (res.ok) setManagedSwitches(prev => prev.filter(m => m.id !== id));
+            else { const d = await res.json().catch(() => ({})); alert(d.error || 'Errore'); }
+        } catch (e) { alert('Errore di connessione'); }
+    };
+
+    // Dispositivi gestiti: sincronizza (SNMP eseguito dall'agent in locale → parent+port)
+    const handleManagedSync = async (id) => {
+        setSyncLoadingId(id);
+        try {
+            const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/managed-switches/${id}/sync`), { method: 'POST', headers: getAuthHeader() });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) { alert(data.error || 'Errore durante la sincronizzazione'); return; }
+            setRefreshDevicesKey(k => k + 1);
+            if (data.message) {
+                alert(data.message);
+            } else {
+                alert(`Sincronizzazione OK: ${data.macs_matched} dispositivi associati allo switch (${data.macs_found} MAC letti).`);
+            }
+        } catch (e) { alert('Errore di connessione'); }
+        finally { setSyncLoadingId(null); }
     };
 
     const drawIcon = (type) => {
@@ -572,17 +725,55 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                     >
                         <RotateCw size={20} className="text-gray-600" />
                     </button>
+                    <button
+                        className={`p-2 rounded-lg shadow-md border flex items-center justify-center ${showManagedPanel ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
+                        title="Dispositivi gestiti (Switch SNMP)"
+                        onClick={() => setShowManagedPanel(v => !v)}
+                    >
+                        <Cable size={20} className="text-indigo-600" />
+                    </button>
+
+                    {/* Panel Dispositivi gestiti: switch SNMP per leggere MAC e associare parent+porta */}
+                    {showManagedPanel && (
+                        <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-80 max-h-[70vh] overflow-y-auto">
+                            <div className="flex justify-between items-center mb-3">
+                                <h4 className="font-bold text-gray-800 text-sm">Dispositivi gestiti (SNMP)</h4>
+                                <button onClick={() => setShowManagedPanel(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+                            </div>
+                            <p className="text-xs text-gray-500 mb-3">Aggiungi switch (es. Netgear GS728TP). Sincronizza per leggere la tabella MAC e collegare i dispositivi.</p>
+
+                            <div className="space-y-2 mb-4">
+                                <input placeholder="IP (es. 192.168.1.1)" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" value={managedAdd.ip} onChange={e => setManagedAdd(a => ({ ...a, ip: e.target.value }))} />
+                                <input placeholder="Community SNMP" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" value={managedAdd.snmp_community} onChange={e => setManagedAdd(a => ({ ...a, snmp_community: e.target.value }))} />
+                                <input placeholder="Nome (opzionale)" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" value={managedAdd.name} onChange={e => setManagedAdd(a => ({ ...a, name: e.target.value }))} />
+                                <button onClick={handleManagedAdd} className="w-full py-1.5 bg-indigo-600 text-white rounded text-sm font-medium flex items-center justify-center gap-1"><Plus size={16} /> Aggiungi</button>
+                            </div>
+
+                            <div className="border-t border-gray-200 pt-2 space-y-2">
+                                {managedSwitches.length === 0 && <p className="text-xs text-gray-400">Nessuno switch. Aggiungine uno sopra.</p>}
+                                {managedSwitches.map(m => (
+                                    <div key={m.id} className="flex items-center justify-between gap-2 py-1.5 border-b border-gray-100 last:border-0">
+                                        <span className="text-sm truncate font-mono" title={m.ip}>{m.name || m.ip}</span>
+                                        <div className="flex gap-1 shrink-0">
+                                            <button onClick={() => handleManagedSync(m.id)} disabled={syncLoadingId === m.id} className="p-1.5 rounded bg-green-50 text-green-700 hover:bg-green-100 disabled:opacity-50" title="Sincronizza (SNMP → parent+porta)">{syncLoadingId === m.id ? <Loader size={14} className="animate-spin" /> : <RefreshCw size={14} />}</button>
+                                            <button onClick={() => handleManagedDelete(m.id)} className="p-1.5 rounded bg-red-50 text-red-600 hover:bg-red-100" title="Rimuovi"><Trash2 size={14} /></button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
-            {/* Canvas Area Infinito */}
+            {/* Canvas Area Infinito: niente scroll pagina, solo pan e zoom qui dentro */}
             <div
-                className="flex-1 bg-gray-100 relative overflow-hidden cursor-move"
+                ref={canvasContainerRef}
+                className="flex-1 min-h-0 bg-gray-100 relative overflow-hidden cursor-move touch-none"
                 onMouseDown={handleCanvasMouseDown}
                 onMouseMove={handleCanvasMouseMove}
                 onMouseUp={handleCanvasMouseUp}
                 onMouseLeave={handleCanvasMouseUp}
-                onWheel={handleWheel}
                 style={{ cursor: isDraggingCanvas ? 'grabbing' : 'grab' }}
             >
                 {/* Background Grid Pattern - Truly Infinite Feel */}
@@ -818,6 +1009,33 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                                 className="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded font-medium"
                             >
                                 Conferma
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: trascina e rilascia un nodo su un altro — "Vuoi associare IP con IP?" */}
+            {dragDropAssociate && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[110]">
+                    <div className="bg-white rounded-lg shadow-xl p-6 w-96 animate-fadeIn">
+                        <h3 className="text-lg font-bold text-gray-800 mb-2">Associare come genitore?</h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Vuoi associare <strong className="font-mono">{formatIpWithPort(dragDropAssociate.childNode.ip, dragDropAssociate.childNode.details?.port)}</strong> con <strong className="font-mono">{formatIpWithPort(dragDropAssociate.parentNode.ip || dragDropAssociate.parentNode.details?.ip_address, dragDropAssociate.parentNode.details?.port)}</strong>?<br />
+                            <span className="text-gray-500">Il nodo <strong>{dragDropAssociate.parentNode.label}</strong> diventerà il genitore di <strong>{dragDropAssociate.childNode.label}</strong>.</span>
+                        </p>
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={() => setDragDropAssociate(null)}
+                                className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded"
+                            >
+                                Annulla
+                            </button>
+                            <button
+                                onClick={handleConfirmDragDropAssociate}
+                                className="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded font-medium"
+                            >
+                                Sì, associare
                             </button>
                         </div>
                     </div>

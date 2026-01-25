@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.5.6
+# Versione: 2.5.9
 # Data ultima modifica: 2026-01-22
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.5.8"
+$SCRIPT_VERSION = "2.5.9"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -1975,6 +1975,76 @@ function Send-ScanResults {
     }
 }
 
+# Sincronizza switch gestiti: l'agent (in locale, stessa LAN) esegue snmpwalk su dot1dTpFdbPort,
+# invia la tabella MAC->porta al backend. Il backend non puo' raggiungere IP privati (es. 192.168.x) dal VPS.
+function Sync-ManagedSwitchesSnmp {
+    param(
+        [string]$ServerUrl,
+        [string]$ApiKey
+    )
+    try {
+        $url = "$ServerUrl/api/network-monitoring/agent/managed-switches"
+        $headers = @{ "X-API-Key" = $ApiKey }
+        $list = Invoke-RestMethod -Uri $url -Method GET -Headers $headers -TimeoutSec 15 -ErrorAction Stop
+        if (-not $list -or ($list -is [Array] -and $list.Count -eq 0)) { return }
+        if (-not ($list -is [Array])) { $list = @($list) }
+
+        $snmpwalkExe = $null
+        try { $snmpwalkExe = (Get-Command snmpwalk -ErrorAction Stop).Source } catch { }
+        if (-not $snmpwalkExe -and (Test-Path "C:\Program Files\Net-SNMP\bin\snmpwalk.exe")) {
+            $snmpwalkExe = "C:\Program Files\Net-SNMP\bin\snmpwalk.exe"
+        }
+        if (-not $snmpwalkExe) {
+            Write-Log "snmpwalk non trovato (Net-SNMP); sync switch SNMP saltata" "WARN"
+            return
+        }
+
+        $baseOid = "1.3.6.1.2.1.17.4.3.1.2"
+        foreach ($s in $list) {
+            $id = $s.id
+            $ip = $s.ip
+            $community = if ($s.snmp_community) { $s.snmp_community } else { "public" }
+            try {
+                $out = & $snmpwalkExe -v 2c -c $community $ip $baseOid -On 2>&1
+                if (-not $out) { continue }
+                $lines = $out | Where-Object { $_ -match "=" }
+                $macToPort = @{}
+                foreach ($line in $lines) {
+                    if ($line -notmatch "^\s*\.?([\d.]+)\s*=\s*INTEGER:\s*(\d+)") { continue }
+                    $oid = $Matches[1]
+                    $port = [int]$Matches[2]
+                    if ($oid -notmatch "\.?$([regex]::Escape($baseOid))\.?(.*)$") { continue }
+                    $suffix = $Matches[2]
+                    $parts = @(); foreach ($p in ($suffix -split '\.')) { $n = 0; if ([int]::TryParse($p.Trim(), [ref]$n)) { $parts += $n } }
+                    if ($parts.Count -lt 6) { continue }
+                    $last6 = @($parts)[-6..-1]
+                    $mac = ($last6 | ForEach-Object { '{0:X2}' -f ($_ -band 0xFF) }) -join ''
+                    $mac = $mac.ToUpper()
+                    if ($mac.Length -eq 12) { $macToPort[$mac] = $port }
+                }
+                if ($macToPort.Count -eq 0) { continue }
+
+                $bodyObj = @{
+                    managed_switch_id = $id
+                    switch_ip         = $ip
+                    mac_to_port       = $macToPort
+                }
+                $body = $bodyObj | ConvertTo-Json -Depth 4 -Compress
+                $postUrl = "$ServerUrl/api/network-monitoring/agent/switch-address-table"
+                $postHeaders = @{ "Content-Type" = "application/json"; "X-API-Key" = $ApiKey }
+                $resp = Invoke-RestMethod -Uri $postUrl -Method POST -Headers $postHeaders -Body $body -TimeoutSec 15 -ErrorAction Stop
+                Write-Log "Sync switch SNMP $ip : $($resp.macs_matched) dispositivi associati ($($resp.macs_found) MAC letti)" "INFO"
+            }
+            catch {
+                Write-Log "Sync switch SNMP $ip fallito: $_" "WARN"
+            }
+        }
+    }
+    catch {
+        Write-Log "Errore Sync-ManagedSwitchesSnmp (GET managed-switches o altro): $_" "WARN"
+    }
+}
+
 function Get-ServerConfig {
     param(
         [string]$ServerUrl,
@@ -2627,6 +2697,14 @@ while ($script:isRunning) {
                     catch {
                         # Ignora errori
                     }
+                }
+
+                # Sync switch gestiti (SNMP in locale: agent sulla stessa LAN dello switch)
+                try {
+                    Sync-ManagedSwitchesSnmp -ServerUrl $config.server_url -ApiKey $config.api_key
+                }
+                catch {
+                    Write-Log "Errore sync switch SNMP: $_" "WARN"
                 }
                 
                 # 3. Aggiorna stato

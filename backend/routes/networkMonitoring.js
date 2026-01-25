@@ -528,6 +528,19 @@ module.exports = (pool, io) => {
           await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_ok BOOLEAN;`);
           await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_check_at TIMESTAMPTZ;`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;`);
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS managed_switches (
+              id SERIAL PRIMARY KEY,
+              azienda_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+              ip VARCHAR(45) NOT NULL,
+              snmp_community VARCHAR(128) DEFAULT 'public',
+              snmp_version VARCHAR(10) DEFAULT '2c',
+              name VARCHAR(255),
+              created_at TIMESTAMPTZ DEFAULT NOW(),
+              UNIQUE(azienda_id, ip)
+            );
+          `);
+          await pool.query(`CREATE INDEX IF NOT EXISTS idx_managed_switches_azienda ON managed_switches(azienda_id);`);
         } catch (migErr) {
           if (!migErr.message?.includes('does not exist')) {
             console.warn('⚠️ Migrazione colonne network_*:', migErr.message);
@@ -655,7 +668,7 @@ module.exports = (pool, io) => {
 
       // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
       // Serve per far capire all'installer quale versione dovrebbe risultare installata.
-      const CURRENT_AGENT_VERSION = '2.5.6'; // Versione di fallback
+      const CURRENT_AGENT_VERSION = '2.5.9'; // Versione di fallback (allineata a $SCRIPT_VERSION)
       let agentPackageVersion = CURRENT_AGENT_VERSION;
       try {
         const projectRoot = path.resolve(__dirname, '..', '..');
@@ -1029,6 +1042,92 @@ module.exports = (pool, io) => {
         console.error('❌ Errore heartbeat:', err);
       }
       res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/agent/managed-switches
+  // Restituisce gli switch gestiti per l'azienda dell'agent (l'agent esegue SNMP in locale)
+  router.get('/agent/managed-switches', authenticateAgent, async (req, res) => {
+    try {
+      await ensureTables();
+      const aziendaId = req.agent.azienda_id;
+      const r = await pool.query(
+        'SELECT id, ip, snmp_community, snmp_version, name FROM managed_switches WHERE azienda_id = $1 ORDER BY name, ip',
+        [aziendaId]
+      );
+      res.json(r.rows);
+    } catch (err) {
+      console.error('❌ Errore GET agent/managed-switches:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // POST /api/network-monitoring/agent/switch-address-table
+  // L'agent invia la tabella MAC→porta letta via snmpwalk in locale; il backend abbina e aggiorna parent/port
+  router.post('/agent/switch-address-table', authenticateAgent, async (req, res) => {
+    try {
+      await ensureTables();
+      const aziendaId = req.agent.azienda_id;
+      const { managed_switch_id, switch_ip, mac_to_port } = req.body;
+      if (!managed_switch_id || !switch_ip || !mac_to_port || typeof mac_to_port !== 'object') {
+        return res.status(400).json({ error: 'managed_switch_id, switch_ip e mac_to_port (oggetto) richiesti' });
+      }
+      const sw = await pool.query(
+        'SELECT id FROM managed_switches WHERE id = $1 AND azienda_id = $2',
+        [managed_switch_id, aziendaId]
+      );
+      if (sw.rows.length === 0) {
+        return res.status(404).json({ error: 'Switch gestito non trovato o non appartenente all\'azienda' });
+      }
+      const ip = String(switch_ip).trim();
+      const macToPort = new Map();
+      for (const [k, v] of Object.entries(mac_to_port)) {
+        const mac = String(k).replace(/[\s:.-]/g, '').toUpperCase();
+        const port = typeof v === 'number' ? v : parseInt(v, 10);
+        if (mac && mac.length >= 12 && !isNaN(port)) macToPort.set(mac, port);
+      }
+      // Trova o crea network_device per lo switch (IP)
+      let switchDeviceId;
+      let dev = await pool.query(
+        `SELECT nd.id FROM network_devices nd
+         INNER JOIN network_agents na ON nd.agent_id = na.id
+         WHERE na.azienda_id = $1 AND TRIM(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g')) = $2
+         LIMIT 1`,
+        [aziendaId, ip]
+      );
+      if (dev.rows.length > 0) {
+        switchDeviceId = dev.rows[0].id;
+      } else {
+        const ag = await pool.query('SELECT id FROM network_agents WHERE azienda_id = $1 AND deleted_at IS NULL ORDER BY id LIMIT 1', [aziendaId]);
+        if (ag.rows.length === 0) return res.status(400).json({ error: 'Nessun agent trovato per questa azienda' });
+        const ins = await pool.query(
+          `INSERT INTO network_devices (agent_id, ip_address, device_type, status) VALUES ($1, $2, 'switch', 'online')
+           RETURNING id`,
+          [ag.rows[0].id, ip]
+        );
+        switchDeviceId = ins.rows[0].id;
+      }
+      // Dispositivi azienda con mac_address: match e aggiorna parent_device_id, port
+      const devices = await pool.query(
+        `SELECT nd.id, nd.mac_address FROM network_devices nd
+         INNER JOIN network_agents na ON nd.agent_id = na.id
+         WHERE na.azienda_id = $1 AND nd.mac_address IS NOT NULL AND nd.mac_address != ''`,
+        [aziendaId]
+      );
+      const normalizeMac = (m) => (m || '').replace(/[\s:.-]/g, '').toUpperCase();
+      let updated = 0;
+      for (const d of devices.rows) {
+        const n = normalizeMac(d.mac_address);
+        if (!n || n.length < 12) continue;
+        const port = macToPort.get(n);
+        if (port == null) continue;
+        await pool.query('UPDATE network_devices SET parent_device_id = $1, port = $2 WHERE id = $3', [switchDeviceId, port, d.id]);
+        updated++;
+      }
+      res.json({ success: true, macs_found: macToPort.size, macs_matched: updated, switch_device_id: switchDeviceId });
+    } catch (err) {
+      console.error('❌ Errore POST agent/switch-address-table:', err);
+      res.status(500).json({ error: err.message || 'Errore interno del server' });
     }
   });
 
@@ -2291,6 +2390,92 @@ module.exports = (pool, io) => {
     }
   });
 
+  // --- Dispositivi gestiti (Switch SNMP) per topologia ---
+  // GET /api/network-monitoring/clients/:aziendaId/managed-switches
+  router.get('/clients/:aziendaId/managed-switches', authenticateToken, async (req, res) => {
+    try {
+      await ensureTables();
+      const aziendaId = parseInt(req.params.aziendaId, 10);
+      if (isNaN(aziendaId) || aziendaId <= 0) {
+        return res.status(400).json({ error: 'ID azienda non valido' });
+      }
+      const r = await pool.query(
+        'SELECT id, ip, snmp_community, snmp_version, name, created_at FROM managed_switches WHERE azienda_id = $1 ORDER BY name, ip',
+        [aziendaId]
+      );
+      res.json(r.rows);
+    } catch (err) {
+      console.error('❌ Errore list managed-switches:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // POST /api/network-monitoring/clients/:aziendaId/managed-switches
+  router.post('/clients/:aziendaId/managed-switches', authenticateToken, async (req, res) => {
+    try {
+      await ensureTables();
+      const aziendaId = parseInt(req.params.aziendaId, 10);
+      if (isNaN(aziendaId) || aziendaId <= 0) {
+        return res.status(400).json({ error: 'ID azienda non valido' });
+      }
+      const ip = String(req.body.ip || '').trim();
+      if (!ip) return res.status(400).json({ error: 'IP obbligatorio' });
+      const snmp_community = String(req.body.snmp_community || 'public').trim() || 'public';
+      const snmp_version = String(req.body.snmp_version || '2c').trim() || '2c';
+      const name = req.body.name ? String(req.body.name).trim() : null;
+      const r = await pool.query(
+        `INSERT INTO managed_switches (azienda_id, ip, snmp_community, snmp_version, name)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, ip, snmp_community, snmp_version, name, created_at`,
+        [aziendaId, ip, snmp_community, snmp_version, name || null]
+      );
+      res.status(201).json(r.rows[0]);
+    } catch (err) {
+      if (err.code === '23505') return res.status(409).json({ error: 'Questo switch (IP) è già presente per l\'azienda' });
+      console.error('❌ Errore add managed-switches:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // DELETE /api/network-monitoring/clients/:aziendaId/managed-switches/:id
+  router.delete('/clients/:aziendaId/managed-switches/:id', authenticateToken, async (req, res) => {
+    try {
+      await ensureTables();
+      const aziendaId = parseInt(req.params.aziendaId, 10);
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(aziendaId) || isNaN(id)) return res.status(400).json({ error: 'Parametri non validi' });
+      const r = await pool.query('DELETE FROM managed_switches WHERE id = $1 AND azienda_id = $2 RETURNING id', [id, aziendaId]);
+      if (r.rows.length === 0) return res.status(404).json({ error: 'Dispositivo gestito non trovato' });
+      res.json({ success: true });
+    } catch (err) {
+      console.error('❌ Errore delete managed-switches:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // POST /api/network-monitoring/clients/:aziendaId/managed-switches/:id/sync
+  // La sincronizzazione SNMP è eseguita dall'agent in locale (stessa LAN dello switch); il backend non può
+  // raggiungere IP privati (es. 192.168.x) dal VPS. L'agent legge dot1dTpFdbPort e invia a
+  // POST /agent/switch-address-table. Qui si restituisce solo un messaggio informativo.
+  router.post('/clients/:aziendaId/managed-switches/:id/sync', authenticateToken, async (req, res) => {
+    try {
+      await ensureTables();
+      const aziendaId = parseInt(req.params.aziendaId, 10);
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(aziendaId) || isNaN(id)) return res.status(400).json({ error: 'Parametri non validi' });
+      const sw = await pool.query('SELECT id FROM managed_switches WHERE id = $1 AND azienda_id = $2', [id, aziendaId]);
+      if (sw.rows.length === 0) return res.status(404).json({ error: 'Dispositivo gestito non trovato' });
+
+      res.json({
+        success: true,
+        message: "La sincronizzazione SNMP viene eseguita dall'agent sulla rete locale. I dati saranno aggiornati al prossimo ciclo (di solito entro pochi minuti). Ricaricare la mappa."
+      });
+    } catch (err) {
+      console.error('❌ Errore sync managed-switch:', err);
+      res.status(500).json({ error: err.message || 'Errore durante la sincronizzazione' });
+    }
+  });
+
   // GET /api/network-monitoring/clients/:aziendaId/changes
   // Ottieni storico cambiamenti per un'azienda (per frontend)
   router.get('/clients/:aziendaId/changes', async (req, res) => {
@@ -3248,8 +3433,8 @@ module.exports = (pool, io) => {
         return res.status(500).json({ error: errorMsg });
       }
 
-      // Versione agent per ZIP e config.json incluso
-      const CURRENT_AGENT_VERSION = '2.5.6';
+      // Versione agent per ZIP e config.json incluso (allineata a NetworkMonitorService.ps1 $SCRIPT_VERSION)
+      const CURRENT_AGENT_VERSION = '2.5.9';
       const agentVersion = CURRENT_AGENT_VERSION;
       console.log(`ℹ️ Versione agent per ZIP: ${agentVersion}`);
 
@@ -5232,7 +5417,7 @@ pause
   // Restituisce la versione corrente dell'agent disponibile per download
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.5.8'; // Versione ufficiale
+      const CURRENT_AGENT_VERSION = '2.5.9'; // SNMP switch gestiti: sync eseguita dall'agent in locale (snmpwalk)
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
@@ -5240,6 +5425,7 @@ pause
         download_url: `${baseUrl}/api/network-monitoring/download/agent/NetworkMonitor.ps1`,
         release_date: '2025-01-22',
         features: [
+          'Switch gestiti - Sync SNMP (dot1dTpFdbPort) eseguita dall\'agent in locale con snmpwalk',
           'Auto-Update System - Aggiornamento automatico trasparente',
           'Unifi - Rilevamento aggiornamenti firmware da Cloud Key/Controller (credenziali da server, mai su disco)',
           'Hybrid Discovery - Ping + TCP Scan per rilevare dispositivi firewalled',
