@@ -217,7 +217,22 @@ export default function TicketApp() {
       setShowOrariTurni(false);
       setShowVivaldi(false);
     }
-  }, [requestedDomain, isOrariHostname, isVivaldiHostname]);
+  }, [requestedDomain]);
+
+  useEffect(() => {
+    const handleOpenNetworkMap = () => {
+      setShowNetworkMap(true);
+      setShowDashboard(false);
+      setShowNetworkMonitoring(false);
+      setShowOrariTurni(false);
+      setShowVivaldi(false);
+      setShowPackVision(false);
+    };
+    window.addEventListener('open-network-map', handleOpenNetworkMap);
+    return () => {
+      window.removeEventListener('open-network-map', handleOpenNetworkMap);
+    };
+  }, []);
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
   const [dashboardHighlights, setDashboardHighlights] = useState({});
   const [prevTicketStates, setPrevTicketStates] = useState({});
