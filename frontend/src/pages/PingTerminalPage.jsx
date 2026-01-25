@@ -132,19 +132,19 @@ const PingTerminalPage = () => {
 [HKEY_CLASSES_ROOT\\pingtool\\shell\\open]
 
 [HKEY_CLASSES_ROOT\\pingtool\\shell\\open\\command]
-@="powershell -NoProfile -WindowStyle Hidden -Command \\"$ip = '%1'.Replace('pingtool:', '').Replace('/', ''); $cmdArgs = '/k ping ' + $ip + ' -t -w 1000'; Start-Process cmd -ArgumentList $cmdArgs\\""
+@="cmd /V:ON /C \\"set \\"url=%1\\" & set \\"url=!url:pingtool:=!\\" & set \\"url=!url:/=!\\" & start \\"Ping Locale\\" cmd /k \\"color 0A & title Ping Locale !url! & echo Ping in corso verso !url!... & ping !url! -t\\"\\""
 `;
         const blob = new Blob([regContent], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'SetupPingLocale_v3.reg';
+        a.download = 'SetupPingLocale_v4.reg';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        alert("1. Esegui il file 'SetupPingLocale_v3.reg' scaricato.\n2. Conferma l'inserimento nel registro.\n3. Ora puoi usare 'Ping da Locale'!");
+        alert("1. Esegui il file 'SetupPingLocale_v4.reg' scaricato.\n2. Conferma l'inserimento nel registro.\n3. Ora puoi usare 'Ping da Locale'!");
     };
 
     const launchLocalPing = () => {
