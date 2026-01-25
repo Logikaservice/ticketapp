@@ -82,40 +82,86 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
     const initForceLayout = (deviceList) => {
         if (simulationRef.current) simulationRef.current.stop();
 
-        // 1. Crea i nodi
-        // Nodo Router (Centro)
-        const routerNode = {
-            id: 'router',
-            type: 'router',
-            label: 'Gateway',
-            status: 'online',
-            x: 0,
-            y: 0,
-            fx: 0, // Fissa il router al centro inizialmente
-            fy: 0,
-            details: { role: 'Gateway' }
-        };
+        // 1. Identifica se c'è un Gateway salvato
+        // Il backend ordina già per is_gateway DESC, quindi il primo se true è il gateway
+        const savedGateway = deviceList.find(d => d.is_gateway);
 
+        let initialNodes = [];
+        let initialLinks = [];
+
+        // Filtra dispositivi validi (ignora quelli senza IP o status)
         const validDevices = deviceList.filter(d => d.ip_address);
-        const deviceNodes = validDevices.map(d => ({
-            id: d.id,
-            type: mapDeviceType(d),
-            label: d.hostname || d.ip_address,
-            ip: d.ip_address,
-            status: d.status,
-            details: d,
-            x: Math.random() * 200 - 100, // Posizione iniziale casuale attorno al centro
-            y: Math.random() * 200 - 100
-        }));
 
-        const initialNodes = [routerNode, ...deviceNodes];
+        if (savedGateway) {
+            // SCENARIO 1: Abbiamo un Gateway reale salvato
 
-        // 2. Crea i link (Tutti collegati al Router per default)
-        // TODO: In futuro caricare le relazioni padre-figlio dal DB
-        const initialLinks = deviceNodes.map(node => ({
-            source: 'router',
-            target: node.id
-        }));
+            // Il gateway diventa il centro (ID='router' per convenzione nostra interna o manteniamo ID originale?)
+            // Manteniamo ID originale per consistenza con DB, ma lo trattiamo come centro.
+            // O per semplicità visiva, assegniamo ID='router' al gateway salvato?
+            // Seguiamo la logica: il nodo centrale ha sempre ID='router' per semplificare i link di default.
+
+            const routerNode = {
+                ...savedGateway,
+                id: 'router', // ID fittizio per il frontend
+                _realId: savedGateway.id, // ID reale per le chiamate API
+                type: 'router',
+                label: `${savedGateway.hostname || savedGateway.ip_address} (GW)`,
+                status: savedGateway.status,
+                x: 0,
+                y: 0,
+                fx: 0, fy: 0, // Fisso al centro
+                details: savedGateway
+            };
+
+            const otherNodes = validDevices.filter(d => d.id !== savedGateway.id).map(d => ({
+                id: d.id,
+                type: mapDeviceType(d),
+                label: d.hostname || d.ip_address,
+                ip: d.ip_address,
+                status: d.status,
+                details: d,
+                x: Math.random() * 200 - 100,
+                y: Math.random() * 200 - 100
+            }));
+
+            initialNodes = [routerNode, ...otherNodes];
+
+            // Collega tutti al gateway
+            initialLinks = otherNodes.map(node => ({
+                source: 'router',
+                target: node.id
+            }));
+
+        } else {
+            // SCENARIO 2: Nessun Gateway salvato, usa Placeholder
+            const routerNode = {
+                id: 'router',
+                type: 'router',
+                label: 'Gateway (Fittizio)',
+                status: 'online',
+                x: 0,
+                y: 0,
+                fx: 0, fy: 0,
+                details: { role: 'Gateway Placeholder' }
+            };
+
+            const deviceNodes = validDevices.map(d => ({
+                id: d.id,
+                type: mapDeviceType(d),
+                label: d.hostname || d.ip_address,
+                ip: d.ip_address,
+                status: d.status,
+                details: d,
+                x: Math.random() * 200 - 100,
+                y: Math.random() * 200 - 100
+            }));
+
+            initialNodes = [routerNode, ...deviceNodes];
+            initialLinks = deviceNodes.map(node => ({
+                source: 'router',
+                target: node.id
+            }));
+        }
 
         setNodes(initialNodes);
         setLinks(initialLinks);
@@ -125,9 +171,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             .force("link", d3.forceLink(initialLinks).id(d => d.id).distance(150)) // Distanza ideale dei link
             .force("charge", d3.forceManyBody().strength(-500)) // Repulsione tra nodi (negativo = respinge)
             .force("collide", d3.forceCollide().radius(60)) // Evita sovrapposizioni
-            // Rimuoviamo forceCenter per permettere il panning libero, usiamo offset per centrare la vista
             .on("tick", () => {
-                // USARE simulation.nodes() invece di initialNodes per supportare aggiornamenti dinamici
                 setNodes([...simulation.nodes()]);
             });
 
@@ -265,7 +309,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
     };
 
     // Promuovi un nodo a Gateway (Eliminando il vecchio placeholder)
-    const handlePromoteToGateway = (nodeToPromote) => {
+    const handlePromoteToGateway = async (nodeToPromote) => {
         if (!nodeToPromote || nodeToPromote.id === 'router') return;
 
         // 1. Ferma la simulazione attuale per evitare errori durante l'aggiornamento
@@ -324,6 +368,25 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         simulationRef.current.alpha(1).restart();
 
         setSelectedNode(null);
+
+        // 6. Salva la modifica sul server
+        try {
+            // Usa l'ID originale del nodo (prima che diventasse 'router')
+            // Ma attenzione: 'nodeToPromote' ha ancora l'ID originale!
+            const response = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/set-gateway/${nodeToPromote.id}`), {
+                method: 'PUT',
+                headers: getAuthHeader()
+            });
+
+            if (!response.ok) {
+                console.error("Errore salvataggio gateway:", response.status);
+                // TODO: Revert UI changes? Per ora mostriamo solo errore in console
+            } else {
+                console.log("Gateway salvato con successo sul server");
+            }
+        } catch (error) {
+            console.error("Errore connessione API set-gateway:", error);
+        }
     };
 
 

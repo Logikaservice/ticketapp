@@ -2050,6 +2050,10 @@ module.exports = (pool, io) => {
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS accepted_mac VARCHAR(17);
         `);
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS is_gateway BOOLEAN DEFAULT false;
+        `);
       } catch (migrationErr) {
         // Ignora errore se colonna esiste già
         if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
@@ -2124,12 +2128,13 @@ module.exports = (pool, io) => {
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
-          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available,
+          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
          WHERE na.azienda_id = $1
          ORDER BY 
+           CASE WHEN nd.is_gateway = true THEN 0 ELSE 1 END,
            CAST(split_part(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g'), '.', 1) AS INTEGER),
            CAST(split_part(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g'), '.', 2) AS INTEGER),
            CAST(split_part(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g'), '.', 3) AS INTEGER),
@@ -2190,6 +2195,40 @@ module.exports = (pool, io) => {
     } catch (err) {
       console.error('❌ Errore recupero dispositivi:', err);
       res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // PUT /api/network-monitoring/clients/:aziendaId/set-gateway/:deviceId
+  // Imposta un dispositivo come Gateway Principale (e rimuovi flag dagli altri)
+  router.put('/clients/:aziendaId/set-gateway/:deviceId', authenticateToken, async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const { aziendaId, deviceId } = req.params;
+
+      // Trova l'agent ID dal dispositivo
+      const deviceCheck = await client.query('SELECT agent_id FROM network_devices WHERE id = $1', [deviceId]);
+      if (deviceCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato' });
+      }
+      const agentId = deviceCheck.rows[0].agent_id;
+
+      await client.query('BEGIN');
+
+      // 1. Rimuovi is_gateway da tutti i dispositivi dell'agent
+      await client.query('UPDATE network_devices SET is_gateway = false WHERE agent_id = $1', [agentId]);
+
+      // 2. Imposta il nuovo gateway
+      await client.query('UPDATE network_devices SET is_gateway = true WHERE id = $1', [deviceId]);
+
+      await client.query('COMMIT');
+
+      res.json({ success: true, message: 'Gateway impostato con successo' });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('❌ Errore impostazione Gateway:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    } finally {
+      client.release();
     }
   });
 
@@ -2299,6 +2338,10 @@ module.exports = (pool, io) => {
         await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS accepted_mac VARCHAR(17);
+        `);
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS is_gateway BOOLEAN DEFAULT false;
         `);
       } catch (migrationErr) {
         // Ignora errore se colonna esiste già
