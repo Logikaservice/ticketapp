@@ -81,7 +81,6 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                 if (response.ok) {
                     const data = await response.json();
                     setDevices(data);
-                    initForceLayout(data);
                 }
             } catch (err) {
                 console.error("Errore caricamento dispositivi:", err);
@@ -106,19 +105,22 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         fn();
     }, [selectedCompanyId]);
 
-    // Inizializza il layout Force-Directed
-    const initForceLayout = (deviceList) => {
+    // Inizializza il layout Force-Directed (dispositivi + switch SNMP gestiti)
+    const initForceLayout = (deviceList, managedSwitchesList = []) => {
         if (simulationRef.current) simulationRef.current.stop();
+
+        const safeDevices = Array.isArray(deviceList) ? deviceList : [];
+        const safeManaged = Array.isArray(managedSwitchesList) ? managedSwitchesList : [];
 
         // 1. Identifica se c'è un Gateway salvato
         // Il backend ordina già per is_gateway DESC, quindi il primo se true è il gateway
-        const savedGateway = deviceList.find(d => d.is_gateway);
+        const savedGateway = safeDevices.find(d => d.is_gateway);
 
         let initialNodes = [];
         let initialLinks = [];
 
         // Filtra dispositivi validi (ignora quelli senza IP o status)
-        const validDevices = deviceList.filter(d => d.ip_address);
+        const validDevices = safeDevices.filter(d => d.ip_address);
 
         if (savedGateway) {
             // SCENARIO 1: Abbiamo un Gateway reale salvato
@@ -152,7 +154,21 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                 y: Math.random() * 200 - 100
             }));
 
-            initialNodes = [routerNode, ...otherNodes];
+            // Nodi per switch SNMP gestiti (es. Netgear) — compaiono nella mappa
+            const managedSwitchNodes = safeManaged.map(m => ({
+                id: `managed_switch_${m.id}`,
+                _realId: m.id,
+                _isManagedSwitch: true,
+                type: 'managed_switch',
+                label: m.name || m.ip,
+                ip: m.ip,
+                status: 'online',
+                details: m,
+                x: Math.random() * 200 - 100,
+                y: Math.random() * 200 - 100
+            }));
+
+            initialNodes = [routerNode, ...otherNodes, ...managedSwitchNodes];
 
             // Collega tutti al gateway di default, ma rispetta eventuali parent_device_id
             initialLinks = otherNodes.map(node => {
@@ -166,6 +182,8 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                 }
                 return { source: 'router', target: node.id };
             });
+            // Collegamenti switch SNMP gestiti al gateway
+            initialLinks = initialLinks.concat(managedSwitchNodes.map(m => ({ source: 'router', target: m.id })));
 
         } else {
             // SCENARIO 2: Nessun Gateway salvato, usa Placeholder
@@ -191,7 +209,21 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                 y: Math.random() * 200 - 100
             }));
 
-            initialNodes = [routerNode, ...deviceNodes];
+            // Nodi per switch SNMP gestiti (es. Netgear) — compaiono nella mappa
+            const managedSwitchNodes = safeManaged.map(m => ({
+                id: `managed_switch_${m.id}`,
+                _realId: m.id,
+                _isManagedSwitch: true,
+                type: 'managed_switch',
+                label: m.name || m.ip,
+                ip: m.ip,
+                status: 'online',
+                details: m,
+                x: Math.random() * 200 - 100,
+                y: Math.random() * 200 - 100
+            }));
+
+            initialNodes = [routerNode, ...deviceNodes, ...managedSwitchNodes];
             initialLinks = deviceNodes.map(node => {
                 // Se il nodo ha un parent_device_id valido, usalo come target (che diventa il source nella logica source->target visuale? D3 link è source->target)
                 // In D3 Force Link: source -> target. Per albero: Parent -> Child.
@@ -211,6 +243,8 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                 // Default: collegato al router
                 return { source: 'router', target: node.id };
             });
+            // Collegamenti switch SNMP gestiti al router
+            initialLinks = initialLinks.concat(managedSwitchNodes.map(m => ({ source: 'router', target: m.id })));
         }
 
         setNodes(initialNodes);
@@ -227,6 +261,12 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
 
         simulationRef.current = simulation;
     };
+
+    // Costruisci/aggiorna il layout quando cambiano dispositivi o switch SNMP gestiti
+    useEffect(() => {
+        if (!selectedCompanyId) return;
+        initForceLayout(devices, managedSwitches);
+    }, [selectedCompanyId, devices, managedSwitches]);
 
     // Pulisci simulazione all'unmount
     useEffect(() => {
@@ -650,12 +690,14 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             case 'printer': return <Printer size={20} className="text-white" />;
             case 'server': return <Server size={20} className="text-white" />;
             case 'wifi': return <Wifi size={20} className="text-white" />;
-            case 'unmanaged_switch': return <ServerIcon size={20} className="text-white bg-gray-600 rounded-sm p-0.5" />; // Icona diversa per switch
+            case 'unmanaged_switch': return <ServerIcon size={20} className="text-white bg-gray-600 rounded-sm p-0.5" />;
+            case 'managed_switch': return <Cable size={20} className="text-white" />; // Switch SNMP gestito (es. Netgear)
             default: return <Monitor size={20} className="text-white" />;
         }
     };
 
     const getNodeColor = (node) => {
+        if (node.type === 'managed_switch') return 'bg-indigo-500 border-indigo-700';
         const isParent = links.some(l => (typeof l.source === 'object' ? l.source.id : l.source) === node.id);
         if (isParent) return 'bg-blue-500 border-blue-700';
         if (node.status === 'offline') return 'bg-red-500 border-red-700';
@@ -726,11 +768,14 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                         <RotateCw size={20} className="text-gray-600" />
                     </button>
                     <button
-                        className={`p-2 rounded-lg shadow-md border flex items-center justify-center ${showManagedPanel ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
-                        title="Dispositivi gestiti (Switch SNMP)"
+                        className={`relative p-2 rounded-lg shadow-md border flex items-center justify-center ${showManagedPanel ? 'bg-blue-50 border-blue-300' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
+                        title={`Dispositivi gestiti (Switch SNMP)${managedSwitches.length ? ` — ${managedSwitches.length} in mappa` : ''}`}
                         onClick={() => setShowManagedPanel(v => !v)}
                     >
                         <Cable size={20} className="text-indigo-600" />
+                        {managedSwitches.length > 0 && (
+                            <span className="absolute -top-0.5 -right-0.5 bg-indigo-600 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center" title="Switch SNMP in mappa">{managedSwitches.length}</span>
+                        )}
                     </button>
 
                     {/* Panel Dispositivi gestiti: switch SNMP per leggere MAC e associare parent+porta */}
@@ -886,7 +931,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                             <span className="text-gray-500">IP:</span>
                             <span className="font-mono font-medium">{formatIpWithPort(selectedNode.ip, selectedNode.details?.port)}</span>
                         </div>
-                        {selectedNode.id !== 'router' && (
+                        {selectedNode.id !== 'router' && selectedNode.type !== 'managed_switch' && (
                             <div className="flex justify-between items-center border-b pb-2 gap-2">
                                 <span className="text-gray-500">Port:</span>
                                 <input
@@ -940,36 +985,60 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                         )}
                         <div className="mt-4 pt-2 border-t border-gray-100">
                             <h4 className="font-bold text-gray-700 mb-2 text-xs uppercase">Azioni Topologia</h4>
-                            <button
-                                onClick={() => handleStartLinking(selectedNode)}
-                                className={`w-full py-2 rounded-md font-medium text-xs flex items-center justify-center gap-2 mb-2 ${isLinking ? 'bg-orange-100 text-orange-700 animate-pulse' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
-                            >
-                                <Move size={14} /> {isLinking ? 'Seleziona il NUOVO genitore...' : 'Cambia Genitore (Sposta)'}
-                            </button>
-                            {selectedNode.type === 'unmanaged_switch' && (
-                                <div className="text-xs text-gray-500 italic text-center">
-                                    Switch Virtuale creabile manualmente
-                                </div>
-                            )}
+                            {selectedNode.type === 'managed_switch' ? (
+                                <>
+                                    <button
+                                        onClick={() => handleManagedSync(selectedNode.details.id)}
+                                        disabled={syncLoadingId === selectedNode.details.id}
+                                        className="w-full py-2 rounded-md font-medium text-xs flex items-center justify-center gap-2 mb-2 bg-green-50 text-green-700 hover:bg-green-100 disabled:opacity-50"
+                                    >
+                                        {syncLoadingId === selectedNode.details.id ? <Loader size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                                        Sincronizza SNMP
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            await handleManagedDelete(selectedNode.details.id);
+                                            setSelectedNode(null);
+                                        }}
+                                        className="w-full py-2 bg-red-50 text-red-600 rounded-md font-medium text-xs hover:bg-red-100 flex items-center justify-center gap-2"
+                                    >
+                                        <Trash2 size={14} /> Rimuovi
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => handleStartLinking(selectedNode)}
+                                        className={`w-full py-2 rounded-md font-medium text-xs flex items-center justify-center gap-2 mb-2 ${isLinking ? 'bg-orange-100 text-orange-700 animate-pulse' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+                                    >
+                                        <Move size={14} /> {isLinking ? 'Seleziona il NUOVO genitore...' : 'Cambia Genitore (Sposta)'}
+                                    </button>
+                                    {selectedNode.type === 'unmanaged_switch' && (
+                                        <div className="text-xs text-gray-500 italic text-center">
+                                            Switch Virtuale creabile manualmente
+                                        </div>
+                                    )}
 
-                            {selectedNode.id !== 'router' && (
-                                <button
-                                    onClick={() => setIsAssociateModalOpen(true)}
-                                    className="w-full py-2 mt-2 bg-indigo-50 text-indigo-700 rounded-md font-medium text-xs hover:bg-indigo-100 flex items-center justify-center gap-2"
-                                    title="Inserisci manualmente l'IP del dispositivo padre"
-                                >
-                                    <Link size={14} /> Associa a: (Inserisci IP)
-                                </button>
-                            )}
+                                    {selectedNode.id !== 'router' && (
+                                        <button
+                                            onClick={() => setIsAssociateModalOpen(true)}
+                                            className="w-full py-2 mt-2 bg-indigo-50 text-indigo-700 rounded-md font-medium text-xs hover:bg-indigo-100 flex items-center justify-center gap-2"
+                                            title="Inserisci manualmente l'IP del dispositivo padre"
+                                        >
+                                            <Link size={14} /> Associa a: (Inserisci IP)
+                                        </button>
+                                    )}
 
-                            {selectedNode.id !== 'router' && (
-                                <button
-                                    onClick={() => handlePromoteToGateway(selectedNode)}
-                                    className="w-full py-2 mt-2 bg-green-50 text-green-700 rounded-md font-medium text-xs hover:bg-green-100 flex items-center justify-center gap-2"
-                                    title="Imposta questo dispositivo come Gateway principale"
-                                >
-                                    <Router size={14} /> Imposta come Gateway Principale
-                                </button>
+                                    {selectedNode.id !== 'router' && (
+                                        <button
+                                            onClick={() => handlePromoteToGateway(selectedNode)}
+                                            className="w-full py-2 mt-2 bg-green-50 text-green-700 rounded-md font-medium text-xs hover:bg-green-100 flex items-center justify-center gap-2"
+                                            title="Imposta questo dispositivo come Gateway principale"
+                                        >
+                                            <Router size={14} /> Imposta come Gateway Principale
+                                        </button>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
