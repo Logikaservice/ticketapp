@@ -2068,18 +2068,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               onClick={(e) => e.stopPropagation()}
             >
               <button
-                onClick={() => handlePing(ipContextMenu.ip)}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors"
-              >
-                <Activity size={16} />
-                Ping (BAT)
-              </button>
-              <button
                 onClick={() => handleTerminalPing(ipContextMenu.ip)}
                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors"
               >
                 <Terminal size={16} />
-                Ping (Terminal Server)
+                Ping
               </button>
               <button
                 onClick={() => handleWeb(ipContextMenu.ip)}
