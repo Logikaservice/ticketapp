@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     ArrowLeft, Search, Filter, ZoomIn, ZoomOut, Loader,
     Server, Monitor, Printer, Wifi, Maximize, Router,
-    AlertTriangle, CheckCircle, WifiOff, X, Move, RotateCw
+    Server, Monitor, Printer, Wifi, Maximize, Router,
+    AlertTriangle, CheckCircle, WifiOff, X, Move, RotateCw, Link
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import * as d3 from 'd3-force';
@@ -26,6 +27,8 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
     const [isDraggingCanvas, setIsDraggingCanvas] = useState(false);
     const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
     const [selectedNode, setSelectedNode] = useState(null);
+    const [isAssociateModalOpen, setIsAssociateModalOpen] = useState(false);
+    const [associateIp, setAssociateIp] = useState('');
     const svgRef = useRef(null);
 
     // Carica le aziende al mount
@@ -126,11 +129,18 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
 
             initialNodes = [routerNode, ...otherNodes];
 
-            // Collega tutti al gateway
-            initialLinks = otherNodes.map(node => ({
-                source: 'router',
-                target: node.id
-            }));
+            // Collega tutti al gateway di default, ma rispetta eventuali parent_device_id
+            initialLinks = otherNodes.map(node => {
+                if (node.details && node.details.parent_device_id) {
+                    const parentExists = otherNodes.find(n => n.id === node.details.parent_device_id);
+                    if (parentExists) {
+                        return { source: parentExists.id, target: node.id };
+                    } else if (node.details.parent_device_id === savedGateway.id) {
+                        return { source: 'router', target: node.id };
+                    }
+                }
+                return { source: 'router', target: node.id };
+            });
 
         } else {
             // SCENARIO 2: Nessun Gateway salvato, usa Placeholder
@@ -157,10 +167,26 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             }));
 
             initialNodes = [routerNode, ...deviceNodes];
-            initialLinks = deviceNodes.map(node => ({
-                source: 'router',
-                target: node.id
-            }));
+            initialNodes = [routerNode, ...deviceNodes];
+            initialLinks = deviceNodes.map(node => {
+                // Se il nodo ha un parent_device_id valido, usalo come target (che diventa il source nella logica source->target visuale? D3 link è source->target)
+                // In D3 Force Link: source -> target. Per albero: Parent -> Child.
+                // Se vogliamo rappresentare il flusso dati/dipendenza: Parent (Source) -> Child (Target).
+
+                // Cerca se esiste un nodo genitore nella lista dei nodi
+                if (node.details && node.details.parent_device_id) {
+                    const parentExists = deviceNodes.find(n => n.id === node.details.parent_device_id);
+                    if (parentExists) {
+                        return { source: parentExists.id, target: node.id };
+                    } else if (node.details.parent_device_id === routerNode._realId) {
+                        // Se il parent è il gateway vero (che ora è routerNode)
+                        return { source: 'router', target: node.id };
+                    }
+                }
+
+                // Default: collegato al router
+                return { source: 'router', target: node.id };
+            });
         }
 
         setNodes(initialNodes);
@@ -388,6 +414,67 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             console.error("Errore connessione API set-gateway:", error);
         }
     };
+
+
+    // Gestisci submit manuale associa genitore
+    const handleAssociateParent = async () => {
+        if (!selectedNode || !associateIp) return;
+
+        try {
+            const response = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/set-parent/${selectedNode.id}`), {
+                method: 'PUT',
+                headers: {
+                    ...getAuthHeader(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ parentIp: associateIp })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log("Parent aggiornato:", data);
+
+                // Aggiorna localmente la topologia
+                if (data.parent_id) {
+                    // Trova il nodo genitore
+                    // Attenzione: se il parent è il router principale, potrebbe avere id 'router' o l'id vero.
+                    // Dobbiamo cercare tra i nodi attuali.
+                    const parentNode = nodes.find(n => n.id === data.parent_id || n._realId === data.parent_id);
+
+                    // Se non lo trovi, potrebbe essere il 'router' fittizio se non c'è gateway salvato?
+                    // Oppure dobbiamo ricaricare tutto? Ricaricare è più sicuro ma lento.
+                    // Proviamo update locale veloce.
+
+                    if (parentNode || (nodes.find(n => n.id === 'router') && !parentNode)) { // Fallback al router se non trova ID specifico? No, pericoloso.
+                        const targetParentId = parentNode ? parentNode.id : 'router'; // Se non trova ID specifico ma l'API ha detto OK, assumiamo router? No.
+
+                        if (parentNode) {
+                            handleCompleteLinking(parentNode); // Riutilizza logica di linking visuale
+                        } else {
+                            // Se il parent è il gateway (che ha id 'router' nel frontend ma ID numerico nel DB)
+                            const routerNode = nodes.find(n => n.id === 'router');
+                            if (routerNode && routerNode._realId === data.parent_id) {
+                                handleCompleteLinking(routerNode);
+                            } else {
+                                alert("Genitore impostato ma non visibile nella mappa corrente (forse offline?). Ricarica la pagina.");
+                            }
+                        }
+                    }
+                }
+
+                setIsAssociateModalOpen(false);
+                setAssociateIp('');
+                // Opzionale: setSelectedNode(null);
+            } else {
+                const errData = await response.json();
+                alert(`Errore: ${errData.error || 'Impossibile associare'}`);
+            }
+        } catch (error) {
+            console.error("Errore API set-parent:", error);
+            alert("Errore di connessione al server.");
+        }
+    };
+
 
 
     // Canvas panning
@@ -641,6 +728,16 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
 
                             {selectedNode.id !== 'router' && (
                                 <button
+                                    onClick={() => setIsAssociateModalOpen(true)}
+                                    className="w-full py-2 mt-2 bg-indigo-50 text-indigo-700 rounded-md font-medium text-xs hover:bg-indigo-100 flex items-center justify-center gap-2"
+                                    title="Inserisci manualmente l'IP del dispositivo padre"
+                                >
+                                    <Link size={14} /> Associa a: (Inserisci IP)
+                                </button>
+                            )}
+
+                            {selectedNode.id !== 'router' && (
+                                <button
                                     onClick={() => handlePromoteToGateway(selectedNode)}
                                     className="w-full py-2 mt-2 bg-green-50 text-green-700 rounded-md font-medium text-xs hover:bg-green-100 flex items-center justify-center gap-2"
                                     title="Imposta questo dispositivo come Gateway principale"
@@ -657,6 +754,38 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             {isLinking && (
                 <div className="absolute top-24 left-1/2 transform -translate-x-1/2 bg-orange-600 text-white px-6 py-2 rounded-full shadow-lg z-50 animate-bounce cursor-pointer" onClick={() => setIsLinking(false)}>
                     <span className="font-bold">Modalità Collegamento:</span> Clicca sul nodo che deve diventare il PADRE di {linkingSource?.label}
+                </div>
+            )}
+            {/* Modal Associa Manualmente */}
+            {isAssociateModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[110]">
+                    <div className="bg-white rounded-lg shadow-xl p-6 w-80 animate-fadeIn">
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">Associa Nodo a Genitore</h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Inserisci l'indirizzo IP del dispositivo a cui vuoi collegare <strong>{selectedNode?.label}</strong>.
+                        </p>
+                        <input
+                            type="text"
+                            placeholder="Es: 192.168.1.1"
+                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm mb-4 focus:ring-2 focus:ring-blue-500 outline-none"
+                            value={associateIp}
+                            onChange={(e) => setAssociateIp(e.target.value)}
+                        />
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={() => { setIsAssociateModalOpen(false); setAssociateIp(''); }}
+                                className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded"
+                            >
+                                Annulla
+                            </button>
+                            <button
+                                onClick={handleAssociateParent}
+                                className="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded font-medium"
+                            >
+                                Conferma
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
