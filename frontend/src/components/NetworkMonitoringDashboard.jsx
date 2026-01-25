@@ -7,12 +7,13 @@ import {
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
   Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit, Menu,
-  CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle
+  CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle, Terminal
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
 import EditAgentModal from './Modals/EditAgentModal';
 import MonitoringScheduleModal from './Modals/MonitoringScheduleModal';
+import PingTerminalModal from './Modals/PingTerminalModal';
 import AgentNotifications from './AgentNotifications';
 import TelegramConfigSection from './TelegramConfigSection';
 import { EventBadge, SeverityIndicator } from './EventBadges';
@@ -61,6 +62,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [selectedDeviceForSchedule, setSelectedDeviceForSchedule] = useState(null);
   const [showEditAgentModal, setShowEditAgentModal] = useState(false);
   const [selectedAgentForEdit, setSelectedAgentForEdit] = useState(null);
+  const [showPingModal, setShowPingModal] = useState(false);
+  const [targetPingIp, setTargetPingIp] = useState('');
   // selectedStaticIPs non serve più, usiamo is_static dal database
 
   // Funzione per generare report stampabile
@@ -1047,6 +1050,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       // Nota: Il browser potrebbe chiedere conferma prima di aprire/eseguire il file .bat
       // Questo è un comportamento normale per sicurezza. L'utente deve confermare l'apertura.
     }, 50);
+  };
+
+  // Apre terminale ping nel browser
+  const handleTerminalPing = (ip) => {
+    closeIpContextMenu();
+    setTargetPingIp(ip);
+    setShowPingModal(true);
   };
 
   // Apre l'IP nel browser
@@ -2065,7 +2075,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors"
               >
                 <Activity size={16} />
-                Ping
+                Ping (BAT)
+              </button>
+              <button
+                onClick={() => handleTerminalPing(ipContextMenu.ip)}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors"
+              >
+                <Terminal size={16} />
+                Ping (Terminal Server)
               </button>
               <button
                 onClick={() => handleWeb(ipContextMenu.ip)}
@@ -2394,6 +2411,16 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               loadAgents();
               loadCompanies();
             }}
+            getAuthHeader={getAuthHeader}
+          />
+        )}
+
+        {/* Modal Terminale Ping */}
+        {showPingModal && (
+          <PingTerminalModal
+            isOpen={showPingModal}
+            onClose={() => setShowPingModal(false)}
+            targetIp={targetPingIp}
             getAuthHeader={getAuthHeader}
           />
         )}

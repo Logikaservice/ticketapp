@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const archiver = require('archiver');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
 const keepassDriveService = require('../utils/keepassDriveService');
 const telegramService = require('../services/TelegramService');
@@ -1226,6 +1227,18 @@ module.exports = (pool, io) => {
 
       // Aggiorna/inserisci dispositivi
       const deviceResults = [];
+      console.log(`📥 Ricevuto payload scan-results: ${devices.length} dispositivi, ${changes ? changes.length : 0} cambiamenti`);
+
+      // DEBUG UNIFI NAME
+      const devicesWithUnifiName = devices.filter(d => d.unifi_name);
+      console.log(`🔎 DEBUG: Dispositivi con unifi_name nel payload: ${devicesWithUnifiName.length} su ${devices.length}`);
+      if (devicesWithUnifiName.length > 0) {
+        const sample = devicesWithUnifiName[0];
+        console.log(`🔎 DEBUG SAMPLE: IP=${sample.ip_address}, MAC=${sample.mac_address}, UnifiName="${sample.unifi_name}", Hostname="${sample.hostname}"`);
+      } else {
+        console.log(`🔎 DEBUG: Nessun unifi_name ricevuto. Verifica se l'agent è aggiornato (2.5.8+) e se Check-UnifiUpdates funziona.`);
+      }
+
       const receivedIPs = new Set(); // Traccia gli IP ricevuti in questa scansione
 
       for (let i = 0; i < devices.length; i++) {
@@ -5384,6 +5397,46 @@ pause
       console.error('❌ Errore Sync Unifi:', err);
       res.status(500).json({ error: err.message });
     }
+  });
+
+  // GET /api/network-monitoring/tools/ping
+  // Streaming ping output via fetch/chunked encoding
+  router.get('/tools/ping', authenticateToken, (req, res) => {
+    const { target } = req.query;
+    if (!target) return res.status(400).end('Target required');
+    // Simple validation (IP or hostname)
+    if (!/^[\w.-]+$/.test(target)) return res.status(400).end('Invalid target');
+
+    // Headers for streaming
+    res.writeHead(200, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    });
+
+    const isWindows = process.platform === 'win32';
+    // Windows requires -t to run indefinitely. Linux runs indefinitely by default.
+    const args = isWindows ? ['-t', target] : [target];
+
+    const child = spawn('ping', args);
+
+    child.stdout.on('data', (data) => {
+      res.write(data);
+    });
+
+    child.stderr.on('data', (data) => {
+      res.write(`Error: ${data}`);
+    });
+
+    child.on('close', (code) => {
+      res.write(`\n[Process exited with code ${code}]`);
+      res.end();
+    });
+
+    // Handle client disconnect
+    req.on('close', () => {
+      child.kill();
+    });
   });
 
   return router;
