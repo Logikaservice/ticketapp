@@ -1,10 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     ArrowLeft, Search, Filter, ZoomIn, ZoomOut, Loader,
     Server, Monitor, Printer, Wifi, Maximize, Router,
-    AlertTriangle, CheckCircle, WifiOff, X
+    AlertTriangle, CheckCircle, WifiOff, X, Move
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
+import * as d3 from 'd3-force';
+import { select } from 'd3-selection';
+import { drag } from 'd3-drag';
 
 const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId }) => {
     const [companies, setCompanies] = useState([]);
@@ -12,12 +15,15 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
     const [devices, setDevices] = useState([]);
     const [loading, setLoading] = useState(false);
     const [nodes, setNodes] = useState([]);
+    const [links, setLinks] = useState([]);
     const canvasRef = useRef(null);
+    const simulationRef = useRef(null);
     const [scale, setScale] = useState(1);
-    const [offset, setOffset] = useState({ x: 0, y: 0 });
-    const [isDragging, setIsDragging] = useState(false);
+    const [offset, setOffset] = useState({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+    const [isDraggingCanvas, setIsDraggingCanvas] = useState(false);
     const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
     const [selectedNode, setSelectedNode] = useState(null);
+    const svgRef = useRef(null);
 
     // Carica le aziende al mount
     useEffect(() => {
@@ -57,7 +63,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                 if (response.ok) {
                     const data = await response.json();
                     setDevices(data);
-                    generateTopology(data);
+                    initForceLayout(data);
                 }
             } catch (err) {
                 console.error("Errore caricamento dispositivi:", err);
@@ -69,76 +75,117 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         fetchDevices();
     }, [selectedCompanyId]);
 
-    // Genera la topologia a "stella" (Router al centro, dispositivi attorno)
-    const generateTopology = (deviceList) => {
-        const centerX = 600;
-        const centerY = 400;
-        const radius = 300; // Raggio del cerchio
+    // Inizializza il layout Force-Directed
+    const initForceLayout = (deviceList) => {
+        if (simulationRef.current) simulationRef.current.stop();
 
-        // Nodo centrale (Router/Gateway)
+        // 1. Crea i nodi
+        // Nodo Router (Centro)
         const routerNode = {
             id: 'router',
             type: 'router',
-            x: centerX,
-            y: centerY,
-            label: 'Gateway / Agent',
+            label: 'Gateway',
             status: 'online',
-            details: {
-                ip: 'Gateway',
-                role: 'Concentratore'
-            }
+            x: 0,
+            y: 0,
+            fx: 0, // Fissa il router al centro inizialmente
+            fy: 0,
+            details: { role: 'Gateway' }
         };
 
-        // Filtra dispositivi validi (ignora quelli senza IP o status)
         const validDevices = deviceList.filter(d => d.ip_address);
-        const count = validDevices.length;
+        const deviceNodes = validDevices.map(d => ({
+            id: d.id,
+            type: mapDeviceType(d),
+            label: d.hostname || d.ip_address,
+            ip: d.ip_address,
+            status: d.status,
+            details: d,
+            x: Math.random() * 200 - 100, // Posizione iniziale casuale attorno al centro
+            y: Math.random() * 200 - 100
+        }));
 
-        // Posiziona i dispositivi in cerchio
-        const deviceNodes = validDevices.map((device, index) => {
-            const angle = (index / count) * 2 * Math.PI; // Angolo in radianti
+        const initialNodes = [routerNode, ...deviceNodes];
 
-            // Calcola posizione X, Y sulla circonferenza
-            // Aggiungiamo un po' di "jitter" (variazione casuale) al raggio per rendere il grafo meno artificiale
-            const randomRadius = radius + (Math.random() * 100 - 50);
+        // 2. Crea i link (Tutti collegati al Router per default)
+        // TODO: In futuro caricare le relazioni padre-figlio dal DB
+        const initialLinks = deviceNodes.map(node => ({
+            source: 'router',
+            target: node.id
+        }));
 
-            return {
-                id: device.id,
-                type: mapDeviceType(device),
-                x: centerX + randomRadius * Math.cos(angle),
-                y: centerY + randomRadius * Math.sin(angle),
-                label: device.hostname || device.ip_address,
-                ip: device.ip_address,
-                status: device.status,
-                details: device
-            };
-        });
+        setNodes(initialNodes);
+        setLinks(initialLinks);
 
-        setNodes([routerNode, ...deviceNodes]);
+        // 3. Configura la simulazione D3
+        const simulation = d3.forceSimulation(initialNodes)
+            .force("link", d3.forceLink(initialLinks).id(d => d.id).distance(150)) // Distanza ideale dei link
+            .force("charge", d3.forceManyBody().strength(-500)) // Repulsione tra nodi (negativo = respinge)
+            .force("collide", d3.forceCollide().radius(60)) // Evita sovrapposizioni
+            // Rimuoviamo forceCenter per permettere il panning libero, usiamo offset per centrare la vista
+            .on("tick", () => {
+                // Forza un re-render React ad ogni tick (o usa useRef per performance se troppi nodi)
+                setNodes([...initialNodes]);
+            });
+
+        simulationRef.current = simulation;
     };
 
+    // Pulisci simulazione all'unmount
+    useEffect(() => {
+        return () => {
+            if (simulationRef.current) simulationRef.current.stop();
+        };
+    }, []);
+
+    // Gestione Drag & Drop dei nodi (D3 integration)
+    const handleNodeMouseDown = (e, node) => {
+        e.stopPropagation();
+        if (!simulationRef.current) return;
+
+        const simulation = simulationRef.current;
+
+        // Blocca il nodo durante il trascinamento
+        const handleDrag = (event) => {
+            // Converti coordinate mouse -> coordinate canvas (tenendo conto di scale e offset)
+            // Nota: event.clientX è relativo alla finestra
+            const canvasX = (event.clientX - offset.x) / scale;
+            const canvasY = (event.clientY - offset.y) / scale;
+
+            node.fx = canvasX;
+            node.fy = canvasY;
+            simulation.alpha(0.3).restart(); // Risveglia la simulazione
+        };
+
+        const handleDragEnd = () => {
+            if (!event.active) simulation.alphaTarget(0);
+            node.fx = null; // Rilascia il nodo (torna alla fisica)
+            node.fy = null;
+            window.removeEventListener('mousemove', handleDrag);
+            window.removeEventListener('mouseup', handleDragEnd);
+        };
+
+        window.addEventListener('mousemove', handleDrag);
+        window.addEventListener('mouseup', handleDragEnd);
+    };
+
+
     const mapDeviceType = (device) => {
-        // Logica semplice per icona
         const type = (device.device_type || '').toLowerCase();
         if (type.includes('printer') || type.includes('stampante')) return 'printer';
         if (type.includes('server') || type.includes('nas')) return 'server';
         if (type.includes('wifi') || type.includes('access point') || type.includes('ap')) return 'wifi';
-        return 'pc'; // Default
+        return 'pc';
     };
 
-    // Gestione Zoom e Pan
-    const handleWheel = (e) => {
-        e.preventDefault();
-        const newScale = Math.min(Math.max(0.1, scale - e.deltaY * 0.001), 3);
-        setScale(newScale);
-    };
-
-    const handleMouseDown = (e) => {
-        setIsDragging(true);
+    // Canvas panning
+    const handleCanvasMouseDown = (e) => {
+        setIsDraggingCanvas(true);
         setLastMousePos({ x: e.clientX, y: e.clientY });
     };
 
-    const handleMouseMove = (e) => {
-        if (isDragging) {
+    const handleCanvasMouseMove = (e) => {
+        if (isDraggingCanvas) {
             const dx = e.clientX - lastMousePos.x;
             const dy = e.clientY - lastMousePos.y;
             setOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
@@ -146,8 +193,14 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         }
     };
 
-    const handleMouseUp = () => {
-        setIsDragging(false);
+    const handleCanvasMouseUp = () => {
+        setIsDraggingCanvas(false);
+    };
+
+    const handleWheel = (e) => {
+        e.preventDefault();
+        const newScale = Math.min(Math.max(0.1, scale - e.deltaY * 0.001), 4);
+        setScale(newScale);
     };
 
     const drawIcon = (type) => {
@@ -169,13 +222,9 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
     return (
         <div className="fixed inset-0 bg-gray-50 z-50 flex flex-col font-sans h-screen w-screen overflow-hidden">
             {/* Header */}
-            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
+            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10 w-full">
                 <div className="flex items-center gap-4">
-                    <button
-                        onClick={onClose}
-                        className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                        title="Chiudi Mappa"
-                    >
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Chiudi Mappa">
                         <ArrowLeft size={24} className="text-gray-600" />
                     </button>
                     <div className="flex items-center gap-2">
@@ -184,7 +233,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                         </div>
                         <div>
                             <h1 className="text-xl font-bold text-gray-900">Mappa Topologica</h1>
-                            <p className="text-sm text-gray-600">Visualizzazione grafica della rete</p>
+                            <p className="text-sm text-gray-600">Visualizzazione fisica (Force-Directed)</p>
                         </div>
                     </div>
                 </div>
@@ -202,121 +251,113 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                     </select>
 
                     <div className="flex bg-gray-100 rounded-lg p-1">
-                        <button
-                            className="p-1.5 hover:bg-white rounded transition shadow-sm"
-                            onClick={() => setScale(s => Math.min(s + 0.1, 3))}
-                        >
+                        <button className="p-1.5 hover:bg-white rounded transition shadow-sm" onClick={() => setScale(s => Math.min(s + 0.1, 4))}>
                             <ZoomIn size={18} className="text-gray-600" />
                         </button>
-                        <button
-                            className="p-1.5 hover:bg-white rounded transition shadow-sm ml-1"
-                            onClick={() => setScale(s => Math.max(s - 0.1, 0.1))}
-                        >
+                        <button className="p-1.5 hover:bg-white rounded transition shadow-sm ml-1" onClick={() => setScale(s => Math.max(s - 0.1, 0.1))}>
                             <ZoomOut size={18} className="text-gray-600" />
                         </button>
-                        <button
-                            className="p-1.5 hover:bg-white rounded transition shadow-sm ml-1"
-                            onClick={() => { setScale(1); setOffset({ x: 0, y: 0 }); }}
-                            title="Reset Zoom"
-                        >
+                        <button className="p-1.5 hover:bg-white rounded transition shadow-sm ml-1" onClick={() => { setScale(1); setOffset({ x: window.innerWidth / 2, y: window.innerHeight / 2 }); }} title="Reset Zoom">
                             <Maximize size={18} className="text-gray-600" />
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* Canvas Area */}
+            {/* Canvas Area Infinito */}
             <div
                 className="flex-1 bg-gray-100 relative overflow-hidden cursor-move"
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
+                onMouseDown={handleCanvasMouseDown}
+                onMouseMove={handleCanvasMouseMove}
+                onMouseUp={handleCanvasMouseUp}
+                onMouseLeave={handleCanvasMouseUp}
                 onWheel={handleWheel}
+                style={{ cursor: isDraggingCanvas ? 'grabbing' : 'grab' }}
             >
+                {/* Background Grid Pattern */}
+                <div className="absolute inset-0 pointer-events-none opacity-10"
+                    style={{
+                        backgroundImage: 'radial-gradient(#9ca3af 1px, transparent 1px)',
+                        backgroundSize: `${20 * scale}px ${20 * scale}px`,
+                        backgroundPosition: `${offset.x}px ${offset.y}px`
+                    }}
+                />
+
                 {loading && (
-                    <div className="absolute inset-0 flex items-center justify-center z-50 bg-white/50 backdrop-blur-sm">
+                    <div className="absolute inset-0 flex items-center justify-center z-50 bg-white/50 backdrop-blur-sm pointer-events-none">
                         <Loader className="w-8 h-8 animate-spin text-blue-600" />
-                        <span className="ml-3 font-medium text-gray-700">Generazione mappa in corso...</span>
+                        <span className="ml-3 font-medium text-gray-700">Calcolo layout in corso...</span>
                     </div>
                 )}
 
-                {/* Empty State: Nessuna azienda selezionata */}
+                {/* Empty State */}
                 {!selectedCompanyId && !loading && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div className="bg-white p-6 rounded-lg shadow-lg text-center border border-gray-200 backdrop-blur-sm bg-opacity-90">
                             <Server size={48} className="mx-auto text-gray-300 mb-2" />
                             <h3 className="text-lg font-bold text-gray-700">Seleziona un'azienda</h3>
-                            <p className="text-gray-500 text-sm">Scegli un'azienda dal menu in alto per visualizzare la mappa.</p>
+                            <p className="text-gray-500 text-sm">Usa il menu in alto per visualizzare la topologia.</p>
                         </div>
                     </div>
                 )}
 
-                {/* Empty State: Nessun dispositivo trovato */}
-                {selectedCompanyId && !loading && nodes.length <= 1 && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="bg-white p-6 rounded-lg shadow-lg text-center border border-gray-200 backdrop-blur-sm bg-opacity-90">
-                            <WifiOff size={48} className="mx-auto text-gray-300 mb-2" />
-                            <h3 className="text-lg font-bold text-gray-700">Nessun dispositivo rilevato</h3>
-                            <p className="text-gray-500 text-sm">Non ci sono dati di monitoraggio recenti per questa azienda.</p>
-                        </div>
-                    </div>
-                )}
-
-                {/* Layer del Grafo */}
+                {/* Container Trasformabile (Zoom/Pan) */}
                 <div
-                    className="absolute origin-top-left transition-transform duration-75 ease-out"
+                    className="absolute top-0 left-0 w-full h-full pointer-events-none" // pointer-events-none per lasciare il controllo al parent per il pan
                     style={{
                         transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
-                        width: '2000px', // Area virtuale grande
-                        height: '2000px'
+                        transformOrigin: '0 0'
                     }}
                 >
-                    {/* Connessioni (Linee SVG) */}
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                        {nodes.map(node => {
-                            if (node.id === 'router') return null;
-                            // Disegna linea dal Router centrale (nodes[0]) al nodo corrente
-                            const center = nodes[0];
-                            if (!center) return null;
+                    {/* SVG Connector Layer */}
+                    <svg className="overflow-visible absolute top-0 left-0">
+                        {links.map((link, i) => {
+                            // D3 converte source/target in riferimenti agli oggetti nodo dopo init
+                            const source = typeof link.source === 'object' ? link.source : nodes.find(n => n.id === link.source);
+                            const target = typeof link.target === 'object' ? link.target : nodes.find(n => n.id === link.target);
+                            if (!source || !target) return null;
 
                             return (
                                 <line
-                                    key={`line-${node.id}`}
-                                    x1={center.x + 24} // +24 per centrare (metà 48px)
-                                    y1={center.y + 24}
-                                    x2={node.x + 20}   // +20 per centrare (metà 40px)
-                                    y2={node.y + 20}
-                                    stroke={node.status === 'offline' ? '#fee2e2' : '#e5e7eb'}
+                                    key={`link-${i}`}
+                                    x1={source.x}
+                                    y1={source.y}
+                                    x2={target.x}
+                                    y2={target.y}
+                                    stroke="#cbd5e1"
                                     strokeWidth="2"
                                 />
                             );
                         })}
                     </svg>
 
-                    {/* Nodi */}
+                    {/* HTML Node Layer */}
                     {nodes.map(node => (
                         <div
                             key={node.id}
-                            className={`absolute flex flex-col items-center justify-center cursor-pointer group transition-all duration-300 ${selectedNode?.id === node.id ? 'scale-125 z-50' : 'hover:scale-110 z-10'}`}
+                            className={`absolute flex flex-col items-center justify-center pointer-events-auto transition-shadow duration-300`}
                             style={{
                                 left: node.x,
                                 top: node.y,
-                                width: node.type === 'router' ? '48px' : '40px',
-                                height: node.type === 'router' ? '48px' : '40px'
+                                transform: 'translate(-50%, -50%)', // Centra il div sulle coordinate x,y
+                                width: node.type === 'router' ? '60px' : '48px',
+                                height: node.type === 'router' ? '60px' : '48px',
+                                cursor: 'pointer',
+                                zIndex: selectedNode?.id === node.id ? 50 : 10
                             }}
+                            onMouseDown={(e) => handleNodeMouseDown(e, node)}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedNode(node);
                             }}
                         >
                             {/* Cerchio Icona */}
-                            <div className={`w-full h-full rounded-full flex items-center justify-center shadow-md border-2 ${getNodeColor(node.status)}`}>
+                            <div className={`w-full h-full rounded-full flex items-center justify-center shadow-lg border-2 ${getNodeColor(node.status)} ${selectedNode?.id === node.id ? 'ring-4 ring-blue-300' : ''} bg-white z-10 hover:scale-110 transition-transform`}>
                                 {drawIcon(node.type)}
                             </div>
 
                             {/* Etichetta */}
-                            <div className="absolute top-full mt-2 bg-white/90 px-2 py-1 rounded text-[10px] font-medium shadow whitespace-nowrap border border-gray-200">
+                            <div className="absolute top-full mt-2 bg-white/90 px-2 py-0.5 rounded text-[10px] font-medium shadow text-gray-700 whitespace-nowrap border border-gray-200 pointer-events-none">
                                 {node.label}
                             </div>
                         </div>
@@ -324,7 +365,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                 </div>
             </div>
 
-            {/* Sidebar Dettagli (a comparsa) */}
+            {/* Sidebar Dettagli */}
             {selectedNode && (
                 <div className="absolute top-20 right-4 w-80 bg-white shadow-xl rounded-lg border border-gray-200 p-4 animate-slideInRight z-50">
                     <div className="flex justify-between items-start mb-4">
@@ -345,22 +386,17 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                                 {selectedNode.status.toUpperCase()}
                             </span>
                         </div>
-                        <div className="flex justify-between border-b pb-2">
-                            <span className="text-gray-500">Tipo:</span>
-                            <span className="capitalize">{selectedNode.type}</span>
-                        </div>
                         {selectedNode.details?.vendor && (
                             <div className="flex justify-between border-b pb-2">
                                 <span className="text-gray-500">Vendor:</span>
                                 <span>{selectedNode.details.vendor}</span>
                             </div>
                         )}
-                        {selectedNode.details?.last_seen && (
-                            <div className="flex justify-between border-b pb-2">
-                                <span className="text-gray-500">Ultimo contatto:</span>
-                                <span className="text-xs">{new Date(selectedNode.details.last_seen).toLocaleString()}</span>
-                            </div>
-                        )}
+                        <div className="mt-4 pt-2">
+                            <button className="w-full py-2 bg-blue-50 text-blue-600 rounded-md font-medium text-xs hover:bg-blue-100 flex items-center justify-center gap-2">
+                                <Move size={14} /> Cambia Genitore (WIP)
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
