@@ -127,8 +127,8 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             .force("collide", d3.forceCollide().radius(60)) // Evita sovrapposizioni
             // Rimuoviamo forceCenter per permettere il panning libero, usiamo offset per centrare la vista
             .on("tick", () => {
-                // Forza un re-render React ad ogni tick (o usa useRef per performance se troppi nodi)
-                setNodes([...initialNodes]);
+                // USARE simulation.nodes() invece di initialNodes per supportare aggiornamenti dinamici
+                setNodes([...simulation.nodes()]);
             });
 
         simulationRef.current = simulation;
