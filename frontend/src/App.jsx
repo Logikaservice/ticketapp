@@ -149,6 +149,10 @@ export default function TicketApp() {
     priorita: 'media',
     nomerichiedente: ''
   });
+  const [showNetworkMonitoring, setShowNetworkMonitoring] = useState(false);
+  const [showNetworkMap, setShowNetworkMap] = useState(false);
+  const [networkMonitoringInitialView, setNetworkMonitoringInitialView] = useState(null); // 'agents' o 'create'
+
   const [settingsData, setSettingsData] = useState({
     nome: '',
     cognome: '',
@@ -188,12 +192,7 @@ export default function TicketApp() {
     return false;
   });
 
-  const [showNetworkMonitoring, setShowNetworkMonitoring] = useState(() => {
-    return false;
-    const params = new URLSearchParams(window.location.search);
-    return params.get('mode') === 'display';
-  });
-  const [networkMonitoringInitialView, setNetworkMonitoringInitialView] = useState(null); // 'agents' o 'create'
+
 
 
   // Controlla se siamo in modalità display PackVision (riutilizza urlParams già dichiarato alla riga 63)
