@@ -166,7 +166,6 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             }));
 
             initialNodes = [routerNode, ...deviceNodes];
-            initialNodes = [routerNode, ...deviceNodes];
             initialLinks = deviceNodes.map(node => {
                 // Se il nodo ha un parent_device_id valido, usalo come target (che diventa il source nella logica source->target visuale? D3 link è source->target)
                 // In D3 Force Link: source -> target. Per albero: Parent -> Child.
@@ -426,44 +425,37 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                     ...getAuthHeader(),
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ parentIp: associateIp })
+                body: JSON.stringify({ parentIp: (associateIp || '').trim() })
             });
 
             if (response.ok) {
                 const data = await response.json();
                 console.log("Parent aggiornato:", data);
 
-                // Aggiorna localmente la topologia
-                if (data.parent_id) {
-                    // Trova il nodo genitore
-                    // Attenzione: se il parent è il router principale, potrebbe avere id 'router' o l'id vero.
-                    // Dobbiamo cercare tra i nodi attuali.
+                // Aggiorna la mappa: il pallino (selectedNode) si collega all'IP inserito (parent).
+                // Il parent mantiene tutti i suoi link esistenti; si modifica solo il link del child.
+                if (data.parent_id != null) {
                     const parentNode = nodes.find(n => n.id === data.parent_id || n._realId === data.parent_id);
-
-                    // Se non lo trovi, potrebbe essere il 'router' fittizio se non c'è gateway salvato?
-                    // Oppure dobbiamo ricaricare tutto? Ricaricare è più sicuro ma lento.
-                    // Proviamo update locale veloce.
-
-                    if (parentNode || (nodes.find(n => n.id === 'router') && !parentNode)) { // Fallback al router se non trova ID specifico? No, pericoloso.
-                        const targetParentId = parentNode ? parentNode.id : 'router'; // Se non trova ID specifico ma l'API ha detto OK, assumiamo router? No.
-
-                        if (parentNode) {
-                            handleCompleteLinking(parentNode); // Riutilizza logica di linking visuale
-                        } else {
-                            // Se il parent è il gateway (che ha id 'router' nel frontend ma ID numerico nel DB)
-                            const routerNode = nodes.find(n => n.id === 'router');
-                            if (routerNode && routerNode._realId === data.parent_id) {
-                                handleCompleteLinking(routerNode);
-                            } else {
-                                alert("Genitore impostato ma non visibile nella mappa corrente (forse offline?). Ricarica la pagina.");
-                            }
+                    if (parentNode) {
+                        const parentNodeId = parentNode.id; // 'router' o id numerico
+                        // Rimuovi solo il vecchio link del child (target = selectedNode)
+                        const newLinks = links.filter(l => {
+                            const tid = typeof l.target === 'object' ? l.target.id : l.target;
+                            return tid != selectedNode.id;
+                        });
+                        newLinks.push({ source: parentNodeId, target: selectedNode.id });
+                        setLinks(newLinks);
+                        if (simulationRef.current) {
+                            simulationRef.current.force("link").links(newLinks);
+                            simulationRef.current.alpha(0.3).restart();
                         }
+                    } else {
+                        alert("Genitore impostato sul server. Ricarica la pagina per aggiornare la mappa.");
                     }
                 }
 
                 setIsAssociateModalOpen(false);
                 setAssociateIp('');
-                // Opzionale: setSelectedNode(null);
             } else {
                 const errData = await response.json();
                 alert(`Errore: ${errData.error || 'Impossibile associare'}`);

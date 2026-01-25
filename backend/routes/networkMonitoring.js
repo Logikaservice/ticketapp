@@ -2240,7 +2240,7 @@ module.exports = (pool, io) => {
     const client = await pool.connect();
     try {
       const { aziendaId, childId } = req.params;
-      const { parentIp } = req.body; // IP del genitore desiderato
+      let parentIp = (req.body.parentIp || '').trim(); // IP del genitore desiderato
 
       // 1. Trova il device figlio e il suo agent_id
       const childResult = await client.query('SELECT id, agent_id FROM network_devices WHERE id = $1', [childId]);
