@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     ArrowLeft, Search, Filter, ZoomIn, ZoomOut, Loader,
-    Server, Monitor, Printer, Wifi, Maximize, Router,
-    Server, Monitor, Printer, Wifi, Maximize, Router,
+    Server, Server as ServerIcon, Monitor, Printer, Wifi, Maximize, Router,
     AlertTriangle, CheckCircle, WifiOff, X, Move, RotateCw, Link
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
