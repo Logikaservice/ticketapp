@@ -13,7 +13,6 @@ import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
 import EditAgentModal from './Modals/EditAgentModal';
 import MonitoringScheduleModal from './Modals/MonitoringScheduleModal';
-import PingTerminalModal from './Modals/PingTerminalModal';
 import AgentNotifications from './AgentNotifications';
 import TelegramConfigSection from './TelegramConfigSection';
 import { EventBadge, SeverityIndicator } from './EventBadges';
@@ -62,8 +61,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [selectedDeviceForSchedule, setSelectedDeviceForSchedule] = useState(null);
   const [showEditAgentModal, setShowEditAgentModal] = useState(false);
   const [selectedAgentForEdit, setSelectedAgentForEdit] = useState(null);
-  const [showPingModal, setShowPingModal] = useState(false);
-  const [targetPingIp, setTargetPingIp] = useState('');
   // selectedStaticIPs non serve più, usiamo is_static dal database
 
   // Funzione per generare report stampabile
@@ -1052,11 +1049,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     }, 50);
   };
 
-  // Apre terminale ping nel browser
+  // Apre terminale ping nel browser (nuova finestra)
   const handleTerminalPing = (ip) => {
     closeIpContextMenu();
-    setTargetPingIp(ip);
-    setShowPingModal(true);
+    // Apre la pagina standalone in un popup
+    window.open(`/tools/ping-terminal?ip=${ip}`, 'PingTerminal', 'width=800,height=600,resizable,scrollbars');
   };
 
   // Apre l'IP nel browser
@@ -2415,15 +2412,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           />
         )}
 
-        {/* Modal Terminale Ping */}
-        {showPingModal && (
-          <PingTerminalModal
-            isOpen={showPingModal}
-            onClose={() => setShowPingModal(false)}
-            targetIp={targetPingIp}
-            getAuthHeader={getAuthHeader}
-          />
-        )}
+        {/* Modal Configurazione Monitoring Schedule */}
 
         {/* Modal Configurazione Monitoring Schedule */}
         {showScheduleModal && selectedDeviceForSchedule && (

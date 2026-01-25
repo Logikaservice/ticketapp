@@ -31,6 +31,7 @@ import VivaldiManager from './components/VivaldiManager';
 import PackVisionWithAuth from './components/PackVisionWithAuth';
 import PackVision from './components/PackVision';
 import NetworkMonitoringDashboard from './components/NetworkMonitoringDashboard';
+import PingTerminalPage from './pages/PingTerminalPage';
 import { buildApiUrl } from './utils/apiConfig';
 
 const INITIAL_NEW_CLIENT_DATA = {
@@ -196,6 +197,9 @@ export default function TicketApp() {
 
   // Controlla se siamo in modalità display PackVision (riutilizza urlParams già dichiarato alla riga 63)
   const isPackVisionDisplayMode = urlParams.get('mode') === 'display' || isPackVisionHostname;
+
+  // Controlla se siamo nella pagina standalone ping terminal
+  const isPingTerminalPage = window.location.pathname === '/tools/ping-terminal';
 
   // Aggiorna lo stato quando cambia il dominio richiesto
   useEffect(() => {
@@ -667,7 +671,7 @@ export default function TicketApp() {
           .then(data => {
             // Aggiorna lo stato appena i dati sono pronti
             setUsers(data);
-            
+
             // Aggiorna currentUser con i dati completi (incluso admin_companies) se presente nella lista
             if (currentUser?.id && data && Array.isArray(data)) {
               const fullUserData = data.find(u => Number(u.id) === Number(currentUser.id));
@@ -681,7 +685,7 @@ export default function TicketApp() {
                 }
               }
             }
-            
+
             return data;
           })
           .catch(err => {
@@ -2962,8 +2966,8 @@ export default function TicketApp() {
         {showNetworkMonitoring && !isOrariHostname && !isVivaldiHostname && !isPackVisionHostname && (
           // Verifica accesso al network monitoring (solo tecnici/admin)
           (currentUser?.ruolo === 'admin' || currentUser?.ruolo === 'tecnico') ? (
-            <NetworkMonitoringDashboard 
-              getAuthHeader={getAuthHeader} 
+            <NetworkMonitoringDashboard
+              getAuthHeader={getAuthHeader}
               socket={socket}
               initialView={networkMonitoringInitialView}
               onViewReset={() => setNetworkMonitoringInitialView(null)}
@@ -3050,8 +3054,8 @@ export default function TicketApp() {
             // Verifica accesso al network monitoring (solo tecnici/admin)
             (currentUser?.ruolo === 'admin' || currentUser?.ruolo === 'tecnico') ? (
               <div className="animate-slideInRight">
-                <NetworkMonitoringDashboard 
-                  getAuthHeader={getAuthHeader} 
+                <NetworkMonitoringDashboard
+                  getAuthHeader={getAuthHeader}
                   socket={socket}
                   initialView={networkMonitoringInitialView}
                   onViewReset={() => setNetworkMonitoringInitialView(null)}
@@ -3211,9 +3215,19 @@ export default function TicketApp() {
           )}
         </main>
       </div>
+      );
+  }
 
-      <AllModals
-        modalState={modalState}
+      // Renderizzazione speciale per Ping Terminal Page (senza layout app)
+      if (isPingTerminalPage) {
+    return <PingTerminalPage />;
+  }
+
+      return (
+      <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
+        {/* Header sempre visibile tranne in modalità display PackVision e Orari */}
+        {!isOrariDomain && !isPackVisionDisplayMode && !isVivaldiDomain && (
+          modalState = { modalState }
         closeModal={closeModal}
         closeEmptyDescriptionModal={closeEmptyDescriptionModal}
         handleUpdateSettings={handleUpdateSettings}
@@ -3254,117 +3268,118 @@ export default function TicketApp() {
         alertsRefreshTrigger={alertsRefreshTrigger}
       />
 
-      {modalState.type === 'manageClients' && (
-        <ManageClientsModal
-          clienti={users.filter(u => u.ruolo === 'cliente')}
-          onClose={closeModal}
-          onUpdateClient={handleUpdateClient}
-          onDeleteClient={handleDeleteClient}
-          getAuthHeader={getAuthHeader}
-        />
-      )}
+        {modalState.type === 'manageClients' && (
+          <ManageClientsModal
+            clienti={users.filter(u => u.ruolo === 'cliente')}
+            onClose={closeModal}
+            onUpdateClient={handleUpdateClient}
+            onDeleteClient={handleDeleteClient}
+            getAuthHeader={getAuthHeader}
+          />
+        )}
 
-      {modalState.type === 'newClient' && (
-        <NewClientModal
-          newClientData={newClientData}
-          setNewClientData={setNewClientData}
-          onClose={closeModal}
-          onSave={wrappedHandleCreateClient}
-          existingCompanies={existingCompanies}
-        />
-      )}
+        {modalState.type === 'newClient' && (
+          <NewClientModal
+            newClientData={newClientData}
+            setNewClientData={setNewClientData}
+            onClose={closeModal}
+            onSave={wrappedHandleCreateClient}
+            existingCompanies={existingCompanies}
+          />
+        )}
 
-      {modalState.type === 'newTicket' && (
-        <NewTicketModal
-          onClose={closeModal}
-          onSave={isEditingTicket ? wrappedHandleUpdateTicket : wrappedHandleCreateTicket}
-          newTicketData={newTicketData}
-          setNewTicketData={setNewTicketData}
-          isEditingTicket={isEditingTicket}
-          currentUser={currentUser}
-          clientiAttivi={users.filter(u => u.ruolo === 'cliente')}
-          selectedClientForNewTicket={selectedClientForNewTicket}
-          setSelectedClientForNewTicket={setSelectedClientForNewTicket}
-          editingTicket={isEditingTicket ? tickets.find(t => t.id === isEditingTicket) || modalState.data : null}
-        />
-      )}
+        {modalState.type === 'newTicket' && (
+          <NewTicketModal
+            onClose={closeModal}
+            onSave={isEditingTicket ? wrappedHandleUpdateTicket : wrappedHandleCreateTicket}
+            newTicketData={newTicketData}
+            setNewTicketData={setNewTicketData}
+            isEditingTicket={isEditingTicket}
+            currentUser={currentUser}
+            clientiAttivi={users.filter(u => u.ruolo === 'cliente')}
+            selectedClientForNewTicket={selectedClientForNewTicket}
+            setSelectedClientForNewTicket={setSelectedClientForNewTicket}
+            editingTicket={isEditingTicket ? tickets.find(t => t.id === isEditingTicket) || modalState.data : null}
+          />
+        )}
 
-      {modalState.type === 'inactivityTimer' && (
-        <InactivityTimerModal
-          closeModal={closeModal}
-          currentTimeout={inactivityTimeout}
-          onTimeoutChange={handleInactivityTimeoutChange}
-        />
-      )}
+        {modalState.type === 'inactivityTimer' && (
+          <InactivityTimerModal
+            closeModal={closeModal}
+            currentTimeout={inactivityTimeout}
+            onTimeoutChange={handleInactivityTimeoutChange}
+          />
+        )}
 
-      {fornitureModalTicket && (
-        <FornitureModal
-          ticket={fornitureModalTicket}
-          onClose={() => setFornitureModalTicket(null)}
-          onFornitureCountChange={handleFornitureCountChange}
-          currentUser={currentUser}
-          getAuthHeader={getAuthHeader}
-        />
-      )}
+        {fornitureModalTicket && (
+          <FornitureModal
+            ticket={fornitureModalTicket}
+            onClose={() => setFornitureModalTicket(null)}
+            onFornitureCountChange={handleFornitureCountChange}
+            currentUser={currentUser}
+            getAuthHeader={getAuthHeader}
+          />
+        )}
 
-      {showUnreadModal && (
-        <UnreadMessagesModal
-          tickets={tickets}
-          getUnreadCount={getUnreadCount}
-          onClose={() => setShowUnreadModal(false)}
-          onOpenTicket={handleOpenTicketFromModal}
-          currentUser={currentUser}
-        />
-      )}
+        {showUnreadModal && (
+          <UnreadMessagesModal
+            tickets={tickets}
+            getUnreadCount={getUnreadCount}
+            onClose={() => setShowUnreadModal(false)}
+            onOpenTicket={handleOpenTicketFromModal}
+            currentUser={currentUser}
+          />
+        )}
 
-      {photosModalTicket && (
-        <TicketPhotosModal
-          ticket={photosModalTicket}
-          photos={photosModalTicket.photos || []}
-          onClose={() => {
-            // Aggiorna il ticket dal database prima di chiudere
-            const updatedTicket = tickets.find(t => t.id === photosModalTicket.id);
-            if (updatedTicket) {
-              setPhotosModalTicket(null);
-            } else {
-              setPhotosModalTicket(null);
-            }
-          }}
-          onUploadPhotos={handleUploadTicketPhotos}
-          onDeletePhoto={async (photoFilename) => {
-            const updatedPhotos = await handleDeleteTicketPhoto(photosModalTicket.id, photoFilename);
-            // Aggiorna il ticket nel modal
-            const updatedTicket = tickets.find(t => t.id === photosModalTicket.id);
-            if (updatedTicket) {
-              setPhotosModalTicket({ ...updatedTicket, photos: updatedPhotos });
-            }
-            return updatedPhotos;
-          }}
-          getAuthHeader={getAuthHeader}
-          currentUser={currentUser}
-        />
-      )}
+        {photosModalTicket && (
+          <TicketPhotosModal
+            ticket={photosModalTicket}
+            photos={photosModalTicket.photos || []}
+            onClose={() => {
+              // Aggiorna il ticket dal database prima di chiudere
+              const updatedTicket = tickets.find(t => t.id === photosModalTicket.id);
+              if (updatedTicket) {
+                setPhotosModalTicket(null);
+              } else {
+                setPhotosModalTicket(null);
+              }
+            }}
+            onUploadPhotos={handleUploadTicketPhotos}
+            onDeletePhoto={async (photoFilename) => {
+              const updatedPhotos = await handleDeleteTicketPhoto(photosModalTicket.id, photoFilename);
+              // Aggiorna il ticket nel modal
+              const updatedTicket = tickets.find(t => t.id === photosModalTicket.id);
+              if (updatedTicket) {
+                setPhotosModalTicket({ ...updatedTicket, photos: updatedPhotos });
+              }
+              return updatedPhotos;
+            }}
+            getAuthHeader={getAuthHeader}
+            currentUser={currentUser}
+          />
+        )}
 
-      {showContractModal && (
-        <ManageContractsModal
-          onClose={() => setShowContractModal(false)}
-          onSuccess={() => {
-            // Il contratto è stato creato con successo
-            // I contratti vengono ricaricati automaticamente quando necessario
-            // (ad esempio nella Dashboard quando si ricarica la pagina)
-          }}
-          notify={notify}
-          getAuthHeader={getAuthHeader}
-        />
-      )}
+        {showContractModal && (
+          <ManageContractsModal
+            onClose={() => setShowContractModal(false)}
+            onSuccess={() => {
+              // Il contratto è stato creato con successo
+              // I contratti vengono ricaricati automaticamente quando necessario
+              // (ad esempio nella Dashboard quando si ricarica la pagina)
+            }}
+            notify={notify}
+            getAuthHeader={getAuthHeader}
+          />
+        )}
 
-      {showContractsListModal && (
-        <ContractsListModal
-          onClose={() => setShowContractsListModal(false)}
-          getAuthHeader={getAuthHeader}
-          notify={notify}
-        />
+        {showContractsListModal && (
+          <ContractsListModal
+            onClose={() => setShowContractsListModal(false)}
+            getAuthHeader={getAuthHeader}
+            notify={notify}
+          />
+        )}
       )}
-    </div>
-  );
+      </div>
+      );
 }
