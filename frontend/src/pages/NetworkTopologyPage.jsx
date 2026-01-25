@@ -251,6 +251,80 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         setLastMousePos({ x: e.clientX, y: e.clientY });
     };
 
+    // Promuovi un nodo a Gateway
+    const handlePromoteToGateway = (nodeToPromote) => {
+        if (!nodeToPromote || nodeToPromote.id === 'router') return;
+
+        // 1. Trova il nodo attuale "router" e trasformalo in un nodo normale
+        const oldRouter = nodes.find(n => n.id === 'router');
+        const newNodes = nodes.filter(n => n.id !== nodeToPromote.id && n.id !== 'router');
+
+        // Il vecchio router diventa un nodo normale (preserva le sue proprietà se le aveva, o diventa un generic router)
+        const demotedRouter = {
+            ...oldRouter,
+            id: `device-${Date.now()}`, // Nuovo ID univoco
+            type: 'router', // Rimane icona router
+            x: nodeToPromote.x, // Scambia posizione visiva per transizione fluida
+            y: nodeToPromote.y,
+            fx: null, fy: null, // Sblocca posizione
+            label: 'Old Gateway'
+        };
+
+        // Il nodo promosso diventa il nuovo 'router'
+        const promotedNode = {
+            ...nodeToPromote,
+            id: 'router',
+            type: 'router', // Assume icona router? O mantiene la sua? Manteniamo la sua per ora, o forziamo router?
+            // Meglio mantenere il tipo originale ma con label Gateway? O icona Gateway speciale?
+            // Per ora forziamo type=router per evidenziarlo graficamente come centro stella
+            // type: 'router', 
+            label: `${nodeToPromote.label} (GW)`,
+            fx: 0, fy: 0, // Fissa al centro
+            x: 0, y: 0
+        };
+
+        // Aggiorna la lista nodi
+        newNodes.push(demotedRouter);
+        newNodes.push(promotedNode);
+
+        // Aggiorna i link
+        const newLinks = links.map(link => {
+            const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+            const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+
+            if ((sourceId === 'router' && targetId === nodeToPromote.id) ||
+                (sourceId === nodeToPromote.id && targetId === 'router')) {
+                return { source: 'router', target: demotedRouter.id };
+            }
+
+            if (sourceId === nodeToPromote.id) return { ...link, source: 'router' };
+            if (targetId === nodeToPromote.id) return { ...link, target: 'router' };
+
+            return link;
+        });
+
+        // Assicurati che il demotedRouter sia collegato
+        const linkExists = newLinks.find(l =>
+            (l.source === 'router' && l.target === demotedRouter.id) ||
+            (l.source === demotedRouter.id && l.target === 'router')
+        );
+        if (!linkExists) {
+            newLinks.push({ source: 'router', target: demotedRouter.id });
+        }
+
+        setNodes(newNodes);
+        setLinks(newLinks);
+
+        simulationRef.current.nodes(newNodes);
+        simulationRef.current.force("link").links(newLinks);
+        simulationRef.current.alpha(0.8).restart();
+
+        setSelectedNode(null); // Chiudi sidebar
+    };
+
+
+    // Canvas panning
+
     const handleCanvasMouseMove = (e) => {
         if (isDraggingCanvas) {
             const dx = e.clientX - lastMousePos.x;
@@ -489,6 +563,16 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                                 <div className="text-xs text-gray-500 italic text-center">
                                     Switch Virtuale creabile manualmente
                                 </div>
+                            )}
+
+                            {selectedNode.id !== 'router' && (
+                                <button
+                                    onClick={() => handlePromoteToGateway(selectedNode)}
+                                    className="w-full py-2 mt-2 bg-green-50 text-green-700 rounded-md font-medium text-xs hover:bg-green-100 flex items-center justify-center gap-2"
+                                    title="Imposta questo dispositivo come Gateway principale"
+                                >
+                                    <Router size={14} /> Imposta come Gateway Principale
+                                </button>
                             )}
                         </div>
                     </div>
