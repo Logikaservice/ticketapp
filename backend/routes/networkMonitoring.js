@@ -1124,6 +1124,10 @@ module.exports = (pool, io) => {
         await pool.query('UPDATE network_devices SET parent_device_id = $1, port = $2 WHERE id = $3', [switchDeviceId, port, d.id]);
         updated++;
       }
+      console.log(`📥 switch-address-table: switch_ip=${ip}, managed_switch_id=${managed_switch_id}, macs_found=${macToPort.size}, macs_matched=${updated}`);
+      if (macToPort.size > 0 && updated === 0) {
+        console.warn(`⚠️ SNMP: ${macToPort.size} MAC letti dallo switch ma 0 match con network_devices. Verificare: 1) dispositivi scoperti dall'agent con mac_address, 2) formato MAC (entrambi normalizzati senza :.-).`);
+      }
       res.json({ success: true, macs_found: macToPort.size, macs_matched: updated, switch_device_id: switchDeviceId });
     } catch (err) {
       console.error('❌ Errore POST agent/switch-address-table:', err);
@@ -5414,18 +5418,21 @@ pause
   });
 
   // GET /api/network-monitoring/agent-version
-  // Restituisce la versione corrente dell'agent disponibile per download
+  // Restituisce la versione corrente dell'agent disponibile per download.
+  // Gli agent chiamano quest'endpoint, confrontano con la loro versione, e se diversa
+  // scaricano da /download/agent/NetworkMonitorService.ps1 e si riavviano (auto-update).
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.6.0'; // SNMP switch in locale (snmpwalk); fix parsing PowerShell 2.6.0
+      const CURRENT_AGENT_VERSION = '2.6.1'; // dot1q fallback, parsing OID simbolici, C:\usr, MIB
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
         version: CURRENT_AGENT_VERSION,
         download_url: `${baseUrl}/api/network-monitoring/download/agent/NetworkMonitor.ps1`,
-        release_date: '2025-01-22',
+        release_date: '2026-01-26',
         features: [
-          'Switch gestiti - Sync SNMP (dot1dTpFdbPort) eseguita dall\'agent in locale con snmpwalk',
+          'Switch gestiti - Sync SNMP dot1d + dot1q (fallback), parsing OID simbolici, C:\\usr, MIB',
+          'Switch gestiti - dot1dTpFdbPort e dot1qTpFdbPort (Q-BRIDGE) da snmpwalk in locale',
           'Auto-Update System - Aggiornamento automatico trasparente',
           'Unifi - Rilevamento aggiornamenti firmware da Cloud Key/Controller (credenziali da server, mai su disco)',
           'Hybrid Discovery - Ping + TCP Scan per rilevare dispositivi firewalled',

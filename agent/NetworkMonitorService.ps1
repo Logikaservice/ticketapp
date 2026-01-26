@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.6.0
+# Versione: 2.6.1
 # Data ultima modifica: 2026-01-25
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.6.0"
+$SCRIPT_VERSION = "2.6.1"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -1975,8 +1975,9 @@ function Send-ScanResults {
     }
 }
 
-# Sincronizza switch gestiti: l'agent (in locale, stessa LAN) esegue snmpwalk su dot1dTpFdbPort,
-# invia la tabella MAC->porta al backend. Il backend non puo' raggiungere IP privati (es. 192.168.x) dal VPS.
+# Sincronizza switch gestiti: l'agent (in locale, stessa LAN) esegue snmpwalk su dot1dTpFdbPort
+# (o dot1qTpFdbPort se dot1d non restituisce dati), invia la tabella MAC->porta al backend.
+# Parsing come Test-SnmpSwitch.ps1: OID numerici e simbolici, ultimi 6 segmenti = MAC.
 function Sync-ManagedSwitchesSnmp {
     param(
         [string]$ServerUrl,
@@ -1989,38 +1990,58 @@ function Sync-ManagedSwitchesSnmp {
         if (-not $list -or ($list -is [Array] -and $list.Count -eq 0)) { return }
         if (-not ($list -is [Array])) { $list = @($list) }
 
+        # snmpwalk: PATH, C:\Program Files\Net-SNMP\bin, C:\usr\bin (install in C:\usr)
         $snmpwalkExe = $null
         try { $snmpwalkExe = (Get-Command snmpwalk -ErrorAction Stop).Source } catch { }
         if (-not $snmpwalkExe -and (Test-Path "C:\Program Files\Net-SNMP\bin\snmpwalk.exe")) {
             $snmpwalkExe = "C:\Program Files\Net-SNMP\bin\snmpwalk.exe"
         }
+        if (-not $snmpwalkExe -and (Test-Path "C:\usr\bin\snmpwalk.exe")) { $snmpwalkExe = "C:\usr\bin\snmpwalk.exe" }
+        if (-not $snmpwalkExe -and (Test-Path "C:\usr\bin\snmpwalk")) { $snmpwalkExe = "C:\usr\bin\snmpwalk" }
         if (-not $snmpwalkExe) {
             Write-Log "snmpwalk non trovato (Net-SNMP); sync switch SNMP saltata" "WARN"
             return
         }
 
-        $baseOid = "1.3.6.1.2.1.17.4.3.1.2"
+        # MIB: C:\Program Files\Net-SNMP\share\snmp\mibs oppure C:\usr\share\snmp\mibs; altrimenti MIBS=""
+        $prevMibs = $env:MIBS
+        $prevMibDirs = $env:MIBDIRS
+        $mibDir = $null
+        if (Test-Path "C:\Program Files\Net-SNMP\share\snmp\mibs") { $mibDir = "C:\Program Files\Net-SNMP\share\snmp\mibs" }
+        elseif (Test-Path "C:\usr\share\snmp\mibs") { $mibDir = "C:\usr\share\snmp\mibs" }
+        if ($mibDir) { $env:MIBDIRS = $mibDir } else { $env:MIBS = "" }
+
+        try {
+        $oidDot1d = "1.3.6.1.2.1.17.4.3.1.2"
+        $oidDot1q = "1.3.6.1.2.1.17.7.1.2.2.1.2"
         foreach ($s in $list) {
             $id = $s.id
             $ip = $s.ip
             $community = if ($s.snmp_community) { $s.snmp_community } else { "public" }
             try {
-                $out = & $snmpwalkExe -v 2c -c $community $ip $baseOid -On 2>&1
-                if (-not $out) { continue }
-                $lines = $out | Where-Object { $_ -match "=" }
                 $macToPort = @{}
-                foreach ($line in $lines) {
-                    if ($line -notmatch "^\s*\.?([\d.]+)\s*=\s*INTEGER:\s*(\d+)") { continue }
-                    $oid = $Matches[1]
-                    $port = [int]$Matches[2]
-                    if ($oid -notmatch "\.?$([regex]::Escape($baseOid))\.?(.*)$") { continue }
-                    $suffix = $Matches[2]
-                    $parts = @(); foreach ($p in ($suffix -split '\.')) { $n = 0; if ([int]::TryParse($p.Trim(), [ref]$n)) { $parts += $n } }
-                    if ($parts.Count -lt 6) { continue }
-                    $last6 = @($parts)[-6..-1]
-                    $mac = ($last6 | ForEach-Object { '{0:X2}' -f ($_ -band 0xFF) }) -join ''
-                    $mac = $mac.ToUpper()
-                    if ($mac.Length -eq 12) { $macToPort[$mac] = $port }
+                foreach ($baseOid in @($oidDot1d, $oidDot1q)) {
+                    $out = & $snmpwalkExe -v 2c -c $community $ip $baseOid -On 2>&1
+                    if ($LASTEXITCODE -ne 0) { continue }
+                    if (-not $out) { continue }
+                    $m = @{}
+                    $lines = $out | Where-Object { $_ -match "=\s*INTEGER:\s*(\d+)" }
+                    foreach ($line in $lines) {
+                        if ($line -notmatch '=\s*INTEGER:\s*(\d+)') { continue }
+                        $port = [int]$Matches[1]
+                        $oidPart = ($line -split '=', 2)[0].Trim() -replace '::', '.'
+                        $numeric = @()
+                        foreach ($seg in ($oidPart -split '\.')) {
+                            $n = 0
+                            if ([int]::TryParse($seg.Trim(), [ref]$n) -and $n -ge 0 -and $n -le 255) { $numeric += $n }
+                        }
+                        if ($numeric.Count -lt 6) { continue }
+                        $last6 = @($numeric)[-6..-1]
+                        $mac = ($last6 | ForEach-Object { '{0:X2}' -f ($_ -band 0xFF) }) -join ''
+                        $mac = $mac.ToUpper()
+                        if ($mac.Length -eq 12) { $m[$mac] = $port }
+                    }
+                    if ($m.Count -gt 0) { $macToPort = $m; break }
                 }
                 if ($macToPort.Count -eq 0) { continue }
 
@@ -2038,6 +2059,10 @@ function Sync-ManagedSwitchesSnmp {
             catch {
                 Write-Log "Sync switch SNMP $ip fallito: $_" "WARN"
             }
+        }
+        } finally {
+            if ($null -ne $prevMibs) { $env:MIBS = $prevMibs } else { Remove-Item -Path env:MIBS -ErrorAction SilentlyContinue }
+            if ($null -ne $prevMibDirs) { $env:MIBDIRS = $prevMibDirs } else { Remove-Item -Path env:MIBDIRS -ErrorAction SilentlyContinue }
         }
     }
     catch {

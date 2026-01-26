@@ -37,7 +37,7 @@ Cerca:
 ### 1.3 Servizio
 
 ```powershell
-Get-Service -Name "NetworkMonitorAgent" -ErrorAction SilentlyContinue
+Get-Service -Name "NetworkMonitorService" -ErrorAction SilentlyContinue
 # Stato: Running
 ```
 
@@ -113,8 +113,8 @@ Cerca in stdout/PM2/log dell’app Node:
 ## 3. SNMP (switch gestiti)
 
 - **Dove**: l’agent, **sul PC in locale**, esegue `snmpwalk` verso gli IP degli switch (stessa LAN).
-- **Requisito**: **Net-SNMP** con `snmpwalk` in PATH o in  
-  `C:\Program Files\Net-SNMP\bin\snmpwalk.exe`
+- **Requisito**: **Net-SNMP** con `snmpwalk` in PATH, in  
+  `C:\Program Files\Net-SNMP\bin\snmpwalk.exe` oppure in `C:\usr\bin\snmpwalk` (o `.exe`) se l’installazione e sotto `C:\usr`.
 - **Flusso**:
   1. `GET .../agent/managed-switches` (lista switch per l’azienda)
   2. Per ogni switch: `snmpwalk -v 2c -c <community> <ip> dot1dTpFdbPort`
@@ -127,7 +127,7 @@ Se `snmpwalk` non c’è:
 
 Per usare SNMP:
 
-1. Installare **Net-SNMP** sui PC con l’agent e verificare che `snmpwalk` sia in PATH o nel path standard.
+1. Installare **Net-SNMP** sui PC con l’agent. `snmpwalk` puo stare in PATH, in `C:\Program Files\Net-SNMP\bin\` o in `C:\usr\bin\` (se l’install e under `C:\usr`). I MIB, se servono, in `C:\usr\share\snmp\mibs` o in `C:\Program Files\Net-SNMP\share\snmp\mibs`; script e agent li cercano in questi path.
 2. In dashboard: **Managed Switches** per l’azienda: aggiungere switch con IP, community, `snmp_version` (es. 2c).
 
 ---
@@ -145,13 +145,13 @@ Se sui PC girava una versione di `NetworkMonitorService.ps1` **corrotta** (~124k
 | Controllo | Dove |
 |-----------|------|
 | `server_url` senza `/api`, `api_key` corretta | `config.json` su PC |
-| Servizio `NetworkMonitorAgent` in esecuzione | PC |
+| Servizio `NetworkMonitorService` in esecuzione | PC |
 | Log: “Heartbeat completato” o “Errore heartbeat” | `NetworkMonitorService.log` |
 | Log: “scan-results” / “Invio dati” / errori | `NetworkMonitorService.log` |
 | `last_heartbeat` recente, `enabled=1`, `deleted_at` NULL | DB `network_agents` |
 | 401/403/500 su heartbeat/scan-results | Log backend / proxy |
 | `/api/network-monitoring` raggiungibile dalla rete dei PC | Rete / firewall / proxy |
-| `snmpwalk` in PATH o in `C:\Program Files\Net-SNMP\bin\` (solo se usi switch) | PC |
+| `snmpwalk` in PATH, in `C:\Program Files\Net-SNMP\bin\` o in `C:\usr\bin\` (solo se usi switch) | PC |
 | Managed Switches configurati in dashboard (solo se usi SNMP) | Backend / DB |
 
 ---
