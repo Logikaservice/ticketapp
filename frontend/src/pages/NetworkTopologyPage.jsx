@@ -1130,39 +1130,73 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                                     </button>
                                 </>
                             ) : (
-                                <>
-                                    <button
-                                        onClick={() => handleStartLinking(selectedNode)}
-                                        className={`w-full py-2 rounded-md font-medium text-xs flex items-center justify-center gap-2 mb-2 ${isLinking ? 'bg-orange-100 text-orange-700 animate-pulse' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
-                                    >
-                                        <Move size={14} /> {isLinking ? 'Seleziona il NUOVO genitore...' : 'Cambia Genitore (Sposta)'}
-                                    </button>
-                                    {selectedNode.type === 'unmanaged_switch' && (
-                                        <div className="text-xs text-gray-500 italic text-center">
-                                            Switch Virtuale creabile manualmente
-                                        </div>
-                                    )}
-
-                                    {selectedNode.id !== 'router' && (
+                                <div className="pt-2 border-t mt-2">
+                                    <div className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Azioni Topologia</div>
+                                    <div className="flex flex-col gap-2">
                                         <button
-                                            onClick={() => setIsAssociateModalOpen(true)}
-                                            className="w-full py-2 mt-2 bg-indigo-50 text-indigo-700 rounded-md font-medium text-xs hover:bg-indigo-100 flex items-center justify-center gap-2"
-                                            title="Inserisci manualmente l'IP del dispositivo padre"
+                                            className="w-full bg-blue-50 text-blue-600 px-3 py-1.5 rounded flex items-center justify-center gap-2 hover:bg-blue-100 transition text-sm font-medium"
+                                            onClick={() => setDragDropAssociate({ childNode: selectedNode })}
                                         >
-                                            <Link size={14} /> Associa a: (Inserisci IP)
+                                            <Move size={14} />
+                                            Cambia Genitore (Sposta)
                                         </button>
-                                    )}
-
-                                    {selectedNode.id !== 'router' && (
-                                        <button
-                                            onClick={() => handlePromoteToGateway(selectedNode)}
-                                            className="w-full py-2 mt-2 bg-green-50 text-green-700 rounded-md font-medium text-xs hover:bg-green-100 flex items-center justify-center gap-2"
-                                            title="Imposta questo dispositivo come Gateway principale"
-                                        >
-                                            <Router size={14} /> Imposta come Gateway Principale
-                                        </button>
-                                    )}
-                                </>
+                                        {selectedNode.type === 'unmanaged_switch' && (
+                                            <>
+                                                <div className="text-[10px] text-gray-400 text-center italic mt-1">
+                                                    Switch Virtuale creato manualmente
+                                                </div>
+                                                <button
+                                                    className="w-full bg-red-50 text-red-600 px-3 py-1.5 rounded flex items-center justify-center gap-2 hover:bg-red-100 transition text-sm font-medium mt-1"
+                                                    onClick={async () => {
+                                                        if (!confirm('Sei sicuro di voler eliminare questo Switch Virtuale?\nI dispositivi collegati verranno scollegati (diventeranno orfani).')) return;
+                                                        try {
+                                                            const res = await fetch(buildApiUrl(`/api/network-monitoring/devices/${selectedNode.id}`), {
+                                                                method: 'DELETE',
+                                                                headers: getAuthHeader()
+                                                            });
+                                                            if (res.ok) {
+                                                                setSelectedNode(null);
+                                                                setRefreshDevicesKey(prev => prev + 1);
+                                                            } else {
+                                                                const data = await res.json();
+                                                                alert(data.error || 'Errore eliminazione');
+                                                            }
+                                                        } catch (e) {
+                                                            alert('Errore: ' + e.message);
+                                                        }
+                                                    }}
+                                                >
+                                                    <Trash2 size={14} />
+                                                    Elimina Switch Virtuale
+                                                </button>
+                                            </>
+                                        )}
+                                        {selectedNode.type !== 'unmanaged_switch' && (
+                                            <button
+                                                className="w-full bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded flex items-center justify-center gap-2 hover:bg-indigo-100 transition text-sm font-medium"
+                                                onClick={() => {
+                                                    // TODO: Implementare modalità "Associa a..." che al click su un altro nodo fa la call API
+                                                    // Per ora riusiamo la logica di dragDrop ma "manuale"
+                                                    alert('Clicca su un altro nodo nella mappa per associarlo come padre di questo dispositivo.');
+                                                    setDragDropAssociate({ childNode: selectedNode });
+                                                }}
+                                            >
+                                                <Link size={14} />
+                                                Associa a: [Inserisci IP]
+                                            </button>
+                                        )}
+                                        {selectedNode.id !== 'router' && (
+                                            <button
+                                                onClick={() => handlePromoteToGateway(selectedNode)}
+                                                className="w-full bg-green-50 text-green-700 px-3 py-1.5 rounded flex items-center justify-center gap-2 hover:bg-green-100 transition text-sm font-medium mt-1"
+                                                title="Imposta questo dispositivo come Gateway principale"
+                                            >
+                                                <Router size={14} />
+                                                Imposta come Gateway Principale
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                             )}
                         </div>
                     </div>

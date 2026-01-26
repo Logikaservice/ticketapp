@@ -4436,6 +4436,30 @@ pause
     }
   });
 
+  // DELETE /api/network-monitoring/devices/:id
+  // Elimina un dispositivo (pensato per switch virtuali/unmanaged)
+  router.delete('/devices/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      const { id } = req.params;
+
+      // Verifica che sia uno switch virtuale/unmanaged o comunque eliminabile
+      // Per sicurezza, potremmo limitare l'eliminazione solo a 'unmanaged_switch' o 'manual'
+      const dev = await pool.query('SELECT device_type FROM network_devices WHERE id = $1', [id]);
+      if (dev.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato' });
+
+      if (dev.rows[0].device_type !== 'unmanaged_switch') {
+        return res.status(400).json({ error: 'Solo gli switch virtuali/unmanaged possono essere eliminati manualmente.' });
+      }
+
+      await pool.query('DELETE FROM network_devices WHERE id = $1', [id]);
+      res.json({ success: true, message: 'Dispositivo eliminato' });
+    } catch (err) {
+      console.error('❌ Errore eliminazione dispositivo:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // PATCH /api/network-monitoring/devices/:id/port
   // Imposta Port (mostrato come IP #port in topologia)
   router.patch('/devices/:id/port', authenticateToken, requireRole('tecnico'), async (req, res) => {
