@@ -1,7 +1,7 @@
 // src/components/Header.jsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table, Wifi, Server as ServerIcon } from 'lucide-react';
+import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table, Wifi, Server as ServerIcon, MapPin } from 'lucide-react';
 import AgentNotifications from './AgentNotifications';
 
 const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, openNetworkMonitoring, openNetworkMonitoringAgents, openNetworkMonitoringCreateAgent, openNetworkMonitoringDeviceTypes, isOrariDomain = false, getAuthHeader = null, socket = null }) => {
@@ -43,8 +43,11 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
           setExpandedAction(null);
         }
       } else if (action === 'networkMap') {
-        // Triggera evento custom per aprire la mappa da App.jsx
         window.dispatchEvent(new CustomEvent('open-network-map'));
+        setShowQuickActions(false);
+        setExpandedAction(null);
+      } else if (action === 'mappatura') {
+        window.dispatchEvent(new CustomEvent('open-mappatura'));
         setShowQuickActions(false);
         setExpandedAction(null);
       }
@@ -140,7 +143,8 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       hasSubActions: true,
       subActions: [
         { label: 'Dashboard Monitoraggio', icon: Wifi, color: 'cyan', onClick: () => handleQuickActionClick('networkMonitoring') },
-        { label: 'Mappa Rete', icon: Activity, color: 'purple', onClick: () => handleQuickActionClick('networkMap') }
+        { label: 'Mappa Rete', icon: Activity, color: 'purple', onClick: () => handleQuickActionClick('networkMap') },
+        { label: 'Mappatura', icon: MapPin, color: 'emerald', onClick: () => handleQuickActionClick('mappatura') }
       ]
     },
     {

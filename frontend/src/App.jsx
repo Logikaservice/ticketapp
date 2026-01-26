@@ -32,6 +32,7 @@ import PackVisionWithAuth from './components/PackVisionWithAuth';
 import PackVision from './components/PackVision';
 import NetworkMonitoringDashboard from './components/NetworkMonitoringDashboard';
 import NetworkTopologyPage from './pages/NetworkTopologyPage';
+import MappaturaPage from './pages/MappaturaPage';
 import PingTerminalPage from './pages/PingTerminalPage';
 import { buildApiUrl } from './utils/apiConfig';
 
@@ -151,6 +152,7 @@ export default function TicketApp() {
   });
   const [showNetworkMonitoring, setShowNetworkMonitoring] = useState(false);
   const [showNetworkMap, setShowNetworkMap] = useState(false);
+  const [showMappatura, setShowMappatura] = useState(false);
   const [networkMonitoringInitialView, setNetworkMonitoringInitialView] = useState(null); // 'agents' o 'create'
 
   const [settingsData, setSettingsData] = useState({
@@ -227,10 +229,22 @@ export default function TicketApp() {
       setShowOrariTurni(false);
       setShowVivaldi(false);
       setShowPackVision(false);
+      setShowMappatura(false);
+    };
+    const handleOpenMappatura = () => {
+      setShowMappatura(true);
+      setShowDashboard(false);
+      setShowNetworkMonitoring(false);
+      setShowNetworkMap(false);
+      setShowOrariTurni(false);
+      setShowVivaldi(false);
+      setShowPackVision(false);
     };
     window.addEventListener('open-network-map', handleOpenNetworkMap);
+    window.addEventListener('open-mappatura', handleOpenMappatura);
     return () => {
       window.removeEventListener('open-network-map', handleOpenNetworkMap);
+      window.removeEventListener('open-mappatura', handleOpenMappatura);
     };
   }, []);
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
@@ -2969,10 +2983,10 @@ export default function TicketApp() {
           </div>
         )}
 
-        {!showDashboard && !showOrariTurni && !showVivaldi && !showPackVision && !showNetworkMonitoring && !showNetworkMap && (
+        {!showDashboard && !showOrariTurni && !showVivaldi && !showPackVision && !showNetworkMonitoring && !showNetworkMap && !showMappatura && (
           <div
             className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200"
-            onClick={() => { setShowDashboard(true); setShowNetworkMap(false); }}
+            onClick={() => { setShowDashboard(true); setShowNetworkMap(false); setShowMappatura(false); }}
           >
             Torna alla Dashboard
           </div>
@@ -3030,6 +3044,13 @@ export default function TicketApp() {
         {showNetworkMap && (
           <NetworkTopologyPage
             onClose={() => { setShowNetworkMap(false); setShowDashboard(true); }}
+            getAuthHeader={getAuthHeader}
+          />
+        )}
+
+        {showMappatura && (
+          <MappaturaPage
+            onClose={() => { setShowMappatura(false); setShowDashboard(true); }}
             getAuthHeader={getAuthHeader}
           />
         )}
