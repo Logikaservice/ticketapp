@@ -123,9 +123,9 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         // Filtra dispositivi: con IP. Rimosso filtro per switch gestiti per evitare che spariscano dalla mappa se la parificazione fallisce o confonde.
         const validDevices = safeDevices.filter(d => {
             if (!d.ip_address) return false;
-            // if (d.id === gatewayId) return true;
-            // return !managedSwitchIps.has(normIp(d.ip_address)); // Commentato: mostriamo tutto, mal che vada si sovrappongono
-            return true;
+            if (d.id === gatewayId) return true; // Mostra sempre il gateway
+            // Se esiste uno switch gestito con questo IP, nascondi il dispositivo scansionato (usa il nodo Switch Gestito)
+            return !managedSwitchIps.has(normIp(d.ip_address));
         });
 
         let initialNodes = [];
