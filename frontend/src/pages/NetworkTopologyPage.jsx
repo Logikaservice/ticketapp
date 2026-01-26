@@ -120,10 +120,12 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         const gatewayId = savedGateway?.id;
 
         // Filtra dispositivi: con IP, escludi il network_device che ha lo stesso IP di uno switch gestito (mostriamo solo il nodo viola)
+        // Filtra dispositivi: con IP. Rimosso filtro per switch gestiti per evitare che spariscano dalla mappa se la parificazione fallisce o confonde.
         const validDevices = safeDevices.filter(d => {
             if (!d.ip_address) return false;
-            if (d.id === gatewayId) return true;
-            return !managedSwitchIps.has(normIp(d.ip_address));
+            // if (d.id === gatewayId) return true;
+            // return !managedSwitchIps.has(normIp(d.ip_address)); // Commentato: mostriamo tutto, mal che vada si sovrappongono
+            return true;
         });
 
         let initialNodes = [];
