@@ -996,16 +996,16 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
 
             {/* Sidebar Dettagli */}
             {selectedNode && (
-                <div className="absolute top-20 right-4 w-80 bg-white shadow-xl rounded-lg border border-gray-200 p-4 animate-slideInRight z-50">
-                    <div className="flex justify-between items-start mb-4">
+                <div className="absolute top-20 right-4 bottom-4 w-80 flex flex-col bg-white shadow-xl rounded-lg border border-gray-200 overflow-hidden animate-slideInRight z-50">
+                    <div className="flex justify-between items-start p-4 pb-0 shrink-0">
                         <h3 className="text-lg font-bold text-gray-800 break-all">{selectedNode.label}</h3>
                         <button onClick={() => setSelectedNode(null)} className="text-gray-400 hover:text-gray-600">
                             <X size={20} />
                         </button>
                     </div>
 
-                    <div className="space-y-3 text-sm">
-                        <div className="flex justify-between border-b pb-2">
+                    <div className="flex flex-col flex-1 min-h-0 gap-3 overflow-hidden p-4 pt-3 text-sm">
+                        <div className="flex justify-between border-b pb-2 shrink-0">
                             <span className="text-gray-500">
                                 {selectedNode.type === 'unmanaged_switch' ? 'Nota (Nome):' : 'IP:'}
                             </span>
@@ -1044,7 +1044,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                             )}
                         </div>
                         {selectedNode.id !== 'router' && selectedNode.type !== 'managed_switch' && (
-                            <div className="flex justify-between items-center border-b pb-2 gap-2">
+                            <div className="flex justify-between items-center border-b pb-2 gap-2 shrink-0">
                                 <span className="text-gray-500">Port:</span>
                                 <input
                                     type="number"
@@ -1083,19 +1083,19 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                                 />
                             </div>
                         )}
-                        <div className="flex justify-between border-b pb-2">
+                        <div className="flex justify-between border-b pb-2 shrink-0">
                             <span className="text-gray-500">Status:</span>
                             <span className={`font-bold ${selectedNode.status === 'online' ? 'text-green-600' : 'text-red-600'}`}>
                                 {selectedNode.status.toUpperCase()}
                             </span>
                         </div>
                         {selectedNode.details?.vendor && (
-                            <div className="flex justify-between border-b pb-2">
+                            <div className="flex justify-between border-b pb-2 shrink-0">
                                 <span className="text-gray-500">Vendor:</span>
                                 <span>{selectedNode.details.vendor}</span>
                             </div>
                         )}
-                        <div className="mt-4 pt-2 border-t border-gray-100">
+                        <div className="mt-4 pt-2 border-t border-gray-100 shrink-0">
                             <h4 className="font-bold text-gray-700 mb-2 text-xs uppercase">Azioni Topologia</h4>
                             {selectedNode.type === 'managed_switch' ? (
                                 <>
@@ -1118,7 +1118,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                                     </button>
                                 </>
                             ) : (
-                                <div className="pt-2 border-t mt-2">
+                                <div className="pt-2 border-t mt-2 shrink-0">
                                     <div className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Azioni Topologia</div>
                                     <div className="flex flex-col gap-2">
                                         <button
@@ -1209,36 +1209,31 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                             const sorted = [...connected].sort((a, b) => (a.port || 0) - (b.port || 0));
 
                             return (
-                                <div className="mt-4 pt-2 border-t border-gray-100">
-                                    <h4 className="font-bold text-gray-700 mb-2 text-xs uppercase">
+                                <div className="mt-2 pt-2 border-t border-gray-100 flex-1 min-h-0 flex flex-col">
+                                    <h4 className="font-bold text-gray-700 mb-2 text-xs uppercase shrink-0">
                                         Dispositivi Collegati ({connected.length})
                                     </h4>
-                                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1 customize-scrollbar">
-                                        {sorted.map(child => (
-                                            <div key={child.id} className="bg-slate-50 border border-slate-200 rounded p-2 text-xs hover:bg-slate-100 transition">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <span className="font-bold text-slate-700 bg-slate-200 px-1.5 py-0.5 rounded text-[10px]">
-                                                        {child.port ? `Porta ${child.port}` : 'Porta N/A'}
-                                                    </span>
-                                                    <div className={`w-2 h-2 rounded-full ${child.status === 'online' ? 'bg-green-500' : 'bg-red-500'}`} title={`Status: ${child.status}`} />
-                                                </div>
-                                                <div className="flex justify-between text-slate-600 mb-0.5 font-mono">
-                                                    <span>{child.ip_address}</span>
-                                                </div>
-                                                <div className="text-slate-400 font-mono text-[10px] mb-1">
-                                                    {child.mac_address}
-                                                </div>
-                                                {child.notes ? (
-                                                    <div className="text-amber-600 italic bg-amber-50 px-1 rounded truncate border border-amber-100" title={child.notes}>
-                                                        {child.notes}
-                                                    </div>
-                                                ) : child.hostname && (
-                                                    <div className="text-slate-500 italic truncate" title={child.hostname}>
-                                                        {child.hostname}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
+                                    <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-1 customize-scrollbar">
+                                        {sorted.map(child => {
+                                            const node = nodes.find(n => n.id === child.id);
+                                            const portLabel = child.port ? `P${child.port}` : '–';
+                                            const line = `${portLabel} · ${child.ip_address} · ${child.mac_address || '–'}`;
+                                            const extra = [child.notes, child.hostname].filter(Boolean).join(' · ');
+                                            const title = extra ? `${line}\n${extra}` : line;
+                                            return (
+                                                <button
+                                                    key={child.id}
+                                                    type="button"
+                                                    onClick={() => node && setSelectedNode(node)}
+                                                    disabled={!node}
+                                                    className={`w-full text-left bg-slate-50 border rounded px-2 py-1 text-[11px] font-mono hover:bg-slate-100 transition flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${selectedNode?.id === child.id ? 'ring-2 ring-blue-400 border-blue-300' : 'border-slate-200'}`}
+                                                    title={title}
+                                                >
+                                                    <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${child.status === 'online' ? 'bg-green-500' : 'bg-red-500'}`} aria-hidden />
+                                                    <span className="truncate flex-1">{line}</span>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             );

@@ -1,0 +1,55 @@
+---
+description: Passaggi fissi per git push su TicketApp (PC Windows, terminale Cursor)
+alwaysApply: true
+---
+
+# Push su TicketApp – passaggi da dare sempre
+
+Quando l'utente chiede di fare il push, di avere indicazioni per il push, o "come fare il push", rispondi **sempre** con questi passaggi (in italiano).
+
+## 1. Dove eseguire
+
+- Sul **PC Windows** (dove hai Cursor e `c:\TicketApp`), **non** sul VPS.
+- Terminale **integrato di Cursor** (Terminale → Nuovo terminale, o `` Ctrl+` ``).
+- Shell **PowerShell**.
+
+## 2. Comandi in ordine
+
+```powershell
+cd c:\TicketApp
+```
+
+```powershell
+git status
+```
+(Controlla modifiche/staged.)
+
+```powershell
+git add .
+```
+(Per includere solo alcuni file: `git add <percorso>`.)
+
+```powershell
+git commit -m "fix: descrizione breve delle modifiche"
+```
+(Sostituisci il messaggio con uno appropriato se l’utente ha fatto modifiche specifiche.)
+
+```powershell
+git push
+```
+
+## 3. Se compare index.lock o Permission denied
+
+1. Chiudere altre app che usano Git (altre Cursor, Git GUI, ecc.).
+2. Nel terminale:
+   ```powershell
+   Remove-Item -Force c:\TicketApp\.git\index.lock -ErrorAction SilentlyContinue
+   ```
+3. Riprovare `git commit` e `git push`.
+
+## 4. Sul VPS (dopo il push)
+
+- Il **push** si fa sempre dal **PC**.
+- Sul **VPS**: SSH → `cd /percorso/progetto` → `git pull` per aggiornare.
+
+**Nota:** Non usare mai `rshell`; non fa parte del flusso push.
