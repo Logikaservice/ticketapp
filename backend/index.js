@@ -811,13 +811,24 @@ const contractsRoutes = require('./routes/contracts')(pool, uploadContracts);
 
 // Route per Vivaldi (database separato) - solo se pool disponibile
 const vivaldiRoutes = poolVivaldi ? require('./routes/vivaldi')(poolVivaldi) : null;
-const packvisionRoutes = require('./routes/packvision')(poolPackVision, io);
+// ✅ FIX: Crea packvisionRoutes solo se poolPackVision è disponibile, altrimenti null
+const packvisionRoutes = poolPackVision ? require('./routes/packvision')(poolPackVision, io) : null;
 
 // Route per Network Monitoring
 const networkMonitoringRoutes = require('./routes/networkMonitoring')(pool, io);
 
 
-app.use('/api/packvision', packvisionRoutes);
+// ✅ FIX: Monta le route solo se packvisionRoutes non è null per evitare crash
+if (packvisionRoutes) {
+  app.use('/api/packvision', packvisionRoutes);
+} else {
+  // Se PackVision non è disponibile, restituisci 503 per tutte le richieste
+  app.use('/api/packvision', (req, res) => {
+    res.status(503).json({
+      error: 'PackVision non disponibile: DATABASE_URL_PACKVISION non configurato o database non accessibile'
+    });
+  });
+}
 
 app.use('/api/contracts', contractsRoutes);
 
@@ -1994,6 +2005,40 @@ const startServer = async () => {
       }
     } catch (schedulerErr) {
       console.warn("⚠️ Avviso: Vivaldi Scheduler non avviato:", schedulerErr.message);
+    }
+
+    // ✅ FIX: Inizializza tabella symbol_volumes_24h se non esiste (per database crypto)
+    try {
+      // Determina quale pool usare per il database crypto
+      // Se esiste DATABASE_URL_CRYPTO, usa quello, altrimenti usa il pool principale
+      const cryptoPool = process.env.DATABASE_URL_CRYPTO ? 
+        (() => {
+          // Crea un pool temporaneo per crypto se necessario
+          // Per ora usiamo il pool principale, ma in futuro potrebbe essere separato
+          return pool;
+        })() : pool;
+      
+      await cryptoPool.query(`
+        CREATE TABLE IF NOT EXISTS symbol_volumes_24h (
+          symbol TEXT PRIMARY KEY,
+          volume_24h DOUBLE PRECISION NOT NULL,
+          updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log("✅ Tabella symbol_volumes_24h creata/verificata (auto-init)");
+      
+      // Crea indice se non esiste
+      try {
+        await cryptoPool.query(`
+          CREATE INDEX IF NOT EXISTS idx_symbol_volumes_symbol ON symbol_volumes_24h(symbol)
+        `);
+        console.log("✅ Indice idx_symbol_volumes_symbol creato/verificato (auto-init)");
+      } catch (idxErr) {
+        console.log("⚠️ Errore creazione indice symbol_volumes_24h (potrebbe già esistere):", idxErr.message);
+      }
+    } catch (volumesErr) {
+      console.log("⚠️ Errore creazione tabella symbol_volumes_24h (auto-init):", volumesErr.message);
+      // Non bloccare l'avvio se la tabella non può essere creata (potrebbe essere in un DB separato)
     }
 
     // Inizializza tabelle Network Monitoring se non esistono

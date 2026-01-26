@@ -341,26 +341,14 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             simulation.alpha(0.3).restart();
         };
 
-        const handleDragEnd = (ev) => {
+        const handleDragEnd = () => {
             node.fx = null;
             node.fy = null;
             window.removeEventListener('mousemove', handleDrag);
             window.removeEventListener('mouseup', handleDragEnd);
 
-            // Rilasciato sopra un altro nodo? Chiedi se associare (impostare come genitore)
-            if (node.id === 'router') return;
-            const rect = canvasContainerRef.current?.getBoundingClientRect();
-            if (!rect) return;
-            const o = offsetRef.current || { x: 0, y: 0 };
-            const s = scaleRef.current ?? 1;
-            const sceneX = (ev.clientX - rect.left - o.x) / s;
-            const sceneY = (ev.clientY - rect.top - o.y) / s;
-            const simNodes = simulationRef.current?.nodes() || [];
-            const R = 55; // raggio “sopra il pallino” in coordinate scena (nodo ≈ 24–30)
-            const targetNode = simNodes.find(n => n.id !== node.id && Math.hypot(sceneX - n.x, sceneY - n.y) < R);
-            if (targetNode) {
-                setDragDropAssociate({ childNode: node, parentNode: targetNode });
-            }
+            // L'associazione "Associare come genitore?" avviene solo con click su primo nodo + click su secondo (vedi onClick nodi).
+            // Non si apre il modal rilasciando un nodo sopra un altro (evita apertura involontaria su click/drag).
         };
 
         window.addEventListener('mousemove', handleDrag);
@@ -1298,8 +1286,8 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                 </div>
             )}
 
-            {/* Modal: trascina e rilascia un nodo su un altro — "Vuoi associare IP con IP?" */}
-            {dragDropAssociate && (
+            {/* Modal "Associare come genitore?" — solo quando click su primo nodo + click su secondo (entrambi impostati) */}
+            {dragDropAssociate?.childNode && dragDropAssociate?.parentNode && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[110]">
                     <div className="bg-white rounded-lg shadow-xl p-6 w-96 animate-fadeIn">
                         <h3 className="text-lg font-bold text-gray-800 mb-2">Associare come genitore?</h3>
