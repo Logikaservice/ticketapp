@@ -248,6 +248,18 @@ module.exports = (pool, io) => {
         }
       }
 
+      // Aggiungi colonna notes per note utente (es. per switch virtuali)
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS notes TEXT;
+        `);
+      } catch (err) {
+        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna notes:', err.message);
+        }
+      }
+
       // Crea tabella network_changes
       await pool.query(`
         CREATE TABLE IF NOT EXISTS network_changes (
@@ -1139,27 +1151,27 @@ module.exports = (pool, io) => {
         await pool.query('UPDATE network_devices SET parent_device_id = $1, port = $2 WHERE id = $3', [switchDeviceId, port, d.id]);
         updated++;
       }
-      
+
       // Salva la tabella MAC→porta nella cache (per analisi switch collegati)
       // Prima cancella la cache vecchia per questo switch
       await pool.query('DELETE FROM switch_mac_port_cache WHERE managed_switch_id = $1', [managed_switch_id]);
       // Poi inserisci tutti i MAC→porta
       for (const [mac, port] of macToPort.entries()) {
-        const macFormatted = mac.length === 12 ? `${mac.substring(0,2)}:${mac.substring(2,4)}:${mac.substring(4,6)}:${mac.substring(6,8)}:${mac.substring(8,10)}:${mac.substring(10,12)}`.toUpperCase() : mac;
+        const macFormatted = mac.length === 12 ? `${mac.substring(0, 2)}:${mac.substring(2, 4)}:${mac.substring(4, 6)}:${mac.substring(6, 8)}:${mac.substring(8, 10)}:${mac.substring(10, 12)}`.toUpperCase() : mac;
         await pool.query(
           'INSERT INTO switch_mac_port_cache (managed_switch_id, switch_device_id, mac_address, port) VALUES ($1, $2, $3, $4) ON CONFLICT (managed_switch_id, mac_address) DO UPDATE SET port = $4, updated_at = NOW()',
           [managed_switch_id, switchDeviceId, macFormatted, port]
         );
       }
-      
+
       console.log(`📥 switch-address-table: switch_ip=${ip}, managed_switch_id=${managed_switch_id}, macs_found=${macToPort.size}, macs_matched=${updated}`);
       if (macToPort.size > 0 && updated === 0) {
         console.warn(`⚠️ SNMP: ${macToPort.size} MAC letti dallo switch ma 0 match con network_devices. Verificare: 1) dispositivi scoperti dall'agent con mac_address, 2) formato MAC (entrambi normalizzati senza :.-).`);
       }
-      
+
       // Analizza switch collegati (porte con più MAC = switch collegato)
       await analyzeConnectedSwitches(aziendaId);
-      
+
       res.json({ success: true, macs_found: macToPort.size, macs_matched: updated, switch_device_id: switchDeviceId });
     } catch (err) {
       console.error('❌ Errore POST agent/switch-address-table:', err);
@@ -1180,21 +1192,21 @@ module.exports = (pool, io) => {
          WHERE ms.azienda_id = $1`,
         [aziendaId]
       );
-      
+
       if (switches.rows.length < 2) return; // Serve almeno 2 switch per collegamenti
-      
+
       const normalizeMac = (m) => (m || '').replace(/[\s:.-]/g, '').toUpperCase();
-      
+
       // Per ogni switch, trova le porte con più MAC
       for (const sw of switches.rows) {
         if (!sw.switch_device_id) continue;
-        
+
         // Recupera tutte le MAC→porta per questo switch
         const macPorts = await pool.query(
           'SELECT mac_address, port FROM switch_mac_port_cache WHERE managed_switch_id = $1',
           [sw.id]
         );
-        
+
         // Raggruppa per porta: porta -> [mac1, mac2, ...]
         const portToMacs = new Map();
         for (const row of macPorts.rows) {
@@ -1204,16 +1216,16 @@ module.exports = (pool, io) => {
           if (!portToMacs.has(port)) portToMacs.set(port, []);
           portToMacs.get(port).push(macNorm);
         }
-        
+
         // Trova porte con più MAC (indica switch collegato)
         for (const [port, macs] of portToMacs.entries()) {
           if (macs.length <= 1) continue; // Porta con più MAC = switch collegato
-          
+
           // Verifica se questi MAC sono presenti su un altro switch gestito
           let foundOnOtherSwitch = null;
           for (const otherSw of switches.rows) {
             if (otherSw.id === sw.id || !otherSw.switch_device_id) continue;
-            
+
             // Verifica se almeno uno di questi MAC è presente sull'altro switch
             const otherMacs = await pool.query(
               'SELECT mac_address FROM switch_mac_port_cache WHERE managed_switch_id = $1',
@@ -1223,7 +1235,7 @@ module.exports = (pool, io) => {
             for (const row of otherMacs.rows) {
               otherMacSet.add(normalizeMac(row.mac_address));
             }
-            
+
             // Se almeno un MAC è presente sull'altro switch, significa che questo switch è collegato a quello
             const matchingMacs = macs.filter(m => otherMacSet.has(m));
             if (matchingMacs.length > 0) {
@@ -1231,7 +1243,7 @@ module.exports = (pool, io) => {
               break;
             }
           }
-          
+
           if (foundOnOtherSwitch) {
             // Collega questo switch all'altro switch (parent_device_id)
             await pool.query(
@@ -1250,7 +1262,7 @@ module.exports = (pool, io) => {
                WHERE na.azienda_id = $1 AND nd.device_type = 'switch' AND TRIM(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g')) = $2`,
               [aziendaId, virtualIp]
             );
-            
+
             let virtualSwitchId;
             if (existingVirtual.rows.length > 0) {
               virtualSwitchId = existingVirtual.rows[0].id;
@@ -1266,7 +1278,7 @@ module.exports = (pool, io) => {
               );
               virtualSwitchId = ins.rows[0].id;
             }
-            
+
             // Collega i dispositivi con questi MAC allo switch virtuale
             for (const mac of macs) {
               await pool.query(
@@ -2390,7 +2402,7 @@ module.exports = (pool, io) => {
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
-          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port,
+          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port, nd.notes,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
@@ -2775,7 +2787,7 @@ module.exports = (pool, io) => {
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
-          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available,
+          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.notes,
           na.agent_name, na.azienda_id, na.last_heartbeat as agent_last_seen, na.status as agent_status,
           u.azienda
          FROM network_devices nd
@@ -4398,6 +4410,65 @@ pause
       res.json(result.rows[0]);
     } catch (err) {
       console.error('❌ Errore aggiornamento port:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // PATCH /api/network-monitoring/devices/:id/notes
+  // Aggiorna le note di un dispositivo
+  router.patch('/devices/:id/notes', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { notes } = req.body; // Può essere stringa o null
+
+      await pool.query(
+        'UPDATE network_devices SET notes = $1 WHERE id = $2',
+        [notes, id]
+      );
+
+      res.json({ success: true, notes: notes });
+    } catch (err) {
+      console.error('❌ Errore aggiornamento note:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // POST /api/network-monitoring/clients/:aziendaId/manual-device
+  // Crea un dispositivo manuale (es. Switch Virtuale)
+  router.post('/clients/:aziendaId/manual-device', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { aziendaId } = req.params;
+      const { ip_address, name, device_type, parent_id, port, x, y } = req.body;
+
+      // Trova un agent attivo per questa azienda
+      const agentResult = await pool.query(
+        'SELECT id FROM network_agents WHERE azienda_id = $1 AND deleted_at IS NULL ORDER BY last_heartbeat DESC LIMIT 1',
+        [aziendaId]
+      );
+
+      if (agentResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Nessun agent attivo trovato per questa azienda' });
+      }
+      const agentId = agentResult.rows[0].id;
+
+      let finalIp = ip_address;
+      if (!finalIp) {
+        // Genera IP virtuale univoco
+        finalIp = `virtual-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      }
+
+      // Inserisci il dispositivo
+      const result = await pool.query(
+        `INSERT INTO network_devices (
+          agent_id, ip_address, hostname, device_type, status, is_static, parent_device_id, port, notes
+        ) VALUES ($1, $2, $3, $4, 'online', true, $5, $6, $7)
+        RETURNING id, ip_address, hostname, device_type, status, is_static, parent_device_id, port, notes`,
+        [agentId, finalIp, name || 'Virtual Device', device_type || 'unmanaged_switch', parent_id || null, port || null, name ? name : 'Switch Virtuale']
+      );
+
+      res.json({ success: true, device: result.rows[0] });
+    } catch (err) {
+      console.error('❌ Errore creazione dispositivo manuale:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });

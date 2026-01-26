@@ -153,7 +153,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             const otherNodes = validDevices.filter(d => d.id !== savedGateway.id).map(d => ({
                 id: d.id,
                 type: mapDeviceType(d),
-                label: d.hostname || formatIpWithPort(d.ip_address, d.port),
+                label: d.notes || d.hostname || formatIpWithPort(d.ip_address, d.port),
                 ip: d.ip_address,
                 status: d.status,
                 details: d,
@@ -215,7 +215,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             const deviceNodes = validDevices.map(d => ({
                 id: d.id,
                 type: mapDeviceType(d),
-                label: d.hostname || formatIpWithPort(d.ip_address, d.port),
+                label: d.notes || d.hostname || formatIpWithPort(d.ip_address, d.port),
                 ip: d.ip_address,
                 status: d.status,
                 details: d,
@@ -375,52 +375,54 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
     };
 
 
-    // Aggiungi un nodo virtuale (Switch Unmanaged)
-    const handleAddVirtualNode = () => {
+    // Aggiungi un nodo virtuale (Switch Unmanaged) - Ora persistente su Backend
+    const handleAddVirtualNode = async () => {
         try {
-            // Se la simulazione non è ancora inizializzata, inizializzala con i dati attuali
-            if (!simulationRef.current) {
-                if (selectedCompanyId && (devices.length > 0 || managedSwitches.length > 0)) {
-                    initForceLayout(devices, managedSwitches);
-                    // Aspetta un tick per assicurarsi che la simulazione sia pronta
-                    setTimeout(() => {
-                        handleAddVirtualNode();
-                    }, 100);
-                    return;
-                } else {
-                    alert('Carica prima i dispositivi o gli switch gestiti');
-                    return;
-                }
+            if (!selectedCompanyId) {
+                alert('Seleziona prima un\'azienda');
+                return;
             }
 
-            const newNodeId = `virtual-${Date.now()}`;
-            const newNode = {
-                id: newNodeId,
-                type: 'unmanaged_switch',
-                label: 'Switch Unmanaged',
-                status: 'online', // Virtuale, sempre online o dipendente dai figli (futuro)
-                x: -offset.x / scale + (window.innerWidth / 2) / scale, // Centro schermo visibile
-                y: -offset.y / scale + (window.innerHeight / 2) / scale,
-                details: { role: 'Switch' }
-            };
+            // Calcola posizione: vicino al nodo selezionato o al centro
+            let spawnX = 0; // Relative to center
+            let spawnY = 0;
 
-            const newNodes = [...nodes, newNode];
-            // Collega al router di default
-            const newLinks = [...links, { source: 'router', target: newNodeId }];
-
-            setNodes(newNodes);
-            setLinks(newLinks);
-
-            // Riavvia simulazione con nuovi dati
-            // Nota: in D3 V4+ bisogna ri-assegnare nodes e links alla simulazione
-            if (simulationRef.current) {
-                simulationRef.current.nodes(newNodes);
-                simulationRef.current.force("link").links(newLinks);
-                simulationRef.current.alpha(0.5).restart();
+            // Se c'è un nodo selezionato, spawn vicino a lui
+            if (selectedNode) {
+                // Coordinate "reali" del nodo selezionato sono in .x, .y
+                // Vogliamo piazzarlo vicino
+                spawnX = 0; // Non usiamo coordinate D3 qui per il backend, ma l'API accetta x/y? No, layout automatico al refresh
+                // Ma possiamo provare a settare x/y se il backend lo supportasse, ma per ora il force layout decide.
+                // Il client D3 posizionerà i nuovi nodi.
             }
+
+            const response = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/manual-device`), {
+                method: 'POST',
+                headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: 'Switch Virtuale',
+                    device_type: 'unmanaged_switch',
+                    // Se c'è un nodo selezionato, potremmo volerlo come parent?
+                    // User says: "create it THERE". Maybe associate with selected?
+                    // "Quando premo 'Aggiungi Switch'... ed è selezionato un pallino deve crearmi li lo switch"
+                    // Interpretazione: collegato a quello selezionato (parent)?
+                    parent_id: selectedNode ? (selectedNode._realId || selectedNode.id) : null
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log("Switch virtuale creato:", data);
+                // Ricarica dispositivi per aggiornare la mappa
+                setRefreshDevicesKey(prev => prev + 1);
+            } else {
+                const err = await response.json();
+                alert(`Errore: ${err.error}`);
+            }
+
         } catch (error) {
             console.error('Errore aggiunta switch virtuale:', error);
-            alert('Errore durante l\'aggiunta dello switch virtuale: ' + error.message);
+            alert('Errore di connessione: ' + error.message);
         }
     };
 
@@ -868,6 +870,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             <div
                 ref={canvasContainerRef}
                 className="flex-1 min-h-0 bg-gray-100 relative overflow-hidden cursor-move touch-none"
+                onClick={() => setSelectedNode(null)} // Click sfondo deseleziona
                 onMouseDown={handleCanvasMouseDown}
                 onMouseMove={handleCanvasMouseMove}
                 onMouseUp={handleCanvasMouseUp}
@@ -951,7 +954,14 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                                 if (isLinking) {
                                     handleCompleteLinking(node);
                                 } else {
-                                    setSelectedNode(node);
+                                    // Logica "Click-Click" per associazione
+                                    // Se ho già un nodo selezionato e clicco su un ALTRO nodo, propongo associazione
+                                    if (selectedNode && selectedNode.id !== node.id && selectedNode.id !== 'router') {
+                                        // Parent = Node (quello che ho cliccato ora), Child = SelectedNode (quello che era selezionato)
+                                        setDragDropAssociate({ childNode: selectedNode, parentNode: node });
+                                    } else {
+                                        setSelectedNode(node);
+                                    }
                                 }
                             }}
                         >
@@ -981,8 +991,42 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
 
                     <div className="space-y-3 text-sm">
                         <div className="flex justify-between border-b pb-2">
-                            <span className="text-gray-500">IP:</span>
-                            <span className="font-mono font-medium">{formatIpWithPort(selectedNode.ip, selectedNode.details?.port)}</span>
+                            <span className="text-gray-500">
+                                {selectedNode.type === 'unmanaged_switch' ? 'Nota (Nome):' : 'IP:'}
+                            </span>
+                            {selectedNode.type === 'unmanaged_switch' ? (
+                                <input
+                                    type="text"
+                                    placeholder="Nome/Nota Switch"
+                                    className="border border-gray-300 rounded px-2 py-1 w-32 text-right font-mono text-sm"
+                                    value={selectedNode.details?.notes || selectedNode.details?.hostname || ''}
+                                    onChange={(e) => {
+                                        const v = e.target.value;
+                                        setSelectedNode(prev => prev ? { ...prev, details: { ...prev.details, notes: v } } : null);
+                                    }}
+                                    onBlur={async (e) => {
+                                        const v = e.target.value.trim();
+                                        try {
+                                            const res = await fetch(buildApiUrl(`/api/network-monitoring/devices/${selectedNode.id}/notes`), {
+                                                method: 'PATCH',
+                                                headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ notes: v })
+                                            });
+                                            if (res.ok) {
+                                                // Aggiorna anche label visuale se necessario
+                                                const simNodes = simulationRef.current?.nodes() || [];
+                                                const n = simNodes.find(x => x.id === selectedNode.id);
+                                                if (n) {
+                                                    n.label = v || 'Switch Unmanaged';
+                                                    setNodes([...simNodes]);
+                                                }
+                                            }
+                                        } catch (_) { }
+                                    }}
+                                />
+                            ) : (
+                                <span className="font-mono font-medium">{formatIpWithPort(selectedNode.ip, selectedNode.details?.port)}</span>
+                            )}
                         </div>
                         {selectedNode.id !== 'router' && selectedNode.type !== 'managed_switch' && (
                             <div className="flex justify-between items-center border-b pb-2 gap-2">
@@ -1015,7 +1059,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                                                 n.label = (n.details?.hostname || formatIpWithPort(n.ip, newPort)) || n.label;
                                                 setNodes([...simNodes]);
                                             }
-                                        } catch (_) {}
+                                        } catch (_) { }
                                     }}
                                     onChange={(e) => {
                                         const v = e.target.value;
