@@ -541,6 +541,21 @@ module.exports = (pool, io) => {
             );
           `);
           await pool.query(`CREATE INDEX IF NOT EXISTS idx_managed_switches_azienda ON managed_switches(azienda_id);`);
+          // Tabella per cache MAC→porta degli switch (per analisi switch collegati)
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS switch_mac_port_cache (
+              id SERIAL PRIMARY KEY,
+              managed_switch_id INTEGER NOT NULL REFERENCES managed_switches(id) ON DELETE CASCADE,
+              switch_device_id INTEGER REFERENCES network_devices(id) ON DELETE CASCADE,
+              mac_address VARCHAR(17) NOT NULL,
+              port INTEGER NOT NULL,
+              updated_at TIMESTAMPTZ DEFAULT NOW(),
+              UNIQUE(managed_switch_id, mac_address)
+            );
+          `);
+          await pool.query(`CREATE INDEX IF NOT EXISTS idx_switch_mac_port_cache_switch ON switch_mac_port_cache(managed_switch_id);`);
+          await pool.query(`CREATE INDEX IF NOT EXISTS idx_switch_mac_port_cache_mac ON switch_mac_port_cache(mac_address);`);
+          await pool.query(`CREATE INDEX IF NOT EXISTS idx_switch_mac_port_cache_port ON switch_mac_port_cache(managed_switch_id, port);`);
         } catch (migErr) {
           if (!migErr.message?.includes('does not exist')) {
             console.warn('⚠️ Migrazione colonne network_*:', migErr.message);
@@ -1124,16 +1139,154 @@ module.exports = (pool, io) => {
         await pool.query('UPDATE network_devices SET parent_device_id = $1, port = $2 WHERE id = $3', [switchDeviceId, port, d.id]);
         updated++;
       }
+      
+      // Salva la tabella MAC→porta nella cache (per analisi switch collegati)
+      // Prima cancella la cache vecchia per questo switch
+      await pool.query('DELETE FROM switch_mac_port_cache WHERE managed_switch_id = $1', [managed_switch_id]);
+      // Poi inserisci tutti i MAC→porta
+      for (const [mac, port] of macToPort.entries()) {
+        const macFormatted = mac.length === 12 ? `${mac.substring(0,2)}:${mac.substring(2,4)}:${mac.substring(4,6)}:${mac.substring(6,8)}:${mac.substring(8,10)}:${mac.substring(10,12)}`.toUpperCase() : mac;
+        await pool.query(
+          'INSERT INTO switch_mac_port_cache (managed_switch_id, switch_device_id, mac_address, port) VALUES ($1, $2, $3, $4) ON CONFLICT (managed_switch_id, mac_address) DO UPDATE SET port = $4, updated_at = NOW()',
+          [managed_switch_id, switchDeviceId, macFormatted, port]
+        );
+      }
+      
       console.log(`📥 switch-address-table: switch_ip=${ip}, managed_switch_id=${managed_switch_id}, macs_found=${macToPort.size}, macs_matched=${updated}`);
       if (macToPort.size > 0 && updated === 0) {
         console.warn(`⚠️ SNMP: ${macToPort.size} MAC letti dallo switch ma 0 match con network_devices. Verificare: 1) dispositivi scoperti dall'agent con mac_address, 2) formato MAC (entrambi normalizzati senza :.-).`);
       }
+      
+      // Analizza switch collegati (porte con più MAC = switch collegato)
+      await analyzeConnectedSwitches(aziendaId);
+      
       res.json({ success: true, macs_found: macToPort.size, macs_matched: updated, switch_device_id: switchDeviceId });
     } catch (err) {
       console.error('❌ Errore POST agent/switch-address-table:', err);
       res.status(500).json({ error: err.message || 'Errore interno del server' });
     }
   });
+
+  // Funzione helper per analizzare switch collegati
+  // Identifica porte con più MAC (indica switch collegato) e verifica se quei MAC sono su altri switch gestiti
+  const analyzeConnectedSwitches = async (aziendaId) => {
+    try {
+      // Recupera tutti gli switch gestiti e i loro network_devices
+      const switches = await pool.query(
+        `SELECT ms.id, ms.ip, ms.name, nd.id as switch_device_id
+         FROM managed_switches ms
+         LEFT JOIN network_devices nd ON TRIM(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g')) = ms.ip AND nd.device_type = 'switch'
+         LEFT JOIN network_agents na ON nd.agent_id = na.id AND na.azienda_id = $1
+         WHERE ms.azienda_id = $1`,
+        [aziendaId]
+      );
+      
+      if (switches.rows.length < 2) return; // Serve almeno 2 switch per collegamenti
+      
+      const normalizeMac = (m) => (m || '').replace(/[\s:.-]/g, '').toUpperCase();
+      
+      // Per ogni switch, trova le porte con più MAC
+      for (const sw of switches.rows) {
+        if (!sw.switch_device_id) continue;
+        
+        // Recupera tutte le MAC→porta per questo switch
+        const macPorts = await pool.query(
+          'SELECT mac_address, port FROM switch_mac_port_cache WHERE managed_switch_id = $1',
+          [sw.id]
+        );
+        
+        // Raggruppa per porta: porta -> [mac1, mac2, ...]
+        const portToMacs = new Map();
+        for (const row of macPorts.rows) {
+          const macNorm = normalizeMac(row.mac_address);
+          if (!macNorm || macNorm.length < 12) continue;
+          const port = row.port;
+          if (!portToMacs.has(port)) portToMacs.set(port, []);
+          portToMacs.get(port).push(macNorm);
+        }
+        
+        // Trova porte con più MAC (indica switch collegato)
+        for (const [port, macs] of portToMacs.entries()) {
+          if (macs.length <= 1) continue; // Porta con più MAC = switch collegato
+          
+          // Verifica se questi MAC sono presenti su un altro switch gestito
+          let foundOnOtherSwitch = null;
+          for (const otherSw of switches.rows) {
+            if (otherSw.id === sw.id || !otherSw.switch_device_id) continue;
+            
+            // Verifica se almeno uno di questi MAC è presente sull'altro switch
+            const otherMacs = await pool.query(
+              'SELECT mac_address FROM switch_mac_port_cache WHERE managed_switch_id = $1',
+              [otherSw.id]
+            );
+            const otherMacSet = new Set();
+            for (const row of otherMacs.rows) {
+              otherMacSet.add(normalizeMac(row.mac_address));
+            }
+            
+            // Se almeno un MAC è presente sull'altro switch, significa che questo switch è collegato a quello
+            const matchingMacs = macs.filter(m => otherMacSet.has(m));
+            if (matchingMacs.length > 0) {
+              foundOnOtherSwitch = otherSw;
+              break;
+            }
+          }
+          
+          if (foundOnOtherSwitch) {
+            // Collega questo switch all'altro switch (parent_device_id)
+            await pool.query(
+              'UPDATE network_devices SET parent_device_id = $1 WHERE id = $2 AND parent_device_id IS NULL',
+              [foundOnOtherSwitch.switch_device_id, sw.switch_device_id]
+            );
+            console.log(`🔗 Switch collegati: ${sw.ip} (porta ${port}) → ${foundOnOtherSwitch.ip} (${macs.length} MAC sulla porta)`);
+          } else {
+            // MAC non trovati su altri switch gestiti = switch virtuale/non gestito
+            // Crea uno switch virtuale e collega questi MAC a quello switch virtuale
+            // Prima verifica se esiste già uno switch virtuale per questa porta
+            const virtualIp = `virtual-switch-${sw.id}-port-${port}`;
+            const existingVirtual = await pool.query(
+              `SELECT nd.id FROM network_devices nd
+               INNER JOIN network_agents na ON nd.agent_id = na.id
+               WHERE na.azienda_id = $1 AND nd.device_type = 'switch' AND TRIM(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g')) = $2`,
+              [aziendaId, virtualIp]
+            );
+            
+            let virtualSwitchId;
+            if (existingVirtual.rows.length > 0) {
+              virtualSwitchId = existingVirtual.rows[0].id;
+            } else {
+              // Crea nuovo switch virtuale
+              const ag = await pool.query('SELECT id FROM network_agents WHERE azienda_id = $1 AND deleted_at IS NULL ORDER BY id LIMIT 1', [aziendaId]);
+              if (ag.rows.length === 0) continue;
+              const ins = await pool.query(
+                `INSERT INTO network_devices (agent_id, ip_address, device_type, status, parent_device_id, port)
+                 VALUES ($1, $2, 'switch', 'online', $3, $4)
+                 RETURNING id`,
+                [ag.rows[0].id, virtualIp, sw.switch_device_id, port]
+              );
+              virtualSwitchId = ins.rows[0].id;
+            }
+            
+            // Collega i dispositivi con questi MAC allo switch virtuale
+            for (const mac of macs) {
+              await pool.query(
+                `UPDATE network_devices SET parent_device_id = $1
+                 WHERE id IN (
+                   SELECT nd.id FROM network_devices nd
+                   INNER JOIN network_agents na ON nd.agent_id = na.id
+                   WHERE na.azienda_id = $2 AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', ''), '.', ''), ' ', '') = $3
+                 )`,
+                [virtualSwitchId, aziendaId, mac]
+              );
+            }
+            console.log(`🔌 Switch virtuale creato: porta ${port} di ${sw.ip} → switch virtuale (${macs.length} MAC)`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('❌ Errore analyzeConnectedSwitches:', err);
+    }
+  };
 
   // ========================================
   // FUNZIONI HELPER PER MONITORING SCHEDULE

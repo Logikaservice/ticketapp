@@ -377,32 +377,51 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
 
     // Aggiungi un nodo virtuale (Switch Unmanaged)
     const handleAddVirtualNode = () => {
-        if (!simulationRef.current) return;
+        try {
+            // Se la simulazione non è ancora inizializzata, inizializzala con i dati attuali
+            if (!simulationRef.current) {
+                if (selectedCompanyId && (devices.length > 0 || managedSwitches.length > 0)) {
+                    initForceLayout(devices, managedSwitches);
+                    // Aspetta un tick per assicurarsi che la simulazione sia pronta
+                    setTimeout(() => {
+                        handleAddVirtualNode();
+                    }, 100);
+                    return;
+                } else {
+                    alert('Carica prima i dispositivi o gli switch gestiti');
+                    return;
+                }
+            }
 
-        const newNodeId = `virtual-${Date.now()}`;
-        const newNode = {
-            id: newNodeId,
-            type: 'unmanaged_switch',
-            label: 'Switch Unmanaged',
-            status: 'online', // Virtuale, sempre online o dipendente dai figli (futuro)
-            x: -offset.x / scale + (window.innerWidth / 2) / scale, // Centro schermo visibile
-            y: -offset.y / scale + (window.innerHeight / 2) / scale,
-            details: { role: 'Switch' }
-        };
+            const newNodeId = `virtual-${Date.now()}`;
+            const newNode = {
+                id: newNodeId,
+                type: 'unmanaged_switch',
+                label: 'Switch Unmanaged',
+                status: 'online', // Virtuale, sempre online o dipendente dai figli (futuro)
+                x: -offset.x / scale + (window.innerWidth / 2) / scale, // Centro schermo visibile
+                y: -offset.y / scale + (window.innerHeight / 2) / scale,
+                details: { role: 'Switch' }
+            };
 
-        const newNodes = [...nodes, newNode];
-        // Collega al router di default
-        const newLinks = [...links, { source: 'router', target: newNodeId }];
+            const newNodes = [...nodes, newNode];
+            // Collega al router di default
+            const newLinks = [...links, { source: 'router', target: newNodeId }];
 
-        setNodes(newNodes);
-        setLinks(newLinks);
+            setNodes(newNodes);
+            setLinks(newLinks);
 
-        // Riavvia simulazione con nuovi dati
-        // Nota: in D3 V4+ bisogna ri-assegnare nodes e links alla simulazione
-        simulationRef.current.nodes(newNodes);
-        simulationRef.current.force("link").links(newLinks);
-        simulationRef.current.alpha(0.5).restart();
-        simulationRef.current.alpha(0.5).restart();
+            // Riavvia simulazione con nuovi dati
+            // Nota: in D3 V4+ bisogna ri-assegnare nodes e links alla simulazione
+            if (simulationRef.current) {
+                simulationRef.current.nodes(newNodes);
+                simulationRef.current.force("link").links(newLinks);
+                simulationRef.current.alpha(0.5).restart();
+            }
+        } catch (error) {
+            console.error('Errore aggiunta switch virtuale:', error);
+            alert('Errore durante l\'aggiunta dello switch virtuale: ' + error.message);
+        }
     };
 
     // Refresh Layout (Ricalcola posizioni e centra)
