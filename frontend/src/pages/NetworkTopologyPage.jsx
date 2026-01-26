@@ -144,7 +144,8 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                 id: 'router', // ID fittizio per il frontend
                 _realId: savedGateway.id, // ID reale per le chiamate API
                 type: 'router',
-                label: `${savedGateway.hostname || savedGateway.ip_address} (GW)`,
+                type: 'router',
+                label: `${savedGateway.notes || savedGateway.hostname || savedGateway.ip_address} (GW) - ${savedGateway.ip_address}`,
                 status: savedGateway.status,
                 x: 0,
                 y: 0,
@@ -155,7 +156,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             const otherNodes = validDevices.filter(d => d.id !== savedGateway.id).map(d => ({
                 id: d.id,
                 type: mapDeviceType(d),
-                label: d.notes || d.hostname || formatIpWithPort(d.ip_address, d.port),
+                label: `${d.notes || d.hostname || ''} (${d.ip_address})`.trim(),
                 ip: d.ip_address,
                 status: d.status,
                 details: d,
@@ -217,7 +218,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             const deviceNodes = validDevices.map(d => ({
                 id: d.id,
                 type: mapDeviceType(d),
-                label: d.notes || d.hostname || formatIpWithPort(d.ip_address, d.port),
+                label: `${d.notes || d.hostname || ''} (${d.ip_address})`.trim(),
                 ip: d.ip_address,
                 status: d.status,
                 details: d,
