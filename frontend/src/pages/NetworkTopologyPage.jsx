@@ -1199,6 +1199,62 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                                 </div>
                             )}
                         </div>
+
+                        {/* LISTA DISPOSITIVI COLLEGATI (FIGLI) */}
+                        {(() => {
+                            let parentId = selectedNode.id;
+                            // Se è uno Switch Gestito, l'ID del nodo è "managed_switch_X", ma i figli puntano all'ID del device in network_devices.
+                            // Cerchiamo il device corrispondente all'IP dello switch.
+                            if (selectedNode.type === 'managed_switch') {
+                                const d = devices.find(x => x.ip_address === selectedNode.ip);
+                                parentId = d ? d.id : null;
+                            } else if (selectedNode.id === 'router') {
+                                parentId = selectedNode._realId;
+                            }
+
+                            if (!parentId) return null;
+
+                            const connected = devices.filter(d => d.parent_device_id === parentId);
+                            if (connected.length === 0) return null;
+
+                            // Ordina per porta (numerica se possibile)
+                            const sorted = [...connected].sort((a, b) => (a.port || 0) - (b.port || 0));
+
+                            return (
+                                <div className="mt-4 pt-2 border-t border-gray-100">
+                                    <h4 className="font-bold text-gray-700 mb-2 text-xs uppercase">
+                                        Dispositivi Collegati ({connected.length})
+                                    </h4>
+                                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1 customize-scrollbar">
+                                        {sorted.map(child => (
+                                            <div key={child.id} className="bg-slate-50 border border-slate-200 rounded p-2 text-xs hover:bg-slate-100 transition">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <span className="font-bold text-slate-700 bg-slate-200 px-1.5 py-0.5 rounded text-[10px]">
+                                                        {child.port ? `Porta ${child.port}` : 'Porta N/A'}
+                                                    </span>
+                                                    <div className={`w-2 h-2 rounded-full ${child.status === 'online' ? 'bg-green-500' : 'bg-red-500'}`} title={`Status: ${child.status}`} />
+                                                </div>
+                                                <div className="flex justify-between text-slate-600 mb-0.5 font-mono">
+                                                    <span>{child.ip_address}</span>
+                                                </div>
+                                                <div className="text-slate-400 font-mono text-[10px] mb-1">
+                                                    {child.mac_address}
+                                                </div>
+                                                {child.notes ? (
+                                                    <div className="text-amber-600 italic bg-amber-50 px-1 rounded truncate border border-amber-100" title={child.notes}>
+                                                        {child.notes}
+                                                    </div>
+                                                ) : child.hostname && (
+                                                    <div className="text-slate-500 italic truncate" title={child.hostname}>
+                                                        {child.hostname}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </div>
                 </div>
             )}

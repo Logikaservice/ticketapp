@@ -30,3 +30,5 @@ backend/backups/
 backend/crypto.db
 backend/crypto.db-journal
 backend/crypto.db-wal*.backup-*
+
+.github_token
