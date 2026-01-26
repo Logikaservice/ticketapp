@@ -3,7 +3,7 @@ import {
     ArrowLeft, Search, Filter, ZoomIn, ZoomOut, Loader,
     Server, Server as ServerIcon, Monitor, Printer, Wifi, Maximize, Router,
     AlertTriangle, CheckCircle, WifiOff, X, Move, RotateCw, Link,
-    Cable, Plus, Trash2, RefreshCw
+    Cable, Plus, Trash2, RefreshCw, Network
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import * as d3 from 'd3-force';
@@ -834,6 +834,30 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                         {managedSwitches.length > 0 && (
                             <span className="absolute -top-0.5 -right-0.5 bg-indigo-600 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center" title="Switch SNMP in mappa">{managedSwitches.length}</span>
                         )}
+                    </button>
+                    <button
+                        className="bg-white p-2 rounded-lg shadow-md border border-gray-200 hover:bg-gray-50 flex items-center justify-center"
+                        title="Calcola Topologia (Auto-Discovery da SNMP)"
+                        onClick={async () => {
+                            if (!confirm('Vuoi ricalcolare automaticamente la topologia analizzando gli switch gestiti?\nQuesto potrebbe creare nuovi switch virtuali e modificare i collegamenti.')) return;
+                            try {
+                                const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/calculate-topology`), {
+                                    method: 'POST',
+                                    headers: getAuthHeader()
+                                });
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    alert(data.message || 'Topologia calcolata con successo');
+                                    setRefreshDevicesKey(prev => prev + 1);
+                                } else {
+                                    alert('Errore durante il calcolo');
+                                }
+                            } catch (e) {
+                                alert('Errore di connessione: ' + e.message);
+                            }
+                        }}
+                    >
+                        <Network size={20} className="text-orange-600" />
                     </button>
 
                     {/* Panel Dispositivi gestiti: switch SNMP per leggere MAC e associare parent+porta */}

@@ -1180,6 +1180,20 @@ module.exports = (pool, io) => {
     }
   });
 
+  // POST /api/network-monitoring/clients/:aziendaId/calculate-topology
+  // Rotta manuale per triggerare il calcolo della topologia (analisi switch collegati)
+  router.post('/clients/:aziendaId/calculate-topology', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { aziendaId } = req.params;
+      console.log(`📡 Richiesta calcolo topologia per azienda ${aziendaId}`);
+      await analyzeConnectedSwitches(aziendaId);
+      res.json({ success: true, message: 'Topologia calcolata con successo' });
+    } catch (err) {
+      console.error('❌ Errore API calculate-topology:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // Funzione helper per analizzare switch collegati
   // Identifica porte con più MAC (indica switch collegato) e verifica se quei MAC sono su altri switch gestiti
   const analyzeConnectedSwitches = async (aziendaId) => {
@@ -1272,10 +1286,10 @@ module.exports = (pool, io) => {
               const ag = await pool.query('SELECT id FROM network_agents WHERE azienda_id = $1 AND deleted_at IS NULL ORDER BY id LIMIT 1', [aziendaId]);
               if (ag.rows.length === 0) continue;
               const ins = await pool.query(
-                `INSERT INTO network_devices (agent_id, ip_address, device_type, status, parent_device_id, port)
-                 VALUES ($1, $2, 'switch', 'online', $3, $4)
+                `INSERT INTO network_devices (agent_id, ip_address, device_type, status, parent_device_id, port, notes)
+                 VALUES ($1, $2, 'unmanaged_switch', 'online', $3, $4, $5)
                  RETURNING id`,
-                [ag.rows[0].id, virtualIp, sw.switch_device_id, port]
+                [ag.rows[0].id, virtualIp, sw.switch_device_id, port, `Switch Virtuale (Porta ${port} su ${sw.name || sw.ip})`]
               );
               virtualSwitchId = ins.rows[0].id;
             }
