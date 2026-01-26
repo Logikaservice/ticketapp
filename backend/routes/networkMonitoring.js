@@ -2450,10 +2450,13 @@ module.exports = (pool, io) => {
          WHERE na.azienda_id = $1
          ORDER BY 
            CASE WHEN nd.is_gateway = true THEN 0 ELSE 1 END,
-           CAST(split_part(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g'), '.', 1) AS INTEGER),
-           CAST(split_part(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g'), '.', 2) AS INTEGER),
-           CAST(split_part(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g'), '.', 3) AS INTEGER),
-           CAST(split_part(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g'), '.', 4) AS INTEGER) ASC`,
+           -- Ordina prima gli IP validi (IPv4), poi gli altri (virtuali)
+           CASE WHEN nd.ip_address ~ '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' THEN 0 ELSE 1 END,
+           -- Ordinamento numerico ottetti IP
+           CASE WHEN nd.ip_address ~ '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' THEN CAST(split_part(nd.ip_address, '.', 1) AS INTEGER) ELSE 0 END,
+           CASE WHEN nd.ip_address ~ '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' THEN CAST(split_part(nd.ip_address, '.', 2) AS INTEGER) ELSE 0 END,
+           CASE WHEN nd.ip_address ~ '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' THEN CAST(split_part(nd.ip_address, '.', 3) AS INTEGER) ELSE 0 END,
+           CASE WHEN nd.ip_address ~ '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' THEN CAST(split_part(nd.ip_address, '.', 4) AS INTEGER) ELSE 0 END ASC`,
         [aziendaId]
       );
 
