@@ -1208,11 +1208,33 @@ module.exports = (pool, io) => {
         [aziendaId]
       );
 
-      if (switches.rows.length < 2) return; // Serve almeno 2 switch per collegamenti
+      if (switches.rows.length === 0) return;
 
       const normalizeMac = (m) => (m || '').replace(/[\s:.-]/g, '').toUpperCase();
 
-      // Per ogni switch, trova le porte con più MAC
+      // 1. PRIMA PASSA: Ricollega tutti i dispositivi singoli ai loro switch gestiti (Reset collegamenti base)
+      // Utile se l'utente ha spostato cavi o se i dispositivi sono stati resettati
+      for (const sw of switches.rows) {
+        if (!sw.switch_device_id) continue;
+        const macPorts = await pool.query('SELECT mac_address, port FROM switch_mac_port_cache WHERE managed_switch_id = $1', [sw.id]);
+
+        for (const row of macPorts.rows) {
+          const macNorm = normalizeMac(row.mac_address);
+          if (!macNorm || macNorm.length < 12) continue;
+
+          // Trova device con questo MAC e collegalo a questo switch
+          // Nota: questo sovrascrive eventuali parent manuali se il MAC viene rilevato dallo switch
+          await pool.query(
+            `UPDATE network_devices 
+                  SET parent_device_id = $1, port = $2 
+                  WHERE agent_id = (SELECT agent_id FROM network_devices WHERE id = $1)
+                  AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', ''), '.', ''), ' ', '') = $3`,
+            [sw.switch_device_id, row.port, macNorm]
+          );
+        }
+      }
+
+      // 2. SECONDA PASSA: Analisi porte multiple (Uplink o Switch Virtuali)
       for (const sw of switches.rows) {
         if (!sw.switch_device_id) continue;
 
