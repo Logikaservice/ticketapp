@@ -661,9 +661,23 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                 body: JSON.stringify({ ip, snmp_community: managedAdd.snmp_community || 'public', name: managedAdd.name || null })
             });
             const data = await res.json().catch(() => ({}));
-            if (!res.ok) { alert(data.error || 'Errore'); return; }
+            if (!res.ok) {
+                const msg = data.error || 'Errore durante l\'aggiunta';
+                alert(msg);
+                // Ricarica lista anche in caso di errore (es. IP già presente) per mostrare lo switch esistente
+                try {
+                    const resList = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/managed-switches`), { headers: getAuthHeader() });
+                    if (resList.ok) setManagedSwitches(await resList.json());
+                } catch { }
+                return;
+            }
+            // Reset form
             setManagedAdd({ ip: '', snmp_community: 'public', name: '' });
-            setManagedSwitches(prev => [...prev, data]);
+            // Ricarica lista completa da server (evita problemi di sincronizzazione)
+            try {
+                const resList = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/managed-switches`), { headers: getAuthHeader() });
+                if (resList.ok) setManagedSwitches(await resList.json());
+            } catch { /* mantieni lista corrente se ricarica fallisce */ }
         } catch (e) {
             alert('Errore di connessione');
         }
@@ -674,8 +688,16 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         if (!confirm('Rimuovere questo dispositivo gestito?')) return;
         try {
             const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/managed-switches/${id}`), { method: 'DELETE', headers: getAuthHeader() });
-            if (res.ok) setManagedSwitches(prev => prev.filter(m => m.id !== id));
-            else { const d = await res.json().catch(() => ({})); alert(d.error || 'Errore'); }
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({}));
+                alert(d.error || 'Errore');
+                return;
+            }
+            // Ricarica lista completa da server
+            try {
+                const resList = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/managed-switches`), { headers: getAuthHeader() });
+                if (resList.ok) setManagedSwitches(await resList.json());
+            } catch { /* mantieni lista corrente se ricarica fallisce */ }
         } catch (e) { alert('Errore di connessione'); }
     };
 

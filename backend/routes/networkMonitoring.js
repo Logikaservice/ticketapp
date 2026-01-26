@@ -2427,15 +2427,19 @@ module.exports = (pool, io) => {
       const snmp_community = String(req.body.snmp_community || 'public').trim() || 'public';
       const snmp_version = String(req.body.snmp_version || '2c').trim() || '2c';
       const name = req.body.name ? String(req.body.name).trim() : null;
+      // UPSERT: se l'IP esiste già per questa azienda, aggiorna community/name invece di dare errore
       const r = await pool.query(
         `INSERT INTO managed_switches (azienda_id, ip, snmp_community, snmp_version, name)
          VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (azienda_id, ip) 
+         DO UPDATE SET snmp_community = EXCLUDED.snmp_community, 
+                        snmp_version = EXCLUDED.snmp_version,
+                        name = EXCLUDED.name
          RETURNING id, ip, snmp_community, snmp_version, name, created_at`,
         [aziendaId, ip, snmp_community, snmp_version, name || null]
       );
       res.status(201).json(r.rows[0]);
     } catch (err) {
-      if (err.code === '23505') return res.status(409).json({ error: 'Questo switch (IP) è già presente per l\'azienda' });
       console.error('❌ Errore add managed-switches:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
