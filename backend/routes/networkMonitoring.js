@@ -540,6 +540,7 @@ module.exports = (pool, io) => {
           await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_ok BOOLEAN;`);
           await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_check_at TIMESTAMPTZ;`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS notes TEXT;`);
           await pool.query(`
             CREATE TABLE IF NOT EXISTS managed_switches (
               id SERIAL PRIMARY KEY,
@@ -2327,6 +2328,10 @@ module.exports = (pool, io) => {
         await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS port INTEGER;
+        `);
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS notes TEXT;
         `);
       } catch (migrationErr) {
         // Ignora errore se colonna esiste già
