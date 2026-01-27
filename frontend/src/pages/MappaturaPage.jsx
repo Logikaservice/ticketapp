@@ -12,7 +12,6 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const [devices, setDevices] = useState([]);
     const [loading, setLoading] = useState(false);
     const [nodes, setNodes] = useState([]);
-    const [links, setLinks] = useState([]);
     const [selectedNode, setSelectedNode] = useState(null);
     const [scale, setScale] = useState(1);
     const [offset, setOffset] = useState({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
@@ -60,45 +59,42 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         return 'pc';
     };
 
-    const initForceLayout = () => {
+    // Mappa vuota: niente gateway, niente dispositivi precaricati. Si aggiungono solo cliccando un IP o "Aggiungi Switch".
+    const ensureSimulation = (nodeList) => {
         if (simulationRef.current) simulationRef.current.stop();
-        const valid = (devices || []).filter(d => d.ip_address);
-        const routerNode = { id: 'router', type: 'router', label: 'Gateway (Fittizio)', status: 'online', x: 0, y: 0, fx: 0, fy: 0, details: { role: 'Gateway Placeholder' } };
-        const deviceNodes = valid.map(d => ({
+        if (!nodeList || nodeList.length === 0) {
+            simulationRef.current = null;
+            return;
+        }
+        const sim = d3.forceSimulation(nodeList)
+            .force('charge', d3.forceManyBody().strength(-400))
+            .force('collide', d3.forceCollide().radius(50))
+            .on('tick', () => setNodes([...sim.nodes()]));
+        simulationRef.current = sim;
+    };
+
+    const addNodeFromDevice = (d) => {
+        const exists = nodes.some(n => n.id === d.id);
+        if (exists) {
+            const node = nodes.find(n => n.id === d.id);
+            setSelectedNode(node);
+            return;
+        }
+        const newNode = {
             id: d.id,
             type: mapDeviceType(d),
             label: (d.notes || d.hostname || '').trim() || d.ip_address,
             ip: d.ip_address,
             status: d.status,
             details: d,
-            x: Math.random() * 200 - 100,
-            y: Math.random() * 200 - 100
-        }));
-        const initialNodes = [routerNode, ...deviceNodes];
-        const initialLinks = deviceNodes.map(n => {
-            const pid = n.details?.parent_device_id;
-            if (pid) {
-                const par = deviceNodes.find(x => x.id === pid);
-                if (par) return { source: par.id, target: n.id };
-            }
-            return { source: 'router', target: n.id };
-        });
-
-        setNodes(initialNodes);
-        setLinks(initialLinks);
-
-        const sim = d3.forceSimulation(initialNodes)
-            .force('link', d3.forceLink(initialLinks).id(d => d.id).distance(150))
-            .force('charge', d3.forceManyBody().strength(-500))
-            .force('collide', d3.forceCollide().radius(60))
-            .on('tick', () => setNodes([...sim.nodes()]));
-        simulationRef.current = sim;
+            x: 0,
+            y: 0
+        };
+        const next = [...nodes, newNode];
+        setNodes(next);
+        ensureSimulation(next);
+        setSelectedNode(newNode);
     };
-
-    useEffect(() => {
-        if (!selectedCompanyId) return;
-        initForceLayout();
-    }, [selectedCompanyId, devices]);
 
     useEffect(() => {
         return () => { if (simulationRef.current) simulationRef.current.stop(); };
@@ -133,19 +129,23 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                 headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: 'Switch Virtuale', device_type: 'unmanaged_switch', parent_id: selectedNode ? (selectedNode._realId || selectedNode.id) : null })
             });
-            if (res.ok) setRefreshDevicesKey(k => k + 1);
-            else { const err = await res.json(); alert(err.error || 'Errore'); }
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) { alert(data.error || 'Errore'); return; }
+            setRefreshDevicesKey(k => k + 1);
+            if (data.device) addNodeFromDevice(data.device);
         } catch (e) { alert('Errore: ' + e.message); }
     };
 
     const handleRefreshLayout = () => {
+        if (nodes.length === 0) return;
+        ensureSimulation(nodes);
         if (simulationRef.current) simulationRef.current.alpha(1).restart();
     };
 
     const handleNodeMouseDown = (e, node) => {
         e.stopPropagation();
-        if (!simulationRef.current) return;
         const sim = simulationRef.current;
+        if (!sim) return;
         const onMove = (ev) => {
             const rect = canvasContainerRef.current?.getBoundingClientRect();
             if (!rect) return;
@@ -253,14 +253,12 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                 {loading && <div className="flex items-center gap-2 text-gray-500 text-sm py-2"><Loader size={14} className="animate-spin" /> Caricamento…</div>}
                                 {!loading && ipList.length === 0 && <p className="text-sm text-gray-400 py-2">Nessun IP.</p>}
                                 {!loading && ipList.map(d => {
-                                    const node = nodes.find(n => n.id === d.id);
                                     const name = (d.notes || d.hostname || '').trim() || d.ip_address;
                                     return (
                                         <button
                                             key={d.id}
                                             type="button"
-                                            onClick={() => node && setSelectedNode(node)}
-                                            disabled={!node}
+                                            onClick={() => addNodeFromDevice(d)}
                                             className={`w-full text-left px-3 py-2 rounded-lg text-sm font-mono truncate border transition ${selectedNode?.id === d.id ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}
                                             title={name}
                                         >
@@ -303,29 +301,29 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             </div>
                         </div>
                     )}
+                    {selectedCompanyId && !loading && nodes.length === 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                            <div className="bg-white/90 backdrop-blur-sm px-6 py-4 rounded-xl border border-gray-200 shadow-lg text-center">
+                                <p className="text-gray-600 font-medium">Mappa vuota</p>
+                                <p className="text-gray-500 text-sm mt-1">Clicca un IP nella lista a sinistra per aggiungerlo alla mappa.</p>
+                            </div>
+                        </div>
+                    )}
                     <div
                         className="absolute top-0 left-0 w-full h-full pointer-events-none"
                         style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, transformOrigin: '0 0' }}
                     >
-                        <svg className="overflow-visible absolute top-0 left-0">
-                            {links.map((link, i) => {
-                                const src = typeof link.source === 'object' ? link.source : nodes.find(n => n.id === link.source);
-                                const tgt = typeof link.target === 'object' ? link.target : nodes.find(n => n.id === link.target);
-                                if (!src || !tgt) return null;
-                                return <line key={`l-${i}`} x1={src.x} y1={src.y} x2={tgt.x} y2={tgt.y} stroke="#cbd5e1" strokeWidth="2" />;
-                            })}
-                        </svg>
                         {nodes.map(node => (
                             <div
                                 key={node.id}
                                 className="absolute flex flex-col items-center justify-center pointer-events-auto"
                                 style={{
                                     left: node.x, top: node.y, transform: 'translate(-50%, -50%)',
-                                    width: node.type === 'router' ? 60 : 48, height: node.type === 'router' ? 60 : 48,
+                                    width: 48, height: 48,
                                     cursor: 'pointer', zIndex: selectedNode?.id === node.id ? 50 : 10
                                 }}
                                 onMouseDown={(e) => handleNodeMouseDown(e, node)}
-                                onClick={(e) => { e.stopPropagation(); if (node.id !== 'router') setSelectedNode(node); }}
+                                onClick={(e) => { e.stopPropagation(); setSelectedNode(node); }}
                             >
                                 <div className={`w-full h-full rounded-full flex items-center justify-center shadow-lg border-2 ${getNodeColor(node)} ${selectedNode?.id === node.id ? 'ring-4 ring-blue-300' : ''} hover:scale-110 transition-transform`}>
                                     {drawIcon(node.type)}
@@ -339,7 +337,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                 </div>
 
                 {/* Right panel */}
-                {selectedNode && selectedNode.id !== 'router' && (
+                {selectedNode && (
                     <div className="w-80 shrink-0 bg-white shadow-xl border-l border-gray-200 p-4 flex flex-col animate-slideInRight z-50">
                         <div className="flex justify-between items-start mb-4">
                             <h3 className="text-lg font-bold text-gray-800 break-all">{selectedNode.label || selectedNode.ip}</h3>
