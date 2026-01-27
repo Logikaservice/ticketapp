@@ -7,7 +7,7 @@ import {
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
   Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit, Menu,
-  CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle, Terminal
+  CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle, Terminal, Network
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
@@ -17,7 +17,7 @@ import AgentNotifications from './AgentNotifications';
 import TelegramConfigSection from './TelegramConfigSection';
 import { EventBadge, SeverityIndicator } from './EventBadges';
 
-const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null }) => {
+const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, initialCompanyId = null }) => {
   const [devices, setDevices] = useState([]);
   const [changes, setChanges] = useState([]);
   const [recentChangesCount, setRecentChangesCount] = useState(0); // Conteggio cambiamenti ultime 24h dal backend
@@ -46,7 +46,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     search: ''
   });
   const [companies, setCompanies] = useState([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId);
   const [companyDevices, setCompanyDevices] = useState([]);
   const [loadingCompanyDevices, setLoadingCompanyDevices] = useState(false);
   const [showOfflineDevices, setShowOfflineDevices] = useState(true); // Mostra dispositivi offline di default
@@ -833,6 +833,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     return () => clearInterval(interval);
   }, [autoRefresh, loadDevices, loadChanges, loadCompanyDevices, selectedCompanyId, showCreateAgentModal]);
 
+  // Carica dispositivi azienda quando viene passato initialCompanyId
+  useEffect(() => {
+    if (initialCompanyId && initialCompanyId !== selectedCompanyId) {
+      setSelectedCompanyId(initialCompanyId);
+      loadCompanyDevices(initialCompanyId);
+    }
+  }, [initialCompanyId, loadCompanyDevices]);
+
   // Ricarica i cambiamenti quando cambia il filtro azienda per i cambiamenti
   useEffect(() => {
     loadChanges(false);
@@ -1277,6 +1285,18 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
               Aggiorna
             </button>
+
+            {/* Pulsante Mappatura */}
+            {onNavigateToMappatura && (
+              <button
+                onClick={() => onNavigateToMappatura(selectedCompanyId)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+                title="Vai alla Mappatura Topologica"
+              >
+                <Network size={18} />
+                Mappatura
+              </button>
+            )}
 
             {/* Versione agent più alta */}
             {agents.length > 0 && (() => {

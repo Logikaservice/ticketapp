@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import {
     ArrowLeft, ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw,
     Monitor, Printer, Wifi, Router, X, Trash2, Link2,
-    Smartphone, Tablet, Laptop, Camera, Tv, Watch, Phone, Database, Cloud, Globe
+    Smartphone, Tablet, Laptop, Camera, Tv, Watch, Phone, Database, Cloud, Globe, List
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import * as d3 from 'd3-force';
@@ -26,9 +26,9 @@ const AVAILABLE_ICONS = [
     { type: 'internet', icon: Globe, label: 'Internet' }
 ];
 
-const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId }) => {
+const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onNavigateToMonitoring = null }) => {
     const [companies, setCompanies] = useState([]);
-    const [selectedCompanyId, setSelectedCompanyId] = useState('');
+    const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId ? String(initialCompanyId) : '');
     const [devices, setDevices] = useState([]);
     const [loading, setLoading] = useState(false);
     const [nodes, setNodes] = useState([]);
@@ -510,6 +510,22 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         <option value="">Seleziona Azienda...</option>
                         {companies.filter(c => c.id != null).map(c => <option key={c.id} value={String(c.id)}>{c.azienda}</option>)}
                     </select>
+
+                    {/* Pulsante Monitoraggio */}
+                    {onNavigateToMonitoring && (
+                        <button
+                            onClick={() => {
+                                const companyId = selectedCompanyId ? parseInt(selectedCompanyId) : null;
+                                onNavigateToMonitoring(companyId);
+                            }}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                            title="Vai al Monitoraggio Rete"
+                        >
+                            <List size={18} />
+                            Monitoraggio
+                        </button>
+                    )}
+
                     <div className="flex bg-gray-100 rounded-lg p-1">
                         <button className="p-1.5 hover:bg-white rounded transition" onClick={() => setScale(s => Math.min(s + 0.1, 4))}><ZoomIn size={18} className="text-gray-600" /></button>
                         <button className="p-1.5 hover:bg-white rounded transition ml-1" onClick={() => setScale(s => Math.max(s - 0.1, 0.1))}><ZoomOut size={18} className="text-gray-600" /></button>

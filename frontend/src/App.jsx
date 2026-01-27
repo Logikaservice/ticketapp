@@ -154,6 +154,7 @@ export default function TicketApp() {
   const [showNetworkMap, setShowNetworkMap] = useState(false);
   const [showMappatura, setShowMappatura] = useState(false);
   const [networkMonitoringInitialView, setNetworkMonitoringInitialView] = useState(null); // 'agents' o 'create'
+  const [selectedCompanyForNavigation, setSelectedCompanyForNavigation] = useState(null); // Azienda selezionata per navigazione tra monitoraggio e mappatura
 
   const [settingsData, setSettingsData] = useState({
     nome: '',
@@ -3004,7 +3005,13 @@ export default function TicketApp() {
               socket={socket}
               initialView={networkMonitoringInitialView}
               onViewReset={() => setNetworkMonitoringInitialView(null)}
-              onClose={() => { setShowNetworkMonitoring(false); setShowDashboard(true); }}
+              onClose={() => { setShowNetworkMonitoring(false); setShowDashboard(true); setSelectedCompanyForNavigation(null); }}
+              onNavigateToMappatura={(companyId) => {
+                setSelectedCompanyForNavigation(companyId);
+                setShowNetworkMonitoring(false);
+                setShowMappatura(true);
+              }}
+              initialCompanyId={selectedCompanyForNavigation}
             />
           ) : (
             // Messaggio di accesso negato
@@ -3050,8 +3057,14 @@ export default function TicketApp() {
 
         {showMappatura && (
           <MappaturaPage
-            onClose={() => { setShowMappatura(false); setShowDashboard(true); }}
+            onClose={() => { setShowMappatura(false); setShowDashboard(true); setSelectedCompanyForNavigation(null); }}
             getAuthHeader={getAuthHeader}
+            selectedCompanyId={selectedCompanyForNavigation}
+            onNavigateToMonitoring={(companyId) => {
+              setSelectedCompanyForNavigation(companyId);
+              setShowMappatura(false);
+              setShowNetworkMonitoring(true);
+            }}
           />
         )}
 
