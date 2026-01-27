@@ -48,8 +48,14 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const selectedCompanyIdRef = useRef(selectedCompanyId);
     useEffect(() => { selectedCompanyIdRef.current = selectedCompanyId; }, [selectedCompanyId]);
 
+    const parseAziendaId = (v) => {
+        const n = parseInt(v, 10);
+        return (typeof n === 'number' && !isNaN(n) && n > 0) ? n : null;
+    };
+
     useEffect(() => {
-        if (!selectedCompanyId) return;
+        const aziendaId = parseAziendaId(selectedCompanyId);
+        if (!aziendaId) return;
         const companyChanged = prevCompanyIdRef.current !== null && prevCompanyIdRef.current !== selectedCompanyId;
         prevCompanyIdRef.current = selectedCompanyId;
         if (companyChanged) {
@@ -59,7 +65,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         setLoading(true);
         const fetchDevices = async () => {
             try {
-                const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/devices`), { headers: getAuthHeader() });
+                const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaId}/devices`), { headers: getAuthHeader() });
                 if (res.ok) setDevices(await res.json());
             } catch (e) { console.error('Errore fetch dispositivi:', e); }
             finally { setLoading(false); }
@@ -68,12 +74,12 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     }, [selectedCompanyId, refreshDevicesKey]);
 
     useEffect(() => {
-        if (!selectedCompanyId || loading || !devices.length) return;
-        const companyId = selectedCompanyId;
+        const aziendaId = parseAziendaId(selectedCompanyId);
+        if (!aziendaId || loading || !devices.length) return;
         const ac = new AbortController();
         const loadMapFromDb = async () => {
             try {
-                const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${companyId}/mappatura-nodes`), {
+                const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaId}/mappatura-nodes`), {
                     headers: getAuthHeader(),
                     signal: ac.signal
                 });
@@ -105,7 +111,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         if (pid == null || !deviceIds.has(pid)) continue;
                         mapLinks.push({ source: pid, target: n.id });
                     }
-                    if (ac.signal.aborted || selectedCompanyIdRef.current !== companyId) return;
+                    if (ac.signal.aborted || parseAziendaId(selectedCompanyIdRef.current) !== aziendaId) return;
                     setNodes(mapNodes);
                     setLinks(mapLinks);
                     ensureSimulation(mapNodes, mapLinks);
@@ -153,22 +159,22 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             setSelectedNode(nodes.find(n => n.id === d.id));
             return;
         }
-        if (selectedCompanyId) {
-            try {
-                const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/mappatura-nodes`), {
-                    method: 'POST',
-                    headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ device_id: d.id, x: 0, y: 0 })
-                });
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    alert(err.error || 'Errore aggiunta alla mappa');
-                    return;
-                }
-            } catch (e) {
-                alert('Errore: ' + e.message);
+        const aziendaId = parseAziendaId(selectedCompanyId);
+        if (!aziendaId) return;
+        try {
+            const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaId}/mappatura-nodes`), {
+                method: 'POST',
+                headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device_id: d.id, x: 0, y: 0 })
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                alert(err.error || 'Errore aggiunta alla mappa');
                 return;
             }
+        } catch (e) {
+            alert('Errore: ' + e.message);
+            return;
         }
         const newNode = {
             id: d.id,
@@ -191,9 +197,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         const childExists = nodes.some(n => n.id === childDevice.id);
         let childNode = nodes.find(n => n.id === childDevice.id);
         if (!childNode) {
-            if (selectedCompanyId) {
+            const aziendaId = parseAziendaId(selectedCompanyId);
+            if (aziendaId) {
                 try {
-                    const addRes = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/mappatura-nodes`), {
+                    const addRes = await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaId}/mappatura-nodes`), {
                         method: 'POST',
                         headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
                         body: JSON.stringify({ device_id: childDevice.id, x: (parentNode.x || 0) + 80, y: parentNode.y || 0 })
@@ -227,9 +234,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         ensureSimulation(nextNodes, nextLinks);
 
         const parentIp = (parentNode.ip || parentNode.details?.ip_address || '').toString().trim();
-        if (parentIp && selectedCompanyId) {
+        const aziendaIdSetParent = parseAziendaId(selectedCompanyId);
+        if (parentIp && aziendaIdSetParent) {
             try {
-                await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/set-parent/${childDevice.id}`), {
+                await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaIdSetParent}/set-parent/${childDevice.id}`), {
                     method: 'PUT',
                     headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
                     body: JSON.stringify({ parentIp })
@@ -267,7 +275,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const saveLayoutRef = useRef(null);
     useEffect(() => {
         saveLayoutRef.current = () => {
-            const cid = selectedCompanyIdRef.current;
+            const cid = parseAziendaId(selectedCompanyIdRef.current);
             if (!cid) return;
             const sim = simulationRef.current;
             const list = sim ? sim.nodes() : [];
@@ -316,9 +324,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     useEffect(() => { scaleRef.current = scale; }, [scale]);
 
     const handleAddVirtualNode = async () => {
-        if (!selectedCompanyId) { alert('Seleziona prima un\'azienda'); return; }
+        const aziendaId = parseAziendaId(selectedCompanyId);
+        if (!aziendaId) { alert('Seleziona prima un\'azienda'); return; }
         try {
-            const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/manual-device`), {
+            const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaId}/manual-device`), {
                 method: 'POST',
                 headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: 'Switch Virtuale', device_type: 'unmanaged_switch', parent_id: selectedNode ? (selectedNode._realId || selectedNode.id) : null })
@@ -341,7 +350,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         if (!node) return;
         const id = node.id;
         const isVirtual = (node.details?.device_type || '').toLowerCase().includes('unmanaged');
-        if (selectedCompanyId) {
+        const aziendaId = parseAziendaId(selectedCompanyId);
+        if (aziendaId) {
             try {
                 if (isVirtual) {
                     const delRes = await fetch(buildApiUrl(`/api/network-monitoring/devices/${id}`), {
@@ -355,7 +365,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     }
                     setRefreshDevicesKey(k => k + 1);
                 } else {
-                    const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/mappatura-nodes/${id}`), {
+                    const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaId}/mappatura-nodes/${id}`), {
                         method: 'DELETE',
                         headers: getAuthHeader()
                     });
@@ -472,7 +482,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         onChange={(e) => setSelectedCompanyId(e.target.value)}
                     >
                         <option value="">Seleziona Azienda...</option>
-                        {companies.map(c => <option key={c.id} value={c.id}>{c.azienda}</option>)}
+                        {companies.filter(c => c.id != null).map(c => <option key={c.id} value={String(c.id)}>{c.azienda}</option>)}
                     </select>
                     <div className="flex bg-gray-100 rounded-lg p-1">
                         <button className="p-1.5 hover:bg-white rounded transition" onClick={() => setScale(s => Math.min(s + 0.1, 4))}><ZoomIn size={18} className="text-gray-600" /></button>
