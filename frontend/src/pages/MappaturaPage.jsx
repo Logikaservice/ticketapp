@@ -12,6 +12,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const [devices, setDevices] = useState([]);
     const [loading, setLoading] = useState(false);
     const [nodes, setNodes] = useState([]);
+    const [links, setLinks] = useState([]);
     const [selectedNode, setSelectedNode] = useState(null);
     const [scale, setScale] = useState(1);
     const [offset, setOffset] = useState({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
@@ -59,8 +60,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         return 'pc';
     };
 
-    // Mappa vuota: niente gateway, niente dispositivi precaricati. Si aggiungono solo cliccando un IP o "Aggiungi Switch".
-    const ensureSimulation = (nodeList) => {
+    const ensureSimulation = (nodeList, linkList = []) => {
         if (simulationRef.current) simulationRef.current.stop();
         if (!nodeList || nodeList.length === 0) {
             simulationRef.current = null;
@@ -70,6 +70,9 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             .force('charge', d3.forceManyBody().strength(-400))
             .force('collide', d3.forceCollide().radius(50))
             .on('tick', () => setNodes([...sim.nodes()]));
+        if (linkList && linkList.length > 0) {
+            sim.force('link', d3.forceLink(linkList).id(d => d.id).distance(80));
+        }
         simulationRef.current = sim;
     };
 
@@ -92,8 +95,45 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         };
         const next = [...nodes, newNode];
         setNodes(next);
-        ensureSimulation(next);
+        ensureSimulation(next, links);
         setSelectedNode(newNode);
+    };
+
+    const associateChildToParent = async (parentNode, childDevice) => {
+        if (parentNode.id === childDevice.id) return;
+        const childExists = nodes.some(n => n.id === childDevice.id);
+        let childNode = nodes.find(n => n.id === childDevice.id);
+        if (!childNode) {
+            childNode = {
+                id: childDevice.id,
+                type: mapDeviceType(childDevice),
+                label: (childDevice.notes || childDevice.hostname || '').trim() || childDevice.ip_address,
+                ip: childDevice.ip_address,
+                status: childDevice.status,
+                details: childDevice,
+                x: (parentNode.x || 0) + 80,
+                y: parentNode.y || 0
+            };
+        }
+        const newLink = { source: parentNode.id, target: childNode.id };
+        const nextNodes = childExists ? nodes : [...nodes, childNode];
+        const nextLinks = links
+            .filter(l => (l.target?.id ?? l.target) !== childNode.id)
+            .concat([newLink]);
+        setNodes(nextNodes);
+        setLinks(nextLinks);
+        ensureSimulation(nextNodes, nextLinks);
+
+        const parentIp = (parentNode.ip || parentNode.details?.ip_address || '').toString().trim();
+        if (parentIp && selectedCompanyId) {
+            try {
+                await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/set-parent/${childDevice.id}`), {
+                    method: 'PUT',
+                    headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ parentIp })
+                });
+            } catch (e) { console.error('Errore set-parent:', e); }
+        }
     };
 
     useEffect(() => {
@@ -138,7 +178,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
 
     const handleRefreshLayout = () => {
         if (nodes.length === 0) return;
-        ensureSimulation(nodes);
+        ensureSimulation(nodes, links);
         if (simulationRef.current) simulationRef.current.alpha(1).restart();
     };
 
@@ -248,22 +288,26 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             </button>
                         </div>
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                            <h4 className="px-3 py-2 text-xs font-bold text-gray-600 uppercase border-b border-gray-100 shrink-0">IP presenti e individuati</h4>
+                            <h4 className="px-3 py-2 text-xs font-bold text-gray-600 uppercase border-b border-gray-100 shrink-0" title="Clicca per aggiungere · Trascina su un pallino per associare come figlio">IP presenti e individuati</h4>
                             <div className="flex-1 overflow-y-auto p-2 space-y-1">
                                 {loading && <div className="flex items-center gap-2 text-gray-500 text-sm py-2"><Loader size={14} className="animate-spin" /> Caricamento…</div>}
                                 {!loading && ipList.length === 0 && <p className="text-sm text-gray-400 py-2">Nessun IP.</p>}
                                 {!loading && ipList.map(d => {
                                     const name = (d.notes || d.hostname || '').trim() || d.ip_address;
                                     return (
-                                        <button
+                                        <div
                                             key={d.id}
-                                            type="button"
+                                            draggable
+                                            onDragStart={(e) => {
+                                                e.dataTransfer.setData('application/json', JSON.stringify({ deviceId: d.id, device: d }));
+                                                e.dataTransfer.effectAllowed = 'link';
+                                            }}
                                             onClick={() => addNodeFromDevice(d)}
-                                            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-mono truncate border transition ${selectedNode?.id === d.id ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}
-                                            title={name}
+                                            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-mono truncate border transition cursor-grab active:cursor-grabbing ${selectedNode?.id === d.id ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}
+                                            title={`${name}. Trascina su un pallino per associarlo come figlio.`}
                                         >
                                             {d.ip_address}
-                                        </button>
+                                        </div>
                                     );
                                 })}
                             </div>
@@ -305,7 +349,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                             <div className="bg-white/90 backdrop-blur-sm px-6 py-4 rounded-xl border border-gray-200 shadow-lg text-center">
                                 <p className="text-gray-600 font-medium">Mappa vuota</p>
-                                <p className="text-gray-500 text-sm mt-1">Clicca un IP nella lista a sinistra per aggiungerlo alla mappa.</p>
+                                <p className="text-gray-500 text-sm mt-1">Clicca un IP nella lista per aggiungerlo. Trascina un IP su un pallino per associarlo come figlio.</p>
                             </div>
                         </div>
                     )}
@@ -313,6 +357,14 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         className="absolute top-0 left-0 w-full h-full pointer-events-none"
                         style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, transformOrigin: '0 0' }}
                     >
+                        <svg className="overflow-visible absolute top-0 left-0 w-full h-full pointer-events-none">
+                            {links.map((link, i) => {
+                                const src = typeof link.source === 'object' ? link.source : nodes.find(n => n.id === link.source);
+                                const tgt = typeof link.target === 'object' ? link.target : nodes.find(n => n.id === link.target);
+                                if (!src || !tgt) return null;
+                                return <line key={`link-${i}`} x1={src.x} y1={src.y} x2={tgt.x} y2={tgt.y} stroke="#94a3b8" strokeWidth="2" />;
+                            })}
+                        </svg>
                         {nodes.map(node => (
                             <div
                                 key={node.id}
@@ -324,6 +376,17 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                 }}
                                 onMouseDown={(e) => handleNodeMouseDown(e, node)}
                                 onClick={(e) => { e.stopPropagation(); setSelectedNode(node); }}
+                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'link'; }}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    try {
+                                        const raw = e.dataTransfer.getData('application/json');
+                                        if (!raw) return;
+                                        const { device } = JSON.parse(raw);
+                                        if (device) associateChildToParent(node, device);
+                                    } catch (_) {}
+                                }}
                             >
                                 <div className={`w-full h-full rounded-full flex items-center justify-center shadow-lg border-2 ${getNodeColor(node)} ${selectedNode?.id === node.id ? 'ring-4 ring-blue-300' : ''} hover:scale-110 transition-transform`}>
                                     {drawIcon(node.type)}
