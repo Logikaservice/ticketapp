@@ -248,17 +248,34 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                 if (res.ok) {
                     const rows = await res.json();
                     if (ac.signal.aborted) return;
-                    const idToPos = new Map(rows.map(r => [Number(r.device_id), { x: r.x, y: r.y, is_locked: r.is_locked || false }]));
-                    const deviceIds = new Set(rows.map(r => Number(r.device_id)));
+                    
+                    // Normalizza MAC per il matching
+                    const normalizeMac = (mac) => {
+                        if (!mac) return null;
+                        return mac.replace(/[:-]/g, '').toUpperCase();
+                    };
+                    
+                    // Crea mappa posizioni basata su MAC invece di device_id
+                    const macToPos = new Map(rows.map(r => {
+                        const normalizedMac = normalizeMac(r.mac_address);
+                        return [normalizedMac, { x: r.x, y: r.y, is_locked: r.is_locked || false }];
+                    }));
+                    
                     const mapNodes = [];
                     
-                    // Crea una mappa dei dispositivi per accesso rapido
-                    const devicesMap = new Map(devices.map(d => [Number(d.id), d]));
+                    // Crea una mappa dei dispositivi per accesso rapido (per ID e per MAC)
+                    const devicesMapById = new Map(devices.map(d => [Number(d.id), d]));
+                    const devicesMapByMac = new Map(devices
+                        .filter(d => d.mac_address)
+                        .map(d => [normalizeMac(d.mac_address), d])
+                    );
                     
-                    for (const deviceId of deviceIds) {
-                        const d = devicesMap.get(deviceId);
-                        if (!d) continue; // Salta se il dispositivo non è più presente
-                        const pos = idToPos.get(deviceId) || { x: 0, y: 0, is_locked: false };
+                    // Itera sui dispositivi e trova le loro posizioni usando MAC
+                    for (const d of devices) {
+                        if (!d.mac_address) continue; // Salta dispositivi senza MAC
+                        
+                        const normalizedMac = normalizeMac(d.mac_address);
+                        const pos = macToPos.get(normalizedMac) || { x: 0, y: 0, is_locked: false };
                         const isLocked = pos.is_locked || false;
                         
                         // Trova il nodo esistente nella simulazione per preservare la posizione reale
@@ -269,14 +286,23 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         // Se la simulazione esiste, usa le posizioni dalla simulazione (più accurate)
                         if (simulationRef.current) {
                             const simNodes = simulationRef.current.nodes();
-                            const existingSimNode = simNodes.find(n => Number(n.id) === deviceId);
+                            const existingSimNode = simNodes.find(n => {
+                                // Cerca per ID o per MAC
+                                if (Number(n.id) === Number(d.id)) return true;
+                                if (n.details?.mac_address && normalizeMac(n.details.mac_address) === normalizedMac) return true;
+                                return false;
+                            });
                             if (existingSimNode) {
                                 // Usa la posizione dalla simulazione (posizione reale visualizzata)
                                 nodeX = existingSimNode.x;
                                 nodeY = existingSimNode.y;
                             } else {
                                 // Se non esiste nella simulazione, usa lo stato nodes come fallback
-                                const existingNode = nodes.find(n => Number(n.id) === deviceId);
+                                const existingNode = nodes.find(n => {
+                                    if (Number(n.id) === Number(d.id)) return true;
+                                    if (n.details?.mac_address && normalizeMac(n.details.mac_address) === normalizedMac) return true;
+                                    return false;
+                                });
                                 if (existingNode) {
                                     nodeX = existingNode.x;
                                     nodeY = existingNode.y;
@@ -284,7 +310,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             }
                         } else {
                             // Se la simulazione non esiste ancora, usa lo stato nodes
-                            const existingNode = nodes.find(n => Number(n.id) === deviceId);
+                            const existingNode = nodes.find(n => {
+                                if (Number(n.id) === Number(d.id)) return true;
+                                if (n.details?.mac_address && normalizeMac(n.details.mac_address) === normalizedMac) return true;
+                                return false;
+                            });
                             if (existingNode) {
                                 nodeX = existingNode.x;
                                 nodeY = existingNode.y;
@@ -307,10 +337,25 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         });
                     }
                     const mapLinks = [];
+                    // Crea mappa MAC -> nodo per trovare i parent
+                    const macToNodeMap = new Map(mapNodes.map(n => {
+                        if (!n.details?.mac_address) return null;
+                        return [normalizeMac(n.details.mac_address), n];
+                    }).filter(Boolean));
+                    
                     for (const n of mapNodes) {
-                        const pid = n.details?.parent_device_id != null ? Number(n.details.parent_device_id) : null;
-                        if (pid == null || !deviceIds.has(pid)) continue;
-                        mapLinks.push({ source: pid, target: n.id });
+                        const parentDeviceId = n.details?.parent_device_id != null ? Number(n.details.parent_device_id) : null;
+                        if (parentDeviceId == null) continue;
+                        
+                        // Trova il nodo parent usando il suo MAC
+                        const parentDevice = devicesMapById.get(parentDeviceId);
+                        if (!parentDevice?.mac_address) continue;
+                        
+                        const parentMac = normalizeMac(parentDevice.mac_address);
+                        const parentNode = macToNodeMap.get(parentMac);
+                        if (!parentNode) continue;
+                        
+                        mapLinks.push({ source: parentNode.id, target: n.id });
                     }
                     if (ac.signal.aborted || parseAziendaId(selectedCompanyIdRef.current) !== aziendaId) return;
                     
@@ -642,11 +687,15 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         }
         const aziendaId = parseAziendaId(selectedCompanyId);
         if (!aziendaId) return;
+        if (!d.mac_address) {
+            alert('Dispositivo senza MAC address, impossibile aggiungere alla mappa');
+            return;
+        }
         try {
             const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaId}/mappatura-nodes`), {
                 method: 'POST',
                 headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
-                body: JSON.stringify({ device_id: d.id, x: 0, y: 0 })
+                body: JSON.stringify({ mac_address: d.mac_address, x: 0, y: 0 })
             });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
@@ -703,10 +752,14 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             const aziendaId = parseAziendaId(selectedCompanyId);
             if (aziendaId) {
                 try {
+                    if (!childDevice.mac_address) {
+                        alert('Dispositivo senza MAC address, impossibile aggiungere alla mappa');
+                        return;
+                    }
                     const addRes = await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaId}/mappatura-nodes`), {
                         method: 'POST',
                         headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ device_id: childDevice.id, x: (parentNode.x || 0) + 80, y: parentNode.y || 0 })
+                        body: JSON.stringify({ mac_address: childDevice.mac_address, x: (parentNode.x || 0) + 80, y: parentNode.y || 0 })
                     });
                     if (!addRes.ok) {
                         const err = await addRes.json().catch(() => ({}));
@@ -784,13 +837,26 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             const list = sim ? sim.nodes() : [];
             if (list.length === 0) return;
             try {
-                // Invia posizione e stato locked per ogni nodo
-                const payload = list.map(n => ({ 
-                    id: n.id, 
-                    x: n.x, 
-                    y: n.y,
-                    locked: n.locked || false
-                }));
+                // Normalizza MAC per il salvataggio
+                const normalizeMac = (mac) => {
+                    if (!mac) return null;
+                    return mac.replace(/[:-]/g, '').toUpperCase();
+                };
+                
+                // Invia posizione e stato locked per ogni nodo usando MAC invece di device_id
+                const payload = list.map(n => {
+                    const macAddress = n.details?.mac_address;
+                    if (!macAddress) {
+                        console.warn('⚠️ Nodo senza MAC address, impossibile salvare posizione:', n);
+                        return null;
+                    }
+                    return { 
+                        mac_address: normalizeMac(macAddress), 
+                        x: n.x, 
+                        y: n.y,
+                        locked: n.locked || false
+                    };
+                }).filter(Boolean);
                 fetch(buildApiUrl(`/api/network-monitoring/clients/${cid}/mappatura-nodes`), {
                     method: 'POST',
                     headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
@@ -1162,7 +1228,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 setSelectedDevice(d);
                                                 setSelectedNode(null);
                                             }}
-                                            className={`w-full text-left px-1.5 py-0.5 rounded text-xs font-mono truncate border transition cursor-grab active:cursor-grabbing flex items-center gap-1.5 ${
+                                            className={`w-full text-left px-1.5 py-0.5 rounded text-xs font-mono truncate border transition cursor-grab active:cursor-grabbing flex flex-col gap-0.5 ${
                                                 sel 
                                                     ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200' 
                                                     : isNew 
@@ -1170,15 +1236,23 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                         : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                                             }`}
                                         >
-                                            {/* Pallino indicatore stato */}
-                                            <div className={`w-2 h-2 rounded-full shrink-0 ${
-                                                d.status === 'online' 
-                                                    ? 'bg-green-500' 
-                                                    : d.status === 'offline' 
-                                                        ? 'bg-red-500' 
-                                                        : 'bg-gray-400'
-                                            }`} title={d.status || 'unknown'}></div>
-                                            <span className="truncate">{d.ip_address}</span>
+                                            <div className="flex items-center gap-1.5 w-full">
+                                                {/* Pallino indicatore stato */}
+                                                <div className={`w-2 h-2 rounded-full shrink-0 ${
+                                                    d.status === 'online' 
+                                                        ? 'bg-green-500' 
+                                                        : d.status === 'offline' 
+                                                            ? 'bg-red-500' 
+                                                            : 'bg-gray-400'
+                                                }`} title={d.status || 'unknown'}></div>
+                                                <span className="truncate flex-1">{d.ip_address}</span>
+                                            </div>
+                                            {/* MAC address sotto l'IP, in piccolo */}
+                                            {d.mac_address && (
+                                                <div className="text-[9px] text-gray-500 font-mono pl-3.5 truncate" title={d.mac_address}>
+                                                    {d.mac_address}
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })}

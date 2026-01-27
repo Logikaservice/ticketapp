@@ -2916,30 +2916,106 @@ module.exports = (pool, io) => {
   // --- Mappatura: nodi sulla mappa (persistenza) ---
   const ensureMappaturaNodesTable = async () => {
     try {
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS mappatura_nodes (
-          azienda_id INTEGER NOT NULL,
-          device_id INTEGER NOT NULL,
-          x DOUBLE PRECISION,
-          y DOUBLE PRECISION,
-          is_locked BOOLEAN DEFAULT false,
-          PRIMARY KEY (azienda_id, device_id)
+      // Prima verifica se la tabella esiste
+      const tableExists = await pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'mappatura_nodes'
         );
       `);
+      
+      const exists = tableExists.rows[0]?.exists;
+      
+      if (!exists) {
+        // Crea tabella nuova con mac_address come chiave
+        await pool.query(`
+          CREATE TABLE mappatura_nodes (
+            azienda_id INTEGER NOT NULL,
+            mac_address VARCHAR(17) NOT NULL,
+            x DOUBLE PRECISION,
+            y DOUBLE PRECISION,
+            is_locked BOOLEAN DEFAULT false,
+            PRIMARY KEY (azienda_id, mac_address)
+          );
+        `);
+      } else {
+        // Tabella esiste: migra da device_id a mac_address se necessario
+        try {
+          // Verifica se esiste colonna mac_address
+          const macColumnExists = await pool.query(`
+            SELECT EXISTS (
+              SELECT FROM information_schema.columns 
+              WHERE table_schema = 'public' 
+              AND table_name = 'mappatura_nodes' 
+              AND column_name = 'mac_address'
+            );
+          `);
+          
+          if (!macColumnExists.rows[0]?.exists) {
+            console.log('🔄 Migrazione mappatura_nodes: aggiungo colonna mac_address...');
+            
+            // Aggiungi colonna mac_address
+            await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN mac_address VARCHAR(17)`);
+            
+            // Migra i dati: popola mac_address dai device_id esistenti
+            await pool.query(`
+              UPDATE mappatura_nodes mn
+              SET mac_address = COALESCE(nd.mac_address, '')
+              FROM network_devices nd
+              WHERE mn.device_id = nd.id
+                AND mn.mac_address IS NULL
+            `);
+            
+            // Rimuovi righe senza MAC (non possono essere identificate)
+            await pool.query(`
+              DELETE FROM mappatura_nodes 
+              WHERE mac_address IS NULL OR mac_address = ''
+            `);
+            
+            // Imposta NOT NULL dopo aver popolato i dati
+            await pool.query(`ALTER TABLE mappatura_nodes ALTER COLUMN mac_address SET NOT NULL`);
+            
+            // Rimuovi vecchia PRIMARY KEY se esiste
+            try {
+              await pool.query(`ALTER TABLE mappatura_nodes DROP CONSTRAINT IF EXISTS mappatura_nodes_pkey`);
+            } catch (e) {
+              // Ignora se non esiste
+            }
+            
+            // Crea nuova PRIMARY KEY con mac_address
+            await pool.query(`
+              ALTER TABLE mappatura_nodes 
+              ADD PRIMARY KEY (azienda_id, mac_address)
+            `);
+            
+            // Rimuovi colonna device_id (non più necessaria)
+            try {
+              await pool.query(`ALTER TABLE mappatura_nodes DROP COLUMN IF EXISTS device_id`);
+            } catch (e) {
+              console.warn('⚠️ Impossibile rimuovere colonna device_id:', e.message);
+            }
+            
+            console.log('✅ Migrazione mappatura_nodes completata: ora usa mac_address come chiave');
+          }
+        } catch (migrateErr) {
+          console.warn('⚠️ Errore migrazione mappatura_nodes:', migrateErr.message);
+        }
+      }
 
-      // Self-healing: ensure columns exist (fix for potential schema mismatches on VPS)
+      // Self-healing: ensure columns exist
       try {
         await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS azienda_id INTEGER`);
-        await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS device_id INTEGER`);
+        await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS mac_address VARCHAR(17)`);
         await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS x DOUBLE PRECISION`);
         await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS y DOUBLE PRECISION`);
         await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false`);
-        // Ensure azienda_id is NOT NULL if possible, but hard to enforce on existing data without default
       } catch (alterErr) {
         console.warn('⚠️ ensureMappaturaNodesTable (alter):', alterErr.message);
       }
 
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_azienda ON mappatura_nodes(azienda_id);`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_mac ON mappatura_nodes(mac_address);`);
     } catch (e) {
       if (!e.message?.includes('already exists') && !e.message?.includes('duplicate')) {
         console.warn('⚠️ ensureMappaturaNodesTable:', e.message, 'code:', e.code);
@@ -2954,12 +3030,21 @@ module.exports = (pool, io) => {
       await ensureMappaturaNodesTable();
       const aziendaId = parseInt(req.params.aziendaId, 10);
       if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
+      
+      // Normalizza MAC per il matching (rimuovi separatori)
+      const normalizeMacForQuery = (mac) => {
+        if (!mac) return null;
+        return mac.replace(/[:-]/g, '').toUpperCase();
+      };
+      
       const r = await pool.query(
-        `SELECT mn.device_id, mn.x, mn.y, mn.is_locked
+        `SELECT mn.mac_address, mn.x, mn.y, mn.is_locked
          FROM mappatura_nodes mn
-         INNER JOIN network_devices nd ON nd.id = mn.device_id
+         INNER JOIN network_devices nd ON REPLACE(REPLACE(REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', ''), '.', ''), ' ', '') = REPLACE(REPLACE(REPLACE(REPLACE(UPPER(mn.mac_address), ':', ''), '-', ''), '.', ''), ' ', '')
          INNER JOIN network_agents na ON na.id = nd.agent_id AND na.azienda_id = $1
-         WHERE mn.azienda_id = $1`,
+         WHERE mn.azienda_id = $1
+           AND nd.mac_address IS NOT NULL
+           AND nd.mac_address != ''`,
         [aziendaId]
       );
       res.json(r.rows);
@@ -3018,17 +3103,21 @@ module.exports = (pool, io) => {
     }
   });
 
-  // DELETE /api/network-monitoring/clients/:aziendaId/mappatura-nodes/:deviceId
-  router.delete('/clients/:aziendaId/mappatura-nodes/:deviceId', authenticateToken, async (req, res) => {
+  // DELETE /api/network-monitoring/clients/:aziendaId/mappatura-nodes/:macAddress
+  router.delete('/clients/:aziendaId/mappatura-nodes/:macAddress', authenticateToken, async (req, res) => {
     try {
       await ensureTables();
       await ensureMappaturaNodesTable();
       const aziendaId = parseInt(req.params.aziendaId, 10);
-      const deviceId = parseInt(req.params.deviceId, 10);
-      if (isNaN(aziendaId) || isNaN(deviceId)) return res.status(400).json({ error: 'Parametri non validi' });
+      const macAddress = req.params.macAddress;
+      if (isNaN(aziendaId) || !macAddress) return res.status(400).json({ error: 'Parametri non validi' });
+      
+      // Normalizza MAC
+      const normalizedMac = macAddress.replace(/[:-]/g, '').toUpperCase();
+      
       const r = await pool.query(
-        'DELETE FROM mappatura_nodes WHERE azienda_id = $1 AND device_id = $2 RETURNING device_id',
-        [aziendaId, deviceId]
+        'DELETE FROM mappatura_nodes WHERE azienda_id = $1 AND mac_address = $2 RETURNING mac_address',
+        [aziendaId, normalizedMac]
       );
       if (r.rows.length === 0) return res.status(404).json({ error: 'Nodo mappatura non trovato' });
       res.json({ success: true });
@@ -3045,15 +3134,43 @@ module.exports = (pool, io) => {
       await ensureMappaturaNodesTable();
       const aziendaId = parseInt(req.params.aziendaId, 10);
       if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
+      
+      // Normalizza MAC
+      const normalizeMac = (mac) => {
+        if (!mac) return null;
+        return mac.replace(/[:-]/g, '').toUpperCase();
+      };
+      
       const nodes = Array.isArray(req.body.nodes) ? req.body.nodes : [];
       for (const n of nodes) {
-        const id = parseInt(n.id, 10);
-        if (isNaN(id)) continue;
+        // Cerca MAC: può essere passato direttamente o recuperato da device_id/id
+        let macAddress = n.mac_address;
+        
+        if (!macAddress && (n.id || n.device_id)) {
+          // Se non c'è MAC ma c'è device_id, recuperalo dal database
+          const deviceId = parseInt(n.id || n.device_id, 10);
+          if (!isNaN(deviceId)) {
+            const deviceResult = await pool.query(
+              `SELECT mac_address FROM network_devices 
+               WHERE id = $1 AND mac_address IS NOT NULL AND mac_address != ''`,
+              [deviceId]
+            );
+            if (deviceResult.rows.length > 0) {
+              macAddress = deviceResult.rows[0].mac_address;
+            }
+          }
+        }
+        
+        if (!macAddress) continue;
+        
+        const normalizedMac = normalizeMac(macAddress);
+        if (!normalizedMac) continue;
+        
         const x = n.x != null ? parseFloat(n.x) : null;
         const y = n.y != null ? parseFloat(n.y) : null;
         await pool.query(
-          `UPDATE mappatura_nodes SET x = $1, y = $2 WHERE azienda_id = $3 AND device_id = $4`,
-          [x, y, aziendaId, id]
+          `UPDATE mappatura_nodes SET x = $1, y = $2 WHERE azienda_id = $3 AND mac_address = $4`,
+          [x, y, aziendaId, normalizedMac]
         );
       }
       res.json({ success: true });
