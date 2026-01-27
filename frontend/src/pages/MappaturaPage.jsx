@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
     ArrowLeft, ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw,
-    Monitor, Printer, Wifi, Router, X, Trash2
+    Monitor, Printer, Wifi, Router, X, Trash2, Link2
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import * as d3 from 'd3-force';
@@ -18,6 +18,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const [selectedDevice, setSelectedDevice] = useState(null);
     const [hoveredDevice, setHoveredDevice] = useState(null);
     const [tooltipRect, setTooltipRect] = useState(null);
+    const [reassociateChildNode, setReassociateChildNode] = useState(null);
     const hoveredRowRef = useRef(null);
     const [scale, setScale] = useState(1);
     const [offset, setOffset] = useState({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
@@ -560,6 +561,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         }
                         setSelectedNode(null);
                         setSelectedDevice(null);
+                        setReassociateChildNode(null);
                     }}
                     onMouseDown={handleCanvasMouseDown}
                     onMouseMove={handleCanvasMouseMove}
@@ -629,8 +631,20 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     cursor: 'pointer', zIndex: selectedNode?.id === node.id ? 50 : 10
                                 }}
                                 onMouseDown={(e) => handleNodeMouseDown(e, node)}
-                                onClick={(e) => { e.stopPropagation(); setSelectedNode(node); setSelectedDevice(null); }}
-                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'link'; }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (reassociateChildNode) {
+                                        if (node.id === reassociateChildNode.id) return;
+                                        associateChildToParent(node, reassociateChildNode.details || reassociateChildNode);
+                                        setReassociateChildNode(null);
+                                        setSelectedNode(reassociateChildNode);
+                                        setSelectedDevice(null);
+                                        return;
+                                    }
+                                    setSelectedNode(node);
+                                    setSelectedDevice(null);
+                                }}
+                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'copy'; }}
                                 onDrop={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
@@ -664,12 +678,18 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         details: selectedDevice
                     };
                     const onMap = nodes.some(n => n.id === display.id);
+                    const nodeForPanel = isNode ? selectedNode : (onMap ? nodes.find(n => n.id === display.id) : null);
                     return (
                         <div className="w-80 shrink-0 bg-white shadow-xl border-l border-gray-200 p-4 flex flex-col animate-slideInRight z-50">
                             <div className="flex justify-between items-start mb-4">
                                 <h3 className="text-lg font-bold text-gray-800 break-all">{display.label || display.ip}</h3>
-                                <button onClick={() => { setSelectedNode(null); setSelectedDevice(null); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+                                <button onClick={() => { setSelectedNode(null); setSelectedDevice(null); setReassociateChildNode(null); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
                             </div>
+                            {reassociateChildNode && (
+                                <div className="mb-3 py-2 px-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+                                    Clicca il nuovo padre sulla mappa.
+                                </div>
+                            )}
                         <div className="space-y-3 text-sm">
                             <div className="flex flex-col gap-1 border-b pb-2">
                                 <label className="text-gray-500 text-xs font-medium">Nome (al posto dell'IP in mappa)</label>
@@ -711,11 +731,19 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                 <span className="text-gray-500">Status</span>
                                 <span className={`font-bold ${display.status === 'online' ? 'text-green-600' : 'text-red-600'}`}>{display.status?.toUpperCase() || 'N/A'}</span>
                             </div>
-                            {onMap && (
-                                <div className="pt-3 border-t border-gray-100">
+                            {onMap && nodeForPanel && (
+                                <div className="pt-3 border-t border-gray-100 space-y-2">
                                     <button
                                         type="button"
-                                        onClick={() => handleRemoveFromMap(selectedNode)}
+                                        onClick={() => setReassociateChildNode(reassociateChildNode?.id === nodeForPanel.id ? null : nodeForPanel)}
+                                        className={`w-full py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${reassociateChildNode?.id === nodeForPanel.id ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'}`}
+                                    >
+                                        <Link2 size={16} />
+                                        {reassociateChildNode?.id === nodeForPanel.id ? 'Annulla · Clicca il nuovo padre' : '+ Associa'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemoveFromMap(nodeForPanel)}
                                         className="w-full py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-medium text-sm flex items-center justify-center gap-2"
                                     >
                                         <Trash2 size={16} />
