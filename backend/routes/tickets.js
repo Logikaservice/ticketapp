@@ -391,16 +391,31 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
         try {
           // Invia notifica Telegram al tecnico
           try {
-            const clientData = await pool.query('SELECT nome, cognome, azienda FROM users WHERE id = $1', [clienteid]);
-            const cliente = clientData.rows[0];
+            let clienteNome = nomerichiedente || 'Sconosciuto';
+            let clienteAzienda = azienda || 'N/A';
+            
+            // Se abbiamo un clienteid, prova a recuperare i dati del cliente
+            if (clienteid) {
+              try {
+                const clientData = await pool.query('SELECT nome, cognome, azienda FROM users WHERE id = $1', [clienteid]);
+                if (clientData.rows.length > 0) {
+                  const cliente = clientData.rows[0];
+                  clienteNome = `${cliente.nome || ''} ${cliente.cognome || ''}`.trim() || nomerichiedente || 'Sconosciuto';
+                  clienteAzienda = cliente.azienda || azienda || 'N/A';
+                }
+              } catch (clientErr) {
+                console.warn('⚠️ Errore recupero dati cliente per notifica Telegram:', clientErr.message);
+                // Continua con i valori di default
+              }
+            }
             
             await telegramService.notifyNewTicket({
               ticketId: numero,
               titolo,
               descrizione,
               priorita,
-              cliente: cliente ? `${cliente.nome} ${cliente.cognome}` : nomerichiedente || 'Sconosciuto',
-              azienda: azienda || (cliente ? cliente.azienda : 'N/A')
+              cliente: clienteNome,
+              azienda: clienteAzienda
             });
           } catch (telegramErr) {
             console.error('⚠️ Errore invio notifica Telegram per nuovo ticket:', telegramErr.message);

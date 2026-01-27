@@ -4633,6 +4633,27 @@ pause
     }
   });
 
+  // PATCH /api/network-monitoring/devices/:id/type
+  // Aggiorna il tipo di un dispositivo (per icona mappatura)
+  router.patch('/devices/:id/type', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { device_type } = req.body;
+
+      if (!device_type) return res.status(400).json({ error: 'Device type richiesto' });
+
+      await pool.query(
+        'UPDATE network_devices SET device_type = $1 WHERE id = $2',
+        [device_type, id]
+      );
+
+      res.json({ success: true, device_type });
+    } catch (err) {
+      console.error('❌ Errore aggiornamento device type:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // PATCH /api/network-monitoring/devices/:id/notes
   // Aggiorna le note di un dispositivo
   router.patch('/devices/:id/notes', authenticateToken, requireRole('tecnico'), async (req, res) => {
