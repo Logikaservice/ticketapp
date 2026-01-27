@@ -227,9 +227,26 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const handleCanvasMouseUp = () => setIsDraggingCanvas(false);
 
     const nodeIdsOnMap = new Set(nodes.map(n => n.id));
+    const ipToSortKey = (ip) => {
+        if (!ip || typeof ip !== 'string') return [999, 999, 999, 999];
+        const s = ip.trim().replace(/[{}"]/g, '');
+        const parts = s.split('.');
+        if (parts.length !== 4) return [999, 999, 999, 999];
+        return parts.map(p => {
+            const n = parseInt(p, 10);
+            return isNaN(n) ? 999 : Math.max(0, Math.min(255, n));
+        });
+    };
     const ipList = (devices || [])
         .filter(d => d.ip_address && !nodeIdsOnMap.has(d.id))
-        .sort((a, b) => (a.ip_address || '').localeCompare(b.ip_address || ''));
+        .sort((a, b) => {
+            const ka = ipToSortKey(a.ip_address);
+            const kb = ipToSortKey(b.ip_address);
+            for (let i = 0; i < 4; i++) {
+                if (ka[i] !== kb[i]) return ka[i] - kb[i];
+            }
+            return (a.ip_address || '').localeCompare(b.ip_address || '');
+        });
 
     const drawIcon = (type) => {
         switch (type) {
