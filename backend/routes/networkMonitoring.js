@@ -1747,7 +1747,7 @@ module.exports = (pool, io) => {
         // Questo evita confusione e duplicati
 
         // 1. Cerca PRIMA per IP (priorità massima - l'agent ha trovato questo IP ora)
-        existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac, accepted_ip, accepted_mac, has_ping_failures
+        existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac, accepted_ip, accepted_mac, has_ping_failures, is_manual_type
                          FROM network_devices 
                          WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2
                          LIMIT 1`;
@@ -1760,7 +1760,7 @@ module.exports = (pool, io) => {
         let foundByMac = false;
         let oldDeviceWithSameMac = null;
         if (!existingDevice && normalizedMacForSearch && normalizedMacForSearch !== '') {
-          existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac, accepted_ip, accepted_mac, has_ping_failures, device_type, device_path, device_username
+          existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac, accepted_ip, accepted_mac, has_ping_failures, device_type, device_path, device_username, is_manual_type
                            FROM network_devices 
                            WHERE agent_id = $1 AND mac_address = $2
                            LIMIT 1`;
@@ -1981,15 +1981,15 @@ module.exports = (pool, io) => {
             values.push(vendor || null);
           }
           // Ricerca automatica MAC in KeePass per impostare device_type
-          // IMPORTANTE: Cerca sempre in KeePass se il MAC è disponibile, anche se device_type esiste già
-          // Se trovato per MAC con IP cambiato, forza il refresh da KeePass per popolare i dati
-          if (normalizedMac && process.env.KEEPASS_PASSWORD) {
+          // IMPORTANTE: NON sovrascrivere device_type se è stato modificato manualmente (is_manual_type = true)
+          // Cerca sempre in KeePass se il MAC è disponibile, ma rispetta le modifiche manuali
+          if (normalizedMac && process.env.KEEPASS_PASSWORD && !existingDevice.is_manual_type) {
             try {
               const keepassResult = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
               if (keepassResult) {
                 // Estrai solo l'ultimo elemento del percorso (es: "gestione > logikaservice.it > Pippo2" -> "Pippo2")
                 const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
-                // Aggiorna sempre il device_type e device_path con i valori da KeePass (sovrascrive quelli esistenti)
+                // Aggiorna device_type e device_path con i valori da KeePass (solo se non modificato manualmente)
                 // Se trovato per MAC con IP cambiato, aggiorna anche device_username
                 console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${keepassResult.title}", device_path: "${lastPathElement}"`);
                 updates.push(`device_type = $${paramIndex++}`);
@@ -2025,6 +2025,8 @@ module.exports = (pool, io) => {
             } catch (keepassErr) {
               console.warn(`  ⚠️ Errore ricerca MAC ${normalizedMac} in KeePass:`, keepassErr.message);
             }
+          } else if (existingDevice.is_manual_type) {
+            console.log(`  ℹ️ Device_type per ${ip_address} modificato manualmente, mantengo valore esistente: "${existingDevice.device_type}"`);
           }
 
           // last_seen viene SEMPRE aggiornato quando il dispositivo viene rilevato nella scansione
@@ -2099,6 +2101,8 @@ module.exports = (pool, io) => {
             }
 
             // Ricerca automatica MAC in KeePass per impostare device_type e device_path
+            // NOTA: Per i nuovi dispositivi, usiamo sempre KeePass se disponibile
+            // (non c'è is_manual_type perché è un nuovo dispositivo)
             let deviceTypeFromKeepass = null;
             let devicePathFromKeepass = null;
             let deviceUsernameFromKeepass = null;
@@ -2563,6 +2567,10 @@ module.exports = (pool, io) => {
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS notes TEXT;
         `);
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS is_manual_type BOOLEAN DEFAULT false;
+        `);
       } catch (migrationErr) {
         // Ignora errore se colonna esiste già
         if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
@@ -2637,7 +2645,7 @@ module.exports = (pool, io) => {
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
-          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port, nd.notes,
+          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port, nd.notes, nd.is_manual_type,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
@@ -2680,7 +2688,8 @@ module.exports = (pool, io) => {
         }
 
         // Cerca MAC nella mappa KeePass (già caricata)
-        if (row.mac_address && keepassMap) {
+        // IMPORTANTE: NON sovrascrivere device_type se è stato modificato manualmente (is_manual_type = true)
+        if (row.mac_address && keepassMap && !row.is_manual_type) {
           try {
             // Normalizza il MAC per la ricerca
             const normalizedMac = row.mac_address.replace(/[:-]/g, '').toUpperCase();
@@ -2689,6 +2698,7 @@ module.exports = (pool, io) => {
             if (keepassResult) {
               // Estrai solo l'ultimo elemento del percorso
               const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
+              // NON sovrascrivere device_type se è stato modificato manualmente
               row.device_type = keepassResult.title;
               row.device_path = lastPathElement;
               row.device_username = keepassResult.username || null;

@@ -4,7 +4,7 @@ import {
     ArrowLeft, ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw,
     Monitor, Printer, Wifi, Router, X, Trash2, Link2,
     Smartphone, Tablet, Laptop, Camera, Tv, Watch, Phone, Database, Cloud, Globe, List,
-    Layers, HardDrive, Shield, RadioTower, Speaker, Circle
+    Layers, HardDrive, Shield, RadioTower, Speaker, Circle, Lock, Unlock
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import * as d3 from 'd3-force';
@@ -929,6 +929,50 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
 
                                 {onMap && nodeForPanel && (
                                     <div className="pt-3 border-t border-gray-100 space-y-2">
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                const newLockedState = !nodeForPanel.locked;
+
+                                                // Optimistic update
+                                                if (isNode && selectedNode) setSelectedNode(prev => prev ? { ...prev, locked: newLockedState } : null);
+                                                else if (selectedDevice) setSelectedDevice(prev => prev ? { ...prev, locked: newLockedState } : null);
+
+                                                // Update simulation node directly
+                                                if (simulationRef.current) {
+                                                    const simNodes = simulationRef.current.nodes();
+                                                    const n = simNodes.find(x => x.id === display.id);
+                                                    if (n) {
+                                                        n.locked = newLockedState;
+                                                        if (newLockedState) {
+                                                            n.fx = n.x;
+                                                            n.fy = n.y;
+                                                        } else {
+                                                            n.fx = null;
+                                                            n.fy = null;
+                                                        }
+                                                        setNodes([...simNodes]);
+                                                        if (!newLockedState) simulationRef.current.alpha(0.1).restart();
+                                                    }
+                                                }
+
+                                                try {
+                                                    await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/mappatura-nodes`), {
+                                                        method: 'POST',
+                                                        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            nodes: [{ id: display.id, locked: newLockedState }]
+                                                        })
+                                                    });
+                                                } catch (e) {
+                                                    console.error('Error updating node lock status:', e);
+                                                }
+                                            }}
+                                            className={`w-full py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${nodeForPanel.locked ? 'bg-purple-100 text-purple-800 border border-purple-300' : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'}`}
+                                        >
+                                            {nodeForPanel.locked ? <Lock size={16} /> : <Unlock size={16} />}
+                                            {nodeForPanel.locked ? 'Sblocca posizione' : 'Fissa posizione'}
+                                        </button>
                                         <button
                                             type="button"
                                             onClick={() => setReassociateChildNode(reassociateChildNode?.id === nodeForPanel.id ? null : nodeForPanel)}
