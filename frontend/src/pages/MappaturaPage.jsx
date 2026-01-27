@@ -7,6 +7,8 @@ import {
 import { buildApiUrl } from '../utils/apiConfig';
 import * as d3 from 'd3-force';
 
+const MAPPATURA_STORAGE_KEY = (cid) => `mappatura_${cid}`;
+
 const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId }) => {
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState('');
@@ -47,19 +49,17 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
 
     const prevCompanyIdRef = useRef(null);
     const selectedCompanyIdRef = useRef(selectedCompanyId);
-    const shouldLoadMapFromDbRef = useRef(false);
+    const saveToLsTimeoutRef = useRef(null);
     useEffect(() => { selectedCompanyIdRef.current = selectedCompanyId; }, [selectedCompanyId]);
 
     useEffect(() => {
         if (!selectedCompanyId) return;
         const companyChanged = prevCompanyIdRef.current !== null && prevCompanyIdRef.current !== selectedCompanyId;
-        const firstLoad = prevCompanyIdRef.current === null;
         prevCompanyIdRef.current = selectedCompanyId;
         if (companyChanged) {
             setNodes([]);
             setLinks([]);
         }
-        if (companyChanged || firstLoad) shouldLoadMapFromDbRef.current = true;
         setLoading(true);
         const fetchDevices = async () => {
             try {
@@ -72,8 +72,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     }, [selectedCompanyId, refreshDevicesKey]);
 
     useEffect(() => {
-        if (!selectedCompanyId || loading || !devices.length || !shouldLoadMapFromDbRef.current) return;
-        shouldLoadMapFromDbRef.current = false;
+        if (!selectedCompanyId || loading || !devices.length) return;
         const companyId = selectedCompanyId;
         const ac = new AbortController();
         const loadMapFromDb = async () => {
@@ -83,49 +82,108 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     signal: ac.signal
                 });
                 if (ac.signal.aborted) return;
-                if (!res.ok) {
-                    const errBody = await res.text();
-                    console.error('❌ Mappatura GET mappatura-nodes fallito:', res.status, errBody);
+                if (res.ok) {
+                    const rows = await res.json();
+                    if (ac.signal.aborted) return;
+                    const idToPos = new Map(rows.map(r => [Number(r.device_id), { x: r.x, y: r.y }]));
+                    const deviceIds = new Set(rows.map(r => Number(r.device_id)));
+                    const mapNodes = [];
+                    for (const d of devices) {
+                        const did = Number(d.id);
+                        if (!deviceIds.has(did)) continue;
+                        const pos = idToPos.get(did) || { x: 0, y: 0 };
+                        mapNodes.push({
+                            id: d.id,
+                            type: mapDeviceType(d),
+                            label: (d.notes || d.hostname || '').trim() || d.ip_address,
+                            ip: d.ip_address,
+                            status: d.status,
+                            details: d,
+                            x: pos.x ?? 0,
+                            y: pos.y ?? 0
+                        });
+                    }
+                    const mapLinks = [];
+                    for (const n of mapNodes) {
+                        const pid = n.details?.parent_device_id != null ? Number(n.details.parent_device_id) : null;
+                        if (pid == null || !deviceIds.has(pid)) continue;
+                        mapLinks.push({ source: pid, target: n.id });
+                    }
+                    if (ac.signal.aborted || selectedCompanyIdRef.current !== companyId) return;
+                    setNodes(mapNodes);
+                    setLinks(mapLinks);
+                    ensureSimulation(mapNodes, mapLinks);
+                    try {
+                        const pay = { deviceIds: mapNodes.map(n => n.id), positions: Object.fromEntries(mapNodes.map(n => [String(n.id), { x: n.x, y: n.y }])), links: mapLinks.map(l => ({ source: l.source?.id ?? l.source, target: l.target?.id ?? l.target })) };
+                        localStorage.setItem(MAPPATURA_STORAGE_KEY(companyId), JSON.stringify(pay));
+                    } catch (_) {}
                     return;
                 }
-                const rows = await res.json();
-                if (ac.signal.aborted) return;
-                const idToPos = new Map(rows.map(r => [Number(r.device_id), { x: r.x, y: r.y }]));
-                const deviceIds = new Set(rows.map(r => Number(r.device_id)));
-                const mapNodes = [];
-                for (const d of devices) {
-                    const did = Number(d.id);
-                    if (!d.ip_address || !deviceIds.has(did)) continue;
-                    const pos = idToPos.get(did) || { x: 0, y: 0 };
-                    mapNodes.push({
-                        id: d.id,
-                        type: mapDeviceType(d),
-                        label: (d.notes || d.hostname || '').trim() || d.ip_address,
-                        ip: d.ip_address,
-                        status: d.status,
-                        details: d,
-                        x: pos.x ?? 0,
-                        y: pos.y ?? 0
-                    });
+                const errBody = await res.text();
+                console.error('❌ Mappatura GET mappatura-nodes fallito:', res.status, errBody);
+                const fallback = (() => { try { return JSON.parse(localStorage.getItem(MAPPATURA_STORAGE_KEY(companyId)) || 'null'); } catch { return null; } })();
+                if (fallback && Array.isArray(fallback.deviceIds) && fallback.deviceIds.length > 0) {
+                    const deviceIds = new Set(fallback.deviceIds.map(Number));
+                    const idToPos = (fallback.positions && typeof fallback.positions === 'object') ? fallback.positions : {};
+                    const mapNodes = [];
+                    for (const d of devices) {
+                        const did = Number(d.id);
+                        if (!deviceIds.has(did)) continue;
+                        const pos = idToPos[String(did)] || idToPos[did] || { x: 0, y: 0 };
+                        mapNodes.push({
+                            id: d.id,
+                            type: mapDeviceType(d),
+                            label: (d.notes || d.hostname || '').trim() || d.ip_address,
+                            ip: d.ip_address,
+                            status: d.status,
+                            details: d,
+                            x: pos.x ?? 0,
+                            y: pos.y ?? 0
+                        });
+                    }
+                    const mapLinks = (Array.isArray(fallback.links) ? fallback.links : []).map(l => ({ source: l.source, target: l.target })).filter(l => deviceIds.has(Number(l.source)) && deviceIds.has(Number(l.target)));
+                    if (ac.signal.aborted || selectedCompanyIdRef.current !== companyId) return;
+                    setNodes(mapNodes);
+                    setLinks(mapLinks);
+                    ensureSimulation(mapNodes, mapLinks);
                 }
-                const mapLinks = [];
-                for (const n of mapNodes) {
-                    const pid = n.details?.parent_device_id != null ? Number(n.details.parent_device_id) : null;
-                    if (pid == null || !deviceIds.has(pid)) continue;
-                    mapLinks.push({ source: pid, target: n.id });
-                }
-                if (ac.signal.aborted || selectedCompanyIdRef.current !== companyId) return;
-                setNodes(mapNodes);
-                setLinks(mapLinks);
-                ensureSimulation(mapNodes, mapLinks);
             } catch (e) {
                 if (e?.name === 'AbortError') return;
                 console.error('Errore caricamento mappatura:', e);
+                const fallback = (() => { try { return JSON.parse(localStorage.getItem(MAPPATURA_STORAGE_KEY(companyId)) || 'null'); } catch { return null; } })();
+                if (fallback && Array.isArray(fallback.deviceIds) && fallback.deviceIds.length > 0) {
+                    const deviceIds = new Set(fallback.deviceIds.map(Number));
+                    const idToPos = (fallback.positions && typeof fallback.positions === 'object') ? fallback.positions : {};
+                    const mapNodes = [];
+                    for (const d of devices) {
+                        const did = Number(d.id);
+                        if (!deviceIds.has(did)) continue;
+                        const pos = idToPos[String(did)] || idToPos[did] || { x: 0, y: 0 };
+                        mapNodes.push({ id: d.id, type: mapDeviceType(d), label: (d.notes || d.hostname || '').trim() || d.ip_address, ip: d.ip_address, status: d.status, details: d, x: pos.x ?? 0, y: pos.y ?? 0 });
+                    }
+                    const mapLinks = (Array.isArray(fallback.links) ? fallback.links : []).map(l => ({ source: l.source, target: l.target })).filter(l => deviceIds.has(Number(l.source)) && deviceIds.has(Number(l.target)));
+                    if (selectedCompanyIdRef.current !== companyId) return;
+                    setNodes(mapNodes);
+                    setLinks(mapLinks);
+                    ensureSimulation(mapNodes, mapLinks);
+                }
             }
         };
         loadMapFromDb();
         return () => ac.abort();
     }, [selectedCompanyId, loading, devices]);
+
+    useEffect(() => {
+        if (!selectedCompanyId || nodes.length === 0) return;
+        if (saveToLsTimeoutRef.current) clearTimeout(saveToLsTimeoutRef.current);
+        saveToLsTimeoutRef.current = setTimeout(() => {
+            try {
+                const pay = { deviceIds: nodes.map(n => n.id), positions: Object.fromEntries(nodes.map(n => [String(n.id), { x: n.x, y: n.y }])), links: links.map(l => ({ source: l.source?.id ?? l.source, target: l.target?.id ?? l.target })) };
+                localStorage.setItem(MAPPATURA_STORAGE_KEY(selectedCompanyId), JSON.stringify(pay));
+            } catch (_) {}
+        }, 500);
+        return () => { if (saveToLsTimeoutRef.current) clearTimeout(saveToLsTimeoutRef.current); };
+    }, [selectedCompanyId, nodes, links]);
 
     const mapDeviceType = (d) => {
         const t = (d.device_type || '').toLowerCase();
@@ -203,8 +261,13 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
                         body: JSON.stringify({ device_id: childDevice.id, x: (parentNode.x || 0) + 80, y: parentNode.y || 0 })
                     });
-                    if (!addRes.ok) return;
-                } catch (e) { console.error('Errore POST mappatura-nodes:', e); return; }
+                    if (!addRes.ok) {
+                        const err = await addRes.json().catch(() => ({}));
+                        console.error('❌ POST mappatura-nodes (associa figlio):', addRes.status, err);
+                        alert(err.error || 'Errore aggiunta alla mappa');
+                        return;
+                    }
+                } catch (e) { console.error('Errore POST mappatura-nodes:', e); alert('Errore: ' + e.message); return; }
             }
             childNode = {
                 id: childDevice.id,
@@ -279,8 +342,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
                     body: JSON.stringify({ nodes: payload }),
                     keepalive: true
-                });
-            } catch (_) {}
+                }).then(r => { if (!r.ok) console.error('❌ Mappatura PUT layout fallito:', r.status); }).catch(e => console.error('❌ Mappatura PUT layout:', e));
+            } catch (e) { console.error('❌ Mappatura PUT layout:', e); }
         };
     });
 
@@ -289,6 +352,14 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         window.addEventListener('beforeunload', onUnload);
         return () => window.removeEventListener('beforeunload', onUnload);
     }, []);
+
+    useEffect(() => {
+        if (!selectedCompanyId || nodes.length === 0) return;
+        const iv = setInterval(() => {
+            saveLayoutRef.current?.();
+        }, 20000);
+        return () => clearInterval(iv);
+    }, [selectedCompanyId, nodes.length]);
 
     useEffect(() => {
         return () => { if (simulationRef.current) simulationRef.current.stop(); };
