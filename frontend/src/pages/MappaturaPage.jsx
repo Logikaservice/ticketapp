@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     ArrowLeft, ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw,
-    Monitor, Printer, Wifi, Router, X
+    Monitor, Printer, Wifi, Router, X, Trash2
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import * as d3 from 'd3-force';
@@ -182,6 +182,17 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         if (simulationRef.current) simulationRef.current.alpha(1).restart();
     };
 
+    const handleRemoveFromMap = (node) => {
+        if (!node) return;
+        const id = node.id;
+        const nextNodes = nodes.filter(n => n.id !== id);
+        const nextLinks = links.filter(l => (l.source?.id ?? l.source) !== id && (l.target?.id ?? l.target) !== id);
+        setNodes(nextNodes);
+        setLinks(nextLinks);
+        setSelectedNode(null);
+        ensureSimulation(nextNodes, nextLinks);
+    };
+
     const handleNodeMouseDown = (e, node) => {
         e.stopPropagation();
         const sim = simulationRef.current;
@@ -215,7 +226,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     };
     const handleCanvasMouseUp = () => setIsDraggingCanvas(false);
 
-    const ipList = (devices || []).filter(d => d.ip_address).sort((a, b) => (a.ip_address || '').localeCompare(b.ip_address || ''));
+    const nodeIdsOnMap = new Set(nodes.map(n => n.id));
+    const ipList = (devices || [])
+        .filter(d => d.ip_address && !nodeIdsOnMap.has(d.id))
+        .sort((a, b) => (a.ip_address || '').localeCompare(b.ip_address || ''));
 
     const drawIcon = (type) => {
         switch (type) {
@@ -291,7 +305,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             <h4 className="px-3 py-2 text-xs font-bold text-gray-600 uppercase border-b border-gray-100 shrink-0" title="Clicca per aggiungere · Trascina su un pallino per associare come figlio">IP presenti e individuati</h4>
                             <div className="flex-1 overflow-y-auto p-2 space-y-1">
                                 {loading && <div className="flex items-center gap-2 text-gray-500 text-sm py-2"><Loader size={14} className="animate-spin" /> Caricamento…</div>}
-                                {!loading && ipList.length === 0 && <p className="text-sm text-gray-400 py-2">Nessun IP.</p>}
+                                {!loading && ipList.length === 0 && (
+                                    <p className="text-sm text-gray-400 py-2">
+                                        {devices.some(d => d.ip_address) ? 'Tutti in mappa. Elimina un nodo per far riapparire l’IP.' : 'Nessun IP.'}
+                                    </p>
+                                )}
                                 {!loading && ipList.map(d => {
                                     const name = (d.notes || d.hostname || '').trim() || d.ip_address;
                                     return (
@@ -442,6 +460,17 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             <div className="flex justify-between border-b pb-2">
                                 <span className="text-gray-500">Status</span>
                                 <span className={`font-bold ${selectedNode.status === 'online' ? 'text-green-600' : 'text-red-600'}`}>{selectedNode.status?.toUpperCase() || 'N/A'}</span>
+                            </div>
+                            <div className="pt-3 border-t border-gray-100">
+                                <button
+                                    type="button"
+                                    onClick={() => handleRemoveFromMap(selectedNode)}
+                                    className="w-full py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-medium text-sm flex items-center justify-center gap-2"
+                                >
+                                    <Trash2 size={16} />
+                                    Elimina dalla mappa
+                                </button>
+                                <p className="text-xs text-gray-400 mt-1.5 text-center">L’IP tornerà nella lista a sinistra.</p>
                             </div>
                         </div>
                     </div>
