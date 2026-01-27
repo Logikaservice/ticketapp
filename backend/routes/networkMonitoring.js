@@ -3037,6 +3037,22 @@ module.exports = (pool, io) => {
         return mac.replace(/[:-]/g, '').toUpperCase();
       };
       
+      // Prima pulisci i nodi orfani (record in mappatura_nodes che non corrispondono a dispositivi attuali)
+      await pool.query(
+        `DELETE FROM mappatura_nodes mn
+         WHERE mn.azienda_id = $1
+           AND NOT EXISTS (
+             SELECT 1 FROM network_devices nd
+             INNER JOIN network_agents na ON na.id = nd.agent_id AND na.azienda_id = $1
+             WHERE REPLACE(REPLACE(REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', ''), '.', ''), ' ', '') = 
+                   REPLACE(REPLACE(REPLACE(REPLACE(UPPER(mn.mac_address), ':', ''), '-', ''), '.', ''), ' ', '')
+               AND nd.mac_address IS NOT NULL
+               AND nd.mac_address != ''
+           )`,
+        [aziendaId]
+      );
+      
+      // Poi carica solo i nodi che corrispondono a dispositivi attuali
       const r = await pool.query(
         `SELECT mn.mac_address, mn.x, mn.y, mn.is_locked
          FROM mappatura_nodes mn
@@ -3114,16 +3130,20 @@ module.exports = (pool, io) => {
 
         // Upsert intelligente: mantiene i valori esistenti se i nuovi sono null (grazie a COALESCE)
         // Usa mac_address normalizzato come chiave
+        // IMPORTANTE: Se x e y sono null (non specificati), mantiene i valori esistenti
+        // Se x e y sono specificati (anche 0), aggiorna i valori
         await pool.query(
           `INSERT INTO mappatura_nodes (azienda_id, mac_address, x, y, is_locked)
            VALUES ($1, $2, $3, $4, $5)
            ON CONFLICT (azienda_id, mac_address) 
            DO UPDATE SET 
-             x = COALESCE(EXCLUDED.x, mappatura_nodes.x),
-             y = COALESCE(EXCLUDED.y, mappatura_nodes.y),
+             x = CASE WHEN EXCLUDED.x IS NOT NULL THEN EXCLUDED.x ELSE mappatura_nodes.x END,
+             y = CASE WHEN EXCLUDED.y IS NOT NULL THEN EXCLUDED.y ELSE mappatura_nodes.y END,
              is_locked = COALESCE(EXCLUDED.is_locked, mappatura_nodes.is_locked)`,
           [aziendaId, normalizedMac, x, y, isLocked]
         );
+        
+        console.log(`💾 POST mappatura-nodes: salvato nodo per aziendaId=${aziendaId}, macAddress=${normalizedMac}, x=${x}, y=${y}, locked=${isLocked}`);
       }
 
       res.status(201).json({ success: true, processed: nodes.length });
@@ -3150,27 +3170,28 @@ module.exports = (pool, io) => {
       
       console.log(`🗑️ DELETE mappatura-nodes: aziendaId=${aziendaId}, macAddress=${macAddress}, normalizedMac=${normalizedMac}`);
       
-      // Prova prima con il MAC normalizzato esatto
-      let r = await pool.query(
-        'DELETE FROM mappatura_nodes WHERE azienda_id = $1 AND mac_address = $2 RETURNING mac_address',
+      // Elimina usando normalizzazione flessibile per gestire qualsiasi formato di MAC nel database
+      // Questo gestisce sia MAC salvati con separatori che senza
+      const r = await pool.query(
+        `DELETE FROM mappatura_nodes 
+         WHERE azienda_id = $1 
+         AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', ''), '.', ''), ' ', '') = $2 
+         RETURNING mac_address`,
         [aziendaId, normalizedMac]
       );
       
-      // Se non trovato, prova a cercare con normalizzazione più flessibile (per compatibilità)
-      if (r.rows.length === 0) {
-        // Cerca anche con normalizzazione flessibile (potrebbe essere salvato in formato diverso)
-        r = await pool.query(
-          `DELETE FROM mappatura_nodes 
-           WHERE azienda_id = $1 
-           AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', ''), '.', ''), ' ', '') = $2 
-           RETURNING mac_address`,
-          [aziendaId, normalizedMac]
-        );
-      }
-      
       if (r.rows.length === 0) {
         console.warn(`⚠️ DELETE mappatura-nodes: nodo non trovato per aziendaId=${aziendaId}, macAddress=${normalizedMac}`);
-        return res.status(404).json({ error: 'Nodo mappatura non trovato' });
+        // Prova anche con il MAC esatto (per sicurezza)
+        const r2 = await pool.query(
+          'DELETE FROM mappatura_nodes WHERE azienda_id = $1 AND mac_address = $2 RETURNING mac_address',
+          [aziendaId, normalizedMac]
+        );
+        if (r2.rows.length === 0) {
+          return res.status(404).json({ error: 'Nodo mappatura non trovato' });
+        }
+        console.log(`✅ DELETE mappatura-nodes: nodo eliminato con successo (trovato con match esatto), macAddress=${r2.rows[0].mac_address}`);
+        return res.json({ success: true });
       }
       
       console.log(`✅ DELETE mappatura-nodes: nodo eliminato con successo, macAddress=${r.rows[0].mac_address}`);

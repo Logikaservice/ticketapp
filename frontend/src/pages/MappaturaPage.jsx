@@ -689,11 +689,32 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     };
 
     const addNodeFromDevice = async (d) => {
-        const exists = nodes.some(n => n.id === d.id);
+        // Normalizza MAC per il controllo
+        const normalizeMac = (mac) => {
+            if (!mac) return null;
+            return mac.replace(/[:-]/g, '').toUpperCase();
+        };
+        
+        // Controlla se esiste già un nodo con lo stesso MAC (non solo stesso ID)
+        const normalizedMac = normalizeMac(d.mac_address);
+        const exists = nodes.some(n => {
+            if (Number(n.id) === Number(d.id)) return true;
+            if (n.details?.mac_address && normalizeMac(n.details.mac_address) === normalizedMac) return true;
+            return false;
+        });
+        
         if (exists) {
-            setSelectedNode(nodes.find(n => n.id === d.id));
-            return;
+            const existingNode = nodes.find(n => {
+                if (Number(n.id) === Number(d.id)) return true;
+                if (n.details?.mac_address && normalizeMac(n.details.mac_address) === normalizedMac) return true;
+                return false;
+            });
+            if (existingNode) {
+                setSelectedNode(existingNode);
+                return;
+            }
         }
+        
         const aziendaId = parseAziendaId(selectedCompanyId);
         if (!aziendaId) return;
         if (!d.mac_address) {
@@ -1006,8 +1027,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         return;
                     }
                     
-                    // NON forzare refresh qui: loadMapFromDb controllerà automaticamente
-                    // se il nodo è ancora nel database al prossimo polling
+                    console.log(`✅ Nodo eliminato dal database: MAC=${normalizedMac}`);
                 }
             } catch (e) {
                 alert('Errore: ' + e.message);
@@ -1016,14 +1036,25 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         }
         
         // Rimuovi il nodo dallo stato locale immediatamente
+        // IMPORTANTE: Rimuovi per MAC invece di ID per evitare problemi
+        const normalizeMacForFilter = (mac) => {
+            if (!mac) return null;
+            return mac.replace(/[:-]/g, '').toUpperCase();
+        };
+        
+        const deleteMacNormalized = macAddress ? normalizeMacForFilter(macAddress) : null;
+        
         const nextNodes = nodes.filter(n => {
             // Rimuovi per ID
             if (Number(n.id) === Number(id)) return false;
+            
             // Rimuovi anche per MAC (per sicurezza) - solo se non è virtuale
-            if (!isVirtual && macAddress && n.details?.mac_address) {
-                const nodeMac = n.details.mac_address.replace(/[:-]/g, '').toUpperCase();
-                const deleteMac = macAddress.replace(/[:-]/g, '').toUpperCase();
-                if (nodeMac === deleteMac) return false;
+            if (!isVirtual && deleteMacNormalized && n.details?.mac_address) {
+                const nodeMacNormalized = normalizeMacForFilter(n.details.mac_address);
+                if (nodeMacNormalized === deleteMacNormalized) {
+                    console.log(`🗑️ Rimozione nodo locale per MAC: ${nodeMacNormalized}`);
+                    return false;
+                }
             }
             return true;
         });
