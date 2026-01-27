@@ -114,13 +114,14 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                 if (res.ok) {
                     const rows = await res.json();
                     if (ac.signal.aborted) return;
-                    const idToPos = new Map(rows.map(r => [Number(r.device_id), { x: r.x, y: r.y }]));
+                    const idToPos = new Map(rows.map(r => [Number(r.device_id), { x: r.x, y: r.y, is_locked: r.is_locked || false }]));
                     const deviceIds = new Set(rows.map(r => Number(r.device_id)));
                     const mapNodes = [];
                     for (const d of devices) {
                         const did = Number(d.id);
                         if (!deviceIds.has(did)) continue;
-                        const pos = idToPos.get(did) || { x: 0, y: 0 };
+                        const pos = idToPos.get(did) || { x: 0, y: 0, is_locked: false };
+                        const isLocked = pos.is_locked || false;
                         mapNodes.push({
                             id: d.id,
                             type: mapDeviceType(d),
@@ -129,7 +130,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             status: d.status,
                             details: d,
                             x: pos.x ?? 0,
-                            y: pos.y ?? 0
+                            y: pos.y ?? 0,
+                            locked: isLocked,
+                            // Se locked, imposta fx e fy per bloccare il nodo nella simulazione D3
+                            fx: isLocked ? (pos.x ?? 0) : null,
+                            fy: isLocked ? (pos.y ?? 0) : null
                         });
                     }
                     const mapLinks = [];
@@ -274,11 +279,42 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             simulationRef.current = null;
             return;
         }
+        
+        // Assicurati che i nodi locked abbiano fx e fy impostati per bloccarli
+        nodeList.forEach(node => {
+            if (node.locked) {
+                // Se locked, mantieni la posizione fissa
+                if (node.fx === null || node.fx === undefined) {
+                    node.fx = node.x || 0;
+                }
+                if (node.fy === null || node.fy === undefined) {
+                    node.fy = node.y || 0;
+                }
+            } else {
+                // Se non locked, rimuovi fx/fy per permettere movimento
+                if (node.fx !== null && node.fx !== undefined) {
+                    node.fx = null;
+                }
+                if (node.fy !== null && node.fy !== undefined) {
+                    node.fy = null;
+                }
+            }
+        });
+        
         const sim = d3.forceSimulation(nodeList)
             .velocityDecay(0.6) // Aumenta attrito per rendere nodi meno "molleggianti"
             .force('charge', d3.forceManyBody().strength(-400))
             .force('collide', d3.forceCollide().radius(50))
-            .on('tick', () => setNodes([...sim.nodes()]));
+            .on('tick', () => {
+                // Mantieni fx/fy per i nodi locked durante la simulazione
+                sim.nodes().forEach(node => {
+                    if (node.locked && (node.fx === null || node.fy === null)) {
+                        node.fx = node.x;
+                        node.fy = node.y;
+                    }
+                });
+                setNodes([...sim.nodes()]);
+            });
         if (linkList && linkList.length > 0) {
             sim.force('link', d3.forceLink(linkList).id(d => d.id).distance(80));
         }
@@ -327,7 +363,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             status: d.status,
             details: d,
             x: 0,
-            y: 0
+            y: 0,
+            locked: false // Nuovi nodi non sono bloccati di default
         };
         const next = [...nodes, newNode];
         setNodes(next);
@@ -425,14 +462,20 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             const list = sim ? sim.nodes() : [];
             if (list.length === 0) return;
             try {
-                const payload = list.map(n => ({ id: n.id, x: n.x, y: n.y }));
-                fetch(buildApiUrl(`/api/network-monitoring/clients/${cid}/mappatura-nodes/layout`), {
-                    method: 'PUT',
+                // Invia posizione e stato locked per ogni nodo
+                const payload = list.map(n => ({ 
+                    id: n.id, 
+                    x: n.x, 
+                    y: n.y,
+                    locked: n.locked || false
+                }));
+                fetch(buildApiUrl(`/api/network-monitoring/clients/${cid}/mappatura-nodes`), {
+                    method: 'POST',
                     headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
                     body: JSON.stringify({ nodes: payload }),
                     keepalive: true
-                }).then(r => { if (!r.ok) console.error('❌ Mappatura PUT layout fallito:', r.status); }).catch(e => console.error('❌ Mappatura PUT layout:', e));
-            } catch (e) { console.error('❌ Mappatura PUT layout:', e); }
+                }).then(r => { if (!r.ok) console.error('❌ Mappatura POST layout fallito:', r.status); }).catch(e => console.error('❌ Mappatura POST layout:', e));
+            } catch (e) { console.error('❌ Mappatura POST layout:', e); }
         };
     });
 
@@ -534,6 +577,12 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
 
     const handleNodeMouseDown = (e, node) => {
         e.stopPropagation();
+        
+        // Se il nodo è locked, non permettere il trascinamento
+        if (node.locked) {
+            return;
+        }
+        
         const sim = simulationRef.current;
         if (!sim) return;
         const onMove = (ev) => {
@@ -547,7 +596,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             sim.alpha(0.3).restart();
         };
         const onUp = () => {
-            node.fx = null; node.fy = null;
+            // Se il nodo non è locked, rimuovi fx/fy per permettere movimento libero
+            if (!node.locked) {
+                node.fx = null;
+                node.fy = null;
+            }
             window.removeEventListener('mousemove', onMove);
             window.removeEventListener('mouseup', onUp);
             saveLayoutRef.current?.();
@@ -778,7 +831,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                 style={{
                                     left: node.x, top: node.y, transform: 'translate(-50%, -50%)',
                                     width: 48, height: 48,
-                                    cursor: 'pointer', zIndex: selectedNode?.id === node.id ? 50 : 10
+                                    cursor: node.locked ? 'not-allowed' : 'pointer', 
+                                    zIndex: selectedNode?.id === node.id ? 50 : 10
                                 }}
                                 onMouseDown={(e) => handleNodeMouseDown(e, node)}
                                 onClick={(e) => {
@@ -806,8 +860,14 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     } catch (_) { }
                                 }}
                             >
-                                <div className={`w-full h-full rounded-full flex items-center justify-center shadow-lg border-2 ${getNodeColor(node)} ${selectedNode?.id === node.id ? 'ring-4 ring-blue-300' : ''} hover:scale-110 transition-transform`}>
+                                <div className={`w-full h-full rounded-full flex items-center justify-center shadow-lg border-2 ${getNodeColor(node)} ${selectedNode?.id === node.id ? 'ring-4 ring-blue-300' : ''} ${node.locked ? 'ring-2 ring-purple-400' : ''} hover:scale-110 transition-transform relative`}>
                                     {drawIcon(node.type)}
+                                    {/* Indicatore lock se il nodo è bloccato */}
+                                    {node.locked && (
+                                        <div className="absolute -top-1 -right-1 bg-purple-600 rounded-full p-0.5" title="Nodo bloccato">
+                                            <Lock size={10} className="text-white" />
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="absolute top-full mt-2 bg-white/90 px-2 py-0.5 rounded text-[10px] font-medium shadow text-gray-700 whitespace-nowrap border border-gray-200 pointer-events-none">
                                     {node.label || node.ip}
@@ -829,6 +889,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     };
                     const onMap = nodes.some(n => n.id === display.id);
                     const nodeForPanel = isNode ? selectedNode : (onMap ? nodes.find(n => n.id === display.id) : null);
+                    // Assicurati che nodeForPanel abbia il flag locked (default false se non presente)
+                    if (nodeForPanel && nodeForPanel.locked === undefined) {
+                        nodeForPanel.locked = false;
+                    }
                     return (
                         <div className="w-80 shrink-0 bg-white shadow-xl border-l border-gray-200 p-4 flex flex-col animate-slideInRight z-50">
                             <div className="flex justify-between items-start mb-4">
