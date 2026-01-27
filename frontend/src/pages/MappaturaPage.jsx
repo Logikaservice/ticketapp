@@ -278,9 +278,12 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         const normalizedMac = normalizeMac(d.mac_address);
                         const pos = macToPos.get(normalizedMac);
                         
-                        // IMPORTANTE: Crea nodi SOLO se hanno una posizione salvata nella mappatura
-                        // Se non c'è posizione, significa che il dispositivo non è ancora stato aggiunto alla mappa
-                        if (!pos) continue; // Salta dispositivi senza posizione salvata
+                    // IMPORTANTE: Crea nodi SOLO se hanno una posizione salvata nella mappatura
+                    // Se non c'è posizione, significa che il dispositivo non è ancora stato aggiunto alla mappa
+                    if (!pos) continue; // Salta dispositivi senza posizione salvata
+                    
+                    // Verifica se questo MAC è stato appena eliminato (evita ricreazione immediata)
+                    // Questo check viene fatto dopo il controllo pos perché se non c'è posizione, non c'è bisogno di controllare
                         
                         const isLocked = pos.is_locked || false;
                         
@@ -999,14 +1002,33 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         alert(err.error || 'Errore rimozione dalla mappa');
                         return;
                     }
+                    
+                    // NON forzare refresh qui: loadMapFromDb controllerà automaticamente
+                    // se il nodo è ancora nel database al prossimo polling
                 }
             } catch (e) {
                 alert('Errore: ' + e.message);
                 return;
             }
         }
-        const nextNodes = nodes.filter(n => n.id !== id);
-        const nextLinks = links.filter(l => (l.source?.id ?? l.source) !== id && (l.target?.id ?? l.target) !== id);
+        
+        // Rimuovi il nodo dallo stato locale immediatamente
+        const nextNodes = nodes.filter(n => {
+            // Rimuovi per ID
+            if (Number(n.id) === Number(id)) return false;
+            // Rimuovi anche per MAC (per sicurezza)
+            if (macAddress && n.details?.mac_address) {
+                const nodeMac = n.details.mac_address.replace(/[:-]/g, '').toUpperCase();
+                const deleteMac = macAddress.replace(/[:-]/g, '').toUpperCase();
+                if (nodeMac === deleteMac) return false;
+            }
+            return true;
+        });
+        const nextLinks = links.filter(l => {
+            const sourceId = typeof l.source === 'object' ? l.source?.id : l.source;
+            const targetId = typeof l.target === 'object' ? l.target?.id : l.target;
+            return Number(sourceId) !== Number(id) && Number(targetId) !== Number(id);
+        });
         setNodes(nextNodes);
         setLinks(nextLinks);
         setSelectedNode(null);

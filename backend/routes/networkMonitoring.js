@@ -3139,17 +3139,41 @@ module.exports = (pool, io) => {
       await ensureTables();
       await ensureMappaturaNodesTable();
       const aziendaId = parseInt(req.params.aziendaId, 10);
-      const macAddress = req.params.macAddress;
+      let macAddress = req.params.macAddress;
       if (isNaN(aziendaId) || !macAddress) return res.status(400).json({ error: 'Parametri non validi' });
       
-      // Normalizza MAC
+      // Decodifica il MAC dall'URL (potrebbe essere stato codificato con encodeURIComponent)
+      macAddress = decodeURIComponent(macAddress);
+      
+      // Normalizza MAC (rimuovi separatori e converti in maiuscolo)
       const normalizedMac = macAddress.replace(/[:-]/g, '').toUpperCase();
       
-      const r = await pool.query(
+      console.log(`🗑️ DELETE mappatura-nodes: aziendaId=${aziendaId}, macAddress=${macAddress}, normalizedMac=${normalizedMac}`);
+      
+      // Prova prima con il MAC normalizzato esatto
+      let r = await pool.query(
         'DELETE FROM mappatura_nodes WHERE azienda_id = $1 AND mac_address = $2 RETURNING mac_address',
         [aziendaId, normalizedMac]
       );
-      if (r.rows.length === 0) return res.status(404).json({ error: 'Nodo mappatura non trovato' });
+      
+      // Se non trovato, prova a cercare con normalizzazione più flessibile (per compatibilità)
+      if (r.rows.length === 0) {
+        // Cerca anche con normalizzazione flessibile (potrebbe essere salvato in formato diverso)
+        r = await pool.query(
+          `DELETE FROM mappatura_nodes 
+           WHERE azienda_id = $1 
+           AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', ''), '.', ''), ' ', '') = $2 
+           RETURNING mac_address`,
+          [aziendaId, normalizedMac]
+        );
+      }
+      
+      if (r.rows.length === 0) {
+        console.warn(`⚠️ DELETE mappatura-nodes: nodo non trovato per aziendaId=${aziendaId}, macAddress=${normalizedMac}`);
+        return res.status(404).json({ error: 'Nodo mappatura non trovato' });
+      }
+      
+      console.log(`✅ DELETE mappatura-nodes: nodo eliminato con successo, macAddress=${r.rows[0].mac_address}`);
       res.json({ success: true });
     } catch (err) {
       console.error('❌ Errore DELETE mappatura-nodes:', err);
