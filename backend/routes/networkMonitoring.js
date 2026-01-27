@@ -571,8 +571,8 @@ module.exports = (pool, io) => {
           await pool.query(`CREATE INDEX IF NOT EXISTS idx_switch_mac_port_cache_port ON switch_mac_port_cache(managed_switch_id, port);`);
           await pool.query(`
             CREATE TABLE IF NOT EXISTS mappatura_nodes (
-              azienda_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-              device_id INTEGER NOT NULL REFERENCES network_devices(id) ON DELETE CASCADE,
+              azienda_id INTEGER NOT NULL,
+              device_id INTEGER NOT NULL,
               x DOUBLE PRECISION,
               y DOUBLE PRECISION,
               PRIMARY KEY (azienda_id, device_id)
@@ -2618,8 +2618,8 @@ module.exports = (pool, io) => {
     try {
       await pool.query(`
         CREATE TABLE IF NOT EXISTS mappatura_nodes (
-          azienda_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          device_id INTEGER NOT NULL REFERENCES network_devices(id) ON DELETE CASCADE,
+          azienda_id INTEGER NOT NULL,
+          device_id INTEGER NOT NULL,
           x DOUBLE PRECISION,
           y DOUBLE PRECISION,
           PRIMARY KEY (azienda_id, device_id)
@@ -2627,8 +2627,9 @@ module.exports = (pool, io) => {
       `);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_azienda ON mappatura_nodes(azienda_id);`);
     } catch (e) {
-      console.error('❌ ensureMappaturaNodesTable:', e.message);
-      throw e;
+      if (!e.message?.includes('already exists') && !e.message?.includes('duplicate')) {
+        console.warn('⚠️ ensureMappaturaNodesTable:', e.message, 'code:', e.code);
+      }
     }
   };
 
@@ -2649,7 +2650,7 @@ module.exports = (pool, io) => {
       );
       res.json(r.rows);
     } catch (err) {
-      console.error('❌ Errore GET mappatura-nodes:', err);
+      console.error('❌ Errore GET mappatura-nodes:', err.message, 'code:', err.code, 'detail:', err.detail);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });
