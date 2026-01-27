@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import {
     ArrowLeft, ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw,
     Monitor, Printer, Wifi, Router, X, Trash2, Link2,
-    Smartphone, Tablet, Laptop, Camera, Tv, Watch, Phone, Database, Cloud, Globe, List
+    Smartphone, Tablet, Laptop, Camera, Tv, Watch, Phone, Database, Cloud, Globe, List,
+    Layers, HardDrive, Shield, RadioTower, Speaker
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import * as d3 from 'd3-force';
@@ -11,16 +12,22 @@ import * as d3 from 'd3-force';
 const AVAILABLE_ICONS = [
     { type: 'pc', icon: Monitor, label: 'PC / Monitor' },
     { type: 'server', icon: Server, label: 'Server' },
+    { type: 'virtualization', icon: Layers, label: 'Virtualizzazione' },
+    { type: 'nas', icon: HardDrive, label: 'NAS / Storage' },
     { type: 'router', icon: Router, label: 'Router' },
+    { type: 'firewall', icon: Shield, label: 'Firewall' },
+    { type: 'switch', icon: Server, label: 'Switch' },
     { type: 'wifi', icon: Wifi, label: 'WiFi / AP' },
+    { type: 'radio', icon: RadioTower, label: 'Ponte Radio' },
     { type: 'printer', icon: Printer, label: 'Stampante' },
     { type: 'smartphone', icon: Smartphone, label: 'Smartphone' },
     { type: 'tablet', icon: Tablet, label: 'Tablet' },
     { type: 'laptop', icon: Laptop, label: 'Laptop' },
+    { type: 'wearable', icon: Watch, label: 'Wearable' },
     { type: 'camera', icon: Camera, label: 'Camera / CCTV' },
+    { type: 'speaker', icon: Speaker, label: 'Speaker / Audio' },
     { type: 'tv', icon: Tv, label: 'TV / Screen' },
     { type: 'phone', icon: Phone, label: 'Telefono VoIP' },
-    { type: 'switch', icon: Server, label: 'Switch' },
     { type: 'database', icon: Database, label: 'Database' },
     { type: 'cloud', icon: Cloud, label: 'Cloud' },
     { type: 'internet', icon: Globe, label: 'Internet' }
@@ -133,7 +140,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     if (ac.signal.aborted || parseAziendaId(selectedCompanyIdRef.current) !== aziendaId) return;
                     setNodes(mapNodes);
                     setLinks(mapLinks);
-                    ensureSimulation(mapNodes, mapLinks);
+                    // Passa shouldAutoCenter=true per centrare automaticamente quando i nodi vengono caricati
+                    ensureSimulation(mapNodes, mapLinks, true);
                     return;
                 }
                 const errBody = await res.text();
@@ -147,20 +155,46 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         return () => ac.abort();
     }, [selectedCompanyId, loading, devices]);
 
+    // Centra automaticamente quando i nodi vengono caricati per la prima volta
+    const hasCenteredRef = useRef(false);
+    useEffect(() => {
+        if (nodes.length > 0 && !hasCenteredRef.current) {
+            // Aspetta che la simulazione si stabilizzi prima di centrare
+            const timer = setTimeout(() => {
+                centerAndZoomToNodes(nodes);
+                hasCenteredRef.current = true;
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+        // Reset quando cambia l'azienda
+        if (nodes.length === 0) {
+            hasCenteredRef.current = false;
+        }
+    }, [nodes.length, selectedCompanyId]);
+
     const mapDeviceType = (d) => {
         const t = (d.device_type || '').toLowerCase();
         if (AVAILABLE_ICONS.some(icon => icon.type === t)) return t;
-        if (t.includes('printer') || t.includes('stampante')) return 'printer';
-        if (t.includes('server') || t.includes('nas')) return 'server';
-        if (t.includes('wifi') || t.includes('access point') || t.includes('ap')) return 'wifi';
+
+        // Specific mappings
+        if (t.includes('nas') || t.includes('storage') || t.includes('synology') || t.includes('qnap')) return 'nas';
+        if (t.includes('virt') || t.includes('vm') || t.includes('proxmox') || t.includes('esxi') || t.includes('hyper-v')) return 'virtualization';
+        if (t.includes('firewall') || t.includes('gate') || t.includes('pfsense') || t.includes('opnsense') || t.includes('forti')) return 'firewall';
+        if (t.includes('radio') || t.includes('antenna') || t.includes('bridge') || t.includes('nanostation') || t.includes('airmax')) return 'radio';
+        if (t.includes('printer') || t.includes('stampante') || t.includes('mfp')) return 'printer';
+        if (t.includes('server')) return 'server';
+        if (t.includes('wifi') || t.includes('access point') || t.includes('ap') || t.includes('unifi')) return 'wifi';
         if (t.includes('switch')) return 'switch';
-        if (t.includes('camera') || t.includes('cctv')) return 'camera';
-        if (t.includes('phone') || t.includes('voip')) return 'phone';
-        if (t.includes('tv') || t.includes('television')) return 'tv';
-        if (t.includes('tablet')) return 'tablet';
-        if (t.includes('mobile') || t.includes('smartphone')) return 'smartphone';
-        if (t.includes('laptop') || t.includes('notebook')) return 'laptop';
+        if (t.includes('camera') || t.includes('cctv') || t.includes('cam') || t.includes('dahua') || t.includes('hikvision')) return 'camera';
+        if (t.includes('speaker') || t.includes('audio') || t.includes('sonos') || t.includes('alexa') || t.includes('google home')) return 'speaker';
+        if (t.includes('phone') || t.includes('voip') || t.includes('sip') || t.includes('yealink')) return 'phone';
+        if (t.includes('tv') || t.includes('television') || t.includes('screen') || t.includes('chromecast')) return 'tv';
+        if (t.includes('watch') || t.includes('wearable') || t.includes('apple watch')) return 'wearable';
+        if (t.includes('tablet') || t.includes('ipad')) return 'tablet';
+        if (t.includes('mobile') || t.includes('smartphone') || t.includes('iphone') || t.includes('android')) return 'smartphone';
+        if (t.includes('laptop') || t.includes('notebook') || t.includes('macbook')) return 'laptop';
         if (t.includes('unmanaged_switch')) return 'unmanaged_switch';
+
         return 'pc';
     };
 
@@ -174,7 +208,62 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         return <Icon size={20} className="text-white" strokeWidth={1.5} />;
     };
 
-    const ensureSimulation = (nodeList, linkList = []) => {
+    // Funzione per centrare e zoomare automaticamente sui nodi
+    const centerAndZoomToNodes = (nodeList) => {
+        if (!nodeList || nodeList.length === 0) return;
+
+        // Calcola i bounds (limiti) di tutti i nodi
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+
+        nodeList.forEach(node => {
+            const x = node.x || 0;
+            const y = node.y || 0;
+            minX = Math.min(minX, x);
+            maxX = Math.max(maxX, x);
+            minY = Math.min(minY, y);
+            maxY = Math.max(maxY, y);
+        });
+
+        // Se tutti i nodi sono nello stesso punto, usa un'area minima
+        if (minX === maxX && minY === maxY) {
+            minX -= 100;
+            maxX += 100;
+            minY -= 100;
+            maxY += 100;
+        }
+
+        // Calcola il centro dei nodi
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+
+        // Calcola le dimensioni del bounding box
+        const width = maxX - minX;
+        const height = maxY - minY;
+
+        // Aggiungi padding (20% su ogni lato)
+        const padding = Math.max(width, height) * 0.2;
+        const paddedWidth = width + padding * 2;
+        const paddedHeight = height + padding * 2;
+
+        // Calcola lo zoom necessario per mostrare tutti i nodi
+        const containerWidth = canvasContainerRef.current?.clientWidth || window.innerWidth;
+        const containerHeight = canvasContainerRef.current?.clientHeight || window.innerHeight;
+
+        const scaleX = containerWidth / paddedWidth;
+        const scaleY = containerHeight / paddedHeight;
+        const newScale = Math.min(scaleX, scaleY, 2); // Limita zoom max a 2x
+
+        // Calcola l'offset per centrare
+        const newOffsetX = containerWidth / 2 - centerX * newScale;
+        const newOffsetY = containerHeight / 2 - centerY * newScale;
+
+        // Applica la trasformazione
+        setScale(newScale);
+        setOffset({ x: newOffsetX, y: newOffsetY });
+    };
+
+    const ensureSimulation = (nodeList, linkList = [], shouldAutoCenter = false) => {
         if (simulationRef.current) simulationRef.current.stop();
         if (!nodeList || nodeList.length === 0) {
             simulationRef.current = null;
@@ -187,6 +276,17 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         if (linkList && linkList.length > 0) {
             sim.force('link', d3.forceLink(linkList).id(d => d.id).distance(80));
         }
+
+        // Se richiesto, centra automaticamente quando la simulazione si stabilizza
+        if (shouldAutoCenter) {
+            sim.on('end', () => {
+                // Aspetta un frame per assicurarsi che i nodi siano aggiornati
+                setTimeout(() => {
+                    centerAndZoomToNodes(nodeList);
+                }, 100);
+            });
+        }
+
         simulationRef.current = sim;
     };
 
@@ -225,7 +325,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         };
         const next = [...nodes, newNode];
         setNodes(next);
-        ensureSimulation(next, links);
+        // Se è il primo nodo o ci sono pochi nodi, centra automaticamente
+        ensureSimulation(next, links, next.length <= 3);
         setSelectedNode(newNode);
     };
 
@@ -378,7 +479,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
 
     const handleRefreshLayout = () => {
         if (nodes.length === 0) return;
-        ensureSimulation(nodes, links);
+        ensureSimulation(nodes, links, true);
         if (simulationRef.current) simulationRef.current.alpha(1).restart();
         saveLayoutRef.current?.();
     };
