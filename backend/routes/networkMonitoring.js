@@ -2614,10 +2614,29 @@ module.exports = (pool, io) => {
   });
 
   // --- Mappatura: nodi sulla mappa (persistenza) ---
+  const ensureMappaturaNodesTable = async () => {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS mappatura_nodes (
+          azienda_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          device_id INTEGER NOT NULL REFERENCES network_devices(id) ON DELETE CASCADE,
+          x DOUBLE PRECISION,
+          y DOUBLE PRECISION,
+          PRIMARY KEY (azienda_id, device_id)
+        );
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_azienda ON mappatura_nodes(azienda_id);`);
+    } catch (e) {
+      console.error('❌ ensureMappaturaNodesTable:', e.message);
+      throw e;
+    }
+  };
+
   // GET /api/network-monitoring/clients/:aziendaId/mappatura-nodes
   router.get('/clients/:aziendaId/mappatura-nodes', authenticateToken, async (req, res) => {
     try {
       await ensureTables();
+      await ensureMappaturaNodesTable();
       const aziendaId = parseInt(req.params.aziendaId, 10);
       if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
       const r = await pool.query(
@@ -2639,6 +2658,7 @@ module.exports = (pool, io) => {
   router.post('/clients/:aziendaId/mappatura-nodes', authenticateToken, async (req, res) => {
     try {
       await ensureTables();
+      await ensureMappaturaNodesTable();
       const aziendaId = parseInt(req.params.aziendaId, 10);
       const deviceId = parseInt(req.body.device_id, 10);
       if (isNaN(aziendaId) || aziendaId <= 0 || isNaN(deviceId)) return res.status(400).json({ error: 'Parametri non validi' });
@@ -2668,6 +2688,7 @@ module.exports = (pool, io) => {
   router.delete('/clients/:aziendaId/mappatura-nodes/:deviceId', authenticateToken, async (req, res) => {
     try {
       await ensureTables();
+      await ensureMappaturaNodesTable();
       const aziendaId = parseInt(req.params.aziendaId, 10);
       const deviceId = parseInt(req.params.deviceId, 10);
       if (isNaN(aziendaId) || isNaN(deviceId)) return res.status(400).json({ error: 'Parametri non validi' });
@@ -2687,6 +2708,7 @@ module.exports = (pool, io) => {
   router.put('/clients/:aziendaId/mappatura-nodes/layout', authenticateToken, async (req, res) => {
     try {
       await ensureTables();
+      await ensureMappaturaNodesTable();
       const aziendaId = parseInt(req.params.aziendaId, 10);
       if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
       const nodes = Array.isArray(req.body.nodes) ? req.body.nodes : [];

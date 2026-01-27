@@ -44,11 +44,22 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         fetchCompanies();
     }, []);
 
+    const prevCompanyIdRef = useRef(null);
+    const selectedCompanyIdRef = useRef(selectedCompanyId);
+    const shouldLoadMapFromDbRef = useRef(false);
+    useEffect(() => { selectedCompanyIdRef.current = selectedCompanyId; }, [selectedCompanyId]);
+
     useEffect(() => {
         if (!selectedCompanyId) return;
+        const companyChanged = prevCompanyIdRef.current !== null && prevCompanyIdRef.current !== selectedCompanyId;
+        const firstLoad = prevCompanyIdRef.current === null;
+        prevCompanyIdRef.current = selectedCompanyId;
+        if (companyChanged) {
+            setNodes([]);
+            setLinks([]);
+        }
+        if (companyChanged || firstLoad) shouldLoadMapFromDbRef.current = true;
         setLoading(true);
-        setNodes([]);
-        setLinks([]);
         const fetchDevices = async () => {
             try {
                 const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/devices`), { headers: getAuthHeader() });
@@ -60,18 +71,31 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     }, [selectedCompanyId, refreshDevicesKey]);
 
     useEffect(() => {
-        if (!selectedCompanyId || loading || !devices.length) return;
+        if (!selectedCompanyId || loading || !devices.length || !shouldLoadMapFromDbRef.current) return;
+        shouldLoadMapFromDbRef.current = false;
+        const companyId = selectedCompanyId;
+        const ac = new AbortController();
         const loadMapFromDb = async () => {
             try {
-                const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/mappatura-nodes`), { headers: getAuthHeader() });
-                if (!res.ok) return;
+                const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${companyId}/mappatura-nodes`), {
+                    headers: getAuthHeader(),
+                    signal: ac.signal
+                });
+                if (ac.signal.aborted) return;
+                if (!res.ok) {
+                    const errBody = await res.text();
+                    console.error('❌ Mappatura GET mappatura-nodes fallito:', res.status, errBody);
+                    return;
+                }
                 const rows = await res.json();
-                const idToPos = new Map(rows.map(r => [r.device_id, { x: r.x, y: r.y }]));
+                if (ac.signal.aborted) return;
+                const idToPos = new Map(rows.map(r => [Number(r.device_id), { x: r.x, y: r.y }]));
+                const deviceIds = new Set(rows.map(r => Number(r.device_id)));
                 const mapNodes = [];
-                const deviceIds = new Set(rows.map(r => r.device_id));
                 for (const d of devices) {
-                    if (!d.ip_address || !deviceIds.has(d.id)) continue;
-                    const pos = idToPos.get(d.id) || { x: 0, y: 0 };
+                    const did = Number(d.id);
+                    if (!d.ip_address || !deviceIds.has(did)) continue;
+                    const pos = idToPos.get(did) || { x: 0, y: 0 };
                     mapNodes.push({
                         id: d.id,
                         type: mapDeviceType(d),
@@ -85,16 +109,21 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                 }
                 const mapLinks = [];
                 for (const n of mapNodes) {
-                    const pid = n.details?.parent_device_id;
-                    if (!pid) continue;
-                    if (deviceIds.has(pid)) mapLinks.push({ source: pid, target: n.id });
+                    const pid = n.details?.parent_device_id != null ? Number(n.details.parent_device_id) : null;
+                    if (pid == null || !deviceIds.has(pid)) continue;
+                    mapLinks.push({ source: pid, target: n.id });
                 }
+                if (ac.signal.aborted || selectedCompanyIdRef.current !== companyId) return;
                 setNodes(mapNodes);
                 setLinks(mapLinks);
                 ensureSimulation(mapNodes, mapLinks);
-            } catch (e) { console.error('Errore caricamento mappatura:', e); }
+            } catch (e) {
+                if (e?.name === 'AbortError') return;
+                console.error('Errore caricamento mappatura:', e);
+            }
         };
         loadMapFromDb();
+        return () => ac.abort();
     }, [selectedCompanyId, loading, devices]);
 
     const mapDeviceType = (d) => {
@@ -225,6 +254,40 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             window.removeEventListener('resize', measure);
         };
     }, [hoveredDevice]);
+
+    useEffect(() => {
+        if (!selectedCompanyId) {
+            prevCompanyIdRef.current = null;
+            setNodes([]);
+            setLinks([]);
+        }
+    }, [selectedCompanyId]);
+
+    const saveLayoutRef = useRef(null);
+    useEffect(() => {
+        saveLayoutRef.current = () => {
+            const cid = selectedCompanyIdRef.current;
+            if (!cid) return;
+            const sim = simulationRef.current;
+            const list = sim ? sim.nodes() : [];
+            if (list.length === 0) return;
+            try {
+                const payload = list.map(n => ({ id: n.id, x: n.x, y: n.y }));
+                fetch(buildApiUrl(`/api/network-monitoring/clients/${cid}/mappatura-nodes/layout`), {
+                    method: 'PUT',
+                    headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nodes: payload }),
+                    keepalive: true
+                });
+            } catch (_) {}
+        };
+    });
+
+    useEffect(() => {
+        const onUnload = () => { saveLayoutRef.current?.(); };
+        window.addEventListener('beforeunload', onUnload);
+        return () => window.removeEventListener('beforeunload', onUnload);
+    }, []);
 
     useEffect(() => {
         return () => { if (simulationRef.current) simulationRef.current.stop(); };
@@ -402,7 +465,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             {/* Header */}
             <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
                 <div className="flex items-center gap-4">
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full" title="Chiudi Mappatura">
+                    <button onClick={() => { saveLayoutRef.current?.(); onClose(); }} className="p-2 hover:bg-gray-100 rounded-full" title="Chiudi Mappatura">
                         <ArrowLeft size={24} className="text-gray-600" />
                     </button>
                     <div>
