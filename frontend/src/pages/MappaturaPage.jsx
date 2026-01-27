@@ -1313,7 +1313,17 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                 <div className="absolute top-full mt-2 bg-white/90 px-2 py-0.5 rounded text-[10px] font-medium shadow text-gray-700 border border-gray-200 pointer-events-none text-center max-w-[120px]">
                                     {(() => {
                                         const labelText = node.label || node.ip;
-                                        // Se il testo contiene spazi o è abbastanza lungo, dividilo in 2 righe
+                                        
+                                        // Verifica se è un indirizzo IP (formato: xxx.xxx.xxx.xxx)
+                                        // Pattern: 1-3 cifre, punto, ripetuto 3 volte, poi 1-3 cifre finali
+                                        const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(labelText);
+                                        
+                                        // Gli indirizzi IP devono SEMPRE stare su una riga, anche se lunghi
+                                        if (isIpAddress) {
+                                            return <div className="leading-tight whitespace-nowrap">{labelText}</div>;
+                                        }
+                                        
+                                        // Per gli altri testi, applica la logica di divisione se necessario
                                         if (labelText && labelText.length > 12) {
                                             // Cerca il primo spazio dopo la metà del testo
                                             const midPoint = Math.floor(labelText.length / 2);
