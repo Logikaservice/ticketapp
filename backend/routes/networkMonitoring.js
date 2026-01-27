@@ -489,6 +489,18 @@ module.exports = (pool, io) => {
         }
       }
 
+      // Crea tabella mappatura_nodes se non esiste (persisistenza layout mappe)
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS mappatura_nodes (
+          azienda_id INTEGER NOT NULL,
+          device_id INTEGER NOT NULL,
+          x DOUBLE PRECISION,
+          y DOUBLE PRECISION,
+          PRIMARY KEY (azienda_id, device_id)
+        );
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_azienda ON mappatura_nodes(azienda_id);`);
+
       console.log('✅ Tabelle network monitoring inizializzate');
     } catch (err) {
       console.error('❌ Errore inizializzazione tabelle network monitoring:', err.message);
@@ -2625,6 +2637,18 @@ module.exports = (pool, io) => {
           PRIMARY KEY (azienda_id, device_id)
         );
       `);
+
+      // Self-healing: ensure columns exist (fix for potential schema mismatches on VPS)
+      try {
+        await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS azienda_id INTEGER`);
+        await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS device_id INTEGER`);
+        await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS x DOUBLE PRECISION`);
+        await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS y DOUBLE PRECISION`);
+        // Ensure azienda_id is NOT NULL if possible, but hard to enforce on existing data without default
+      } catch (alterErr) {
+        console.warn('⚠️ ensureMappaturaNodesTable (alter):', alterErr.message);
+      }
+
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_azienda ON mappatura_nodes(azienda_id);`);
     } catch (e) {
       if (!e.message?.includes('already exists') && !e.message?.includes('duplicate')) {
@@ -2646,7 +2670,7 @@ module.exports = (pool, io) => {
          INNER JOIN network_devices nd ON nd.id = mn.device_id
          INNER JOIN network_agents na ON na.id = nd.agent_id AND na.azienda_id = $1
          WHERE mn.azienda_id = $1`,
-        [aziendaId, aziendaId]
+        [aziendaId]
       );
       res.json(r.rows);
     } catch (err) {
