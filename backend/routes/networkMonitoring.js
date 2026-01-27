@@ -569,6 +569,16 @@ module.exports = (pool, io) => {
           await pool.query(`CREATE INDEX IF NOT EXISTS idx_switch_mac_port_cache_switch ON switch_mac_port_cache(managed_switch_id);`);
           await pool.query(`CREATE INDEX IF NOT EXISTS idx_switch_mac_port_cache_mac ON switch_mac_port_cache(mac_address);`);
           await pool.query(`CREATE INDEX IF NOT EXISTS idx_switch_mac_port_cache_port ON switch_mac_port_cache(managed_switch_id, port);`);
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS mappatura_nodes (
+              azienda_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+              device_id INTEGER NOT NULL REFERENCES network_devices(id) ON DELETE CASCADE,
+              x DOUBLE PRECISION,
+              y DOUBLE PRECISION,
+              PRIMARY KEY (azienda_id, device_id)
+            );
+          `);
+          await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_azienda ON mappatura_nodes(azienda_id);`);
         } catch (migErr) {
           if (!migErr.message?.includes('does not exist')) {
             console.warn('⚠️ Migrazione colonne network_*:', migErr.message);
@@ -2600,6 +2610,100 @@ module.exports = (pool, io) => {
       res.status(500).json({ error: 'Errore interno del server' });
     } finally {
       client.release();
+    }
+  });
+
+  // --- Mappatura: nodi sulla mappa (persistenza) ---
+  // GET /api/network-monitoring/clients/:aziendaId/mappatura-nodes
+  router.get('/clients/:aziendaId/mappatura-nodes', authenticateToken, async (req, res) => {
+    try {
+      await ensureTables();
+      const aziendaId = parseInt(req.params.aziendaId, 10);
+      if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
+      const r = await pool.query(
+        `SELECT mn.device_id, mn.x, mn.y
+         FROM mappatura_nodes mn
+         INNER JOIN network_devices nd ON nd.id = mn.device_id
+         INNER JOIN network_agents na ON na.id = nd.agent_id AND na.azienda_id = $1
+         WHERE mn.azienda_id = $1`,
+        [aziendaId, aziendaId]
+      );
+      res.json(r.rows);
+    } catch (err) {
+      console.error('❌ Errore GET mappatura-nodes:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // POST /api/network-monitoring/clients/:aziendaId/mappatura-nodes
+  router.post('/clients/:aziendaId/mappatura-nodes', authenticateToken, async (req, res) => {
+    try {
+      await ensureTables();
+      const aziendaId = parseInt(req.params.aziendaId, 10);
+      const deviceId = parseInt(req.body.device_id, 10);
+      if (isNaN(aziendaId) || aziendaId <= 0 || isNaN(deviceId)) return res.status(400).json({ error: 'Parametri non validi' });
+      const x = req.body.x != null ? parseFloat(req.body.x) : null;
+      const y = req.body.y != null ? parseFloat(req.body.y) : null;
+      const check = await pool.query(
+        `SELECT 1 FROM network_devices nd
+         INNER JOIN network_agents na ON na.id = nd.agent_id AND na.azienda_id = $1
+         WHERE nd.id = $2`,
+        [aziendaId, deviceId]
+      );
+      if (check.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato per questa azienda' });
+      await pool.query(
+        `INSERT INTO mappatura_nodes (azienda_id, device_id, x, y)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (azienda_id, device_id) DO UPDATE SET x = EXCLUDED.x, y = EXCLUDED.y`,
+        [aziendaId, deviceId, x, y]
+      );
+      res.status(201).json({ success: true, device_id: deviceId });
+    } catch (err) {
+      console.error('❌ Errore POST mappatura-nodes:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // DELETE /api/network-monitoring/clients/:aziendaId/mappatura-nodes/:deviceId
+  router.delete('/clients/:aziendaId/mappatura-nodes/:deviceId', authenticateToken, async (req, res) => {
+    try {
+      await ensureTables();
+      const aziendaId = parseInt(req.params.aziendaId, 10);
+      const deviceId = parseInt(req.params.deviceId, 10);
+      if (isNaN(aziendaId) || isNaN(deviceId)) return res.status(400).json({ error: 'Parametri non validi' });
+      const r = await pool.query(
+        'DELETE FROM mappatura_nodes WHERE azienda_id = $1 AND device_id = $2 RETURNING device_id',
+        [aziendaId, deviceId]
+      );
+      if (r.rows.length === 0) return res.status(404).json({ error: 'Nodo mappatura non trovato' });
+      res.json({ success: true });
+    } catch (err) {
+      console.error('❌ Errore DELETE mappatura-nodes:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // PUT /api/network-monitoring/clients/:aziendaId/mappatura-nodes/layout
+  router.put('/clients/:aziendaId/mappatura-nodes/layout', authenticateToken, async (req, res) => {
+    try {
+      await ensureTables();
+      const aziendaId = parseInt(req.params.aziendaId, 10);
+      if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
+      const nodes = Array.isArray(req.body.nodes) ? req.body.nodes : [];
+      for (const n of nodes) {
+        const id = parseInt(n.id, 10);
+        if (isNaN(id)) continue;
+        const x = n.x != null ? parseFloat(n.x) : null;
+        const y = n.y != null ? parseFloat(n.y) : null;
+        await pool.query(
+          `UPDATE mappatura_nodes SET x = $1, y = $2 WHERE azienda_id = $3 AND device_id = $4`,
+          [x, y, aziendaId, id]
+        );
+      }
+      res.json({ success: true });
+    } catch (err) {
+      console.error('❌ Errore PUT mappatura-nodes layout:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
   });
 
