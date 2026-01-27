@@ -553,6 +553,7 @@ module.exports = (pool, io) => {
           await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_check_at TIMESTAMPTZ;`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS notes TEXT;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_manual_type BOOLEAN DEFAULT false;`);
           await pool.query(`
             CREATE TABLE IF NOT EXISTS managed_switches (
               id SERIAL PRIMARY KEY,
@@ -1770,7 +1771,7 @@ module.exports = (pool, io) => {
             foundByMac = true;
             const oldIp = existingDevice.ip_address ? existingDevice.ip_address.replace(/[{}"]/g, '').trim() : null;
             console.log(`  🔄 Dispositivo trovato per MAC ${normalizedMacForSearch}, ma IP cambiato: ${oldIp} -> ${ip_address}`);
-            
+
             // Se il vecchio IP è diverso dal nuovo, controlla se esiste un dispositivo offline con il vecchio IP
             if (oldIp && oldIp !== normalizedIpForSearch) {
               const oldIpDeviceResult = await pool.query(
@@ -1779,7 +1780,7 @@ module.exports = (pool, io) => {
                  WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2 AND id != $3`,
                 [agentId, oldIp, existingDevice.id]
               );
-              
+
               // Se esiste un dispositivo offline con il vecchio IP (probabilmente lo stesso dispositivo con IP diverso)
               // Svuota i dati del vecchio IP mantenendo solo MAC e previous_ip
               if (oldIpDeviceResult.rows.length > 0) {
@@ -1829,7 +1830,7 @@ module.exports = (pool, io) => {
           const normalizedCurrentIp = normalizedIpForSearch;
           const existingIp = existingDevice.ip_address ? existingDevice.ip_address.replace(/[{}"]/g, '').trim() : null;
           const ipChanged = normalizedCurrentIp !== existingIp;
-          
+
           // Gestisci cambio IP se: dispositivo statico O trovato per MAC con IP diverso
           if (ipChanged && (existingDevice.is_static || foundByMac)) {
             // Controlla se il nuovo IP è quello accettato dall'utente
@@ -2076,14 +2077,14 @@ module.exports = (pool, io) => {
                  LIMIT 1`,
                 [agentId, normalizedMac, ip_address]
               );
-              
+
               if (oldDeviceWithSameMacResult.rows.length > 0) {
                 const oldDevice = oldDeviceWithSameMacResult.rows[0];
                 console.log(`  🔄 Trovato dispositivo offline con stesso MAC ${normalizedMac}: IP vecchio ${oldDevice.ip_address} -> nuovo IP ${ip_address}`);
-                
+
                 // Usa previous_ip del vecchio dispositivo o il suo IP come previous_ip
                 previousIpFromOldDevice = oldDevice.previous_ip || oldDevice.ip_address.replace(/[{}"]/g, '').trim();
-                
+
                 // Svuota i dati del vecchio dispositivo (mantieni solo MAC)
                 await pool.query(
                   `UPDATE network_devices 
@@ -2199,45 +2200,45 @@ module.exports = (pool, io) => {
                  LIMIT 1`,
                 [agentId, device.mac_address, device.id]
               );
-              
+
               if (conflictDeviceResult.rows.length > 0) {
                 const conflictDevice = conflictDeviceResult.rows[0];
                 console.log(`  🔄 Conflitto IP rilevato: stesso MAC ${device.mac_address} con IP diverso online (${conflictDevice.ip_address})`);
                 console.log(`    📤 Trasferimento dati da ${device.ip_address} (offline) a ${conflictDevice.ip_address} (online)`);
-                
+
                 // Trasferisci i dati al dispositivo online (solo se non ha già dati)
                 const updatesConflict = [];
                 const valuesConflict = [];
                 let paramIndexConflict = 1;
-                
+
                 // Ottieni i dati del dispositivo offline
                 const offlineDeviceData = await pool.query(
                   `SELECT device_type, device_path, device_username, hostname, vendor, previous_ip
                    FROM network_devices WHERE id = $1`,
                   [device.id]
                 );
-                
+
                 if (offlineDeviceData.rows.length > 0) {
                   const offlineData = offlineDeviceData.rows[0];
-                  
+
                   // Trasferisci device_type se il dispositivo online non ce l'ha
                   if (offlineData.device_type && !conflictDevice.device_type) {
                     updatesConflict.push(`device_type = $${paramIndexConflict++}`);
                     valuesConflict.push(offlineData.device_type);
                   }
-                  
+
                   // Trasferisci device_path se il dispositivo online non ce l'ha
                   if (offlineData.device_path && !conflictDevice.device_path) {
                     updatesConflict.push(`device_path = $${paramIndexConflict++}`);
                     valuesConflict.push(offlineData.device_path);
                   }
-                  
+
                   // Trasferisci device_username se il dispositivo online non ce l'ha
                   if (offlineData.device_username && !conflictDevice.device_username) {
                     updatesConflict.push(`device_username = $${paramIndexConflict++}`);
                     valuesConflict.push(offlineData.device_username);
                   }
-                  
+
                   // Imposta previous_ip sul dispositivo online se non ce l'ha
                   if (offlineData.previous_ip && !conflictDevice.previous_ip) {
                     updatesConflict.push(`previous_ip = $${paramIndexConflict++}`);
@@ -2247,7 +2248,7 @@ module.exports = (pool, io) => {
                     updatesConflict.push(`previous_ip = $${paramIndexConflict++}`);
                     valuesConflict.push(device.ip_address.replace(/[{}"]/g, '').trim());
                   }
-                  
+
                   // Aggiorna il dispositivo online con i dati trasferiti
                   if (updatesConflict.length > 0) {
                     valuesConflict.push(conflictDevice.id);
@@ -2258,7 +2259,7 @@ module.exports = (pool, io) => {
                     console.log(`    ✅ Dati trasferiti al dispositivo ${conflictDevice.ip_address}`);
                   }
                 }
-                
+
                 // Svuota i dati del dispositivo offline (mantieni solo MAC e previous_ip se presente)
                 await pool.query(
                   `UPDATE network_devices 
@@ -3150,7 +3151,7 @@ module.exports = (pool, io) => {
             ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor, 
-          nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
+          nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.is_manual_type, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
           nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.notes,
           na.agent_name, na.azienda_id, na.last_heartbeat as agent_last_seen, na.status as agent_status,
           u.azienda
@@ -3186,8 +3187,8 @@ module.exports = (pool, io) => {
           }
         }
 
-        // Cerca MAC nella mappa KeePass (già caricata)
-        if (row.mac_address && keepassMap) {
+        // Cerca MAC nella mappa KeePass (già caricata) - SOLO se non è stato impostato manualmente
+        if (row.mac_address && keepassMap && !row.is_manual_type) {
           try {
             // Normalizza il MAC per la ricerca
             const normalizedMac = row.mac_address.replace(/[:-]/g, '').toUpperCase();
@@ -4743,9 +4744,9 @@ pause
       }
 
 
-      // Aggiorna il dispositivo
+      // Aggiorna il dispositivo e imposta flag manuale
       const result = await pool.query(
-        'UPDATE network_devices SET device_type = $1 WHERE id = $2 RETURNING id, ip_address, device_type',
+        'UPDATE network_devices SET device_type = $1, is_manual_type = true WHERE id = $2 RETURNING id, ip_address, device_type, is_manual_type',
         [device_type?.trim() || null, id]
       );
 
@@ -4802,26 +4803,7 @@ pause
     }
   });
 
-  // PATCH /api/network-monitoring/devices/:id/type
-  // Aggiorna il tipo di un dispositivo (per icona mappatura)
-  router.patch('/devices/:id/type', authenticateToken, requireRole('tecnico'), async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { device_type } = req.body;
 
-      if (!device_type) return res.status(400).json({ error: 'Device type richiesto' });
-
-      await pool.query(
-        'UPDATE network_devices SET device_type = $1 WHERE id = $2',
-        [device_type, id]
-      );
-
-      res.json({ success: true, device_type });
-    } catch (err) {
-      console.error('❌ Errore aggiornamento device type:', err);
-      res.status(500).json({ error: 'Errore interno del server' });
-    }
-  });
 
   // PATCH /api/network-monitoring/devices/:id/notes
   // Aggiorna le note di un dispositivo
@@ -4936,7 +4918,7 @@ pause
 
       // Ottieni tutti i dispositivi con MAC address
       const devicesResult = await pool.query(
-        `SELECT id, mac_address, device_type, device_path, device_username 
+        `SELECT id, mac_address, device_type, device_path, device_username, is_manual_type 
          FROM network_devices 
          WHERE mac_address IS NOT NULL AND mac_address != ''`
       );
@@ -4988,13 +4970,15 @@ pause
 
             // Verifica se i valori sono diversi da quelli attuali
             // IMPORTANTE: considera anche il caso in cui i valori attuali sono NULL
-            const needsUpdate =
+            // Inoltre: NON aggiornare se il tipo è stato impostato manualmente dall'utente
+            const needsUpdate = !device.is_manual_type && (
               (device.device_type !== keepassResult.title) ||
               (device.device_path !== lastPathElement) ||
               (device.device_username !== (keepassResult.username || null)) ||
               (device.device_type === null && keepassResult.title !== null) ||
               (device.device_path === null && lastPathElement !== null) ||
-              (device.device_username === null && keepassResult.username !== null && keepassResult.username !== '');
+              (device.device_username === null && keepassResult.username !== null && keepassResult.username !== '')
+            );
 
             if (needsUpdate) {
               // Aggiorna il dispositivo nel database
@@ -5019,7 +5003,8 @@ pause
             }
           } else {
             // MAC non trovato in KeePass: resetta i valori se erano presenti
-            if (device.device_type !== null || device.device_path !== null || device.device_username !== null) {
+            // SOLO se non è manuale
+            if (!device.is_manual_type && (device.device_type !== null || device.device_path !== null || device.device_username !== null)) {
               console.log(`  🔍 MAC ${device.mac_address} (normalizzato: ${normalizedMac}) NON trovato in KeePass`);
               console.log(`     Valori attuali: device_type="${device.device_type}", device_path="${device.device_path}", device_username="${device.device_username}"`);
               console.log(`     Reset in corso...`);

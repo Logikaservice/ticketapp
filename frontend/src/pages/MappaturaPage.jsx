@@ -270,6 +270,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             return;
         }
         const sim = d3.forceSimulation(nodeList)
+            .velocityDecay(0.6) // Aumenta attrito per rendere nodi meno "molleggianti"
             .force('charge', d3.forceManyBody().strength(-400))
             .force('collide', d3.forceCollide().radius(50))
             .on('tick', () => setNodes([...sim.nodes()]));
