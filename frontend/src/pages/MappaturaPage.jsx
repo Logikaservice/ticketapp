@@ -966,6 +966,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         const id = node.id;
         const isVirtual = (node.details?.device_type || '').toLowerCase().includes('unmanaged');
         const aziendaId = parseAziendaId(selectedCompanyId);
+        
+        // Estrai MAC address qui, fuori dai blocchi, per poterlo usare dopo
+        const macAddress = node.details?.mac_address;
+        
         if (aziendaId) {
             try {
                 if (isVirtual) {
@@ -981,7 +985,6 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     setRefreshDevicesKey(k => k + 1);
                 } else {
                     // Usa MAC address invece di device_id per eliminare il nodo
-                    const macAddress = node.details?.mac_address;
                     if (!macAddress) {
                         alert('Impossibile eliminare: dispositivo senza MAC address');
                         return;
@@ -1016,8 +1019,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         const nextNodes = nodes.filter(n => {
             // Rimuovi per ID
             if (Number(n.id) === Number(id)) return false;
-            // Rimuovi anche per MAC (per sicurezza)
-            if (macAddress && n.details?.mac_address) {
+            // Rimuovi anche per MAC (per sicurezza) - solo se non è virtuale
+            if (!isVirtual && macAddress && n.details?.mac_address) {
                 const nodeMac = n.details.mac_address.replace(/[:-]/g, '').toUpperCase();
                 const deleteMac = macAddress.replace(/[:-]/g, '').toUpperCase();
                 if (nodeMac === deleteMac) return false;
