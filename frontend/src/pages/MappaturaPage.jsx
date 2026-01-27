@@ -229,8 +229,9 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         const nodeId = String(node.id);
                         const prevState = prevStates.get(nodeId);
                         
-                        // Cambio di stato
+                        // Cambio di stato: online -> offline o offline -> online
                         if (prevState && prevState.status !== node.status) {
+                            // Dispositivo cambia stato: lampeggia
                             newBlinking.add(nodeId);
                             // Rimuovi dal lampeggio dopo 3 secondi
                             setTimeout(() => {
@@ -240,19 +241,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     return next;
                                 });
                             }, 3000);
-                        } else if (!prevState && node.status === 'online') {
-                            // Nuovo nodo online: lampeggia verde
-                            newBlinking.add(nodeId);
-                            setTimeout(() => {
-                                setBlinkingNodes(prev => {
-                                    const next = new Set(prev);
-                                    next.delete(nodeId);
-                                    return next;
-                                });
-                            }, 3000);
                         }
+                        // NOTA: Non facciamo lampeggiare i nuovi nodi al primo caricamento
+                        // Solo quando cambiano stato durante l'uso
                         
-                        // Aggiorna stato precedente
+                        // Aggiorna stato precedente (anche se è il primo caricamento)
                         prevStates.set(nodeId, {
                             status: node.status,
                             isNew: !prevState
