@@ -2470,12 +2470,15 @@ module.exports = (pool, io) => {
       // Se l'agent può inviare dati, significa che è online
       try {
         const agentStatusCheck = await pool.query(
-          'SELECT status FROM network_agents WHERE id = $1',
+          'SELECT status, last_heartbeat FROM network_agents WHERE id = $1',
           [agentId]
         );
         
         if (agentStatusCheck.rows.length > 0 && agentStatusCheck.rows[0].status !== 'online') {
           const previousStatus = agentStatusCheck.rows[0].status;
+          const lastHeartbeat = agentStatusCheck.rows[0].last_heartbeat;
+          const wasOffline = previousStatus === 'offline';
+          
           await pool.query(
             `UPDATE network_agents 
              SET status = 'online', last_heartbeat = NOW(), updated_at = NOW()
@@ -2486,12 +2489,70 @@ module.exports = (pool, io) => {
           console.log(`🟢 Agent ${agentId} (${req.agent.agent_name || 'N/A'}) aggiornato a online tramite scan-results (era ${previousStatus})`);
           
           // Emetti evento WebSocket per aggiornare la lista agenti in tempo reale
-          if (io && previousStatus === 'offline') {
+          if (io && wasOffline) {
             io.to(`role:tecnico`).to(`role:admin`).emit('network-monitoring-update', {
               type: 'agent-status-changed',
               agentId,
               status: 'online'
             });
+          }
+          
+          // Crea evento "tornato online" nella tabella network_agent_events
+          if (wasOffline) {
+            try {
+              await ensureTables();
+              
+              // Risolvi eventuali eventi offline precedenti
+              await pool.query(
+                `UPDATE network_agent_events 
+                 SET resolved_at = NOW()
+                 WHERE agent_id = $1 
+                   AND event_type = 'offline' 
+                   AND resolved_at IS NULL`,
+                [agentId]
+              );
+              
+              // Calcola durata offline
+              const offlineDuration = lastHeartbeat ? Math.floor((Date.now() - new Date(lastHeartbeat).getTime()) / 60000) : 0;
+              
+              // Verifica se esiste già un evento online recente (ultimi 2 minuti)
+              const existingOnline = await pool.query(
+                `SELECT id FROM network_agent_events 
+                 WHERE agent_id = $1 
+                   AND event_type = 'online' 
+                   AND detected_at > NOW() - INTERVAL '2 minutes'
+                 LIMIT 1`,
+                [agentId]
+              );
+              
+              if (existingOnline.rows.length === 0) {
+                await pool.query(
+                  `INSERT INTO network_agent_events (agent_id, event_type, event_data, detected_at, notified)
+                   VALUES ($1, 'online', $2, NOW(), FALSE)`,
+                  [agentId, JSON.stringify({
+                    offline_duration_minutes: offlineDuration,
+                    last_heartbeat_before: lastHeartbeat,
+                    detected_at: new Date().toISOString(),
+                    source: 'scan-results'
+                  })]
+                );
+                
+                console.log(`📝 Evento "Agent Online" creato per agent ${agentId} (era offline da ${offlineDuration} min)`);
+                
+                // Emetti evento WebSocket
+                if (io) {
+                  io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
+                    agentId,
+                    eventType: 'online',
+                    message: `Agent ${req.agent.agent_name || agentId} tornato online`,
+                    detectedAt: new Date().toISOString()
+                  });
+                }
+              }
+            } catch (eventErr) {
+              console.error('❌ Errore creazione evento agent online da scan-results:', eventErr);
+              // Non bloccare il processo, continua
+            }
           }
         }
       } catch (statusErr) {
