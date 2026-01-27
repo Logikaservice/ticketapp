@@ -588,9 +588,11 @@ module.exports = (pool, io) => {
               device_id INTEGER NOT NULL,
               x DOUBLE PRECISION,
               y DOUBLE PRECISION,
+              is_locked BOOLEAN DEFAULT false,
               PRIMARY KEY (azienda_id, device_id)
             );
           `);
+          try { await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false;`); } catch (e) { }
           await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_azienda ON mappatura_nodes(azienda_id);`);
         } catch (migErr) {
           if (!migErr.message?.includes('does not exist')) {
@@ -2804,6 +2806,7 @@ module.exports = (pool, io) => {
           device_id INTEGER NOT NULL,
           x DOUBLE PRECISION,
           y DOUBLE PRECISION,
+          is_locked BOOLEAN DEFAULT false,
           PRIMARY KEY (azienda_id, device_id)
         );
       `);
@@ -2814,6 +2817,7 @@ module.exports = (pool, io) => {
         await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS device_id INTEGER`);
         await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS x DOUBLE PRECISION`);
         await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS y DOUBLE PRECISION`);
+        await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false`);
         // Ensure azienda_id is NOT NULL if possible, but hard to enforce on existing data without default
       } catch (alterErr) {
         console.warn('⚠️ ensureMappaturaNodesTable (alter):', alterErr.message);
@@ -2835,7 +2839,7 @@ module.exports = (pool, io) => {
       const aziendaId = parseInt(req.params.aziendaId, 10);
       if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
       const r = await pool.query(
-        `SELECT mn.device_id, mn.x, mn.y
+        `SELECT mn.device_id, mn.x, mn.y, mn.is_locked
          FROM mappatura_nodes mn
          INNER JOIN network_devices nd ON nd.id = mn.device_id
          INNER JOIN network_agents na ON na.id = nd.agent_id AND na.azienda_id = $1
@@ -2855,24 +2859,43 @@ module.exports = (pool, io) => {
       await ensureTables();
       await ensureMappaturaNodesTable();
       const aziendaId = parseInt(req.params.aziendaId, 10);
-      const deviceId = parseInt(req.body.device_id, 10);
-      if (isNaN(aziendaId) || aziendaId <= 0 || isNaN(deviceId)) return res.status(400).json({ error: 'Parametri non validi' });
-      const x = req.body.x != null ? parseFloat(req.body.x) : null;
-      const y = req.body.y != null ? parseFloat(req.body.y) : null;
-      const check = await pool.query(
-        `SELECT 1 FROM network_devices nd
-         INNER JOIN network_agents na ON na.id = nd.agent_id AND na.azienda_id = $1
-         WHERE nd.id = $2`,
-        [aziendaId, deviceId]
-      );
-      if (check.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato per questa azienda' });
-      await pool.query(
-        `INSERT INTO mappatura_nodes (azienda_id, device_id, x, y)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (azienda_id, device_id) DO UPDATE SET x = EXCLUDED.x, y = EXCLUDED.y`,
-        [aziendaId, deviceId, x, y]
-      );
-      res.status(201).json({ success: true, device_id: deviceId });
+      if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
+
+      // Normalizza input: array 'nodes' o singolo oggetto body
+      let nodes = [];
+      if (req.body.nodes && Array.isArray(req.body.nodes)) {
+        nodes = req.body.nodes;
+      } else if (req.body.device_id) {
+        nodes.push(req.body);
+      } else {
+        return res.status(400).json({ error: 'Parametri non validi (nodi richiesti)' });
+      }
+
+      for (const node of nodes) {
+        const deviceId = parseInt(node.id || node.device_id, 10);
+        if (isNaN(deviceId)) continue;
+
+        // Se undefined, passiamo null per usare COALESCE nel DB e mantenere valore attuale
+        const x = node.x !== undefined ? parseFloat(node.x) : null;
+        const y = node.y !== undefined ? parseFloat(node.y) : null;
+        // Mappa 'locked' (frontend) a 'is_locked' (db)
+        const isLocked = node.locked !== undefined ? !!node.locked : (node.is_locked !== undefined ? !!node.is_locked : null);
+
+        // Upsert intelligente: mantiene i valori esistenti se i nuovi sono null (grazie a COALESCE)
+        // Nota: non permette di settare esplicitamente a NULL, ma per x/y usiamo DELETE per rimuovere
+        await pool.query(
+          `INSERT INTO mappatura_nodes (azienda_id, device_id, x, y, is_locked)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (azienda_id, device_id) 
+           DO UPDATE SET 
+             x = COALESCE(EXCLUDED.x, mappatura_nodes.x),
+             y = COALESCE(EXCLUDED.y, mappatura_nodes.y),
+             is_locked = COALESCE(EXCLUDED.is_locked, mappatura_nodes.is_locked)`,
+          [aziendaId, deviceId, x, y, isLocked]
+        );
+      }
+
+      res.status(201).json({ success: true, processed: nodes.length });
     } catch (err) {
       console.error('❌ Errore POST mappatura-nodes:', err);
       res.status(500).json({ error: 'Errore interno del server' });
