@@ -3062,19 +3062,49 @@ module.exports = (pool, io) => {
       const aziendaId = parseInt(req.params.aziendaId, 10);
       if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
 
+      // Normalizza MAC per il matching
+      const normalizeMac = (mac) => {
+        if (!mac) return null;
+        return mac.replace(/[:-]/g, '').toUpperCase();
+      };
+
       // Normalizza input: array 'nodes' o singolo oggetto body
       let nodes = [];
       if (req.body.nodes && Array.isArray(req.body.nodes)) {
         nodes = req.body.nodes;
-      } else if (req.body.device_id) {
+      } else if (req.body.mac_address || req.body.device_id) {
         nodes.push(req.body);
       } else {
         return res.status(400).json({ error: 'Parametri non validi (nodi richiesti)' });
       }
 
       for (const node of nodes) {
-        const deviceId = parseInt(node.id || node.device_id, 10);
-        if (isNaN(deviceId)) continue;
+        // Cerca MAC address: può essere passato direttamente o recuperato da device_id
+        let macAddress = node.mac_address;
+        
+        if (!macAddress && (node.id || node.device_id)) {
+          // Se non c'è MAC ma c'è device_id, recuperalo dal database
+          const deviceId = parseInt(node.id || node.device_id, 10);
+          if (!isNaN(deviceId)) {
+            const deviceResult = await pool.query(
+              `SELECT mac_address FROM network_devices 
+               WHERE id = $1 AND mac_address IS NOT NULL AND mac_address != ''`,
+              [deviceId]
+            );
+            if (deviceResult.rows.length > 0) {
+              macAddress = deviceResult.rows[0].mac_address;
+            }
+          }
+        }
+        
+        if (!macAddress) {
+          console.warn('⚠️ POST mappatura-nodes: MAC address non trovato per nodo', node);
+          continue;
+        }
+        
+        // Normalizza MAC
+        const normalizedMac = normalizeMac(macAddress);
+        if (!normalizedMac) continue;
 
         // Se undefined, passiamo null per usare COALESCE nel DB e mantenere valore attuale
         const x = node.x !== undefined ? parseFloat(node.x) : null;
@@ -3083,16 +3113,16 @@ module.exports = (pool, io) => {
         const isLocked = node.locked !== undefined ? !!node.locked : (node.is_locked !== undefined ? !!node.is_locked : null);
 
         // Upsert intelligente: mantiene i valori esistenti se i nuovi sono null (grazie a COALESCE)
-        // Nota: non permette di settare esplicitamente a NULL, ma per x/y usiamo DELETE per rimuovere
+        // Usa mac_address normalizzato come chiave
         await pool.query(
-          `INSERT INTO mappatura_nodes (azienda_id, device_id, x, y, is_locked)
+          `INSERT INTO mappatura_nodes (azienda_id, mac_address, x, y, is_locked)
            VALUES ($1, $2, $3, $4, $5)
-           ON CONFLICT (azienda_id, device_id) 
+           ON CONFLICT (azienda_id, mac_address) 
            DO UPDATE SET 
              x = COALESCE(EXCLUDED.x, mappatura_nodes.x),
              y = COALESCE(EXCLUDED.y, mappatura_nodes.y),
              is_locked = COALESCE(EXCLUDED.is_locked, mappatura_nodes.is_locked)`,
-          [aziendaId, deviceId, x, y, isLocked]
+          [aziendaId, normalizedMac, x, y, isLocked]
         );
       }
 
