@@ -7,8 +7,6 @@ import {
 import { buildApiUrl } from '../utils/apiConfig';
 import * as d3 from 'd3-force';
 
-const MAPPATURA_STORAGE_KEY = (cid) => `mappatura_${cid}`;
-
 const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId }) => {
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState('');
@@ -31,7 +29,6 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const canvasContainerRef = useRef(null);
     const offsetRef = useRef(offset);
     const scaleRef = useRef(scale);
-    const saveLayoutTimeoutRef = useRef(null);
     const justDroppedRef = useRef(false);
 
     useEffect(() => {
@@ -49,7 +46,6 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
 
     const prevCompanyIdRef = useRef(null);
     const selectedCompanyIdRef = useRef(selectedCompanyId);
-    const saveToLsTimeoutRef = useRef(null);
     useEffect(() => { selectedCompanyIdRef.current = selectedCompanyId; }, [selectedCompanyId]);
 
     useEffect(() => {
@@ -113,77 +109,18 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     setNodes(mapNodes);
                     setLinks(mapLinks);
                     ensureSimulation(mapNodes, mapLinks);
-                    try {
-                        const pay = { deviceIds: mapNodes.map(n => n.id), positions: Object.fromEntries(mapNodes.map(n => [String(n.id), { x: n.x, y: n.y }])), links: mapLinks.map(l => ({ source: l.source?.id ?? l.source, target: l.target?.id ?? l.target })) };
-                        localStorage.setItem(MAPPATURA_STORAGE_KEY(companyId), JSON.stringify(pay));
-                    } catch (_) {}
                     return;
                 }
                 const errBody = await res.text();
                 console.error('❌ Mappatura GET mappatura-nodes fallito:', res.status, errBody);
-                const fallback = (() => { try { return JSON.parse(localStorage.getItem(MAPPATURA_STORAGE_KEY(companyId)) || 'null'); } catch { return null; } })();
-                if (fallback && Array.isArray(fallback.deviceIds) && fallback.deviceIds.length > 0) {
-                    const deviceIds = new Set(fallback.deviceIds.map(Number));
-                    const idToPos = (fallback.positions && typeof fallback.positions === 'object') ? fallback.positions : {};
-                    const mapNodes = [];
-                    for (const d of devices) {
-                        const did = Number(d.id);
-                        if (!deviceIds.has(did)) continue;
-                        const pos = idToPos[String(did)] || idToPos[did] || { x: 0, y: 0 };
-                        mapNodes.push({
-                            id: d.id,
-                            type: mapDeviceType(d),
-                            label: (d.notes || d.hostname || '').trim() || d.ip_address,
-                            ip: d.ip_address,
-                            status: d.status,
-                            details: d,
-                            x: pos.x ?? 0,
-                            y: pos.y ?? 0
-                        });
-                    }
-                    const mapLinks = (Array.isArray(fallback.links) ? fallback.links : []).map(l => ({ source: l.source, target: l.target })).filter(l => deviceIds.has(Number(l.source)) && deviceIds.has(Number(l.target)));
-                    if (ac.signal.aborted || selectedCompanyIdRef.current !== companyId) return;
-                    setNodes(mapNodes);
-                    setLinks(mapLinks);
-                    ensureSimulation(mapNodes, mapLinks);
-                }
             } catch (e) {
                 if (e?.name === 'AbortError') return;
                 console.error('Errore caricamento mappatura:', e);
-                const fallback = (() => { try { return JSON.parse(localStorage.getItem(MAPPATURA_STORAGE_KEY(companyId)) || 'null'); } catch { return null; } })();
-                if (fallback && Array.isArray(fallback.deviceIds) && fallback.deviceIds.length > 0) {
-                    const deviceIds = new Set(fallback.deviceIds.map(Number));
-                    const idToPos = (fallback.positions && typeof fallback.positions === 'object') ? fallback.positions : {};
-                    const mapNodes = [];
-                    for (const d of devices) {
-                        const did = Number(d.id);
-                        if (!deviceIds.has(did)) continue;
-                        const pos = idToPos[String(did)] || idToPos[did] || { x: 0, y: 0 };
-                        mapNodes.push({ id: d.id, type: mapDeviceType(d), label: (d.notes || d.hostname || '').trim() || d.ip_address, ip: d.ip_address, status: d.status, details: d, x: pos.x ?? 0, y: pos.y ?? 0 });
-                    }
-                    const mapLinks = (Array.isArray(fallback.links) ? fallback.links : []).map(l => ({ source: l.source, target: l.target })).filter(l => deviceIds.has(Number(l.source)) && deviceIds.has(Number(l.target)));
-                    if (selectedCompanyIdRef.current !== companyId) return;
-                    setNodes(mapNodes);
-                    setLinks(mapLinks);
-                    ensureSimulation(mapNodes, mapLinks);
-                }
             }
         };
         loadMapFromDb();
         return () => ac.abort();
     }, [selectedCompanyId, loading, devices]);
-
-    useEffect(() => {
-        if (!selectedCompanyId || nodes.length === 0) return;
-        if (saveToLsTimeoutRef.current) clearTimeout(saveToLsTimeoutRef.current);
-        saveToLsTimeoutRef.current = setTimeout(() => {
-            try {
-                const pay = { deviceIds: nodes.map(n => n.id), positions: Object.fromEntries(nodes.map(n => [String(n.id), { x: n.x, y: n.y }])), links: links.map(l => ({ source: l.source?.id ?? l.source, target: l.target?.id ?? l.target })) };
-                localStorage.setItem(MAPPATURA_STORAGE_KEY(selectedCompanyId), JSON.stringify(pay));
-            } catch (_) {}
-        }, 500);
-        return () => { if (saveToLsTimeoutRef.current) clearTimeout(saveToLsTimeoutRef.current); };
-    }, [selectedCompanyId, nodes, links]);
 
     const mapDeviceType = (d) => {
         const t = (d.device_type || '').toLowerCase();
@@ -354,14 +291,6 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     }, []);
 
     useEffect(() => {
-        if (!selectedCompanyId || nodes.length === 0) return;
-        const iv = setInterval(() => {
-            saveLayoutRef.current?.();
-        }, 20000);
-        return () => clearInterval(iv);
-    }, [selectedCompanyId, nodes.length]);
-
-    useEffect(() => {
         return () => { if (simulationRef.current) simulationRef.current.stop(); };
     }, []);
 
@@ -405,34 +334,36 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         if (nodes.length === 0) return;
         ensureSimulation(nodes, links);
         if (simulationRef.current) simulationRef.current.alpha(1).restart();
-        if (!selectedCompanyId) return;
-        setTimeout(async () => {
-            const sim = simulationRef.current;
-            const list = sim ? sim.nodes() : nodes;
-            const payload = list.map(n => ({ id: n.id, x: n.x, y: n.y }));
-            try {
-                await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/mappatura-nodes/layout`), {
-                    method: 'PUT',
-                    headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nodes: payload })
-                });
-            } catch (e) { console.error('Errore salvataggio layout:', e); }
-        }, 2000);
+        saveLayoutRef.current?.();
     };
 
     const handleRemoveFromMap = async (node) => {
         if (!node) return;
         const id = node.id;
+        const isVirtual = (node.details?.device_type || '').toLowerCase().includes('unmanaged');
         if (selectedCompanyId) {
             try {
-                const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/mappatura-nodes/${id}`), {
-                    method: 'DELETE',
-                    headers: getAuthHeader()
-                });
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    alert(err.error || 'Errore rimozione dalla mappa');
-                    return;
+                if (isVirtual) {
+                    const delRes = await fetch(buildApiUrl(`/api/network-monitoring/devices/${id}`), {
+                        method: 'DELETE',
+                        headers: getAuthHeader()
+                    });
+                    if (!delRes.ok) {
+                        const err = await delRes.json().catch(() => ({}));
+                        alert(err.error || 'Errore eliminazione switch virtuale');
+                        return;
+                    }
+                    setRefreshDevicesKey(k => k + 1);
+                } else {
+                    const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/mappatura-nodes/${id}`), {
+                        method: 'DELETE',
+                        headers: getAuthHeader()
+                    });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        alert(err.error || 'Errore rimozione dalla mappa');
+                        return;
+                    }
                 }
             } catch (e) {
                 alert('Errore: ' + e.message);
@@ -465,18 +396,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             node.fx = null; node.fy = null;
             window.removeEventListener('mousemove', onMove);
             window.removeEventListener('mouseup', onUp);
-            if (saveLayoutTimeoutRef.current) clearTimeout(saveLayoutTimeoutRef.current);
-            saveLayoutTimeoutRef.current = setTimeout(() => {
-                if (!selectedCompanyId) return;
-                const sim = simulationRef.current;
-                const list = sim ? sim.nodes() : [];
-                if (list.length === 0) return;
-                fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/mappatura-nodes/layout`), {
-                    method: 'PUT',
-                    headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nodes: list.map(n => ({ id: n.id, x: n.x, y: n.y })) })
-                }).catch(e => console.error('Errore salvataggio layout:', e));
-            }, 800);
+            saveLayoutRef.current?.();
         };
         window.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onUp);
