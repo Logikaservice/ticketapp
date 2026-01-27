@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
     ArrowLeft, ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw,
     Monitor, Printer, Wifi, Router, X, Trash2
@@ -14,6 +15,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const [nodes, setNodes] = useState([]);
     const [links, setLinks] = useState([]);
     const [selectedNode, setSelectedNode] = useState(null);
+    const [selectedDevice, setSelectedDevice] = useState(null);
+    const [hoveredDevice, setHoveredDevice] = useState(null);
+    const [tooltipRect, setTooltipRect] = useState(null);
+    const hoveredRowRef = useRef(null);
     const [scale, setScale] = useState(1);
     const [offset, setOffset] = useState({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
     const [isDraggingCanvas, setIsDraggingCanvas] = useState(false);
@@ -24,6 +29,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const offsetRef = useRef(offset);
     const scaleRef = useRef(scale);
     const saveLayoutTimeoutRef = useRef(null);
+    const justDroppedRef = useRef(false);
 
     useEffect(() => {
         const fetchCompanies = async () => {
@@ -201,6 +207,24 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             } catch (e) { console.error('Errore set-parent:', e); }
         }
     };
+
+    useEffect(() => {
+        if (!hoveredDevice) {
+            setTooltipRect(null);
+            return;
+        }
+        const el = hoveredRowRef.current;
+        if (!el) return;
+        const measure = () => setTooltipRect(el.getBoundingClientRect());
+        measure();
+        const scrollParent = el.closest('.overflow-y-auto');
+        scrollParent?.addEventListener('scroll', measure);
+        window.addEventListener('resize', measure);
+        return () => {
+            scrollParent?.removeEventListener('scroll', measure);
+            window.removeEventListener('resize', measure);
+        };
+    }, [hoveredDevice]);
 
     useEffect(() => {
         return () => { if (simulationRef.current) simulationRef.current.stop(); };
@@ -426,7 +450,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             </button>
                         </div>
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                            <h4 className="px-3 py-2 text-xs font-bold text-gray-600 uppercase border-b border-gray-100 shrink-0" title="Clicca per aggiungere · Trascina su un pallino per associare come figlio">IP presenti e individuati</h4>
+                            <h4 className="px-3 py-2 text-xs font-bold text-gray-600 uppercase border-b border-gray-100 shrink-0" title="Clicca per i dati a destra · Trascina in mappa per aggiungere · Trascina su un pallino per associare come figlio">IP presenti e individuati</h4>
                             <div className="flex-1 overflow-y-auto p-2 space-y-1">
                                 {loading && <div className="flex items-center gap-2 text-gray-500 text-sm py-2"><Loader size={14} className="animate-spin" /> Caricamento…</div>}
                                 {!loading && ipList.length === 0 && (
@@ -435,18 +459,23 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     </p>
                                 )}
                                 {!loading && ipList.map(d => {
-                                    const name = (d.notes || d.hostname || '').trim() || d.ip_address;
+                                    const sel = selectedNode?.id === d.id || selectedDevice?.id === d.id;
                                     return (
                                         <div
                                             key={d.id}
+                                            ref={hoveredDevice?.id === d.id ? hoveredRowRef : undefined}
                                             draggable
                                             onDragStart={(e) => {
                                                 e.dataTransfer.setData('application/json', JSON.stringify({ deviceId: d.id, device: d }));
-                                                e.dataTransfer.effectAllowed = 'link';
+                                                e.dataTransfer.effectAllowed = 'copy';
                                             }}
-                                            onClick={() => addNodeFromDevice(d)}
-                                            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-mono truncate border transition cursor-grab active:cursor-grabbing ${selectedNode?.id === d.id ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}
-                                            title={`${name}. Trascina su un pallino per associarlo come figlio.`}
+                                            onMouseEnter={() => setHoveredDevice(d)}
+                                            onMouseLeave={() => setHoveredDevice(null)}
+                                            onClick={() => {
+                                                setSelectedDevice(d);
+                                                setSelectedNode(null);
+                                            }}
+                                            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-mono truncate border transition cursor-grab active:cursor-grabbing ${sel ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}
                                         >
                                             {d.ip_address}
                                         </div>
@@ -461,11 +490,31 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                 <div
                     ref={canvasContainerRef}
                     className="flex-1 min-h-0 bg-gray-100 relative overflow-hidden cursor-move touch-none"
-                    onClick={() => setSelectedNode(null)}
+                    onClick={() => {
+                        if (justDroppedRef.current) {
+                            justDroppedRef.current = false;
+                            return;
+                        }
+                        setSelectedNode(null);
+                        setSelectedDevice(null);
+                    }}
                     onMouseDown={handleCanvasMouseDown}
                     onMouseMove={handleCanvasMouseMove}
                     onMouseUp={handleCanvasMouseUp}
                     onMouseLeave={handleCanvasMouseUp}
+                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
+                    onDrop={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        justDroppedRef.current = true;
+                        try {
+                            const raw = e.dataTransfer.getData('application/json');
+                            if (!raw) return;
+                            const { device } = JSON.parse(raw);
+                            if (device) await addNodeFromDevice(device);
+                            setSelectedDevice(null);
+                        } catch (_) {}
+                    }}
                     style={{ cursor: isDraggingCanvas ? 'grabbing' : 'grab' }}
                 >
                     <div
@@ -491,7 +540,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                             <div className="bg-white/90 backdrop-blur-sm px-6 py-4 rounded-xl border border-gray-200 shadow-lg text-center">
                                 <p className="text-gray-600 font-medium">Mappa vuota</p>
-                                <p className="text-gray-500 text-sm mt-1">Clicca un IP nella lista per aggiungerlo. Trascina un IP su un pallino per associarlo come figlio.</p>
+                                <p className="text-gray-500 text-sm mt-1">Trascina un IP dalla lista qui per aggiungerlo. Trascina un IP su un pallino per associarlo come figlio. Clicca un IP per vedere i dati a destra.</p>
                             </div>
                         </div>
                     )}
@@ -517,7 +566,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     cursor: 'pointer', zIndex: selectedNode?.id === node.id ? 50 : 10
                                 }}
                                 onMouseDown={(e) => handleNodeMouseDown(e, node)}
-                                onClick={(e) => { e.stopPropagation(); setSelectedNode(node); }}
+                                onClick={(e) => { e.stopPropagation(); setSelectedNode(node); setSelectedDevice(null); }}
                                 onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'link'; }}
                                 onDrop={(e) => {
                                     e.preventDefault();
@@ -542,12 +591,22 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                 </div>
 
                 {/* Right panel */}
-                {selectedNode && (
-                    <div className="w-80 shrink-0 bg-white shadow-xl border-l border-gray-200 p-4 flex flex-col animate-slideInRight z-50">
-                        <div className="flex justify-between items-start mb-4">
-                            <h3 className="text-lg font-bold text-gray-800 break-all">{selectedNode.label || selectedNode.ip}</h3>
-                            <button onClick={() => setSelectedNode(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
-                        </div>
+                {(selectedNode || selectedDevice) && (() => {
+                    const isNode = !!selectedNode;
+                    const display = isNode ? selectedNode : {
+                        id: selectedDevice.id,
+                        label: (selectedDevice.notes || selectedDevice.hostname || '').trim() || selectedDevice.ip_address,
+                        ip: selectedDevice.ip_address,
+                        status: selectedDevice.status,
+                        details: selectedDevice
+                    };
+                    const onMap = nodes.some(n => n.id === display.id);
+                    return (
+                        <div className="w-80 shrink-0 bg-white shadow-xl border-l border-gray-200 p-4 flex flex-col animate-slideInRight z-50">
+                            <div className="flex justify-between items-start mb-4">
+                                <h3 className="text-lg font-bold text-gray-800 break-all">{display.label || display.ip}</h3>
+                                <button onClick={() => { setSelectedNode(null); setSelectedDevice(null); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+                            </div>
                         <div className="space-y-3 text-sm">
                             <div className="flex flex-col gap-1 border-b pb-2">
                                 <label className="text-gray-500 text-xs font-medium">Nome (al posto dell'IP in mappa)</label>
@@ -555,11 +614,15 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     type="text"
                                     placeholder="Es. Router ufficio, PC reception…"
                                     className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                    value={selectedNode.details?.notes ?? selectedNode.details?.hostname ?? ''}
-                                    onChange={(e) => setSelectedNode(prev => prev ? { ...prev, details: { ...prev.details, notes: e.target.value } } : null)}
+                                    value={display.details?.notes ?? display.details?.hostname ?? ''}
+                                    onChange={(e) => {
+                                        const v = e.target.value;
+                                        if (isNode && selectedNode) setSelectedNode(prev => prev ? { ...prev, details: { ...prev.details, notes: v } } : null);
+                                        else if (selectedDevice) setSelectedDevice(prev => prev ? { ...prev, notes: v } : null);
+                                    }}
                                     onBlur={async (e) => {
                                         const v = (e.target.value || '').trim();
-                                        const nodeId = selectedNode?.id;
+                                        const nodeId = display?.id;
                                         if (!nodeId) return;
                                         try {
                                             const res = await fetch(buildApiUrl(`/api/network-monitoring/devices/${nodeId}/notes`), {
@@ -567,7 +630,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({ notes: v })
                                             });
-                                            if (res.ok && simulationRef.current) {
+                                            if (res.ok && simulationRef.current && isNode) {
                                                 const simNodes = simulationRef.current.nodes();
                                                 const n = simNodes.find(x => x.id === nodeId);
                                                 if (n) n.label = v || n.ip;
@@ -579,27 +642,45 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             </div>
                             <div className="flex justify-between border-b pb-2">
                                 <span className="text-gray-500">IP</span>
-                                <span className="font-mono font-medium">{selectedNode.ip}</span>
+                                <span className="font-mono font-medium">{display.ip}</span>
                             </div>
                             <div className="flex justify-between border-b pb-2">
                                 <span className="text-gray-500">Status</span>
-                                <span className={`font-bold ${selectedNode.status === 'online' ? 'text-green-600' : 'text-red-600'}`}>{selectedNode.status?.toUpperCase() || 'N/A'}</span>
+                                <span className={`font-bold ${display.status === 'online' ? 'text-green-600' : 'text-red-600'}`}>{display.status?.toUpperCase() || 'N/A'}</span>
                             </div>
-                            <div className="pt-3 border-t border-gray-100">
-                                <button
-                                    type="button"
-                                    onClick={() => handleRemoveFromMap(selectedNode)}
-                                    className="w-full py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-medium text-sm flex items-center justify-center gap-2"
-                                >
-                                    <Trash2 size={16} />
-                                    Elimina dalla mappa
-                                </button>
-                                <p className="text-xs text-gray-400 mt-1.5 text-center">L’IP tornerà nella lista a sinistra.</p>
-                            </div>
+                            {onMap && (
+                                <div className="pt-3 border-t border-gray-100">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemoveFromMap(selectedNode)}
+                                        className="w-full py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-medium text-sm flex items-center justify-center gap-2"
+                                    >
+                                        <Trash2 size={16} />
+                                        Elimina dalla mappa
+                                    </button>
+                                    <p className="text-xs text-gray-400 mt-1.5 text-center">L'IP tornerà nella lista a sinistra.</p>
+                                </div>
+                            )}
                         </div>
                     </div>
-                )}
+                    );
+                })()}
             </div>
+
+            {hoveredDevice && tooltipRect && createPortal(
+                <div
+                    className="fixed z-[200] w-64 py-2 px-3 bg-white border border-gray-200 rounded-lg shadow-lg text-sm"
+                    style={{ left: tooltipRect.right + 8, top: tooltipRect.top }}
+                >
+                    <div className="font-semibold text-gray-700 mb-1">Titolo</div>
+                    <div className="text-gray-800 mb-2">{hoveredDevice.device_type || '-'}</div>
+                    <div className="font-semibold text-gray-700 mb-1">Utente</div>
+                    <div className="text-gray-800 mb-2">{hoveredDevice.device_username || '-'}</div>
+                    <div className="font-semibold text-gray-700 mb-1">Percorso</div>
+                    <div className="text-gray-800">{hoveredDevice.device_path || '-'}</div>
+                </div>,
+                document.body
+            )}
         </div>
     );
 };
