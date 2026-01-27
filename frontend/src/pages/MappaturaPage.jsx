@@ -819,29 +819,56 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const getNodeColor = (node) => {
         const nodeId = String(node.id);
         const isBlinking = blinkingNodes.has(nodeId);
+        
+        // Verifica se è uno switch virtuale (unmanaged_switch)
+        const isVirtualSwitch = node.type === 'unmanaged_switch' || 
+                                (node.details?.device_type || '').toLowerCase().includes('unmanaged_switch');
+        
+        // Switch virtuali: sempre arancione
+        if (isVirtualSwitch) {
+            return 'bg-orange-500 border-orange-700';
+        }
+        
+        // Verifica se il nodo è padre (ha figli collegati)
+        const isParent = links.some(link => {
+            const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+            return sourceId === node.id;
+        });
+        
         // Verifica problemi di disconnessione: se il dispositivo ha uno stato instabile o frequenti cambi online/offline
-        // Possiamo usare previous_ip o altri indicatori, per ora usiamo un flag se presente
         const hasDisconnectionIssues = node.details?.previous_ip && node.status === 'offline' && 
                                        (node.details?.status_changes_count > 3 || node.details?.has_connection_issues);
         
         // Problemi di disconnessione: lampeggio rosso continuo (sempre lampeggiante)
         if (hasDisconnectionIssues) {
-            return 'bg-red-600 border-red-800 animate-pulse';
+            return isParent 
+                ? 'bg-red-700 border-red-900 animate-pulse' 
+                : 'bg-red-600 border-red-800 animate-pulse';
         }
         
-        // Router: viola
-        if (node.type === 'router') return 'bg-indigo-500 border-indigo-700';
+        // Router: viola (più scuro se è padre)
+        if (node.type === 'router') {
+            return isParent ? 'bg-indigo-600 border-indigo-800' : 'bg-indigo-500 border-indigo-700';
+        }
         
-        // Offline: rosso (con lampeggio se appena cambiato)
+        // Offline: rosso (con lampeggio se appena cambiato, più scuro se è padre)
         if (node.status === 'offline') {
-            return isBlinking ? 'bg-red-600 border-red-800 animate-pulse' : 'bg-red-500 border-red-700';
+            if (isBlinking) {
+                return isParent ? 'bg-red-700 border-red-900 animate-pulse' : 'bg-red-600 border-red-800 animate-pulse';
+            }
+            return isParent ? 'bg-red-600 border-red-800' : 'bg-red-500 border-red-700';
         }
         
-        // Warning: arancione
-        if (node.status === 'warning') return 'bg-orange-500 border-orange-700';
+        // Warning: arancione (più scuro se è padre)
+        if (node.status === 'warning') {
+            return isParent ? 'bg-orange-600 border-orange-800' : 'bg-orange-500 border-orange-700';
+        }
         
-        // Online: verde (con lampeggio se appena cambiato)
-        return isBlinking ? 'bg-green-600 border-green-800 animate-pulse' : 'bg-green-500 border-green-700';
+        // Online: verde (con lampeggio se appena cambiato, più scuro se è padre)
+        if (isBlinking) {
+            return isParent ? 'bg-green-700 border-green-900 animate-pulse' : 'bg-green-600 border-green-800 animate-pulse';
+        }
+        return isParent ? 'bg-green-600 border-green-800' : 'bg-green-500 border-green-700';
     };
 
     return (
@@ -893,31 +920,31 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             <div className="flex-1 flex min-h-0">
                 {/* Left: toolbar + IP list */}
                 {selectedCompanyId && (
-                    <div className="w-64 shrink-0 flex flex-col bg-white border-r border-gray-200 overflow-hidden">
-                        <div className="p-3 flex flex-col gap-2 border-b border-gray-100 shrink-0">
+                    <div className="w-48 shrink-0 flex flex-col bg-white border-r border-gray-200 overflow-hidden">
+                        <div className="p-2 flex flex-col gap-1.5 border-b border-gray-100 shrink-0">
                             <button
-                                className="bg-white p-2 rounded-lg shadow border border-gray-200 hover:bg-gray-50 flex items-center justify-center gap-2"
+                                className="bg-white p-1.5 rounded shadow border border-gray-200 hover:bg-gray-50 flex items-center justify-center gap-1.5"
                                 title="Aggiungi Switch Unmanaged"
                                 onClick={handleAddVirtualNode}
                             >
-                                <Server size={20} className="text-blue-600" />
-                                <span className="text-sm font-medium">Aggiungi Switch Unmanaged</span>
+                                <Server size={16} className="text-blue-600" />
+                                <span className="text-xs font-medium">Aggiungi Switch</span>
                             </button>
                             <button
-                                className="bg-white p-2 rounded-lg shadow border border-gray-200 hover:bg-gray-50 flex items-center justify-center gap-2"
+                                className="bg-white p-1.5 rounded shadow border border-gray-200 hover:bg-gray-50 flex items-center justify-center gap-1.5"
                                 title="Aggiorna Layout"
                                 onClick={handleRefreshLayout}
                             >
-                                <RotateCw size={20} className="text-gray-600" />
-                                <span className="text-sm font-medium">Aggiorna Layout</span>
+                                <RotateCw size={16} className="text-gray-600" />
+                                <span className="text-xs font-medium">Aggiorna Layout</span>
                             </button>
                         </div>
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                            <h4 className="px-3 py-2 text-xs font-bold text-gray-600 uppercase border-b border-gray-100 shrink-0" title="Clicca per i dati a destra · Trascina in mappa per aggiungere · Trascina su un pallino per associare come figlio">IP presenti e individuati</h4>
-                            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                                {loading && <div className="flex items-center gap-2 text-gray-500 text-sm py-2"><Loader size={14} className="animate-spin" /> Caricamento…</div>}
+                            <h4 className="px-2 py-1 text-[10px] font-bold text-gray-600 uppercase border-b border-gray-100 shrink-0" title="Clicca per i dati a destra · Trascina in mappa per aggiungere · Trascina su un pallino per associare come figlio">IP presenti e individuati</h4>
+                            <div className="flex-1 overflow-y-auto p-1 space-y-0.5">
+                                {loading && <div className="flex items-center gap-1 text-gray-500 text-xs py-1"><Loader size={12} className="animate-spin" /> Caricamento…</div>}
                                 {!loading && ipList.length === 0 && (
-                                    <p className="text-sm text-gray-400 py-2">
+                                    <p className="text-xs text-gray-400 py-1">
                                         {devices.some(d => d.ip_address) ? 'Tutti in mappa. Elimina un nodo per far riapparire l’IP.' : 'Nessun IP.'}
                                     </p>
                                 )}
@@ -939,7 +966,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 setSelectedDevice(d);
                                                 setSelectedNode(null);
                                             }}
-                                            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-mono truncate border transition cursor-grab active:cursor-grabbing ${
+                                            className={`w-full text-left px-1.5 py-0.5 rounded text-xs font-mono truncate border transition cursor-grab active:cursor-grabbing flex items-center gap-1.5 ${
                                                 sel 
                                                     ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200' 
                                                     : isNew 
@@ -947,7 +974,15 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                         : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                                             }`}
                                         >
-                                            {d.ip_address}
+                                            {/* Pallino indicatore stato */}
+                                            <div className={`w-2 h-2 rounded-full shrink-0 ${
+                                                d.status === 'online' 
+                                                    ? 'bg-green-500' 
+                                                    : d.status === 'offline' 
+                                                        ? 'bg-red-500' 
+                                                        : 'bg-gray-400'
+                                            }`} title={d.status || 'unknown'}></div>
+                                            <span className="truncate">{d.ip_address}</span>
                                         </div>
                                     );
                                 })}
