@@ -61,7 +61,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const prevNodeStatesRef = useRef(new Map()); // Map<nodeId, { status, isNew }>
     const [blinkingNodes, setBlinkingNodes] = useState(new Set()); // Set<nodeId> per nodi che stanno lampeggiando
     const [newDevicesInList, setNewDevicesInList] = useState(new Set()); // Set<deviceId> per nuovi dispositivi nella lista (gialli)
-    const prevDevicesRef = useRef(new Set()); // Set<deviceId> per tracciare dispositivi precedenti
+    const seenMacAddressesRef = useRef(new Set()); // Set<macAddress> per tracciare MAC già visti (normalizzati)
+    const isInitialLoadRef = useRef(true); // Flag per il primo caricamento
     const [hoveredNode, setHoveredNode] = useState(null); // Nodo su cui è il mouse per tooltip
 
     useEffect(() => {
@@ -80,6 +81,16 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const prevCompanyIdRef = useRef(null);
     const selectedCompanyIdRef = useRef(selectedCompanyId);
     useEffect(() => { selectedCompanyIdRef.current = selectedCompanyId; }, [selectedCompanyId]);
+    
+    // Reset del tracciamento quando cambia azienda
+    useEffect(() => {
+        if (prevCompanyIdRef.current !== null && prevCompanyIdRef.current !== selectedCompanyId) {
+            // Cambio azienda: reset del tracciamento
+            seenMacAddressesRef.current.clear();
+            isInitialLoadRef.current = true;
+            setNewDevicesInList(new Set());
+        }
+    }, [selectedCompanyId]);
 
     const parseAziendaId = (v) => {
         const n = parseInt(v, 10);
@@ -102,20 +113,42 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                 if (res.ok) {
                     const newDevices = await res.json();
                     
-                    // Rileva nuovi dispositivi nella lista
-                    const currentDeviceIds = new Set(prevDevicesRef.current);
-                    const newDeviceIds = new Set(newDevices.map(d => String(d.id)));
+                    // Funzione per normalizzare MAC address
+                    const normalizeMac = (mac) => {
+                        if (!mac) return null;
+                        return mac.replace(/[\s:.-]/g, '').toUpperCase();
+                    };
+                    
+                    // Al primo caricamento, inizializza la lista dei MAC già visti
+                    if (isInitialLoadRef.current) {
+                        newDevices.forEach(device => {
+                            const normalizedMac = normalizeMac(device.mac_address);
+                            if (normalizedMac && normalizedMac.length >= 12) {
+                                seenMacAddressesRef.current.add(normalizedMac);
+                            }
+                        });
+                        isInitialLoadRef.current = false;
+                        setDevices(newDevices);
+                        setLoading(false);
+                        return;
+                    }
+                    
+                    // Dopo il primo caricamento, rileva solo i MAC mai visti prima
                     const newlyDetected = new Set();
                     
                     newDevices.forEach(device => {
-                        const deviceId = String(device.id);
-                        // Se il dispositivo non era presente prima, è nuovo
-                        if (!currentDeviceIds.has(deviceId)) {
-                            newlyDetected.add(deviceId);
+                        const normalizedMac = normalizeMac(device.mac_address);
+                        // Se ha un MAC valido e non l'abbiamo mai visto, è un nuovo dispositivo
+                        if (normalizedMac && normalizedMac.length >= 12) {
+                            if (!seenMacAddressesRef.current.has(normalizedMac)) {
+                                // Nuovo MAC rilevato!
+                                seenMacAddressesRef.current.add(normalizedMac);
+                                newlyDetected.add(String(device.id));
+                            }
                         }
                     });
                     
-                    // Aggiorna la lista dei nuovi dispositivi
+                    // Aggiorna la lista dei nuovi dispositivi solo se ce ne sono di nuovi
                     if (newlyDetected.size > 0) {
                         setNewDevicesInList(prev => {
                             const combined = new Set(prev);
@@ -134,9 +167,6 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             }, 10000);
                         });
                     }
-                    
-                    // Aggiorna la lista dei dispositivi precedenti
-                    prevDevicesRef.current = newDeviceIds;
                     
                     setDevices(newDevices);
                 }
