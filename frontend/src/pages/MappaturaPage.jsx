@@ -261,10 +261,35 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         const pos = idToPos.get(deviceId) || { x: 0, y: 0, is_locked: false };
                         const isLocked = pos.is_locked || false;
                         
-                        // Trova il nodo esistente per preservare la posizione se già presente
-                        const existingNode = nodes.find(n => Number(n.id) === deviceId);
-                        const nodeX = existingNode ? existingNode.x : (pos.x ?? 0);
-                        const nodeY = existingNode ? existingNode.y : (pos.y ?? 0);
+                        // Trova il nodo esistente nella simulazione per preservare la posizione reale
+                        // Usa la simulazione come fonte di verità per le posizioni, non lo stato nodes
+                        let nodeX = pos.x ?? 0;
+                        let nodeY = pos.y ?? 0;
+                        
+                        // Se la simulazione esiste, usa le posizioni dalla simulazione (più accurate)
+                        if (simulationRef.current) {
+                            const simNodes = simulationRef.current.nodes();
+                            const existingSimNode = simNodes.find(n => Number(n.id) === deviceId);
+                            if (existingSimNode) {
+                                // Usa la posizione dalla simulazione (posizione reale visualizzata)
+                                nodeX = existingSimNode.x;
+                                nodeY = existingSimNode.y;
+                            } else {
+                                // Se non esiste nella simulazione, usa lo stato nodes come fallback
+                                const existingNode = nodes.find(n => Number(n.id) === deviceId);
+                                if (existingNode) {
+                                    nodeX = existingNode.x;
+                                    nodeY = existingNode.y;
+                                }
+                            }
+                        } else {
+                            // Se la simulazione non esiste ancora, usa lo stato nodes
+                            const existingNode = nodes.find(n => Number(n.id) === deviceId);
+                            if (existingNode) {
+                                nodeX = existingNode.x;
+                                nodeY = existingNode.y;
+                            }
+                        }
                         
                         mapNodes.push({
                             id: d.id,
@@ -358,7 +383,6 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     });
                     
                     setBlinkingNodes(newBlinking);
-                    setNodes(mapNodes);
                     setLinks(mapLinks);
                     
                     // Se la simulazione esiste già, aggiorna i nodi senza ricrearla
@@ -374,22 +398,33 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             mapNodes.some(n => !existingNodeIds.has(String(n.id))) ||
                             simNodes.some(n => !newNodeIds.has(String(n.id)));
                         
+                        // Aggiorna i nodi nella simulazione preservando le posizioni esistenti
                         const newSimNodes = mapNodes.map(newNode => {
                             const existing = simNodes.find(n => String(n.id) === String(newNode.id));
                             if (existing) {
-                                // Mantieni posizione e velocità esistenti
+                                // Mantieni TUTTE le proprietà fisiche esistenti per preservare la posizione
+                                // IMPORTANTE: preserva x, y esatti per evitare spostamenti
                                 return {
                                     ...newNode,
-                                    x: existing.x,
-                                    y: existing.y,
-                                    vx: existing.vx || 0,
-                                    vy: existing.vy || 0,
-                                    fx: existing.fx,
-                                    fy: existing.fy
+                                    x: existing.x, // Posizione X esatta dalla simulazione
+                                    y: existing.y, // Posizione Y esatta dalla simulazione
+                                    vx: existing.vx || 0, // Mantieni velocità esistente (sarà azzerata se la sim è ferma)
+                                    vy: existing.vy || 0, // Mantieni velocità esistente (sarà azzerata se la sim è ferma)
+                                    fx: existing.fx, // Preserva fx (locked state)
+                                    fy: existing.fy, // Preserva fy (locked state)
+                                    // Preserva anche altre proprietà D3 se presenti
+                                    index: existing.index
                                 };
                             }
+                            // Nuovo nodo: usa posizione dal database o default
                             return newNode;
                         });
+                        
+                        // Se non ci sono cambiamenti strutturali, ferma la simulazione per evitare movimento
+                        if (!hasStructuralChanges) {
+                            // Ferma la simulazione per evitare che le forze D3 muovano i nodi
+                            simulationRef.current.stop();
+                        }
                         
                         // Aggiorna i nodi nella simulazione
                         simulationRef.current.nodes(newSimNodes);
@@ -407,11 +442,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         if (hasStructuralChanges) {
                             // Cambiamenti strutturali: riavvia con alpha basso per movimento minimo
                             simulationRef.current.alpha(0.1).restart();
-                        } else {
-                            // Nessun cambiamento strutturale: aggiorna solo i dati, non riavviare
-                            // I nodi manterranno le loro posizioni
-                            simulationRef.current.alpha(0); // Ferma la simulazione
                         }
+                        // Se non ci sono cambiamenti strutturali, la simulazione rimane ferma
+                        // Aggiorna solo lo stato React per riflettere i nuovi dati
+                        setNodes([...newSimNodes]);
                     } else {
                         // Prima volta: crea la simulazione
                         ensureSimulation(mapNodes, mapLinks, true);
