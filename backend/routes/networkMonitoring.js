@@ -2466,6 +2466,39 @@ module.exports = (pool, io) => {
         }
       }
 
+      // Aggiorna lo status dell'agent a 'online' quando arrivano scan-results
+      // Se l'agent può inviare dati, significa che è online
+      try {
+        const agentStatusCheck = await pool.query(
+          'SELECT status FROM network_agents WHERE id = $1',
+          [agentId]
+        );
+        
+        if (agentStatusCheck.rows.length > 0 && agentStatusCheck.rows[0].status !== 'online') {
+          const previousStatus = agentStatusCheck.rows[0].status;
+          await pool.query(
+            `UPDATE network_agents 
+             SET status = 'online', last_heartbeat = NOW(), updated_at = NOW()
+             WHERE id = $1`,
+            [agentId]
+          );
+          
+          console.log(`🟢 Agent ${agentId} (${req.agent.agent_name || 'N/A'}) aggiornato a online tramite scan-results (era ${previousStatus})`);
+          
+          // Emetti evento WebSocket per aggiornare la lista agenti in tempo reale
+          if (io && previousStatus === 'offline') {
+            io.to(`role:tecnico`).to(`role:admin`).emit('network-monitoring-update', {
+              type: 'agent-status-changed',
+              agentId,
+              status: 'online'
+            });
+          }
+        }
+      } catch (statusErr) {
+        console.error('❌ Errore aggiornamento status agent da scan-results:', statusErr);
+        // Non bloccare il processo, continua
+      }
+
       // Emetti evento WebSocket per aggiornare dashboard in tempo reale
       if (io && (deviceResults.length > 0 || changeResults.length > 0)) {
         io.emit('network-monitoring-update', {
