@@ -57,6 +57,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const offsetRef = useRef(offset);
     const scaleRef = useRef(scale);
     const justDroppedRef = useRef(false);
+    // Tracciamento stati precedenti per animazioni
+    const prevNodeStatesRef = useRef(new Map()); // Map<nodeId, { status, isNew }>
+    const [blinkingNodes, setBlinkingNodes] = useState(new Set()); // Set<nodeId> per nodi che stanno lampeggiando
+    const [newDevices, setNewDevices] = useState(new Set()); // Set<nodeId> per nuovi dispositivi (gialli)
+    const [hoveredNode, setHoveredNode] = useState(null); // Nodo su cui è il mouse per tooltip
 
     useEffect(() => {
         const fetchCompanies = async () => {
@@ -144,6 +149,82 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         mapLinks.push({ source: pid, target: n.id });
                     }
                     if (ac.signal.aborted || parseAziendaId(selectedCompanyIdRef.current) !== aziendaId) return;
+                    
+                    // Rileva cambiamenti di stato per animazioni
+                    const prevStates = prevNodeStatesRef.current;
+                    const newBlinking = new Set();
+                    const newNewDevices = new Set();
+                    
+                    mapNodes.forEach(node => {
+                        const nodeId = String(node.id);
+                        const prevState = prevStates.get(nodeId);
+                        
+                        // Se è un nuovo nodo (non era presente prima)
+                        if (!prevState) {
+                            newNewDevices.add(nodeId);
+                            // Se è online, fai lampeggiare verde
+                            if (node.status === 'online') {
+                                newBlinking.add(nodeId);
+                                setTimeout(() => {
+                                    setBlinkingNodes(prev => {
+                                        const next = new Set(prev);
+                                        next.delete(nodeId);
+                                        return next;
+                                    });
+                                }, 3000); // 3 secondi di lampeggio
+                            }
+                        } else {
+                            // Cambio di stato
+                            if (prevState.status !== node.status) {
+                                newBlinking.add(nodeId);
+                                // Rimuovi dal lampeggio dopo 3 secondi
+                                setTimeout(() => {
+                                    setBlinkingNodes(prev => {
+                                        const next = new Set(prev);
+                                        next.delete(nodeId);
+                                        return next;
+                                    });
+                                }, 3000);
+                                
+                                // Se passa da online a offline, rimuovi da newDevices
+                                if (node.status === 'offline' && prevState.status === 'online') {
+                                    setNewDevices(prev => {
+                                        const next = new Set(prev);
+                                        next.delete(nodeId);
+                                        return next;
+                                    });
+                                }
+                            }
+                            
+                            // Rimuovi da newDevices dopo un po' (non più nuovo)
+                            if (prevState.isNew) {
+                                setTimeout(() => {
+                                    setNewDevices(prev => {
+                                        const next = new Set(prev);
+                                        next.delete(nodeId);
+                                        return next;
+                                    });
+                                }, 10000); // 10 secondi
+                            }
+                        }
+                        
+                        // Aggiorna stato precedente
+                        prevStates.set(nodeId, {
+                            status: node.status,
+                            isNew: !prevState
+                        });
+                    });
+                    
+                    // Rimuovi nodi che non esistono più
+                    const currentIds = new Set(mapNodes.map(n => String(n.id)));
+                    prevStates.forEach((_, nodeId) => {
+                        if (!currentIds.has(nodeId)) {
+                            prevStates.delete(nodeId);
+                        }
+                    });
+                    
+                    setBlinkingNodes(newBlinking);
+                    setNewDevices(newNewDevices);
                     setNodes(mapNodes);
                     setLinks(mapLinks);
                     // Passa shouldAutoCenter=true per centrare automaticamente quando i nodi vengono caricati
@@ -366,6 +447,38 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             y: 0,
             locked: false // Nuovi nodi non sono bloccati di default
         };
+        
+        // Marca come nuovo dispositivo (giallo)
+        const nodeId = String(newNode.id);
+        setNewDevices(prev => new Set(prev).add(nodeId));
+        
+        // Se è online, fai lampeggiare verde
+        if (newNode.status === 'online') {
+            setBlinkingNodes(prev => new Set(prev).add(nodeId));
+            setTimeout(() => {
+                setBlinkingNodes(prev => {
+                    const next = new Set(prev);
+                    next.delete(nodeId);
+                    return next;
+                });
+            }, 3000);
+        }
+        
+        // Aggiorna stato precedente
+        prevNodeStatesRef.current.set(nodeId, {
+            status: newNode.status,
+            isNew: true
+        });
+        
+        // Rimuovi da newDevices dopo 10 secondi
+        setTimeout(() => {
+            setNewDevices(prev => {
+                const next = new Set(prev);
+                next.delete(nodeId);
+                return next;
+            });
+        }, 10000);
+        
         const next = [...nodes, newNode];
         setNodes(next);
         // Se è il primo nodo o ci sono pochi nodi, centra automaticamente
@@ -673,10 +786,37 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         });
 
     const getNodeColor = (node) => {
+        const nodeId = String(node.id);
+        const isBlinking = blinkingNodes.has(nodeId);
+        const isNew = newDevices.has(nodeId);
+        // Verifica problemi di disconnessione: se il dispositivo ha uno stato instabile o frequenti cambi online/offline
+        // Possiamo usare previous_ip o altri indicatori, per ora usiamo un flag se presente
+        const hasDisconnectionIssues = node.details?.previous_ip && node.status === 'offline' && 
+                                       (node.details?.status_changes_count > 3 || node.details?.has_connection_issues);
+        
+        // Problemi di disconnessione: lampeggio rosso continuo (sempre lampeggiante)
+        if (hasDisconnectionIssues) {
+            return 'bg-red-600 border-red-800 animate-pulse';
+        }
+        
+        // Nuovo dispositivo: giallo
+        if (isNew) {
+            return 'bg-yellow-500 border-yellow-700';
+        }
+        
+        // Router: viola
         if (node.type === 'router') return 'bg-indigo-500 border-indigo-700';
-        if (node.status === 'offline') return 'bg-red-500 border-red-700';
+        
+        // Offline: rosso (con lampeggio se appena cambiato)
+        if (node.status === 'offline') {
+            return isBlinking ? 'bg-red-600 border-red-800 animate-pulse' : 'bg-red-500 border-red-700';
+        }
+        
+        // Warning: arancione
         if (node.status === 'warning') return 'bg-orange-500 border-orange-700';
-        return 'bg-green-500 border-green-700';
+        
+        // Online: verde (con lampeggio se appena cambiato)
+        return isBlinking ? 'bg-green-600 border-green-800 animate-pulse' : 'bg-green-500 border-green-700';
     };
 
     return (
@@ -866,6 +1006,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     zIndex: selectedNode?.id === node.id ? 50 : 10
                                 }}
                                 onMouseDown={(e) => handleNodeMouseDown(e, node)}
+                                onMouseEnter={() => setHoveredNode(node)}
+                                onMouseLeave={() => setHoveredNode(null)}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     if (reassociateChildNode) {
@@ -906,6 +1048,27 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             </div>
                         ))}
                     </div>
+                    
+                    {/* Tooltip al hover */}
+                    {hoveredNode && hoveredNode.id && (
+                        <div
+                            className="absolute bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl text-sm z-[200] pointer-events-none"
+                            style={{
+                                left: `${hoveredNode.x * scale + offset.x + 30}px`,
+                                top: `${hoveredNode.y * scale + offset.y - 30}px`,
+                                transform: 'translate(0, -100%)',
+                                maxWidth: '200px'
+                            }}
+                        >
+                            <div className="font-semibold mb-1 border-b border-gray-700 pb-1 text-white">
+                                {hoveredNode.details?.device_type || hoveredNode.type || 'N/A'}
+                            </div>
+                            <div className="text-xs text-gray-300 space-y-1">
+                                <div><span className="text-gray-400">Utente:</span> {hoveredNode.details?.device_username || '-'}</div>
+                                <div><span className="text-gray-400">Percorso:</span> {hoveredNode.details?.device_path || '-'}</div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Right panel */}
@@ -971,6 +1134,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                 <div className="flex justify-between border-b pb-2">
                                     <span className="text-gray-500">IP</span>
                                     <span className="font-mono font-medium">{display.ip}</span>
+                                </div>
+                                <div className="flex justify-between border-b pb-2">
+                                    <span className="text-gray-500">MAC</span>
+                                    <span className="font-mono text-sm">{display.details?.mac_address || 'N/A'}</span>
                                 </div>
                                 <div className="flex justify-between border-b pb-2">
                                     <span className="text-gray-500">Status</span>
