@@ -977,7 +977,20 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     }
                     setRefreshDevicesKey(k => k + 1);
                 } else {
-                    const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaId}/mappatura-nodes/${id}`), {
+                    // Usa MAC address invece di device_id per eliminare il nodo
+                    const macAddress = node.details?.mac_address;
+                    if (!macAddress) {
+                        alert('Impossibile eliminare: dispositivo senza MAC address');
+                        return;
+                    }
+                    
+                    // Normalizza MAC per l'URL (rimuovi separatori)
+                    const normalizedMac = macAddress.replace(/[:-]/g, '').toUpperCase();
+                    
+                    // Codifica il MAC per l'URL (potrebbe contenere caratteri speciali)
+                    const encodedMac = encodeURIComponent(normalizedMac);
+                    
+                    const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaId}/mappatura-nodes/${encodedMac}`), {
                         method: 'DELETE',
                         headers: getAuthHeader()
                     });
