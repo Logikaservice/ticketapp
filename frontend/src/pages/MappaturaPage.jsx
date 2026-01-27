@@ -365,6 +365,15 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     if (simulationRef.current && simulationRef.current.nodes().length > 0) {
                         // Aggiorna i nodi nella simulazione mantenendo le posizioni
                         const simNodes = simulationRef.current.nodes();
+                        const existingNodeIds = new Set(simNodes.map(n => String(n.id)));
+                        const newNodeIds = new Set(mapNodes.map(n => String(n.id)));
+                        
+                        // Verifica se ci sono cambiamenti strutturali (nodi aggiunti/rimossi)
+                        const hasStructuralChanges = 
+                            mapNodes.length !== simNodes.length ||
+                            mapNodes.some(n => !existingNodeIds.has(String(n.id))) ||
+                            simNodes.some(n => !newNodeIds.has(String(n.id)));
+                        
                         const newSimNodes = mapNodes.map(newNode => {
                             const existing = simNodes.find(n => String(n.id) === String(newNode.id));
                             if (existing) {
@@ -373,16 +382,36 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     ...newNode,
                                     x: existing.x,
                                     y: existing.y,
-                                    vx: existing.vx,
-                                    vy: existing.vy,
+                                    vx: existing.vx || 0,
+                                    vy: existing.vy || 0,
                                     fx: existing.fx,
                                     fy: existing.fy
                                 };
                             }
                             return newNode;
                         });
+                        
+                        // Aggiorna i nodi nella simulazione
                         simulationRef.current.nodes(newSimNodes);
-                        simulationRef.current.alpha(0.3).restart();
+                        
+                        // Aggiorna i link se sono cambiati
+                        const currentLinks = simulationRef.current.force('link');
+                        if (currentLinks) {
+                            currentLinks.links(mapLinks);
+                        } else if (mapLinks.length > 0) {
+                            simulationRef.current.force('link', d3.forceLink(mapLinks).id(d => d.id).distance(80));
+                        }
+                        
+                        // Riavvia la simulazione SOLO se ci sono cambiamenti strutturali
+                        // Altrimenti aggiorna solo i dati senza far muovere i nodi
+                        if (hasStructuralChanges) {
+                            // Cambiamenti strutturali: riavvia con alpha basso per movimento minimo
+                            simulationRef.current.alpha(0.1).restart();
+                        } else {
+                            // Nessun cambiamento strutturale: aggiorna solo i dati, non riavviare
+                            // I nodi manterranno le loro posizioni
+                            simulationRef.current.alpha(0); // Ferma la simulazione
+                        }
                     } else {
                         // Prima volta: crea la simulazione
                         ensureSimulation(mapNodes, mapLinks, true);
