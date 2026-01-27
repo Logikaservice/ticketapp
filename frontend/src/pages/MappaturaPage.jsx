@@ -502,7 +502,38 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     useEffect(() => {
         const el = canvasContainerRef.current;
         if (!el) return;
-        const h = (e) => { e.preventDefault(); e.stopPropagation(); setScale(s => Math.min(Math.max(0.1, s - e.deltaY * 0.001), 4)); };
+        const h = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Calcola il nuovo scale
+            const currentScale = scaleRef.current;
+            const scaleDelta = -e.deltaY * 0.001;
+            const newScale = Math.min(Math.max(0.1, currentScale + scaleDelta), 4);
+            
+            // Se lo scale non è cambiato, non fare nulla
+            if (newScale === currentScale) return;
+            
+            // Ottieni la posizione del mouse relativa al container
+            const rect = el.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            // Ottieni l'offset corrente
+            const currentOffset = offsetRef.current;
+            
+            // Calcola la posizione del mouse nel sistema di coordinate del canvas (prima dello zoom)
+            const worldX = (mouseX - currentOffset.x) / currentScale;
+            const worldY = (mouseY - currentOffset.y) / currentScale;
+            
+            // Calcola il nuovo offset per mantenere il punto del mouse fisso
+            const newOffsetX = mouseX - worldX * newScale;
+            const newOffsetY = mouseY - worldY * newScale;
+            
+            // Applica le modifiche
+            setScale(newScale);
+            setOffset({ x: newOffsetX, y: newOffsetY });
+        };
         el.addEventListener('wheel', h, { passive: false });
         return () => el.removeEventListener('wheel', h);
     }, []);
