@@ -270,12 +270,18 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         .map(d => [normalizeMac(d.mac_address), d])
                     );
                     
-                    // Itera sui dispositivi e trova le loro posizioni usando MAC
+                    // Itera SOLO sui dispositivi che hanno una posizione salvata nella mappatura
+                    // Non creare nodi per dispositivi che non sono ancora stati aggiunti alla mappa
                     for (const d of devices) {
                         if (!d.mac_address) continue; // Salta dispositivi senza MAC
                         
                         const normalizedMac = normalizeMac(d.mac_address);
-                        const pos = macToPos.get(normalizedMac) || { x: 0, y: 0, is_locked: false };
+                        const pos = macToPos.get(normalizedMac);
+                        
+                        // IMPORTANTE: Crea nodi SOLO se hanno una posizione salvata nella mappatura
+                        // Se non c'è posizione, significa che il dispositivo non è ancora stato aggiunto alla mappa
+                        if (!pos) continue; // Salta dispositivi senza posizione salvata
+                        
                         const isLocked = pos.is_locked || false;
                         
                         // Trova il nodo esistente nella simulazione per preservare la posizione reale
@@ -1038,7 +1044,20 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     };
     const handleCanvasMouseUp = () => setIsDraggingCanvas(false);
 
-    const nodeIdsOnMap = new Set(nodes.map(n => n.id));
+    // Normalizza MAC per il matching
+    const normalizeMacForList = (mac) => {
+        if (!mac) return null;
+        return mac.replace(/[:-]/g, '').toUpperCase();
+    };
+    
+    // Crea un Set di MAC address dei nodi già nella mappa
+    const macAddressesOnMap = new Set(
+        nodes
+            .map(n => n.details?.mac_address)
+            .filter(Boolean)
+            .map(mac => normalizeMacForList(mac))
+    );
+    
     const ipToSortKey = (ip) => {
         if (!ip || typeof ip !== 'string') return [999, 999, 999, 999];
         const s = ip.trim().replace(/[{}"]/g, '');
@@ -1050,7 +1069,13 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         });
     };
     const ipList = (devices || [])
-        .filter(d => d.ip_address && !nodeIdsOnMap.has(d.id))
+        .filter(d => {
+            // Mostra solo dispositivi con IP che NON sono già nella mappa
+            if (!d.ip_address) return false;
+            if (!d.mac_address) return true; // Se non ha MAC, mostra comunque (per retrocompatibilità)
+            // Controlla se il MAC è già nella mappa
+            return !macAddressesOnMap.has(normalizeMacForList(d.mac_address));
+        })
         .sort((a, b) => {
             const ka = ipToSortKey(a.ip_address);
             const kb = ipToSortKey(b.ip_address);
