@@ -1109,8 +1109,39 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                         </div>
                                     )}
                                 </div>
-                                <div className="absolute top-full mt-2 bg-white/90 px-2 py-0.5 rounded text-[10px] font-medium shadow text-gray-700 whitespace-nowrap border border-gray-200 pointer-events-none">
-                                    {node.label || node.ip}
+                                <div className="absolute top-full mt-2 bg-white/90 px-2 py-0.5 rounded text-[10px] font-medium shadow text-gray-700 border border-gray-200 pointer-events-none text-center max-w-[120px]">
+                                    {(() => {
+                                        const labelText = node.label || node.ip;
+                                        // Se il testo contiene spazi o è abbastanza lungo, dividilo in 2 righe
+                                        if (labelText && labelText.length > 12) {
+                                            // Cerca il primo spazio dopo la metà del testo
+                                            const midPoint = Math.floor(labelText.length / 2);
+                                            const spaceIndex = labelText.indexOf(' ', midPoint);
+                                            if (spaceIndex > 0) {
+                                                // Dividi al primo spazio dopo la metà
+                                                const line1 = labelText.substring(0, spaceIndex);
+                                                const line2 = labelText.substring(spaceIndex + 1);
+                                                return (
+                                                    <>
+                                                        <div className="leading-tight">{line1}</div>
+                                                        <div className="leading-tight">{line2}</div>
+                                                    </>
+                                                );
+                                            } else {
+                                                // Se non c'è spazio, dividi a metà
+                                                const line1 = labelText.substring(0, midPoint);
+                                                const line2 = labelText.substring(midPoint);
+                                                return (
+                                                    <>
+                                                        <div className="leading-tight">{line1}</div>
+                                                        <div className="leading-tight">{line2}</div>
+                                                    </>
+                                                );
+                                            }
+                                        }
+                                        // Testo corto: mostra su una riga
+                                        return <div className="leading-tight whitespace-nowrap">{labelText}</div>;
+                                    })()}
                                 </div>
                             </div>
                         ))}
@@ -1178,6 +1209,35 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                             if (isNode && selectedNode) setSelectedNode(prev => prev ? { ...prev, details: { ...prev.details, notes: v } } : null);
                                             else if (selectedDevice) setSelectedDevice(prev => prev ? { ...prev, notes: v } : null);
                                         }}
+                                        onKeyDown={async (e) => {
+                                            // Quando preme Invio, salva e aggiorna
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                const v = (e.target.value || '').trim();
+                                                const nodeId = display?.id;
+                                                if (!nodeId) return;
+                                                try {
+                                                    const res = await fetch(buildApiUrl(`/api/network-monitoring/devices/${nodeId}/notes`), {
+                                                        method: 'PATCH',
+                                                        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ notes: v })
+                                                    });
+                                                    if (res.ok && simulationRef.current && isNode) {
+                                                        const simNodes = simulationRef.current.nodes();
+                                                        const n = simNodes.find(x => x.id === nodeId);
+                                                        if (n) {
+                                                            // Salva il testo completo nel label
+                                                            n.label = v || n.ip;
+                                                            // Salva anche nel details per mantenere il testo originale
+                                                            n.details = { ...n.details, notes: v };
+                                                        }
+                                                        setNodes([...simNodes]);
+                                                    }
+                                                } catch (_) { }
+                                                // Rimuovi il focus dall'input
+                                                e.target.blur();
+                                            }
+                                        }}
                                         onBlur={async (e) => {
                                             const v = (e.target.value || '').trim();
                                             const nodeId = display?.id;
@@ -1191,7 +1251,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 if (res.ok && simulationRef.current && isNode) {
                                                     const simNodes = simulationRef.current.nodes();
                                                     const n = simNodes.find(x => x.id === nodeId);
-                                                    if (n) n.label = v || n.ip;
+                                                    if (n) {
+                                                        n.label = v || n.ip;
+                                                        n.details = { ...n.details, notes: v };
+                                                    }
                                                     setNodes([...simNodes]);
                                                 }
                                             } catch (_) { }
