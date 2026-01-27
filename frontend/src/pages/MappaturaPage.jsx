@@ -174,7 +174,65 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             finally { setLoading(false); }
         };
         fetchDevices();
-    }, [selectedCompanyId, refreshDevicesKey]);
+        
+        // Polling automatico per aggiornare i dispositivi ogni 30 secondi (sincronizzazione con agent)
+        const intervalId = setInterval(() => {
+            const currentAziendaId = parseAziendaId(selectedCompanyId);
+            if (currentAziendaId) {
+                fetch(buildApiUrl(`/api/network-monitoring/clients/${currentAziendaId}/devices`), { headers: getAuthHeader() })
+                    .then(res => {
+                        if (res.ok) return res.json();
+                        throw new Error('Errore fetch dispositivi');
+                    })
+                    .then(newDevices => {
+                        // Funzione per normalizzare MAC address
+                        const normalizeMac = (mac) => {
+                            if (!mac) return null;
+                            return mac.replace(/[\s:.-]/g, '').toUpperCase();
+                        };
+                        
+                        // Rileva nuovi dispositivi
+                        const newlyDetected = new Set();
+                        newDevices.forEach(device => {
+                            const normalizedMac = normalizeMac(device.mac_address);
+                            if (normalizedMac && normalizedMac.length >= 12) {
+                                if (!seenMacAddressesRef.current.has(normalizedMac)) {
+                                    seenMacAddressesRef.current.add(normalizedMac);
+                                    newlyDetected.add(String(device.id));
+                                }
+                            }
+                        });
+                        
+                        // Aggiorna la lista dei nuovi dispositivi
+                        if (newlyDetected.size > 0) {
+                            setNewDevicesInList(prev => {
+                                const combined = new Set(prev);
+                                newlyDetected.forEach(id => combined.add(id));
+                                return combined;
+                            });
+                            
+                            newlyDetected.forEach(deviceId => {
+                                setTimeout(() => {
+                                    setNewDevicesInList(prev => {
+                                        const next = new Set(prev);
+                                        next.delete(deviceId);
+                                        return next;
+                                    });
+                                }, 10000);
+                            });
+                        }
+                        
+                        // Aggiorna i dispositivi (questo triggerà anche l'aggiornamento dei nodi)
+                        setDevices(newDevices);
+                    })
+                    .catch(e => {
+                        console.error('Errore polling dispositivi:', e);
+                    });
+            }
+        }, 30000); // 30 secondi
+        
+        return () => clearInterval(intervalId);
+    }, [selectedCompanyId, refreshDevicesKey, getAuthHeader]);
 
     useEffect(() => {
         const aziendaId = parseAziendaId(selectedCompanyId);
@@ -193,24 +251,34 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     const idToPos = new Map(rows.map(r => [Number(r.device_id), { x: r.x, y: r.y, is_locked: r.is_locked || false }]));
                     const deviceIds = new Set(rows.map(r => Number(r.device_id)));
                     const mapNodes = [];
-                    for (const d of devices) {
-                        const did = Number(d.id);
-                        if (!deviceIds.has(did)) continue;
-                        const pos = idToPos.get(did) || { x: 0, y: 0, is_locked: false };
+                    
+                    // Crea una mappa dei dispositivi per accesso rapido
+                    const devicesMap = new Map(devices.map(d => [Number(d.id), d]));
+                    
+                    for (const deviceId of deviceIds) {
+                        const d = devicesMap.get(deviceId);
+                        if (!d) continue; // Salta se il dispositivo non è più presente
+                        const pos = idToPos.get(deviceId) || { x: 0, y: 0, is_locked: false };
                         const isLocked = pos.is_locked || false;
+                        
+                        // Trova il nodo esistente per preservare la posizione se già presente
+                        const existingNode = nodes.find(n => Number(n.id) === deviceId);
+                        const nodeX = existingNode ? existingNode.x : (pos.x ?? 0);
+                        const nodeY = existingNode ? existingNode.y : (pos.y ?? 0);
+                        
                         mapNodes.push({
                             id: d.id,
                             type: mapDeviceType(d),
                             label: (d.notes || d.hostname || '').trim() || d.ip_address,
                             ip: d.ip_address,
-                            status: d.status,
-                            details: d,
-                            x: pos.x ?? 0,
-                            y: pos.y ?? 0,
+                            status: d.status, // Usa lo stato aggiornato dal dispositivo
+                            details: d, // Includi tutti i dettagli aggiornati
+                            x: nodeX,
+                            y: nodeY,
                             locked: isLocked,
                             // Se locked, imposta fx e fy per bloccare il nodo nella simulazione D3
-                            fx: isLocked ? (pos.x ?? 0) : null,
-                            fy: isLocked ? (pos.y ?? 0) : null
+                            fx: isLocked ? nodeX : null,
+                            fy: isLocked ? nodeY : null
                         });
                     }
                     const mapLinks = [];
@@ -224,6 +292,35 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     // Rileva cambiamenti di stato per animazioni
                     const prevStates = prevNodeStatesRef.current;
                     const newBlinking = new Set();
+                    
+                    // Aggiorna i nodi esistenti nella simulazione preservando posizioni e proprietà
+                    if (simulationRef.current) {
+                        const simNodes = simulationRef.current.nodes();
+                        const simNodesMap = new Map(simNodes.map(n => [String(n.id), n]));
+                        
+                        mapNodes.forEach(newNode => {
+                            const nodeId = String(newNode.id);
+                            const existingSimNode = simNodesMap.get(nodeId);
+                            
+                            if (existingSimNode) {
+                                // Aggiorna lo stato e i dettagli mantenendo posizione e proprietà
+                                existingSimNode.status = newNode.status;
+                                existingSimNode.details = newNode.details;
+                                existingSimNode.label = newNode.label;
+                                existingSimNode.type = newNode.type;
+                                existingSimNode.ip = newNode.ip;
+                                // Preserva posizione e locked state
+                                if (newNode.locked && (existingSimNode.fx === null || existingSimNode.fy === null)) {
+                                    existingSimNode.fx = existingSimNode.x;
+                                    existingSimNode.fy = existingSimNode.y;
+                                } else if (!newNode.locked) {
+                                    existingSimNode.fx = null;
+                                    existingSimNode.fy = null;
+                                }
+                                existingSimNode.locked = newNode.locked;
+                            }
+                        });
+                    }
                     
                     mapNodes.forEach(node => {
                         const nodeId = String(node.id);
@@ -263,8 +360,33 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     setBlinkingNodes(newBlinking);
                     setNodes(mapNodes);
                     setLinks(mapLinks);
-                    // Passa shouldAutoCenter=true per centrare automaticamente quando i nodi vengono caricati
-                    ensureSimulation(mapNodes, mapLinks, true);
+                    
+                    // Se la simulazione esiste già, aggiorna i nodi senza ricrearla
+                    if (simulationRef.current && simulationRef.current.nodes().length > 0) {
+                        // Aggiorna i nodi nella simulazione mantenendo le posizioni
+                        const simNodes = simulationRef.current.nodes();
+                        const newSimNodes = mapNodes.map(newNode => {
+                            const existing = simNodes.find(n => String(n.id) === String(newNode.id));
+                            if (existing) {
+                                // Mantieni posizione e velocità esistenti
+                                return {
+                                    ...newNode,
+                                    x: existing.x,
+                                    y: existing.y,
+                                    vx: existing.vx,
+                                    vy: existing.vy,
+                                    fx: existing.fx,
+                                    fy: existing.fy
+                                };
+                            }
+                            return newNode;
+                        });
+                        simulationRef.current.nodes(newSimNodes);
+                        simulationRef.current.alpha(0.3).restart();
+                    } else {
+                        // Prima volta: crea la simulazione
+                        ensureSimulation(mapNodes, mapLinks, true);
+                    }
                     return;
                 }
                 const errBody = await res.text();
@@ -809,6 +931,16 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             return (a.ip_address || '').localeCompare(b.ip_address || '');
         });
 
+    // Verifica se un nodo ha problemi di disconnessione continua
+    const hasDisconnectionIssues = (node) => {
+        // Un dispositivo ha problemi se:
+        // 1. Ha un previous_ip (ha cambiato IP) ed è offline
+        // 2. Ha molti cambi di stato (status_changes_count > 3)
+        // 3. Ha un flag has_connection_issues
+        return node.details?.previous_ip && node.status === 'offline' && 
+               (node.details?.status_changes_count > 3 || node.details?.has_connection_issues);
+    };
+
     const getNodeColor = (node) => {
         const nodeId = String(node.id);
         const isBlinking = blinkingNodes.has(nodeId);
@@ -828,15 +960,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             return sourceId === node.id;
         });
         
-        // Verifica problemi di disconnessione: se il dispositivo ha uno stato instabile o frequenti cambi online/offline
-        const hasDisconnectionIssues = node.details?.previous_ip && node.status === 'offline' && 
-                                       (node.details?.status_changes_count > 3 || node.details?.has_connection_issues);
-        
-        // Problemi di disconnessione: lampeggio rosso continuo (sempre lampeggiante)
-        if (hasDisconnectionIssues) {
+        // Problemi di disconnessione: rosso normale (l'ombra lampeggiante viene gestita separatamente)
+        if (hasDisconnectionIssues(node)) {
             return isParent 
-                ? 'bg-red-700 border-red-900 animate-pulse' 
-                : 'bg-red-600 border-red-800 animate-pulse';
+                ? 'bg-red-700 border-red-900' 
+                : 'bg-red-600 border-red-800';
         }
         
         // Router: viola (più scuro se è padre)
@@ -865,7 +993,19 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     };
 
     return (
-        <div className="fixed inset-0 bg-gray-50 z-[100] flex flex-col font-sans w-full h-full overflow-hidden">
+        <>
+            {/* Animazione CSS per ombra rossa lampeggiante */}
+            <style>{`
+                @keyframes pulseShadow {
+                    0%, 100% {
+                        box-shadow: 0 8px 25px 12px rgba(239, 68, 68, 0.25), 0 0 0 0 rgba(239, 68, 68, 0.4);
+                    }
+                    50% {
+                        box-shadow: 0 8px 30px 15px rgba(239, 68, 68, 0.4), 0 0 0 2px rgba(239, 68, 68, 0.2);
+                    }
+                }
+            `}</style>
+            <div className="fixed inset-0 bg-gray-50 z-[100] flex flex-col font-sans w-full h-full overflow-hidden">
             {/* Header */}
             <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
                 <div className="flex items-center gap-4">
@@ -1093,7 +1233,12 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     } catch (_) { }
                                 }}
                             >
-                                <div className={`w-full h-full rounded-full flex items-center justify-center shadow-lg border-2 ${getNodeColor(node)} ${selectedNode?.id === node.id ? 'ring-4 ring-blue-300' : ''} ${node.locked ? 'ring-2 ring-purple-400' : ''} hover:scale-110 transition-transform relative`}>
+                                <div 
+                                    className={`w-full h-full rounded-full flex items-center justify-center shadow-lg border-2 ${getNodeColor(node)} ${selectedNode?.id === node.id ? 'ring-4 ring-blue-300' : ''} ${node.locked ? 'ring-2 ring-purple-400' : ''} hover:scale-110 transition-transform relative`}
+                                    style={hasDisconnectionIssues(node) ? {
+                                        animation: 'pulseShadow 2s ease-in-out infinite'
+                                    } : {}}
+                                >
                                     {drawIcon(node.type)}
                                     {/* Indicatore lock se il nodo è bloccato */}
                                     {node.locked && (
@@ -1398,6 +1543,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                 )}
             </div>
         </div>
+        </>
     );
 };
 
