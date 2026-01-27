@@ -4,7 +4,7 @@ import {
     ArrowLeft, ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw,
     Monitor, Printer, Wifi, Router, X, Trash2, Link2,
     Smartphone, Tablet, Laptop, Camera, Tv, Watch, Phone, Database, Cloud, Globe, List,
-    Layers, HardDrive, Shield, RadioTower, Speaker
+    Layers, HardDrive, Shield, RadioTower, Speaker, Circle
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import * as d3 from 'd3-force';
@@ -30,7 +30,8 @@ const AVAILABLE_ICONS = [
     { type: 'phone', icon: Phone, label: 'Telefono VoIP' },
     { type: 'database', icon: Database, label: 'Database' },
     { type: 'cloud', icon: Cloud, label: 'Cloud' },
-    { type: 'internet', icon: Globe, label: 'Internet' }
+    { type: 'internet', icon: Globe, label: 'Internet' },
+    { type: 'generic', icon: Circle, label: 'Generico / Altro' }
 ];
 
 const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onNavigateToMonitoring = null }) => {
@@ -194,6 +195,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         if (t.includes('mobile') || t.includes('smartphone') || t.includes('iphone') || t.includes('android')) return 'smartphone';
         if (t.includes('laptop') || t.includes('notebook') || t.includes('macbook')) return 'laptop';
         if (t.includes('unmanaged_switch')) return 'unmanaged_switch';
+        if (t === 'generic' || t.includes('altro') || t.includes('generic')) return 'generic';
 
         return 'pc';
     };
@@ -204,6 +206,9 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
 
         if (type === 'switch' || type === 'unmanaged_switch') {
             return <Server size={20} className="text-white bg-gray-600 rounded-sm p-0.5" />;
+        }
+        if (type === 'generic') {
+            return <Circle size={16} className="text-white fill-current" />;
         }
         return <Icon size={20} className="text-white" strokeWidth={1.5} />;
     };
