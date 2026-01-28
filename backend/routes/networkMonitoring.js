@@ -2230,7 +2230,7 @@ module.exports = (pool, io) => {
       // (cioè non sono stati rilevati nella scansione corrente)
       try {
         const allAgentDevices = await pool.query(
-          'SELECT id, ip_address, status, is_static, notify_telegram FROM network_devices WHERE agent_id = $1',
+          'SELECT id, ip_address, status, is_static, notify_telegram, mac_address, monitoring_schedule, device_type, hostname, vendor, device_path, device_username, previous_ip FROM network_devices WHERE agent_id = $1',
           [agentId]
         );
 
