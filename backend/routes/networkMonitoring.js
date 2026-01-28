@@ -1573,885 +1573,97 @@ module.exports = (pool, io) => {
 
       const receivedIPs = new Set(); // Traccia gli IP ricevuti in questa scansione
 
-      for (let i = 0; i < devices.length; i++) {
-        const device = devices[i];
-        let { ip_address, mac_address, hostname, vendor, status, has_ping_failures, ping_responsive, upgrade_available, unifi_name } = device;
+      for (const device of devices) {
+        let { ip_address, mac_address, hostname, vendor, status, ping_responsive, upgrade_available, unifi_name } = device;
 
-        // Determina l'hostname effettivo (Unifi Name > Hostname rilevato)
-        let effectiveHostname = unifi_name || hostname;
-
-        // device_type non viene più inviato dall'agent, sarà gestito manualmente
-        // ping_responsive (nuovo): true se risponde al ping, false se presente solo via ARP
-        // upgrade_available (nuovo): true se il device ha un aggiornamento firmware disponibile (via Unifi)
-
-        // Normalizza hostname: potrebbe essere stringa, array, o oggetto JSON
-        if (hostname) {
-          if (typeof hostname === 'string') {
-            hostname = hostname.trim();
-
-            // Se sembra un array JSON come stringa (es: {"Android_RPRTJQAR.local", "Android_RPRTJQAR.local", ...})
-            // Prova a estrarre il primo valore valido
-            if (hostname.startsWith('{') || hostname.includes('", "')) {
-              // Prova a parsare come JSON array
-              try {
-                // Rimuovi le parentesi graffe e le virgolette, poi prendi il primo elemento
-                const cleaned = hostname.replace(/^[{\s"]+/, '').replace(/[}\s"]+$/, '');
-                const parts = cleaned.split(/",\s*"/);
-                if (parts.length > 0 && parts[0]) {
-                  hostname = parts[0].replace(/^["\s]+/, '').replace(/["\s]+$/, '').trim();
-                }
-              } catch (e) {
-                // Se il parsing fallisce, rimuovi solo i caratteri JSON
-                hostname = hostname.replace(/[{}"]/g, '').trim();
-                // Prendi solo la prima parte prima della prima virgola se presente
-                const firstPart = hostname.split(',')[0].trim();
-                if (firstPart) {
-                  hostname = firstPart;
-                }
-              }
-            } else {
-              // Rimuovi caratteri JSON errati se presenti
-              hostname = hostname.replace(/[{}"]/g, '').trim();
-            }
-          } else if (Array.isArray(hostname)) {
-            // Se è un array, prendi il primo elemento valido (non vuoto e non duplicato)
-            const validHostnames = hostname
-              .filter(h => h && typeof h === 'string' && h.trim() !== '')
-              .map(h => h.trim().replace(/[{}"]/g, ''))
-              .filter(h => h !== '' && !h.startsWith('_') && !h.includes('._tcp.local')); // Filtra nomi tecnici
-
-            hostname = validHostnames.length > 0 ? validHostnames[0] : null;
-          } else if (typeof hostname === 'object') {
-            // Se è un oggetto, prova a convertirlo in stringa o prendi il primo valore
-            const firstValue = Object.values(hostname)[0];
-            if (firstValue && typeof firstValue === 'string') {
-              hostname = firstValue.trim().replace(/[{}"]/g, '').trim();
-            } else {
-              hostname = String(hostname).replace(/[{}"]/g, '').trim();
-            }
-          }
-
-          // Rimuovi prefissi tecnici comuni (es: "I013Q1b8n14AAA._FC9F5ED42C8A._tcp.local")
-          if (hostname && (hostname.includes('._tcp.local') || hostname.startsWith('_'))) {
-            // Se contiene solo nomi tecnici, prova a trovare un nome più leggibile
-            const parts = hostname.split(/[,\s]+/);
-            const readablePart = parts.find(p => p && !p.startsWith('_') && !p.includes('._tcp.local') && p.includes('.local'));
-            if (readablePart) {
-              hostname = readablePart.trim();
-            } else {
-              // Se non c'è un nome leggibile, prendi il primo che non inizia con underscore
-              const nonTechPart = parts.find(p => p && !p.startsWith('_'));
-              if (nonTechPart) {
-                hostname = nonTechPart.trim();
-              }
-            }
-          }
-
-          // Tronca hostname troppo lungo (max 100 caratteri per evitare problemi di impaginazione)
-          if (hostname && hostname.length > 100) {
-            hostname = hostname.substring(0, 97) + '...';
-          }
-
-          // Rimuovi stringhe vuote o invalide
-          if (hostname === '' || hostname === 'null' || hostname === 'undefined' || hostname === '-') {
-            hostname = null;
-          }
-        }
-
-        // Normalizza ip_address: potrebbe essere stringa, array, o oggetto JSON
-        if (ip_address) {
-          if (typeof ip_address === 'string') {
-            ip_address = ip_address.trim();
-            // Rimuovi caratteri JSON errati se presenti (es: {"192.168.100.2"} -> 192.168.100.2)
-            ip_address = ip_address.replace(/[{}"]/g, '').trim();
-          } else if (Array.isArray(ip_address)) {
-            // Se è un array, prendi il primo elemento valido
-            ip_address = ip_address.find(ip => ip && typeof ip === 'string' && ip.trim() !== '')?.trim() || null;
-            if (ip_address) {
-              ip_address = ip_address.replace(/[{}"]/g, '').trim();
-            }
-          } else if (typeof ip_address === 'object') {
-            // Se è un oggetto, prova a convertirlo in stringa o prendi il primo valore
-            const firstValue = Object.values(ip_address)[0];
-            if (firstValue && typeof firstValue === 'string') {
-              ip_address = firstValue.trim().replace(/[{}"]/g, '').trim();
-            } else {
-              ip_address = String(ip_address).replace(/[{}"]/g, '').trim();
-            }
-          }
-        }
-
-        if (!ip_address || ip_address === '') {
-          console.warn(`⚠️ Dispositivo ${i + 1}/${devices.length} senza IP valido, saltato:`, JSON.stringify(device));
-          continue;
-        }
-
-        // Traccia IP ricevuto
+        // 1. Normalizzazione basilare IP
+        if (ip_address) ip_address = String(ip_address).trim().replace(/[{}"]/g, '');
+        if (!ip_address) continue;
         receivedIPs.add(ip_address);
 
-        // Log dettagliato per debug
-        if (i === 0 || i === devices.length - 1) {
-          console.log(`  📱 Dispositivo ${i + 1}/${devices.length}: IP=${ip_address}, MAC=${mac_address || 'N/A'}, Hostname=${hostname || 'N/A'}`);
-        }
-
-        // Cerca dispositivo esistente (per IP+MAC o solo IP se MAC non disponibile)
-        let existingDevice;
-
-        // Normalizza mac_address: potrebbe essere stringa, array, o altro
-        let macAddressStr = null;
+        // 2. Normalizzazione basilare MAC
+        let normalizedMac = null;
         if (mac_address) {
-          if (typeof mac_address === 'string') {
-            macAddressStr = mac_address.trim();
-          } else if (Array.isArray(mac_address)) {
-            // Se è un array, prendi il primo elemento valido
-            macAddressStr = mac_address.find(m => m && typeof m === 'string' && m.trim() !== '')?.trim() || null;
-          } else if (typeof mac_address === 'object') {
-            // Se è un oggetto, prova a convertirlo in stringa
-            macAddressStr = String(mac_address).trim();
-          }
-          // Rimuovi stringhe vuote o MAC invalidi
-          if (macAddressStr === '' || macAddressStr === '00-00-00-00-00-00') {
-            macAddressStr = null;
-          }
+          let m = String(mac_address).trim().toUpperCase().replace(/[,\s]/g, '');
+          if (m.length > 17) m = m.substring(0, 17);
+          normalizedMac = m.replace(/-/g, ':'); // Standardize on :
+          // Validazione minima
+          if (normalizedMac.length < 12) normalizedMac = null;
         }
 
-        // Normalizza anche l'IP per la ricerca (rimuovi caratteri JSON se presenti)
-        const normalizedIpForSearch = ip_address.replace(/[{}"]/g, '').trim();
+        // 3. Hostname Priority (Unifi > Hostname)
+        const effectiveHostname = unifi_name || (hostname && typeof hostname === 'string' ? hostname.replace(/[{}"]/g, '').trim() : null);
 
-        // Cerca dispositivo esistente: sempre per IP, opzionalmente anche per MAC se disponibile
-        let existingQuery;
-        let existingParams;
-
-        // Normalizza MAC address PRIMA della query per confronti corretti
-        let normalizedMacForSearch = null;
-        if (macAddressStr && macAddressStr !== '') {
-          // Rimuovi spazi, virgole, e converti in maiuscolo
-          normalizedMacForSearch = macAddressStr.replace(/\s+/g, '').replace(/,/g, '').toUpperCase();
-          // Se contiene duplicati separati, prendi solo i primi 17 caratteri
-          if (normalizedMacForSearch.length > 17) {
-            normalizedMacForSearch = normalizedMacForSearch.substring(0, 17);
-          }
-          // Converti trattini in due punti per uniformità
-          if (normalizedMacForSearch.length > 17) normalizedMacForSearch = normalizedMacForSearch.substring(0, 17);
-          normalizedMacForSearch = normalizedMacForSearch.replace(/-/g, ':'); // PROMOTING COLONS
+        // 4. Find Existing Device (Priority: MAC, then IP)
+        let existingDevice = null;
+        if (normalizedMac) {
+          const res = await pool.query('SELECT * FROM network_devices WHERE agent_id = $1 AND REPLACE(REPLACE(UPPER(mac_address), ":", ""), "-", "") = REPLACE(REPLACE(UPPER($2), ":", ""), "-", "") LIMIT 1', [agentId, normalizedMac]);
+          if (res.rows.length > 0) existingDevice = res.rows[0];
         }
 
-        // ==========================================================================================
-        // NUOVA LOGICA DI ABBINAMENTO (MAC-FIRST) PER EVITARE DUPLICATI
-        // ==========================================================================================
-
-        // 1. Cerca TUTTI i record con questo MAC (se disponibile)
-        let matchingDevices = [];
-        if (normalizedMacForSearch && normalizedMacForSearch.length >= 12) {
-          const macQuery = `
-            SELECT id, ip_address, mac_address, hostname, is_static, last_seen, ip_history, device_type, device_path, device_username, is_manual_type, vendor, status, has_ping_failures, accepted_ip, accepted_mac, ping_responsive, upgrade_available
-            FROM network_devices 
-            WHERE agent_id = $1 
-            AND REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', '') = REPLACE(REPLACE(UPPER($2), ':', ''), '-', '')
-            ORDER BY is_static DESC, last_seen DESC, id DESC
-          `;
-          const macResult = await pool.query(macQuery, [agentId, normalizedMacForSearch]);
-          matchingDevices = macResult.rows;
+        if (!existingDevice) {
+          const res = await pool.query('SELECT * FROM network_devices WHERE agent_id = $1 AND ip_address = $2 LIMIT 1', [agentId, ip_address]);
+          if (res.rows.length > 0) existingDevice = res.rows[0];
         }
 
-        // 2. Se non abbiamo trovato per MAC, cerchiamo per IP (per gestire dispositivi senza MAC o nuovi)
-        let ipMatch = null;
-
-        if (matchingDevices.length === 0) {
-          const ipQuery = `
-             SELECT id, ip_address, mac_address, hostname, is_static, last_seen, ip_history, device_type, device_path, device_username, is_manual_type, vendor, status, has_ping_failures, accepted_ip, accepted_mac, ping_responsive, upgrade_available
-             FROM network_devices
-             WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2
-             ORDER BY is_static DESC, last_seen DESC
-           `;
-          const ipResult = await pool.query(ipQuery, [agentId, normalizedIpForSearch]);
-          if (ipResult.rows.length > 0) {
-            ipMatch = ipResult.rows[0];
-          }
-        }
-
-        // 3. Determina il dispositivo "vincente" da aggiornare
-        if (matchingDevices.length > 0) {
-          // Abbiamo trovato uno o più dispositivi con questo MAC.
-          // Il primo della lista è il "migliore" (Statico > Recente > ID alto)
-          existingDevice = matchingDevices[0];
-
-          // Se ci sono altri duplicati con lo stesso MAC, DOBBIAMO eliminarli per rispettare "One MAC = One Record"
-          if (matchingDevices.length > 1) {
-            console.warn(`  ⚠️ Unificazione MAC ${normalizedMacForSearch}: Trovati ${matchingDevices.length} record. Mantengo ID ${existingDevice.id}, elimino gli altri.`);
-            const idsToDelete = matchingDevices.slice(1).map(d => d.id);
-
-            // Recupera info utili dai duplicati prima di ucciderli (opzionale: unire history)
-            // Per semplicità, eliminiamo
-            await pool.query('DELETE FROM network_devices WHERE id = ANY($1)', [idsToDelete]);
-          }
-
-          // GESTIONE CAMBIO IP E STORICO
-          const oldIp = existingDevice.ip_address ? existingDevice.ip_address.replace(/[{}"]/g, '').trim() : null;
-
-          if (oldIp && oldIp !== normalizedIpForSearch) {
-            console.log(`  🔄 Dispositivo MAC ${normalizedMacForSearch} ha cambiato IP: ${oldIp} -> ${normalizedIpForSearch}`);
-
-            // Aggiungi vecchio IP allo storico
-            let history = existingDevice.ip_history || [];
-            if (!Array.isArray(history)) history = [];
-
-            // Aggiungi solo se non è l'ultimo (evita spam se rimbalza)
-            const lastEntry = history.length > 0 ? history[history.length - 1] : null;
-            if (!lastEntry || lastEntry.ip !== oldIp) {
-              history.push({
-                ip: oldIp,
-                seen_at: existingDevice.last_seen || new Date().toISOString()
-              });
-              // Limita lo storico agli ultimi 10 cambi
-              if (history.length > 10) history = history.slice(-10);
-
-              // Aggiorna l'oggetto in memoria per il successivo UPDATE
-              existingDevice.ip_history = history;
+        // KeePass Lookup (Enrichment only)
+        let deviceTypeFromKeepass = null;
+        let devicePathFromKeepass = null;
+        if (normalizedMac && process.env.KEEPASS_PASSWORD) {
+          try {
+            const keepassResult = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
+            if (keepassResult) {
+              deviceTypeFromKeepass = keepassResult.title;
+              devicePathFromKeepass = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
             }
-
-            // IMPORTANTE: Controlla se c'è un "fantasma" che occupa il NUOVO IP
-            // Se esiste un record sul nuovo IP che NON è quello che stiamo aggiornando, DOBBIAMO rimuoverlo
-            // per evitare violazioni di vincoli UNIQUE durante l'UPDATE.
-            // La logica "One MAC = One Record" implica che se il device MAC 'A' è ora su IP 'X', 
-            // chiunque altro fosse su 'X' non è più lì (o c'è un conflitto, ma vince l'ultimo arrivato).
-            const ghostCheck = await pool.query(`
-               SELECT id, mac_address FROM network_devices
-               WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2 
-               AND id != $3
-            `, [agentId, normalizedIpForSearch, existingDevice.id]);
-
-            if (ghostCheck.rows.length > 0) {
-              console.warn(`  ⚠️ RIMOZIONE OSTACOLO su IP ${normalizedIpForSearch}: Trovati ${ghostCheck.rows.length} dispositivi che occupano l'IP. Eliminazione...`);
-              await pool.query(`
-                 DELETE FROM network_devices 
-                 WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2 
-                 AND id != $3
-               `, [agentId, normalizedIpForSearch, existingDevice.id]);
-            }
-          }
-
-        } else if (ipMatch) {
-          // Non trovato per MAC, ma trovato per IP.
-          // Potrebbe essere un dispositivo che non aveva MAC registrato e ora lo invia.
-          // OPPURE un dispositivo diverso che ha preso quell'IP.
-
-          // Se quello su DB non ha MAC, ci impossessiamo del record (è lo stesso dispositivo che si è identificato meglio)
-          if (!ipMatch.mac_address) {
-            console.log(`  ➕ Arricchimento dispositivo IP ${normalizedIpForSearch}: Assegnato MAC ${normalizedMacForSearch}`);
-            existingDevice = ipMatch;
-          } else {
-            // Se quello su DB HA un MAC, ed è DIVERSO dal nostro... CONFLITTO.
-            // IP 192.168.1.15 era MAC AA:AA... ora arriva MAC BB:BB...
-            // Secondo la logica "One MAC = One Record", questo è un NUOVO dispositivo.
-            // Il vecchio dispositivo a quell'IP ora è offline o ha cambiato IP (ma non lo sappiamo ancora).
-            // Non tocchiamo il vecchio record (rimarrà al suo posto, diventerà offline se non risponde).
-            // Creiamo un NUOVO record per il nostro MAC corrente.
-            existingDevice = null;
-          }
-        } else {
-          // Nessun match per MAC né per IP. È un nuovo dispositivo.
-          existingDevice = null;
+          } catch (e) { /* ignore */ }
         }
 
+        // 5. Upsert
         if (existingDevice) {
-          // Aggiorna dispositivo esistente
-          const updates = [];
-          const values = [];
-          let paramIndex = 1;
-
-          // Normalizza MAC address (stessa logica di INSERT per coerenza)
-          let normalizedMac = null;
-          if (macAddressStr) {
-            // Rimuovi spazi, virgole, e converti in maiuscolo
-            normalizedMac = macAddressStr.replace(/\s+/g, '').replace(/,/g, '').toUpperCase();
-            // Se contiene duplicati separati (es: "60-83-E7-BF-4C-AF60-83-E7-BF-4C-AF"), prendi solo i primi 17 caratteri
-            if (normalizedMac.length > 17) {
-              // Prendi solo i primi 17 caratteri (formato standard MAC: XX:XX:XX:XX:XX:XX)
-              normalizedMac = normalizedMac.substring(0, 17);
-            }
-            // Converti trattini in due punti per uniformità (FIX: uniforma a :)
-            normalizedMac = normalizedMac.replace(/-/g, ':');
-
-            // Se non ha il formato corretto, prova a convertirlo
-            if (normalizedMac.length === 12 && !normalizedMac.includes(':')) {
-              // Formato senza separatori, aggiungi due punti ogni 2 caratteri
-              normalizedMac = normalizedMac.replace(/(..)(..)(..)(..)(..)(..)/, '$1:$2:$3:$4:$5:$6');
-            }
-            // Verifica che sia un MAC valido (17 caratteri con due punti)
-            if (normalizedMac.length !== 17 || !/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i.test(normalizedMac)) {
-              normalizedMac = null;
-            }
-          }
-
-          // Rileva cambiamenti IP su dispositivi statici O quando trovato per MAC
-          const normalizedCurrentIp = normalizedIpForSearch;
-          const existingIp = existingDevice.ip_address ? existingDevice.ip_address.replace(/[{}"]/g, '').trim() : null;
-          const ipChanged = normalizedCurrentIp !== existingIp;
-
-          // Gestisci cambio IP se: dispositivo statico O trovato per MAC con IP diverso
-          if (ipChanged && (existingDevice.is_static || foundByMac)) {
-            // Controlla se il nuovo IP è quello accettato dall'utente
-            const acceptedIp = existingDevice.accepted_ip ? existingDevice.accepted_ip.replace(/[{}"]/g, '').trim() : null;
-            if (acceptedIp && normalizedCurrentIp === acceptedIp) {
-              // L'IP è quello accettato dall'utente, non mostrare warning
-              console.log(`  ℹ️ IP cambiato ma accettato dall'utente: ${existingIp} -> ${normalizedCurrentIp} (accettato)`);
-              // Aggiorna solo l'IP, non salvare previous_ip
-              updates.push(`ip_address = $${paramIndex++}`);
-              values.push(normalizedCurrentIp);
-            } else {
-              // Dispositivo con IP cambiato - salva valore precedente
-              console.log(`  ⚠️ IP CAMBIATO ${existingIp} -> ${normalizedCurrentIp} (${foundByMac ? 'trovato per MAC' : 'dispositivo statico'})`);
-              updates.push(`previous_ip = $${paramIndex++}`);
-              values.push(existingIp);
-              // Aggiorna anche l'IP
-              updates.push(`ip_address = $${paramIndex++}`);
-              values.push(normalizedCurrentIp);
-
-              // Aggiorna storico IP se presente (aggiunto dalla logica MAC-first)
-              if (existingDevice.ip_history) {
-                updates.push(`ip_history = $${paramIndex++}::jsonb`);
-                values.push(JSON.stringify(existingDevice.ip_history));
-              }
-
-              // Invia notifica Telegram (controlla modalità continua vs schedulata)
-              if (shouldNotifyForEvent(existingDevice, 'ip_changed')) {
-                try {
-                  const agentInfo = await pool.query(
-                    'SELECT na.agent_name, na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
-                    [agentId]
-                  );
-
-                  if (agentInfo.rows.length > 0) {
-                    await sendTelegramNotification(
-                      agentId,
-                      agentInfo.rows[0].azienda_id,
-                      'ip_changed',
-                      {
-                        hostname: existingDevice.hostname,
-                        deviceType: existingDevice.device_type,
-                        mac: existingDevice.mac_address,
-                        oldIP: existingIp,
-                        newIP: normalizedCurrentIp,
-                        agentName: agentInfo.rows[0].agent_name,
-                        aziendaName: agentInfo.rows[0].azienda_name
-                      }
-                    );
-                  }
-                } catch (telegramErr) {
-                  console.error('❌ Errore invio notifica Telegram per cambio IP:', telegramErr);
-                }
-              }
-            }
-          }
-
-          // Aggiorna MAC se disponibile e diverso (anche se era NULL prima)
-          // IMPORTANTE: Normalizza anche il MAC esistente per confronto corretto (ignora differenze formato : vs -)
-          const existingMacNormalized = existingDevice.mac_address ? existingDevice.mac_address.toUpperCase().replace(/[:-]/g, '-') : null;
-          const newMacNormalized = normalizedMac ? normalizedMac.toUpperCase().replace(/[:-]/g, '-') : null;
-
-          if (normalizedMac && newMacNormalized !== existingMacNormalized) {
-            // Se il dispositivo è statico e il MAC cambia, controlla se è quello accettato
-            if (existingDevice.is_static && existingDevice.mac_address) {
-              const acceptedMac = existingDevice.accepted_mac ? existingDevice.accepted_mac.toUpperCase().replace(/[:-]/g, '-') : null;
-              if (acceptedMac && newMacNormalized === acceptedMac) {
-                // Il MAC è quello accettato dall'utente, non mostrare warning
-                console.log(`  ℹ️ MAC cambiato ma accettato dall'utente: ${existingDevice.mac_address} -> ${normalizedMac} (accettato)`);
-                // Aggiorna solo il MAC, non salvare previous_mac
-                updates.push(`mac_address = $${paramIndex++}`);
-                values.push(normalizedMac);
-              } else {
-                // Dispositivo statico con MAC cambiato - salva valore precedente
-                console.log(`  ⚠️ MAC CAMBIATO per dispositivo statico ${existingDevice.mac_address} -> ${normalizedMac}`);
-                updates.push(`previous_mac = $${paramIndex++}`);
-                values.push(existingDevice.mac_address);
-                updates.push(`mac_address = $${paramIndex++}`);
-                values.push(normalizedMac);
-
-                // Invia notifica Telegram (controlla modalità continua vs schedulata)
-                if (shouldNotifyForEvent(existingDevice, 'mac_changed')) {
-                  try {
-                    const agentInfo = await pool.query(
-                      'SELECT na.agent_name, na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
-                      [agentId]
-                    );
-
-                    if (agentInfo.rows.length > 0) {
-                      await sendTelegramNotification(
-                        agentId,
-                        agentInfo.rows[0].azienda_id,
-                        'mac_changed',
-                        {
-                          hostname: existingDevice.hostname,
-                          deviceType: existingDevice.device_type,
-                          ip: existingDevice.ip_address,
-                          oldMAC: existingDevice.mac_address,
-                          newMAC: normalizedMac,
-                          agentName: agentInfo.rows[0].agent_name,
-                          aziendaName: agentInfo.rows[0].azienda_name
-                        }
-                      );
-                    }
-                  } catch (telegramErr) {
-                    console.error('❌ Errore invio notifica Telegram per cambio MAC:', telegramErr);
-                  }
-                }
-              }
-            } else {
-              // Dispositivo non statico o senza MAC precedente, aggiorna normalmente
-              console.log(`  🔄 Aggiornamento MAC per ${ip_address}: ${existingDevice.mac_address || 'NULL'} -> ${normalizedMac}`);
-              updates.push(`mac_address = $${paramIndex++}`);
-              values.push(normalizedMac);
-            }
-          } else if (normalizedMac && !existingDevice.mac_address) {
-            // Se il dispositivo non aveva MAC e ora lo abbiamo, aggiornalo
-            console.log(`  ➕ Aggiunta MAC per ${ip_address}: NULL -> ${normalizedMac}`);
-            updates.push(`mac_address = $${paramIndex++}`);
-            values.push(normalizedMac);
-          } else if (normalizedMac && newMacNormalized === existingMacNormalized) {
-            // MAC è lo stesso (anche se formato diverso), non serve aggiornare
-            console.log(`  ℹ️ MAC per ${ip_address} già corretto: ${normalizedMac} (formato normalizzato: ${newMacNormalized})`);
-          }
-
-          // Aggiorna has_ping_failures se presente nei dati
-          if (has_ping_failures !== undefined && has_ping_failures !== existingDevice.has_ping_failures) {
-            updates.push(`has_ping_failures = $${paramIndex++}`);
-            values.push(has_ping_failures === true);
-          }
-
-          // Aggiorna upgrade_available se presente (nuovo: Unifi Integration)
-          if (upgrade_available !== undefined) {
-            updates.push(`upgrade_available = $${paramIndex++}`);
-            values.push(upgrade_available === true);
-          }
-
-          // Aggiorna ping_responsive se presente nei dati (nuovo: Trust ARP)
-          if (ping_responsive !== undefined && ping_responsive !== existingDevice.ping_responsive) {
-            updates.push(`ping_responsive = $${paramIndex++}`);
-            values.push(ping_responsive === true);
-          }
-
-          // Usa hostname già normalizzato (troncato a max 100 caratteri)
-          // PRIORITÀ: Unifi Name > Hostname da scansione
-          if (effectiveHostname && effectiveHostname !== existingDevice.hostname) {
-            updates.push(`hostname = $${paramIndex++}`);
-            values.push(effectiveHostname);
-          }
-          // Nota: se hostname non viene fornito, preserva quello esistente (non lo cancella)
-          if (vendor && vendor !== existingDevice.vendor) {
-            updates.push(`vendor = $${paramIndex++}`);
-            values.push(vendor || null);
-          }
-          // Ricerca automatica MAC in KeePass per impostare device_type
-          // IMPORTANTE: NON sovrascrivere device_type se è stato modificato manualmente (is_manual_type = true)
-          // Cerca sempre in KeePass se il MAC è disponibile, ma rispetta le modifiche manuali
-          if (normalizedMac && process.env.KEEPASS_PASSWORD && !existingDevice.is_manual_type) {
-            try {
-              const keepassResult = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
-              if (keepassResult) {
-                // Estrai solo l'ultimo elemento del percorso (es: "gestione > logikaservice.it > Pippo2" -> "Pippo2")
-                const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
-                // Aggiorna device_type e device_path con i valori da KeePass (solo se non modificato manualmente)
-                // Se trovato per MAC con IP cambiato, aggiorna anche device_username
-                console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${keepassResult.title}", device_path: "${lastPathElement}"`);
-                updates.push(`device_type = $${paramIndex++}`);
-                values.push(keepassResult.title);
-                updates.push(`device_path = $${paramIndex++}`);
-                values.push(lastPathElement);
-                if (foundByMac && ipChanged) {
-                  // Se trovato per MAC con IP cambiato, aggiorna anche device_username da KeePass
-                  updates.push(`device_username = $${paramIndex++}`);
-                  values.push(keepassResult.username || null);
-                  console.log(`  📝 Aggiornato anche device_username da KeePass: "${keepassResult.username || 'NULL'}"`);
-                }
-              } else {
-                // MAC non trovato in KeePass.
-                // Fallback: Se abbiamo un Unifi Name, usalo come device_type (Titolo).
-                // Altrimenti resetta a NULL.
-                const newDeviceType = unifi_name || null;
-
-                // Aggiorna solo se il valore è diverso
-                if (existingDevice.device_type !== newDeviceType || existingDevice.device_path !== null) {
-                  console.log(`  🔍 MAC ${normalizedMac} NON in KeePass -> Fallback device_type: "${newDeviceType || 'NULL'}"`);
-                  updates.push(`device_type = $${paramIndex++}`);
-                  values.push(newDeviceType);
-                  updates.push(`device_path = $${paramIndex++}`);
-                  values.push(null);
-                }
-                // Se trovato per MAC con IP cambiato ma non in KeePass, svuota anche device_username
-                if (foundByMac && ipChanged) {
-                  updates.push(`device_username = $${paramIndex++}`);
-                  values.push(null);
-                }
-              }
-            } catch (keepassErr) {
-              console.warn(`  ⚠️ Errore ricerca MAC ${normalizedMac} in KeePass:`, keepassErr.message);
-            }
-          } else if (existingDevice.is_manual_type) {
-            console.log(`  ℹ️ Device_type per ${ip_address} modificato manualmente, mantengo valore esistente: "${existingDevice.device_type}"`);
-          }
-
-          // last_seen viene SEMPRE aggiornato quando il dispositivo viene rilevato nella scansione
-          updates.push(`last_seen = NOW()`);
-          updates.push(`status = $${paramIndex++}`);
-          values.push(status || 'online');
-
-          values.push(existingDevice.id);
-
-          // Esegui sempre l'UPDATE (almeno last_seen e status sono sempre presenti)
-          await pool.query(
-            `UPDATE network_devices SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
-            values
+          // UPDATE
+          await pool.query(`UPDATE network_devices SET
+                 ip_address = $1,
+                 mac_address = COALESCE($2, mac_address),
+                 hostname = COALESCE($3, hostname),
+                 vendor = COALESCE($4, vendor),
+                 last_seen = NOW(),
+                 status = $5,
+                 ping_responsive = $6,
+                 upgrade_available = $7,
+                 device_type = COALESCE($8, device_type),
+                 device_path = COALESCE($9, device_path)
+                 WHERE id = $10`,
+            [ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass, existingDevice.id]
           );
-
           deviceResults.push({ action: 'updated', id: existingDevice.id, ip: ip_address });
         } else {
-          // Inserisci nuovo dispositivo
-          // Nota: ON CONFLICT non funziona bene con mac_address NULL, quindi gestiamo manualmente
-          try {
-            // Normalizza MAC address usando macAddressStr già processato
-            let normalizedMac = null;
-            if (macAddressStr) {
-              // Rimuovi spazi, virgole, e converti in maiuscolo
-              normalizedMac = macAddressStr.replace(/\s+/g, '').replace(/,/g, '').toUpperCase();
-              // Se contiene duplicati separati (es: "60-83-E7-BF-4C-AF60-83-E7-BF-4C-AF"), prendi solo i primi 17 caratteri
-              if (normalizedMac.length > 17) {
-                // Prendi solo i primi 17 caratteri (formato standard MAC: XX:XX:XX:XX:XX:XX)
-                normalizedMac = normalizedMac.substring(0, 17);
-              }
-              // Converti trattini in due punti per uniformità
-              normalizedMac = normalizedMac.replace(/-/g, ':');
-              // Se non ha il formato corretto, prova a convertirlo
-              if (normalizedMac.length === 12 && !normalizedMac.includes(':')) {
-                // Formato senza separatori, aggiungi due punti ogni 2 caratteri
-                normalizedMac = normalizedMac.replace(/(..)(..)(..)(..)(..)(..)/, '$1:$2:$3:$4:$5:$6');
-              }
-              // Verifica che sia un MAC valido (17 caratteri con due punti)
-              if (normalizedMac.length !== 17 || !/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i.test(normalizedMac)) {
-                normalizedMac = null;
-              }
-            }
-
-            // Prima di inserire, controlla se c'è un dispositivo offline con lo stesso MAC
-            // Se sì, trasferisci i dati e svuota il vecchio
-            let previousIpFromOldDevice = null;
-            if (normalizedMac) {
-              const oldDeviceWithSameMacResult = await pool.query(
-                `SELECT id, ip_address, device_type, device_path, device_username, status, previous_ip
-                 FROM network_devices 
-                 WHERE agent_id = $1 
-                 AND REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', '') = REPLACE(REPLACE(UPPER($2), ':', ''), '-', '')
-                 AND id NOT IN (SELECT id FROM network_devices WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $3)
-                 LIMIT 1`,
-                [agentId, normalizedMac, ip_address]
-              );
-
-              if (oldDeviceWithSameMacResult.rows.length > 0) {
-                const oldDevice = oldDeviceWithSameMacResult.rows[0];
-                console.log(`  🔄 Trovato dispositivo offline con stesso MAC ${normalizedMac}: IP vecchio ${oldDevice.ip_address} -> nuovo IP ${ip_address}`);
-
-                // Usa previous_ip del vecchio dispositivo o il suo IP come previous_ip
-                previousIpFromOldDevice = oldDevice.previous_ip || oldDevice.ip_address.replace(/[{}"]/g, '').trim();
-
-                // Svuota i dati del vecchio dispositivo (mantieni solo MAC)
-                await pool.query(
-                  `UPDATE network_devices 
-                   SET device_type = NULL, device_path = NULL, device_username = NULL, hostname = NULL, vendor = NULL
-                   WHERE id = $1`,
-                  [oldDevice.id]
-                );
-                console.log(`  🧹 Dati svuotati per dispositivo vecchio IP ${oldDevice.ip_address}`);
-              }
-            }
-
-            // Ricerca automatica MAC in KeePass per impostare device_type e device_path
-            // NOTA: Per i nuovi dispositivi, usiamo sempre KeePass se disponibile
-            // (non c'è is_manual_type perché è un nuovo dispositivo)
-            let deviceTypeFromKeepass = null;
-            let devicePathFromKeepass = null;
-            let deviceUsernameFromKeepass = null;
-            if (normalizedMac && process.env.KEEPASS_PASSWORD) {
-              try {
-                const keepassResult = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
-                if (keepassResult) {
-                  deviceTypeFromKeepass = keepassResult.title;
-                  devicePathFromKeepass = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
-                  deviceUsernameFromKeepass = keepassResult.username || null;
-                  console.log(`  🔍 MAC ${normalizedMac} trovato in KeePass -> Imposto device_type: "${keepassResult.title}", device_path: "${devicePathFromKeepass}", device_username: "${deviceUsernameFromKeepass}"`);
-                }
-              } catch (keepassErr) {
-                console.warn(`  ⚠️ Errore ricerca MAC ${normalizedMac} in KeePass:`, keepassErr.message);
-              }
-            }
-
-            // Fallback: Se non trovato in KeePass, usa Unifi Name se presente
-            if (!deviceTypeFromKeepass && unifi_name) {
-              deviceTypeFromKeepass = unifi_name;
-              console.log(`  🏷️ NUOVO DISPOSITIVO: Uso Unifi Name come device_type: "${unifi_name}"`);
-            }
-
-            const insertResult = await pool.query(
-              `INSERT INTO network_devices (agent_id, ip_address, mac_address, hostname, vendor, device_type, device_path, device_username, previous_ip, status, has_ping_failures, ping_responsive, upgrade_available)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-             RETURNING id`,
-              [
-                agentId,
-                ip_address,
-                normalizedMac,
-                effectiveHostname || null, // Hostname con priorità Unifi
-                (vendor && vendor.trim() !== '') ? vendor.trim() : null,
-                deviceTypeFromKeepass || null, // device_type da KeePass o fallback Unifi
-                devicePathFromKeepass || null,
-                deviceUsernameFromKeepass || null,
-                previousIpFromOldDevice || null, // previous_ip se c'era un dispositivo vecchio con stesso MAC
-                status || 'online',
-                has_ping_failures === true,
-                ping_responsive !== false,
-                upgrade_available === true
-              ]
-            );
-
-            deviceResults.push({ action: 'created', id: insertResult.rows[0].id, ip: ip_address });
-          } catch (insertErr) {
-            // Se fallisce per conflitto, prova a fare UPDATE
-            if (insertErr.code === '23505' || insertErr.message.includes('duplicate')) {
-              console.log(`  ℹ️ Dispositivo ${ip_address} già esistente, aggiorno...`);
-              const updateResult = await pool.query(
-                `UPDATE network_devices 
-                 SET last_seen = NOW(), status = $1 
-                 WHERE agent_id = $2 AND ip_address = $3
-                 RETURNING id`,
-                [status || 'online', agentId, ip_address]
-              );
-              if (updateResult.rows.length > 0) {
-                deviceResults.push({ action: 'updated', id: updateResult.rows[0].id, ip: ip_address });
-              }
-            } else {
-              console.error(`❌ Errore inserimento dispositivo ${ip_address}:`, insertErr.message);
-              console.error(`   Codice errore: ${insertErr.code}`);
-              console.error(`   Dettagli: ${insertErr.detail}`);
-              console.error(`   Stack: ${insertErr.stack}`);
-              // Non interrompere il loop, continua con gli altri dispositivi
-            }
-          }
+          // INSERT
+          const res = await pool.query(`INSERT INTO network_devices
+                 (agent_id, ip_address, mac_address, hostname, vendor, status, ping_responsive, upgrade_available, device_type, device_path)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+            [agentId, ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass]
+          );
+          deviceResults.push({ action: 'created', id: res.rows[0].id, ip: ip_address });
         }
       }
 
-      // Marca come offline i dispositivi dell'agent che non sono nella lista ricevuta
-      // (cioè non sono stati rilevati nella scansione corrente)
+      // Mark offline logic (Simplified: Mark offline if not seen and currently online)
       try {
-        const allAgentDevices = await pool.query(
-          'SELECT id, ip_address, status, is_static, notify_telegram, mac_address, monitoring_schedule, device_type, hostname, vendor, device_path, device_username, previous_ip FROM network_devices WHERE agent_id = $1',
-          [agentId]
-        );
-
-        // Normalizza gli IP ricevuti per il confronto (rimuovi caratteri JSON)
-        const normalizedReceivedIPs = new Set();
-        receivedIPs.forEach(ip => {
-          normalizedReceivedIPs.add(ip.replace(/[{}"]/g, '').trim());
-        });
-
-        console.log(`🔍 DEBUG OFFLINE: AgentID=${agentId}. DB Devices=${allAgentDevices.rows.length}. Received IPs=${normalizedReceivedIPs.size}`);
-
-        /* 
-         * DEBUG GENERALE: Logga alcuni dispositivi dal DB per vedere cosa abbiamo
-         */
-        if (allAgentDevices.rows.length > 0) {
-          const sampleDb = allAgentDevices.rows.slice(0, 5).map(d => `${d.ip_address} (Mac: ${d.mac_address})`);
-          console.log(`🔍 DEBUG DB SAMPLE:`, sampleDb);
+        const receivedList = Array.from(receivedIPs);
+        if (receivedList.length > 0) {
+          await pool.query(`UPDATE network_devices SET status = 'offline'
+                WHERE agent_id = $1 AND status = 'online' AND ip_address NOT IN (SELECT unnest($2::text[]))`,
+            [agentId, receivedList]
+          );
         } else {
-          console.warn('⚠️ NESSUN dispositivo trovato nel DB per questo agent! Impossibile marcare offline.');
+          await pool.query(`UPDATE network_devices SET status = 'offline' WHERE agent_id = $1 AND status = 'online'`, [agentId]);
         }
-
-        const devicesToMarkOffline = allAgentDevices.rows.filter(device => {
-          const normalizedDeviceIp = (device.ip_address || '').replace(/[{}"]/g, '').trim();
-          return !normalizedReceivedIPs.has(normalizedDeviceIp) && device.status === 'online';
-        });
-
-        if (devicesToMarkOffline.length > 0) {
-          console.log(`  ⚠️ Marcatura ${devicesToMarkOffline.length} dispositivi come offline (non trovati nella scansione)`);
-
-          for (const device of devicesToMarkOffline) {
-            // Prima di marcare offline, controlla se c'è un conflitto IP (stesso MAC con IP diverso online)
-            // Se sì, trasferisci i dati al nuovo dispositivo e svuota il vecchio
-            if (device.mac_address) {
-              const conflictDeviceResult = await pool.query(
-                `SELECT id, ip_address, device_type, device_path, device_username, hostname, vendor, status
-                 FROM network_devices 
-                 WHERE agent_id = $1 
-                 AND REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', '') = REPLACE(REPLACE(UPPER($2), ':', ''), '-', '')
-                 AND id != $3 AND status = 'online'
-                 LIMIT 1`,
-                [agentId, device.mac_address, device.id]
-              );
-
-              if (conflictDeviceResult.rows.length > 0) {
-                const conflictDevice = conflictDeviceResult.rows[0];
-                console.log(`  🔄 Conflitto IP rilevato: stesso MAC ${device.mac_address} con IP diverso online (${conflictDevice.ip_address})`);
-                console.log(`    📤 Trasferimento dati da ${device.ip_address} (offline) a ${conflictDevice.ip_address} (online)`);
-
-                // Trasferisci i dati al dispositivo online (solo se non ha già dati)
-                const updatesConflict = [];
-                const valuesConflict = [];
-                let paramIndexConflict = 1;
-
-                // Ottieni i dati del dispositivo offline
-                const offlineDeviceData = await pool.query(
-                  `SELECT device_type, device_path, device_username, hostname, vendor, previous_ip
-                   FROM network_devices WHERE id = $1`,
-                  [device.id]
-                );
-
-                if (offlineDeviceData.rows.length > 0) {
-                  const offlineData = offlineDeviceData.rows[0];
-
-                  // Trasferisci device_type se il dispositivo online non ce l'ha
-                  if (offlineData.device_type && !conflictDevice.device_type) {
-                    updatesConflict.push(`device_type = $${paramIndexConflict++}`);
-                    valuesConflict.push(offlineData.device_type);
-                  }
-
-                  // Trasferisci device_path se il dispositivo online non ce l'ha
-                  if (offlineData.device_path && !conflictDevice.device_path) {
-                    updatesConflict.push(`device_path = $${paramIndexConflict++}`);
-                    valuesConflict.push(offlineData.device_path);
-                  }
-
-                  // Trasferisci device_username se il dispositivo online non ce l'ha
-                  if (offlineData.device_username && !conflictDevice.device_username) {
-                    updatesConflict.push(`device_username = $${paramIndexConflict++}`);
-                    valuesConflict.push(offlineData.device_username);
-                  }
-
-                  // Imposta previous_ip sul dispositivo online se non ce l'ha
-                  if (offlineData.previous_ip && !conflictDevice.previous_ip) {
-                    updatesConflict.push(`previous_ip = $${paramIndexConflict++}`);
-                    valuesConflict.push(offlineData.previous_ip);
-                  } else if (!conflictDevice.previous_ip) {
-                    // Se non c'era previous_ip, usa l'IP del dispositivo offline
-                    updatesConflict.push(`previous_ip = $${paramIndexConflict++}`);
-                    valuesConflict.push(device.ip_address.replace(/[{}"]/g, '').trim());
-                  }
-
-                  // Aggiorna il dispositivo online con i dati trasferiti
-                  if (updatesConflict.length > 0) {
-                    valuesConflict.push(conflictDevice.id);
-                    await pool.query(
-                      `UPDATE network_devices SET ${updatesConflict.join(', ')} WHERE id = $${paramIndexConflict}`,
-                      valuesConflict
-                    );
-                    console.log(`    ✅ Dati trasferiti al dispositivo ${conflictDevice.ip_address}`);
-                  }
-                }
-
-                // Svuota i dati del dispositivo offline (mantieni solo MAC e previous_ip se presente)
-                await pool.query(
-                  `UPDATE network_devices 
-                   SET status = 'offline', device_type = NULL, device_path = NULL, device_username = NULL, hostname = NULL, vendor = NULL
-                   WHERE id = $1`,
-                  [device.id]
-                );
-                console.log(`    🧹 Dati svuotati per dispositivo offline ${device.ip_address}`);
-              } else {
-                // Nessun conflitto, marca semplicemente offline
-                await pool.query(
-                  'UPDATE network_devices SET status = $1 WHERE id = $2',
-                  ['offline', device.id]
-                );
-                console.log(`    📴 Dispositivo ${device.ip_address} marcato come offline`);
-              }
-            } else {
-              // Nessun MAC, marca semplicemente offline
-              await pool.query(
-                'UPDATE network_devices SET status = $1 WHERE id = $2',
-                ['offline', device.id]
-              );
-              console.log(`    📴 Dispositivo ${device.ip_address} marcato come offline`);
-            }
-
-            // Invia notifica Telegram (controlla modalità continua vs schedulata)
-            if (shouldNotifyForEvent(device, 'status_changed')) {
-              try {
-                const agentInfo = await pool.query(
-                  'SELECT na.agent_name, na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
-                  [agentId]
-                );
-
-                if (agentInfo.rows.length > 0) {
-                  await sendTelegramNotification(
-                    agentId,
-                    agentInfo.rows[0].azienda_id,
-                    'status_changed',
-                    {
-                      hostname: device.hostname,
-                      deviceType: device.device_type,
-                      ip: device.ip_address,
-                      mac: device.mac_address,
-                      oldStatus: 'online',
-                      status: 'offline',
-                      agentName: agentInfo.rows[0].agent_name,
-                      aziendaName: agentInfo.rows[0].azienda_name
-                    }
-                  );
-                }
-              } catch (telegramErr) {
-                console.error('❌ Errore invio notifica Telegram per dispositivo offline:', telegramErr);
-              }
-            }
-          }
-        }
-
-        // Rileva dispositivi tornati online (erano offline e ora sono nella scansione)
-        const devicesToMarkOnline = allAgentDevices.rows.filter(device => {
-          const normalizedDeviceIp = (device.ip_address || '').replace(/[{}"]/g, '').trim();
-          return normalizedReceivedIPs.has(normalizedDeviceIp) && device.status === 'offline';
-        });
-
-        if (devicesToMarkOnline.length > 0) {
-          console.log(`  🟢 Marcatura ${devicesToMarkOnline.length} dispositivi come online (tornati online)`);
-
-          for (const device of devicesToMarkOnline) {
-            await pool.query(
-              'UPDATE network_devices SET status = $1, last_seen = NOW() WHERE id = $2',
-              ['online', device.id]
-            );
-            console.log(`    ✅ Dispositivo ${device.ip_address} marcato come online`);
-
-            // Invia notifica Telegram (controlla modalità continua vs schedulata)
-            if (shouldNotifyForEvent(device, 'status_changed')) {
-              try {
-                const agentInfo = await pool.query(
-                  'SELECT na.agent_name, na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
-                  [agentId]
-                );
-
-                if (agentInfo.rows.length > 0) {
-                  await sendTelegramNotification(
-                    agentId,
-                    agentInfo.rows[0].azienda_id,
-                    'status_changed',
-                    {
-                      hostname: device.hostname,
-                      deviceType: device.device_type,
-                      ip: device.ip_address,
-                      mac: device.mac_address,
-                      oldStatus: 'offline',
-                      status: 'online',
-                      agentName: agentInfo.rows[0].agent_name,
-                      aziendaName: agentInfo.rows[0].azienda_name
-                    }
-                  );
-                }
-              } catch (telegramErr) {
-                console.error('❌ Errore invio notifica Telegram per dispositivo online:', telegramErr);
-              }
-            }
-          }
-        }
-      } catch (offlineErr) {
-        console.error('❌ Errore durante marcatura dispositivi offline:', offlineErr);
-        // Non interrompere il processo, continua con i cambiamenti
+      } catch (err) {
+        console.error('Error marking offline:', err);
       }
+
+
 
       // Gestisci cambiamenti (se forniti dall'agent)
       let changeResults = [];
