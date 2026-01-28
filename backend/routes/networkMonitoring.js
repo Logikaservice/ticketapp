@@ -1546,6 +1546,8 @@ module.exports = (pool, io) => {
   router.post('/agent/scan-results', authenticateAgent, async (req, res) => {
     try {
       const agentId = req.agent.id;
+      console.log(`🚀 ENTERING SCAN-RESULTS ROUTE. AgentID=${agentId}. Time=${new Date().toISOString()}`);
+
       const { devices, changes } = req.body; // devices: array, changes: array (opzionale)
 
       console.log(`📥 Scan results ricevuti da agent ${agentId}: ${devices?.length || 0} dispositivi, ${changes?.length || 0} cambiamenti`);
