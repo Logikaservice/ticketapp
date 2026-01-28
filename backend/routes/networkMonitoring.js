@@ -2770,9 +2770,20 @@ module.exports = (pool, io) => {
       }
 
       console.log('🔍 Eseguendo query con aziendaId:', aziendaId);
+
+      // MIGRATION (AUTO-FIX): Normalizza MAC address nel DB (da - a :) per coerenza immediata
+      try {
+        await pool.query(`
+          UPDATE network_devices 
+          SET mac_address = REPLACE(mac_address, '-', ':') 
+          WHERE mac_address LIKE '%-%' 
+          AND agent_id IN (SELECT id FROM network_agents WHERE azienda_id = $1)
+        `, [aziendaId]);
+      } catch (e) { console.error('Error normalizing MACs:', e); }
+
       const result = await pool.query(
         `SELECT 
-          nd.id, nd.ip_address, nd.mac_address, 
+          nd.id, nd.ip_address, REPLACE(nd.mac_address, '-', ':') as mac_address, 
           CASE 
             WHEN nd.hostname IS NULL OR nd.hostname = '' THEN NULL
             WHEN nd.hostname LIKE '{%' THEN 
