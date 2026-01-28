@@ -1785,7 +1785,7 @@ module.exports = (pool, io) => {
           }
 
           // GESTIONE CAMBIO IP E STORICO
-          const oldIp = existingDevice.ip_address ? existingDevice.ip_address.replace(/[{}"]/g, '', 'g').trim() : null;
+          const oldIp = existingDevice.ip_address ? existingDevice.ip_address.replace(/[{}"]/g, '').trim() : null;
 
           if (oldIp && oldIp !== normalizedIpForSearch) {
             console.log(`  🔄 Dispositivo MAC ${normalizedMacForSearch} ha cambiato IP: ${oldIp} -> ${normalizedIpForSearch}`);
@@ -1900,7 +1900,7 @@ module.exports = (pool, io) => {
               // Aggiorna storico IP se presente (aggiunto dalla logica MAC-first)
               if (existingDevice.ip_history) {
                 updates.push(`ip_history = $${paramIndex++}`);
-                values.push(JSON.stringify(existingDevice.ip_history));
+                values.push(existingDevice.ip_history); // Passa l'oggetto/array direttamente, pg lo serializza
               }
 
               // Invia notifica Telegram (controlla modalità continua vs schedulata)
