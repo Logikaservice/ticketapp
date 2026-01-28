@@ -1762,7 +1762,8 @@ module.exports = (pool, io) => {
         if (!existingDevice && normalizedMacForSearch && normalizedMacForSearch !== '') {
           existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac, accepted_ip, accepted_mac, has_ping_failures, device_type, device_path, device_username, is_manual_type
                            FROM network_devices 
-                           WHERE agent_id = $1 AND mac_address = $2
+                           WHERE agent_id = $1 
+                           AND REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', '') = REPLACE(REPLACE(UPPER($2), ':', ''), '-', '')
                            LIMIT 1`;
           existingParams = [agentId, normalizedMacForSearch];
           existingResult = await pool.query(existingQuery, existingParams);
@@ -2077,7 +2078,9 @@ module.exports = (pool, io) => {
               const oldDeviceWithSameMacResult = await pool.query(
                 `SELECT id, ip_address, device_type, device_path, device_username, status, previous_ip
                  FROM network_devices 
-                 WHERE agent_id = $1 AND mac_address = $2 AND id NOT IN (SELECT id FROM network_devices WHERE agent_id = $1 AND ip_address = $3)
+                 WHERE agent_id = $1 
+                 AND REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', '') = REPLACE(REPLACE(UPPER($2), ':', ''), '-', '')
+                 AND id NOT IN (SELECT id FROM network_devices WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $3)
                  LIMIT 1`,
                 [agentId, normalizedMac, ip_address]
               );
@@ -2202,7 +2205,9 @@ module.exports = (pool, io) => {
               const conflictDeviceResult = await pool.query(
                 `SELECT id, ip_address, device_type, device_path, device_username, hostname, vendor, status
                  FROM network_devices 
-                 WHERE agent_id = $1 AND mac_address = $2 AND id != $3 AND status = 'online'
+                 WHERE agent_id = $1 
+                 AND REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', '') = REPLACE(REPLACE(UPPER($2), ':', ''), '-', '')
+                 AND id != $3 AND status = 'online'
                  LIMIT 1`,
                 [agentId, device.mac_address, device.id]
               );
@@ -2473,12 +2478,12 @@ module.exports = (pool, io) => {
           'SELECT status, last_heartbeat FROM network_agents WHERE id = $1',
           [agentId]
         );
-        
+
         if (agentStatusCheck.rows.length > 0) {
           const previousStatus = agentStatusCheck.rows[0].status;
           const lastHeartbeat = agentStatusCheck.rows[0].last_heartbeat;
           const wasOffline = previousStatus === 'offline';
-          
+
           // Aggiorna SEMPRE last_heartbeat quando arrivano scan-results (indica attività)
           // Aggiorna status a 'online' solo se era offline
           if (wasOffline) {
@@ -2488,9 +2493,9 @@ module.exports = (pool, io) => {
                WHERE id = $1`,
               [agentId]
             );
-            
+
             console.log(`🟢 Agent ${agentId} (${req.agent.agent_name || 'N/A'}) aggiornato a online tramite scan-results (era offline)`);
-            
+
             // Emetti evento WebSocket per aggiornare la lista agenti in tempo reale
             if (io) {
               io.to(`role:tecnico`).to(`role:admin`).emit('network-monitoring-update', {
@@ -2508,12 +2513,12 @@ module.exports = (pool, io) => {
               [agentId]
             );
           }
-          
+
           // Crea evento "tornato online" nella tabella network_agent_events solo se era offline
           if (wasOffline) {
             try {
               await ensureTables();
-              
+
               // Risolvi eventuali eventi offline precedenti
               await pool.query(
                 `UPDATE network_agent_events 
@@ -2523,10 +2528,10 @@ module.exports = (pool, io) => {
                    AND resolved_at IS NULL`,
                 [agentId]
               );
-              
+
               // Calcola durata offline
               const offlineDuration = lastHeartbeat ? Math.floor((Date.now() - new Date(lastHeartbeat).getTime()) / 60000) : 0;
-              
+
               // Verifica se esiste già un evento online recente (ultimi 2 minuti)
               const existingOnline = await pool.query(
                 `SELECT id FROM network_agent_events 
@@ -2536,7 +2541,7 @@ module.exports = (pool, io) => {
                  LIMIT 1`,
                 [agentId]
               );
-              
+
               if (existingOnline.rows.length === 0) {
                 await pool.query(
                   `INSERT INTO network_agent_events (agent_id, event_type, event_data, detected_at, notified)
@@ -2548,9 +2553,9 @@ module.exports = (pool, io) => {
                     source: 'scan-results'
                   })]
                 );
-                
+
                 console.log(`📝 Evento "Agent Online" creato per agent ${agentId} (era offline da ${offlineDuration} min)`);
-                
+
                 // Emetti evento WebSocket
                 if (io) {
                   io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
@@ -2924,9 +2929,9 @@ module.exports = (pool, io) => {
           AND table_name = 'mappatura_nodes'
         );
       `);
-      
+
       const exists = tableExists.rows[0]?.exists;
-      
+
       if (!exists) {
         // Crea tabella nuova con mac_address come chiave
         await pool.query(`
@@ -2951,13 +2956,13 @@ module.exports = (pool, io) => {
               AND column_name = 'mac_address'
             );
           `);
-          
+
           if (!macColumnExists.rows[0]?.exists) {
             console.log('🔄 Migrazione mappatura_nodes: aggiungo colonna mac_address...');
-            
+
             // Aggiungi colonna mac_address
             await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN mac_address VARCHAR(17)`);
-            
+
             // Migra i dati: popola mac_address dai device_id esistenti
             await pool.query(`
               UPDATE mappatura_nodes mn
@@ -2966,36 +2971,36 @@ module.exports = (pool, io) => {
               WHERE mn.device_id = nd.id
                 AND mn.mac_address IS NULL
             `);
-            
+
             // Rimuovi righe senza MAC (non possono essere identificate)
             await pool.query(`
               DELETE FROM mappatura_nodes 
               WHERE mac_address IS NULL OR mac_address = ''
             `);
-            
+
             // Imposta NOT NULL dopo aver popolato i dati
             await pool.query(`ALTER TABLE mappatura_nodes ALTER COLUMN mac_address SET NOT NULL`);
-            
+
             // Rimuovi vecchia PRIMARY KEY se esiste
             try {
               await pool.query(`ALTER TABLE mappatura_nodes DROP CONSTRAINT IF EXISTS mappatura_nodes_pkey`);
             } catch (e) {
               // Ignora se non esiste
             }
-            
+
             // Crea nuova PRIMARY KEY con mac_address
             await pool.query(`
               ALTER TABLE mappatura_nodes 
               ADD PRIMARY KEY (azienda_id, mac_address)
             `);
-            
+
             // Rimuovi colonna device_id (non più necessaria)
             try {
               await pool.query(`ALTER TABLE mappatura_nodes DROP COLUMN IF EXISTS device_id`);
             } catch (e) {
               console.warn('⚠️ Impossibile rimuovere colonna device_id:', e.message);
             }
-            
+
             console.log('✅ Migrazione mappatura_nodes completata: ora usa mac_address come chiave');
           }
         } catch (migrateErr) {
@@ -3030,13 +3035,13 @@ module.exports = (pool, io) => {
       await ensureMappaturaNodesTable();
       const aziendaId = parseInt(req.params.aziendaId, 10);
       if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
-      
+
       // Normalizza MAC per il matching (rimuovi separatori)
       const normalizeMacForQuery = (mac) => {
         if (!mac) return null;
         return mac.replace(/[:-]/g, '').toUpperCase();
       };
-      
+
       // Prima pulisci i nodi orfani (record in mappatura_nodes che non corrispondono a dispositivi attuali)
       await pool.query(
         `DELETE FROM mappatura_nodes mn
@@ -3051,7 +3056,7 @@ module.exports = (pool, io) => {
            )`,
         [aziendaId]
       );
-      
+
       // Poi carica solo i nodi che corrispondono a dispositivi attuali
       const r = await pool.query(
         `SELECT mn.mac_address, mn.x, mn.y, mn.is_locked
@@ -3097,7 +3102,7 @@ module.exports = (pool, io) => {
       for (const node of nodes) {
         // Cerca MAC address: può essere passato direttamente o recuperato da device_id
         let macAddress = node.mac_address;
-        
+
         if (!macAddress && (node.id || node.device_id)) {
           // Se non c'è MAC ma c'è device_id, recuperalo dal database
           const deviceId = parseInt(node.id || node.device_id, 10);
@@ -3112,12 +3117,12 @@ module.exports = (pool, io) => {
             }
           }
         }
-        
+
         if (!macAddress) {
           console.warn('⚠️ POST mappatura-nodes: MAC address non trovato per nodo', node);
           continue;
         }
-        
+
         // Normalizza MAC
         const normalizedMac = normalizeMac(macAddress);
         if (!normalizedMac) continue;
@@ -3142,7 +3147,7 @@ module.exports = (pool, io) => {
              is_locked = COALESCE(EXCLUDED.is_locked, mappatura_nodes.is_locked)`,
           [aziendaId, normalizedMac, x, y, isLocked]
         );
-        
+
         console.log(`💾 POST mappatura-nodes: salvato nodo per aziendaId=${aziendaId}, macAddress=${normalizedMac}, x=${x}, y=${y}, locked=${isLocked}`);
       }
 
@@ -3161,15 +3166,15 @@ module.exports = (pool, io) => {
       const aziendaId = parseInt(req.params.aziendaId, 10);
       let macAddress = req.params.macAddress;
       if (isNaN(aziendaId) || !macAddress) return res.status(400).json({ error: 'Parametri non validi' });
-      
+
       // Decodifica il MAC dall'URL (potrebbe essere stato codificato con encodeURIComponent)
       macAddress = decodeURIComponent(macAddress);
-      
+
       // Normalizza MAC (rimuovi separatori e converti in maiuscolo)
       const normalizedMac = macAddress.replace(/[:-]/g, '').toUpperCase();
-      
+
       console.log(`🗑️ DELETE mappatura-nodes: aziendaId=${aziendaId}, macAddress=${macAddress}, normalizedMac=${normalizedMac}`);
-      
+
       // Elimina usando normalizzazione flessibile per gestire qualsiasi formato di MAC nel database
       // Questo gestisce sia MAC salvati con separatori che senza
       const r = await pool.query(
@@ -3179,7 +3184,7 @@ module.exports = (pool, io) => {
          RETURNING mac_address`,
         [aziendaId, normalizedMac]
       );
-      
+
       if (r.rows.length === 0) {
         console.warn(`⚠️ DELETE mappatura-nodes: nodo non trovato per aziendaId=${aziendaId}, macAddress=${normalizedMac}`);
         // Prova anche con il MAC esatto (per sicurezza)
@@ -3193,7 +3198,7 @@ module.exports = (pool, io) => {
         console.log(`✅ DELETE mappatura-nodes: nodo eliminato con successo (trovato con match esatto), macAddress=${r2.rows[0].mac_address}`);
         return res.json({ success: true });
       }
-      
+
       console.log(`✅ DELETE mappatura-nodes: nodo eliminato con successo, macAddress=${r.rows[0].mac_address}`);
       res.json({ success: true });
     } catch (err) {
@@ -3209,18 +3214,18 @@ module.exports = (pool, io) => {
       await ensureMappaturaNodesTable();
       const aziendaId = parseInt(req.params.aziendaId, 10);
       if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
-      
+
       // Normalizza MAC
       const normalizeMac = (mac) => {
         if (!mac) return null;
         return mac.replace(/[:-]/g, '').toUpperCase();
       };
-      
+
       const nodes = Array.isArray(req.body.nodes) ? req.body.nodes : [];
       for (const n of nodes) {
         // Cerca MAC: può essere passato direttamente o recuperato da device_id/id
         let macAddress = n.mac_address;
-        
+
         if (!macAddress && (n.id || n.device_id)) {
           // Se non c'è MAC ma c'è device_id, recuperalo dal database
           const deviceId = parseInt(n.id || n.device_id, 10);
@@ -3235,12 +3240,12 @@ module.exports = (pool, io) => {
             }
           }
         }
-        
+
         if (!macAddress) continue;
-        
+
         const normalizedMac = normalizeMac(macAddress);
         if (!normalizedMac) continue;
-        
+
         const x = n.x != null ? parseFloat(n.x) : null;
         const y = n.y != null ? parseFloat(n.y) : null;
         await pool.query(
