@@ -1587,12 +1587,22 @@ module.exports = (pool, io) => {
           let m = String(mac_address).trim().toUpperCase().replace(/[,\s]/g, '');
           if (m.length > 17) m = m.substring(0, 17);
           normalizedMac = m.replace(/-/g, ':'); // Standardize on :
-          // Validazione minima
+
+          // Re-add colons if missing (12 chars raw)
+          if (normalizedMac.length === 12 && !normalizedMac.includes(':')) {
+            normalizedMac = normalizedMac.replace(/(..)(..)(..)(..)(..)(..)/, '$1:$2:$3:$4:$5:$6');
+          }
+
+          // Validazione minima (must be close to 17 chars now)
           if (normalizedMac.length < 12) normalizedMac = null;
         }
 
         // 3. Hostname Priority (Unifi > Hostname)
-        const effectiveHostname = unifi_name || (hostname && typeof hostname === 'string' ? hostname.replace(/[{}"]/g, '').trim() : null);
+        let effectiveHostname = unifi_name || (hostname && typeof hostname === 'string' ? hostname.replace(/[{}"]/g, '').trim() : null);
+        if (effectiveHostname && effectiveHostname.length > 250) effectiveHostname = effectiveHostname.substring(0, 250);
+
+        // Truncate vendor
+        if (vendor && vendor.length > 250) vendor = vendor.substring(0, 250);
 
         // 4. Find Existing Device (Priority: MAC, then IP)
         let existingDevice = null;
@@ -1614,7 +1624,10 @@ module.exports = (pool, io) => {
             const keepassResult = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
             if (keepassResult) {
               deviceTypeFromKeepass = keepassResult.title;
+              if (deviceTypeFromKeepass && deviceTypeFromKeepass.length > 100) deviceTypeFromKeepass = deviceTypeFromKeepass.substring(0, 100);
+
               devicePathFromKeepass = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
+              if (devicePathFromKeepass && devicePathFromKeepass.length > 255) devicePathFromKeepass = devicePathFromKeepass.substring(0, 255);
             }
           } catch (e) { /* ignore */ }
         }
