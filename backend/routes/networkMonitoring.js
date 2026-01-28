@@ -1730,103 +1730,117 @@ module.exports = (pool, io) => {
             normalizedMacForSearch = normalizedMacForSearch.substring(0, 17);
           }
           // Converti trattini in due punti per uniformità
-          normalizedMacForSearch = normalizedMacForSearch.replace(/-/g, ':');
-          // Se non ha il formato corretto, prova a convertirlo
-          if (normalizedMacForSearch.length === 12 && !normalizedMacForSearch.includes(':')) {
-            // Formato senza separatori, aggiungi due punti ogni 2 caratteri
-            normalizedMacForSearch = normalizedMacForSearch.replace(/(..)(..)(..)(..)(..)(..)/, '$1:$2:$3:$4:$5:$6');
-          }
-          // Verifica che sia un MAC valido (17 caratteri con due punti)
-          if (normalizedMacForSearch.length !== 17 || !/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i.test(normalizedMacForSearch)) {
-            normalizedMacForSearch = null;
+          if (normalizedMacForSearch.length > 17) normalizedMacForSearch = normalizedMacForSearch.substring(0, 17);
+          normalizedMacForSearch = normalizedMacForSearch.replace(/-/g, ':'); // PROMOTING COLONS
+        }
+
+        // ==========================================================================================
+        // NUOVA LOGICA DI ABBINAMENTO (MAC-FIRST) PER EVITARE DUPLICATI
+        // ==========================================================================================
+
+        // 1. Cerca TUTTI i record con questo MAC (se disponibile)
+        let matchingDevices = [];
+        if (normalizedMacForSearch && normalizedMacForSearch.length >= 12) {
+          const macQuery = `
+            SELECT id, ip_address, mac_address, hostname, is_static, last_seen, ip_history, device_type, device_path, device_username, is_manual_type, vendor, status, has_ping_failures, accepted_ip, accepted_mac, ping_responsive, upgrade_available
+            FROM network_devices 
+            WHERE agent_id = $1 
+            AND REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', '') = REPLACE(REPLACE(UPPER($2), ':', ''), '-', '')
+            ORDER BY is_static DESC, last_seen DESC, id DESC
+          `;
+          const macResult = await pool.query(macQuery, [agentId, normalizedMacForSearch]);
+          matchingDevices = macResult.rows;
+        }
+
+        // 2. Se non abbiamo trovato per MAC, cerchiamo per IP (per gestire dispositivi senza MAC o nuovi)
+        let ipMatch = null;
+
+        if (matchingDevices.length === 0) {
+          const ipQuery = `
+             SELECT id, ip_address, mac_address, hostname, is_static, last_seen, ip_history, device_type, device_path, device_username, is_manual_type, vendor, status, has_ping_failures, accepted_ip, accepted_mac, ping_responsive, upgrade_available
+             FROM network_devices
+             WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2
+             ORDER BY is_static DESC, last_seen DESC
+           `;
+          const ipResult = await pool.query(ipQuery, [agentId, normalizedIpForSearch]);
+          if (ipResult.rows.length > 0) {
+            ipMatch = ipResult.rows[0];
           }
         }
 
-        // SEMPLIFICAZIONE: Cerca PRIMA per IP (più affidabile per matching immediato)
-        // Se non trova per IP, cerca per MAC (per gestire cambi di IP)
-        // Questo evita confusione e duplicati
+        // 3. Determina il dispositivo "vincente" da aggiornare
+        if (matchingDevices.length > 0) {
+          // Abbiamo trovato uno o più dispositivi con questo MAC.
+          // Il primo della lista è il "migliore" (Statico > Recente > ID alto)
+          existingDevice = matchingDevices[0];
 
-        // 1. Cerca PRIMA per IP (priorità massima - l'agent ha trovato questo IP ora)
-        // Recupera TUTTI i dispositivi con questo IP per gestire eventuali duplicati su IP
-        existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac, accepted_ip, accepted_mac, has_ping_failures, is_manual_type, device_type, device_path, device_username
-                         FROM network_devices 
-                         WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2
-                         ORDER BY is_static DESC, last_seen DESC, id DESC`;
-        existingParams = [agentId, normalizedIpForSearch];
+          // Se ci sono altri duplicati con lo stesso MAC, DOBBIAMO eliminarli per rispettare "One MAC = One Record"
+          if (matchingDevices.length > 1) {
+            console.warn(`  ⚠️ Unificazione MAC ${normalizedMacForSearch}: Trovati ${matchingDevices.length} record. Mantengo ID ${existingDevice.id}, elimino gli altri.`);
+            const idsToDelete = matchingDevices.slice(1).map(d => d.id);
 
-        let existingResult = await pool.query(existingQuery, existingParams);
+            // Recupera info utili dai duplicati prima di ucciderli (opzionale: unire history)
+            // Per semplicità, eliminiamo
+            await pool.query('DELETE FROM network_devices WHERE id = ANY($1)', [idsToDelete]);
+          }
 
-        // Se abbiamo trovato duplicati sullo stesso IP, teniamo il primo (statico o più recente) e eliminiamo gli altri
-        if (existingResult.rows.length > 1) {
-          console.warn(`  ⚠️ Rilevati ${existingResult.rows.length} duplicati per IP ${normalizedIpForSearch}. Unifico...`);
-          existingDevice = existingResult.rows[0]; // Il migliore
-          const idsToDelete = existingResult.rows.slice(1).map(r => r.id);
+          // GESTIONE CAMBIO IP E STORICO
+          const oldIp = existingDevice.ip_address ? existingDevice.ip_address.replace(/[{}"]/g, '', 'g').trim() : null;
 
-          await pool.query('DELETE FROM network_devices WHERE id = ANY($1)', [idsToDelete]);
-          console.log(`  🧹 Eliminati duplicati IP ${idsToDelete.join(', ')}`);
+          if (oldIp && oldIp !== normalizedIpForSearch) {
+            console.log(`  🔄 Dispositivo MAC ${normalizedMacForSearch} ha cambiato IP: ${oldIp} -> ${normalizedIpForSearch}`);
+
+            // Aggiungi vecchio IP allo storico
+            let history = existingDevice.ip_history || [];
+            if (!Array.isArray(history)) history = [];
+
+            // Aggiungi solo se non è l'ultimo (evita spam se rimbalza)
+            const lastEntry = history.length > 0 ? history[history.length - 1] : null;
+            if (!lastEntry || lastEntry.ip !== oldIp) {
+              history.push({
+                ip: oldIp,
+                seen_at: existingDevice.last_seen || new Date().toISOString()
+              });
+              // Limita lo storico agli ultimi 10 cambi
+              if (history.length > 10) history = history.slice(-10);
+
+              // Aggiorna l'oggetto in memoria per il successivo UPDATE
+              existingDevice.ip_history = history;
+            }
+
+            // IMPORTANTE: Controlla se c'è un "fantasma" che occupa il NUOVO IP ma ha MAC diverso o nullo?
+            // Se esiste un record sul nuovo IP che NON è quello che stiamo aggiornando, è un conflitto.
+            // Se ha MAC diverso, è un conflitto IP. Se non ha MAC, lo sovrascriviamo/eliminiamo?
+            // Per sicurezza puliamo record sul nuovo IP che non hanno MAC (sono placeholder instabili)
+            await pool.query(`
+               DELETE FROM network_devices 
+               WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2 
+               AND (mac_address IS NULL OR mac_address = '') 
+               AND id != $3
+             `, [agentId, normalizedIpForSearch, existingDevice.id]);
+          }
+
+        } else if (ipMatch) {
+          // Non trovato per MAC, ma trovato per IP.
+          // Potrebbe essere un dispositivo che non aveva MAC registrato e ora lo invia.
+          // OPPURE un dispositivo diverso che ha preso quell'IP.
+
+          // Se quello su DB non ha MAC, ci impossessiamo del record (è lo stesso dispositivo che si è identificato meglio)
+          if (!ipMatch.mac_address) {
+            console.log(`  ➕ Arricchimento dispositivo IP ${normalizedIpForSearch}: Assegnato MAC ${normalizedMacForSearch}`);
+            existingDevice = ipMatch;
+          } else {
+            // Se quello su DB HA un MAC, ed è DIVERSO dal nostro... CONFLITTO.
+            // IP 192.168.1.15 era MAC AA:AA... ora arriva MAC BB:BB...
+            // Secondo la logica "One MAC = One Record", questo è un NUOVO dispositivo.
+            // Il vecchio dispositivo a quell'IP ora è offline o ha cambiato IP (ma non lo sappiamo ancora).
+            // Non tocchiamo il vecchio record (rimarrà al suo posto, diventerà offline se non risponde).
+            // Creiamo un NUOVO record per il nostro MAC corrente.
+            existingDevice = null;
+          }
         } else {
-          existingDevice = existingResult.rows[0];
-        }
-
-        // 2. Se non trovato per IP E abbiamo MAC, cerca per MAC (per gestire cambi di IP)
-        // Cerca TUTTI i dispositivi con lo stesso MAC (normalizzato)
-        let foundByMac = false;
-        let oldDeviceWithSameMac = null;
-
-        if (!existingDevice && normalizedMacForSearch && normalizedMacForSearch !== '') {
-          existingQuery = `SELECT id, ip_address, mac_address, hostname, vendor, status, is_static, previous_ip, previous_mac, accepted_ip, accepted_mac, has_ping_failures, device_type, device_path, device_username, is_manual_type
-                           FROM network_devices 
-                           WHERE agent_id = $1 
-                           AND REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', '') = REPLACE(REPLACE(UPPER($2), ':', ''), '-', '')
-                           ORDER BY is_static DESC, last_seen DESC, id DESC`;
-          existingParams = [agentId, normalizedMacForSearch];
-          existingResult = await pool.query(existingQuery, existingParams);
-
-          if (existingResult.rows.length > 0) {
-            // Se abbiamo trovato duplicati sul MAC (ma nessuno su IP attuale, perché siamo nel blocco !existingDevice),
-            // Unifichiamo tutto nel primo record
-            if (existingResult.rows.length > 1) {
-              console.warn(`  ⚠️ Rilevati ${existingResult.rows.length} record con stesso MAC ${normalizedMacForSearch} (IP diversi o duplicati). Unifico sul migliore...`);
-              existingDevice = existingResult.rows[0];
-              const idsToDelete = existingResult.rows.slice(1).map(r => r.id);
-
-              // Prima di eliminare, copiamo dati utili se mancano al principale (merge euristico basilare)
-              // (Per semplicità eliminiamo e basta, il principale è già ordinato per importanza)
-              await pool.query('DELETE FROM network_devices WHERE id = ANY($1)', [idsToDelete]);
-              console.log(`  🧹 Eliminati duplicati MAC ${idsToDelete.join(', ')}`);
-            } else {
-              existingDevice = existingResult.rows[0];
-            }
-
-            oldDeviceWithSameMac = existingDevice;
-            foundByMac = true;
-
-            const oldIp = existingDevice.ip_address ? existingDevice.ip_address.replace(/[{}"]/g, '').trim() : null;
-            console.log(`  🔄 Dispositivo trovato per MAC ${normalizedMacForSearch}, ma IP cambiato: ${oldIp} -> ${ip_address}`);
-
-            // Logica legacy: Se il vecchio IP è diverso dal nuovo, controlla se esiste un dispositivo offline con il vecchio IP
-            // Ma ora che abbiamo unificato per MAC, questo controllo è meno critico, ma lo manteniamo per sicurezza
-            // nel caso in cui ci siano record 'fantasmi' senza MAC ma con quel vecchio IP
-            if (oldIp && oldIp !== normalizedIpForSearch) {
-              // Svuota eventuali altri record con vecchio IP che non avevano questo MAC (per evitare conflitti)
-              const oldIpDeviceResult = await pool.query(
-                `SELECT id FROM network_devices 
-                 WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2 AND id != $3`,
-                [agentId, oldIp, existingDevice.id]
-              );
-
-              if (oldIpDeviceResult.rows.length > 0) {
-                const idsToClean = oldIpDeviceResult.rows.map(r => r.id);
-                console.log(`  🧹 Svuotamento dati dispositivi vecchio IP ${oldIp} (ID: ${idsToClean.join()})`);
-                await pool.query(
-                  `UPDATE network_devices 
-                     SET device_type = NULL, device_path = NULL, device_username = NULL, hostname = NULL, vendor = NULL, status = 'offline'
-                     WHERE id = ANY($1)`,
-                  [idsToClean]
-                );
-              }
-            }
-          }
+          // Nessun match per MAC né per IP. È un nuovo dispositivo.
+          existingDevice = null;
         }
 
         if (existingDevice) {
@@ -1882,6 +1896,12 @@ module.exports = (pool, io) => {
               // Aggiorna anche l'IP
               updates.push(`ip_address = $${paramIndex++}`);
               values.push(normalizedCurrentIp);
+
+              // Aggiorna storico IP se presente (aggiunto dalla logica MAC-first)
+              if (existingDevice.ip_history) {
+                updates.push(`ip_history = $${paramIndex++}`);
+                values.push(JSON.stringify(existingDevice.ip_history));
+              }
 
               // Invia notifica Telegram (controlla modalità continua vs schedulata)
               if (shouldNotifyForEvent(existingDevice, 'ip_changed')) {
