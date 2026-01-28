@@ -7,7 +7,7 @@ import {
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
   Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit, Menu,
-  CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle, Terminal, Network
+  CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle, Terminal, Network, History
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
@@ -1992,6 +1992,29 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                     </button>
                                   </div>
                                 )}
+                                {/* History Tooltip */}
+                                {device.ip_history && (Array.isArray(device.ip_history) ? device.ip_history : JSON.parse(device.ip_history || '[]')).length > 0 && (
+                                  <div className="relative group">
+                                    <History className="w-4 h-4 text-blue-400 hover:text-blue-600 cursor-help" />
+                                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-20 bg-white border border-gray-200 shadow-xl text-xs rounded-md overflow-hidden w-64">
+                                      <div className="bg-gray-50 px-3 py-2 border-b border-gray-100 font-semibold text-gray-700">
+                                        Storico IP
+                                      </div>
+                                      <div className="max-h-48 overflow-y-auto">
+                                        {(Array.isArray(device.ip_history) ? device.ip_history : JSON.parse(device.ip_history || '[]'))
+                                          .slice()
+                                          .reverse()
+                                          .map((h, idx) => (
+                                            <div key={idx} className="px-3 py-2 border-b border-gray-50 flex justify-between items-center hover:bg-blue-50">
+                                              <span className="font-mono text-gray-800">{h.ip}</span>
+                                              <span className="text-gray-500 text-[10px]">{formatDate(h.seen_at)}</span>
+                                            </div>
+                                          ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
                                 <span
                                   onClick={(e) => handleIpClick(e, device.ip_address)}
                                   className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
