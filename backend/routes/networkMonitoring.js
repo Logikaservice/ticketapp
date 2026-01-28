@@ -1899,8 +1899,8 @@ module.exports = (pool, io) => {
 
               // Aggiorna storico IP se presente (aggiunto dalla logica MAC-first)
               if (existingDevice.ip_history) {
-                updates.push(`ip_history = $${paramIndex++}`);
-                values.push(existingDevice.ip_history); // Passa l'oggetto/array direttamente, pg lo serializza
+                updates.push(`ip_history = $${paramIndex++}::jsonb`);
+                values.push(JSON.stringify(existingDevice.ip_history));
               }
 
               // Invia notifica Telegram (controlla modalità continua vs schedulata)
