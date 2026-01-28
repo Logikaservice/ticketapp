@@ -2240,6 +2240,30 @@ module.exports = (pool, io) => {
           normalizedReceivedIPs.add(ip.replace(/[{}"]/g, '').trim());
         });
 
+        console.log(`🔍 DEBUG OFFLINE: AgentID=${agentId}. DB Devices=${allAgentDevices.rows.length}. Received IPs=${normalizedReceivedIPs.size}`);
+        // Logga i primi 5 IP ricevuti per verifica formato
+        console.log(`🔍 DEBUG IP FORMAT - Received (sample):`, Array.from(normalizedReceivedIPs).slice(0, 5));
+
+        /* 
+         * DEBUG SPECIFICO PER PROBLEMA UTENTE
+         * Cerca se gli IP 192.168.100.10, .12, .15 sono nel DB per questo agent e che status hanno
+         */
+        const specificIPs = ['192.168.100.10', '192.168.100.12', '192.168.100.15'];
+        const debugSpecific = allAgentDevices.rows.filter(d => {
+          const ip = (d.ip_address || '').replace(/[{}"]/g, '').trim();
+          return specificIPs.includes(ip);
+        });
+        if (debugSpecific.length > 0) {
+          console.log('🔍 DEBUG SPECIFIC TARGETS FOUND IN DB:', debugSpecific.map(d => `${d.ip_address} (ID: ${d.id}, Status: ${d.status}, Static: ${d.is_static})`));
+          debugSpecific.forEach(d => {
+            const ip = (d.ip_address || '').replace(/[{}"]/g, '').trim();
+            const presentInScan = normalizedReceivedIPs.has(ip);
+            console.log(`   -> IP ${ip} presente nella scansione attuale? ${presentInScan ? 'SI' : 'NO'}`);
+          });
+        } else {
+          console.log('🔍 DEBUG SPECIFIC TARGETS NOT FOUND IN DB for this AgentID. (Maybe duplicate agents?)');
+        }
+
         const devicesToMarkOffline = allAgentDevices.rows.filter(device => {
           const normalizedDeviceIp = (device.ip_address || '').replace(/[{}"]/g, '').trim();
           return !normalizedReceivedIPs.has(normalizedDeviceIp) && device.status === 'online';
