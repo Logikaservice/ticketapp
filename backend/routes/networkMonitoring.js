@@ -2791,6 +2791,14 @@ module.exports = (pool, io) => {
 
       console.log('🔍 Eseguendo query con aziendaId:', aziendaId);
 
+      // MIGRATION (AUTO-FIX): Assicura che la colonna ip_history esista (per evitare crash su SELECT)
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS ip_history JSONB DEFAULT '[]'::jsonb
+        `);
+      } catch (e) { console.warn('Warning adding ip_history column:', e.message); }
+
       // MIGRATION (AUTO-FIX): Normalizza MAC address nel DB (da - a :) per coerenza immediata
       try {
         await pool.query(`
