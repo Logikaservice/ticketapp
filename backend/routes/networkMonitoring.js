@@ -1808,16 +1808,25 @@ module.exports = (pool, io) => {
               existingDevice.ip_history = history;
             }
 
-            // IMPORTANTE: Controlla se c'è un "fantasma" che occupa il NUOVO IP ma ha MAC diverso o nullo?
-            // Se esiste un record sul nuovo IP che NON è quello che stiamo aggiornando, è un conflitto.
-            // Se ha MAC diverso, è un conflitto IP. Se non ha MAC, lo sovrascriviamo/eliminiamo?
-            // Per sicurezza puliamo record sul nuovo IP che non hanno MAC (sono placeholder instabili)
-            await pool.query(`
-               DELETE FROM network_devices 
+            // IMPORTANTE: Controlla se c'è un "fantasma" che occupa il NUOVO IP
+            // Se esiste un record sul nuovo IP che NON è quello che stiamo aggiornando, DOBBIAMO rimuoverlo
+            // per evitare violazioni di vincoli UNIQUE durante l'UPDATE.
+            // La logica "One MAC = One Record" implica che se il device MAC 'A' è ora su IP 'X', 
+            // chiunque altro fosse su 'X' non è più lì (o c'è un conflitto, ma vince l'ultimo arrivato).
+            const ghostCheck = await pool.query(`
+               SELECT id, mac_address FROM network_devices
                WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2 
-               AND (mac_address IS NULL OR mac_address = '') 
                AND id != $3
-             `, [agentId, normalizedIpForSearch, existingDevice.id]);
+            `, [agentId, normalizedIpForSearch, existingDevice.id]);
+
+            if (ghostCheck.rows.length > 0) {
+              console.warn(`  ⚠️ RIMOZIONE OSTACOLO su IP ${normalizedIpForSearch}: Trovati ${ghostCheck.rows.length} dispositivi che occupano l'IP. Eliminazione...`);
+              await pool.query(`
+                 DELETE FROM network_devices 
+                 WHERE agent_id = $1 AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2 
+                 AND id != $3
+               `, [agentId, normalizedIpForSearch, existingDevice.id]);
+            }
           }
 
         } else if (ipMatch) {
