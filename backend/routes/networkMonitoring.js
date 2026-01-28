@@ -1815,16 +1815,19 @@ module.exports = (pool, io) => {
             normalizedMac = macAddressStr.replace(/\s+/g, '').replace(/,/g, '').toUpperCase();
             // Se contiene duplicati separati (es: "60-83-E7-BF-4C-AF60-83-E7-BF-4C-AF"), prendi solo i primi 17 caratteri
             if (normalizedMac.length > 17) {
-              // Prendi solo i primi 17 caratteri (formato standard MAC: XX-XX-XX-XX-XX-XX)
+              // Prendi solo i primi 17 caratteri (formato standard MAC: XX:XX:XX:XX:XX:XX)
               normalizedMac = normalizedMac.substring(0, 17);
             }
+            // Converti trattini in due punti per uniformità (FIX: uniforma a :)
+            normalizedMac = normalizedMac.replace(/-/g, ':');
+
             // Se non ha il formato corretto, prova a convertirlo
-            if (normalizedMac.length === 12 && !normalizedMac.includes('-') && !normalizedMac.includes(':')) {
-              // Formato senza separatori, aggiungi trattini ogni 2 caratteri
-              normalizedMac = normalizedMac.replace(/(..)(..)(..)(..)(..)(..)/, '$1-$2-$3-$4-$5-$6');
+            if (normalizedMac.length === 12 && !normalizedMac.includes(':')) {
+              // Formato senza separatori, aggiungi due punti ogni 2 caratteri
+              normalizedMac = normalizedMac.replace(/(..)(..)(..)(..)(..)(..)/, '$1:$2:$3:$4:$5:$6');
             }
-            // Verifica che sia un MAC valido (17 caratteri con trattini)
-            if (normalizedMac.length !== 17 || !/^([0-9A-F]{2}-){5}[0-9A-F]{2}$/i.test(normalizedMac)) {
+            // Verifica che sia un MAC valido (17 caratteri con due punti)
+            if (normalizedMac.length !== 17 || !/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i.test(normalizedMac)) {
               normalizedMac = null;
             }
           }
