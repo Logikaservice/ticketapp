@@ -1661,19 +1661,24 @@ module.exports = (pool, io) => {
         }
       }
 
-      // Mark offline logic (Simplified: Mark offline if not seen and currently online)
-      try {
-        const receivedList = Array.from(receivedIPs);
-        if (receivedList.length > 0) {
+      // Mark offline logic
+      const receivedList = Array.from(receivedIPs);
+      if (receivedList.length > 0) {
+        try {
+          // Use '!= ALL' which is more robust than 'NOT IN' with arrays in Postgres
           await pool.query(`UPDATE network_devices SET status = 'offline'
-                WHERE agent_id = $1 AND status = 'online' AND ip_address NOT IN (SELECT unnest($2::text[]))`,
+                WHERE agent_id = $1 AND status = 'online' AND ip_address != ALL($2::text[])`,
             [agentId, receivedList]
           );
-        } else {
-          await pool.query(`UPDATE network_devices SET status = 'offline' WHERE agent_id = $1 AND status = 'online'`, [agentId]);
+        } catch (offlineErr) {
+          console.error('❌ Error marking offline devices:', offlineErr);
         }
-      } catch (err) {
-        console.error('Error marking offline:', err);
+      } else {
+        try {
+          await pool.query(`UPDATE network_devices SET status = 'offline' WHERE agent_id = $1 AND status = 'online'`, [agentId]);
+        } catch (offlineAllErr) {
+          console.error('❌ Error marking all offline:', offlineAllErr);
+        }
       }
 
 
@@ -1898,8 +1903,13 @@ module.exports = (pool, io) => {
       console.error('   Dettagli:', err.detail);
       console.error('   Stack:', err.stack);
       console.error('   Agent ID:', req.agent?.id);
-      console.error('   Devices count:', req.body?.devices?.length);
-      res.status(500).json({ error: 'Errore interno del server' });
+
+      // Return detailed error for debugging purposes (Agent will log this)
+      res.status(500).json({
+        error: `Errore Backend: ${err.message}`,
+        code: err.code,
+        detail: err.detail
+      });
     }
   });
 

@@ -34,43 +34,70 @@ function Write-Log {
 function Check-AgentUpdate {
     param(
         [string]$ServerUrl,
-        [string]$ApiKey,
         [string]$CurrentVersion
     )
-
+    
     try {
-        $updateUrl = "$ServerUrl/api/network-monitoring/agent/update-check?version=$CurrentVersion"
-        $response = Invoke-RestMethod -Uri $updateUrl -Headers @{ "X-API-Key" = $ApiKey } -Method Get -ErrorAction Stop
-
-        if ($response.update_available) {
-            Write-Log "Aggiornamento disponibile: $($response.new_version). Scaricamento in corso..." "INFO"
+        Write-Log "🔍 Controllo aggiornamenti agent... (versione corrente: $CurrentVersion)" "INFO"
+        
+        # Endpoint per controllare versione
+        $versionUrl = "$ServerUrl/api/network-monitoring/agent-version"
+        
+        # Richiedi informazioni versione
+        $response = Invoke-RestMethod -Uri $versionUrl -Method Get -TimeoutSec 10 -ErrorAction Stop
+        
+        $serverVersion = $response.version
+        $downloadUrl = $response.download_url
+        
+        Write-Log "📡 Versione disponibile sul server: $serverVersion" "INFO"
+        
+        # Confronta versioni
+        if ($serverVersion -ne $CurrentVersion) {
+            Write-Log "🆕 Nuova versione disponibile! Avvio aggiornamento..." "INFO"
             
-            $tempFile = "$env:TEMP\NetworkMonitor_Update.ps1"
-            Invoke-WebRequest -Uri $response.download_url -OutFile $tempFile -ErrorAction Stop
-
-            # Validazione base del file scaricato
-            if ((Get-Item $tempFile).Length -gt 1000) {
-                Write-Log "Aggiornamento scaricato. Riavvio agente per applicare..." "INFO"
+            $currentScriptPath = $PSCommandPath
+            if (-not $currentScriptPath) {
+                $currentScriptPath = Join-Path $PSScriptRoot "NetworkMonitor.ps1"
+            }
+            
+            $tempFilePath = Join-Path $PSScriptRoot "NetworkMonitor.ps1.new"
+            $backupFilePath = Join-Path $PSScriptRoot "NetworkMonitor.ps1.backup"
+            
+            Write-Log "📥 Download nuova versione da: $downloadUrl" "INFO"
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFilePath -TimeoutSec 30 -ErrorAction Stop
+            
+            if (Test-Path $tempFilePath) {
+                $fileSize = (Get-Item $tempFilePath).Length
+                Write-Log "✅ Download completato - $fileSize bytes" "INFO"
                 
-                # Script di aggiornamento che sostituisce il file e riavvia il servizio/processo
-                $updateScript = @"
-Start-Sleep -Seconds 5
-Copy-Item -Path '$tempFile' -Destination '$PSCommandPath' -Force
-Start-Process powershell -ArgumentList "-ExecutionPolicy Bypass -File `"$PSCommandPath`"" -WindowStyle Hidden
-"@
-                $updateBat = "$env:TEMP\update_agent.ps1"
-                Set-Content -Path $updateBat -Value $updateScript
+                if (Test-Path $currentScriptPath) {
+                    Copy-Item $currentScriptPath $backupFilePath -Force
+                    Write-Log "💾 Backup versione precedente creato" "INFO"
+                }
                 
-                Start-Process powershell -ArgumentList "-ExecutionPolicy Bypass -File `"$updateBat`"" -WindowStyle Hidden
-                exit
+                Move-Item $tempFilePath $currentScriptPath -Force
+                Write-Log "✅ File aggiornato con successo!" "INFO"
+                
+                Write-Log "🔄 Riavvio servizio NetworkMonitorAgent..." "INFO"
+                try {
+                    Restart-Service -Name "NetworkMonitorAgent" -Force -ErrorAction Stop
+                    Write-Log "✅ Servizio riavviato!" "INFO"
+                }
+                catch {
+                    Write-Log "⚠️ Impossibile riavviare servizio: $_" "WARN"
+                }
+                exit 0
             }
             else {
-                Write-Log "File aggiornamento troppo piccolo, probabile errore download." "WARN"
+                Write-Log "❌ Download fallito" "ERROR"
             }
+        }
+        else {
+            Write-Log "✅ Agent aggiornato" "INFO"
         }
     }
     catch {
-        Write-Log "Errore controllo aggiornamenti: $_" "WARN"
+        Write-Log "⚠️ Errore controllo aggiornamenti: $_" "WARN"
     }
 }
 
@@ -89,12 +116,8 @@ function Get-ArpTable {
             $mac = $neighbor.LinkLayerAddress
             
             if ($mac -and $mac -ne "00-00-00-00-00-00" -and $mac -ne "FF-FF-FF-FF-FF-FF") {
-                # Normalizza MAC per log (usa :)
-                $macDisplay = $mac -replace '-', ':'
-                
-                # Stores original mac (often with dashes from Windows) for compatibility, will be normalized later
                 $arpDevices[$ip] = $mac
-                Write-Log "ARP: $ip → $macDisplay" "DEBUG"
+                Write-Log "ARP: $ip → $mac" "DEBUG"
             }
         }
     }
@@ -143,7 +166,6 @@ function Check-UnifiUpdates {
 
     try {
         # Ignora errori certificato self-signed
-        <#
         add-type @"
             using System.Net;
             using System.Security.Cryptography.X509Certificates;
@@ -156,7 +178,6 @@ function Check-UnifiUpdates {
             }
 "@
         [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-        #>
 
         # Sessione Web per mantenere i cookie
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
@@ -201,7 +222,7 @@ function Check-UnifiUpdates {
                 }
             }
         }
-        Write-Log "[OK] Unifi: trovati $($upgrades.Count) dispositivi aggiornabili" "INFO"
+        Write-Log "✅ Unifi: trovati $($upgrades.Count) dispositivi aggiornabili" "INFO"
 
         # 3. Recupera clients attivi (stat/sta) per arricchimento nomi
         $clientsRes = $null
@@ -235,7 +256,7 @@ function Check-UnifiUpdates {
         return @{ Upgrades = $upgrades; Names = $clientNames }
     }
     catch {
-        Write-Log "[WARN] Errore integrazione Unifi: $_" "WARN"
+        Write-Log "⚠️ Errore integrazione Unifi: $_" "WARN"
         return @{ Upgrades = @{}; Names = @{} }
     }
 }
@@ -243,58 +264,30 @@ function Check-UnifiUpdates {
 # Test connessione Unifi richiesto da interfaccia ("Prova connessione"): esegue login+stat/device e invia esito al server
 function Invoke-UnifiConnectionTestAndReport {
     param([string]$TestId, [string]$Url, [string]$Username, [string]$Password, [string]$ServerUrl, [string]$ApiKey)
-    $ok = $false
-    $msg = ""
+    $ok = $false; $msg = ""
     try {
         $base = ($Url -as [string]).Trim().TrimEnd('/')
         if (-not $base) { $msg = "URL non valido"; throw $msg }
-        
-        <#
         add-type -ErrorAction SilentlyContinue @"
             using System.Net; using System.Security.Cryptography.X509Certificates;
             public class TrustAllCertsPolicy : ICertificatePolicy { public bool CheckValidationResult(ServicePoint s, X509Certificate c, WebRequest r, int p) { return true; } }
 "@
         [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-        #>
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
         $loginBody = @{ username = $Username; password = $Password } | ConvertTo-Json
-        
-        try { 
-            Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null 
-        }
-        catch { 
-            if ($_.Exception.Response.StatusCode -eq "NotFound") { 
-                Invoke-WebRequest -Uri "$base/api/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null 
-            }
-            else { 
-                throw 
-            } 
-        }
-        
-        try { 
-            Invoke-RestMethod -Uri "$base/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null 
-        }
-        catch { 
-            Invoke-RestMethod -Uri "$base/proxy/network/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null 
-        }
-        
-        $ok = $true
-        $msg = "Connessione OK"
+        try { Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null }
+        catch { if ($_.Exception.Response.StatusCode -eq "NotFound") { Invoke-WebRequest -Uri "$base/api/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null } else { throw } }
+        try { Invoke-RestMethod -Uri "$base/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null }
+        catch { Invoke-RestMethod -Uri "$base/proxy/network/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null }
+        $ok = $true; $msg = "Connessione OK"
     }
-    catch { 
-        $ok = $false
-        if ($_.Exception.Message) { $msg = $_.Exception.Message } else { $msg = "Errore connessione" }
-        Write-Log "Test Unifi (Prova connessione): $msg" "WARN" 
-    }
-    
+    catch { $ok = $false; $msg = if ($_.Exception.Message) { $_.Exception.Message } else { "Errore connessione" }; Write-Log "Test Unifi (Prova connessione): $msg" "WARN" }
     try {
         $body = @{ test_id = $TestId; success = $ok; message = $msg } | ConvertTo-Json
         Invoke-RestMethod -Uri "$ServerUrl/api/network-monitoring/agent/unifi-test-result" -Method POST -Headers @{ "Content-Type" = "application/json"; "X-API-Key" = $ApiKey } -Body $body -TimeoutSec 10 -ErrorAction Stop | Out-Null
         Write-Log "Esito test Unifi inviato: $(if($ok){'OK'}else{'Errore'})" "INFO"
     }
-    catch { 
-        Write-Log "Invio esito test Unifi fallito: $_" "WARN" 
-    }
+    catch { Write-Log "Invio esito test Unifi fallito: $_" "WARN" }
 }
 
 function Get-NetworkDevices {
@@ -316,7 +309,9 @@ function Get-NetworkDevices {
     # Ottieni IP locale del PC dove gira l'agent
     $localIP = $null
     try {
-        $networkAdapters = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" }
+        $networkAdapters = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { 
+            $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" 
+        }
         if ($networkAdapters) {
             $localIP = $networkAdapters[0].IPAddress
             Write-Log "IP locale rilevato: $localIP" "DEBUG"
@@ -333,7 +328,6 @@ function Get-NetworkDevices {
         if ($range -match '^(\d+\.\d+\.\d+)\.(\d+)/(\d+)$') {
             $baseIP = $matches[1]
             $subnetMask = [int]$matches[3]
-            Write-Log "DEBUG: Subnet $baseIP/$subnetMask detected"
             
             # FASE 1: Scansiona tabella ARP per dispositivi già presenti
             Write-Log "Scansionando tabella ARP per range $baseIP.*" "DEBUG"
@@ -373,21 +367,22 @@ function Get-NetworkDevices {
                 Write-Log "Dopo ping: $($arpTable.Count) dispositivi in ARP table" "INFO"
                 
                 # FASE 4: Processa ogni dispositivo in ARP table
-                # FASE 4: Processa ogni dispositivo in ARP table
                 foreach ($ip in $arpTable.Keys) {
                     $macAddress = $arpTable[$ip]
+                    
                     Write-Log "Processando dispositivo ARP: $ip ($macAddress)" "DEBUG"
                     
-                    # Test se risponde al ping
+                    # Test se risponde al ping (per distinguere Online vs No Ping)
                     $pingResponsive = Test-Connection -ComputerName $ip -Count 1 -Quiet -ErrorAction SilentlyContinue
                     
-                    $hostname = $null
-                    
+                    # Se è l'IP locale, marca sempre come ping responsive
                     if ($localIP -and $ip -eq $localIP) {
                         $pingResponsive = $true
                         $hostname = $env:COMPUTERNAME
                     }
                     else {
+                        # Prova risoluzione hostname
+                        $hostname = $null
                         try {
                             $dnsResult = Resolve-DnsName -Name $ip -ErrorAction SilentlyContinue -DnsOnly
                             if ($dnsResult -and $dnsResult.NameHost) {
@@ -395,53 +390,63 @@ function Get-NetworkDevices {
                             }
                         }
                         catch {
-                            # Ignore
+                            # Ignora errori DNS
                         }
                     }
                     
+                    # Vendor lookup da MAC (se disponibile)
                     $vendor = $null
-                    
+                    if ($macAddress -and $macAddress -match '^([0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2})') {
+                        $oui = $matches[1] -replace '[:-]', ''
+                        # TODO: Implementa lookup vendor (API o database locale)
+                        # Per ora lasciamo null
+                    }
+
+                    # Check Upgrade Unifi (normalizza MAC: AA-BB-CC-DD-EE-FF per match)
                     $upgradeAvailable = $false
                     $unifiName = $null
-                    
+
                     if ($macAddress) {
                         $macNorm = ($macAddress -replace ':', '-').ToUpper()
-                        if ($unifiUpgrades -and $unifiUpgrades.ContainsKey($macNorm)) {
-                            $upgradeAvailable = $true
+                        
+                        if ($unifiUpgrades -and $unifiUpgrades.Count -gt 0) {
+                            if ($unifiUpgrades.ContainsKey($macNorm)) {
+                                $upgradeAvailable = $true
+                                Write-Log "📦 Aggiornamento Firmware disponibile per $ip ($macAddress)" "INFO"
+                            }
                         }
-                        if ($unifiNames -and $unifiNames.ContainsKey($macNorm)) {
-                            $unifiName = $unifiNames[$macNorm]
-                            if (-not $hostname) { $hostname = $unifiName }
+                        
+                        if ($unifiNames -and $unifiNames.Count -gt 0) {
+                            if ($unifiNames.ContainsKey($macNorm)) {
+                                $unifiName = $unifiNames[$macNorm]
+                                Write-Log "🏷️ Unifi Name trovato per $ip ($macAddress): $unifiName" "DEBUG"
+                                
+                                # Usa nome unifi come hostname se hostname è vuoto
+                                if (-not $hostname) {
+                                    $hostname = $unifiName
+                                }
+                            }
                         }
                     }
-
-                    # Normalizzazione MAC: Standard con due punti (AA:BB:CC:DD:EE:FF)
-                    $macForPayload = $macAddress
-                    if ($macAddress) {
-                        # Rimpiazza trattini con due punti
-                        $macForPayload = $macAddress -replace '-', ':'
-                    }
-
+                    
+                    # Crea device object con nuovo campo ping_responsive
                     $device = @{
                         ip_address        = $ip
-                        mac_address       = $macForPayload
+                        mac_address       = $macAddress
                         hostname          = $hostname
                         vendor            = $vendor
-                        status            = "online"
+                        status            = "online"  # Sempre online se presente in ARP
                         ping_responsive   = $pingResponsive
                         upgrade_available = $upgradeAvailable
                         unifi_name        = $unifiName
                     }
+                    
                     $devices += $device
                     
-                    $statusLabel = "[WARN] No Ping"
-                    if ($pingResponsive) {
-                        $statusLabel = "[OK] Ping OK"
-                    }
-                    # Log visivo con MAC normalizzato
-                    $logMac = if ($macForPayload) { $macForPayload } else { "NO-MAC" }
-                    Write-Log "Dispositivo: $ip [$logMac] → $statusLabel" "INFO"
+                    $statusLabel = if ($pingResponsive) { "✓ Ping OK" } else { "⚠️ No Ping" }
+                    Write-Log "Dispositivo: $ip → $statusLabel" "INFO"
                 }
+                
             }
             else {
                 Write-Log "Subnet mask troppo grande per scansione completa: $range" "WARN"
@@ -452,7 +457,7 @@ function Get-NetworkDevices {
         }
     }
     
-    Write-Log "Scansione completata" "INFO"
+    Write-Log "Scansione completata: $($devices.Count) dispositivi rilevati" "INFO"
     return $devices
 }
 
@@ -549,19 +554,6 @@ function Send-ScanResults {
     }
     catch {
         Write-Log "Errore invio dati: $_" "ERROR"
-        
-        # Tentativo di leggere il body della risposta per dettagli errore
-        try {
-            $stream = $_.Exception.Response.GetResponseStream()
-            $reader = New-Object System.IO.StreamReader($stream)
-            $body = $reader.ReadToEnd()
-            $reader.Close()
-            Write-Log "Dettagli errore server: $body" "ERROR"
-        }
-        catch {
-            # Se fallisce la lettura del body, ignora
-        }
-
         Write-Log "Stack trace: $($_.Exception.StackTrace)" "ERROR"
         throw
     }
