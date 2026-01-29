@@ -1,4 +1,4 @@
-// routes/networkMonitoring.js
+﻿// routes/networkMonitoring.js
 // Route per il Network Monitoring - ricezione dati dagli agent PowerShell
 
 const express = require('express');
@@ -1721,7 +1721,7 @@ module.exports = (pool, io) => {
               if (deviceCheck.rows.length > 0 && deviceCheck.rows[0].notify_telegram) {
                 const device = deviceCheck.rows[0];
                 const agentInfo = await pool.query(
-                  'SELECT na.agent_name, na.azienda_id, u.username as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
+                  'SELECT na.agent_name, na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
                   [agentId]
                 );
 
