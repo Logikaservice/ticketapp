@@ -1573,11 +1573,17 @@ module.exports = (pool, io) => {
 
       const receivedIPs = new Set(); // Traccia gli IP ricevuti in questa scansione
 
+
       for (const device of devices) {
         let { ip_address, mac_address, hostname, vendor, status, ping_responsive, upgrade_available, unifi_name } = device;
 
         // 1. Normalizzazione basilare IP
         if (ip_address) ip_address = String(ip_address).trim().replace(/[{}"]/g, '');
+
+        // DEBUG: Track 192.168.100.200
+        if (ip_address === '192.168.100.200') {
+          console.log('🔍 DEBUG .200 - Received from agent:', JSON.stringify(device));
+        }
         if (!ip_address) continue;
         receivedIPs.add(ip_address);
 
@@ -1650,6 +1656,11 @@ module.exports = (pool, io) => {
             [ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass, existingDevice.id]
           );
           deviceResults.push({ action: 'updated', id: existingDevice.id, ip: ip_address });
+
+          // DEBUG: Track 192.168.100.200
+          if (ip_address === '192.168.100.200') {
+            console.log('🔍 DEBUG .200 - UPDATED device ID:', existingDevice.id);
+          }
         } else {
           // INSERT
           const res = await pool.query(`INSERT INTO network_devices
@@ -1658,6 +1669,11 @@ module.exports = (pool, io) => {
             [agentId, ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass]
           );
           deviceResults.push({ action: 'created', id: res.rows[0].id, ip: ip_address });
+
+          // DEBUG: Track 192.168.100.200
+          if (ip_address === '192.168.100.200') {
+            console.log('🔍 DEBUG .200 - CREATED device ID:', res.rows[0].id);
+          }
         }
       }
 
