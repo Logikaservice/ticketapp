@@ -1580,8 +1580,61 @@ module.exports = (pool, io) => {
       console.log(`🔍 DEBUG - Contains .200? ${allIPs.includes('192.168.100.200') ? 'YES' : 'NO'}`);
 
 
-      for (const device of devices) {
-        let { ip_address, mac_address, hostname, vendor, status, ping_responsive, upgrade_available, unifi_name } = device;
+
+      // PRE-PROCESSING: Raggruppa dispositivi per MAC address per gestire multihoming (stesso MAC, più IP)
+      // Esempio: 192.168.100.17 e 192.168.100.200 hanno lo stesso MAC. Li uniamo in un unico record.
+      const devicesByMac = new Map();
+      const devicesWithoutMac = [];
+
+      for (const dev of devices) {
+        // Normalizza MAC per raggruppamento
+        let macKey = null;
+        if (dev.mac_address) {
+          macKey = String(dev.mac_address).trim().toUpperCase().replace(/-/g, ':').substring(0, 17);
+        }
+
+        if (macKey) {
+          if (!devicesByMac.has(macKey)) {
+            // Primo dispositivo con questo MAC
+            devicesByMac.set(macKey, { ...dev, additional_ips: [] });
+          } else {
+            // Duplicato! Uniamo i dati
+            const existing = devicesByMac.get(macKey);
+
+            // Se l'IP è diverso, aggiungilo agli additional_ips (o metti l'esistente in additional e il nuovo come main)
+            // Preferiamo mantenere come IP principale quello più "basso" o il primo arrivato, ma salviamo tutti gli altri
+            const existingIp = String(existing.ip_address).trim().replace(/[{}"]/g, '');
+            const newIp = String(dev.ip_address).trim().replace(/[{}"]/g, '');
+
+            if (existingIp !== newIp) {
+              // Aggiungi all'elenco se non c'è già
+              if (!existing.additional_ips.includes(newIp)) {
+                existing.additional_ips.push(newIp);
+              }
+              // Nota: potremmo voler scambiare IP principale con secondario in base a qualche logica, 
+              // ma per ora manteniamo il primo processato come principale e gli altri come secondari.
+              // Se il .200 arriva prima del .17, il .200 sarà principale.
+            }
+
+            // Merge altri campi se il nuovo ha info che il vecchio non ha
+            if (!existing.hostname && dev.hostname) existing.hostname = dev.hostname;
+            if (!existing.vendor && dev.vendor) existing.vendor = dev.vendor;
+            if (!existing.unifi_name && dev.unifi_name) existing.unifi_name = dev.unifi_name;
+            if (dev.device_type && !existing.device_type) existing.device_type = dev.device_type;
+          }
+        } else {
+          devicesWithoutMac.push(dev);
+        }
+      }
+
+      // Ricostruisci la lista devices piatta
+      const uniqueDevices = [...devicesByMac.values(), ...devicesWithoutMac];
+
+      console.log(`🔍 DEBUG - Raggruppamento MAC: Iniziali ${devices.length} -> Unici ${uniqueDevices.length}`);
+
+
+      for (const device of uniqueDevices) {
+        let { ip_address, mac_address, hostname, vendor, status, ping_responsive, upgrade_available, unifi_name, additional_ips } = device;
 
         // 1. Normalizzazione basilare IP
         if (ip_address) ip_address = String(ip_address).trim().replace(/[{}"]/g, '');
@@ -1657,9 +1710,10 @@ module.exports = (pool, io) => {
                  ping_responsive = $6,
                  upgrade_available = $7,
                  device_type = COALESCE($8, device_type),
-                 device_path = COALESCE($9, device_path)
+                 device_path = COALESCE($9, device_path),
+                 additional_ips = $11
                  WHERE id = $10`,
-            [ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass, existingDevice.id]
+            [ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass, existingDevice.id, JSON.stringify(additional_ips || [])]
           );
           deviceResults.push({ action: 'updated', id: existingDevice.id, ip: ip_address });
 
@@ -1670,9 +1724,9 @@ module.exports = (pool, io) => {
         } else {
           // INSERT
           const res = await pool.query(`INSERT INTO network_devices
-                 (agent_id, ip_address, mac_address, hostname, vendor, status, ping_responsive, upgrade_available, device_type, device_path)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
-            [agentId, ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass]
+                 (agent_id, ip_address, mac_address, hostname, vendor, status, ping_responsive, upgrade_available, device_type, device_path, additional_ips)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+            [agentId, ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass, JSON.stringify(additional_ips || [])]
           );
           deviceResults.push({ action: 'created', id: res.rows[0].id, ip: ip_address });
 
@@ -2019,6 +2073,14 @@ module.exports = (pool, io) => {
         }
       }
 
+      // MIGRATION: Supporto per IP multipli sullo stesso MAC
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS additional_ips JSONB DEFAULT '[]'::jsonb;
+        `);
+      } catch (e) { console.warn('Warning adding additional_ips column:', e.message); }
+
       // Migrazione: pulisci IP nel formato JSON errato e rimuovi duplicati
       try {
         // 1. Pulisci IP nel formato errato {"192.168.100.2"} -> 192.168.100.2
@@ -2105,7 +2167,7 @@ module.exports = (pool, io) => {
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
-          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port, nd.notes, nd.is_manual_type, nd.ip_history,
+          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port, nd.notes, nd.is_manual_type, nd.ip_history, nd.additional_ips,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id

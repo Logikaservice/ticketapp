@@ -1941,87 +1941,104 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             </td>
                             {/* 3. IP */}
                             <td className="py-3 px-4 text-sm font-mono text-gray-900 whitespace-nowrap">
-                              <div className="flex items-center gap-2">
-                                {device.has_ping_failures && (
-                                  <div className="relative group flex items-center">
-                                    <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
-                                      <span className="text-white text-xs font-bold leading-none">+</span>
-                                    </div>
-                                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                                      Disconnessioni rilevate
-                                    </div>
-                                  </div>
-                                )}
-                                {device.previous_ip && (
-                                  <div className="flex items-center gap-1">
-                                    <div className="relative group">
-                                      <AlertTriangle className="w-4 h-4 text-orange-500" />
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  {device.has_ping_failures && (
+                                    <div className="relative group flex items-center">
+                                      <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
+                                        <span className="text-white text-xs font-bold leading-none">+</span>
+                                      </div>
                                       <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                                        IP precedente: {device.previous_ip}
+                                        Disconnessioni rilevate
                                       </div>
                                     </div>
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        try {
-                                          const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/reset-warnings`), {
-                                            method: 'PATCH',
-                                            headers: {
-                                              ...getAuthHeader(),
-                                              'Content-Type': 'application/json'
+                                  )}
+                                  {device.previous_ip && (
+                                    <div className="flex items-center gap-1">
+                                      <div className="relative group">
+                                        <AlertTriangle className="w-4 h-4 text-orange-500" />
+                                        <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                          IP precedente: {device.previous_ip}
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          try {
+                                            const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/reset-warnings`), {
+                                              method: 'PATCH',
+                                              headers: {
+                                                ...getAuthHeader(),
+                                                'Content-Type': 'application/json'
+                                              }
+                                            });
+
+                                            if (!response.ok) {
+                                              const errorData = await response.json();
+                                              throw new Error(errorData.error || 'Errore reset warning');
                                             }
-                                          });
 
-                                          if (!response.ok) {
-                                            const errorData = await response.json();
-                                            throw new Error(errorData.error || 'Errore reset warning');
+                                            setCompanyDevices(prev => prev.map(d =>
+                                              d.id === device.id ? { ...d, previous_ip: null, previous_mac: null } : d
+                                            ));
+                                          } catch (err) {
+                                            console.error('Errore reset warning:', err);
+                                            alert(`Errore: ${err.message}`);
                                           }
-
-                                          setCompanyDevices(prev => prev.map(d =>
-                                            d.id === device.id ? { ...d, previous_ip: null, previous_mac: null } : d
-                                          ));
-                                        } catch (err) {
-                                          console.error('Errore reset warning:', err);
-                                          alert(`Errore: ${err.message}`);
-                                        }
-                                      }}
-                                      className="text-orange-500 hover:text-orange-700 transition-colors"
-                                      title="Rimuovi warning"
-                                    >
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                )}
-                                {/* History Tooltip */}
-                                {device.ip_history && (Array.isArray(device.ip_history) ? device.ip_history : JSON.parse(device.ip_history || '[]')).length > 0 && (
-                                  <div className="relative group">
-                                    <History className="w-4 h-4 text-blue-400 hover:text-blue-600 cursor-help" />
-                                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-20 bg-white border border-gray-200 shadow-xl text-xs rounded-md overflow-hidden w-64">
-                                      <div className="bg-gray-50 px-3 py-2 border-b border-gray-100 font-semibold text-gray-700">
-                                        Storico IP
-                                      </div>
-                                      <div className="max-h-48 overflow-y-auto">
-                                        {(Array.isArray(device.ip_history) ? device.ip_history : JSON.parse(device.ip_history || '[]'))
-                                          .slice()
-                                          .reverse()
-                                          .map((h, idx) => (
-                                            <div key={idx} className="px-3 py-2 border-b border-gray-50 flex justify-between items-center hover:bg-blue-50">
-                                              <span className="font-mono text-gray-800">{h.ip}</span>
-                                              <span className="text-gray-500 text-[10px]">{formatDate(h.seen_at)}</span>
-                                            </div>
-                                          ))}
+                                        }}
+                                        className="text-orange-500 hover:text-orange-700 transition-colors"
+                                        title="Rimuovi warning"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  )}
+                                  {/* History Tooltip */}
+                                  {device.ip_history && (Array.isArray(device.ip_history) ? device.ip_history : JSON.parse(device.ip_history || '[]')).length > 0 && (
+                                    <div className="relative group">
+                                      <History className="w-4 h-4 text-blue-400 hover:text-blue-600 cursor-help" />
+                                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-20 bg-white border border-gray-200 shadow-xl text-xs rounded-md overflow-hidden w-64">
+                                        <div className="bg-gray-50 px-3 py-2 border-b border-gray-100 font-semibold text-gray-700">
+                                          Storico IP
+                                        </div>
+                                        <div className="max-h-48 overflow-y-auto">
+                                          {(Array.isArray(device.ip_history) ? device.ip_history : JSON.parse(device.ip_history || '[]'))
+                                            .slice()
+                                            .reverse()
+                                            .map((h, idx) => (
+                                              <div key={idx} className="px-3 py-2 border-b border-gray-50 flex justify-between items-center hover:bg-blue-50">
+                                                <span className="font-mono text-gray-800">{h.ip}</span>
+                                                <span className="text-gray-500 text-[10px]">{formatDate(h.seen_at)}</span>
+                                              </div>
+                                            ))}
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                )}
+                                  )}
 
-                                <span
-                                  onClick={(e) => handleIpClick(e, device.ip_address)}
-                                  className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
-                                  title="Clicca per opzioni"
-                                >
-                                  {device.ip_address}
-                                </span>
+                                  <span
+                                    onClick={(e) => handleIpClick(e, device.ip_address)}
+                                    className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                                    title="Clicca per opzioni"
+                                  >
+                                    {device.ip_address}
+                                  </span>
+                                </div>
+                                {/* IP aggiuntivi (multihoming/bridge) */}
+                                {(device.additional_ips ? (Array.isArray(device.additional_ips) ? device.additional_ips : JSON.parse(device.additional_ips || '[]')) : [])
+                                  .filter(ip => ip !== device.ip_address) // Evita duplicati se presente anche qui
+                                  .map(ip => (
+                                    <div key={ip} className="flex items-center gap-2 pl-0">
+                                      <span className="text-gray-300 text-xs">↳</span>
+                                      <span
+                                        onClick={(e) => handleIpClick(e, ip)}
+                                        className="text-sm cursor-pointer text-gray-500 hover:text-blue-600 hover:underline transition-colors"
+                                        title="IP Secondario (stesso MAC Address)"
+                                      >
+                                        {ip}
+                                      </span>
+                                    </div>
+                                  ))}
                               </div>
                             </td>
                             {/* 4. MAC */}
