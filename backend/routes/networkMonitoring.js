@@ -1571,7 +1571,13 @@ module.exports = (pool, io) => {
         console.log(`🔎 DEBUG: Nessun unifi_name ricevuto. Verifica se l'agent è aggiornato (2.5.8+) e se Check-UnifiUpdates funziona.`);
       }
 
+
       const receivedIPs = new Set(); // Traccia gli IP ricevuti in questa scansione
+
+      // DEBUG: Log all IPs received
+      const allIPs = devices.map(d => d.ip_address).filter(Boolean);
+      console.log(`🔍 DEBUG - Total devices received: ${devices.length}, IPs: ${allIPs.join(', ')}`);
+      console.log(`🔍 DEBUG - Contains .200? ${allIPs.includes('192.168.100.200') ? 'YES' : 'NO'}`);
 
 
       for (const device of devices) {
