@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.6.1
+# Versione: 2.6.2
 # Data ultima modifica: 2026-01-25
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.6.1"
+$SCRIPT_VERSION = "2.6.2"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2012,55 +2012,56 @@ function Sync-ManagedSwitchesSnmp {
         if ($mibDir) { $env:MIBDIRS = $mibDir } else { $env:MIBS = "" }
 
         try {
-        $oidDot1d = "1.3.6.1.2.1.17.4.3.1.2"
-        $oidDot1q = "1.3.6.1.2.1.17.7.1.2.2.1.2"
-        foreach ($s in $list) {
-            $id = $s.id
-            $ip = $s.ip
-            $community = if ($s.snmp_community) { $s.snmp_community } else { "public" }
-            try {
-                $macToPort = @{}
-                foreach ($baseOid in @($oidDot1d, $oidDot1q)) {
-                    $out = & $snmpwalkExe -v 2c -c $community $ip $baseOid -On 2>&1
-                    if ($LASTEXITCODE -ne 0) { continue }
-                    if (-not $out) { continue }
-                    $m = @{}
-                    $lines = $out | Where-Object { $_ -match "=\s*INTEGER:\s*(\d+)" }
-                    foreach ($line in $lines) {
-                        if ($line -notmatch '=\s*INTEGER:\s*(\d+)') { continue }
-                        $port = [int]$Matches[1]
-                        $oidPart = ($line -split '=', 2)[0].Trim() -replace '::', '.'
-                        $numeric = @()
-                        foreach ($seg in ($oidPart -split '\.')) {
-                            $n = 0
-                            if ([int]::TryParse($seg.Trim(), [ref]$n) -and $n -ge 0 -and $n -le 255) { $numeric += $n }
+            $oidDot1d = "1.3.6.1.2.1.17.4.3.1.2"
+            $oidDot1q = "1.3.6.1.2.1.17.7.1.2.2.1.2"
+            foreach ($s in $list) {
+                $id = $s.id
+                $ip = $s.ip
+                $community = if ($s.snmp_community) { $s.snmp_community } else { "public" }
+                try {
+                    $macToPort = @{}
+                    foreach ($baseOid in @($oidDot1d, $oidDot1q)) {
+                        $out = & $snmpwalkExe -v 2c -c $community $ip $baseOid -On 2>&1
+                        if ($LASTEXITCODE -ne 0) { continue }
+                        if (-not $out) { continue }
+                        $m = @{}
+                        $lines = $out | Where-Object { $_ -match "=\s*INTEGER:\s*(\d+)" }
+                        foreach ($line in $lines) {
+                            if ($line -notmatch '=\s*INTEGER:\s*(\d+)') { continue }
+                            $port = [int]$Matches[1]
+                            $oidPart = ($line -split '=', 2)[0].Trim() -replace '::', '.'
+                            $numeric = @()
+                            foreach ($seg in ($oidPart -split '\.')) {
+                                $n = 0
+                                if ([int]::TryParse($seg.Trim(), [ref]$n) -and $n -ge 0 -and $n -le 255) { $numeric += $n }
+                            }
+                            if ($numeric.Count -lt 6) { continue }
+                            $last6 = @($numeric)[-6..-1]
+                            $mac = ($last6 | ForEach-Object { '{0:X2}' -f ($_ -band 0xFF) }) -join ''
+                            $mac = $mac.ToUpper()
+                            if ($mac.Length -eq 12) { $m[$mac] = $port }
                         }
-                        if ($numeric.Count -lt 6) { continue }
-                        $last6 = @($numeric)[-6..-1]
-                        $mac = ($last6 | ForEach-Object { '{0:X2}' -f ($_ -band 0xFF) }) -join ''
-                        $mac = $mac.ToUpper()
-                        if ($mac.Length -eq 12) { $m[$mac] = $port }
+                        if ($m.Count -gt 0) { $macToPort = $m; break }
                     }
-                    if ($m.Count -gt 0) { $macToPort = $m; break }
-                }
-                if ($macToPort.Count -eq 0) { continue }
+                    if ($macToPort.Count -eq 0) { continue }
 
-                $bodyObj = @{
-                    managed_switch_id = $id
-                    switch_ip         = $ip
-                    mac_to_port       = $macToPort
+                    $bodyObj = @{
+                        managed_switch_id = $id
+                        switch_ip         = $ip
+                        mac_to_port       = $macToPort
+                    }
+                    $body = $bodyObj | ConvertTo-Json -Depth 4 -Compress
+                    $postUrl = "$ServerUrl/api/network-monitoring/agent/switch-address-table"
+                    $postHeaders = @{ "Content-Type" = "application/json"; "X-API-Key" = $ApiKey }
+                    $resp = Invoke-RestMethod -Uri $postUrl -Method POST -Headers $postHeaders -Body $body -TimeoutSec 15 -ErrorAction Stop
+                    Write-Log "Sync switch SNMP $ip : $($resp.macs_matched) dispositivi associati ($($resp.macs_found) MAC letti)" "INFO"
                 }
-                $body = $bodyObj | ConvertTo-Json -Depth 4 -Compress
-                $postUrl = "$ServerUrl/api/network-monitoring/agent/switch-address-table"
-                $postHeaders = @{ "Content-Type" = "application/json"; "X-API-Key" = $ApiKey }
-                $resp = Invoke-RestMethod -Uri $postUrl -Method POST -Headers $postHeaders -Body $body -TimeoutSec 15 -ErrorAction Stop
-                Write-Log "Sync switch SNMP $ip : $($resp.macs_matched) dispositivi associati ($($resp.macs_found) MAC letti)" "INFO"
-            }
-            catch {
-                Write-Log "Sync switch SNMP $ip fallito: $_" "WARN"
+                catch {
+                    Write-Log "Sync switch SNMP $ip fallito: $_" "WARN"
+                }
             }
         }
-        } finally {
+        finally {
             if ($null -ne $prevMibs) { $env:MIBS = $prevMibs } else { Remove-Item -Path env:MIBS -ErrorAction SilentlyContinue }
             if ($null -ne $prevMibDirs) { $env:MIBDIRS = $prevMibDirs } else { Remove-Item -Path env:MIBDIRS -ErrorAction SilentlyContinue }
         }
