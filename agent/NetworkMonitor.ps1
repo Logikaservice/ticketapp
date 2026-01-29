@@ -34,81 +34,43 @@ function Write-Log {
 function Check-AgentUpdate {
     param(
         [string]$ServerUrl,
+        [string]$ApiKey,
         [string]$CurrentVersion
     )
-    
+
     try {
-        Write-Log "🔍 Controllo aggiornamenti agent... (versione corrente: $CurrentVersion)" "INFO"
-        
-        # Endpoint per controllare versione
-        $versionUrl = "$ServerUrl/api/network-monitoring/agent-version"
-        
-        # Richiedi informazioni versione
-        $response = Invoke-RestMethod -Uri $versionUrl -Method Get -TimeoutSec 10 -ErrorAction Stop
-        
-        $serverVersion = $response.version
-        $downloadUrl = $response.download_url
-        
-        Write-Log "📡 Versione disponibile sul server: $serverVersion" "INFO"
-        
-        # Confronta versioni (semplice confronto stringa)
-        if ($serverVersion -ne $CurrentVersion) {
-            Write-Log "🆕 Nuova versione disponibile! Avvio aggiornamento..." "INFO"
+        $updateUrl = "$ServerUrl/api/network-monitoring/agent/update-check?version=$CurrentVersion"
+        $response = Invoke-RestMethod -Uri $updateUrl -Headers @{ "X-API-Key" = $ApiKey } -Method Get -ErrorAction Stop
+
+        if ($response.update_available) {
+            Write-Log "Aggiornamento disponibile: $($response.new_version). Scaricamento in corso..." "INFO"
             
-            # Percorso file corrente
-            $currentScriptPath = $PSCommandPath
-            if (-not $currentScriptPath) {
-                $currentScriptPath = Join-Path $PSScriptRoot "NetworkMonitor.ps1"
-            }
-            
-            # Percorso temporaneo per download
-            $tempFilePath = Join-Path $PSScriptRoot "NetworkMonitor.ps1.new"
-            $backupFilePath = Join-Path $PSScriptRoot "NetworkMonitor.ps1.backup"
-            
-            # Scarica nuova versione
-            Write-Log "📥 Download nuova versione da: $downloadUrl" "INFO"
-            Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFilePath -TimeoutSec 30 -ErrorAction Stop
-            
-            # Verifica download
-            if (Test-Path $tempFilePath) {
-                $fileSize = (Get-Item $tempFilePath).Length
-                Write-Log "✅ Download completato ($fileSize bytes)" "INFO"
+            $tempFile = "$env:TEMP\NetworkMonitor_Update.ps1"
+            Invoke-WebRequest -Uri $response.download_url -OutFile $tempFile -ErrorAction Stop
+
+            # Validazione base del file scaricato
+            if ((Get-Item $tempFile).Length -gt 1000) {
+                Write-Log "Aggiornamento scaricato. Riavvio agente per applicare..." "INFO"
                 
-                # Backup versione corrente
-                if (Test-Path $currentScriptPath) {
-                    Copy-Item $currentScriptPath $backupFilePath -Force
-                    Write-Log "💾 Backup versione precedente creato" "INFO"
-                }
+                # Script di aggiornamento che sostituisce il file e riavvia il servizio/processo
+                $updateScript = @"
+Start-Sleep -Seconds 5
+Copy-Item -Path '$tempFile' -Destination '$PSCommandPath' -Force
+Start-Process powershell -ArgumentList "-ExecutionPolicy Bypass -File `"$PSCommandPath`"" -WindowStyle Hidden
+"@
+                $updateBat = "$env:TEMP\update_agent.ps1"
+                Set-Content -Path $updateBat -Value $updateScript
                 
-                # Sostituisci file
-                Move-Item $tempFilePath $currentScriptPath -Force
-                Write-Log "✅ File aggiornato con successo!" "INFO"
-                
-                # Riavvia il servizio per applicare l'aggiornamento
-                Write-Log "🔄 Riavvio servizio NetworkMonitorAgent..." "INFO"
-                try {
-                    Restart-Service -Name "NetworkMonitorAgent" -Force -ErrorAction Stop
-                    Write-Log "✅ Servizio riavviato! Aggiornamento completato alla v$serverVersion" "INFO"
-                }
-                catch {
-                    Write-Log "⚠️ Impossibile riavviare servizio: $_" "WARN"
-                    Write-Log "⚠️ Riavviare manualmente il servizio per applicare l'aggiornamento" "WARN"
-                }
-                
-                # Termina script corrente (verrà riavviato dal servizio)
-                exit 0
+                Start-Process powershell -ArgumentList "-ExecutionPolicy Bypass -File `"$updateBat`"" -WindowStyle Hidden
+                exit
             }
             else {
-                Write-Log "❌ Download fallito, file non trovato" "ERROR"
+                Write-Log "File aggiornamento troppo piccolo, probabile errore download." "WARN"
             }
-        }
-        else {
-            Write-Log "✅ Agent già aggiornato alla versione corrente" "INFO"
         }
     }
     catch {
-        Write-Log "⚠️ Errore controllo aggiornamenti: $_" "WARN"
-        Write-Log "⚠️ Continuo con la versione corrente..." "WARN"
+        Write-Log "Errore controllo aggiornamenti: $_" "WARN"
     }
 }
 
@@ -139,7 +101,7 @@ function Get-ArpTable {
     # Metodo 2: arp.exe (fallback per sistemi più vecchi)
     if ($arpDevices.Count -eq 0) {
         try {
-            $arpOutput = arp -a | Select-String -Pattern "^\s+(\d+\.\d+\.\d+\.\d+)\s+([0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2})" -AllMatches
+            $arpOutput = arp -a | Select-String -Pattern '^\s+(\d+\.\d+\.\d+\.\d+)\s+([0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2})' -AllMatches
             
             foreach ($match in $arpOutput.Matches) {
                 $ip = $match.Groups[1].Value
@@ -177,6 +139,7 @@ function Check-UnifiUpdates {
 
     try {
         # Ignora errori certificato self-signed
+        <#
         add-type @"
             using System.Net;
             using System.Security.Cryptography.X509Certificates;
@@ -189,6 +152,7 @@ function Check-UnifiUpdates {
             }
 "@
         [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        #>
 
         # Sessione Web per mantenere i cookie
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
@@ -233,7 +197,7 @@ function Check-UnifiUpdates {
                 }
             }
         }
-        Write-Log "✅ Unifi: trovati $($upgrades.Count) dispositivi aggiornabili" "INFO"
+        Write-Log "[OK] Unifi: trovati $($upgrades.Count) dispositivi aggiornabili" "INFO"
 
         # 3. Recupera clients attivi (stat/sta) per arricchimento nomi
         $clientsRes = $null
@@ -267,7 +231,7 @@ function Check-UnifiUpdates {
         return @{ Upgrades = $upgrades; Names = $clientNames }
     }
     catch {
-        Write-Log "⚠️ Errore integrazione Unifi: $_" "WARN"
+        Write-Log "[WARN] Errore integrazione Unifi: $_" "WARN"
         return @{ Upgrades = @{}; Names = @{} }
     }
 }
@@ -275,30 +239,58 @@ function Check-UnifiUpdates {
 # Test connessione Unifi richiesto da interfaccia ("Prova connessione"): esegue login+stat/device e invia esito al server
 function Invoke-UnifiConnectionTestAndReport {
     param([string]$TestId, [string]$Url, [string]$Username, [string]$Password, [string]$ServerUrl, [string]$ApiKey)
-    $ok = $false; $msg = ""
+    $ok = $false
+    $msg = ""
     try {
         $base = ($Url -as [string]).Trim().TrimEnd('/')
         if (-not $base) { $msg = "URL non valido"; throw $msg }
+        
+        <#
         add-type -ErrorAction SilentlyContinue @"
             using System.Net; using System.Security.Cryptography.X509Certificates;
             public class TrustAllCertsPolicy : ICertificatePolicy { public bool CheckValidationResult(ServicePoint s, X509Certificate c, WebRequest r, int p) { return true; } }
 "@
         [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        #>
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
         $loginBody = @{ username = $Username; password = $Password } | ConvertTo-Json
-        try { Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null }
-        catch { if ($_.Exception.Response.StatusCode -eq "NotFound") { Invoke-WebRequest -Uri "$base/api/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null } else { throw } }
-        try { Invoke-RestMethod -Uri "$base/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null }
-        catch { Invoke-RestMethod -Uri "$base/proxy/network/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null }
-        $ok = $true; $msg = "Connessione OK"
+        
+        try { 
+            Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null 
+        }
+        catch { 
+            if ($_.Exception.Response.StatusCode -eq "NotFound") { 
+                Invoke-WebRequest -Uri "$base/api/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null 
+            }
+            else { 
+                throw 
+            } 
+        }
+        
+        try { 
+            Invoke-RestMethod -Uri "$base/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null 
+        }
+        catch { 
+            Invoke-RestMethod -Uri "$base/proxy/network/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop | Out-Null 
+        }
+        
+        $ok = $true
+        $msg = "Connessione OK"
     }
-    catch { $ok = $false; $msg = if ($_.Exception.Message) { $_.Exception.Message } else { "Errore connessione" }; Write-Log "Test Unifi (Prova connessione): $msg" "WARN" }
+    catch { 
+        $ok = $false
+        if ($_.Exception.Message) { $msg = $_.Exception.Message } else { $msg = "Errore connessione" }
+        Write-Log "Test Unifi (Prova connessione): $msg" "WARN" 
+    }
+    
     try {
         $body = @{ test_id = $TestId; success = $ok; message = $msg } | ConvertTo-Json
         Invoke-RestMethod -Uri "$ServerUrl/api/network-monitoring/agent/unifi-test-result" -Method POST -Headers @{ "Content-Type" = "application/json"; "X-API-Key" = $ApiKey } -Body $body -TimeoutSec 10 -ErrorAction Stop | Out-Null
         Write-Log "Esito test Unifi inviato: $(if($ok){'OK'}else{'Errore'})" "INFO"
     }
-    catch { Write-Log "Invio esito test Unifi fallito: $_" "WARN" }
+    catch { 
+        Write-Log "Invio esito test Unifi fallito: $_" "WARN" 
+    }
 }
 
 function Get-NetworkDevices {
@@ -320,9 +312,7 @@ function Get-NetworkDevices {
     # Ottieni IP locale del PC dove gira l'agent
     $localIP = $null
     try {
-        $networkAdapters = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { 
-            $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" 
-        }
+        $networkAdapters = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" }
         if ($networkAdapters) {
             $localIP = $networkAdapters[0].IPAddress
             Write-Log "IP locale rilevato: $localIP" "DEBUG"
@@ -339,6 +329,7 @@ function Get-NetworkDevices {
         if ($range -match '^(\d+\.\d+\.\d+)\.(\d+)/(\d+)$') {
             $baseIP = $matches[1]
             $subnetMask = [int]$matches[3]
+            Write-Log "DEBUG: Subnet $baseIP/$subnetMask detected"
             
             # FASE 1: Scansiona tabella ARP per dispositivi già presenti
             Write-Log "Scansionando tabella ARP per range $baseIP.*" "DEBUG"
@@ -378,22 +369,21 @@ function Get-NetworkDevices {
                 Write-Log "Dopo ping: $($arpTable.Count) dispositivi in ARP table" "INFO"
                 
                 # FASE 4: Processa ogni dispositivo in ARP table
+                # FASE 4: Processa ogni dispositivo in ARP table
                 foreach ($ip in $arpTable.Keys) {
                     $macAddress = $arpTable[$ip]
-                    
                     Write-Log "Processando dispositivo ARP: $ip ($macAddress)" "DEBUG"
                     
-                    # Test se risponde al ping (per distinguere Online vs No Ping)
+                    # Test se risponde al ping
                     $pingResponsive = Test-Connection -ComputerName $ip -Count 1 -Quiet -ErrorAction SilentlyContinue
                     
-                    # Se è l'IP locale, marca sempre come ping responsive
+                    $hostname = $null
+                    
                     if ($localIP -and $ip -eq $localIP) {
                         $pingResponsive = $true
                         $hostname = $env:COMPUTERNAME
                     }
                     else {
-                        # Prova risoluzione hostname
-                        $hostname = $null
                         try {
                             $dnsResult = Resolve-DnsName -Name $ip -ErrorAction SilentlyContinue -DnsOnly
                             if ($dnsResult -and $dnsResult.NameHost) {
@@ -401,63 +391,44 @@ function Get-NetworkDevices {
                             }
                         }
                         catch {
-                            # Ignora errori DNS
+                            # Ignore
                         }
                     }
                     
-                    # Vendor lookup da MAC (se disponibile)
                     $vendor = $null
-                    if ($macAddress -and $macAddress -match '^([0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2})') {
-                        $oui = $matches[1] -replace '[:-]', ''
-                        # TODO: Implementa lookup vendor (API o database locale)
-                        # Per ora lasciamo null
-                    }
-
-                    # Check Upgrade Unifi (normalizza MAC: AA-BB-CC-DD-EE-FF per match)
+                    
                     $upgradeAvailable = $false
                     $unifiName = $null
-
+                    
                     if ($macAddress) {
                         $macNorm = ($macAddress -replace ':', '-').ToUpper()
-                        
-                        if ($unifiUpgrades -and $unifiUpgrades.Count -gt 0) {
-                            if ($unifiUpgrades.ContainsKey($macNorm)) {
-                                $upgradeAvailable = $true
-                                Write-Log "📦 Aggiornamento Firmware disponibile per $ip ($macAddress)" "INFO"
-                            }
+                        if ($unifiUpgrades -and $unifiUpgrades.ContainsKey($macNorm)) {
+                            $upgradeAvailable = $true
                         }
-                        
-                        if ($unifiNames -and $unifiNames.Count -gt 0) {
-                            if ($unifiNames.ContainsKey($macNorm)) {
-                                $unifiName = $unifiNames[$macNorm]
-                                Write-Log "🏷️ Unifi Name trovato per $ip ($macAddress): $unifiName" "DEBUG"
-                                
-                                # Usa nome unifi come hostname se hostname è vuoto
-                                if (-not $hostname) {
-                                    $hostname = $unifiName
-                                }
-                            }
+                        if ($unifiNames -and $unifiNames.ContainsKey($macNorm)) {
+                            $unifiName = $unifiNames[$macNorm]
+                            if (-not $hostname) { $hostname = $unifiName }
                         }
                     }
-                    
-                    # Crea device object con nuovo campo ping_responsive
+
                     $device = @{
                         ip_address        = $ip
                         mac_address       = $macAddress
                         hostname          = $hostname
                         vendor            = $vendor
-                        status            = "online"  # Sempre online se presente in ARP
+                        status            = "online"
                         ping_responsive   = $pingResponsive
                         upgrade_available = $upgradeAvailable
                         unifi_name        = $unifiName
                     }
-                    
                     $devices += $device
                     
-                    $statusLabel = if ($pingResponsive) { "✓ Ping OK" } else { "⚠️ No Ping" }
+                    $statusLabel = "[WARN] No Ping"
+                    if ($pingResponsive) {
+                        $statusLabel = "[OK] Ping OK"
+                    }
                     Write-Log "Dispositivo: $ip → $statusLabel" "INFO"
                 }
-                
             }
             else {
                 Write-Log "Subnet mask troppo grande per scansione completa: $range" "WARN"
@@ -468,7 +439,7 @@ function Get-NetworkDevices {
         }
     }
     
-    Write-Log "Scansione completata: $($devices.Count) dispositivi rilevati" "INFO"
+    Write-Log "Scansione completata" "INFO"
     return $devices
 }
 
@@ -668,229 +639,234 @@ function Update-ScheduledTaskInterval {
             return $false
         }
     }
+    catch {
+        Write-Log "Errore generico in Update-ScheduledTaskInterval: $_" "ERROR"
+        return $false
+    }
+}
 
-    function Send-Heartbeat {
-        param(
-            [string]$ServerUrl,
-            [string]$ApiKey,
-            [string]$Version = "1.0.0",
-            [string]$ConfigPath = ""
-        )
+function Send-Heartbeat {
+    param(
+        [string]$ServerUrl,
+        [string]$ApiKey,
+        [string]$Version = "1.0.0",
+        [string]$ConfigPath = ""
+    )
     
-        try {
-            $headers = @{
-                "Content-Type" = "application/json"
-                "X-API-Key"    = $ApiKey
-            }
+    try {
+        $headers = @{
+            "Content-Type" = "application/json"
+            "X-API-Key"    = $ApiKey
+        }
         
-            $payload = @{
-                version = $Version
-            } | ConvertTo-Json
+        $payload = @{
+            version = $Version
+        } | ConvertTo-Json
         
-            $url = "$ServerUrl/api/network-monitoring/agent/heartbeat"
-            $response = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $payload -ErrorAction Stop
+        $url = "$ServerUrl/api/network-monitoring/agent/heartbeat"
+        $response = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $payload -ErrorAction Stop
         
-            # Verifica se il server ha richiesto la disinstallazione
-            if ($response.uninstall -eq $true) {
-                Write-Log "Server ha richiesto disinstallazione: $($response.message)" "WARN"
-                return @{ success = $false; uninstall = $true; message = $response.message }
-            }
+        # Verifica se il server ha richiesto la disinstallazione
+        if ($response.uninstall -eq $true) {
+            Write-Log "Server ha richiesto disinstallazione: $($response.message)" "WARN"
+            return @{ success = $false; uninstall = $true; message = $response.message }
+        }
         
-            Write-Log "Heartbeat inviato con successo" "DEBUG"
+        Write-Log "Heartbeat inviato con successo" "DEBUG"
 
-            $pendingUnifi = $response.pending_unifi_test
+        $pendingUnifi = $response.pending_unifi_test
         
-            # Recupera configurazione dal server per verificare se scan_interval_minutes è cambiato
-            if ($ConfigPath) {
-                try {
-                    $serverConfigResult = Get-ServerConfig -ServerUrl $ServerUrl -ApiKey $ApiKey
-                    if ($serverConfigResult.success -and $serverConfigResult.config.scan_interval_minutes) {
-                        $serverInterval = $serverConfigResult.config.scan_interval_minutes
+        # Recupera configurazione dal server per verificare se scan_interval_minutes è cambiato
+        if ($ConfigPath) {
+            try {
+                $serverConfigResult = Get-ServerConfig -ServerUrl $ServerUrl -ApiKey $ApiKey
+                if ($serverConfigResult.success -and $serverConfigResult.config.scan_interval_minutes) {
+                    $serverInterval = $serverConfigResult.config.scan_interval_minutes
                     
-                        # Leggi config locale
-                        if (Test-Path $ConfigPath) {
-                            $localConfig = Get-Content $ConfigPath -Raw | ConvertFrom-Json
-                            $localInterval = if ($localConfig.scan_interval_minutes) { $localConfig.scan_interval_minutes } else { 15 }
+                    # Leggi config locale
+                    if (Test-Path $ConfigPath) {
+                        $localConfig = Get-Content $ConfigPath -Raw | ConvertFrom-Json
+                        $localInterval = if ($localConfig.scan_interval_minutes) { $localConfig.scan_interval_minutes } else { 15 }
                         
-                            # Se l'intervallo è diverso, aggiorna il Scheduled Task
-                            if ($serverInterval -ne $localInterval) {
-                                Write-Log "Rilevato cambio intervallo scansione: $localInterval -> $serverInterval minuti" "INFO"
-                                $updateResult = Update-ScheduledTaskInterval -IntervalMinutes $serverInterval
-                                if ($updateResult) {
-                                    # Aggiorna config.json locale
-                                    $localConfig.scan_interval_minutes = $serverInterval
-                                    $localConfig | ConvertTo-Json -Depth 10 | Out-File -FilePath $ConfigPath -Encoding UTF8 -Force
-                                    Write-Log "Config.json locale aggiornato con nuovo intervallo ($serverInterval minuti)" "INFO"
-                                }
+                        # Se l'intervallo è diverso, aggiorna il Scheduled Task
+                        if ($serverInterval -ne $localInterval) {
+                            Write-Log "Rilevato cambio intervallo scansione: $localInterval -> $serverInterval minuti" "INFO"
+                            $updateResult = Update-ScheduledTaskInterval -IntervalMinutes $serverInterval
+                            if ($updateResult) {
+                                # Aggiorna config.json locale
+                                $localConfig.scan_interval_minutes = $serverInterval
+                                $localConfig | ConvertTo-Json -Depth 10 | Out-File -FilePath $ConfigPath -Encoding UTF8 -Force
+                                Write-Log "Config.json locale aggiornato con nuovo intervallo ($serverInterval minuti)" "INFO"
                             }
                         }
                     }
                 }
-                catch {
-                    Write-Log "Errore verifica configurazione server: $_" "DEBUG"
-                    # Non bloccare l'esecuzione se il controllo configurazione fallisce
-                }
             }
+            catch {
+                Write-Log "Errore verifica configurazione server: $_" "DEBUG"
+                # Non bloccare l'esecuzione se il controllo configurazione fallisce
+            }
+        }
         
-            return @{ success = $true; uninstall = $false; pending_unifi_test = $pendingUnifi }
-        }
-        catch {
-            Write-Log "Errore heartbeat: $_" "WARN"
-            return @{ success = $false; uninstall = $false; error = $_.Exception.Message }
-        }
-    }
-
-    function Uninstall-Agent {
-        param(
-            [string]$ScriptDir
-        )
-    
-        Write-Log "=== Avvio disinstallazione agent ===" "WARN"
-    
-        $TaskName = "NetworkMonitorAgent"
-    
-        # Rimuovi Scheduled Task
-        try {
-            $existingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-            if ($existingTask) {
-                Write-Log "Rimozione Scheduled Task: $TaskName" "WARN"
-                Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction Stop
-                Write-Log "Scheduled Task rimosso con successo" "INFO"
-            }
-            else {
-                Write-Log "Scheduled Task non trovato (già rimosso?)" "WARN"
-            }
-        }
-        catch {
-            Write-Log "Errore rimozione Scheduled Task: $_" "ERROR"
-        }
-    
-        Write-Log "=== Disinstallazione completata ===" "WARN"
-        Write-Log "L'agent è stato disinstallato. Puoi eliminare manualmente la directory: $ScriptDir" "INFO"
-    }
-
-    # === MAIN SCRIPT ===
-
-    Write-Log "=== Network Monitor Agent Avviato ==="
-
-    # Carica configurazione
-    if (-not (Test-Path $ConfigPath)) {
-        Write-Log "File config.json non trovato! Crea un file config.json con le impostazioni." "ERROR"
-        exit 1
-    }
-
-    try {
-        $config = Get-Content $ConfigPath -Raw | ConvertFrom-Json
+        return @{ success = $true; uninstall = $false; pending_unifi_test = $pendingUnifi }
     }
     catch {
-        Write-Log "Errore lettura config.json: $_" "ERROR"
-        exit 1
+        Write-Log "Errore heartbeat: $_" "WARN"
+        return @{ success = $false; uninstall = $false; error = $_.Exception.Message }
     }
+}
 
-    # Verifica parametri obbligatori
-    if (-not $config.server_url -or -not $config.api_key -or -not $config.network_ranges) {
-        Write-Log "Configurazione incompleta! Richiesti: server_url, api_key, network_ranges" "ERROR"
-        exit 1
+function Uninstall-Agent {
+    param(
+        [string]$ScriptDir
+    )
+    
+    Write-Log "=== Avvio disinstallazione agent ===" "WARN"
+    
+    $TaskName = "NetworkMonitorAgent"
+    
+    # Rimuovi Scheduled Task
+    try {
+        $existingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+        if ($existingTask) {
+            Write-Log "Rimozione Scheduled Task: $TaskName" "WARN"
+            Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction Stop
+            Write-Log "Scheduled Task rimosso con successo" "INFO"
+        }
+        else {
+            Write-Log "Scheduled Task non trovato (già rimosso?)" "WARN"
+        }
     }
+    catch {
+        Write-Log "Errore rimozione Scheduled Task: $_" "ERROR"
+    }
+    
+    Write-Log "=== Disinstallazione completata ===" "WARN"
+    Write-Log "L'agent è stato disinstallato. Puoi eliminare manualmente la directory: $ScriptDir" "INFO"
+}
 
-    Write-Log "Server URL: $($config.server_url)"
-    Write-Log "Network ranges: $($config.network_ranges -join ', ')"
-    Write-Log "Scan interval: $($config.scan_interval_minutes) minuti"
+# === MAIN SCRIPT ===
 
-    # Controlla aggiornamenti agent (all'avvio)
+Write-Log "=== Network Monitor Agent Avviato ==="
+
+# Carica configurazione
+if (-not (Test-Path $ConfigPath)) {
+    Write-Log "File config.json non trovato! Crea un file config.json con le impostazioni." "ERROR"
+    exit 1
+}
+
+try {
+    $config = Get-Content $ConfigPath -Raw | ConvertFrom-Json
+}
+catch {
+    Write-Log "Errore lettura config.json: $_" "ERROR"
+    exit 1
+}
+
+# Verifica parametri obbligatori
+if (-not $config.server_url -or -not $config.api_key -or -not $config.network_ranges) {
+    Write-Log "Configurazione incompleta! Richiesti: server_url, api_key, network_ranges" "ERROR"
+    exit 1
+}
+
+Write-Log "Server URL: $($config.server_url)"
+Write-Log "Network ranges: $($config.network_ranges -join ', ')"
+Write-Log "Scan interval: $($config.scan_interval_minutes) minuti"
+
+# Controlla aggiornamenti agent (all'avvio)
+Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $AGENT_VERSION
+
+if ($TestMode) {
+    Write-Log "=== MODO TEST - Esecuzione singola ==="
+    
+    # Scan rete
+    Write-Log "Avvio scansione rete..."
+    $devices = Get-NetworkDevices -NetworkRanges $config.network_ranges
+    Write-Log "Trovati $($devices.Count) dispositivi"
+    
+    # Mostra dispositivi trovati
+    foreach ($device in $devices) {
+        Write-Log "  - $($device.ip_address) | MAC: $($device.mac_address) | Hostname: $($device.hostname) | Vendor: $($device.vendor)"
+    }
+    
+    # Invio dati
+    if ($devices.Count -gt 0) {
+        Write-Log "Invio dati al server..."
+        $result = Send-ScanResults -Devices $devices -ServerUrl $config.server_url -ApiKey $config.api_key
+        Write-Log "Invio completato!"
+    }
+    else {
+        Write-Log "Nessun dispositivo trovato, skip invio"
+    }
+    
+    # Heartbeat
+    Send-Heartbeat -ServerUrl $config.server_url -ApiKey $config.api_key -Version $config.version
+    
+    Write-Log "=== Test completato ==="
+    exit 0
+}
+
+# Modalità normale: esecuzione singola (il Scheduled Task riavvierà lo script)
+Write-Log "=== Esecuzione scansione ==="
+
+try {
+    # 0. Controlla aggiornamenti (ogni scansione)
     Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $AGENT_VERSION
-
-    if ($TestMode) {
-        Write-Log "=== MODO TEST - Esecuzione singola ==="
     
-        # Scan rete
-        Write-Log "Avvio scansione rete..."
-        $devices = Get-NetworkDevices -NetworkRanges $config.network_ranges
-        Write-Log "Trovati $($devices.Count) dispositivi"
+    # 1. Heartbeat (indica che l'agent è online)
+    Write-Log "Invio heartbeat..."
+    $heartbeatResult = Send-Heartbeat -ServerUrl $config.server_url -ApiKey $config.api_key -Version $config.version
     
-        # Mostra dispositivi trovati
-        foreach ($device in $devices) {
-            Write-Log "  - $($device.ip_address) | MAC: $($device.mac_address) | Hostname: $($device.hostname) | Vendor: $($device.vendor)"
-        }
-    
-        # Invio dati
-        if ($devices.Count -gt 0) {
-            Write-Log "Invio dati al server..."
-            $result = Send-ScanResults -Devices $devices -ServerUrl $config.server_url -ApiKey $config.api_key
-            Write-Log "Invio completato!"
-        }
-        else {
-            Write-Log "Nessun dispositivo trovato, skip invio"
-        }
-    
-        # Heartbeat
-        Send-Heartbeat -ServerUrl $config.server_url -ApiKey $config.api_key -Version $config.version
-    
-        Write-Log "=== Test completato ==="
+    # Verifica se il server ha richiesto la disinstallazione
+    if ($heartbeatResult.uninstall -eq $true) {
+        Write-Log "Server ha richiesto disinstallazione: $($heartbeatResult.message)" "WARN"
+        $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+        Uninstall-Agent -ScriptDir $scriptDir
+        Write-Log "Agent disinstallato. Uscita." "WARN"
         exit 0
     }
 
-    # Modalità normale: esecuzione singola (il Scheduled Task riavvierà lo script)
-    Write-Log "=== Esecuzione scansione ==="
-
-    try {
-        # 0. Controlla aggiornamenti (ogni scansione)
-        Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $AGENT_VERSION
-    
-        # 1. Heartbeat (indica che l'agent è online)
-        Write-Log "Invio heartbeat..."
-        $heartbeatResult = Send-Heartbeat -ServerUrl $config.server_url -ApiKey $config.api_key -Version $config.version
-    
-        # Verifica se il server ha richiesto la disinstallazione
-        if ($heartbeatResult.uninstall -eq $true) {
-            Write-Log "Server ha richiesto disinstallazione: $($heartbeatResult.message)" "WARN"
-            $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-            Uninstall-Agent -ScriptDir $scriptDir
-            Write-Log "Agent disinstallato. Uscita." "WARN"
-            exit 0
+    # Prova connessione Unifi richiesta da interfaccia: esegui test sulla LAN e invia esito
+    if ($heartbeatResult.pending_unifi_test) {
+        $pu = $heartbeatResult.pending_unifi_test
+        try {
+            Invoke-UnifiConnectionTestAndReport -TestId $pu.test_id -Url $pu.url -Username $pu.username -Password $pu.password -ServerUrl $config.server_url -ApiKey $config.api_key
         }
-
-        # Prova connessione Unifi richiesta da interfaccia: esegui test sulla LAN e invia esito
-        if ($heartbeatResult.pending_unifi_test) {
-            $pu = $heartbeatResult.pending_unifi_test
-            try {
-                Invoke-UnifiConnectionTestAndReport -TestId $pu.test_id -Url $pu.url -Username $pu.username -Password $pu.password -ServerUrl $config.server_url -ApiKey $config.api_key
-            }
-            catch { Write-Log "Errore test Unifi (Prova connessione): $_" "WARN" }
-        }
-    
-        # Recupera configurazione Unifi (se presente sul server)
-        $serverConfigInfo = Get-ServerConfig -ServerUrl $config.server_url -ApiKey $config.api_key
-        $unifiConfig = $null
-        if ($serverConfigInfo.success -and $serverConfigInfo.config.unifi_config) {
-            $unifiConfig = $serverConfigInfo.config.unifi_config
-            # Converti PSObject a Hashtable se necessario
-            if ($unifiConfig -is [PSCustomObject]) {
-                # Basic conversion needed for properties
-            }
-        }
-
-        # 2. Scan rete
-        Write-Log "Avvio scansione rete..."
-        $devices = Get-NetworkDevices -NetworkRanges $config.network_ranges -UnifiConfig $unifiConfig
-        Write-Log "Trovati $($devices.Count) dispositivi"
-    
-        # 3. Invio dati se ci sono dispositivi
-        if ($devices.Count -gt 0) {
-            Write-Log "Invio dati al server..."
-            $result = Send-ScanResults -Devices $devices -ServerUrl $config.server_url -ApiKey $config.api_key
-            Write-Log "Dati inviati con successo!"
-        }
-        else {
-            Write-Log "Nessun dispositivo trovato, skip invio"
-        }
-    
-        Write-Log "=== Scansione completata ==="
-        exit 0
-    
+        catch { Write-Log "Errore test Unifi (Prova connessione): $_" "WARN" }
     }
-    catch {
-        Write-Log "Errore durante scansione: $_" "ERROR"
-        Write-Log "Stack trace: $($_.Exception.StackTrace)" "ERROR"
-        exit 1
+    
+    # Recupera configurazione Unifi (se presente sul server)
+    $serverConfigInfo = Get-ServerConfig -ServerUrl $config.server_url -ApiKey $config.api_key
+    $unifiConfig = $null
+    if ($serverConfigInfo.success -and $serverConfigInfo.config.unifi_config) {
+        $unifiConfig = $serverConfigInfo.config.unifi_config
+        # Converti PSObject a Hashtable se necessario
+        if ($unifiConfig -is [PSCustomObject]) {
+            # Basic conversion needed for properties
+        }
     }
+
+    # 2. Scan rete
+    Write-Log "Avvio scansione rete..."
+    $devices = Get-NetworkDevices -NetworkRanges $config.network_ranges -UnifiConfig $unifiConfig
+    Write-Log "Trovati $($devices.Count) dispositivi"
+    
+    # 3. Invio dati se ci sono dispositivi
+    if ($devices.Count -gt 0) {
+        Write-Log "Invio dati al server..."
+        $result = Send-ScanResults -Devices $devices -ServerUrl $config.server_url -ApiKey $config.api_key
+        Write-Log "Dati inviati con successo!"
+    }
+    else {
+        Write-Log "Nessun dispositivo trovato, skip invio"
+    }
+    
+    Write-Log "=== Scansione completata ==="
+    exit 0
+    
+}
+catch {
+    Write-Log "Errore durante scansione: $_" "ERROR"
+    Write-Log "Stack trace: $($_.Exception.StackTrace)" "ERROR"
+    exit 1
+}
