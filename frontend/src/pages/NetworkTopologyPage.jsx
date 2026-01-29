@@ -156,7 +156,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             const otherNodes = validDevices.filter(d => d.id !== savedGateway.id).map(d => ({
                 id: d.id,
                 type: mapDeviceType(d),
-                label: `${d.notes || d.hostname || ''} (${d.ip_address})`.trim(),
+                label: `${d.ip_address}${d.device_path ? ` - ${d.device_path}` : (d.notes || d.hostname ? ` (${d.notes || d.hostname})` : '')}`,
                 ip: d.ip_address,
                 status: d.status,
                 details: d,
@@ -218,7 +218,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             const deviceNodes = validDevices.map(d => ({
                 id: d.id,
                 type: mapDeviceType(d),
-                label: `${d.notes || d.hostname || ''} (${d.ip_address})`.trim(),
+                label: `${d.ip_address}${d.device_path ? ` - ${d.device_path}` : (d.notes || d.hostname ? ` (${d.notes || d.hostname})` : '')}`,
                 ip: d.ip_address,
                 status: d.status,
                 details: d,
