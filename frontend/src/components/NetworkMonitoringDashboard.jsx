@@ -1829,15 +1829,15 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Opzioni</th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-12" title="Online/Offline"></th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">IP</th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">MAC</th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Titolo</th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Utente</th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Percorso</th>
-                        <th className="text-center py-3 px-2 text-sm font-semibold text-gray-700 w-10 whitespace-nowrap" title="Aggiornamento firmware disponibile (UniFi)">FW</th>
-                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Scan</th>
+                        <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Opzioni</th>
+                        <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 w-12" title="Online/Offline"></th>
+                        <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">IP</th>
+                        <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">MAC</th>
+                        <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Titolo</th>
+                        <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Utente</th>
+                        <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Percorso</th>
+                        <th className="text-center py-2 px-2 text-sm font-semibold text-gray-700 w-10 whitespace-nowrap" title="Aggiornamento firmware disponibile (UniFi)">FW</th>
+                        <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Scan</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1849,8 +1849,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
                           >
                             {/* 1. Opzioni (Statico / Notifica) - su 2 righe */}
-                            <td className="py-3 px-4">
-                              <div className="flex flex-col gap-2">
+                            <td className="py-1 px-4">
+                              <div className="flex flex-col gap-1">
                                 <label className="flex items-center gap-1 cursor-pointer" title="IP Statico - Dispositivo con IP fisso">
                                   <input
                                     type="checkbox"
@@ -1936,11 +1936,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                               </div>
                             </td>
                             {/* 2. Status (Online/Offline) */}
-                            <td className="py-3 px-4 w-12">
+                            <td className="py-1 px-4 w-12">
                               <StatusBadge status={device.status} pingResponsive={device.ping_responsive} />
                             </td>
                             {/* 3. IP */}
-                            <td className="py-3 px-4 text-sm font-mono text-gray-900 whitespace-nowrap">
+                            <td className="py-1 px-4 text-sm font-mono text-gray-900 whitespace-nowrap">
                               <div className="flex flex-col gap-1">
                                 <div className="flex items-center gap-2">
                                   {device.has_ping_failures && (
@@ -2042,7 +2042,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                               </div>
                             </td>
                             {/* 4. MAC */}
-                            <td className="py-3 px-4 text-sm font-mono text-gray-600 whitespace-nowrap">
+                            <td className="py-1 px-4 text-sm font-mono text-gray-600 whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 {device.previous_mac && (
                                   <div className="flex items-center gap-1">
@@ -2087,17 +2087,17 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 <span>{device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}</span>
                               </div>
                             </td>
-                            <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_type || '-'}</td>
-                            <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_username || '-'}</td>
-                            <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_path || '-'}</td>
-                            <td className="py-3 px-2 text-center whitespace-nowrap">
+                            <td className="py-1 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_type || '-'}</td>
+                            <td className="py-1 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_username || '-'}</td>
+                            <td className="py-1 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_path || '-'}</td>
+                            <td className="py-1 px-2 text-center whitespace-nowrap">
                               {device.upgrade_available && (
                                 <div className="flex justify-center" title="Aggiornamento Firmware Disponibile">
                                   <ArrowUpCircle className="w-5 h-5 text-blue-600" />
                                 </div>
                               )}
                             </td>
-                            <td className="py-3 px-4 text-sm text-gray-500 whitespace-nowrap">{formatDate(device.last_seen)}</td>
+                            <td className="py-1 px-4 text-sm text-gray-500 whitespace-nowrap">{formatDate(device.last_seen)}</td>
                           </tr>
                         );
                       })}
