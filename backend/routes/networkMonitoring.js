@@ -1607,7 +1607,7 @@ module.exports = (pool, io) => {
         // 4. Find Existing Device (Priority: MAC, then IP)
         let existingDevice = null;
         if (normalizedMac) {
-          const res = await pool.query('SELECT * FROM network_devices WHERE agent_id = $1 AND REPLACE(REPLACE(UPPER(mac_address), ":", ""), "-", "") = REPLACE(REPLACE(UPPER($2), ":", ""), "-", "") LIMIT 1', [agentId, normalizedMac]);
+          const res = await pool.query("SELECT * FROM network_devices WHERE agent_id = $1 AND REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', '') = REPLACE(REPLACE(UPPER($2), ':', ''), '-', '') LIMIT 1", [agentId, normalizedMac]);
           if (res.rows.length > 0) existingDevice = res.rows[0];
         }
 
