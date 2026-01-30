@@ -617,9 +617,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   }, [editingAgentId, editAgentData, getAuthHeader, loadAgents]);
 
   // Carica dispositivi per un'azienda specifica
-  const loadCompanyDevices = useCallback(async (aziendaId) => {
+  const loadCompanyDevices = useCallback(async (aziendaId, silent = false) => {
     try {
-      setLoadingCompanyDevices(true);
+      if (!silent) {
+        setLoadingCompanyDevices(true);
+      }
       const response = await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaId}/devices`), {
         headers: getAuthHeader()
       });
@@ -655,9 +657,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
     } catch (err) {
       console.error('Errore caricamento dispositivi azienda:', err);
-      setError(err.message);
+      if (!silent) {
+        setError(err.message);
+      }
     } finally {
-      setLoadingCompanyDevices(false);
+      if (!silent) {
+        setLoadingCompanyDevices(false);
+      }
     }
   }, [getAuthHeader]);
 
@@ -851,7 +857,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       loadChanges(true);
       // Se un'azienda è selezionata, ricarica anche i dispositivi dell'azienda (già silenzioso)
       if (selectedCompanyId) {
-        loadCompanyDevices(selectedCompanyId);
+        loadCompanyDevices(selectedCompanyId, true);
       }
     }, 30000); // 30 secondi
 
@@ -915,7 +921,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
         // Se un'azienda è selezionata, ricarica anche i dispositivi dell'azienda (già silenzioso)
         if (selectedCompanyId) {
-          loadCompanyDevices(selectedCompanyId);
+          loadCompanyDevices(selectedCompanyId, true);
         }
       }
     };
