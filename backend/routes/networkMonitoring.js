@@ -1728,7 +1728,8 @@ module.exports = (pool, io) => {
                  upgrade_available = $7,
                  device_type = CASE WHEN is_manual_type THEN device_type ELSE COALESCE($8, device_type) END,
                  device_path = CASE WHEN is_manual_type THEN device_path ELSE COALESCE($9, device_path) END,
-                 additional_ips = $11
+                 additional_ips = $11,
+                 is_new_device = false
                  WHERE id = $10`,
             [ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass, existingDevice.id, JSON.stringify(additional_ips || [])]
           );
@@ -1741,8 +1742,8 @@ module.exports = (pool, io) => {
         } else {
           // INSERT
           const res = await pool.query(`INSERT INTO network_devices
-                 (agent_id, ip_address, mac_address, hostname, vendor, status, ping_responsive, upgrade_available, device_type, device_path, additional_ips)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+                 (agent_id, ip_address, mac_address, hostname, vendor, status, ping_responsive, upgrade_available, device_type, device_path, additional_ips, is_new_device)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true) RETURNING id`,
             [agentId, ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass, JSON.stringify(additional_ips || [])]
           );
           deviceResults.push({ action: 'created', id: res.rows[0].id, ip: ip_address });
@@ -2184,7 +2185,7 @@ module.exports = (pool, io) => {
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
-          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port, nd.notes, nd.is_manual_type, nd.ip_history, nd.additional_ips,
+          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port, nd.notes, nd.is_manual_type, nd.ip_history, nd.additional_ips, nd.is_new_device,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id

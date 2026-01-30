@@ -629,22 +629,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       }
       const data = await response.json();
 
-      // Rileva nuovi dispositivi (MAC mai visti prima in questa sessione)
+      // Rileva nuovi dispositivi usando il flag dal backend
       const newlyDetected = new Set();
-      const normalizeMac = (mac) => mac ? mac.replace(/[\s:.-]/g, '').toUpperCase() : null;
 
       data.forEach(device => {
-        const mac = normalizeMac(device.mac_address);
-        // Se ha un MAC valido, non è mai stato visto prima E NON è un dispositivo vecchio (es. last_seen molto vecchio)
-        // Usiamo una soglia di 24 ore per considerare un dispositivo "attivo"
-        const isRecent = new Date(device.last_seen) > new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-        if (mac && mac.length >= 12 && isRecent) {
-          if (!seenMacAddressesRef.current.has(mac)) {
-            // È un NUOVO dispositivo per questa sessione
-            seenMacAddressesRef.current.add(mac);
-            newlyDetected.add(device.id);
-          }
+        if (device.is_new_device) {
+          newlyDetected.add(device.id);
         }
       });
 
@@ -655,15 +645,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           newlyDetected.forEach(id => next.add(id));
           return next;
         });
-
-        // Rimuovi l'evidenziazione dopo 10 secondi
-        setTimeout(() => {
-          setNewDevicesInList(prev => {
-            const next = new Set(prev);
-            newlyDetected.forEach(id => next.delete(id));
-            return next;
-          });
-        }, 10000);
+        // NON rimuoviamo l'evidenziazione dopo 10 secondi, resta finché l'agent non aggiorna
+      } else {
+        // Se non ci sono nuovi dispositivi dal backend, puliamo la lista
+        setNewDevicesInList(new Set());
       }
 
       setCompanyDevices(data);
