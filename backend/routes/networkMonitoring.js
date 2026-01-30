@@ -2650,6 +2650,9 @@ module.exports = (pool, io) => {
         // Usa mac_address normalizzato come chiave
         // IMPORTANTE: Se x e y sono null (non specificati), mantiene i valori esistenti
         // Se x e y sono specificati (anche 0), aggiorna i valori
+        // Per is_locked: se NULL viene passato, usa false come default (non locked)
+        const finalIsLocked = isLocked !== null ? isLocked : false;
+
         await pool.query(
           `INSERT INTO mappatura_nodes (azienda_id, mac_address, x, y, is_locked)
            VALUES ($1, $2, $3, $4, $5)
@@ -2657,11 +2660,11 @@ module.exports = (pool, io) => {
            DO UPDATE SET 
              x = CASE WHEN EXCLUDED.x IS NOT NULL THEN EXCLUDED.x ELSE mappatura_nodes.x END,
              y = CASE WHEN EXCLUDED.y IS NOT NULL THEN EXCLUDED.y ELSE mappatura_nodes.y END,
-             is_locked = COALESCE(EXCLUDED.is_locked, mappatura_nodes.is_locked)`,
-          [aziendaId, normalizedMac, x, y, isLocked]
+             is_locked = EXCLUDED.is_locked`,
+          [aziendaId, normalizedMac, x, y, finalIsLocked]
         );
 
-        console.log(`💾 POST mappatura-nodes: salvato nodo per aziendaId=${aziendaId}, macAddress=${normalizedMac}, x=${x}, y=${y}, locked=${isLocked}`);
+        console.log(`💾 POST mappatura-nodes: salvato nodo per aziendaId=${aziendaId}, macAddress=${normalizedMac}, x=${x}, y=${y}, locked=${finalIsLocked}`);
       }
 
       res.status(201).json({ success: true, processed: nodes.length });
