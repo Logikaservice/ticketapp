@@ -1798,11 +1798,54 @@ module.exports = (pool, io) => {
                 'UPDATE network_devices SET status = $1 WHERE id = $2',
                 ['offline', deviceId]
               );
+
+              // Rilevamento instabilità (Flapping): Se il dispositivo va offline spesso (>5 volte in 24h)
+              try {
+                const offlineCountResult = await pool.query(
+                  `SELECT COUNT(*) FROM network_changes 
+                   WHERE device_id = $1 
+                   AND change_type = 'device_offline' 
+                   AND detected_at > NOW() - INTERVAL '24 hours'`,
+                  [deviceId]
+                );
+                // Aggiungiamo +1 perché l'evento corrente non è ancora inserito nel DB
+                const offlineCount = parseInt(offlineCountResult.rows[0].count) + 1;
+
+                if (offlineCount >= 5) {
+                  await pool.query('UPDATE network_devices SET has_ping_failures = true WHERE id = $1', [deviceId]);
+                  console.log(`⚠️ Dispositivo ${deviceId} instabile: ${offlineCount} disconnessioni in 24h. Flag has_ping_failures attivato.`);
+                }
+              } catch (e) {
+                console.error('Errore check flapping offline:', e);
+              }
+
             } else if (change_type === 'device_online') {
               await pool.query(
                 'UPDATE network_devices SET status = $1, last_seen = NOW() WHERE id = $2',
                 ['online', deviceId]
               );
+
+              // Controllo stabilità: Se il dispositivo torna online e ha poche disconnessioni recenti (<2), rimuovi flag
+              try {
+                const deviceCheck = await pool.query('SELECT has_ping_failures FROM network_devices WHERE id = $1', [deviceId]);
+                if (deviceCheck.rows.length > 0 && deviceCheck.rows[0].has_ping_failures) {
+                  const offlineCountResult = await pool.query(
+                    `SELECT COUNT(*) FROM network_changes 
+                       WHERE device_id = $1 
+                       AND change_type = 'device_offline' 
+                       AND detected_at > NOW() - INTERVAL '24 hours'`,
+                    [deviceId]
+                  );
+                  const offlineCount = parseInt(offlineCountResult.rows[0].count);
+
+                  if (offlineCount < 2) { // Stabile (meno di 2 disconnessioni in 24h)
+                    await pool.query('UPDATE network_devices SET has_ping_failures = false WHERE id = $1', [deviceId]);
+                    console.log(`✅ Dispositivo ${deviceId} stabilizzato: flag has_ping_failures rimosso.`);
+                  }
+                }
+              } catch (e) {
+                console.error('Errore check flapping online:', e);
+              }
             }
 
             // Verifica se è un dispositivo con notifiche Telegram attive
