@@ -34,6 +34,16 @@ const AVAILABLE_ICONS = [
     { type: 'generic', icon: Circle, label: 'Generico / Altro' }
 ];
 
+const style = document.createElement('style');
+style.innerHTML = `
+  @keyframes pulseRedGlow {
+    0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+  }
+`;
+document.head.appendChild(style);
+
 const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onNavigateToMonitoring = null }) => {
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId ? String(initialCompanyId) : '');
@@ -1463,7 +1473,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     <div
                                         className={`w-full h-full rounded-full flex items-center justify-center shadow-lg border-2 ${getNodeColor(node)} ${selectedNode?.id === node.id ? 'ring-4 ring-blue-300' : ''} ${node.locked ? 'ring-2 ring-purple-400' : ''} hover:scale-110 transition-transform relative`}
                                         style={hasDisconnectionIssues(node) ? {
-                                            animation: 'pulseShadow 2s ease-in-out infinite'
+                                            animation: 'pulseRedGlow 2s ease-in-out infinite'
                                         } : {}}
                                     >
                                         {drawIcon(node.type)}
