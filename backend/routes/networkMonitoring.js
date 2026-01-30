@@ -2601,7 +2601,11 @@ module.exports = (pool, io) => {
         return res.status(400).json({ error: 'Parametri non validi (nodi richiesti)' });
       }
 
+      console.log(`📥 POST mappatura-nodes: ricevuto body:`, JSON.stringify(req.body, null, 2));
+
       for (const node of nodes) {
+        console.log(`🔍 Processando nodo:`, JSON.stringify(node, null, 2));
+
         // Cerca MAC address: può essere passato direttamente o recuperato da device_id
         let macAddress = node.mac_address;
 
@@ -2616,6 +2620,7 @@ module.exports = (pool, io) => {
             );
             if (deviceResult.rows.length > 0) {
               macAddress = deviceResult.rows[0].mac_address;
+              console.log(`✅ MAC recuperato da DB per device_id=${deviceId}: ${macAddress}`);
             }
           }
         }
@@ -2634,6 +2639,8 @@ module.exports = (pool, io) => {
         const y = node.y !== undefined ? parseFloat(node.y) : null;
         // Mappa 'locked' (frontend) a 'is_locked' (db)
         const isLocked = node.locked !== undefined ? !!node.locked : (node.is_locked !== undefined ? !!node.is_locked : null);
+
+        console.log(`🔧 Valori calcolati: x=${x}, y=${y}, isLocked=${isLocked} (da node.locked=${node.locked}, node.is_locked=${node.is_locked})`);
 
         // Upsert intelligente: mantiene i valori esistenti se i nuovi sono null (grazie a COALESCE)
         // Usa mac_address normalizzato come chiave
