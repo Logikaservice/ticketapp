@@ -405,18 +405,18 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         const nodeId = String(node.id);
                         const prevState = prevStates.get(nodeId);
 
-                        // Cambio di stato: online -> offline
-                        if (prevState && prevState.status === 'online' && node.status === 'offline') {
-                            // Dispositivo andato OFFLINE: lampeggia rosso
+                        // Cambio di stato: online <-> offline (qualsiasi cambio stato)
+                        if (prevState && prevState.status !== node.status) {
+                            // Dispositivo cambia stato: lampeggia
                             newBlinking.add(nodeId);
-                            // Rimuovi dal lampeggio dopo 5 secondi (richiesto dall'utente)
+                            // Rimuovi dal lampeggio dopo 10 secondi (richiesto dall'utente)
                             setTimeout(() => {
                                 setBlinkingNodes(prev => {
                                     const next = new Set(prev);
                                     next.delete(nodeId);
                                     return next;
                                 });
-                            }, 5000);
+                            }, 10000);
                         }
 
                         // Aggiorna stato precedente (anche se è il primo caricamento)
@@ -1321,19 +1321,19 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                     setSelectedNode(null);
                                                 }}
                                                 className={`w-full text-left px-1.5 py-0.5 rounded text-xs font-mono truncate border transition cursor-grab active:cursor-grabbing flex flex-col gap-0.5 ${sel
-                                                        ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200'
-                                                        : isNew
-                                                            ? 'bg-yellow-100 border-yellow-400 hover:bg-yellow-200'
-                                                            : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                                                    ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200'
+                                                    : isNew
+                                                        ? 'bg-yellow-100 border-yellow-400 hover:bg-yellow-200'
+                                                        : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-1.5 w-full">
                                                     {/* Pallino indicatore stato */}
                                                     <div className={`w-2 h-2 rounded-full shrink-0 ${d.status === 'online'
-                                                            ? 'bg-green-500'
-                                                            : d.status === 'offline'
-                                                                ? 'bg-red-500'
-                                                                : 'bg-gray-400'
+                                                        ? 'bg-green-500'
+                                                        : d.status === 'offline'
+                                                            ? 'bg-red-500'
+                                                            : 'bg-gray-400'
                                                         }`} title={d.status || 'unknown'}></div>
                                                     <span className="truncate flex-1">{d.ip_address}</span>
                                                 </div>
