@@ -81,8 +81,10 @@ function Get-ArpTable {
     
     try {
         # Metodo 1: Get-NetNeighbor (Windows 8+, più affidabile)
+        # Filtra solo stati validi. Escludiamo "Unreachable", "Incomplete" e "Probe" per evitare falsi positivi (dispositivi offline ma in cache)
+        $validStates = "Reachable", "Permanent", "Stale", "Delay"
         $neighbors = Get-NetNeighbor -AddressFamily IPv4 -ErrorAction SilentlyContinue | 
-        Where-Object { $_.IPAddress -like "$NetworkPrefix*" -and $_.State -ne "Unreachable" }
+        Where-Object { $_.IPAddress -like "$NetworkPrefix*" -and $_.State -in $validStates }
         
         foreach ($neighbor in $neighbors) {
             $ip = $neighbor.IPAddress
