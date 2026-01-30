@@ -239,8 +239,11 @@ class KeepassDriveService {
               // Normalizziamo per la ricerca (rimuoviamo separatori)
               const normalizedMac = this.normalizeMacForSearch(mac);
               if (normalizedMac) {
-                // Estrai Icon ID
-                const iconId = entry.icon ? entry.icon.id : 0;
+                // Estrai Icon ID (supporta sia primitive che object)
+                let iconId = entry.icon;
+                if (entry.icon && typeof entry.icon === 'object' && entry.icon.id !== undefined) {
+                  iconId = entry.icon.id;
+                }
                 if (!macMap.has(normalizedMac)) {
                   macMap.set(normalizedMac, { title: titleStr || '', path: currentPath || '', username: usernameStr || '', iconId: iconId });
                   console.log(`  📝 MAC ${mac} (normalizzato: ${normalizedMac}) -> Titolo: "${titleStr || ''}", IconId: ${iconId}, Utente: "${usernameStr || ''}", Percorso: "${currentPath || ''}"`);
