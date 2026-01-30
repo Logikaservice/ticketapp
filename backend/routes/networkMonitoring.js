@@ -1709,8 +1709,8 @@ module.exports = (pool, io) => {
                  status = $5,
                  ping_responsive = $6,
                  upgrade_available = $7,
-                 device_type = COALESCE($8, device_type),
-                 device_path = COALESCE($9, device_path),
+                 device_type = CASE WHEN is_manual_type THEN device_type ELSE COALESCE($8, device_type) END,
+                 device_path = CASE WHEN is_manual_type THEN device_path ELSE COALESCE($9, device_path) END,
                  additional_ips = $11
                  WHERE id = $10`,
             [ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass, existingDevice.id, JSON.stringify(additional_ips || [])]
