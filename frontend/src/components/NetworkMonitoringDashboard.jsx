@@ -62,6 +62,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [showEditAgentModal, setShowEditAgentModal] = useState(false);
   const [selectedAgentForEdit, setSelectedAgentForEdit] = useState(null);
   // selectedStaticIPs non serve più, usiamo is_static dal database
+  const seenMacAddressesRef = useRef(new Set());
+  const [newDevicesInList, setNewDevicesInList] = useState(new Set());
 
   // Funzione per generare report stampabile
   const generatePrintableReport = () => {
@@ -625,9 +627,47 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       if (!response.ok) {
         throw new Error('Errore caricamento dispositivi azienda');
       }
-
       const data = await response.json();
+
+      // Rileva nuovi dispositivi (MAC mai visti prima in questa sessione)
+      const newlyDetected = new Set();
+      const normalizeMac = (mac) => mac ? mac.replace(/[\s:.-]/g, '').toUpperCase() : null;
+
+      data.forEach(device => {
+        const mac = normalizeMac(device.mac_address);
+        // Se ha un MAC valido, non è mai stato visto prima E NON è un dispositivo vecchio (es. last_seen molto vecchio)
+        // Usiamo una soglia di 24 ore per considerare un dispositivo "attivo"
+        const isRecent = new Date(device.last_seen) > new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+        if (mac && mac.length >= 12 && isRecent) {
+          if (!seenMacAddressesRef.current.has(mac)) {
+            // È un NUOVO dispositivo per questa sessione
+            seenMacAddressesRef.current.add(mac);
+            newlyDetected.add(device.id);
+          }
+        }
+      });
+
+      if (newlyDetected.size > 0) {
+        // Aggiungi ai dispositivi da evidenziare
+        setNewDevicesInList(prev => {
+          const next = new Set(prev);
+          newlyDetected.forEach(id => next.add(id));
+          return next;
+        });
+
+        // Rimuovi l'evidenziazione dopo 10 secondi
+        setTimeout(() => {
+          setNewDevicesInList(prev => {
+            const next = new Set(prev);
+            newlyDetected.forEach(id => next.delete(id));
+            return next;
+          });
+        }, 10000);
+      }
+
       setCompanyDevices(data);
+
     } catch (err) {
       console.error('Errore caricamento dispositivi azienda:', err);
       setError(err.message);
@@ -2084,7 +2124,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                     </button>
                                   </div>
                                 )}
-                                <span>{device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}</span>
+                                <span className={newDevicesInList.has(device.id) ? "bg-yellow-100 px-1 rounded font-bold" : ""}>
+                                  {device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}
+                                </span>
                               </div>
                             </td>
                             <td className="py-1 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_type || '-'}</td>
