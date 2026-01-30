@@ -1700,12 +1700,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 type="button"
                                                 onClick={async () => {
                                                     const newLockedState = !nodeForPanel.locked;
+                                                    let currentX = nodeForPanel.x;
+                                                    let currentY = nodeForPanel.y;
 
-                                                    // Optimistic update
-                                                    if (isNode && selectedNode) setSelectedNode(prev => prev ? { ...prev, locked: newLockedState } : null);
-                                                    else if (selectedDevice) setSelectedDevice(prev => prev ? { ...prev, locked: newLockedState } : null);
-
-                                                    // Update simulation node directly
+                                                    // Update simulation node directly and get LIVE coordinates
                                                     if (simulationRef.current) {
                                                         const simNodes = simulationRef.current.nodes();
                                                         const n = simNodes.find(x => x.id === display.id);
@@ -1718,10 +1716,18 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                                 n.fx = null;
                                                                 n.fy = null;
                                                             }
+                                                            // Capture LIVE coordinates
+                                                            currentX = n.x;
+                                                            currentY = n.y;
+
                                                             setNodes([...simNodes]);
                                                             if (!newLockedState) simulationRef.current.alpha(0.1).restart();
                                                         }
                                                     }
+
+                                                    // Optimistic update - update coordinates too!
+                                                    if (isNode && selectedNode) setSelectedNode(prev => prev ? { ...prev, locked: newLockedState, x: currentX, y: currentY } : null);
+                                                    else if (selectedDevice) setSelectedDevice(prev => prev ? { ...prev, locked: newLockedState } : null);
 
                                                     try {
                                                         await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/mappatura-nodes`), {
@@ -1730,9 +1736,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                             body: JSON.stringify({
                                                                 nodes: [{
                                                                     id: display.id,
+                                                                    mac_address: nodeForPanel.details?.mac_address || nodeForPanel.mac_address,
                                                                     locked: newLockedState,
-                                                                    x: nodeForPanel.x,
-                                                                    y: nodeForPanel.y
+                                                                    x: currentX,
+                                                                    y: currentY
                                                                 }]
                                                             })
                                                         });
