@@ -2570,6 +2570,10 @@ module.exports = (pool, io) => {
            AND nd.mac_address != ''`,
         [aziendaId]
       );
+      console.log(`📤 GET mappatura-nodes: restituendo ${r.rows.length} nodi per aziendaId=${aziendaId}`);
+      r.rows.forEach(row => {
+        console.log(`  - MAC: ${row.mac_address}, x: ${row.x}, y: ${row.y}, is_locked: ${row.is_locked}`);
+      });
       res.json(r.rows);
     } catch (err) {
       console.error('❌ Errore GET mappatura-nodes:', err.message, 'code:', err.code, 'detail:', err.detail);
