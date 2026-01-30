@@ -1740,15 +1740,6 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
 
                                                     try {
                                                         const macAddress = nodeForPanel.details?.mac_address || nodeForPanel.mac_address;
-                                                        console.log('🔒 Tentativo di aggiornare lock status:', {
-                                                            id: display.id,
-                                                            mac_address: macAddress,
-                                                            locked: newLockedState,
-                                                            x: currentX,
-                                                            y: currentY,
-                                                            nodeForPanel: nodeForPanel
-                                                        });
-
                                                         const response = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/mappatura-nodes`), {
                                                             method: 'POST',
                                                             headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
@@ -1764,15 +1755,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                         });
 
                                                         if (!response.ok) {
-                                                            const errorText = await response.text();
-                                                            console.error('❌ Errore aggiornamento lock:', response.status, errorText);
-                                                            alert(`Errore nel salvare lo stato di blocco: ${response.status}`);
-                                                        } else {
-                                                            console.log('✅ Lock status aggiornato con successo');
+                                                            console.error('Errore aggiornamento lock:', response.status);
                                                         }
                                                     } catch (e) {
-                                                        console.error('❌ Errore updating node lock status:', e);
-                                                        alert(`Errore: ${e.message}`);
+                                                        console.error('Errore updating node lock status:', e);
                                                     }
                                                 }}
                                                 className={`w-full py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${nodeForPanel.locked ? 'bg-purple-100 text-purple-800 border border-purple-300' : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'}`}
