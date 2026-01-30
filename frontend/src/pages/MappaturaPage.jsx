@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
     ArrowLeft, ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw,
-    Monitor, Printer, Wifi, Router, X, Trash2, Link2,
+    Monitor, Printer, Wifi, Router, X, Trash2, Link2, Network,
     Smartphone, Tablet, Laptop, Camera, Tv, Watch, Phone, Database, Cloud, Globe, List,
     Layers, HardDrive, Shield, RadioTower, Speaker, Circle, Lock, Unlock
 } from 'lucide-react';
@@ -16,7 +16,8 @@ const AVAILABLE_ICONS = [
     { type: 'nas', icon: HardDrive, label: 'NAS / Storage' },
     { type: 'router', icon: Router, label: 'Router' },
     { type: 'firewall', icon: Shield, label: 'Firewall' },
-    { type: 'switch', icon: Server, label: 'Switch' },
+    { type: 'switch', icon: Network, label: 'Switch' },
+    { type: 'unmanaged_switch', icon: Network, label: 'Unmanaged Switch' },
     { type: 'wifi', icon: Wifi, label: 'WiFi / AP' },
     { type: 'radio', icon: RadioTower, label: 'Ponte Radio' },
     { type: 'printer', icon: Printer, label: 'Stampante' },
@@ -573,9 +574,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         const IconDef = AVAILABLE_ICONS.find(i => i.type === type);
         const Icon = IconDef ? IconDef.icon : Monitor;
 
-        if (type === 'switch' || type === 'unmanaged_switch') {
-            return <Server size={20} className="text-white bg-gray-600 rounded-sm p-0.5" />;
-        }
+
         if (type === 'generic') {
             return <Circle size={16} className="text-white fill-current" />;
         }
@@ -1471,7 +1470,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     }}
                                 >
                                     <div
-                                        className={`w-full h-full rounded-full flex items-center justify-center shadow-lg border-2 ${getNodeColor(node)} ${selectedNode?.id === node.id ? 'ring-4 ring-blue-300' : ''} ${node.locked ? 'ring-2 ring-purple-400' : ''} hover:scale-110 transition-transform relative`}
+                                        className={`w-full h-full rounded-full flex items-center justify-center shadow-lg border-2 ${getNodeColor(node)} ${selectedNode?.id === node.id ? 'ring-4 ring-blue-300' : ''} hover:scale-110 transition-transform relative`}
                                         style={hasDisconnectionIssues(node) ? {
                                             animation: 'pulseRedGlow 2s ease-in-out infinite'
                                         } : {}}
