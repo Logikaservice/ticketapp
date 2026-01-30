@@ -2605,6 +2605,11 @@ module.exports = (pool, io) => {
         return res.status(400).json({ error: 'Parametri non validi (nodi richiesti)' });
       }
 
+      console.log('');
+      console.log('='.repeat(80));
+      console.log(`🔒 POST MAPPATURA-NODES CHIAMATO - aziendaId: ${aziendaId}`);
+      console.log('='.repeat(80));
+      console.log('');
       console.log(`📥 POST mappatura-nodes: ricevuto body:`, JSON.stringify(req.body, null, 2));
 
       for (const node of nodes) {
