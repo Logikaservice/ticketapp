@@ -1728,7 +1728,12 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                             method: 'POST',
                                                             headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
                                                             body: JSON.stringify({
-                                                                nodes: [{ id: display.id, locked: newLockedState }]
+                                                                nodes: [{
+                                                                    id: display.id,
+                                                                    locked: newLockedState,
+                                                                    x: nodeForPanel.x,
+                                                                    y: nodeForPanel.y
+                                                                }]
                                                             })
                                                         });
                                                     } catch (e) {
