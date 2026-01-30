@@ -2099,6 +2099,14 @@ module.exports = (pool, io) => {
         `);
       } catch (e) { console.warn('Warning adding additional_ips column:', e.message); }
 
+      // MIGRATION: Flag per nuovi dispositivi
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS is_new_device BOOLEAN DEFAULT false;
+        `);
+      } catch (e) { console.warn('Warning adding is_new_device column:', e.message); }
+
       // Migrazione: pulisci IP nel formato JSON errato e rimuovi duplicati
       try {
         // 1. Pulisci IP nel formato errato {"192.168.100.2"} -> 192.168.100.2
