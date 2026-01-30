@@ -58,7 +58,7 @@ class KeepassDriveService {
       if (process.env.KEEPASS_FILE_ID) {
         fileId = process.env.KEEPASS_FILE_ID;
         console.log(`📥 Usando file ID specificato: ${fileId}`);
-        
+
         // Verifica che il file esista e ottieni la data di modifica
         try {
           const fileInfo = await drive.files.get({
@@ -76,7 +76,7 @@ class KeepassDriveService {
         // Altrimenti cerca per nome (compatibilità con configurazione precedente)
         const fileNameToSearch = process.env.KEEPASS_FILE_NAME || 'keepass.kdbx';
         console.log(`🔍 Cercando file per nome: ${fileNameToSearch}`);
-        
+
         const searchQuery = `name='${fileNameToSearch}' and trashed=false`;
         const response = await drive.files.list({
           q: searchQuery,
@@ -139,12 +139,12 @@ class KeepassDriveService {
     if (!value) return [];
     const str = String(value).toUpperCase();
     const macs = [];
-    
+
     // Pattern per MAC address: XX-XX-XX-XX-XX-XX o XX:XX:XX:XX:XX:XX o XXXXXXXXXXXX
     // Usa flag 'g' per trovare TUTTI i MAC nel campo
     const macPattern = /([0-9A-F]{2}[:-]){5}[0-9A-F]{2}|[0-9A-F]{12}/g;
     const matches = str.match(macPattern);
-    
+
     if (matches && matches.length > 0) {
       for (const match of matches) {
         // Normalizza: rimuovi separatori e aggiungi trattini
@@ -155,7 +155,7 @@ class KeepassDriveService {
         }
       }
     }
-    
+
     return macs;
   }
 
@@ -183,7 +183,7 @@ class KeepassDriveService {
       // Funzione ricorsiva per processare gruppi ed entry
       const processGroup = (group, groupPath = '') => {
         const currentPath = groupPath ? `${groupPath} > ${group.name || 'Root'}` : (group.name || 'Root');
-        
+
         // Processa le entry del gruppo
         if (group.entries && group.entries.length > 0) {
           for (const entry of group.entries) {
@@ -191,7 +191,7 @@ class KeepassDriveService {
             // Accediamo direttamente alle proprietà
             const titleField = entry.fields && entry.fields['Title'];
             const titleStr = titleField ? (titleField instanceof ProtectedValue ? titleField.getText() : String(titleField)) : '';
-            
+
             // Estrai anche il campo UserName (Nome Utente)
             const usernameField = entry.fields && entry.fields['UserName'];
             const usernameStr = usernameField ? (usernameField instanceof ProtectedValue ? usernameField.getText() : String(usernameField)) : '';
@@ -199,10 +199,10 @@ class KeepassDriveService {
             // Cerca MAC in TUTTI i campi (inclusi campi personalizzati)
             // Prima ottieni tutti i nomi dei campi disponibili
             const allFieldNames = entry.fields ? Object.keys(entry.fields) : [];
-            
+
             // Verifica anche se ci sono customFields (alcune versioni di kdbxweb li mettono qui)
             const customFieldNames = entry.customFields ? Object.keys(entry.customFields) : [];
-            
+
             const standardFields = ['UserName', 'Password', 'URL', 'Notes', 'Title'];
             const fieldsToCheck = [...new Set([...standardFields, ...allFieldNames, ...customFieldNames])]; // Unisci senza duplicati
             let foundMac = null;
@@ -210,7 +210,7 @@ class KeepassDriveService {
 
             // Cerca TUTTI i MAC in TUTTI i campi (un campo può contenere più MAC)
             const foundMacs = [];
-            
+
             for (const fieldName of fieldsToCheck) {
               // Prova prima in entry.fields, poi in entry.customFields
               let fieldValue = null;
@@ -219,12 +219,12 @@ class KeepassDriveService {
               } else if (entry.customFields && entry.customFields[fieldName]) {
                 fieldValue = entry.customFields[fieldName];
               }
-              
+
               if (fieldValue) {
-                const valueStr = fieldValue instanceof ProtectedValue 
-                  ? fieldValue.getText() 
+                const valueStr = fieldValue instanceof ProtectedValue
+                  ? fieldValue.getText()
                   : String(fieldValue);
-                
+
                 // Estrai TUTTI i MAC da questo campo (non solo il primo)
                 const allMacsInField = this.extractAllMacsFromField(valueStr);
                 for (const mac of allMacsInField) {
@@ -239,10 +239,11 @@ class KeepassDriveService {
               // Normalizziamo per la ricerca (rimuoviamo separatori)
               const normalizedMac = this.normalizeMacForSearch(mac);
               if (normalizedMac) {
-                // Se ci sono più entry con lo stesso MAC, mantieni la prima trovata
+                // Estrai Icon ID
+                const iconId = entry.icon ? entry.icon.id : 0;
                 if (!macMap.has(normalizedMac)) {
-                  macMap.set(normalizedMac, { title: titleStr || '', path: currentPath || '', username: usernameStr || '' });
-                  console.log(`  📝 MAC ${mac} (normalizzato: ${normalizedMac}) -> Titolo: "${titleStr || ''}", Utente: "${usernameStr || ''}", Campo: "${field}", Percorso: "${currentPath || ''}"`);
+                  macMap.set(normalizedMac, { title: titleStr || '', path: currentPath || '', username: usernameStr || '', iconId: iconId });
+                  console.log(`  📝 MAC ${mac} (normalizzato: ${normalizedMac}) -> Titolo: "${titleStr || ''}", IconId: ${iconId}, Utente: "${usernameStr || ''}", Percorso: "${currentPath || ''}"`);
                 } else {
                   console.log(`  ⚠️ MAC ${mac} (normalizzato: ${normalizedMac}) già presente nella mappa, ignoro duplicato`);
                 }
@@ -269,10 +270,10 @@ class KeepassDriveService {
       }
 
       console.log(`✅ Mappa MAC->Titolo creata: ${macMap.size} entry trovate`);
-      
+
       // Salva la data di modifica del file
       this.lastFileModifiedTime = modifiedTime;
-      
+
       // Debug: mostra alcuni esempi di MAC nella mappa
       if (macMap.size > 0) {
         const examples = Array.from(macMap.entries()).slice(0, 5);
@@ -284,7 +285,7 @@ class KeepassDriveService {
         console.log(`   ⚠️ ATTENZIONE: Nessun MAC trovato nel file KeePass!`);
         console.log(`   Verifica che i MAC siano presenti nei campi (inclusi campi personalizzati)`);
       }
-      
+
       return macMap;
     } catch (error) {
       console.error('❌ Errore caricamento mappa MAC->Titolo:', error.message);
@@ -317,8 +318,8 @@ class KeepassDriveService {
       const processGroup = (group, groupPath = '') => {
         const groupName = group.name || 'Root';
         const currentPath = groupPath ? `${groupPath} > ${groupName}` : groupName;
-        
-        
+
+
         // Se è specificata un'azienda, verifica se il percorso appartiene all'azienda
         // IMPORTANTE: Verifica solo il primo segmento dopo "gestione"
         // Deve essere un match IDENTICO esatto (case-insensitive) - nessuna variazione accettata
@@ -326,17 +327,17 @@ class KeepassDriveService {
         if (aziendaName) {
           // Dividi il percorso in segmenti (separati da ">")
           const pathSegments = currentPath.split('>').map(seg => seg.trim()).filter(seg => seg);
-          
+
           // Cerca "gestione" nel percorso (case-insensitive)
           const gestioneIndex = pathSegments.findIndex(seg => seg.toLowerCase() === 'gestione');
-          
+
           if (gestioneIndex === -1) {
             // Se non c'è "gestione", escludi tutto
             shouldInclude = false;
           } else {
             // Prendi il segmento immediatamente dopo "gestione"
             const aziendaSegmentIndex = gestioneIndex + 1;
-            
+
             if (aziendaSegmentIndex >= pathSegments.length) {
               // Se non c'è ancora un segmento dopo "gestione" (es. percorso = "gestione"),
               // continua a processare i sottogruppi (non escludere ancora)
@@ -344,21 +345,21 @@ class KeepassDriveService {
               shouldInclude = true; // Continua a processare i sottogruppi
             } else {
               const aziendaSegmentInPath = pathSegments[aziendaSegmentIndex];
-              
+
               // IMPORTANTE: Raccogli SOLO il segmento direttamente dopo "gestione"
               // Non raccogliere segmenti più profondi (es. "Theorica_old" in "gestione > dismessi > Theorica_old")
               foundAziendeAfterGestione.add(aziendaSegmentInPath.trim());
-              
+
               // Confronto ESATTO case-insensitive
               // "Theorica" deve matchare SOLO "Theorica", "theorica", "THEORICA"
               // NON deve matchare "Theorica_old", "Theorica_new", ecc.
               // NON deve matchare "Theorica_old" anche se è in "gestione > dismessi > Theorica_old" (il segmento dopo "gestione" è "dismessi", non "Theorica_old")
               const aziendaNameNormalized = aziendaName.trim().toLowerCase();
               const segmentNormalized = aziendaSegmentInPath.trim().toLowerCase();
-              
+
               // Match IDENTICO esatto: solo case-insensitive, nessuna variazione accettata
               shouldInclude = (aziendaNameNormalized === segmentNormalized);
-              
+
               if (shouldInclude) {
                 console.log(`  ✅ MATCH trovato! Segmento "${aziendaSegmentInPath}" matcha "${aziendaName}" nel percorso "${currentPath}"`);
               } else if (segmentNormalized.includes(aziendaNameNormalized)) {
@@ -366,37 +367,37 @@ class KeepassDriveService {
               }
             }
           }
-          
+
           if (!shouldInclude) {
             // Salta questo gruppo e i suoi figli se non appartiene all'azienda
             return;
           }
         }
-        
+
         // Processa le entry del gruppo
         if (group.entries && group.entries.length > 0) {
           for (const entry of group.entries) {
             // Estrai tutti i campi dell'entry
             const titleField = entry.fields && entry.fields['Title'];
             const title = titleField ? (titleField instanceof ProtectedValue ? titleField.getText() : String(titleField)) : '';
-            
+
             const usernameField = entry.fields && entry.fields['UserName'];
             const username = usernameField ? (usernameField instanceof ProtectedValue ? usernameField.getText() : String(usernameField)) : '';
-            
+
             const passwordField = entry.fields && entry.fields['Password'];
             const password = passwordField ? (passwordField instanceof ProtectedValue ? passwordField.getText() : String(passwordField)) : '';
-            
+
             const urlField = entry.fields && entry.fields['URL'];
             const url = urlField ? (urlField instanceof ProtectedValue ? urlField.getText() : String(urlField)) : '';
-            
+
             const notesField = entry.fields && entry.fields['Notes'];
             const notes = notesField ? (notesField instanceof ProtectedValue ? notesField.getText() : String(notesField)) : '';
-            
+
             // Salta entry senza password
             if (!password || password.trim() === '') {
               continue;
             }
-            
+
             entries.push({
               title: title || 'Senza titolo',
               username: username || '',
@@ -425,13 +426,13 @@ class KeepassDriveService {
       }
 
       console.log(`✅ Entry Keepass caricate: ${entries.length} entry${aziendaName ? ` filtrate per "${aziendaName}"` : ''}`);
-      
+
       // Se non sono state trovate entry e c'era un filtro azienda, mostra suggerimenti
       if (entries.length === 0 && aziendaName && foundAziendeAfterGestione.size > 0) {
         const aziendeList = Array.from(foundAziendeAfterGestione).sort();
         const firstTen = aziendeList.slice(0, 10);
         const remaining = aziendeList.length - 10;
-        
+
         console.log(`ℹ️ Nessuna credenziale trovata per "${aziendaName}" in Keepass`);
         console.log(`   💡 Suggerimento: Verifica che il nome azienda nel database corrisponda esattamente a quello in Keepass`);
         console.log(`   📁 Prime ${firstTen.length} aziende disponibili: ${firstTen.join(', ')}${remaining > 0 ? ` (+${remaining} altre)` : ''}`);
@@ -439,7 +440,7 @@ class KeepassDriveService {
         console.log(`ℹ️ Nessuna credenziale trovata per "${aziendaName}" in Keepass`);
         console.log(`   💡 Suggerimento: Verifica la struttura del file Keepass (deve avere una cartella "gestione")`);
       }
-      
+
       return entries;
     } catch (error) {
       console.error('❌ Errore caricamento entry Keepass:', error.message);
@@ -510,8 +511,8 @@ class KeepassDriveService {
     }
 
     // Se la cache è valida E il file non è stato modificato, restituiscila
-    if (!fileModified && this.macToTitleMap && this.lastCacheUpdate && 
-        (now - this.lastCacheUpdate) < this.cacheTimeout) {
+    if (!fileModified && this.macToTitleMap && this.lastCacheUpdate &&
+      (now - this.lastCacheUpdate) < this.cacheTimeout) {
       return this.macToTitleMap;
     }
 
@@ -566,7 +567,7 @@ class KeepassDriveService {
 
       // Cerca il MAC nella mappa
       const result = macMap.get(normalizedMac);
-      
+
       if (result) {
         console.log(`✅ MAC ${macAddress} (normalizzato: ${normalizedMac}) trovato in KeePass -> Titolo: "${result.title}", Utente: "${result.username || ''}", Percorso: "${result.path}"`);
         return result;

@@ -1689,6 +1689,23 @@ module.exports = (pool, io) => {
             const keepassResult = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
             if (keepassResult) {
               deviceTypeFromKeepass = keepassResult.title;
+
+              // Mappa Icon ID KeePass
+              if (keepassResult.iconId !== undefined) {
+                switch (Number(keepassResult.iconId)) {
+                  case 3: deviceTypeFromKeepass = 'server'; break;
+                  case 4: deviceTypeFromKeepass = 'pc'; break;
+                  case 18: deviceTypeFromKeepass = 'printer'; break;
+                  case 19: deviceTypeFromKeepass = 'nas'; break;
+                  case 22: deviceTypeFromKeepass = 'nas'; break;
+                  case 27: deviceTypeFromKeepass = 'laptop'; break;
+                  case 28: deviceTypeFromKeepass = 'smartphone'; break;
+                  case 29: deviceTypeFromKeepass = 'firewall'; break;
+                  case 34: deviceTypeFromKeepass = 'wifi'; break;
+                  case 61: deviceTypeFromKeepass = 'switch'; break;
+                }
+              }
+
               if (deviceTypeFromKeepass && deviceTypeFromKeepass.length > 100) deviceTypeFromKeepass = deviceTypeFromKeepass.substring(0, 100);
 
               devicePathFromKeepass = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
@@ -2220,8 +2237,30 @@ module.exports = (pool, io) => {
             if (keepassResult) {
               // Estrai solo l'ultimo elemento del percorso
               const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
+
+              // MAPPING ICONE KEEPASS -> TIPO DISPOSITIVO
+              // Sovrascrive il titolo se l'icona è specifica
+              let deviceType = keepassResult.title;
+              const iconId = keepassResult.iconId;
+
+              if (iconId !== undefined) {
+                // Mappa Icon ID KeePass (standard set) ai nostri tipi
+                switch (Number(iconId)) {
+                  case 3: deviceType = 'server'; break;         // Server
+                  case 4: deviceType = 'pc'; break;             // Screen/Monitor
+                  case 18: deviceType = 'printer'; break;       // Scanner/Printer
+                  case 19: deviceType = 'nas'; break;           // Archive
+                  case 22: deviceType = 'nas'; break;           // Drive
+                  case 27: deviceType = 'laptop'; break;        // Laptop
+                  case 28: deviceType = 'smartphone'; break;    // Mobile Phone
+                  case 29: deviceType = 'firewall'; break;      // Key/Lock -> Firewall?
+                  case 34: deviceType = 'wifi'; break;          // Network/Wifi
+                  case 61: deviceType = 'switch'; break;        // Networking
+                }
+              }
+
               // NON sovrascrivere device_type se è stato modificato manualmente
-              row.device_type = keepassResult.title;
+              row.device_type = deviceType;
               row.device_path = lastPathElement;
               row.device_username = keepassResult.username || null;
             }
@@ -4705,10 +4744,31 @@ pause
             // Estrai solo l'ultimo elemento del percorso
             const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
 
+            // MAPPING ICONE KEEPASS -> TIPO DISPOSITIVO
+            let deviceType = keepassResult.title;
+            const iconId = keepassResult.iconId;
+
+            if (iconId !== undefined) {
+              // Mappa Icon ID KeePass (standard set) ai nostri tipi
+              switch (Number(iconId)) {
+                case 3: deviceType = 'server'; break;
+                case 4: deviceType = 'pc'; break;
+                case 18: deviceType = 'printer'; break;
+                case 19: deviceType = 'nas'; break;
+                case 22: deviceType = 'nas'; break;
+                case 27: deviceType = 'laptop'; break;
+                case 28: deviceType = 'smartphone'; break;
+                case 29: deviceType = 'firewall'; break;
+                case 34: deviceType = 'wifi'; break;
+                case 61: deviceType = 'switch'; break;
+              }
+            }
+
             // Debug per MAC specifico
             if (normalizedMac === '101331CDFF6C') {
               console.log(`  🔍 MAC ${device.mac_address} trovato in Keepass:`);
               console.log(`     - Titolo da Keepass: "${keepassResult.title}"`);
+              console.log(`     - IconId da Keepass: ${iconId} -> Map: "${deviceType}"`);
               console.log(`     - Path da Keepass: "${keepassResult.path}"`);
               console.log(`     - LastPathElement: "${lastPathElement}"`);
               console.log(`     - device_type attuale: "${device.device_type}"`);
@@ -4719,10 +4779,10 @@ pause
             // IMPORTANTE: considera anche il caso in cui i valori attuali sono NULL
             // Inoltre: NON aggiornare se il tipo è stato impostato manualmente dall'utente
             const needsUpdate = !device.is_manual_type && (
-              (device.device_type !== keepassResult.title) ||
+              (device.device_type !== deviceType) ||
               (device.device_path !== lastPathElement) ||
               (device.device_username !== (keepassResult.username || null)) ||
-              (device.device_type === null && keepassResult.title !== null) ||
+              (device.device_type === null && deviceType !== null) ||
               (device.device_path === null && lastPathElement !== null) ||
               (device.device_username === null && keepassResult.username !== null && keepassResult.username !== '')
             );
@@ -4733,13 +4793,13 @@ pause
                 `UPDATE network_devices 
                  SET device_type = $1, device_path = $2, device_username = $3 
                  WHERE id = $4`,
-                [keepassResult.title, lastPathElement, keepassResult.username || null, device.id]
+                [deviceType, lastPathElement, keepassResult.username || null, device.id]
               );
 
               if (normalizedMac === '101331CDFF6C') {
-                console.log(`  ✅✅✅ MAC ${device.mac_address} AGGIORNATO: device_type="${keepassResult.title}", device_path="${lastPathElement}", device_username="${keepassResult.username || ''}"`);
+                console.log(`  ✅✅✅ MAC ${device.mac_address} AGGIORNATO: device_type="${deviceType}", device_path="${lastPathElement}", device_username="${keepassResult.username || ''}"`);
               } else {
-                console.log(`  ✅ Dispositivo ID ${device.id} (MAC: ${device.mac_address}) aggiornato: device_type="${keepassResult.title}", device_path="${lastPathElement}", device_username="${keepassResult.username || ''}"`);
+                console.log(`  ✅ Dispositivo ID ${device.id} (MAC: ${device.mac_address}) aggiornato: device_type="${deviceType}", device_path="${lastPathElement}", device_username="${keepassResult.username || ''}"`);
               }
               updatedCount++;
             } else {
