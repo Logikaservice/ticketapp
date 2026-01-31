@@ -4756,13 +4756,18 @@ pause
         finalIp = `virtual-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       }
 
-      // Inserisci il dispositivo
+      // Genera MAC virtuale per dispositivi manuali (necessario per la mappatura che usa il MAC come chiave)
+      // Usa prefisso locale 02:00:00 per evitare conflitti con hardware reale
+      const randomHex = () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0');
+      const virtualMac = `02:00:00:${randomHex()}:${randomHex()}:${randomHex()}`.toUpperCase();
+
+      // Inserisci il dispositivo con MAC virtuale
       const result = await pool.query(
         `INSERT INTO network_devices (
-          agent_id, ip_address, hostname, device_type, status, is_static, parent_device_id, port, notes
-        ) VALUES ($1, $2, $3, $4, 'online', true, $5, $6, $7)
-        RETURNING id, ip_address, hostname, device_type, status, is_static, parent_device_id, port, notes`,
-        [agentId, finalIp, name || 'Virtual Device', device_type || 'unmanaged_switch', parent_id || null, port || null, name ? name : 'Switch Virtuale']
+          agent_id, ip_address, hostname, device_type, status, is_static, parent_device_id, port, notes, mac_address
+        ) VALUES ($1, $2, $3, $4, 'online', true, $5, $6, $7, $8)
+        RETURNING id, ip_address, hostname, device_type, status, is_static, parent_device_id, port, notes, mac_address`,
+        [agentId, finalIp, name || 'Virtual Device', device_type || 'unmanaged_switch', parent_id || null, port || null, name ? name : 'Switch Virtuale', virtualMac]
       );
 
       res.json({ success: true, device: result.rows[0] });
