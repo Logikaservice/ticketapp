@@ -1727,15 +1727,22 @@ module.exports = (pool, io) => {
           }
         }
 
-        // KeePass Lookup (Enrichment only)
+        // KeePass Lookup (Enrichment ONLY source of truth for Title/Hostname)
         let deviceTypeFromKeepass = null;
         let devicePathFromKeepass = null;
+        let titleFromKeepass = null;
+
         if (normalizedMac && process.env.KEEPASS_PASSWORD) {
           try {
             const keepassResult = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
             if (keepassResult) {
-              deviceTypeFromKeepass = keepassResult.title;
+              // 1. TITOLO KeePass -> Hostname
+              // Se KeePass ha un titolo, quello è l'hostname ufficiale.
+              if (keepassResult.title && keepassResult.title.trim() !== '') {
+                titleFromKeepass = keepassResult.title.trim();
+              }
 
+              // 2. TIPO KeePass (Icon ID) -> Device Type
               // Mappa Icon ID KeePass
               if (keepassResult.iconId !== undefined) {
                 switch (Number(keepassResult.iconId)) {
@@ -1760,13 +1767,20 @@ module.exports = (pool, io) => {
           } catch (e) { /* ignore */ }
         }
 
+        // Hostname Priority: KeePass Title > NULL (Strict Mode)
+        // Se KeePass ha un titolo forzalo. Se non ce l'ha, lascia NULL (vuoto).
+        // Non usiamo più l'hostname rilevato dalla rete come fallback se KeePass manca, per evitare dati errati.
+        effectiveHostname = titleFromKeepass || null;
+
+        if (effectiveHostname && effectiveHostname.length > 250) effectiveHostname = effectiveHostname.substring(0, 250);
+
         // 5. Upsert
         if (existingDevice) {
           // UPDATE
           await pool.query(`UPDATE network_devices SET
                  ip_address = $1,
                  mac_address = COALESCE($2, mac_address),
-                 hostname = COALESCE($3, hostname),
+                 hostname = $3,
                  vendor = COALESCE($4, vendor),
                  last_seen = NOW(),
                  status = $5,
