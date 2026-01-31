@@ -42,10 +42,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
           setShowQuickActions(false);
           setExpandedAction(null);
         }
-      } else if (action === 'networkMap') {
-        window.dispatchEvent(new CustomEvent('open-network-map'));
-        setShowQuickActions(false);
-        setExpandedAction(null);
+
       } else if (action === 'mappatura') {
         window.dispatchEvent(new CustomEvent('open-mappatura'));
         setShowQuickActions(false);
@@ -143,7 +140,6 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       hasSubActions: true,
       subActions: [
         { label: 'Dashboard Monitoraggio', icon: Wifi, color: 'cyan', onClick: () => handleQuickActionClick('networkMonitoring') },
-        { label: 'Mappa Rete', icon: Activity, color: 'purple', onClick: () => handleQuickActionClick('networkMap') },
         { label: 'Mappatura', icon: MapPin, color: 'emerald', onClick: () => handleQuickActionClick('mappatura') }
       ]
     },

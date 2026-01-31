@@ -31,7 +31,7 @@ import VivaldiManager from './components/VivaldiManager';
 import PackVisionWithAuth from './components/PackVisionWithAuth';
 import PackVision from './components/PackVision';
 import NetworkMonitoringDashboard from './components/NetworkMonitoringDashboard';
-import NetworkTopologyPage from './pages/NetworkTopologyPage';
+// import NetworkTopologyPage from './pages/NetworkTopologyPage'; // RIMOSSO SU RICHIESTA UTENTE
 import MappaturaPage from './pages/MappaturaPage';
 import PingTerminalPage from './pages/PingTerminalPage';
 import { buildApiUrl } from './utils/apiConfig';
@@ -151,7 +151,7 @@ export default function TicketApp() {
     nomerichiedente: ''
   });
   const [showNetworkMonitoring, setShowNetworkMonitoring] = useState(false);
-  const [showNetworkMap, setShowNetworkMap] = useState(false);
+  // const [showNetworkMap, setShowNetworkMap] = useState(false); // Rimosso
   const [showMappatura, setShowMappatura] = useState(false);
   const [networkMonitoringInitialView, setNetworkMonitoringInitialView] = useState(null); // 'agents' o 'create'
   const [selectedCompanyForNavigation, setSelectedCompanyForNavigation] = useState(null); // Azienda selezionata per navigazione tra monitoraggio e mappatura
@@ -223,28 +223,20 @@ export default function TicketApp() {
   }, [requestedDomain]);
 
   useEffect(() => {
-    const handleOpenNetworkMap = () => {
-      setShowNetworkMap(true);
-      setShowDashboard(false);
-      setShowNetworkMonitoring(false);
-      setShowOrariTurni(false);
-      setShowVivaldi(false);
-      setShowPackVision(false);
-      setShowMappatura(false);
-    };
+    // Gestione Mappa Rete rimossa su richiesta
     const handleOpenMappatura = () => {
       setShowMappatura(true);
       setShowDashboard(false);
       setShowNetworkMonitoring(false);
-      setShowNetworkMap(false);
+      // setShowNetworkMap(false); // Rimosso
       setShowOrariTurni(false);
       setShowVivaldi(false);
       setShowPackVision(false);
     };
-    window.addEventListener('open-network-map', handleOpenNetworkMap);
+    // window.addEventListener('open-network-map', handleOpenNetworkMap);
     window.addEventListener('open-mappatura', handleOpenMappatura);
     return () => {
-      window.removeEventListener('open-network-map', handleOpenNetworkMap);
+      // window.removeEventListener('open-network-map', handleOpenNetworkMap);
       window.removeEventListener('open-mappatura', handleOpenMappatura);
     };
   }, []);
@@ -3048,12 +3040,7 @@ export default function TicketApp() {
 
 
 
-        {showNetworkMap && (
-          <NetworkTopologyPage
-            onClose={() => { setShowNetworkMap(false); setShowDashboard(true); }}
-            getAuthHeader={getAuthHeader}
-          />
-        )}
+
 
         {showMappatura && (
           <MappaturaPage
