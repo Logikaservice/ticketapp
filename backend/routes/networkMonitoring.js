@@ -1843,6 +1843,20 @@ module.exports = (pool, io) => {
         for (const change of changes) {
           const { device_ip, change_type, old_value, new_value } = change;
 
+          // FIX: Ignora 'new_device' se il dispositivo esisteva già nel DB (è stato aggiornato, non creato)
+          // Questo previene falsi positivi quando l'agent viene riavviato e "riscopre" tutti i dispositivi
+          if (change_type === 'new_device') {
+            // Cerca il risultato dell'operazione per questo IP
+            // deviceResults contiene { action: 'created'|'updated', id: ..., ip: ... }
+            const actionRecord = deviceResults.find(r => r.ip === device_ip);
+
+            // Se l'abbiamo aggiornato (esisteva già), ignoriamo l'evento "nuovo"
+            if (actionRecord && actionRecord.action === 'updated') {
+              // console.log(`ℹ️ Ignorato evento new_device duplicato per ${device_ip} (dispositivo già esistente)`);
+              continue;
+            }
+          }
+
           // Trova device_id dal IP
           const deviceResult = await pool.query(
             'SELECT id FROM network_devices WHERE agent_id = $1 AND ip_address = $2',
