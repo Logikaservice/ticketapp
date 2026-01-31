@@ -24,35 +24,49 @@ async function cleanTheorica() {
     console.log('\n🧹 === PULIZIA DUPLICATI THEORICA ===\n');
 
     try {
-        // Trova l'ID dell'azienda Theorica
-        const aziendaResult = await pool.query(`
-      SELECT id, azienda FROM users WHERE LOWER(azienda) LIKE '%theorica%' LIMIT 1
+        // Prima prova a cercare agent con nome contenente "Theorica"
+        let agentsResult = await pool.query(`
+      SELECT id, agent_name, azienda_id FROM network_agents 
+      WHERE LOWER(agent_name) LIKE '%theorica%' AND deleted_at IS NULL
     `);
 
-        if (aziendaResult.rows.length === 0) {
-            console.log('❌ Azienda Theorica non trovata');
-            return;
-        }
-
-        const aziendaId = aziendaResult.rows[0].id;
-        const aziendaName = aziendaResult.rows[0].azienda;
-        console.log(`📌 Trovata azienda: ${aziendaName} (ID: ${aziendaId})`);
-
-        // Trova gli agent di Theorica
-        const agentsResult = await pool.query(`
-      SELECT id, agent_name FROM network_agents 
-      WHERE azienda_id = $1 AND deleted_at IS NULL
-    `, [aziendaId]);
-
-        console.log(`📌 Trovati ${agentsResult.rows.length} agent per Theorica`);
-
         if (agentsResult.rows.length === 0) {
-            console.log('❌ Nessun agent trovato per Theorica');
-            return;
+            console.log('⚠️  Nessun agent trovato con nome contenente "Theorica"');
+            console.log('🔍 Cerco per azienda...\n');
+
+            // Trova l'ID dell'azienda Theorica
+            const aziendaResult = await pool.query(`
+        SELECT id, azienda FROM users WHERE LOWER(azienda) LIKE '%theorica%' LIMIT 1
+      `);
+
+            if (aziendaResult.rows.length === 0) {
+                console.log('❌ Azienda Theorica non trovata');
+                return;
+            }
+
+            const aziendaId = aziendaResult.rows[0].id;
+            const aziendaName = aziendaResult.rows[0].azienda;
+            console.log(`📌 Trovata azienda: ${aziendaName} (ID: ${aziendaId})`);
+
+            // Trova gli agent di Theorica
+            agentsResult = await pool.query(`
+        SELECT id, agent_name FROM network_agents 
+        WHERE azienda_id = $1 AND deleted_at IS NULL
+      `, [aziendaId]);
+
+            if (agentsResult.rows.length === 0) {
+                console.log('❌ Nessun agent trovato per Theorica');
+                return;
+            }
         }
+
+        console.log(`📌 Trovati ${agentsResult.rows.length} agent per Theorica:`);
+        agentsResult.rows.forEach(a => {
+            console.log(`   - ${a.agent_name} (ID: ${a.id})`);
+        });
 
         const agentIds = agentsResult.rows.map(a => a.id);
-        console.log(`📌 Agent IDs: ${agentIds.join(', ')}\n`);
+        console.log(`\n📌 Agent IDs: ${agentIds.join(', ')}\n`);
 
         // Trova tutti i dispositivi di Theorica
         const devicesResult = await pool.query(`
