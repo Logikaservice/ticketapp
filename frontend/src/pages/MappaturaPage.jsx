@@ -1573,34 +1573,52 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                             <div className="absolute inset-0 border-2 border-red-500 rounded-xl animate-ping -z-10"></div>
                                         )}
 
-                                        {/* Nodo Stile 'Blueprint' */}
-                                        <div
-                                            className={`
-                                        relative w-12 h-12 rounded-xl flex items-center justify-center border-2 transition-all duration-300 bg-white
-                                        ${isSelected ? 'border-blue-500 shadow-lg scale-110 ring-2 ring-blue-200' : 'border-slate-200 shadow-sm'}
-                                        ${!isOnline ? 'border-red-200 bg-red-50' : ''}
-                                        hover:border-blue-400 hover:shadow-md hover:scale-105
-                                    `}>
-                                            {/* Icona */}
-                                            <div className={`transition-colors duration-300 ${isSelected ? 'text-blue-600' :
-                                                (!isOnline ? 'text-red-400' : 'text-slate-600')
-                                                }`}>
-                                                {drawIcon(node.type)}
-                                            </div>
+                                        {/* Calcolo stile dinamico */}
+                                        {(() => {
+                                            const isRouter = node.type === 'router' || node.type === 'gateway';
+                                            const isBlackStyle = isSelected && isRouter;
 
-                                            {/* LED Status */}
-                                            <div className={`
+                                            // Classi base
+                                            let containerClasses = "relative w-12 h-12 rounded-xl flex items-center justify-center border-2 transition-all duration-300 hover:shadow-md hover:scale-105 ";
+
+                                            if (isBlackStyle) {
+                                                containerClasses += "bg-slate-900 border-slate-700 shadow-xl scale-110 ring-2 ring-slate-400";
+                                            } else if (isSelected) {
+                                                containerClasses += "bg-white border-blue-500 shadow-lg scale-110 ring-2 ring-blue-200";
+                                            } else if (!isOnline) {
+                                                containerClasses += "bg-red-50 border-red-200 shadow-sm";
+                                            } else {
+                                                containerClasses += "bg-white border-slate-200 shadow-sm hover:border-blue-400";
+                                            }
+
+                                            // Colore Icona
+                                            let iconColor = "text-slate-600";
+                                            if (isBlackStyle) iconColor = "text-white";
+                                            else if (isSelected) iconColor = "text-blue-600";
+                                            else if (!isOnline) iconColor = "text-red-400";
+
+                                            return (
+                                                <div className={containerClasses}>
+                                                    {/* Icona */}
+                                                    <div className={`transition-colors duration-300 ${iconColor}`}>
+                                                        {drawIcon(node.type)}
+                                                    </div>
+
+                                                    {/* LED Status */}
+                                                    <div className={`
                                             absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white
                                             ${isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse' : 'bg-red-500'}
                                         `}></div>
 
-                                            {/* Lock Icon */}
-                                            {node.locked && (
-                                                <div className="absolute -top-1 -right-1 bg-purple-100 rounded-full p-0.5 border border-purple-200" title="Nodo bloccato">
-                                                    <Lock size={8} className="text-purple-600" />
+                                                    {/* Lock Icon */}
+                                                    {node.locked && (
+                                                        <div className="absolute -top-1 -right-1 bg-purple-100 rounded-full p-0.5 border border-purple-200" title="Nodo bloccato">
+                                                            <Lock size={8} className="text-purple-600" />
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
+                                            );
+                                        })()}
 
                                         {/* Etichetta Stile 'Blueprint' */}
                                         <div className={`
