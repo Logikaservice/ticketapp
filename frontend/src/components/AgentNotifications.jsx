@@ -117,7 +117,7 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
   // Ottieni messaggio per tipo evento
   const getEventMessage = (event) => {
     const eventData = event.event_data ? (typeof event.event_data === 'string' ? JSON.parse(event.event_data) : event.event_data) : {};
-    
+
     switch (event.event_type) {
       case 'offline':
         const offlineDuration = eventData.offline_duration_minutes || 0;
@@ -198,7 +198,7 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
       </button>
 
       {showDropdown && (
-        <div className="absolute right-0 top-full mt-2 w-96 bg-white rounded-lg shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
+        <div className="absolute right-0 top-full mt-2 w-96 bg-white rounded-lg shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto" style={{ left: 'auto' }}>
           <div className="p-4 border-b border-gray-200 flex items-center justify-between">
             <h3 className="font-semibold text-gray-900">Notifiche Agent</h3>
             <div className="flex items-center gap-2">
