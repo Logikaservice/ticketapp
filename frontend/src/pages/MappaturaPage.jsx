@@ -37,32 +37,7 @@ const AVAILABLE_ICONS = [
 
 const style = document.createElement('style');
 style.innerHTML = `
-  @keyframes pulseRedGlow {
-    0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
-    70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
-  }
-  
-  @keyframes softPulseRing {
-    0% {
-      box-shadow: 
-        0 0 0 0 rgba(239, 68, 68, 0.7),
-        0 0 0 0 rgba(239, 68, 68, 0.5),
-        0 0 0 0 rgba(239, 68, 68, 0.3);
-    }
-    40% {
-      box-shadow: 
-        0 0 0 15px rgba(239, 68, 68, 0),
-        0 0 0 10px rgba(239, 68, 68, 0.2),
-        0 0 0 5px rgba(239, 68, 68, 0.4);
-    }
-    100% {
-      box-shadow: 
-        0 0 0 20px rgba(239, 68, 68, 0),
-        0 0 0 15px rgba(239, 68, 68, 0),
-        0 0 0 10px rgba(239, 68, 68, 0);
-    }
-  }
+  /* Animazioni personalizzate rimosse - ora usiamo animate-ping di Tailwind */
 `;
 document.head.appendChild(style);
 
@@ -1591,9 +1566,9 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                             } catch (_) { }
                                         }}
                                     >
-                                        {/* Warning Pulse Effect - Sfumato verso l'esterno */}
+                                        {/* Warning Radar Effect - Cerchio rosso che si espande */}
                                         {hasIssues && (
-                                            <span className="absolute inline-flex h-full w-full rounded-xl -z-10" style={{ animation: 'softPulseRing 2s ease-out infinite' }}></span>
+                                            <div className="absolute inset-0 border-2 border-red-500 rounded-xl animate-ping -z-10"></div>
                                         )}
 
                                         {/* Nodo Stile 'Blueprint' */}
