@@ -29,7 +29,7 @@ async function deduplicateByMac() {
         const devicesResult = await pool.query(`
       SELECT id, agent_id, ip_address, mac_address, hostname, vendor, 
              device_type, device_path, status, last_seen,
-             is_static_ip, is_manual_type, notes, parent_device_id, port,
+             is_static, is_manual_type, notes, parent_device_id, port,
              additional_ips, is_new_device
       FROM network_devices 
       WHERE mac_address IS NOT NULL 
@@ -171,7 +171,7 @@ async function deduplicateByIp() {
         const devicesResult = await pool.query(`
       SELECT id, agent_id, ip_address, mac_address, hostname, vendor, 
              device_type, device_path, status, last_seen,
-             is_static_ip, is_manual_type, notes, parent_device_id, port
+             is_static, is_manual_type, notes, parent_device_id, port
       FROM network_devices 
       WHERE (mac_address IS NULL OR mac_address = '')
         AND ip_address IS NOT NULL
