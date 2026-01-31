@@ -45,6 +45,17 @@ style.innerHTML = `
 `;
 document.head.appendChild(style);
 
+const RefreshTimer = () => {
+    const [seconds, setSeconds] = useState(30);
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setSeconds(prev => (prev > 0 ? prev - 1 : 30));
+        }, 1000);
+        return () => clearInterval(interval);
+    }, []);
+    return <span>{seconds < 10 ? `0${seconds}` : seconds}s</span>;
+};
+
 const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onNavigateToMonitoring = null }) => {
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId ? String(initialCompanyId) : '');
@@ -497,7 +508,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         if (currentLinks) {
                             currentLinks.links(mapLinks);
                         } else if (mapLinks.length > 0) {
-                            simulationRef.current.force('link', d3.forceLink(mapLinks).id(d => d.id).distance(80));
+                            simulationRef.current.force('link', d3.forceLink(mapLinks).id(d => d.id).distance(150));
                         }
 
                         // Riavvia la simulazione SOLO se ci sono cambiamenti strutturali
@@ -574,11 +585,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         const IconDef = AVAILABLE_ICONS.find(i => i.type === type);
         const Icon = IconDef ? IconDef.icon : Monitor;
 
-
         if (type === 'generic') {
-            return <Circle size={16} className="text-white fill-current" />;
+            return <Circle size={24} className="fill-current opacity-50" strokeWidth={1.5} />;
         }
-        return <Icon size={20} className="text-white" strokeWidth={1.5} />;
+        return <Icon size={24} strokeWidth={1.5} />;
     };
 
     // Funzione per centrare e zoomare automaticamente sui nodi
@@ -666,7 +676,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
 
         const sim = d3.forceSimulation(nodeList)
             .velocityDecay(0.6) // Aumenta attrito per rendere nodi meno "molleggianti"
-            .force('charge', d3.forceManyBody().strength(-400))
+            .force('charge', d3.forceManyBody().strength(-600))
             .force('collide', d3.forceCollide().radius(50))
             .on('tick', () => {
                 // Mantieni fx/fy per i nodi locked durante la simulazione
@@ -679,7 +689,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                 setNodes([...sim.nodes()]);
             });
         if (linkList && linkList.length > 0) {
-            sim.force('link', d3.forceLink(linkList).id(d => d.id).distance(80));
+            sim.force('link', d3.forceLink(linkList).id(d => d.id).distance(150));
         }
 
         // Se richiesto, centra automaticamente quando la simulazione si stabilizza
@@ -1393,9 +1403,34 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         }}
                         style={{ cursor: isDraggingCanvas ? 'grabbing' : 'grab' }}
                     >
+                        {/* Header Blueprint */}
+                        <div className="absolute top-0 left-0 right-0 p-8 flex justify-between items-start pointer-events-none z-40">
+                            <div>
+                                <h1 className="text-xl font-light tracking-widest uppercase text-slate-400">Network Status Blueprint</h1>
+                                <div className="flex items-center gap-1 mt-2">
+                                    <div className="h-0.5 w-12 bg-blue-500"></div>
+                                    <div className="h-0.5 w-4 bg-emerald-500"></div>
+                                </div>
+                            </div>
+                            <div className="flex gap-8 pointer-events-auto">
+                                <div className="text-right">
+                                    <div className="text-[10px] font-mono text-slate-400 uppercase tracking-tighter">Sistemi Attivi</div>
+                                    <div className="text-xl font-bold text-emerald-600">
+                                        {nodes.filter(n => !hasDisconnectionIssues(n)).length} <span className="text-slate-300 text-sm">/</span> {nodes.length}
+                                    </div>
+                                </div>
+                                <div className="text-right border-l border-slate-200 pl-8">
+                                    <div className="text-[10px] font-mono text-slate-400 uppercase tracking-tighter">Next Scan</div>
+                                    <div className="text-xl font-bold text-slate-600 font-mono">
+                                        <RefreshTimer />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div
                             className="absolute -inset-[500%] pointer-events-none"
-                            style={{ backgroundImage: 'radial-gradient(#cbd5e1 2px, transparent 2px)', backgroundSize: `${40 * scale}px ${40 * scale}px`, backgroundPosition: `${offset.x}px ${offset.y}px` }}
+                            style={{ backgroundImage: 'radial-gradient(#e2e8f0 1.2px, transparent 1.2px)', backgroundSize: `${40 * scale}px ${40 * scale}px`, backgroundPosition: `${offset.x}px ${offset.y}px` }}
                         />
                         {loading && (
                             <div className="absolute inset-0 flex items-center justify-center z-50 bg-white/50 backdrop-blur-sm pointer-events-none">
@@ -1429,7 +1464,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     const src = typeof link.source === 'object' ? link.source : nodes.find(n => n.id === link.source);
                                     const tgt = typeof link.target === 'object' ? link.target : nodes.find(n => n.id === link.target);
                                     if (!src || !tgt) return null;
-                                    return <line key={`link-${i}`} x1={src.x} y1={src.y} x2={tgt.x} y2={tgt.y} stroke="#94a3b8" strokeWidth="2" />;
+                                    return <line key={`link-${i}`} x1={src.x} y1={src.y} x2={tgt.x} y2={tgt.y} stroke="#cbd5e1" strokeWidth="1" />;
                                 })}
                             </svg>
                             {nodes.map(node => {
