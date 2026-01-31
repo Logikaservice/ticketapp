@@ -1211,6 +1211,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     // Verifica se un nodo ha problemi di disconnessione continua o cambi IP
     const hasDisconnectionIssues = (node) => {
         const d = node.details || {};
+
+        // CONTROLLO PRINCIPALE: Flag dal backend per disconnessioni frequenti (5+ in 24h)
+        if (d.has_ping_failures === true) return true;
+
         // Controlli espliciti standard
         if (d.has_connection_issues) return true;
         if (d.status_changes_count > 3) return true;
