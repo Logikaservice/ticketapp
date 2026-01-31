@@ -43,18 +43,24 @@ style.innerHTML = `
     100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
   }
   
-  @keyframes softPulse {
+  @keyframes softPulseRing {
     0% {
-      transform: scale(1);
-      opacity: 0.75;
+      box-shadow: 
+        0 0 0 0 rgba(239, 68, 68, 0.7),
+        0 0 0 0 rgba(239, 68, 68, 0.5),
+        0 0 0 0 rgba(239, 68, 68, 0.3);
     }
-    50% {
-      transform: scale(2);
-      opacity: 0;
+    40% {
+      box-shadow: 
+        0 0 0 15px rgba(239, 68, 68, 0),
+        0 0 0 10px rgba(239, 68, 68, 0.2),
+        0 0 0 5px rgba(239, 68, 68, 0.4);
     }
     100% {
-      transform: scale(2);
-      opacity: 0;
+      box-shadow: 
+        0 0 0 20px rgba(239, 68, 68, 0),
+        0 0 0 15px rgba(239, 68, 68, 0),
+        0 0 0 10px rgba(239, 68, 68, 0);
     }
   }
 `;
@@ -1587,7 +1593,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     >
                                         {/* Warning Pulse Effect - Sfumato verso l'esterno */}
                                         {hasIssues && (
-                                            <span className="absolute inline-flex h-full w-full rounded-xl bg-red-400 -z-10" style={{ animation: 'softPulse 1.5s cubic-bezier(0, 0, 0.2, 1) infinite' }}></span>
+                                            <span className="absolute inline-flex h-full w-full rounded-xl -z-10" style={{ animation: 'softPulseRing 2s ease-out infinite' }}></span>
                                         )}
 
                                         {/* Nodo Stile 'Blueprint' */}
