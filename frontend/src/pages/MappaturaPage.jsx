@@ -42,6 +42,21 @@ style.innerHTML = `
     70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
     100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
   }
+  
+  @keyframes softPulse {
+    0% {
+      transform: scale(1);
+      opacity: 0.75;
+    }
+    50% {
+      transform: scale(2);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
 `;
 document.head.appendChild(style);
 
@@ -1570,9 +1585,9 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                             } catch (_) { }
                                         }}
                                     >
-                                        {/* Warning Pulse Effect (Ping) - Più affidabile di shadow animation */}
+                                        {/* Warning Pulse Effect - Sfumato verso l'esterno */}
                                         {hasIssues && (
-                                            <span className="absolute inline-flex h-full w-full rounded-xl bg-red-400 opacity-75 animate-ping -z-10"></span>
+                                            <span className="absolute inline-flex h-full w-full rounded-xl bg-red-400 -z-10" style={{ animation: 'softPulse 1.5s cubic-bezier(0, 0, 0.2, 1) infinite' }}></span>
                                         )}
 
                                         {/* Nodo Stile 'Blueprint' */}
@@ -1640,11 +1655,6 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                 <div className="text-xs text-gray-300 space-y-1">
                                     <div><span className="text-gray-400">Utente:</span> {hoveredNode.details?.device_username || '-'}</div>
                                     <div><span className="text-gray-400">Percorso:</span> {hoveredNode.details?.device_path || '-'}</div>
-                                    <div className="pt-2 mt-2 border-t border-gray-700 font-mono text-[9px] text-gray-500 break-all leading-tight opacity-75">
-                                        DEBUG: hasIssues={hasDisconnectionIssues(hoveredNode) ? 'Y' : 'N'}
-                                        <br />
-                                        Data: {JSON.stringify(hoveredNode.details || {}).substring(0, 200)}
-                                    </div>
                                 </div>
                             </div>
                         )}
