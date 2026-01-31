@@ -45,40 +45,23 @@ async function analyzeMac() {
             console.log(`  - Agent ID: ${a.id}, Nome: "${a.agent_name}", Azienda: "${a.azienda}", LastHB: ${a.last_heartbeat}`);
         });
 
-        if (agentsRes.rows.length === 0) {
-            console.log("  ⚠️ Nessun agent trovato associato a questo MAC (forse il dispositivo non esiste più nel DB?)");
-
-            // Cerchiamo TUTTI gli agent di "Conad La Torre"
-            console.log('\n  -- Controllo Agent azienda "Conad La Torre" --');
-            const companyAgents = await pool.query(`
-            SELECT na.id, na.agent_name, u.azienda, na.last_heartbeat 
-            FROM network_agents na
-            JOIN users u ON na.azienda_id = u.id
-            WHERE u.azienda ILIKE '%Conad La Torre%'
-        `);
-            companyAgents.rows.forEach(a => {
-                console.log(`    -> Agent ID: ${a.id}, Nome: "${a.agent_name}", HB: ${a.last_heartbeat}`);
-            });
-        }
-
-        // 3. Analisi Eventi recenti per questo MAC
-        console.log('\n--- 3. Ultimi 20 Eventi per questo MAC/IP ---');
-        // Cerchiamo eventi legati a questo MAC o IP
-        const eventsRes = await pool.query(`
-        SELECT * FROM network_events 
-        WHERE (event_data::text ILIKE '%' || $1 || '%' OR event_data::text ILIKE '%192.168.1.128%')
-        ORDER BY created_at DESC 
+        // 3. Analisi Cambiamenti (network_changes) per questo MAC
+        console.log('\n--- 3. Ultimi 20 Cambiamenti (network_changes) per questo MAC ---');
+        // Join con network_devices per filtrare per MAC
+        const changesRes = await pool.query(`
+        SELECT nc.*, nd.mac_address, nd.ip_address, na.agent_name
+        FROM network_changes nc
+        LEFT JOIN network_devices nd ON nc.device_id = nd.id
+        LEFT JOIN network_agents na ON nc.agent_id = na.id
+        WHERE REPLACE(UPPER(nd.mac_address), ':', '') = REPLACE(UPPER($1), ':', '')
+        ORDER BY nc.detected_at DESC 
         LIMIT 20
     `, [targetMac]);
 
-        eventsRes.rows.forEach(e => {
-            let details = e.event_data;
-            try {
-                const json = typeof e.event_data === 'string' ? JSON.parse(e.event_data) : e.event_data;
-                details = `MAC: ${json.mac_address}, IP: ${json.ip_address}`;
-            } catch (err) { }
-            console.log(`  - [${e.created_at.toISOString()}] Tipo: ${e.event_type}, AgentID: ${e.agent_id} -> ${details}`);
+        changesRes.rows.forEach(e => {
+            console.log(`  - [${e.detected_at.toISOString()}] Tipo: ${e.change_type}, Agent: ${e.agent_name} -> ID change: ${e.id}, DeviceID: ${e.device_id}, Old: ${e.old_value}, New: ${e.new_value}`);
         });
+
 
     } catch (error) {
         console.error('❌ Errore:', error);
