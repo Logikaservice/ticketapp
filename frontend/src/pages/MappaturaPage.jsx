@@ -1172,14 +1172,14 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             return (a.ip_address || '').localeCompare(b.ip_address || '');
         });
 
-    // Verifica se un nodo ha problemi di disconnessione continua
+    // Verifica se un nodo ha problemi di disconnessione continua o cambi IP
     const hasDisconnectionIssues = (node) => {
-        // Un dispositivo ha problemi se:
-        // 1. Ha un previous_ip (ha cambiato IP) ed è offline
-        // 2. Ha molti cambi di stato (status_changes_count > 3)
-        // 3. Ha un flag has_connection_issues
-        return node.details?.previous_ip && node.status === 'offline' &&
-            (node.details?.status_changes_count > 3 || node.details?.has_connection_issues);
+        // Un dispositivo ha problemi se ha flag specifici dal backend o storico instabile
+        // Nota: INDIPENDENTE dallo stato attuale (online/offline) finché l'avviso persiste
+        if (node.details?.has_connection_issues) return true;
+        if (node.details?.status_changes_count > 3) return true;
+        if (node.details?.previous_ip) return true;
+        return false;
     };
 
     const getNodeColor = (node) => {
