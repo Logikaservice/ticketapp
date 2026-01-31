@@ -42,7 +42,8 @@ if ($sourceDir -ne $InstallDir -and (Test-Path (Join-Path $sourceDir "NetworkMon
         "NetworkMonitorTrayIcon.ps1",
         "Start-TrayIcon-Hidden.vbs",
         "Diagnostica-Servizio.ps1",
-        "Ripara-Servizio.ps1"
+        "Ripara-Servizio.ps1",
+        "Test-RouterWifi.ps1"
     )
     
     foreach ($file in $filesToCopy) {

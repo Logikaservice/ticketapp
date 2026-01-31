@@ -229,6 +229,7 @@ $filesToCopy = @(
 # File opzionali (se presenti)
 $optionalFiles = @(
     "Avvia-TrayIcon.bat",
+    "Test-RouterWifi.ps1",
     "Verifica-TrayIcon.ps1",
     "Verifica-Servizio.ps1",
     "Ripara-Servizio.ps1",

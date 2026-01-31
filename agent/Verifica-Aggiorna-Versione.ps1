@@ -146,7 +146,8 @@ if ($ForceUpdate -or ($installedVersion -ne $sourceVersion)) {
         "NetworkMonitorTrayIcon.ps1",
         "Start-TrayIcon-Hidden.vbs",
         "Avvia-TrayIcon.bat",
-        "Verifica-TrayIcon.ps1"
+        "Verifica-TrayIcon.ps1",
+        "Test-RouterWifi.ps1"
     )
     
     $filesCopied = 0

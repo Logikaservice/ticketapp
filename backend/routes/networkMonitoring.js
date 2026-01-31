@@ -737,7 +737,7 @@ module.exports = (pool, io) => {
 
       // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
       // Serve per far capire all'installer quale versione dovrebbe risultare installata.
-      const CURRENT_AGENT_VERSION = '2.6.3'; // Versione di fallback (allineata a $SCRIPT_VERSION)
+      const CURRENT_AGENT_VERSION = '2.6.4'; // Versione di fallback (allineata a $SCRIPT_VERSION)
       let agentPackageVersion = CURRENT_AGENT_VERSION;
       try {
         const projectRoot = path.resolve(__dirname, '..', '..');
@@ -3906,7 +3906,7 @@ module.exports = (pool, io) => {
       }
 
       // Versione agent per ZIP e config.json incluso (allineata a NetworkMonitorService.ps1 $SCRIPT_VERSION)
-      const CURRENT_AGENT_VERSION = '2.6.3';
+      const CURRENT_AGENT_VERSION = '2.6.4';
       const agentVersion = CURRENT_AGENT_VERSION;
       console.log(`ℹ️ Versione agent per ZIP: ${agentVersion} `);
 
@@ -6028,12 +6028,12 @@ pause
   // scaricano da /download/agent/NetworkMonitorService.ps1 e si riavviano (auto-update).
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.6.3'; // Router WiFi - Carica dispositivi da AGCOMBO
+      const CURRENT_AGENT_VERSION = '2.6.4'; // Router WiFi - Carica dispositivi da AGCOMBO
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
         version: CURRENT_AGENT_VERSION,
-        download_url: `${baseUrl}/agent-updates/agent-update-2.6.3.zip`,
+        download_url: `${baseUrl}/agent-updates/agent-update-2.6.4.zip`,
         release_date: '2026-01-30',
         features: [
           'Router WiFi - Carica dispositivi da router AGCOMBO/TIM e sync automatica sulla mappa',
@@ -6180,6 +6180,18 @@ pause
       res.setHeader('Content-Disposition', 'attachment; filename="Start-TrayIcon-Hidden.vbs"');
       res.sendFile(agentFilePath);
     } catch (err) { console.error('❌ Errore download Start-TrayIcon-Hidden.vbs:', err); res.status(500).json({ error: 'Errore interno del server' }); }
+  });
+
+  // GET /api/network-monitoring/download/agent/Test-RouterWifi.ps1
+  router.get('/download/agent/Test-RouterWifi.ps1', async (req, res) => {
+    try {
+      const path = require('path');
+      const agentFilePath = path.join(__dirname, '../../agent/Test-RouterWifi.ps1');
+      try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="Test-RouterWifi.ps1"');
+      res.sendFile(agentFilePath);
+    } catch (err) { console.error('❌ Errore download Test-RouterWifi.ps1:', err); res.status(500).json({ error: 'Errore interno del server' }); }
   });
 
   // Prova connessione Unifi (url/username/password dal body, per test da form prima di salvare)

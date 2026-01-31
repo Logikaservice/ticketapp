@@ -110,7 +110,8 @@ $files = @(
     "NetworkMonitorService.ps1",
     "NetworkMonitorTrayIcon.ps1",
     "Avvia-TrayIcon.ps1",
-    "Start-TrayIcon-Hidden.vbs"
+    "Start-TrayIcon-Hidden.vbs",
+    "Test-RouterWifi.ps1"
 )
 
 $filesCopied = 0
