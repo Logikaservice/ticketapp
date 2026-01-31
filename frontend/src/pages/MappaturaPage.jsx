@@ -1901,17 +1901,41 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     })()}
 
                     {hoveredDevice && tooltipRect && createPortal(
-                        <div
-                            className="fixed z-[200] w-64 py-2 px-3 bg-white border border-gray-200 rounded-lg shadow-lg text-sm"
-                            style={{ left: tooltipRect.right + 8, top: tooltipRect.top }}
-                        >
-                            <div className="font-semibold text-gray-700 mb-1">Titolo</div>
-                            <div className="text-gray-800 mb-2">{hoveredDevice.hostname || hoveredDevice.device_type || '-'}</div>
-                            <div className="font-semibold text-gray-700 mb-1">Utente</div>
-                            <div className="text-gray-800 mb-2">{hoveredDevice.device_username || '-'}</div>
-                            <div className="font-semibold text-gray-700 mb-1">Percorso</div>
-                            <div className="text-gray-800">{hoveredDevice.device_path || '-'}</div>
-                        </div>,
+                        (() => {
+                            const TOOLTIP_EST_HEIGHT = 120;
+                            const PADDING = 12;
+                            let top = tooltipRect.top;
+                            if (top + TOOLTIP_EST_HEIGHT > window.innerHeight - PADDING) {
+                                top = Math.max(PADDING, window.innerHeight - TOOLTIP_EST_HEIGHT - PADDING);
+                            }
+                            top = Math.max(PADDING, top);
+                            const rows = [
+                                { label: 'Titolo', value: hoveredDevice.hostname || hoveredDevice.device_type || '-' },
+                                { label: 'Utente', value: hoveredDevice.device_username || '-' },
+                                { label: 'Percorso', value: hoveredDevice.device_path || '-' }
+                            ];
+                            return (
+                                <div
+                                    className="fixed z-[200] w-72 rounded-lg shadow-xl border border-slate-200 max-h-[calc(100vh-24px)] overflow-y-auto"
+                                    style={{
+                                        left: Math.min(tooltipRect.right + 8, window.innerWidth - 296 - PADDING),
+                                        top
+                                    }}
+                                >
+                                    <div className="bg-slate-50 divide-y divide-slate-200">
+                                        {rows.map((r, i) => (
+                                            <div
+                                                key={r.label}
+                                                className={`px-3 py-2 flex items-baseline gap-2 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/80'}`}
+                                            >
+                                                <span className="text-xs font-semibold text-slate-500 shrink-0">{r.label}:</span>
+                                                <span className="text-sm text-slate-800 truncate min-w-0">{r.value}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })(),
                         document.body
                     )}
                 </div>
