@@ -1464,7 +1464,16 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     const src = typeof link.source === 'object' ? link.source : nodes.find(n => n.id === link.source);
                                     const tgt = typeof link.target === 'object' ? link.target : nodes.find(n => n.id === link.target);
                                     if (!src || !tgt) return null;
-                                    return <line key={`link-${i}`} x1={src.x} y1={src.y} x2={tgt.x} y2={tgt.y} stroke="#cbd5e1" strokeWidth="1" />;
+                                    const isOffline = tgt.status === 'offline';
+                                    return (
+                                        <line
+                                            key={`link-${i}`}
+                                            x1={src.x} y1={src.y} x2={tgt.x} y2={tgt.y}
+                                            stroke={isOffline ? "#e2e8f0" : "#cbd5e1"}
+                                            strokeWidth="1"
+                                            strokeDasharray={isOffline ? "4,4" : "0"}
+                                        />
+                                    );
                                 })}
                             </svg>
                             {nodes.map(node => {
