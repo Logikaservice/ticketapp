@@ -553,8 +553,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         // Aggiorna solo lo stato React per riflettere i nuovi dati
                         setNodes([...newSimNodes]);
                     } else {
-                        // Prima volta: crea la simulazione
-                        ensureSimulation(mapNodes, mapLinks, true);
+                        // Prima volta: crea la simulazione (senza auto-center ritardato)
+                        ensureSimulation(mapNodes, mapLinks, false);
+                        // Centro immediatamente per evitare spostamenti visibili
+                        setTimeout(() => centerAndZoomToNodes(mapNodes), 50);
                     }
                     return;
                 }
@@ -667,7 +669,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
 
         const scaleX = containerWidth / paddedWidth;
         const scaleY = containerHeight / paddedHeight;
-        const newScale = Math.min(scaleX, scaleY, 2); // Limita zoom max a 2x
+        const newScale = Math.min(scaleX, scaleY, 1); // Limita zoom max a 1x per vista più ampia
 
         // Calcola l'offset per centrare
         const newOffsetX = containerWidth / 2 - centerX * newScale;
