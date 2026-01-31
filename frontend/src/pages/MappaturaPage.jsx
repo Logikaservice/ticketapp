@@ -1521,7 +1521,9 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                         }}
                                     >
                                         {/* Nodo Stile 'Blueprint' */}
-                                        <div className={`
+                                        <div
+                                            style={{ animation: hasIssues ? 'pulseShadow 2s infinite' : undefined }}
+                                            className={`
                                         relative w-12 h-12 rounded-xl flex items-center justify-center border-2 transition-all duration-300 bg-white
                                         ${isSelected ? 'border-blue-500 shadow-lg scale-110 ring-2 ring-blue-200' : 'border-slate-200 shadow-sm'}
                                         ${!isOnline ? 'border-red-200 bg-red-50' : ''}
