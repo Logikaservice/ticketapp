@@ -198,9 +198,7 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
       </button>
 
       {showDropdown && (
-        <div className="fixed w-96 bg-white rounded-lg shadow-2xl border border-gray-200 max-h-96 overflow-y-auto" style={{
-          right: '1rem',
-          top: '4.5rem',
+        <div className="absolute right-0 top-full mt-2 w-96 bg-white rounded-lg shadow-2xl border border-gray-200 max-h-96 overflow-y-auto" style={{
           zIndex: 9999
         }}>
           <div className="p-4 border-b border-gray-200 flex items-center justify-between">
