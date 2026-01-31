@@ -2,6 +2,7 @@
 // Rimuove duplicati basati su MAC address (priorità) e IP address
 // Mantiene il record più recente e completo
 
+require('dotenv').config();
 const { Pool } = require('pg');
 
 const pool = new Pool({
