@@ -1,6 +1,6 @@
 // Script per verificare cosa c'è in KeePass per un MAC specifico
 require('dotenv').config();
-const keepassDriveService = require('../services/keepassDriveService');
+const keepassDriveService = require('../utils/keepassDriveService');
 
 const MAC_TO_CHECK = 'F8:BC:12:A3:DA:1C';
 
