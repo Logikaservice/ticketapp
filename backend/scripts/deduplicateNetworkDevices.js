@@ -28,13 +28,13 @@ async function deduplicateByMac() {
         // Trova tutti i dispositivi con MAC address
         const devicesResult = await pool.query(`
       SELECT id, agent_id, ip_address, mac_address, hostname, vendor, 
-             device_type, device_path, status, last_seen, created_at,
+             device_type, device_path, status, last_seen,
              is_static_ip, is_manual_type, notes, parent_device_id, port,
              additional_ips, is_new_device
       FROM network_devices 
       WHERE mac_address IS NOT NULL 
         AND mac_address != ''
-      ORDER BY agent_id, mac_address, last_seen DESC NULLS LAST, created_at DESC
+      ORDER BY agent_id, mac_address, last_seen DESC NULLS LAST
     `);
 
         console.log(`📊 Trovati ${devicesResult.rows.length} dispositivi con MAC address`);
@@ -170,13 +170,13 @@ async function deduplicateByIp() {
         // Trova tutti i dispositivi senza MAC ma con IP duplicati
         const devicesResult = await pool.query(`
       SELECT id, agent_id, ip_address, mac_address, hostname, vendor, 
-             device_type, device_path, status, last_seen, created_at,
+             device_type, device_path, status, last_seen,
              is_static_ip, is_manual_type, notes, parent_device_id, port
       FROM network_devices 
       WHERE (mac_address IS NULL OR mac_address = '')
         AND ip_address IS NOT NULL
         AND ip_address != ''
-      ORDER BY agent_id, ip_address, last_seen DESC NULLS LAST, created_at DESC
+      ORDER BY agent_id, ip_address, last_seen DESC NULLS LAST
     `);
 
         console.log(`📊 Trovati ${devicesResult.rows.length} dispositivi senza MAC`);
