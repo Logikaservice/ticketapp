@@ -3508,46 +3508,37 @@ module.exports = (pool, io) => {
 
   // GET /api/network-monitoring/companies
   // Ottieni lista aziende uniche dal progetto ticket (solo tecnici/admin)
+  // Ottieni lista aziende uniche che hanno agents attivi (solo tecnici/admin)
   router.get('/companies', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
-      // Recupera tutte le aziende distinte dalla tabella users del progetto ticket
-      // Query semplificata compatibile con tutte le versioni PostgreSQL
+      // Recupera SOLO le aziende che hanno almeno un agent attivo
       const companiesResult = await pool.query(
         `SELECT DISTINCT 
           u.azienda,
-          MIN(u.id) as id
+          u.id, -- Prendiamo l'ID diretto (assumendo che network_agents punti all'ID utente corretto)
+          COUNT(na.id) as agent_count
          FROM users u
+         JOIN network_agents na ON u.id = na.azienda_id
          WHERE u.azienda IS NOT NULL AND u.azienda != '' AND u.azienda != 'Senza azienda'
-         GROUP BY u.azienda
+         AND na.deleted_at IS NULL
+         GROUP BY u.azienda, u.id
          ORDER BY u.azienda ASC`
       );
 
-      // Per ogni azienda, conta gli agent associati (solo quelli non cancellati)
-      const companiesWithAgents = await Promise.all(
-        companiesResult.rows.map(async (row) => {
-          const agentCount = await pool.query(
-            `SELECT COUNT(*) as count 
-             FROM network_agents na
-             INNER JOIN users u ON na.azienda_id = u.id
-             WHERE u.azienda = $1 AND na.deleted_at IS NULL`,
-            [row.azienda]
-          );
-          const count = parseInt(agentCount.rows[0].count) || 0;
-          return {
-            id: row.id,
-            azienda: row.azienda,
-            agents_count: count
-          };
-        })
-      );
+      // Formatta la risposta
+      const companiesResponse = companiesResult.rows.map(row => ({
+        id: row.id,
+        azienda: row.azienda,
+        agent_count: parseInt(row.agent_count || '0')
+      }));
 
-      // Restituisci TUTTE le aziende (anche quelle senza agent)
-      res.json(companiesWithAgents);
+      res.json(companiesResponse);
     } catch (err) {
-      console.error('❌ Errore recupero aziende:', err);
+      console.error('Errore recupero aziende:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });
+
 
   // GET /api/network-monitoring/agents
   // Ottieni lista agent registrati (solo tecnici/admin)
@@ -3559,16 +3550,16 @@ module.exports = (pool, io) => {
       try {
         // Prova prima con network_ranges_config
         result = await pool.query(
-          `SELECT 
-            na.id, na.agent_name, 
-            COALESCE(na.status, 
-              CASE WHEN na.last_heartbeat IS NOT NULL AND na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online' ELSE 'offline' END
-            ) as status,
-            na.last_heartbeat, 
-            na.version, na.network_ranges, na.network_ranges_config, na.scan_interval_minutes, na.unifi_config, na.enabled,
-            na.unifi_last_ok, na.unifi_last_check_at,
-            na.created_at, na.azienda_id, na.api_key,
-            u.azienda
+          `SELECT
+  na.id, na.agent_name,
+    COALESCE(na.status,
+      CASE WHEN na.last_heartbeat IS NOT NULL AND na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online' ELSE 'offline' END
+    ) as status,
+    na.last_heartbeat,
+    na.version, na.network_ranges, na.network_ranges_config, na.scan_interval_minutes, na.unifi_config, na.enabled,
+    na.unifi_last_ok, na.unifi_last_check_at,
+    na.created_at, na.azienda_id, na.api_key,
+    u.azienda
            FROM network_agents na
            LEFT JOIN users u ON na.azienda_id = u.id
            WHERE na.deleted_at IS NULL
@@ -3579,16 +3570,16 @@ module.exports = (pool, io) => {
         if (queryErr.message && queryErr.message.includes('network_ranges_config')) {
           console.warn('⚠️ Colonna network_ranges_config non trovata, uso solo network_ranges');
           result = await pool.query(
-            `SELECT 
-              na.id, na.agent_name, 
-              COALESCE(na.status, 
-                CASE WHEN na.last_heartbeat IS NOT NULL AND na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online' ELSE 'offline' END
-              ) as status,
-              na.last_heartbeat, 
-              na.version, na.network_ranges, na.scan_interval_minutes, na.enabled,
-              na.unifi_last_ok, na.unifi_last_check_at,
-              na.created_at, na.azienda_id, na.api_key,
-              u.azienda
+            `SELECT
+  na.id, na.agent_name,
+    COALESCE(na.status,
+      CASE WHEN na.last_heartbeat IS NOT NULL AND na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online' ELSE 'offline' END
+    ) as status,
+    na.last_heartbeat,
+    na.version, na.network_ranges, na.scan_interval_minutes, na.enabled,
+    na.unifi_last_ok, na.unifi_last_check_at,
+    na.created_at, na.azienda_id, na.api_key,
+    u.azienda
              FROM network_agents na
              LEFT JOIN users u ON na.azienda_id = u.id
              WHERE na.deleted_at IS NULL
@@ -3649,11 +3640,11 @@ module.exports = (pool, io) => {
       const result = await pool.query(
         `UPDATE network_agents 
          SET agent_name = $1,
-             network_ranges = $2,
-             network_ranges_config = $3,
-             scan_interval_minutes = $4,
-             unifi_config = $5,
-             updated_at = NOW()
+    network_ranges = $2,
+    network_ranges_config = $3,
+    scan_interval_minutes = $4,
+    unifi_config = $5,
+    updated_at = NOW()
          WHERE id = $6
          RETURNING id, agent_name, network_ranges, network_ranges_config, scan_interval_minutes, unifi_config, unifi_last_ok, unifi_last_check_at, updated_at`,
         [
@@ -3666,7 +3657,7 @@ module.exports = (pool, io) => {
         ]
       );
 
-      console.log(`✅ Agent aggiornato: ID=${agentId}`);
+      console.log(`✅ Agent aggiornato: ID = ${agentId} `);
       res.json({ success: true, agent: result.rows[0] });
     } catch (err) {
       console.error('❌ Errore aggiornamento agent:', err);
@@ -3688,10 +3679,10 @@ module.exports = (pool, io) => {
 
       // Ottieni tutti gli agent dell'azienda con le loro reti
       const result = await pool.query(
-        `SELECT 
-          na.id as agent_id,
-          na.agent_name,
-          na.network_ranges_config
+        `SELECT
+  na.id as agent_id,
+    na.agent_name,
+    na.network_ranges_config
          FROM network_agents na
          INNER JOIN users u ON na.azienda_id = u.id
          WHERE u.id = $1 AND na.deleted_at IS NULL
@@ -3740,9 +3731,9 @@ module.exports = (pool, io) => {
       await ensureTables();
 
       const result = await pool.query(
-        `SELECT 
-          na.id, na.agent_name, na.api_key, na.network_ranges, 
-          na.scan_interval_minutes, na.created_at
+        `SELECT
+  na.id, na.agent_name, na.api_key, na.network_ranges,
+    na.scan_interval_minutes, na.created_at
          FROM network_agents na
          WHERE na.id = $1`,
         [agentId]
@@ -3782,9 +3773,9 @@ module.exports = (pool, io) => {
       await ensureTables();
 
       const result = await pool.query(
-        `SELECT 
-          na.id, na.agent_name, na.api_key, na.network_ranges, 
-          na.scan_interval_minutes
+        `SELECT
+  na.id, na.agent_name, na.api_key, na.network_ranges,
+    na.scan_interval_minutes
          FROM network_agents na
          WHERE na.id = $1`,
         [agentId]
@@ -3843,32 +3834,33 @@ module.exports = (pool, io) => {
       let usedPath = null;
 
       for (const pathSet of possiblePaths) {
-        console.log(`🔍 Tentativo path: ${pathSet.label}`);
-        console.log(`   NetworkMonitor: ${pathSet.network} (exists: ${fs.existsSync(pathSet.network)})`);
+        console.log(`🔍 Tentativo path: ${pathSet.label} `);
+        console.log(`   NetworkMonitor: ${pathSet.network} (exists: ${fs.existsSync(pathSet.network)
+          })`);
         console.log(`   InstallerCompleto: ${pathSet.installer} (exists: ${fs.existsSync(pathSet.installer)})`);
 
         if (fs.existsSync(pathSet.network) && fs.existsSync(pathSet.installer)) {
           try {
-            console.log(`✅ File trovati usando: ${pathSet.label}`);
+            console.log(`✅ File trovati usando: ${pathSet.label} `);
             networkMonitorContent = fs.readFileSync(pathSet.network, 'utf8');
             installerContent = fs.readFileSync(pathSet.installer, 'utf8');
             filesFound = true;
             usedPath = pathSet.label;
-            console.log(`✅ File letti con successo: NetworkMonitor.ps1 (${networkMonitorContent.length} caratteri), InstallerCompleto.ps1 (${installerContent.length} caratteri)`);
+            console.log(`✅ File letti con successo: NetworkMonitor.ps1(${networkMonitorContent.length} caratteri), InstallerCompleto.ps1(${installerContent.length} caratteri)`);
             break;
           } catch (readErr) {
-            console.error(`❌ Errore lettura file da ${pathSet.label}:`, readErr.message);
+            console.error(`❌ Errore lettura file da ${pathSet.label}: `, readErr.message);
             continue;
           }
         }
       }
 
       if (!filesFound) {
-        const errorMsg = `File agent non trovati in nessuno dei path provati. Verifica che i file NetworkMonitor.ps1 e InstallerCompleto.ps1 siano presenti nella cartella agent/ del progetto.`;
+        const errorMsg = `File agent non trovati in nessuno dei path provati.Verifica che i file NetworkMonitor.ps1 e InstallerCompleto.ps1 siano presenti nella cartella agent / del progetto.`;
         console.error('❌', errorMsg);
         console.error('  Path provati:');
         possiblePaths.forEach(p => {
-          console.error(`    - ${p.label}: NetworkMonitor=${fs.existsSync(p.network)}, Installer=${fs.existsSync(p.installer)}`);
+          console.error(`    - ${p.label}: NetworkMonitor = ${fs.existsSync(p.network)}, Installer = ${fs.existsSync(p.installer)} `);
         });
         return res.status(500).json({ error: errorMsg });
       }
@@ -3876,7 +3868,7 @@ module.exports = (pool, io) => {
       // Versione agent per ZIP e config.json incluso (allineata a NetworkMonitorService.ps1 $SCRIPT_VERSION)
       const CURRENT_AGENT_VERSION = '2.6.0';
       const agentVersion = CURRENT_AGENT_VERSION;
-      console.log(`ℹ️ Versione agent per ZIP: ${agentVersion}`);
+      console.log(`ℹ️ Versione agent per ZIP: ${agentVersion} `);
 
       /* LOGICA LETTURA FILE DISABILITATA TEMPORANEAMENTE PER RISOLVERE PROBLEMA VERSIONE
       if (fs.existsSync(servicePath)) {
@@ -3895,13 +3887,13 @@ module.exports = (pool, io) => {
       };
 
       // Nome file ZIP con versione
-      const zipFileName = `NetworkMonitor-Agent-${agent.agent_name.replace(/\s+/g, '-')}-v${agentVersion}.zip`;
+      const zipFileName = `NetworkMonitor - Agent - ${agent.agent_name.replace(/\s+/g, '-')} -v${agentVersion}.zip`;
 
       console.log('📦 Creazione ZIP:', zipFileName);
 
       // Configura headers per download ZIP
       res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
+      res.setHeader('Content-Disposition', `attachment; filename = "${zipFileName}"`);
 
       // Crea ZIP
       const archive = archiver('zip', {
@@ -3914,7 +3906,7 @@ module.exports = (pool, io) => {
       archive.on('error', (err) => {
         console.error('❌ Errore creazione ZIP:', err);
         if (!res.headersSent) {
-          res.status(500).json({ error: `Errore creazione pacchetto: ${err.message}` });
+          res.status(500).json({ error: `Errore creazione pacchetto: ${err.message} ` });
         }
       });
 
@@ -3940,7 +3932,7 @@ module.exports = (pool, io) => {
           const openBraces = (serviceContent.match(/{/g) || []).length;
           const closeBraces = (serviceContent.match(/}/g) || []).length;
           if (openBraces !== closeBraces) {
-            console.error(`❌ Parentesi graffe sbilanciate in NetworkMonitorService.ps1 (${openBraces}/${closeBraces})`);
+            console.error(`❌ Parentesi graffe sbilanciate in NetworkMonitorService.ps1(${openBraces} / ${closeBraces})`);
           }
           archive.append(serviceContent, { name: 'NetworkMonitorService.ps1' });
           console.log('✅ Aggiunto NetworkMonitorService.ps1');
@@ -3965,7 +3957,7 @@ module.exports = (pool, io) => {
       } catch (appendErr) {
         console.error('❌ Errore aggiunta file allo ZIP:', appendErr);
         if (!res.headersSent) {
-          return res.status(500).json({ error: `Errore creazione ZIP: ${appendErr.message}` });
+          return res.status(500).json({ error: `Errore creazione ZIP: ${appendErr.message} ` });
         }
       }
 
@@ -3978,54 +3970,54 @@ I file devono rimanere nella directory di installazione dopo l'installazione!
 Se cancelli questi file, l'agent smetterà di funzionare.
 
 ### Consigli:
-- Estrai lo ZIP in una directory PERMANENTE (es: C:\\ProgramData\\NetworkMonitorAgent\\)
-- NON nella cartella Download (viene spesso pulita automaticamente)
-- Dopo l'installazione, NON cancellare i file
+- Estrai lo ZIP in una directory PERMANENTE(es: C: \\ProgramData\\NetworkMonitorAgent\\)
+  - NON nella cartella Download(viene spesso pulita automaticamente)
+    - Dopo l'installazione, NON cancellare i file
 
 ## File inclusi:
-- config.json: Configurazione agent (API Key, reti, intervallo scansione)
-- NetworkMonitor.ps1: Script principale agent (compatibilità)
-- InstallerCompleto.ps1: Installer automatico (Scheduled Task - metodo vecchio)
-- NetworkMonitorService.ps1: Script servizio Windows (NUOVO)
-- Installa-Servizio.ps1: Installer servizio Windows (NUOVO - consigliato)
-- Rimuovi-Servizio.ps1: Disinstaller servizio Windows (NUOVO)
-- Installa-Automatico.ps1: Installer automatico completo (NUOVO)
-- Installa.bat: Installer batch (doppio click - NUOVO)
-- README_SERVICE.md: Documentazione servizio Windows (NUOVO)
+- config.json: Configurazione agent(API Key, reti, intervallo scansione)
+  - NetworkMonitor.ps1: Script principale agent(compatibilità)
+    - InstallerCompleto.ps1: Installer automatico(Scheduled Task - metodo vecchio)
+      - NetworkMonitorService.ps1: Script servizio Windows(NUOVO)
+        - Installa - Servizio.ps1: Installer servizio Windows(NUOVO - consigliato)
+          - Rimuovi - Servizio.ps1: Disinstaller servizio Windows(NUOVO)
+            - Installa - Automatico.ps1: Installer automatico completo(NUOVO)
+              - Installa.bat: Installer batch(doppio click - NUOVO)
+                - README_SERVICE.md: Documentazione servizio Windows(NUOVO)
 
-## Installazione (3 metodi):
+## Installazione(3 metodi):
 
-### Metodo 1: Installazione Automatica (PIÙ SEMPLICE - NUOVO! 🎉)
-**Fai solo doppio click e segui le istruzioni!**
+### Metodo 1: Installazione Automatica(PIÙ SEMPLICE - NUOVO! 🎉)
+  ** Fai solo doppio click e segui le istruzioni! **
 
-1. Estrai il ZIP in una directory (anche Desktop va bene)
-2. **Fai doppio click su "Installa.bat"**
-3. Clicca "Sì" quando Windows chiede autorizzazioni amministratore
-4. Segui le istruzioni a schermo (premi invio quando richiesto)
-5. Fine! Il servizio è installato in C:\\ProgramData\\NetworkMonitorAgent\\ automaticamente
+    1. Estrai il ZIP in una directory(anche Desktop va bene)
+2. ** Fai doppio click su "Installa.bat" **
+  3. Clicca "Sì" quando Windows chiede autorizzazioni amministratore
+4. Segui le istruzioni a schermo(premi invio quando richiesto)
+5. Fine! Il servizio è installato in C: \\ProgramData\\NetworkMonitorAgent\\ automaticamente
 
-**Cosa fa automaticamente:**
-- ✅ Richiede privilegi admin (automatico)
-- ✅ Copia tutti i file in C:\\ProgramData\\NetworkMonitorAgent\\
-- ✅ Rimuove il vecchio Scheduled Task (se presente)
-- ✅ Installa e avvia il servizio Windows
-- ✅ Tutto senza aprire PowerShell manualmente!
+  ** Cosa fa automaticamente:**
+    - ✅ Richiede privilegi admin(automatico)
+      - ✅ Copia tutti i file in C: \\ProgramData\\NetworkMonitorAgent\\
+- ✅ Rimuove il vecchio Scheduled Task(se presente)
+  - ✅ Installa e avvia il servizio Windows
+    - ✅ Tutto senza aprire PowerShell manualmente!
 
-### Metodo 2: Servizio Windows (Manuale)
+### Metodo 2: Servizio Windows(Manuale)
 Il servizio rimane sempre attivo, anche dopo riavvio, con icona nella system tray.
 
-1. Estrarre tutti i file in una directory permanente (es: C:\\ProgramData\\NetworkMonitorAgent\\)
+1. Estrarre tutti i file in una directory permanente(es: C: \\ProgramData\\NetworkMonitorAgent\\)
 2. Esegui PowerShell come Amministratore
-3. Esegui: .\\Installa-Servizio.ps1 -RemoveOldTask
+3. Esegui: .\\Installa - Servizio.ps1 - RemoveOldTask
 4. Il servizio verrà installato e avviato automaticamente
-5. (Opzionale) Per mostrare l'icona nella system tray: .\\NetworkMonitorService.ps1
+5.(Opzionale) Per mostrare l'icona nella system tray: .\\NetworkMonitorService.ps1
 
 Vedi README_SERVICE.md per dettagli completi.
 
-### Metodo 3: Scheduled Task (Vecchio metodo - non consigliato)
+### Metodo 3: Scheduled Task(Vecchio metodo - non consigliato)
 Per compatibilità con installazioni esistenti.
 
-1. Estrarre tutti i file in una directory permanente (es: C:\\ProgramData\\NetworkMonitorAgent\\)
+1. Estrarre tutti i file in una directory permanente(es: C: \\ProgramData\\NetworkMonitorAgent\\)
 2. Tasto destro su "InstallerCompleto.ps1" → "Esegui con PowerShell"
 3. Inserire l'API Key quando richiesto (già presente in config.json, ma l'installer la richiederà per verifica)
 4. L'installer configurerà tutto automaticamente
@@ -4041,14 +4033,14 @@ Per compatibilità con installazioni esistenti.
 
 Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
 1. Apri PowerShell come Amministratore
-2. Esegui: Unregister-ScheduledTask -TaskName "NetworkMonitorAgent" -Confirm:$false
+2. Esegui: Unregister - ScheduledTask - TaskName "NetworkMonitorAgent" - Confirm: $false
 3. Cancella la directory di installazione
 `;
       archive.append(readmeContent, { name: 'README.txt' });
       console.log('✅ Aggiunto README.txt');
 
       // Crea installer batch con versione nel nome - SOLO COMANDI NATIVI, NO POWERSHELL
-      const installBatFileName = `Installa-Agent-v${agentVersion}.bat`;
+      const installBatFileName = `Installa - Agent - v${agentVersion}.bat`;
 
       // Leggi il contenuto di Installa-Agent.bat e sostituisci la versione
       let installBatContent;
@@ -4060,18 +4052,18 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
       } else {
         // Fallback: crea un wrapper semplice che chiama Installa-Agent.bat
         installBatContent = `@echo off
-REM Installa-Agent-v${agentVersion}.bat
+REM Installa - Agent - v${agentVersion}.bat
 REM Installer unico per Network Monitor Agent v${agentVersion}
 REM SOLO COMANDI NATIVI WINDOWS - NO POWERSHELL
 
 REM Verifica privilegi admin
-net session >nul 2>&1
-if %errorLevel% neq 0 (
-    echo.
+net session > nul 2 >& 1
+if % errorLevel % neq 0(
+  echo.
     echo Richiesta autorizzazioni amministratore...
-    echo.
-    powershell -Command "Start-Process '%~f0' -Verb RunAs -Wait"
-    exit /b %errorLevel%
+echo.
+  powershell - Command "Start-Process '%~f0' -Verb RunAs -Wait"
+    exit / b % errorLevel %
 )
 
 REM Esegui installer batch nativo
@@ -4081,7 +4073,7 @@ pause
 `;
       }
       archive.append(installBatContent, { name: installBatFileName });
-      console.log(`✅ Aggiunto ${installBatFileName}`);
+      console.log(`✅ Aggiunto ${installBatFileName} `);
 
       // File servizio Windows - SOLO FILE ESSENZIALI
       try {
@@ -4145,11 +4137,11 @@ pause
 
       if (nssmPath && fs.existsSync(nssmPath)) {
         try {
-          console.log(`📦 Leggo nssm.exe da: ${nssmPath}`);
+          console.log(`📦 Leggo nssm.exe da: ${nssmPath} `);
           const nssmContent = fs.readFileSync(nssmPath); // Legge come Buffer binario
           const nssmSize = nssmContent.length;
           console.log(`   Dimensione file: ${nssmSize} bytes`);
-          console.log(`   Tipo: ${Buffer.isBuffer(nssmContent) ? 'Buffer' : typeof nssmContent}`);
+          console.log(`   Tipo: ${Buffer.isBuffer(nssmContent) ? 'Buffer' : typeof nssmContent} `);
 
           if (nssmSize === 0) {
             throw new Error('File nssm.exe è vuoto!');
@@ -4167,7 +4159,7 @@ pause
           console.error('❌❌❌ ERRORE CRITICO aggiunta nssm.exe:', nssmErr);
           console.error('   Messaggio:', nssmErr.message);
           console.error('   Stack:', nssmErr.stack);
-          throw new Error(`IMPOSSIBILE AGGIUNGERE nssm.exe: ${nssmErr.message}`);
+          throw new Error(`IMPOSSIBILE AGGIUNGERE nssm.exe: ${nssmErr.message} `);
         }
       } else {
         console.error('❌❌❌ ERRORE CRITICO: nssm.exe non trovato!');
@@ -4215,8 +4207,8 @@ pause
 
       // Recupera info agent
       const agentResult = await pool.query(
-        `SELECT id, agent_name, status, last_heartbeat, enabled, deleted_at, 
-                version, network_ranges, scan_interval_minutes, created_at, updated_at
+        `SELECT id, agent_name, status, last_heartbeat, enabled, deleted_at,
+  version, network_ranges, scan_interval_minutes, created_at, updated_at
          FROM network_agents
          WHERE id = $1`,
         [agentId]
@@ -4289,11 +4281,11 @@ pause
           should_be_offline: shouldBeOffline,
           reason: shouldBeOffline
             ? (agent.status === 'online' && minutesSinceLastHeartbeat > 8
-              ? `Agent online ma senza heartbeat da ${minutesSinceLastHeartbeat} minuti (soglia: 8 min)`
+              ? `Agent online ma senza heartbeat da ${minutesSinceLastHeartbeat} minuti(soglia: 8 min)`
               : `Agent offline ma senza evento offline non risolto`)
             : 'Agent dovrebbe essere online (heartbeat recente o evento offline risolto)',
           recommendation: minutesSinceLastHeartbeat === null || minutesSinceLastHeartbeat > 8
-            ? `L'agent non sta inviando heartbeat. Verifica: 1) Il servizio è in esecuzione? 2) La connessione internet funziona? 3) L'API key è corretta? 4) Il server URL è raggiungibile?`
+            ? `L'agent non sta inviando heartbeat. Verifica: 1) Il servizio è in esecuzione? 2) La connessione internet funziona? 3) L'API key è corretta ? 4) Il server URL è raggiungibile ? `
             : 'L\'agent sta inviando heartbeat regolarmente. Se risulta offline, potrebbe essere un problema di sincronizzazione del database.'
         }
       };
@@ -4329,7 +4321,7 @@ pause
         return res.status(404).json({ error: 'Agent non trovato o già eliminato' });
       }
 
-      console.log(`🔴 Agent ${agentId} disabilitato (ricezione dati bloccata, agent rimane installato)`);
+      console.log(`🔴 Agent ${agentId} disabilitato(ricezione dati bloccata, agent rimane installato)`);
       res.json({ success: true, agent: result.rows[0], message: 'Agent disabilitato. I dati non verranno più accettati, ma l\'agent rimane installato sul client.' });
     } catch (err) {
       console.error('❌ Errore disabilitazione agent:', err);
@@ -4389,14 +4381,14 @@ pause
       let paramIndex = 1;
 
       if (agent_name !== undefined) {
-        updateFields.push(`agent_name = $${paramIndex++}`);
+        updateFields.push(`agent_name = $${paramIndex++} `);
         updateValues.push(agent_name);
       }
 
       if (network_ranges !== undefined) {
         // Assicurati che network_ranges sia un array
         const rangesArray = Array.isArray(network_ranges) ? network_ranges : [];
-        updateFields.push(`network_ranges = $${paramIndex++}`);
+        updateFields.push(`network_ranges = $${paramIndex++} `);
         updateValues.push(rangesArray);
       }
 
@@ -4405,7 +4397,7 @@ pause
         if (isNaN(interval) || interval < 1) {
           return res.status(400).json({ error: 'Intervallo scansione deve essere un numero positivo' });
         }
-        updateFields.push(`scan_interval_minutes = $${paramIndex++}`);
+        updateFields.push(`scan_interval_minutes = $${paramIndex++} `);
         updateValues.push(interval);
       }
 
@@ -4427,14 +4419,14 @@ pause
         const versionParts = currentVersion.split('.');
         if (versionParts.length === 3) {
           const patch = parseInt(versionParts[2]) || 0;
-          newVersion = `${versionParts[0]}.${versionParts[1]}.${patch + 1}`;
+          newVersion = `${versionParts[0]}.${versionParts[1]}.${patch + 1} `;
         } else {
           // Se formato non valido, incrementa come se fosse 1.0.0
           newVersion = '1.0.1';
         }
       }
 
-      updateFields.push(`version = $${paramIndex++}`);
+      updateFields.push(`version = $${paramIndex++} `);
       updateValues.push(newVersion);
 
       // Aggiungi updated_at
@@ -4446,7 +4438,7 @@ pause
         SET ${updateFields.join(', ')}
         WHERE id = $${paramIndex} AND deleted_at IS NULL
         RETURNING id, agent_name, network_ranges, scan_interval_minutes, enabled, status, version, updated_at
-      `;
+  `;
 
       const result = await pool.query(query, updateValues);
 
@@ -4458,7 +4450,7 @@ pause
       res.json({
         success: true,
         agent: result.rows[0],
-        message: `Configurazione agent aggiornata (versione: ${newVersion}). Le modifiche saranno applicate al prossimo heartbeat dell'agent.`
+        message: `Configurazione agent aggiornata(versione: ${newVersion}).Le modifiche saranno applicate al prossimo heartbeat dell'agent.`
       });
     } catch (err) {
       console.error('❌ Errore aggiornamento agent:', err);
