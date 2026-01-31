@@ -1543,7 +1543,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                 }}
                             >
                                 <div className="font-semibold mb-1 border-b border-gray-700 pb-1 text-white">
-                                    {hoveredNode.details?.device_type || hoveredNode.type || 'N/A'}
+                                    {hoveredNode.details?.hostname || hoveredNode.details?.device_type || hoveredNode.type || 'N/A'}
                                 </div>
                                 <div className="text-xs text-gray-300 space-y-1">
                                     <div><span className="text-gray-400">Utente:</span> {hoveredNode.details?.device_username || '-'}</div>
@@ -1796,7 +1796,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             style={{ left: tooltipRect.right + 8, top: tooltipRect.top }}
                         >
                             <div className="font-semibold text-gray-700 mb-1">Titolo</div>
-                            <div className="text-gray-800 mb-2">{hoveredDevice.device_type || '-'}</div>
+                            <div className="text-gray-800 mb-2">{hoveredDevice.hostname || hoveredDevice.device_type || '-'}</div>
                             <div className="font-semibold text-gray-700 mb-1">Utente</div>
                             <div className="text-gray-800 mb-2">{hoveredDevice.device_username || '-'}</div>
                             <div className="font-semibold text-gray-700 mb-1">Percorso</div>
