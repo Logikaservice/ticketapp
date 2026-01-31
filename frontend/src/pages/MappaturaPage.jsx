@@ -56,7 +56,14 @@ const RouterWifiModal = ({ deviceId, routerIp, agentId, onClose, onRefreshMappa,
         const poll = async () => {
             try {
                 const res = await fetch(buildApiUrl(`/api/network-monitoring/router-wifi-result/${taskId}`), { headers: getAuthHeader() });
-                const data = await res.json();
+                const text = await res.text();
+                let data;
+                try {
+                    data = text ? JSON.parse(text) : {};
+                } catch {
+                    if (res.status === 502) setError('Server temporaneamente non disponibile (502). Riprova tra poco.');
+                    return;
+                }
                 if (data.status === 'ok') {
                     setDevices(data.devices || []);
                     setCreatedCount(data.created_count ?? 0);
@@ -73,7 +80,10 @@ const RouterWifiModal = ({ deviceId, routerIp, agentId, onClose, onRefreshMappa,
                     setLoading(false);
                     return;
                 }
-            } catch (e) { setError(e.message); setLoading(false); }
+            } catch (e) {
+                setError(e.message || 'Errore di connessione');
+                setLoading(false);
+            }
         };
         const id = setInterval(poll, 3000);
         return () => clearInterval(id);
@@ -89,15 +99,21 @@ const RouterWifiModal = ({ deviceId, routerIp, agentId, onClose, onRefreshMappa,
                 headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
                 body: JSON.stringify({ device_id: deviceId, agent_id: agentId, router_ip: ip, username: username.trim(), password })
             });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Errore richiesta');
+            const text = await res.text();
+            let data;
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch {
+                throw new Error(res.status === 502 ? 'Server temporaneamente non disponibile (502). Riprova tra poco.' : `Risposta non valida (${res.status})`);
+            }
+            if (!res.ok) throw new Error(data.error || `Errore ${res.status}`);
             if (data.deferred) {
                 setTaskId(data.task_id);
             } else {
                 setLoading(false);
             }
         } catch (err) {
-            setError(err.message || 'Errore');
+            setError(err.message || 'Errore di connessione');
             setLoading(false);
         }
     };
