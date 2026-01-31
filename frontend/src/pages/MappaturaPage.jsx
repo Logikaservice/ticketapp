@@ -87,6 +87,42 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const isInitialLoadRef = useRef(true); // Flag per il primo caricamento
     const [hoveredNode, setHoveredNode] = useState(null); // Nodo su cui è il mouse per tooltip
 
+    const [unstableDevices, setUnstableDevices] = useState(new Set()); // Set<IP> per dispositivi con eventi recenti
+
+    useEffect(() => {
+        const fetchEvents = async () => {
+            const cid = parseAziendaId(selectedCompanyId);
+            if (!cid) return;
+            try {
+                const res = await fetch(buildApiUrl(`/api/network-monitoring/all/events?limit=200&azienda_id=${cid}`), {
+                    headers: getAuthHeader()
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const events = Array.isArray(data) ? data : (data.events || []);
+                    const unstable = new Set();
+                    events.forEach(e => {
+                        if (['offline', 'network_issue', 'packet_loss'].includes(e.event_type)) {
+                            // Prova ad estrarre IP
+                            let ip = null;
+                            try {
+                                const ed = (typeof e.event_data === 'string' && e.event_data) ? JSON.parse(e.event_data) : e.event_data;
+                                if (ed && ed.ip) ip = ed.ip;
+                            } catch { }
+                            if (!ip && e.ip_address) ip = e.ip_address;
+
+                            if (ip) unstable.add(ip);
+                        }
+                    });
+                    setUnstableDevices(unstable);
+                }
+            } catch (e) { console.error("Err fetch eventi unstable", e); }
+        };
+        fetchEvents();
+        const interval = setInterval(fetchEvents, 30000);
+        return () => clearInterval(interval);
+    }, [selectedCompanyId, getAuthHeader]);
+
     useEffect(() => {
         const fetchCompanies = async () => {
             try {
@@ -1176,11 +1212,19 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const hasDisconnectionIssues = (node) => {
         const d = node.details || {};
         // Controlli espliciti standard
-        if (d.has_connection_issues) return true; // Flag specifico backend
-        if (d.status_changes_count > 3) return true; // Troppi cambi stato
-        if (d.previous_ip) return true; // Cambio IP
+        if (d.has_connection_issues) return true;
+        if (d.status_changes_count > 3) return true;
+        if (d.previous_ip) return true;
+
         // Controlli euristici
         if (d.warning || d.error || d.alert || d.is_unstable) return true;
+
+        // Controllo ping (se online ma non risponde)
+        if (d.ping_responsive === false) return true;
+
+        // Controllo eventi recenti (storico instabilità)
+        if (unstableDevices.has(node.ip)) return true;
+
         return false;
     };
 
