@@ -1587,6 +1587,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 containerClasses += "bg-white border-blue-500 shadow-lg scale-110 ring-2 ring-blue-200";
                                             } else if (!isOnline) {
                                                 containerClasses += "bg-red-50 border-red-200 shadow-sm";
+                                            } else if (isRouter) {
+                                                containerClasses += "bg-indigo-100 border-indigo-300 shadow-sm hover:border-indigo-400";
                                             } else {
                                                 containerClasses += "bg-white border-slate-200 shadow-sm hover:border-blue-400";
                                             }
