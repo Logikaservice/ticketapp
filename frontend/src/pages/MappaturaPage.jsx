@@ -1484,49 +1484,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                             </div>
                                         )}
                                     </div>
-                                    <div className="absolute top-full mt-2 bg-white/90 px-2 py-0.5 rounded text-[10px] font-medium shadow text-gray-700 border border-gray-200 pointer-events-none text-center max-w-[120px]">
-                                        {(() => {
-                                            const labelText = node.label || node.ip;
-
-                                            // Verifica se è un indirizzo IP (formato: xxx.xxx.xxx.xxx)
-                                            // Pattern: 1-3 cifre, punto, ripetuto 3 volte, poi 1-3 cifre finali
-                                            const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(labelText);
-
-                                            // Gli indirizzi IP devono SEMPRE stare su una riga, anche se lunghi
-                                            if (isIpAddress) {
-                                                return <div className="leading-tight whitespace-nowrap">{labelText}</div>;
-                                            }
-
-                                            // Per gli altri testi, applica la logica di divisione se necessario
-                                            if (labelText && labelText.length > 12) {
-                                                // Cerca il primo spazio dopo la metà del testo
-                                                const midPoint = Math.floor(labelText.length / 2);
-                                                const spaceIndex = labelText.indexOf(' ', midPoint);
-                                                if (spaceIndex > 0) {
-                                                    // Dividi al primo spazio dopo la metà
-                                                    const line1 = labelText.substring(0, spaceIndex);
-                                                    const line2 = labelText.substring(spaceIndex + 1);
-                                                    return (
-                                                        <>
-                                                            <div className="leading-tight">{line1}</div>
-                                                            <div className="leading-tight">{line2}</div>
-                                                        </>
-                                                    );
-                                                } else {
-                                                    // Se non c'è spazio, dividi a metà
-                                                    const line1 = labelText.substring(0, midPoint);
-                                                    const line2 = labelText.substring(midPoint);
-                                                    return (
-                                                        <>
-                                                            <div className="leading-tight">{line1}</div>
-                                                            <div className="leading-tight">{line2}</div>
-                                                        </>
-                                                    );
-                                                }
-                                            }
-                                            // Testo corto: mostra su una riga
-                                            return <div className="leading-tight whitespace-nowrap">{labelText}</div>;
-                                        })()}
+                                    <div className="absolute top-full mt-2 bg-white/90 px-2 py-1 rounded text-[10px] font-medium shadow text-gray-700 border border-gray-200 pointer-events-none text-center whitespace-nowrap z-50">
+                                        <div className="leading-tight text-gray-500 font-mono text-[9px]">{node.ip}</div>
+                                        {node.label && node.label !== node.ip && (
+                                            <div className="leading-tight font-bold text-gray-800 mt-0.5">{node.label}</div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
