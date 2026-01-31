@@ -1222,8 +1222,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         // Controllo ping (se online ma non risponde)
         if (d.ping_responsive === false) return true;
 
-        // Controllo eventi recenti (storico instabilità)
-        if (unstableDevices.has(node.ip)) return true;
+        // Controllo eventi recenti (storico instabilità) - DISABILITATO: eventi si riferiscono agli agent
+        // if (unstableDevices.has(node.ip)) return true;
 
         return false;
     };
