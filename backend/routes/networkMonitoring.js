@@ -3057,6 +3057,10 @@ module.exports = (pool, io) => {
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS port INTEGER;
         `);
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS router_model VARCHAR(100);
+        `);
       } catch (migrationErr) {
         // Ignora errore se colonna esiste già
         if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
