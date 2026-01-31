@@ -13,53 +13,44 @@ async function analyzeMac() {
 
     try {
         // 1. Cerca il dispositivo nella tabella network_devices (Normalizzando)
-        console.log('--- 1. Ricerca in network_devices (con varie normalizzazioni) ---');
+        console.log('--- 1. Ricerca in network_devices ---');
 
-        const queries = [
-            "SELECT * FROM network_devices WHERE mac_address = $1", // Esatto
-            "SELECT * FROM network_devices WHERE UPPER(mac_address) = UPPER($1)", // Case insensitive
-            "SELECT * FROM network_devices WHERE REPLACE(UPPER(mac_address), ':', '') = REPLACE(UPPER($1), ':', '')" // Senza separatori
-        ];
-
-        for (const q of queries) {
-            const res = await pool.query(q, [targetMac]);
-            if (res.rows.length > 0) {
-                console.log(`\nRisultati per query: "${q}"`);
-                res.rows.forEach(r => {
-                    console.log(`  - ID: ${r.id}, AgentID: ${r.agent_id}, IP: ${r.ip_address}, MAC: "${r.mac_address}", FirstSeen: ${r.first_seen}, LastSeen: ${r.last_seen}, Status: ${r.status}`);
-                });
-            }
+        // Query singola esatta (sappiamo che è DE:5F:88:B5:CF:E2)
+        const res = await pool.query("SELECT * FROM network_devices WHERE mac_address = $1", [targetMac]);
+        if (res.rows.length > 0) {
+            res.rows.forEach(r => {
+                console.log(`  - ID: ${r.id}, AgentID: ${r.agent_id}, IP: ${r.ip_address}, MAC: "${r.mac_address}", Created: ${r.first_seen}`);
+            });
+        } else {
+            console.log("  ⚠️ Nessun dispositivo trovato in network_devices!");
         }
 
-        // 2. Verifica gli Agent coinvolti
-        console.log('\n--- 2. Info sugli Agent che hanno rilevato questo MAC ---');
-        const agentsRes = await pool.query(`
-        SELECT DISTINCT na.id, na.agent_name, u.azienda, na.last_heartbeat, na.version
-        FROM network_agents na
-        JOIN network_devices nd ON nd.agent_id = na.id
-        JOIN users u ON na.azienda_id = u.id
-        WHERE REPLACE(UPPER(nd.mac_address), ':', '') = REPLACE(UPPER($1), ':', '')
-    `, [targetMac]);
+        // 2. Analisi Cambiamenti (network_changes) per questo MAC
+        console.log('\n--- 2. Ultimi 50 Cambiamenti (network_changes) per questo MAC ---');
 
-        agentsRes.rows.forEach(a => {
-            console.log(`  - Agent ID: ${a.id}, Nome: "${a.agent_name}", Azienda: "${a.azienda}", LastHB: ${a.last_heartbeat}`);
-        });
-
-        // 3. Analisi Cambiamenti (network_changes) per questo MAC
-        console.log('\n--- 3. Ultimi 20 Cambiamenti (network_changes) per questo MAC ---');
         // Join con network_devices per filtrare per MAC
+        // NOTA: Se il dispositivo è stato cancellato e ricreato, il ChangeLog potrebbe riferirsi a un device_id che ora non esiste più!
+        // Quindi dobbiamo cercare anche per device_id orfani se possibile, ma non abbiamo storico device_id cancellati facilmente
+        // Cerchiamo quindi nella tabella network_events se avessimo i dettagli JSON, ma siccome usiamo JOIN, vediamo solo quelli del device CORRENTE.
+
+        // Ma aspetta: se vedo "Nuovo", vuol dire che è stato creato un record.
+        // Se vedo TANTI "Nuovo", vuol dire che sono stati creati TANTI record diversi nel tempo?
+        // Se il Device ID cambia nei log, allora viene cancellato e ricreato.
+        // Se il Device ID è SEMPRE LO STESSO (es. 602), allora qualcos'altro non va.
+
         const changesRes = await pool.query(`
-        SELECT nc.*, nd.mac_address, nd.ip_address, na.agent_name
+        SELECT nc.detected_at, nc.change_type, nc.device_id, nc.id as change_id, na.agent_name
         FROM network_changes nc
         LEFT JOIN network_devices nd ON nc.device_id = nd.id
         LEFT JOIN network_agents na ON nc.agent_id = na.id
         WHERE REPLACE(UPPER(nd.mac_address), ':', '') = REPLACE(UPPER($1), ':', '')
         ORDER BY nc.detected_at DESC 
-        LIMIT 20
+        LIMIT 50
     `, [targetMac]);
 
         changesRes.rows.forEach(e => {
-            console.log(`  - [${e.detected_at.toISOString()}] Tipo: ${e.change_type}, Agent: ${e.agent_name} -> ID change: ${e.id}, DeviceID: ${e.device_id}, Old: ${e.old_value}, New: ${e.new_value}`);
+            // Formato compatto: Data | Tipo | DevID | ChangeID
+            console.log(`${e.detected_at.toISOString().substr(0, 19)} | ${e.change_type.padEnd(12)} | DevID:${e.device_id} | CID:${e.change_id} | Agt:${e.agent_name}`);
         });
 
 
