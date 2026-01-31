@@ -978,7 +978,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             const data = await res.json().catch(() => ({}));
             if (!res.ok) { alert(data.error || 'Errore'); return; }
             setRefreshDevicesKey(k => k + 1);
-            if (data.device) await addNodeFromDevice(data.device);
+            // Non aggiungere automaticamente alla mappa, lascia che l'utente lo trascini dalla lista
+            // if (data.device) await addNodeFromDevice(data.device);
         } catch (e) { alert('Errore: ' + e.message); }
     };
 
