@@ -1468,7 +1468,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                 })}
                             </svg>
                             {nodes.map(node => {
-                                const isOnline = !hasDisconnectionIssues(node);
+                                const isOnline = node.status === 'online';
+                                const hasIssues = hasDisconnectionIssues(node);
                                 const isHovered = hoveredNode?.id === node.id;
                                 const isSelected = selectedNode?.id === node.id;
 
