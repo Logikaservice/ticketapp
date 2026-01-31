@@ -46,6 +46,8 @@ const RouterWifiModal = ({ deviceId, routerIp, agentId, onClose, onRefreshMappa,
     const [password, setPassword] = useState('');
     const [ip, setIp] = useState(routerIp || '192.168.1.1');
     const [createdCount, setCreatedCount] = useState(0);
+    const waitingSinceRef = useRef(null);
+    const POLL_TIMEOUT_MS = 12 * 60 * 1000; // 12 min
 
     useEffect(() => {
         setIp(routerIp || '192.168.1.1');
@@ -53,7 +55,14 @@ const RouterWifiModal = ({ deviceId, routerIp, agentId, onClose, onRefreshMappa,
 
     useEffect(() => {
         if (!taskId) return;
+        waitingSinceRef.current = Date.now();
         const poll = async () => {
+            if (waitingSinceRef.current && Date.now() - waitingSinceRef.current > POLL_TIMEOUT_MS) {
+                setError('Timeout (12 min). L\'agent potrebbe non aver ricevuto il task. Verifica che il router sia scoperto dall\'agent attivo su un PC nella stessa rete, poi riprova.');
+                setTaskId(null);
+                setLoading(false);
+                return;
+            }
             try {
                 const res = await fetch(buildApiUrl(`/api/network-monitoring/router-wifi-result/${taskId}`), { headers: getAuthHeader() });
                 const text = await res.text();
@@ -140,9 +149,19 @@ const RouterWifiModal = ({ deviceId, routerIp, agentId, onClose, onRefreshMappa,
                     </div>
                     {error && <p className="text-red-600 text-sm">{error}</p>}
                     {!agentId && <p className="text-amber-600 text-xs">L'agent non è associato a questo dispositivo. Verifica che il router sia scoperto da un agent attivo.</p>}
-                    <button type="submit" disabled={loading || !agentId} className="w-full py-2 rounded-lg bg-indigo-600 text-white font-medium disabled:opacity-50 flex items-center justify-center gap-2">
-                        {loading ? <><Loader size={16} className="animate-spin" /> Attendi (~5 min)...</> : <>Carica</>}
-                    </button>
+                    {loading && (
+                        <p className="text-gray-500 text-xs">L'agent riceve il task al prossimo heartbeat (max 5 min). Se resta in attesa oltre 12 min, verifica che il router sia sullo stesso agent della mappa.</p>
+                    )}
+                    <div className="flex gap-2">
+                        <button type="submit" disabled={loading || !agentId} className="flex-1 py-2 rounded-lg bg-indigo-600 text-white font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+                            {loading ? <><Loader size={16} className="animate-spin" /> Attendi (max 12 min)...</> : <>Carica</>}
+                        </button>
+                        {loading && (
+                            <button type="button" onClick={() => { setTaskId(null); setLoading(false); setError(''); }} className="px-4 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50">
+                                Annulla
+                            </button>
+                        )}
+                    </div>
                 </form>
                 {devices.length > 0 && (
                     <div className="flex-1 overflow-auto p-4 border-t">

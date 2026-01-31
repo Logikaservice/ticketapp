@@ -1108,6 +1108,7 @@ module.exports = (pool, io) => {
       if (prw) {
         resp.pending_router_wifi_task = { task_id: prw.task_id, router_ip: prw.router_ip, username: prw.username, password: prw.password, router_model: prw.router_model || 'AGCOMBO', device_id: prw.device_id };
         pendingRouterWifiTasks.delete(agentId);
+        console.log(`📡 Router WiFi: task ${prw.task_id} inviato a agent_id=${agentId}`);
       }
       res.json(resp);
     } catch (err) {
@@ -6286,6 +6287,7 @@ pause
         device_id: device_id,
         created_at: Date.now()
       });
+      console.log(`📡 Router WiFi: task ${taskId} creato per agent_id=${agentId}, router ${ip}`);
       res.json({ task_id: taskId, deferred: true, message: 'L\'agent recupererà i dispositivi al prossimo heartbeat (entro ~5 min).' });
     } catch (err) {
       console.error('❌ Errore router-wifi-devices/request:', err);
@@ -6362,6 +6364,7 @@ pause
       created_count: createdCount,
       at: Date.now()
     });
+    console.log(`📡 Router WiFi: risultato task ${task_id} - success=${!!success}, devices=${Array.isArray(devices) ? devices.length : 0}, created=${createdCount}`);
     res.json({ ok: true });
   });
 
