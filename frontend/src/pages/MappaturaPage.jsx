@@ -1469,7 +1469,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                         <line
                                             key={`link-${i}`}
                                             x1={src.x} y1={src.y} x2={tgt.x} y2={tgt.y}
-                                            stroke={isOffline ? "#fca5a5" : "#cbd5e1"}
+                                            stroke={isOffline ? "#94a3b8" : "#cbd5e1"}
                                             strokeWidth="1"
                                             strokeDasharray={isOffline ? "4,4" : "0"}
                                         />
@@ -1520,9 +1520,13 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                             } catch (_) { }
                                         }}
                                     >
+                                        {/* Warning Pulse Effect (Ping) - Più affidabile di shadow animation */}
+                                        {hasIssues && (
+                                            <span className="absolute inline-flex h-full w-full rounded-xl bg-red-400 opacity-75 animate-ping -z-10"></span>
+                                        )}
+
                                         {/* Nodo Stile 'Blueprint' */}
                                         <div
-                                            style={{ animation: hasIssues ? 'pulseShadow 2s infinite' : undefined }}
                                             className={`
                                         relative w-12 h-12 rounded-xl flex items-center justify-center border-2 transition-all duration-300 bg-white
                                         ${isSelected ? 'border-blue-500 shadow-lg scale-110 ring-2 ring-blue-200' : 'border-slate-200 shadow-sm'}
