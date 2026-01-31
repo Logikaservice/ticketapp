@@ -1557,6 +1557,16 @@ module.exports = (pool, io) => {
         return res.status(400).json({ error: 'devices deve essere un array' });
       }
 
+      // BLOCCO TEMPORANEO: Impedisci all'agent Theorica (ID 11) di inviare dati
+      if (agentId === 11) {
+        console.log('⛔ BLOCCO TEMPORANEO: Agent Theorica (ID 11) bloccato temporaneamente');
+        return res.status(200).json({
+          success: true,
+          message: 'Agent temporaneamente bloccato per manutenzione',
+          devicesProcessed: 0
+        });
+      }
+
       // Aggiorna/inserisci dispositivi
       const deviceResults = [];
       console.log(`📥 Ricevuto payload scan-results: ${devices.length} dispositivi, ${changes ? changes.length : 0} cambiamenti`);
