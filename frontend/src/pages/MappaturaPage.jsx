@@ -1364,7 +1364,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     {/* Canvas */}
                     <div
                         ref={canvasContainerRef}
-                        className="flex-1 min-h-0 bg-gray-100 relative overflow-hidden cursor-move touch-none"
+                        className="flex-1 min-h-0 bg-white relative overflow-hidden cursor-move touch-none"
                         onClick={() => {
                             if (justDroppedRef.current) {
                                 justDroppedRef.current = false;
@@ -1394,8 +1394,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         style={{ cursor: isDraggingCanvas ? 'grabbing' : 'grab' }}
                     >
                         <div
-                            className="absolute -inset-[500%] pointer-events-none opacity-10"
-                            style={{ backgroundImage: 'radial-gradient(#9ca3af 1px, transparent 1px)', backgroundSize: `${20 * scale}px ${20 * scale}px`, backgroundPosition: `${offset.x}px ${offset.y}px` }}
+                            className="absolute -inset-[500%] pointer-events-none"
+                            style={{ backgroundImage: 'radial-gradient(#cbd5e1 2px, transparent 2px)', backgroundSize: `${40 * scale}px ${40 * scale}px`, backgroundPosition: `${offset.x}px ${offset.y}px` }}
                         />
                         {loading && (
                             <div className="absolute inset-0 flex items-center justify-center z-50 bg-white/50 backdrop-blur-sm pointer-events-none">
@@ -1432,66 +1432,94 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     return <line key={`link-${i}`} x1={src.x} y1={src.y} x2={tgt.x} y2={tgt.y} stroke="#94a3b8" strokeWidth="2" />;
                                 })}
                             </svg>
-                            {nodes.map(node => (
-                                <div
-                                    key={node.id}
-                                    className="absolute flex flex-col items-center justify-center pointer-events-auto"
-                                    style={{
-                                        left: node.x, top: node.y, transform: 'translate(-50%, -50%)',
-                                        width: 48, height: 48,
-                                        cursor: node.locked ? 'not-allowed' : 'pointer',
-                                        zIndex: selectedNode?.id === node.id ? 50 : 10
-                                    }}
-                                    onMouseDown={(e) => handleNodeMouseDown(e, node)}
-                                    onMouseEnter={() => setHoveredNode(node)}
-                                    onMouseLeave={() => setHoveredNode(null)}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (reassociateChildNode) {
-                                            if (node.id === reassociateChildNode.id) return;
-                                            associateChildToParent(node, reassociateChildNode.details || reassociateChildNode);
-                                            setReassociateChildNode(null);
-                                            setSelectedNode(reassociateChildNode);
-                                            setSelectedDevice(null);
-                                            return;
-                                        }
-                                        setSelectedNode(node);
-                                        setSelectedDevice(null);
-                                    }}
-                                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'copy'; }}
-                                    onDrop={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        try {
-                                            const raw = e.dataTransfer.getData('application/json');
-                                            if (!raw) return;
-                                            const { device } = JSON.parse(raw);
-                                            if (device) associateChildToParent(node, device);
-                                        } catch (_) { }
-                                    }}
-                                >
+                            {nodes.map(node => {
+                                const isOnline = !hasDisconnectionIssues(node);
+                                const isHovered = hoveredNode?.id === node.id;
+                                const isSelected = selectedNode?.id === node.id;
+
+                                return (
                                     <div
-                                        className={`w-full h-full rounded-full flex items-center justify-center shadow-lg border-2 ${getNodeColor(node)} ${selectedNode?.id === node.id ? 'ring-4 ring-blue-300' : ''} hover:scale-110 transition-transform relative`}
-                                        style={hasDisconnectionIssues(node) ? {
-                                            animation: 'pulseRedGlow 2s ease-in-out infinite'
-                                        } : {}}
+                                        key={node.id}
+                                        className="absolute flex flex-col items-center justify-center pointer-events-auto"
+                                        style={{
+                                            left: node.x, top: node.y, transform: 'translate(-50%, -50%)',
+                                            width: 48, height: 48,
+                                            cursor: node.locked ? 'not-allowed' : 'pointer',
+                                            zIndex: isSelected ? 50 : 10
+                                        }}
+                                        onMouseDown={(e) => handleNodeMouseDown(e, node)}
+                                        onMouseEnter={() => setHoveredNode(node)}
+                                        onMouseLeave={() => setHoveredNode(null)}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (reassociateChildNode) {
+                                                if (node.id === reassociateChildNode.id) return;
+                                                associateChildToParent(node, reassociateChildNode.details || reassociateChildNode);
+                                                setReassociateChildNode(null);
+                                                setSelectedNode(reassociateChildNode);
+                                                setSelectedDevice(null);
+                                                return;
+                                            }
+                                            setSelectedNode(node);
+                                            setSelectedDevice(null);
+                                        }}
+                                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'copy'; }}
+                                        onDrop={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            try {
+                                                const raw = e.dataTransfer.getData('application/json');
+                                                if (!raw) return;
+                                                const { device } = JSON.parse(raw);
+                                                if (device) associateChildToParent(node, device);
+                                            } catch (_) { }
+                                        }}
                                     >
-                                        {drawIcon(node.type)}
-                                        {/* Indicatore lock se il nodo è bloccato */}
-                                        {node.locked && (
-                                            <div className="absolute -top-1 -right-1 bg-purple-600 rounded-full p-0.5" title="Nodo bloccato">
-                                                <Lock size={10} className="text-white" />
+                                        {/* Nodo Stile 'Blueprint' */}
+                                        <div className={`
+                                        relative w-12 h-12 rounded-xl flex items-center justify-center border-2 transition-all duration-300 bg-white
+                                        ${isSelected ? 'border-blue-500 shadow-lg scale-110 ring-2 ring-blue-200' : 'border-slate-200 shadow-sm'}
+                                        ${!isOnline ? 'border-red-200 bg-red-50' : ''}
+                                        hover:border-blue-400 hover:shadow-md hover:scale-105
+                                    `}>
+                                            {/* Icona */}
+                                            <div className={`transition-colors duration-300 ${isSelected ? 'text-blue-600' :
+                                                (!isOnline ? 'text-red-400' : 'text-slate-600')
+                                                }`}>
+                                                {drawIcon(node.type)}
                                             </div>
-                                        )}
+
+                                            {/* LED Status */}
+                                            <div className={`
+                                            absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white
+                                            ${isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse' : 'bg-red-500'}
+                                        `}></div>
+
+                                            {/* Lock Icon */}
+                                            {node.locked && (
+                                                <div className="absolute -top-1 -right-1 bg-purple-100 rounded-full p-0.5 border border-purple-200" title="Nodo bloccato">
+                                                    <Lock size={8} className="text-purple-600" />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Etichetta Stile 'Blueprint' */}
+                                        <div className={`
+                                        absolute top-full mt-2 flex flex-col items-center pointer-events-none whitespace-nowrap z-50 transition-all duration-300
+                                        ${isHovered || isSelected ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-90'}
+                                    `}>
+                                            <span className={`text-[9px] font-mono font-medium leading-none mb-0.5 ${isOnline ? 'text-blue-500' : 'text-red-400'}`}>
+                                                {node.ip.startsWith('virtual-') ? 'VIRTUAL' : node.ip}
+                                            </span>
+                                            {node.label && node.label !== node.ip && (
+                                                <span className="text-[10px] font-bold text-slate-700 tracking-tight bg-white/80 px-1.5 py-0.5 rounded shadow-sm border border-slate-100/50 backdrop-blur-[1px]">
+                                                    {node.label}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="absolute top-full mt-1 bg-white/60 backdrop-blur-[1px] px-1.5 py-0.5 rounded shadow-sm border border-gray-100/30 pointer-events-none text-center whitespace-nowrap z-50">
-                                        <div className="leading-none text-gray-500 font-mono text-[7px] opacity-80 mb-0.5">{node.ip.startsWith('virtual-') ? 'VIRTUAL' : node.ip}</div>
-                                        {node.label && node.label !== node.ip && (
-                                            <div className="leading-none text-gray-700 font-medium text-[8px]">{node.label}</div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
 
                         {/* Tooltip al hover */}
