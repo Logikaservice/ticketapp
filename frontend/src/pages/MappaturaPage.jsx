@@ -1484,10 +1484,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                             </div>
                                         )}
                                     </div>
-                                    <div className="absolute top-full mt-2 bg-white/90 px-2 py-1 rounded text-[10px] font-medium shadow text-gray-700 border border-gray-200 pointer-events-none text-center whitespace-nowrap z-50">
-                                        <div className="leading-tight text-gray-500 font-mono text-[9px]">{node.ip}</div>
+                                    <div className="absolute top-full mt-1 bg-white/60 backdrop-blur-[1px] px-1.5 py-0.5 rounded shadow-sm border border-gray-100/30 pointer-events-none text-center whitespace-nowrap z-50">
+                                        <div className="leading-none text-gray-500 font-mono text-[7px] opacity-80 mb-0.5">{node.ip.startsWith('virtual-') ? 'VIRTUAL' : node.ip}</div>
                                         {node.label && node.label !== node.ip && (
-                                            <div className="leading-tight font-bold text-gray-800 mt-0.5">{node.label}</div>
+                                            <div className="leading-none text-gray-700 font-medium text-[8px]">{node.label}</div>
                                         )}
                                     </div>
                                 </div>
