@@ -1174,11 +1174,13 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
 
     // Verifica se un nodo ha problemi di disconnessione continua o cambi IP
     const hasDisconnectionIssues = (node) => {
-        // Un dispositivo ha problemi se ha flag specifici dal backend o storico instabile
-        // Nota: INDIPENDENTE dallo stato attuale (online/offline) finché l'avviso persiste
-        if (node.details?.has_connection_issues) return true;
-        if (node.details?.status_changes_count > 3) return true;
-        if (node.details?.previous_ip) return true;
+        const d = node.details || {};
+        // Controlli espliciti standard
+        if (d.has_connection_issues) return true; // Flag specifico backend
+        if (d.status_changes_count > 3) return true; // Troppi cambi stato
+        if (d.previous_ip) return true; // Cambio IP
+        // Controlli euristici
+        if (d.warning || d.error || d.alert || d.is_unstable) return true;
         return false;
     };
 
@@ -1590,6 +1592,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                 <div className="text-xs text-gray-300 space-y-1">
                                     <div><span className="text-gray-400">Utente:</span> {hoveredNode.details?.device_username || '-'}</div>
                                     <div><span className="text-gray-400">Percorso:</span> {hoveredNode.details?.device_path || '-'}</div>
+                                    <div className="pt-2 mt-2 border-t border-gray-700 font-mono text-[9px] text-gray-500 break-all leading-tight opacity-75">
+                                        DEBUG: hasIssues={hasDisconnectionIssues(hoveredNode) ? 'Y' : 'N'}
+                                        <br />
+                                        Data: {JSON.stringify(hoveredNode.details || {}).substring(0, 200)}
+                                    </div>
                                 </div>
                             </div>
                         )}
