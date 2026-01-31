@@ -20,6 +20,10 @@ module.exports = (pool, io) => {
   const pendingUnifiTests = new Map(); // agentId -> { test_id, url, username, password, created_at }
   const unifiTestResults = new Map();  // test_id -> { success, message, at }
 
+  // Mappe per richiesta dispositivi WiFi da router (AGCOMBO etc.) - delegata all'agent
+  const pendingRouterWifiTasks = new Map(); // agentId -> { task_id, router_ip, username, password, router_model, device_id, created_at }
+  const routerWifiResults = new Map();      // task_id -> { success, devices: [], error, at }
+
   // Funzione helper per inizializzare le tabelle se non esistono
   const initTables = async () => {
     try {
@@ -1099,6 +1103,11 @@ module.exports = (pool, io) => {
       if (pt) {
         resp.pending_unifi_test = { test_id: pt.test_id, url: pt.url, username: pt.username, password: pt.password };
         pendingUnifiTests.delete(agentId);
+      }
+      const prw = pendingRouterWifiTasks.get(agentId);
+      if (prw) {
+        resp.pending_router_wifi_task = { task_id: prw.task_id, router_ip: prw.router_ip, username: prw.username, password: prw.password, router_model: prw.router_model || 'AGCOMBO', device_id: prw.device_id };
+        pendingRouterWifiTasks.delete(agentId);
       }
       res.json(resp);
     } catch (err) {
@@ -2323,7 +2332,7 @@ module.exports = (pool, io) => {
           nd.vendor, 
           nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
           nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port, nd.notes, nd.is_manual_type, nd.ip_history, nd.additional_ips, nd.is_new_device, nd.router_model,
-          na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
+          nd.agent_id, na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
          WHERE na.azienda_id = $1
@@ -6246,6 +6255,60 @@ pause
       return res.json({ status: 'pending' });
     }
     res.json({ status: r.success ? 'ok' : 'error', message: r.message });
+  });
+
+  // POST /api/network-monitoring/router-wifi-devices/request
+  // Richiede all'agent di leggere i dispositivi WiFi dal router (AGCOMBO, etc.)
+  router.post('/router-wifi-devices/request', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { device_id, agent_id, router_ip, username, password } = req.body;
+      if (!device_id || !agent_id || !username || !password) {
+        return res.status(400).json({ error: 'Richiesti: device_id, agent_id, username, password' });
+      }
+      const dev = await pool.query(
+        'SELECT nd.id, nd.ip_address, nd.agent_id, na.azienda_id FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id WHERE nd.id = $1',
+        [device_id]
+      );
+      if (dev.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato' });
+      const ip = (router_ip || dev.rows[0].ip_address || '').trim();
+      if (!ip) return res.status(400).json({ error: 'IP router non disponibile (specifica router_ip)' });
+      const isPrivate = /^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(ip);
+      if (!isPrivate) return res.status(400).json({ error: 'Solo router su rete locale (192.168.x, 10.x, 172.16-31.x) supportati. L\'agent deve essere sulla stessa rete.' });
+      const agentId = Number(agent_id);
+      const taskId = 'rw-' + Date.now() + '-' + require('crypto').randomBytes(4).toString('hex');
+      pendingRouterWifiTasks.set(agentId, {
+        task_id: taskId,
+        router_ip: ip,
+        username: String(username).trim(),
+        password: String(password),
+        router_model: (dev.rows[0].router_model || 'AGCOMBO'),
+        device_id: device_id,
+        created_at: Date.now()
+      });
+      res.json({ task_id: taskId, deferred: true, message: 'L\'agent recupererà i dispositivi al prossimo heartbeat (entro ~5 min).' });
+    } catch (err) {
+      console.error('❌ Errore router-wifi-devices/request:', err);
+      res.status(500).json({ error: err.message || 'Errore interno' });
+    }
+  });
+
+  // L'agent invia i dispositivi WiFi letti dal router
+  router.post('/agent/router-wifi-result', authenticateAgent, async (req, res) => {
+    const { task_id, success, devices, error } = req.body || {};
+    if (!task_id) return res.status(400).json({ error: 'task_id richiesto' });
+    routerWifiResults.set(task_id, { success: !!success, devices: Array.isArray(devices) ? devices : [], error: String(error || ''), at: Date.now() });
+    res.json({ ok: true });
+  });
+
+  // Il frontend interroga l'esito della lettura dispositivi WiFi
+  router.get('/router-wifi-result/:task_id', authenticateToken, async (req, res) => {
+    const r = routerWifiResults.get(req.params.task_id);
+    if (!r) return res.json({ status: 'pending' });
+    if (Date.now() - r.at > 15 * 60 * 1000) {
+      routerWifiResults.delete(req.params.task_id);
+      return res.json({ status: 'pending' });
+    }
+    res.json({ status: r.success ? 'ok' : 'error', devices: r.devices || [], error: r.error || '' });
   });
 
   // Endpoint per sincronizzare manualmente Unifi

@@ -394,6 +394,124 @@ function Check-UnifiUpdates {
     }
 }
 
+# Recupera dispositivi WiFi dal router (AGCOMBO/TIM MediaAccess) e invia al server
+function Invoke-RouterWifiFetchAndReport {
+    param(
+        [string]$TaskId,
+        [string]$RouterIp,
+        [string]$Username,
+        [string]$Password,
+        [string]$RouterModel,
+        [string]$ServerUrl,
+        [string]$ApiKey
+    )
+    $devices = @()
+    $errMsg = ""
+    try {
+        $base = "http://$RouterIp"
+        Write-Log "Router WiFi: connessione a $base (modello: $RouterModel)..." "INFO"
+        $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+        $session.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        
+        # Login: TIM/AGCOMBO usa spesso form POST - prova vari endpoint
+        $loginPaths = @("/", "/login", "/cgi-bin/login", "/authenticate")
+        $loggedIn = $false
+        foreach ($path in $loginPaths) {
+            try {
+                $loginUrl = "$base$path"
+                # Prova username/password (standard) o user/pwd
+                $body = if ($path -eq "/") { "user=$([uri]::EscapeDataString($Username))&pwd=$([uri]::EscapeDataString($Password))" } else { "username=$([uri]::EscapeDataString($Username))&password=$([uri]::EscapeDataString($Password))" }
+                $r = Invoke-WebRequest -Uri $loginUrl -Method Post -Body $body -ContentType "application/x-www-form-urlencoded" -WebSession $session -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
+                if ($r.StatusCode -eq 200 -and $r.Content -notmatch "login|Login|accesso") { $loggedIn = $true; break }
+            }
+            catch { }
+        }
+        
+        # Alternativa: Basic Auth (alcuni modem TIM)
+        if (-not $loggedIn) {
+            try {
+                $cred = [System.Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("${Username}:${Password}"))
+                $h = @{ Authorization = "Basic $cred" }
+                $r = Invoke-WebRequest -Uri $base -Headers $h -WebSession $session -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
+                $loggedIn = $true
+            }
+            catch { }
+        }
+        
+        if (-not $loggedIn) {
+            $errMsg = "Login fallito: credenziali errate o interfaccia non supportata"
+            throw $errMsg
+        }
+        
+        # Pagina dispositivi: TIM MediaAccess "Il mio MediaAccess Gateway" - prova varie URL
+        $deviceUrls = @("$base/", "$base/index.html", "$base/device-modal.lp", "$base/modals/device-modal.lp")
+        $html = ""
+        foreach ($url in $deviceUrls) {
+            try {
+                $resp = Invoke-WebRequest -Uri $url -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+                $html = $resp.Content
+                if ($html -match "Host-|192\.168\.|dispositiv|device") { break }
+            }
+            catch { }
+        }
+        
+        if (-not $html) {
+            $errMsg = "Impossibile recuperare la pagina dispositivi"
+            throw $errMsg
+        }
+        
+        # Estrai MAC e IP dall'HTML - pattern comuni: MAC (xx:xx:xx:xx:xx:xx) e IP (d.d.d.d)
+        $macPattern = '([0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2})'
+        $ipPattern = '\b(192\.168\.\d{1,3}\.\d{1,3})\b'
+        
+        # Cerca blocchi che contengono MAC e IP vicini (es. in una riga o div)
+        $lines = $html -split "`n|>"
+        $seen = @{}
+        foreach ($line in $lines) {
+            if ($line -match $macPattern -and $line -match $ipPattern) {
+                $mac = $matches[1] -replace '-', ':'
+                $ip = [regex]::Match($line, $ipPattern).Value
+                $key = "$mac|$ip"
+                if (-not $seen[$key]) {
+                    $seen[$key] = $true
+                    $devices += @{ mac = $mac; ip = $ip; hostname = "" }
+                }
+            }
+        }
+        
+        # Fallback: cerca MAC e IP in tutto l'HTML anche non sulla stessa riga (ordine MAC poi IP)
+        if ($devices.Count -eq 0) {
+            $allMacs = [regex]::Matches($html, $macPattern) | ForEach-Object { $_.Value -replace '-', ':' }
+            $allIps = [regex]::Matches($html, $ipPattern) | ForEach-Object { $_.Value } | Where-Object { $_ -ne $RouterIp -and $_ -notmatch "255$" }
+            $idx = 0
+            foreach ($mac in $allMacs) {
+                if ($mac -match "00:00:00:00:00|FF:FF:FF:FF:FF") { continue }
+                $ip = if ($idx -lt $allIps.Count) { $allIps[$idx] } else { "" }
+                $idx++
+                $devices += @{ mac = $mac; ip = $ip; hostname = "" }
+            }
+        }
+        
+        Write-Log "Router WiFi: trovati $($devices.Count) dispositivi" "INFO"
+    }
+    catch {
+        $errMsg = if ($_.Exception.Message) { $_.Exception.Message } else { "Errore sconosciuto" }
+        Write-Log "Router WiFi (AGCOMBO): $errMsg" "WARN"
+    }
+    
+    $resultUrl = "$ServerUrl/api/network-monitoring/agent/router-wifi-result"
+    $bodyObj = @{ task_id = $TaskId; success = ($errMsg -eq ""); devices = $devices; error = $errMsg }
+    $body = $bodyObj | ConvertTo-Json -Depth 4
+    $h = @{ "Content-Type" = "application/json"; "X-API-Key" = $ApiKey }
+    try {
+        Invoke-RestMethod -Uri $resultUrl -Method POST -Headers $h -Body $body -TimeoutSec 15 -ErrorAction Stop | Out-Null
+        Write-Log "Risultato Router WiFi inviato: $($devices.Count) dispositivi" "INFO"
+    }
+    catch {
+        Write-Log "Invio risultato Router WiFi fallito: $_" "WARN"
+    }
+}
+
 # Esegue un test di connessione Unifi (login + stat/device) e invia l'esito al server (per "Prova connessione" da interfaccia)
 function Invoke-UnifiConnectionTestAndReport {
     param(
@@ -2601,6 +2719,16 @@ while ($script:isRunning) {
                         }
                         catch {
                             Write-Log "Errore test Unifi (Prova connessione): $_" "WARN"
+                        }
+                    }
+                    # Recupera dispositivi WiFi dal router (AGCOMBO etc.) richiesto da interfaccia
+                    if ($heartbeatResult.pending_router_wifi_task) {
+                        $prw = $heartbeatResult.pending_router_wifi_task
+                        try {
+                            Invoke-RouterWifiFetchAndReport -TaskId $prw.task_id -RouterIp $prw.router_ip -Username $prw.username -Password $prw.password -RouterModel $prw.router_model -ServerUrl $config.server_url -ApiKey $config.api_key
+                        }
+                        catch {
+                            Write-Log "Errore recupero dispositivi WiFi da router: $_" "WARN"
                         }
                     }
                 }

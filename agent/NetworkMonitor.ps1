@@ -242,6 +242,41 @@ function Check-UnifiUpdates {
     }
 }
 
+# Recupera dispositivi WiFi dal router (AGCOMBO/TIM) e invia al server
+function Invoke-RouterWifiFetchAndReport {
+    param([string]$TaskId,[string]$RouterIp,[string]$Username,[string]$Password,[string]$RouterModel,[string]$ServerUrl,[string]$ApiKey)
+    $devices=@(); $errMsg=""
+    try {
+        $base="http://$RouterIp"; $session=New-Object Microsoft.PowerShell.Commands.WebRequestSession
+        $session.UserAgent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        $loginPaths=@("/","/login","/cgi-bin/login")
+        $loggedIn=$false
+        foreach($path in $loginPaths){
+            try{
+                $body=if($path -eq "/"){"user=$([uri]::EscapeDataString($Username))&pwd=$([uri]::EscapeDataString($Password))"}else{"username=$([uri]::EscapeDataString($Username))&password=$([uri]::EscapeDataString($Password))"}
+                $r=Invoke-WebRequest -Uri "$base$path" -Method Post -Body $body -ContentType "application/x-www-form-urlencoded" -WebSession $session -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
+                if($r.StatusCode -eq 200 -and $r.Content -notmatch "login|Login"){$loggedIn=$true;break}
+            }catch{}
+        }
+        if(-not $loggedIn){
+            try{$cred=[System.Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("${Username}:${Password}")); $r=Invoke-WebRequest -Uri $base -Headers @{Authorization="Basic $cred"} -WebSession $session -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop; $loggedIn=$true}catch{}
+        }
+        if(-not $loggedIn){$errMsg="Login fallito";throw $errMsg}
+        $html=""
+        foreach($url in @("$base/","$base/index.html","$base/device-modal.lp")){
+            try{$resp=Invoke-WebRequest -Uri $url -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop; $html=$resp.Content; if($html -match "Host-|192\.168\.|dispositiv"){break}}catch{}
+        }
+        if(-not $html){$errMsg="Pagina dispositivi non recuperata";throw $errMsg}
+        $macPattern='([0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2})'
+        $ipPattern='\b(192\.168\.\d{1,3}\.\d{1,3})\b'
+        $lines=$html -split "`n|>"; $seen=@{}
+        foreach($line in $lines){if($line -match $macPattern -and $line -match $ipPattern){$mac=$matches[1] -replace '-',':'; $ip=[regex]::Match($line,$ipPattern).Value; $key="$mac|$ip"; if(-not $seen[$key]){$seen[$key]=$true; $devices+=@{mac=$mac;ip=$ip;hostname=""}}}}
+        if($devices.Count -eq 0){$allMacs=[regex]::Matches($html,$macPattern)|%{$_.Value -replace '-',':'}; $allIps=[regex]::Matches($html,$ipPattern)|%{$_.Value}|?{$_ -ne $RouterIp -and $_ -notmatch "255$"}; $idx=0; foreach($mac in $allMacs){if($mac -match "00:00:00|FF:FF:FF"){continue}; $ip=if($idx -lt $allIps.Count){$allIps[$idx]}else{""}; $idx++; $devices+=@{mac=$mac;ip=$ip;hostname=""}}}
+        Write-Log "Router WiFi: trovati $($devices.Count) dispositivi" "INFO"
+    }catch{$errMsg=if($_.Exception.Message){$_.Exception.Message}else{"Errore"}; Write-Log "Router WiFi: $errMsg" "WARN"}
+    try{$body=@{task_id=$TaskId;success=($errMsg -eq "");devices=$devices;error=$errMsg}|ConvertTo-Json -Depth 4; Invoke-RestMethod -Uri "$ServerUrl/api/network-monitoring/agent/router-wifi-result" -Method POST -Headers @{"Content-Type"="application/json";"X-API-Key"=$ApiKey} -Body $body -TimeoutSec 15 -ErrorAction Stop|Out-Null; Write-Log "Risultato Router WiFi inviato" "INFO"}catch{Write-Log "Invio risultato Router WiFi fallito: $_" "WARN"}
+}
+
 # Test connessione Unifi richiesto da interfaccia ("Prova connessione"): esegue login+stat/device e invia esito al server
 function Invoke-UnifiConnectionTestAndReport {
     param([string]$TestId, [string]$Url, [string]$Username, [string]$Password, [string]$ServerUrl, [string]$ApiKey)
@@ -861,6 +896,14 @@ try {
             Invoke-UnifiConnectionTestAndReport -TestId $pu.test_id -Url $pu.url -Username $pu.username -Password $pu.password -ServerUrl $config.server_url -ApiKey $config.api_key
         }
         catch { Write-Log "Errore test Unifi (Prova connessione): $_" "WARN" }
+    }
+    # Recupera dispositivi WiFi dal router (AGCOMBO etc.)
+    if ($heartbeatResult.pending_router_wifi_task) {
+        $prw = $heartbeatResult.pending_router_wifi_task
+        try {
+            Invoke-RouterWifiFetchAndReport -TaskId $prw.task_id -RouterIp $prw.router_ip -Username $prw.username -Password $prw.password -RouterModel $prw.router_model -ServerUrl $config.server_url -ApiKey $config.api_key
+        }
+        catch { Write-Log "Errore Router WiFi: $_" "WARN" }
     }
     
     # Recupera configurazione Unifi (se presente sul server)
