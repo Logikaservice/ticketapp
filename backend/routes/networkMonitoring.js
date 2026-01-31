@@ -1557,15 +1557,6 @@ module.exports = (pool, io) => {
         return res.status(400).json({ error: 'devices deve essere un array' });
       }
 
-      // BLOCCO TEMPORANEO: Impedisci all'agent Theorica (ID 11) di inviare dati
-      if (agentId === 11) {
-        console.log('⛔ BLOCCO TEMPORANEO: Agent Theorica (ID 11) bloccato temporaneamente');
-        return res.status(200).json({
-          success: true,
-          message: 'Agent temporaneamente bloccato per manutenzione',
-          devicesProcessed: 0
-        });
-      }
 
       // Aggiorna/inserisci dispositivi
       const deviceResults = [];
@@ -1680,15 +1671,60 @@ module.exports = (pool, io) => {
         if (vendor && vendor.length > 250) vendor = vendor.substring(0, 250);
 
         // 4. Find Existing Device (Priority: MAC, then IP)
+        // IMPORTANTE: Cerchiamo TUTTI i duplicati e li eliminiamo, mantenendo solo il più recente
         let existingDevice = null;
         if (normalizedMac) {
-          const res = await pool.query("SELECT * FROM network_devices WHERE agent_id = $1 AND REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', '') = REPLACE(REPLACE(UPPER($2), ':', ''), '-', '') LIMIT 1", [agentId, normalizedMac]);
-          if (res.rows.length > 0) existingDevice = res.rows[0];
+          const res = await pool.query("SELECT * FROM network_devices WHERE agent_id = $1 AND REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', '') = REPLACE(REPLACE(UPPER($2), ':', ''), '-', '') ORDER BY last_seen DESC NULLS LAST", [agentId, normalizedMac]);
+
+          if (res.rows.length > 0) {
+            existingDevice = res.rows[0]; // Il più recente
+
+            // Se ci sono duplicati, elimina quelli vecchi
+            if (res.rows.length > 1) {
+              console.log(`⚠️  Trovati ${res.rows.length} duplicati per MAC ${normalizedMac} (Agent ${agentId}). Rimuovo ${res.rows.length - 1} duplicati.`);
+
+              for (let i = 1; i < res.rows.length; i++) {
+                const duplicate = res.rows[i];
+
+                // Aggiorna parent_device_id references
+                await pool.query(
+                  'UPDATE network_devices SET parent_device_id = $1 WHERE parent_device_id = $2',
+                  [existingDevice.id, duplicate.id]
+                );
+
+                // Elimina il duplicato
+                await pool.query('DELETE FROM network_devices WHERE id = $1', [duplicate.id]);
+                console.log(`   ❌ Rimosso duplicato ID=${duplicate.id}, IP=${duplicate.ip_address}`);
+              }
+            }
+          }
         }
 
         if (!existingDevice) {
-          const res = await pool.query('SELECT * FROM network_devices WHERE agent_id = $1 AND ip_address = $2 LIMIT 1', [agentId, ip_address]);
-          if (res.rows.length > 0) existingDevice = res.rows[0];
+          const res = await pool.query('SELECT * FROM network_devices WHERE agent_id = $1 AND ip_address = $2 ORDER BY last_seen DESC NULLS LAST', [agentId, ip_address]);
+
+          if (res.rows.length > 0) {
+            existingDevice = res.rows[0]; // Il più recente
+
+            // Se ci sono duplicati per IP (senza MAC), elimina quelli vecchi
+            if (res.rows.length > 1) {
+              console.log(`⚠️  Trovati ${res.rows.length} duplicati per IP ${ip_address} (Agent ${agentId}). Rimuovo ${res.rows.length - 1} duplicati.`);
+
+              for (let i = 1; i < res.rows.length; i++) {
+                const duplicate = res.rows[i];
+
+                // Aggiorna parent_device_id references
+                await pool.query(
+                  'UPDATE network_devices SET parent_device_id = $1 WHERE parent_device_id = $2',
+                  [existingDevice.id, duplicate.id]
+                );
+
+                // Elimina il duplicato
+                await pool.query('DELETE FROM network_devices WHERE id = $1', [duplicate.id]);
+                console.log(`   ❌ Rimosso duplicato ID=${duplicate.id}, MAC=${duplicate.mac_address || 'N/A'}`);
+              }
+            }
+          }
         }
 
         // KeePass Lookup (Enrichment only)
