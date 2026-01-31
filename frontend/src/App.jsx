@@ -151,7 +151,7 @@ export default function TicketApp() {
     nomerichiedente: ''
   });
   const [showNetworkMonitoring, setShowNetworkMonitoring] = useState(false);
-  // const [showNetworkMap, setShowNetworkMap] = useState(false); // Rimosso
+  const [showNetworkMap, setShowNetworkMap] = useState(false);
   const [showMappatura, setShowMappatura] = useState(false);
   const [networkMonitoringInitialView, setNetworkMonitoringInitialView] = useState(null); // 'agents' o 'create'
   const [selectedCompanyForNavigation, setSelectedCompanyForNavigation] = useState(null); // Azienda selezionata per navigazione tra monitoraggio e mappatura
