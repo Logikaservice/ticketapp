@@ -194,7 +194,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                   <td>${device.ip_address || '-'}</td>
                   <td>${macFormatted}</td>
                   <td>${device.device_path || '-'}</td>
-                  <td>${device.device_type || '-'}</td>
+                  <td>${device.hostname || '-'}</td>
                   <td>${device.device_username || '-'}</td>
                   <td>
                     <span class="status-badge status-${device.status === 'offline' ? 'offline' :
@@ -2120,7 +2120,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 </span>
                               </div>
                             </td>
-                            <td className="py-1 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_type || '-'}</td>
+                            <td className="py-1 px-4 text-sm text-gray-600 whitespace-nowrap">{device.hostname || '-'}</td>
                             <td className="py-1 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_username || '-'}</td>
                             <td className="py-1 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_path || '-'}</td>
                             <td className="py-1 px-2 text-center whitespace-nowrap">
