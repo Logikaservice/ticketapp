@@ -1517,7 +1517,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                         <line
                                             key={`link-${i}`}
                                             x1={src.x} y1={src.y} x2={tgt.x} y2={tgt.y}
-                                            stroke={isOffline ? "#94a3b8" : "#cbd5e1"}
+                                            stroke={isOffline ? "#ef4444" : "#cbd5e1"}
                                             strokeWidth="1"
                                             strokeDasharray={isOffline ? "4,4" : "0"}
                                         />
