@@ -1768,6 +1768,42 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                         <span className={`font-bold ${display.status === 'online' ? 'text-green-600' : 'text-red-600'}`}>{display.status?.toUpperCase() || 'N/A'}</span>
                                     </div>
 
+                                    {((display.type === 'router' || display.type === 'gateway') || (display.details?.device_type === 'router' || display.details?.device_type === 'gateway')) && (
+                                        <div className="flex flex-col gap-1 border-b pb-3">
+                                            <label className="text-xs font-medium text-gray-500">Modello router</label>
+                                            <select
+                                                value={display.details?.router_model ?? ''}
+                                                onChange={async (e) => {
+                                                    const v = e.target.value || null;
+                                                    const val = v || '';
+                                                    if (isNode && selectedNode) setSelectedNode(prev => prev ? { ...prev, details: { ...prev.details, router_model: val || null } } : null);
+                                                    else if (selectedDevice) setSelectedDevice(prev => prev ? { ...prev, router_model: val || null } : null);
+                                                    if (simulationRef.current) {
+                                                        const simNodes = simulationRef.current.nodes();
+                                                        const n = simNodes.find(x => x.id === display.id);
+                                                        if (n) n.details = { ...n.details, router_model: val || null };
+                                                        setNodes([...simNodes]);
+                                                    }
+                                                    try {
+                                                        await fetch(buildApiUrl(`/api/network-monitoring/devices/${display.id}/router-model`), {
+                                                            method: 'PATCH',
+                                                            headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ router_model: val || null })
+                                                        });
+                                                    } catch (err) { console.error('Errore aggiornamento router_model', err); }
+                                                }}
+                                                className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                            >
+                                                <option value="">— Nessuno —</option>
+                                                <option value="AGCOMBO">AGCOMBO (TIM MediaAccess)</option>
+                                                <option value="FritzBox">Fritz!Box</option>
+                                                <option value="Technicolor">Technicolor (TIM HUB)</option>
+                                                <option value="Huawei">Huawei</option>
+                                                <option value="Altro">Altro</option>
+                                            </select>
+                                        </div>
+                                    )}
+
                                     <div className="border-b pb-3">
                                         <label className="text-xs font-medium text-gray-500 mb-2 block">Icona da visualizzare</label>
                                         <div className="grid grid-cols-5 gap-2">

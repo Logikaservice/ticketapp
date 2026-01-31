@@ -1,4 +1,4 @@
-﻿// routes/networkMonitoring.js
+// routes/networkMonitoring.js
 // Route per il Network Monitoring - ricezione dati dagli agent PowerShell
 
 const express = require('express');
@@ -257,6 +257,18 @@ module.exports = (pool, io) => {
       } catch (err) {
         if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
           console.warn('⚠️ Avviso aggiunta colonna notes:', err.message);
+        }
+      }
+
+      // Aggiungi colonna router_model per modello router (es. AGCOMBO, Fritz!Box)
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS router_model VARCHAR(100);
+        `);
+      } catch (err) {
+        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna router_model:', err.message);
         }
       }
 
@@ -2310,7 +2322,7 @@ module.exports = (pool, io) => {
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
-          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port, nd.notes, nd.is_manual_type, nd.ip_history, nd.additional_ips, nd.is_new_device,
+          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port, nd.notes, nd.is_manual_type, nd.ip_history, nd.additional_ips, nd.is_new_device, nd.router_model,
           na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
@@ -3068,7 +3080,7 @@ module.exports = (pool, io) => {
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.is_manual_type, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
-          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.notes,
+          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.notes, nd.router_model,
           na.agent_name, na.azienda_id, na.last_heartbeat as agent_last_seen, na.status as agent_status,
           u.azienda
          FROM network_devices nd
@@ -4728,6 +4740,29 @@ pause
       res.json({ success: true, notes: notes });
     } catch (err) {
       console.error('❌ Errore aggiornamento note:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // PATCH /api/network-monitoring/devices/:id/router-model
+  // Imposta il modello router (es. AGCOMBO, Fritz!Box) per dispositivi tipo router/gateway
+  router.patch('/devices/:id/router-model', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { router_model } = req.body;
+
+      const result = await pool.query(
+        'UPDATE network_devices SET router_model = $1 WHERE id = $2 RETURNING id, router_model',
+        [router_model?.trim() || null, id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato' });
+      }
+
+      res.json({ success: true, router_model: result.rows[0].router_model });
+    } catch (err) {
+      console.error('❌ Errore aggiornamento router_model:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });
