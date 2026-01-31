@@ -41,10 +41,11 @@ style.innerHTML = `
 `;
 document.head.appendChild(style);
 
-const RouterWifiModal = ({ deviceId, routerIp, agentId, onClose, getAuthHeader, buildApiUrl, taskId, setTaskId, devices, setDevices, error, setError, loading, setLoading }) => {
+const RouterWifiModal = ({ deviceId, routerIp, agentId, onClose, onRefreshMappa, getAuthHeader, buildApiUrl, taskId, setTaskId, devices, setDevices, error, setError, loading, setLoading }) => {
     const [username, setUsername] = useState('Administrator');
     const [password, setPassword] = useState('');
     const [ip, setIp] = useState(routerIp || '192.168.1.1');
+    const [createdCount, setCreatedCount] = useState(0);
 
     useEffect(() => {
         setIp(routerIp || '192.168.1.1');
@@ -58,9 +59,11 @@ const RouterWifiModal = ({ deviceId, routerIp, agentId, onClose, getAuthHeader, 
                 const data = await res.json();
                 if (data.status === 'ok') {
                     setDevices(data.devices || []);
+                    setCreatedCount(data.created_count ?? 0);
                     setError('');
                     setTaskId(null);
                     setLoading(false);
+                    if (data.created_count > 0 && onRefreshMappa) onRefreshMappa();
                     return;
                 }
                 if (data.status === 'error') {
@@ -127,6 +130,9 @@ const RouterWifiModal = ({ deviceId, routerIp, agentId, onClose, getAuthHeader, 
                 </form>
                 {devices.length > 0 && (
                     <div className="flex-1 overflow-auto p-4 border-t">
+                        {createdCount > 0 && (
+                            <p className="text-green-600 text-sm font-medium mb-2">✓ {createdCount} nuovi dispositivi aggiunti alla mappa e collegati al router</p>
+                        )}
                         <h4 className="font-medium text-gray-700 mb-2">{devices.length} dispositivi trovati</h4>
                         <div className="space-y-1 text-sm">
                             {devices.map((d, i) => (
@@ -2064,6 +2070,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             routerIp={showRouterWifiModal.routerIp}
                             agentId={showRouterWifiModal.agentId}
                             onClose={() => { setShowRouterWifiModal(null); setRouterWifiTaskId(null); setRouterWifiDevices([]); setRouterWifiError(''); }}
+                            onRefreshMappa={() => setRefreshDevicesKey(k => k + 1)}
                             getAuthHeader={getAuthHeader}
                             buildApiUrl={buildApiUrl}
                             taskId={routerWifiTaskId}

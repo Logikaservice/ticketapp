@@ -402,6 +402,7 @@ function Invoke-RouterWifiFetchAndReport {
         [string]$Username,
         [string]$Password,
         [string]$RouterModel,
+        [string]$DeviceId,
         [string]$ServerUrl,
         [string]$ApiKey
     )
@@ -500,7 +501,7 @@ function Invoke-RouterWifiFetchAndReport {
     }
     
     $resultUrl = "$ServerUrl/api/network-monitoring/agent/router-wifi-result"
-    $bodyObj = @{ task_id = $TaskId; success = ($errMsg -eq ""); devices = $devices; error = $errMsg }
+    $bodyObj = @{ task_id = $TaskId; success = ($errMsg -eq ""); devices = $devices; error = $errMsg; device_id = $DeviceId }
     $body = $bodyObj | ConvertTo-Json -Depth 4
     $h = @{ "Content-Type" = "application/json"; "X-API-Key" = $ApiKey }
     try {
@@ -2725,7 +2726,7 @@ while ($script:isRunning) {
                     if ($heartbeatResult.pending_router_wifi_task) {
                         $prw = $heartbeatResult.pending_router_wifi_task
                         try {
-                            Invoke-RouterWifiFetchAndReport -TaskId $prw.task_id -RouterIp $prw.router_ip -Username $prw.username -Password $prw.password -RouterModel $prw.router_model -ServerUrl $config.server_url -ApiKey $config.api_key
+                            Invoke-RouterWifiFetchAndReport -TaskId $prw.task_id -RouterIp $prw.router_ip -Username $prw.username -Password $prw.password -RouterModel $prw.router_model -DeviceId $prw.device_id -ServerUrl $config.server_url -ApiKey $config.api_key
                         }
                         catch {
                             Write-Log "Errore recupero dispositivi WiFi da router: $_" "WARN"

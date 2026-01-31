@@ -244,7 +244,7 @@ function Check-UnifiUpdates {
 
 # Recupera dispositivi WiFi dal router (AGCOMBO/TIM) e invia al server
 function Invoke-RouterWifiFetchAndReport {
-    param([string]$TaskId,[string]$RouterIp,[string]$Username,[string]$Password,[string]$RouterModel,[string]$ServerUrl,[string]$ApiKey)
+    param([string]$TaskId,[string]$RouterIp,[string]$Username,[string]$Password,[string]$RouterModel,[string]$DeviceId,[string]$ServerUrl,[string]$ApiKey)
     $devices=@(); $errMsg=""
     try {
         $base="http://$RouterIp"; $session=New-Object Microsoft.PowerShell.Commands.WebRequestSession
@@ -274,7 +274,7 @@ function Invoke-RouterWifiFetchAndReport {
         if($devices.Count -eq 0){$allMacs=[regex]::Matches($html,$macPattern)|%{$_.Value -replace '-',':'}; $allIps=[regex]::Matches($html,$ipPattern)|%{$_.Value}|?{$_ -ne $RouterIp -and $_ -notmatch "255$"}; $idx=0; foreach($mac in $allMacs){if($mac -match "00:00:00|FF:FF:FF"){continue}; $ip=if($idx -lt $allIps.Count){$allIps[$idx]}else{""}; $idx++; $devices+=@{mac=$mac;ip=$ip;hostname=""}}}
         Write-Log "Router WiFi: trovati $($devices.Count) dispositivi" "INFO"
     }catch{$errMsg=if($_.Exception.Message){$_.Exception.Message}else{"Errore"}; Write-Log "Router WiFi: $errMsg" "WARN"}
-    try{$body=@{task_id=$TaskId;success=($errMsg -eq "");devices=$devices;error=$errMsg}|ConvertTo-Json -Depth 4; Invoke-RestMethod -Uri "$ServerUrl/api/network-monitoring/agent/router-wifi-result" -Method POST -Headers @{"Content-Type"="application/json";"X-API-Key"=$ApiKey} -Body $body -TimeoutSec 15 -ErrorAction Stop|Out-Null; Write-Log "Risultato Router WiFi inviato" "INFO"}catch{Write-Log "Invio risultato Router WiFi fallito: $_" "WARN"}
+    try{$body=@{task_id=$TaskId;success=($errMsg -eq "");devices=$devices;error=$errMsg;device_id=$DeviceId}|ConvertTo-Json -Depth 4; Invoke-RestMethod -Uri "$ServerUrl/api/network-monitoring/agent/router-wifi-result" -Method POST -Headers @{"Content-Type"="application/json";"X-API-Key"=$ApiKey} -Body $body -TimeoutSec 15 -ErrorAction Stop|Out-Null; Write-Log "Risultato Router WiFi inviato" "INFO"}catch{Write-Log "Invio risultato Router WiFi fallito: $_" "WARN"}
 }
 
 # Test connessione Unifi richiesto da interfaccia ("Prova connessione"): esegue login+stat/device e invia esito al server
@@ -901,7 +901,7 @@ try {
     if ($heartbeatResult.pending_router_wifi_task) {
         $prw = $heartbeatResult.pending_router_wifi_task
         try {
-            Invoke-RouterWifiFetchAndReport -TaskId $prw.task_id -RouterIp $prw.router_ip -Username $prw.username -Password $prw.password -RouterModel $prw.router_model -ServerUrl $config.server_url -ApiKey $config.api_key
+            Invoke-RouterWifiFetchAndReport -TaskId $prw.task_id -RouterIp $prw.router_ip -Username $prw.username -Password $prw.password -RouterModel $prw.router_model -DeviceId $prw.device_id -ServerUrl $config.server_url -ApiKey $config.api_key
         }
         catch { Write-Log "Errore Router WiFi: $_" "WARN" }
     }

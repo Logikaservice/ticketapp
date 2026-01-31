@@ -6294,9 +6294,73 @@ pause
 
   // L'agent invia i dispositivi WiFi letti dal router
   router.post('/agent/router-wifi-result', authenticateAgent, async (req, res) => {
-    const { task_id, success, devices, error } = req.body || {};
+    const { task_id, success, devices, error, device_id: routerDeviceId } = req.body || {};
     if (!task_id) return res.status(400).json({ error: 'task_id richiesto' });
-    routerWifiResults.set(task_id, { success: !!success, devices: Array.isArray(devices) ? devices : [], error: String(error || ''), at: Date.now() });
+    let createdCount = 0;
+    if (success && Array.isArray(devices) && devices.length > 0 && routerDeviceId) {
+      try {
+        await ensureTables();
+        await ensureMappaturaNodesTable();
+        const routerRes = await pool.query(
+          'SELECT nd.id, nd.agent_id, nd.mac_address, na.azienda_id FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id WHERE nd.id = $1',
+          [routerDeviceId]
+        );
+        if (routerRes.rows.length === 0) return res.status(404).json({ error: 'Router non trovato' });
+        const { id: routerId, agent_id: agentId, mac_address: routerMac, azienda_id: aziendaId } = routerRes.rows[0];
+        const normalizeMac = (mac) => mac ? String(mac).replace(/[:-]/g, '').toUpperCase() : '';
+        const routerMacNorm = normalizeMac(routerMac);
+        let routerX = 200; let routerY = 200;
+        const posRes = await pool.query(
+          `SELECT x, y FROM mappatura_nodes mn
+           INNER JOIN network_devices nd ON REPLACE(REPLACE(REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', ''), '.', ''), ' ') = REPLACE(REPLACE(REPLACE(REPLACE(UPPER(mn.mac_address), ':', ''), '-', ''), '.', ''), ' ')
+           WHERE mn.azienda_id = $1 AND nd.id = $2`,
+          [aziendaId, routerId]
+        );
+        if (posRes.rows.length > 0) {
+          routerX = parseFloat(posRes.rows[0].x) || 200;
+          routerY = parseFloat(posRes.rows[0].y) || 200;
+        }
+        for (let i = 0; i < devices.length; i++) {
+          const d = devices[i];
+          const mac = (d.mac || '').trim().replace(/-/g, ':');
+          const ip = (d.ip || '').trim();
+          if (!mac || mac.length < 12) continue;
+          const macNorm = normalizeMac(mac);
+          const exists = await pool.query(
+            `SELECT 1 FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id
+             WHERE na.azienda_id = $1 AND (REPLACE(REPLACE(REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', ''), '.', ''), ' ') = $2
+             OR (nd.ip_address = $3 AND nd.agent_id = $4))`,
+            [aziendaId, macNorm, ip, agentId]
+          );
+          if (exists.rows.length > 0) continue;
+          const ins = await pool.query(
+            `INSERT INTO network_devices (agent_id, ip_address, mac_address, parent_device_id, status) VALUES ($1, $2, $3, $4, 'online') RETURNING id`,
+            [agentId, ip || null, mac, routerId]
+          );
+          if (ins.rows.length === 0) continue;
+          createdCount++;
+          const offsetX = 60 * Math.cos((i * 2 * Math.PI) / Math.max(devices.length, 1));
+          const offsetY = 60 * Math.sin((i * 2 * Math.PI) / Math.max(devices.length, 1));
+          const x = routerX + offsetX;
+          const y = routerY + offsetY;
+          await pool.query(
+            `INSERT INTO mappatura_nodes (azienda_id, mac_address, x, y, is_locked) VALUES ($1, $2, $3, $4, false)
+             ON CONFLICT (azienda_id, mac_address) DO UPDATE SET x = EXCLUDED.x, y = EXCLUDED.y`,
+            [aziendaId, macNorm, x, y]
+          );
+        }
+        console.log(`✅ Router WiFi sync: ${createdCount} nuovi dispositivi aggiunti alla mappa (router ${routerId})`);
+      } catch (syncErr) {
+        console.error('❌ Errore sync router WiFi devices:', syncErr);
+      }
+    }
+    routerWifiResults.set(task_id, {
+      success: !!success,
+      devices: Array.isArray(devices) ? devices : [],
+      error: String(error || ''),
+      created_count: createdCount,
+      at: Date.now()
+    });
     res.json({ ok: true });
   });
 
@@ -6308,7 +6372,12 @@ pause
       routerWifiResults.delete(req.params.task_id);
       return res.json({ status: 'pending' });
     }
-    res.json({ status: r.success ? 'ok' : 'error', devices: r.devices || [], error: r.error || '' });
+    res.json({
+      status: r.success ? 'ok' : 'error',
+      devices: r.devices || [],
+      error: r.error || '',
+      created_count: r.created_count ?? 0
+    });
   });
 
   // Endpoint per sincronizzare manualmente Unifi
