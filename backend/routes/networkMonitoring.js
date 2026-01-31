@@ -737,7 +737,7 @@ module.exports = (pool, io) => {
 
       // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
       // Serve per far capire all'installer quale versione dovrebbe risultare installata.
-      const CURRENT_AGENT_VERSION = '2.6.0'; // Versione di fallback (allineata a $SCRIPT_VERSION)
+      const CURRENT_AGENT_VERSION = '2.6.3'; // Versione di fallback (allineata a $SCRIPT_VERSION)
       let agentPackageVersion = CURRENT_AGENT_VERSION;
       try {
         const projectRoot = path.resolve(__dirname, '..', '..');
@@ -3905,7 +3905,7 @@ module.exports = (pool, io) => {
       }
 
       // Versione agent per ZIP e config.json incluso (allineata a NetworkMonitorService.ps1 $SCRIPT_VERSION)
-      const CURRENT_AGENT_VERSION = '2.6.0';
+      const CURRENT_AGENT_VERSION = '2.6.3';
       const agentVersion = CURRENT_AGENT_VERSION;
       console.log(`ℹ️ Versione agent per ZIP: ${agentVersion} `);
 
@@ -6027,14 +6027,15 @@ pause
   // scaricano da /download/agent/NetworkMonitorService.ps1 e si riavviano (auto-update).
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.6.2'; // MAC normalization with colons
+      const CURRENT_AGENT_VERSION = '2.6.3'; // Router WiFi - Carica dispositivi da AGCOMBO
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
         version: CURRENT_AGENT_VERSION,
-        download_url: `${baseUrl}/agent-updates/agent-update-2.6.2.zip`,
-        release_date: '2026-01-29',
+        download_url: `${baseUrl}/agent-updates/agent-update-2.6.3.zip`,
+        release_date: '2026-01-30',
         features: [
+          'Router WiFi - Carica dispositivi da router AGCOMBO/TIM e sync automatica sulla mappa',
           'MAC Address Normalization - Formato standard con due punti (AA:BB:CC:DD:EE:FF)',
           'Switch gestiti - Sync SNMP dot1d + dot1q (fallback), parsing OID simbolici, C:\\usr, MIB',
           'Switch gestiti - dot1dTpFdbPort e dot1qTpFdbPort (Q-BRIDGE) da snmpwalk in locale',

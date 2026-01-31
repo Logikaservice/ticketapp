@@ -7,7 +7,7 @@ param(
     [switch]$TestMode = $false
 )
 
-$AGENT_VERSION = "2.5.6"
+$AGENT_VERSION = "2.6.3"
 
 # Forza TLS 1.2 per Invoke-RestMethod (compatibilità hardening TLS su Windows/Server)
 function Enable-Tls12 {
