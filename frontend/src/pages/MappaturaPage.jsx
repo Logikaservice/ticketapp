@@ -1414,6 +1414,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             return isParent ? 'bg-indigo-600 border-indigo-800' : 'bg-indigo-500 border-indigo-700';
         }
 
+        // Cloud Key / Controller WiFi: violetto
+        if (node.type === 'cloud_key') {
+            return isParent ? 'bg-violet-600 border-violet-800' : 'bg-violet-500 border-violet-700';
+        }
+
         // Offline: rosso (con lampeggio se appena cambiato, più scuro se è padre)
         if (node.status === 'offline') {
             if (isBlinking) {
@@ -1984,6 +1989,88 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                     <p className="text-gray-400 text-xs mt-1">Solo dispositivi WiFi (esclusi Ethernet). Valido per router, access point, cloud key con WiFi. Aggiunti in automatico alla mappa per tutte le aziende.</p>
                                                 </>
                                             )}
+                                        </div>
+                                    )}
+
+                                    {((display.type === 'cloud_key') || (display.details?.device_type === 'cloud_key')) && (
+                                        <div className="flex flex-col gap-1 border-b pb-3">
+                                            <label className="text-xs font-medium text-gray-500">Modello / Tipo controller</label>
+                                            <select
+                                                value={display.details?.router_model ?? ''}
+                                                onChange={async (e) => {
+                                                    const v = e.target.value || null;
+                                                    const val = v || '';
+                                                    if (isNode && selectedNode) setSelectedNode(prev => prev ? { ...prev, details: { ...prev.details, router_model: val || null } } : null);
+                                                    else if (selectedDevice) setSelectedDevice(prev => prev ? { ...prev, router_model: val || null } : null);
+                                                    if (simulationRef.current) {
+                                                        const simNodes = simulationRef.current.nodes();
+                                                        const n = simNodes.find(x => x.id === display.id);
+                                                        if (n) n.details = { ...n.details, router_model: val || null };
+                                                        setNodes([...simNodes]);
+                                                    }
+                                                    try {
+                                                        await fetch(buildApiUrl(`/api/network-monitoring/devices/${display.id}/router-model`), {
+                                                            method: 'PATCH',
+                                                            headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ router_model: val || null })
+                                                        });
+                                                    } catch (err) { console.error('Errore aggiornamento router_model', err); }
+                                                }}
+                                                className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                            >
+                                                <option value="">— Nessuno —</option>
+                                                <option value="Unifi_UCK_G2_PLUS">Ubiquiti UCK-G2-PLUS</option>
+                                                <option value="Unifi">Ubiquiti / Unifi (altro)</option>
+                                                <option value="Omada">Omada (TP-Link)</option>
+                                                <option value="Altro">Altro</option>
+                                            </select>
+                                            {(display.details?.router_model) && (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setRouterWifiDevices([]);
+                                                            setRouterWifiError('');
+                                                            setRouterWifiTaskId(null);
+                                                            setShowRouterWifiModal({ deviceId: display.id, routerIp: display.ip || display.details?.ip_address, agentId: display.details?.agent_id });
+                                                        }}
+                                                        className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-sm font-medium"
+                                                    >
+                                                        <Wifi size={16} />
+                                                        Carica AP associati
+                                                    </button>
+                                                    <p className="text-gray-400 text-xs mt-1">Recupera gli access point gestiti dal controller e li aggiunge alla mappa come figli.</p>
+                                                </>
+                                            )}
+                                            {(() => {
+                                                const childDevices = (devices || []).filter(d => d.parent_device_id === display.id);
+                                                if (childDevices.length === 0) return null;
+                                                return (
+                                                    <div className="mt-3">
+                                                        <h4 className="text-xs font-medium text-gray-600 mb-2">Antenne / AP associati</h4>
+                                                        <div className="space-y-1.5 max-h-48 overflow-auto">
+                                                            {childDevices.map((child) => {
+                                                                const nodeForChild = simulationRef.current?.nodes()?.find(n => n.id === child.id) || { id: child.id, details: child };
+                                                                return (
+                                                                    <div key={child.id} className="flex items-center justify-between gap-2 py-1.5 px-2 rounded bg-gray-50 border border-gray-100">
+                                                                        <span className="font-mono text-sm text-gray-800 truncate" title={child.hostname || child.ip_address}>{child.ip_address || '—'}</span>
+                                                                        <span className="text-gray-500 text-xs truncate flex-1 min-w-0" title={child.hostname}>{child.hostname || '—'}</span>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleRemoveFromMap(nodeForChild)}
+                                                                            className="shrink-0 px-2 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium flex items-center gap-1"
+                                                                            title="Rimuovi dalla mappa"
+                                                                        >
+                                                                            <Trash2 size={12} />
+                                                                            Elimina dalla mappa
+                                                                        </button>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     )}
 

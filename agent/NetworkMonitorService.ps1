@@ -409,6 +409,50 @@ function Invoke-RouterWifiFetchAndReport {
     $devices = @()
     $errMsg = ""
     try {
+        # Unifi / Ubiquiti Cloud Key: API stat/device (AP e dispositivi gestiti dal controller)
+        if ($RouterModel -match '^Unifi|^Ubiquiti|^UCK') {
+            $base = "https://$RouterIp"
+            Write-Log "Controller WiFi (Unifi): connessione a $base..." "INFO"
+            $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+            $loginBody = @{ username = $Username; password = $Password } | ConvertTo-Json
+            try {
+                Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null
+            }
+            catch {
+                if ($_.Exception.Response.StatusCode -eq "NotFound") {
+                    Invoke-WebRequest -Uri "$base/api/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null
+                }
+                else { throw }
+            }
+            $devicesRes = $null
+            try {
+                $devicesRes = Invoke-RestMethod -Uri "$base/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop
+            }
+            catch {
+                $devicesRes = Invoke-RestMethod -Uri "$base/proxy/network/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop
+            }
+            if ($devicesRes -and $devicesRes.data) {
+                foreach ($d in $devicesRes.data) {
+                    if (-not $d.mac -or $d.mac -match '00:00:00|FF:FF:FF') { continue }
+                    $mac = $d.mac -replace '-', ':'
+                    $ip = if ($d.ip) { $d.ip } elseif ($d.last_ip) { $d.last_ip } else { '' }
+                    $name = if ($d.name) { $d.name } else { '' }
+                    $devices += @{ mac = $mac; ip = $ip; hostname = $name }
+                }
+            }
+            Write-Log "Unifi Controller: trovati $($devices.Count) dispositivi/AP" "INFO"
+            $resultUrl = "$ServerUrl/api/network-monitoring/agent/router-wifi-result"
+            $bodyObj = @{ task_id = $TaskId; success = $true; devices = $devices; error = $errMsg; device_id = $DeviceId }
+            $body = $bodyObj | ConvertTo-Json -Depth 4
+            $h = @{ "Content-Type" = "application/json"; "X-API-Key" = $ApiKey }
+            try {
+                Invoke-RestMethod -Uri $resultUrl -Method POST -Headers $h -Body $body -TimeoutSec 15 -ErrorAction Stop | Out-Null
+                Write-Log "Risultato Controller WiFi inviato: $($devices.Count) dispositivi" "INFO"
+            }
+            catch { Write-Log "Invio risultato Controller WiFi fallito: $_" "WARN" }
+            return
+        }
+
         $base = "http://$RouterIp"
         Write-Log "Router WiFi: connessione a $base (modello: $RouterModel)..." "INFO"
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
