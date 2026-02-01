@@ -6272,7 +6272,8 @@ pause
   });
 
   // POST /api/network-monitoring/router-wifi-devices/request
-  // Richiede all'agent di leggere i dispositivi WiFi dal router (AGCOMBO, etc.)
+  // Richiede all'agent di leggere solo i dispositivi WiFi dal router (AGCOMBO, Fritz, access point, cloud key).
+  // I dispositivi creati sono nell'azienda del router (valido per tutte le aziende).
   router.post('/router-wifi-devices/request', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       const { device_id, agent_id, router_ip, username, password } = req.body;

@@ -267,11 +267,13 @@ function Invoke-RouterWifiFetchAndReport {
             try{$resp=Invoke-WebRequest -Uri $url -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop; $html=$resp.Content; if($html -match "Host-|192\.168\.|dispositiv"){break}}catch{}
         }
         if(-not $html){$errMsg="Pagina dispositivi non recuperata";throw $errMsg}
+        # Solo WiFi: estrai solo sezione Wi-Fi (AGCOMBO/TIM: Wi-Fi vs Ethernet)
+        $extractHtml=$html; if($html -match '(?si)(Wi-?Fi|WiFi|2\.4\s*GHz|5\s*GHz).*?(?=Ethernet|USB|Telefono|Controllo\s*Accesso|$)'){$extractHtml=$matches[0]}
         $macPattern='([0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2})'
         $ipPattern='\b(192\.168\.\d{1,3}\.\d{1,3})\b'
-        $lines=$html -split "`n|>"; $seen=@{}
+        $lines=$extractHtml -split "`n|>"; $seen=@{}
         foreach($line in $lines){if($line -match $macPattern -and $line -match $ipPattern){$mac=$matches[1] -replace '-',':'; $ip=[regex]::Match($line,$ipPattern).Value; $key="$mac|$ip"; if(-not $seen[$key]){$seen[$key]=$true; $devices+=@{mac=$mac;ip=$ip;hostname=""}}}}
-        if($devices.Count -eq 0){$allMacs=[regex]::Matches($html,$macPattern)|%{$_.Value -replace '-',':'}; $allIps=[regex]::Matches($html,$ipPattern)|%{$_.Value}|?{$_ -ne $RouterIp -and $_ -notmatch "255$"}; $idx=0; foreach($mac in $allMacs){if($mac -match "00:00:00|FF:FF:FF"){continue}; $ip=if($idx -lt $allIps.Count){$allIps[$idx]}else{""}; $idx++; $devices+=@{mac=$mac;ip=$ip;hostname=""}}}
+        if($devices.Count -eq 0){$allMacs=[regex]::Matches($extractHtml,$macPattern)|%{$_.Value -replace '-',':'}; $allIps=[regex]::Matches($extractHtml,$ipPattern)|%{$_.Value}|?{$_ -ne $RouterIp -and $_ -notmatch "255$"}; $idx=0; foreach($mac in $allMacs){if($mac -match "00:00:00|FF:FF:FF"){continue}; $ip=if($idx -lt $allIps.Count){$allIps[$idx]}else{""}; $idx++; $devices+=@{mac=$mac;ip=$ip;hostname=""}}}
         Write-Log "Router WiFi: trovati $($devices.Count) dispositivi" "INFO"
     }catch{$errMsg=if($_.Exception.Message){$_.Exception.Message}else{"Errore"}; Write-Log "Router WiFi: $errMsg" "WARN"}
     try{$body=@{task_id=$TaskId;success=($errMsg -eq "");devices=$devices;error=$errMsg;device_id=$DeviceId}|ConvertTo-Json -Depth 4; Invoke-RestMethod -Uri "$ServerUrl/api/network-monitoring/agent/router-wifi-result" -Method POST -Headers @{"Content-Type"="application/json";"X-API-Key"=$ApiKey} -Body $body -TimeoutSec 15 -ErrorAction Stop|Out-Null; Write-Log "Risultato Router WiFi inviato" "INFO"}catch{Write-Log "Invio risultato Router WiFi fallito: $_" "WARN"}

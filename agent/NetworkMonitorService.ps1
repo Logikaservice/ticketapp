@@ -461,12 +461,17 @@ function Invoke-RouterWifiFetchAndReport {
             throw $errMsg
         }
         
-        # Estrai MAC e IP dall'HTML - pattern comuni: MAC (xx:xx:xx:xx:xx:xx) e IP (d.d.d.d)
+        # Solo dispositivi WiFi: estrai solo la sezione Wi-Fi (AGCOMBO/TIM: Wi-Fi vs Ethernet; valido per tutti i router con sezioni)
+        $extractHtml = $html
+        if ($html -match '(?si)(Wi-?Fi|WiFi|2\.4\s*GHz|5\s*GHz).*?(?=Ethernet|USB|Telefono|Controllo\s*Accesso|$)') {
+            $extractHtml = $matches[0]
+        }
+        
+        # Estrai MAC e IP solo dalla sezione Wi-Fi
         $macPattern = '([0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2})'
         $ipPattern = '\b(192\.168\.\d{1,3}\.\d{1,3})\b'
         
-        # Cerca blocchi che contengono MAC e IP vicini (es. in una riga o div)
-        $lines = $html -split "`n|>"
+        $lines = $extractHtml -split "`n|>"
         $seen = @{}
         foreach ($line in $lines) {
             if ($line -match $macPattern -and $line -match $ipPattern) {
@@ -480,10 +485,9 @@ function Invoke-RouterWifiFetchAndReport {
             }
         }
         
-        # Fallback: cerca MAC e IP in tutto l'HTML anche non sulla stessa riga (ordine MAC poi IP)
         if ($devices.Count -eq 0) {
-            $allMacs = [regex]::Matches($html, $macPattern) | ForEach-Object { $_.Value -replace '-', ':' }
-            $allIps = [regex]::Matches($html, $ipPattern) | ForEach-Object { $_.Value } | Where-Object { $_ -ne $RouterIp -and $_ -notmatch "255$" }
+            $allMacs = [regex]::Matches($extractHtml, $macPattern) | ForEach-Object { $_.Value -replace '-', ':' }
+            $allIps = [regex]::Matches($extractHtml, $ipPattern) | ForEach-Object { $_.Value } | Where-Object { $_ -ne $RouterIp -and $_ -notmatch "255$" }
             $idx = 0
             foreach ($mac in $allMacs) {
                 if ($mac -match "00:00:00:00:00|FF:FF:FF:FF:FF") { continue }

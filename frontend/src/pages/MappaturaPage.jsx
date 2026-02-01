@@ -142,6 +142,7 @@ const RouterWifiModal = ({ deviceId, routerIp, agentId, onClose, onRefreshMappa,
                     <div>
                         <label className="text-xs font-medium text-gray-500">Utente</label>
                         <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full border rounded px-3 py-2 text-sm" placeholder="Administrator" />
+                        <p className="text-gray-400 text-xs mt-0.5">Su molti AGCOMBO/TIM l'utente è fissato a Administrator e non è modificabile dal router.</p>
                     </div>
                     <div>
                         <label className="text-xs font-medium text-gray-500">Password</label>
@@ -1378,17 +1379,20 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         return false;
     };
 
+    const isVirtualSwitchNode = (n) => {
+        if (!n) return false;
+        const type = (n.type || n.details?.device_type || '').toString().toLowerCase();
+        const ip = (n.ip || n.ip_address || n.details?.ip_address || '').toString();
+        return type.includes('unmanaged_switch') || ip.startsWith('virtual-');
+    };
+
     const getNodeColor = (node) => {
         const nodeId = String(node.id);
         const isBlinking = blinkingNodes.has(nodeId);
 
-        // Verifica se è uno switch virtuale (unmanaged_switch)
-        const isVirtualSwitch = node.type === 'unmanaged_switch' ||
-            (node.details?.device_type || '').toLowerCase().includes('unmanaged_switch');
-
-        // Switch virtuali: sempre arancione
-        if (isVirtualSwitch) {
-            return 'bg-orange-500 border-orange-700';
+        // Switch virtuali: colore normale (nessun stato online/offline)
+        if (isVirtualSwitchNode(node)) {
+            return 'bg-slate-500 border-slate-700';
         }
 
         // Verifica se il nodo è padre (ha figli collegati)
@@ -1544,13 +1548,15 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-1.5 w-full">
-                                                    {/* Pallino indicatore stato */}
-                                                    <div className={`w-2 h-2 rounded-full shrink-0 ${d.status === 'online'
-                                                        ? 'bg-green-500'
-                                                        : d.status === 'offline'
-                                                            ? 'bg-red-500'
-                                                            : 'bg-gray-400'
-                                                        }`} title={d.status || 'unknown'}></div>
+                                                    {/* Pallino: nessun badge online/offline per switch virtuali */}
+                                                    {(() => {
+                                                        const isVirtual = (d.device_type || '').toString().toLowerCase().includes('unmanaged_switch') || (d.ip_address || '').toString().startsWith('virtual-');
+                                                        return isVirtual ? (
+                                                            <div className="w-2 h-2 rounded-full shrink-0 bg-gray-400" title="Switch virtuale"></div>
+                                                        ) : (
+                                                            <div className={`w-2 h-2 rounded-full shrink-0 ${d.status === 'online' ? 'bg-green-500' : d.status === 'offline' ? 'bg-red-500' : 'bg-gray-400'}`} title={d.status || 'unknown'}></div>
+                                                        );
+                                                    })()}
                                                     <span className="truncate flex-1">{d.ip_address}</span>
                                                 </div>
                                                 {/* MAC address sotto l'IP, in piccolo */}
@@ -1660,21 +1666,23 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     const src = typeof link.source === 'object' ? link.source : nodes.find(n => n.id === link.source);
                                     const tgt = typeof link.target === 'object' ? link.target : nodes.find(n => n.id === link.target);
                                     if (!src || !tgt) return null;
-                                    const isOffline = tgt.status === 'offline';
+                                    const virtualLink = isVirtualSwitchNode(src) || isVirtualSwitchNode(tgt);
+                                    const isOffline = !virtualLink && tgt.status === 'offline';
                                     return (
                                         <line
                                             key={`link-${i}`}
                                             x1={src.x} y1={src.y} x2={tgt.x} y2={tgt.y}
                                             stroke={isOffline ? "#ef4444" : "#cbd5e1"}
                                             strokeWidth="1"
-                                            strokeDasharray={isOffline ? "4,4" : "0"}
+                                            strokeDasharray={virtualLink || !isOffline ? "0" : "4,4"}
                                         />
                                     );
                                 })}
                             </svg>
                             {nodes.map(node => {
-                                const isOnline = node.status === 'online';
-                                const hasIssues = hasDisconnectionIssues(node);
+                                const isVirtual = isVirtualSwitchNode(node);
+                                const isOnline = isVirtual ? true : node.status === 'online';
+                                const hasIssues = !isVirtual && hasDisconnectionIssues(node);
                                 const isHovered = hoveredNode?.id === node.id;
                                 const isSelected = selectedNode?.id === node.id;
 
@@ -1729,7 +1737,9 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                             // Classi base
                                             let containerClasses = "relative w-12 h-12 rounded-xl flex items-center justify-center border-2 transition-all duration-300 hover:shadow-md hover:scale-105 ";
 
-                                            if (isBlackStyle) {
+                                            if (isVirtual) {
+                                                containerClasses += isSelected ? "bg-white border-blue-500 shadow-lg scale-110 ring-2 ring-blue-200" : "bg-white border-slate-200 shadow-sm hover:border-slate-400";
+                                            } else if (isBlackStyle) {
                                                 containerClasses += "bg-slate-900 border-slate-700 shadow-xl scale-110 ring-2 ring-slate-400";
                                             } else if (isSelected) {
                                                 containerClasses += "bg-white border-blue-500 shadow-lg scale-110 ring-2 ring-blue-200";
@@ -1745,7 +1755,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                             let iconColor = "text-slate-600";
                                             if (isBlackStyle) iconColor = "text-white";
                                             else if (isSelected) iconColor = "text-blue-600";
-                                            else if (!isOnline) iconColor = "text-red-400";
+                                            else if (!isVirtual && !isOnline) iconColor = "text-red-400";
 
                                             return (
                                                 <div className={containerClasses}>
@@ -1754,11 +1764,13 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                         {drawIcon(node.type)}
                                                     </div>
 
-                                                    {/* LED Status */}
-                                                    <div className={`
+                                                    {/* LED Status: non mostrato per switch virtuali */}
+                                                    {!isVirtual && (
+                                                        <div className={`
                                             absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white
                                             ${isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse' : 'bg-red-500'}
                                         `}></div>
+                                                    )}
 
                                                     {/* Lock Icon */}
                                                     {node.locked && (
@@ -1775,8 +1787,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                         absolute top-full mt-2 flex flex-col items-center pointer-events-none whitespace-nowrap z-50 transition-all duration-300
                                         ${isHovered || isSelected ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-90'}
                                     `}>
-                                            <span className={`text-[9px] font-mono font-medium leading-none mb-0.5 ${isOnline ? 'text-blue-500' : 'text-red-400'}`}>
-                                                {node.ip.startsWith('virtual-') ? 'VIRTUAL' : node.ip}
+                                            <span className={`text-[9px] font-mono font-medium leading-none mb-0.5 ${isVirtual ? 'text-slate-600' : isOnline ? 'text-blue-500' : 'text-red-400'}`}>
+                                                {node.ip?.startsWith('virtual-') ? 'VIRTUAL' : node.ip}
                                             </span>
                                             {node.label && node.label !== node.ip && (
                                                 <span className="text-[10px] font-bold text-slate-700 tracking-tight bg-white/80 px-1.5 py-0.5 rounded shadow-sm border border-slate-100/50 backdrop-blur-[1px]">
@@ -1913,7 +1925,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     </div>
                                     <div className="flex justify-between border-b pb-2">
                                         <span className="text-gray-500">Status</span>
-                                        <span className={`font-bold ${display.status === 'online' ? 'text-green-600' : 'text-red-600'}`}>{display.status?.toUpperCase() || 'N/A'}</span>
+                                        {isVirtualSwitchNode(display) ? (
+                                            <span className="text-gray-400 font-normal">—</span>
+                                        ) : (
+                                            <span className={`font-bold ${display.status === 'online' ? 'text-green-600' : 'text-red-600'}`}>{display.status?.toUpperCase() || 'N/A'}</span>
+                                        )}
                                     </div>
 
                                     {((display.type === 'router' || display.type === 'gateway') || (display.details?.device_type === 'router' || display.details?.device_type === 'gateway')) && (
@@ -1950,19 +1966,22 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 <option value="Altro">Altro</option>
                                             </select>
                                             {(display.details?.router_model) && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setRouterWifiDevices([]);
-                                                        setRouterWifiError('');
-                                                        setRouterWifiTaskId(null);
-                                                        setShowRouterWifiModal({ deviceId: display.id, routerIp: display.ip || display.details?.ip_address, agentId: display.details?.agent_id });
-                                                    }}
-                                                    className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-sm font-medium"
-                                                >
-                                                    <Wifi size={16} />
-                                                    Carica dispositivi WiFi
-                                                </button>
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setRouterWifiDevices([]);
+                                                            setRouterWifiError('');
+                                                            setRouterWifiTaskId(null);
+                                                            setShowRouterWifiModal({ deviceId: display.id, routerIp: display.ip || display.details?.ip_address, agentId: display.details?.agent_id });
+                                                        }}
+                                                        className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-sm font-medium"
+                                                    >
+                                                        <Wifi size={16} />
+                                                        Carica dispositivi WiFi
+                                                    </button>
+                                                    <p className="text-gray-400 text-xs mt-1">Solo dispositivi WiFi (esclusi Ethernet). Valido per router, access point, cloud key con WiFi. Aggiunti in automatico alla mappa per tutte le aziende.</p>
+                                                </>
                                             )}
                                         </div>
                                     )}
