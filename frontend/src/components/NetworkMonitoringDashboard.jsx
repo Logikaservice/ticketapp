@@ -7,7 +7,7 @@ import {
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
   Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit, Menu,
-  CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle, Terminal, Network, History
+  CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle, Terminal, Network, History, Key
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import CreateAgentModal from './Modals/CreateAgentModal';
@@ -961,6 +961,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       case 'router': return <Router className="w-5 h-5" />;
       case 'printer': return <Printer className="w-5 h-5" />;
       case 'workstation': return <Monitor className="w-5 h-5" />;
+      case 'wifi': return <Wifi className="w-5 h-5" />;
+      case 'cloud_key': return <Key className="w-5 h-5" />;
       default: return <Activity className="w-5 h-5" />;
     }
   };

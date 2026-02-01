@@ -4,7 +4,7 @@ import {
     ArrowLeft, ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw,
     Monitor, Printer, Wifi, Router, X, Trash2, Link2, Network,
     Smartphone, Tablet, Laptop, Camera, Tv, Watch, Phone, Database, Cloud, Globe, List,
-    Layers, HardDrive, Shield, RadioTower, Speaker, Circle, Lock, Unlock
+    Layers, HardDrive, Shield, RadioTower, Speaker, Circle, Lock, Unlock, Key
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import * as d3 from 'd3-force';
@@ -19,6 +19,7 @@ const AVAILABLE_ICONS = [
     { type: 'switch', icon: Network, label: 'Switch' },
     { type: 'unmanaged_switch', icon: Network, label: 'Unmanaged Switch' },
     { type: 'wifi', icon: Wifi, label: 'WiFi / AP' },
+    { type: 'cloud_key', icon: Key, label: 'Cloud Key / Controller WiFi' },
     { type: 'radio', icon: RadioTower, label: 'Ponte Radio' },
     { type: 'printer', icon: Printer, label: 'Stampante' },
     { type: 'smartphone', icon: Smartphone, label: 'Smartphone' },

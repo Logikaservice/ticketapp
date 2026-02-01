@@ -3,7 +3,7 @@ import {
     ArrowLeft, Search, Filter, ZoomIn, ZoomOut, Loader,
     Server, Server as ServerIcon, Monitor, Printer, Wifi, Maximize, Router,
     AlertTriangle, CheckCircle, WifiOff, X, Move, RotateCw, Link,
-    Cable, Plus, Trash2, RefreshCw, Network, List
+    Cable, Plus, Trash2, RefreshCw, Network, List, Key
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import * as d3 from 'd3-force';
@@ -736,6 +736,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
             case 'printer': return <Printer size={20} className="text-white" />;
             case 'server': return <Server size={20} className="text-white" />;
             case 'wifi': return <Wifi size={20} className="text-white" />;
+            case 'cloud_key': return <Key size={20} className="text-white" />;
             case 'unmanaged_switch': return <ServerIcon size={20} className="text-white bg-gray-600 rounded-sm p-0.5" />;
             case 'managed_switch': return <Cable size={20} className="text-white" />; // Switch SNMP gestito (es. Netgear)
             default: return <Monitor size={20} className="text-white" />;
@@ -744,6 +745,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
 
     const getNodeColor = (node) => {
         if (node.type === 'managed_switch') return 'bg-indigo-500 border-indigo-700';
+        if (node.type === 'cloud_key') return 'bg-violet-500 border-violet-700';
         const isParent = links.some(l => (typeof l.source === 'object' ? l.source.id : l.source) === node.id);
         if (isParent) return 'bg-blue-500 border-blue-700';
         if (node.status === 'offline') return 'bg-red-500 border-red-700';
