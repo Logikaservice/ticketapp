@@ -2306,6 +2306,14 @@ module.exports = (pool, io) => {
         `);
       } catch (e) { console.warn('Warning adding ip_history column:', e.message); }
 
+      // MIGRATION (AUTO-FIX): Assicura che la colonna router_model esista (modello router/Cloud Key)
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices 
+          ADD COLUMN IF NOT EXISTS router_model VARCHAR(100)
+        `);
+      } catch (e) { console.warn('Warning adding router_model column:', e.message); }
+
       // MIGRATION (AUTO-FIX): Normalizza MAC address nel DB (da - a :) per coerenza immediata
       try {
         await pool.query(`
