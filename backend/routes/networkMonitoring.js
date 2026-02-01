@@ -6311,13 +6311,15 @@ pause
       const isUnifi = /^Unifi|^Ubiquiti|^UCK/i.test(routerModel);
       if ((!username || !password) && isUnifi && unifiConfig && unifiConfig.url && unifiConfig.username && unifiConfig.password) {
         const uUrl = String(unifiConfig.url).trim().replace(/\/$/, '');
-        const uHost = uUrl.replace(/^https?:\/\//i, '').split(/[/:]/)[0];
-        const ipHost = ip.split(':')[0];
-        // URL può essere https://192.168.1.156 o https://192.168.1.156:8443
-        if (uHost === ipHost || uHost === ip) {
+        // Estrai host: "https://192.168.1.156" -> "192.168.1.156", "https://192.168.1.156:8443" -> "192.168.1.156"
+        const uHost = uUrl.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
+        const ipHost = String(ip).split(':')[0].trim();
+        const match = uHost === ipHost || uHost === ip;
+        console.log(`📡 UniFi: unifi_config host="${uHost}", device ip="${ipHost}", match=${match}`);
+        if (match) {
           username = String(unifiConfig.username).trim();
           password = String(unifiConfig.password);
-          console.log(`✅ Credenziali da unifi_config agent (come firmware): URL=${uHost}, username=${username}`);
+          console.log(`✅ Credenziali da unifi_config agent (come firmware): host=${uHost}, username=${username}`);
         }
       }
       
