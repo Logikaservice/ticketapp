@@ -2047,35 +2047,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                     Carica AP associati
                                                 </button>
                                             )}
-                                            {(() => {
-                                                const childDevices = (devices || []).filter(d => d.parent_device_id === display.id);
-                                                if (childDevices.length === 0) return null;
-                                                return (
-                                                    <div className="mt-3">
-                                                        <h4 className="text-xs font-medium text-gray-600 mb-2">Antenne / AP associati</h4>
-                                                        <div className="space-y-1.5 max-h-48 overflow-auto">
-                                                            {childDevices.map((child) => {
-                                                                const nodeForChild = simulationRef.current?.nodes()?.find(n => n.id === child.id) || { id: child.id, details: child };
-                                                                return (
-                                                                    <div key={child.id} className="flex items-center justify-between gap-2 py-1.5 px-2 rounded bg-gray-50 border border-gray-100">
-                                                                        <span className="font-mono text-sm text-gray-800 truncate" title={child.hostname || child.ip_address}>{child.ip_address || '—'}</span>
-                                                                        <span className="text-gray-500 text-xs truncate flex-1 min-w-0" title={child.hostname}>{child.hostname || '—'}</span>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => handleRemoveFromMap(nodeForChild)}
-                                                                            className="shrink-0 px-2 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium flex items-center gap-1"
-                                                                            title="Rimuovi dalla mappa"
-                                                                        >
-                                                                            <Trash2 size={12} />
-                                                                            Elimina dalla mappa
-                                                                        </button>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })()}
+
                                         </div>
                                     )}
 
@@ -2204,6 +2176,40 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 Elimina dalla mappa
                                             </button>
                                             <p className="text-xs text-gray-400 mt-1.5 text-center">L'IP tornerà nella lista a sinistra.</p>
+                                            {(() => {
+                                                const childDevices = (devices || []).filter(d => d.parent_device_id === display.id);
+                                                if (childDevices.length === 0) return null;
+                                                return (
+                                                    <div className="mt-4 pt-3 border-t border-gray-100">
+                                                        <h4 className="text-xs font-medium text-gray-600 mb-2">Antenne / AP associati ({childDevices.length})</h4>
+                                                        <div className="space-y-1.5 max-h-48 overflow-auto">
+                                                            {childDevices.map((child) => {
+                                                                const nodeForChild = simulationRef.current?.nodes()?.find(n => n.id === child.id) || { id: child.id, details: child };
+                                                                return (
+                                                                    <div key={child.id} className="flex items-center justify-between gap-2 py-1.5 px-2 rounded bg-gray-50 border border-gray-100">
+                                                                        <div className="min-w-0 flex-1">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="font-mono text-sm text-gray-800 truncate">{child.ip_address || '—'}</span>
+                                                                                {child.status === 'offline' && <span className="w-2 h-2 rounded-full bg-red-500" title="Offline"></span>}
+                                                                            </div>
+                                                                            <div className="text-gray-500 text-xs truncate" title={child.hostname}>{child.hostname || '—'}</div>
+                                                                        </div>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleRemoveFromMap(nodeForChild)}
+                                                                            className="shrink-0 px-2 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium flex items-center gap-1"
+                                                                            title="Rimuovi dalla mappa"
+                                                                        >
+                                                                            <Trash2 size={12} />
+                                                                            Elimina dalla mappa
+                                                                        </button>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     )}
                                 </div>

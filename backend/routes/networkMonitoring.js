@@ -6306,7 +6306,7 @@ pause
       const routerModel = dev.rows[0].router_model || 'AGCOMBO';
       const unifiConfig = dev.rows[0].unifi_config;
       console.log(`📡 Router WiFi request: device_id=${device_id}, mac=${mac}, ip=${ip}, router_model=${routerModel}`);
-      
+
       // Per Cloud Key/UniFi: usa unifi_config dell'agent (come per controllo firmware) se disponibile
       const isUnifi = /^Unifi|^Ubiquiti|^UCK/i.test(routerModel);
       if ((!username || !password) && isUnifi && unifiConfig && unifiConfig.url && unifiConfig.username && unifiConfig.password) {
@@ -6322,7 +6322,7 @@ pause
           console.log(`✅ Credenziali da unifi_config agent (come firmware): host=${uHost}, username=${username}`);
         }
       }
-      
+
       if (!username || !password) {
         if (!mac) return res.status(400).json({ error: 'Dispositivo senza MAC: impossibile recuperare credenziali. Configura UniFi nell\'agent (come per firmware) o inserisci manualmente.' });
         const keepassPassword = process.env.KEEPASS_PASSWORD;
@@ -6398,22 +6398,40 @@ pause
              OR (nd.ip_address = $3 AND nd.agent_id = $4))`,
             [aziendaId, macNorm, ip, agentId]
           );
-          if (exists.rows.length > 0) continue;
-          const ins = await pool.query(
-            `INSERT INTO network_devices (agent_id, ip_address, mac_address, parent_device_id, status) VALUES ($1, $2, $3, $4, 'online') RETURNING id`,
-            [agentId, ip || null, mac, routerId]
-          );
-          if (ins.rows.length === 0) continue;
-          createdCount++;
-          const offsetX = 60 * Math.cos((i * 2 * Math.PI) / Math.max(devices.length, 1));
-          const offsetY = 60 * Math.sin((i * 2 * Math.PI) / Math.max(devices.length, 1));
-          const x = routerX + offsetX;
-          const y = routerY + offsetY;
-          await pool.query(
-            `INSERT INTO mappatura_nodes (azienda_id, mac_address, x, y, is_locked) VALUES ($1, $2, $3, $4, false)
-             ON CONFLICT (azienda_id, mac_address) DO UPDATE SET x = EXCLUDED.x, y = EXCLUDED.y`,
-            [aziendaId, macNorm, x, y]
-          );
+
+          let deviceIdForMap = null;
+
+          if (exists.rows.length > 0) {
+            // Se esiste già, aggiorna il parent_device_id per collegarlo a questo controller/router
+            const existingId = exists.rows[0].id;
+            deviceIdForMap = existingId;
+            // Aggiorna solo se necessario (opzionale, ma sicuro farlo sempre)
+            await pool.query('UPDATE network_devices SET parent_device_id = $1 WHERE id = $2', [routerId, existingId]);
+          } else {
+            // Se non esiste, crealo
+            const ins = await pool.query(
+              `INSERT INTO network_devices (agent_id, ip_address, mac_address, parent_device_id, status) VALUES ($1, $2, $3, $4, 'online') RETURNING id`,
+              [agentId, ip || null, mac, routerId]
+            );
+            if (ins.rows.length > 0) {
+              createdCount++;
+              deviceIdForMap = ins.rows[0].id;
+            }
+          }
+
+          if (deviceIdForMap) {
+            const offsetX = 60 * Math.cos((i * 2 * Math.PI) / Math.max(devices.length, 1));
+            const offsetY = 60 * Math.sin((i * 2 * Math.PI) / Math.max(devices.length, 1));
+            const x = routerX + offsetX;
+            const y = routerY + offsetY;
+
+            // Inserisci in mappatura_nodes (se non esiste già o se non è bloccato)
+            await pool.query(
+              `INSERT INTO mappatura_nodes (azienda_id, mac_address, x, y, is_locked) VALUES ($1, $2, $3, $4, false)
+               ON CONFLICT (azienda_id, mac_address) DO UPDATE SET x = EXCLUDED.x, y = EXCLUDED.y WHERE mappatura_nodes.is_locked = false`,
+              [aziendaId, macNorm, x, y]
+            );
+          }
         }
         console.log(`✅ Router WiFi sync: ${createdCount} nuovi dispositivi aggiunti alla mappa (router ${routerId})`);
       } catch (syncErr) {
