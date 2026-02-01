@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.6.7"
+$SCRIPT_VERSION = "2.6.8"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2401,7 +2401,7 @@ function Send-Heartbeat {
             # Non bloccare l'esecuzione se il controllo configurazione fallisce
         }
         
-        return @{ success = $true; uninstall = $false; config = $serverConfigResult.config; pending_unifi_test = $pendingUnifi }
+        return @{ success = $true; uninstall = $false; config = $serverConfigResult.config; pending_unifi_test = $pendingUnifi; pending_router_wifi_task = $response.pending_router_wifi_task }
     }
     catch {
         Write-Log "Errore heartbeat: $_" "WARN"
