@@ -90,6 +90,14 @@ const RouterWifiModal = ({ title, onClose, onCancel, taskId, taskStartedAt, devi
                         </div>
                     )}
                 </div>
+                {devices.length > 0 && !loading && (
+                    <div className="p-4 border-t border-green-200 bg-green-50">
+                        <p className="text-green-700 font-medium text-sm flex items-center gap-2">
+                            <span className="inline-flex w-6 h-6 rounded-full bg-green-500 text-white items-center justify-center text-xs font-bold">✓</span>
+                            Analisi completata · Connessione riuscita
+                        </p>
+                    </div>
+                )}
                 {devices.length > 0 && (
                     <div className="flex-1 overflow-auto p-4 border-t">
                         {createdCount > 0 && (
@@ -203,7 +211,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         if (!routerWifiTaskId) return;
         const poll = async () => {
             if (routerWifiTaskStartedAt && Date.now() - routerWifiTaskStartedAt > POLL_TIMEOUT_MS) {
-                setRouterWifiError('Timeout (12 min). L\'agent potrebbe non aver ricevuto il task. Verifica che il router sia scoperto dall\'agent attivo su un PC nella stessa rete, poi riprova.');
+                setRouterWifiError('Timeout (12 min). Il task non è stato completato dall\'agent. Verifica: 1) l\'agent è su un PC nella stessa rete del controller (es. 192.168.1.x); 2) l\'agent è aggiornato (v2.6.5 per Carica AP da Cloud Key). Poi riprova.');
                 setRouterWifiTaskId(null);
                 setRouterWifiTaskStartedAt(null);
                 setRouterWifiLoading(false);
