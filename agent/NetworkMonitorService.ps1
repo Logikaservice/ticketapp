@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.6.8"
+$SCRIPT_VERSION = "2.6.9"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -413,12 +413,17 @@ function Invoke-RouterWifiFetchAndReport {
         if ($RouterModel -match '^Unifi|^Ubiquiti|^UCK') {
             Write-Log "Controller WiFi (Unifi): inizio connessione a $RouterIp (modello: $RouterModel, user: $Username)" "INFO"
             # Bypass certificato SSL auto-firmato per UniFi controller
-            add-type -ErrorAction SilentlyContinue @"
-                using System.Net; using System.Security.Cryptography.X509Certificates;
-                public class TrustAllCertsPolicy : ICertificatePolicy { public bool CheckValidationResult(ServicePoint s, X509Certificate c, WebRequest r, int p) { return true; } }
+            if (-not ("TrustAllCertsPolicy" -as [type])) {
+                try {
+                    add-type -ErrorAction Stop @"
+                        using System.Net; using System.Security.Cryptography.X509Certificates;
+                        public class TrustAllCertsPolicy : ICertificatePolicy { public bool CheckValidationResult(ServicePoint s, X509Certificate c, WebRequest r, int p) { return true; } }
 "@
+                }
+                catch { Write-Log "Add-Type TrustAllCertsPolicy error: $_" "WARN" }
+            }
             [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
+            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
             
             $base = "https://$RouterIp"
             $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession

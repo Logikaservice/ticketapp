@@ -6036,12 +6036,12 @@ pause
   // scaricano da /download/agent/NetworkMonitorService.ps1 e si riavviano (auto-update).
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.6.8'; // Carica AP da Cloud Key/Controller Unifi (credenziali da KeePass, fix SSL, log avanzati)
+      const CURRENT_AGENT_VERSION = '2.6.9'; // Carica AP da Cloud Key/Controller Unifi (credenziali da KeePass, fix SSL, log avanzati)
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
         version: CURRENT_AGENT_VERSION,
-        download_url: `${baseUrl}/agent-updates/agent-update-2.6.8.zip`,
+        download_url: `${baseUrl}/agent-updates/agent-update-2.6.9.zip`,
         release_date: '2026-02-01',
         features: [
           'Carica AP associati - Cloud Key/Controller Unifi (credenziali da KeePass, API stat/device, fix SSL, log avanzati)',
