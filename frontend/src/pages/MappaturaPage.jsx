@@ -42,69 +42,24 @@ style.innerHTML = `
 `;
 document.head.appendChild(style);
 
-const RouterWifiModal = ({ deviceId, routerIp, agentId, onClose, onRefreshMappa, getAuthHeader, buildApiUrl, taskId, setTaskId, devices, setDevices, error, setError, loading, setLoading }) => {
+const RouterWifiModal = ({ deviceId, routerIp, agentId, onClose, onCancel, onTaskStarted, onRefreshMappa, getAuthHeader, buildApiUrl, taskId, taskStartedAt, devices, setDevices, error, setError, loading, setLoading, createdCount }) => {
     const [username, setUsername] = useState('Administrator');
     const [password, setPassword] = useState('');
     const [ip, setIp] = useState(routerIp || '192.168.1.1');
-    const [createdCount, setCreatedCount] = useState(0);
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
-    const waitingSinceRef = useRef(null);
-    const POLL_TIMEOUT_MS = 12 * 60 * 1000; // 12 min
 
     useEffect(() => {
         setIp(routerIp || '192.168.1.1');
     }, [routerIp]);
 
     useEffect(() => {
-        if (!taskId) return;
-        waitingSinceRef.current = Date.now();
-        setElapsedSeconds(0);
-        const poll = async () => {
-            if (waitingSinceRef.current && Date.now() - waitingSinceRef.current > POLL_TIMEOUT_MS) {
-                setError('Timeout (12 min). L\'agent potrebbe non aver ricevuto il task. Verifica che il router sia scoperto dall\'agent attivo su un PC nella stessa rete, poi riprova.');
-                setTaskId(null);
-                setLoading(false);
-                return;
-            }
-            try {
-                const res = await fetch(buildApiUrl(`/api/network-monitoring/router-wifi-result/${taskId}`), { headers: getAuthHeader() });
-                const text = await res.text();
-                let data;
-                try {
-                    data = text ? JSON.parse(text) : {};
-                } catch {
-                    if (res.status === 502) setError('Server temporaneamente non disponibile (502). Riprova tra poco.');
-                    return;
-                }
-                if (data.status === 'ok') {
-                    setDevices(data.devices || []);
-                    setCreatedCount(data.created_count ?? 0);
-                    setError('');
-                    setTaskId(null);
-                    setLoading(false);
-                    if (data.created_count > 0 && onRefreshMappa) onRefreshMappa();
-                    return;
-                }
-                if (data.status === 'error') {
-                    setError(data.error || 'Errore');
-                    setDevices([]);
-                    setTaskId(null);
-                    setLoading(false);
-                    return;
-                }
-            } catch (e) {
-                setError(e.message || 'Errore di connessione');
-                setLoading(false);
-            }
-        };
-        const id = setInterval(poll, 3000);
+        if (!taskId || !taskStartedAt) return;
+        setElapsedSeconds(Math.floor((Date.now() - taskStartedAt) / 1000));
         const tickId = setInterval(() => {
-            if (!waitingSinceRef.current) return;
-            const elapsed = Math.floor((Date.now() - waitingSinceRef.current) / 1000);
-            setElapsedSeconds(elapsed);
+            setElapsedSeconds(Math.floor((Date.now() - taskStartedAt) / 1000));
         }, 1000);
-        return () => { clearInterval(id); clearInterval(tickId); };
-    }, [taskId, buildApiUrl, getAuthHeader]);
+        return () => clearInterval(tickId);
+    }, [taskId, taskStartedAt]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -124,8 +79,8 @@ const RouterWifiModal = ({ deviceId, routerIp, agentId, onClose, onRefreshMappa,
                 throw new Error(res.status === 502 ? 'Server temporaneamente non disponibile (502). Riprova tra poco.' : `Risposta non valida (${res.status})`);
             }
             if (!res.ok) throw new Error(data.error || `Errore ${res.status}`);
-            if (data.deferred) {
-                setTaskId(data.task_id);
+            if (data.deferred && data.task_id) {
+                onTaskStarted(data.task_id);
             } else {
                 setLoading(false);
             }
@@ -137,10 +92,10 @@ const RouterWifiModal = ({ deviceId, routerIp, agentId, onClose, onRefreshMappa,
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[300] p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
-            <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
                 <div className="p-4 border-b flex justify-between items-center">
                     <h3 className="font-bold text-gray-800">Carica dispositivi WiFi</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600" title="Chiudi (l'analisi continua in background)"><X size={20} /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="p-4 space-y-3">
                     <div>
@@ -178,7 +133,7 @@ const RouterWifiModal = ({ deviceId, routerIp, agentId, onClose, onRefreshMappa,
                             {loading ? <><Loader size={16} className="animate-spin" /> Attendi...</> : <>Carica</>}
                         </button>
                         {loading && (
-                            <button type="button" onClick={() => { setTaskId(null); setLoading(false); setError(''); }} className="px-4 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50">
+                            <button type="button" onClick={onCancel} className="px-4 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50" title="Interrompi attesa e chiudi">
                                 Annulla
                             </button>
                         )}
@@ -250,9 +205,54 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const [unstableDevices, setUnstableDevices] = useState(new Set()); // Set<IP> per dispositivi con eventi recenti
     const [showRouterWifiModal, setShowRouterWifiModal] = useState(null); // { deviceId, routerIp, agentId } or null
     const [routerWifiTaskId, setRouterWifiTaskId] = useState(null);
+    const [routerWifiTaskStartedAt, setRouterWifiTaskStartedAt] = useState(null);
     const [routerWifiDevices, setRouterWifiDevices] = useState([]);
+    const [routerWifiCreatedCount, setRouterWifiCreatedCount] = useState(0);
     const [routerWifiError, setRouterWifiError] = useState('');
     const [routerWifiLoading, setRouterWifiLoading] = useState(false);
+
+    const POLL_TIMEOUT_MS = 12 * 60 * 1000;
+    useEffect(() => {
+        if (!routerWifiTaskId) return;
+        const poll = async () => {
+            if (routerWifiTaskStartedAt && Date.now() - routerWifiTaskStartedAt > POLL_TIMEOUT_MS) {
+                setRouterWifiError('Timeout (12 min). L\'agent potrebbe non aver ricevuto il task. Verifica che il router sia scoperto dall\'agent attivo su un PC nella stessa rete, poi riprova.');
+                setRouterWifiTaskId(null);
+                setRouterWifiTaskStartedAt(null);
+                setRouterWifiLoading(false);
+                return;
+            }
+            try {
+                const res = await fetch(buildApiUrl(`/api/network-monitoring/router-wifi-result/${routerWifiTaskId}`), { headers: getAuthHeader() });
+                const text = await res.text();
+                let data;
+                try { data = text ? JSON.parse(text) : {}; } catch { return; }
+                if (data.status === 'ok') {
+                    setRouterWifiDevices(data.devices || []);
+                    setRouterWifiCreatedCount(data.created_count ?? 0);
+                    setRouterWifiError('');
+                    setRouterWifiTaskId(null);
+                    setRouterWifiTaskStartedAt(null);
+                    setRouterWifiLoading(false);
+                    if ((data.created_count ?? 0) > 0) setRefreshDevicesKey(k => k + 1);
+                    return;
+                }
+                if (data.status === 'error') {
+                    setRouterWifiError(data.error || 'Errore');
+                    setRouterWifiDevices([]);
+                    setRouterWifiTaskId(null);
+                    setRouterWifiTaskStartedAt(null);
+                    setRouterWifiLoading(false);
+                    return;
+                }
+            } catch (e) {
+                setRouterWifiError(e.message || 'Errore di connessione');
+                setRouterWifiLoading(false);
+            }
+        };
+        const id = setInterval(poll, 3000);
+        return () => clearInterval(id);
+    }, [routerWifiTaskId, routerWifiTaskStartedAt, buildApiUrl, getAuthHeader]);
 
     useEffect(() => {
         const fetchEvents = async () => {
@@ -2013,6 +2013,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                         Carica dispositivi WiFi
                                                     </button>
                                                     <p className="text-gray-400 text-xs mt-1">Solo dispositivi WiFi (esclusi Ethernet). Valido per router, access point, cloud key con WiFi. Aggiunti in automatico alla mappa per tutte le aziende.</p>
+                                                    <p className="text-indigo-600 text-xs mt-1">Puoi chiudere con X: l'analisi continua in background. Riapri il pulsante per vedere lo stato o i risultati.</p>
                                                 </>
                                             )}
                                         </div>
@@ -2066,6 +2067,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                         Carica AP associati
                                                     </button>
                                                     <p className="text-gray-400 text-xs mt-1">Recupera gli access point gestiti dal controller e li aggiunge alla mappa come figli.</p>
+                                                    <p className="text-indigo-600 text-xs mt-1">Puoi chiudere con X: l'analisi continua in background. Riapri il pulsante per vedere lo stato o i risultati.</p>
                                                 </>
                                             )}
                                             {(() => {
@@ -2237,18 +2239,32 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             deviceId={showRouterWifiModal.deviceId}
                             routerIp={showRouterWifiModal.routerIp}
                             agentId={showRouterWifiModal.agentId}
-                            onClose={() => { setShowRouterWifiModal(null); setRouterWifiTaskId(null); setRouterWifiDevices([]); setRouterWifiError(''); }}
+                            onClose={() => setShowRouterWifiModal(null)}
+                            onCancel={() => {
+                                setShowRouterWifiModal(null);
+                                setRouterWifiTaskId(null);
+                                setRouterWifiTaskStartedAt(null);
+                                setRouterWifiLoading(false);
+                                setRouterWifiError('');
+                                setRouterWifiDevices([]);
+                                setRouterWifiCreatedCount(0);
+                            }}
+                            onTaskStarted={(taskId) => {
+                                setRouterWifiTaskId(taskId);
+                                setRouterWifiTaskStartedAt(Date.now());
+                            }}
                             onRefreshMappa={() => setRefreshDevicesKey(k => k + 1)}
                             getAuthHeader={getAuthHeader}
                             buildApiUrl={buildApiUrl}
                             taskId={routerWifiTaskId}
-                            setTaskId={setRouterWifiTaskId}
+                            taskStartedAt={routerWifiTaskStartedAt}
                             devices={routerWifiDevices}
                             setDevices={setRouterWifiDevices}
                             error={routerWifiError}
                             setError={setRouterWifiError}
                             loading={routerWifiLoading}
                             setLoading={setRouterWifiLoading}
+                            createdCount={routerWifiCreatedCount}
                         />,
                         document.body
                     )}
