@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.6.6"
+$SCRIPT_VERSION = "2.6.7"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -411,6 +411,7 @@ function Invoke-RouterWifiFetchAndReport {
     try {
         # Unifi / Ubiquiti Cloud Key: API stat/device (AP e dispositivi gestiti dal controller)
         if ($RouterModel -match '^Unifi|^Ubiquiti|^UCK') {
+            Write-Log "Controller WiFi (Unifi): inizio connessione a $RouterIp (modello: $RouterModel, user: $Username)" "INFO"
             # Bypass certificato SSL auto-firmato per UniFi controller
             add-type -ErrorAction SilentlyContinue @"
                 using System.Net; using System.Security.Cryptography.X509Certificates;
@@ -420,42 +421,71 @@ function Invoke-RouterWifiFetchAndReport {
             [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
             
             $base = "https://$RouterIp"
-            Write-Log "Controller WiFi (Unifi): connessione a $base..." "INFO"
             $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
             $loginBody = @{ username = $Username; password = $Password } | ConvertTo-Json
             try {
-                Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null
-            }
-            catch {
-                if ($_.Exception.Response.StatusCode -eq "NotFound") {
-                    Invoke-WebRequest -Uri "$base/api/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null
+                # Prova diversi endpoint di login (UniFi OS vs vecchio controller)
+                $loginOk = $false
+                $loginEndpoints = @("/api/auth/login", "/api/login")
+                foreach ($loginPath in $loginEndpoints) {
+                    try {
+                        Write-Log "Controller WiFi: tentativo login su $base$loginPath..." "INFO"
+                        $loginResp = Invoke-WebRequest -Uri "$base$loginPath" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 20 -ErrorAction Stop
+                        Write-Log "Controller WiFi: login OK (status $($loginResp.StatusCode)) su $loginPath" "INFO"
+                        $loginOk = $true
+                        break
+                    }
+                    catch {
+                        $statusCode = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
+                        Write-Log "Controller WiFi: login fallito su $loginPath - status=$statusCode, errore: $($_.Exception.Message)" "WARN"
+                        if ($statusCode -eq 401 -or $statusCode -eq 403) {
+                            # Credenziali errate - non provare altri endpoint
+                            $errMsg = "Credenziali errate (401/403). Verifica username e password in KeePass."
+                            throw $errMsg
+                        }
+                    }
                 }
-                else { throw }
-            }
-            $devicesRes = $null
-            try {
-                $devicesRes = Invoke-RestMethod -Uri "$base/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop
-            }
-            catch {
-                $devicesRes = Invoke-RestMethod -Uri "$base/proxy/network/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop
-            }
-            if ($devicesRes -and $devicesRes.data) {
-                foreach ($d in $devicesRes.data) {
-                    if (-not $d.mac -or $d.mac -match '00:00:00|FF:FF:FF') { continue }
-                    $mac = $d.mac -replace '-', ':'
-                    $ip = if ($d.ip) { $d.ip } elseif ($d.last_ip) { $d.last_ip } else { '' }
-                    $name = if ($d.name) { $d.name } else { '' }
-                    $devices += @{ mac = $mac; ip = $ip; hostname = $name }
+                if (-not $loginOk) { throw "Login fallito su tutti gli endpoint" }
+                
+                # Prova diversi endpoint per i dispositivi
+                Write-Log "Controller WiFi: login riuscito, recupero dispositivi..." "INFO"
+                $devicesRes = $null
+                $deviceEndpoints = @("/proxy/network/api/s/default/stat/device", "/api/s/default/stat/device")
+                foreach ($devPath in $deviceEndpoints) {
+                    try {
+                        Write-Log "Controller WiFi: tentativo GET $base$devPath..." "INFO"
+                        $devicesRes = Invoke-RestMethod -Uri "$base$devPath" -Method Get -WebSession $session -TimeoutSec 20 -ErrorAction Stop
+                        Write-Log "Controller WiFi: risposta ricevuta da $devPath" "INFO"
+                        break
+                    }
+                    catch {
+                        Write-Log "Controller WiFi: GET fallito su $devPath - $($_.Exception.Message)" "WARN"
+                    }
                 }
+                if ($devicesRes -and $devicesRes.data) {
+                    Write-Log "Controller WiFi: trovati $($devicesRes.data.Count) dispositivi nella risposta" "INFO"
+                    foreach ($d in $devicesRes.data) {
+                        if (-not $d.mac -or $d.mac -match '00:00:00|FF:FF:FF') { continue }
+                        $mac = $d.mac -replace '-', ':'
+                        $ip = if ($d.ip) { $d.ip } elseif ($d.last_ip) { $d.last_ip } else { '' }
+                        $name = if ($d.name) { $d.name } else { '' }
+                        $devices += @{ mac = $mac; ip = $ip; hostname = $name }
+                        Write-Log "  - Dispositivo: $mac, IP: $ip, Nome: $name" "INFO"
+                    }
+                }
+                elseif ($devicesRes) {
+                    Write-Log "Controller WiFi: risposta ricevuta ma nessun campo 'data' trovato" "WARN"
+                }
+                Write-Log "Unifi Controller: trovati $($devices.Count) dispositivi/AP" "INFO"
             }
-            Write-Log "Unifi Controller: trovati $($devices.Count) dispositivi/AP" "INFO"
+            catch { $errMsg = if ($_.Exception.Message) { $_.Exception.Message } else { "Errore Unifi" }; Write-Log "Controller WiFi (Unifi): ERRORE - $errMsg" "WARN" }
             $resultUrl = "$ServerUrl/api/network-monitoring/agent/router-wifi-result"
-            $bodyObj = @{ task_id = $TaskId; success = $true; devices = $devices; error = $errMsg; device_id = $DeviceId }
+            $bodyObj = @{ task_id = $TaskId; success = ($errMsg -eq ""); devices = $devices; error = $errMsg; device_id = $DeviceId }
             $body = $bodyObj | ConvertTo-Json -Depth 4
             $h = @{ "Content-Type" = "application/json"; "X-API-Key" = $ApiKey }
             try {
                 Invoke-RestMethod -Uri $resultUrl -Method POST -Headers $h -Body $body -TimeoutSec 15 -ErrorAction Stop | Out-Null
-                Write-Log "Risultato Controller WiFi inviato: $($devices.Count) dispositivi" "INFO"
+                Write-Log "Risultato Controller WiFi inviato (success=$($errMsg -eq ''), devices=$($devices.Count), error=$errMsg)" "INFO"
             }
             catch { Write-Log "Invio risultato Controller WiFi fallito: $_" "WARN" }
             return

@@ -737,7 +737,7 @@ module.exports = (pool, io) => {
 
       // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
       // Serve per far capire all'installer quale versione dovrebbe risultare installata.
-      const CURRENT_AGENT_VERSION = '2.6.6'; // Versione di fallback (allineata a $SCRIPT_VERSION)
+      const CURRENT_AGENT_VERSION = '2.6.7'; // Versione di fallback (allineata a $SCRIPT_VERSION)
       let agentPackageVersion = CURRENT_AGENT_VERSION;
       try {
         const projectRoot = path.resolve(__dirname, '..', '..');
@@ -3906,7 +3906,7 @@ module.exports = (pool, io) => {
       }
 
       // Versione agent per ZIP e config.json incluso (allineata a NetworkMonitorService.ps1 $SCRIPT_VERSION)
-      const CURRENT_AGENT_VERSION = '2.6.6';
+      const CURRENT_AGENT_VERSION = '2.6.7';
       const agentVersion = CURRENT_AGENT_VERSION;
       console.log(`ℹ️ Versione agent per ZIP: ${agentVersion} `);
 
@@ -6028,15 +6028,15 @@ pause
   // scaricano da /download/agent/NetworkMonitorService.ps1 e si riavviano (auto-update).
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.6.6'; // Carica AP da Cloud Key/Controller Unifi (credenziali da KeePass, fix SSL)
+      const CURRENT_AGENT_VERSION = '2.6.7'; // Carica AP da Cloud Key/Controller Unifi (credenziali da KeePass, fix SSL, log avanzati)
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
         version: CURRENT_AGENT_VERSION,
-        download_url: `${baseUrl}/agent-updates/agent-update-2.6.6.zip`,
+        download_url: `${baseUrl}/agent-updates/agent-update-2.6.7.zip`,
         release_date: '2026-02-01',
         features: [
-          'Carica AP associati - Cloud Key/Controller Unifi (credenziali da KeePass, API stat/device, fix SSL)',
+          'Carica AP associati - Cloud Key/Controller Unifi (credenziali da KeePass, API stat/device, fix SSL, log avanzati)',
           'Router WiFi - Carica dispositivi da router AGCOMBO/TIM e sync automatica sulla mappa',
           'MAC Address Normalization - Formato standard con due punti (AA:BB:CC:DD:EE:FF)',
           'Switch gestiti - Sync SNMP dot1d + dot1q (fallback), parsing OID simbolici, C:\\usr, MIB',
@@ -6293,15 +6293,21 @@ pause
 
       let username = bodyUsername != null ? String(bodyUsername).trim() : '';
       let password = bodyPassword != null ? String(bodyPassword) : '';
+      const mac = dev.rows[0].mac_address;
+      const routerModel = dev.rows[0].router_model || 'AGCOMBO';
+      console.log(`📡 Router WiFi request: device_id=${device_id}, mac=${mac}, ip=${ip}, router_model=${routerModel}`);
+      
       if (!username || !password) {
-        const mac = dev.rows[0].mac_address;
         if (!mac) return res.status(400).json({ error: 'Dispositivo senza MAC: impossibile recuperare credenziali da KeePass. Inserisci manualmente utente e password.' });
         const keepassPassword = process.env.KEEPASS_PASSWORD;
         if (!keepassPassword) return res.status(400).json({ error: 'KEEPASS_PASSWORD non configurata. Configura KeePass o invia username e password nel body.' });
+        console.log(`🔑 KeePass: ricerca credenziali per MAC ${mac}...`);
         const creds = await keepassDriveService.getCredentialsByMac(mac, keepassPassword);
         if (!creds || (!creds.username && !creds.password)) {
+          console.log(`❌ KeePass: credenziali NON trovate per MAC ${mac}`);
           return res.status(400).json({ error: 'Credenziali non trovate in KeePass per il MAC di questo dispositivo. Aggiungi l\'entry in KeePass (con UserName e Password) o invia credenziali manualmente.' });
         }
+        console.log(`✅ KeePass: credenziali trovate per MAC ${mac} -> username="${creds.username}", password=${creds.password ? '***' : '(vuota)'}`);
         username = creds.username || '';
         password = creds.password || '';
       }
@@ -6313,11 +6319,11 @@ pause
         router_ip: ip,
         username,
         password,
-        router_model: (dev.rows[0].router_model || 'AGCOMBO'),
+        router_model: routerModel,
         device_id: device_id,
         created_at: Date.now()
       });
-      console.log(`📡 Router WiFi: task ${taskId} creato per agent_id=${agentId}, router ${ip}`);
+      console.log(`📡 Router WiFi: task ${taskId} creato per agent_id=${agentId}, router ${ip}, model=${routerModel}, username=${username}`);
       res.json({ task_id: taskId, deferred: true, message: 'L\'agent recupererà i dispositivi al prossimo heartbeat (entro ~5 min).' });
     } catch (err) {
       console.error('❌ Errore router-wifi-devices/request:', err);
@@ -6328,6 +6334,7 @@ pause
   // L'agent invia i dispositivi WiFi letti dal router
   router.post('/agent/router-wifi-result', authenticateAgent, async (req, res) => {
     const { task_id, success, devices, error, device_id: routerDeviceId } = req.body || {};
+    console.log(`📡 Router WiFi result ricevuto: task_id=${task_id}, success=${success}, devices=${devices?.length || 0}, error=${error || 'nessuno'}`);
     if (!task_id) return res.status(400).json({ error: 'task_id richiesto' });
     let createdCount = 0;
     if (success && Array.isArray(devices) && devices.length > 0 && routerDeviceId) {
