@@ -1738,6 +1738,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                         {/* Calcolo stile dinamico */}
                                         {(() => {
                                             const isRouter = node.type === 'router' || node.type === 'gateway';
+                                            const isCloudKey = node.type === 'cloud_key';
                                             const isBlackStyle = isSelected && isRouter;
 
                                             // Classi base
@@ -1747,10 +1748,14 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 containerClasses += isSelected ? "bg-white border-blue-500 shadow-lg scale-110 ring-2 ring-blue-200" : "bg-white border-slate-200 shadow-sm hover:border-slate-400";
                                             } else if (isBlackStyle) {
                                                 containerClasses += "bg-slate-900 border-slate-700 shadow-xl scale-110 ring-2 ring-slate-400";
+                                            } else if (isSelected && isCloudKey) {
+                                                containerClasses += "bg-violet-900 border-violet-700 shadow-xl scale-110 ring-2 ring-violet-400";
                                             } else if (isSelected) {
                                                 containerClasses += "bg-white border-blue-500 shadow-lg scale-110 ring-2 ring-blue-200";
                                             } else if (!isOnline) {
                                                 containerClasses += "bg-red-50 border-red-200 shadow-sm";
+                                            } else if (isCloudKey) {
+                                                containerClasses += "bg-violet-100 border-violet-300 shadow-sm hover:border-violet-400";
                                             } else if (isRouter) {
                                                 containerClasses += "bg-indigo-100 border-indigo-300 shadow-sm hover:border-indigo-400";
                                             } else {
@@ -1760,8 +1765,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                             // Colore Icona
                                             let iconColor = "text-slate-600";
                                             if (isBlackStyle) iconColor = "text-white";
+                                            else if (isSelected && isCloudKey) iconColor = "text-white";
                                             else if (isSelected) iconColor = "text-blue-600";
                                             else if (!isVirtual && !isOnline) iconColor = "text-red-400";
+                                            else if (isCloudKey) iconColor = "text-violet-700";
 
                                             return (
                                                 <div className={containerClasses}>
