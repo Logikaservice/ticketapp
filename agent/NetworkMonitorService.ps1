@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.6.5"
+$SCRIPT_VERSION = "2.6.6"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -411,6 +411,14 @@ function Invoke-RouterWifiFetchAndReport {
     try {
         # Unifi / Ubiquiti Cloud Key: API stat/device (AP e dispositivi gestiti dal controller)
         if ($RouterModel -match '^Unifi|^Ubiquiti|^UCK') {
+            # Bypass certificato SSL auto-firmato per UniFi controller
+            add-type -ErrorAction SilentlyContinue @"
+                using System.Net; using System.Security.Cryptography.X509Certificates;
+                public class TrustAllCertsPolicy : ICertificatePolicy { public bool CheckValidationResult(ServicePoint s, X509Certificate c, WebRequest r, int p) { return true; } }
+"@
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
+            
             $base = "https://$RouterIp"
             Write-Log "Controller WiFi (Unifi): connessione a $base..." "INFO"
             $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession

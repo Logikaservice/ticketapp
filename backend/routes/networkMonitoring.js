@@ -737,7 +737,7 @@ module.exports = (pool, io) => {
 
       // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
       // Serve per far capire all'installer quale versione dovrebbe risultare installata.
-      const CURRENT_AGENT_VERSION = '2.6.5'; // Versione di fallback (allineata a $SCRIPT_VERSION)
+      const CURRENT_AGENT_VERSION = '2.6.6'; // Versione di fallback (allineata a $SCRIPT_VERSION)
       let agentPackageVersion = CURRENT_AGENT_VERSION;
       try {
         const projectRoot = path.resolve(__dirname, '..', '..');
@@ -3906,7 +3906,7 @@ module.exports = (pool, io) => {
       }
 
       // Versione agent per ZIP e config.json incluso (allineata a NetworkMonitorService.ps1 $SCRIPT_VERSION)
-      const CURRENT_AGENT_VERSION = '2.6.5';
+      const CURRENT_AGENT_VERSION = '2.6.6';
       const agentVersion = CURRENT_AGENT_VERSION;
       console.log(`ℹ️ Versione agent per ZIP: ${agentVersion} `);
 
@@ -6028,15 +6028,15 @@ pause
   // scaricano da /download/agent/NetworkMonitorService.ps1 e si riavviano (auto-update).
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.6.5'; // Carica AP da Cloud Key/Controller Unifi (credenziali da KeePass)
+      const CURRENT_AGENT_VERSION = '2.6.6'; // Carica AP da Cloud Key/Controller Unifi (credenziali da KeePass, fix SSL)
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
         version: CURRENT_AGENT_VERSION,
-        download_url: `${baseUrl}/agent-updates/agent-update-2.6.5.zip`,
-        release_date: '2026-01-30',
+        download_url: `${baseUrl}/agent-updates/agent-update-2.6.6.zip`,
+        release_date: '2026-02-01',
         features: [
-          'Carica AP associati - Cloud Key/Controller Unifi (credenziali da KeePass, API stat/device)',
+          'Carica AP associati - Cloud Key/Controller Unifi (credenziali da KeePass, API stat/device, fix SSL)',
           'Router WiFi - Carica dispositivi da router AGCOMBO/TIM e sync automatica sulla mappa',
           'MAC Address Normalization - Formato standard con due punti (AA:BB:CC:DD:EE:FF)',
           'Switch gestiti - Sync SNMP dot1d + dot1q (fallback), parsing OID simbolici, C:\\usr, MIB',

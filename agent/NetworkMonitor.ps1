@@ -7,7 +7,7 @@ param(
     [switch]$TestMode = $false
 )
 
-$AGENT_VERSION = "2.6.5"
+$AGENT_VERSION = "2.6.6"
 
 # Forza TLS 1.2 per Invoke-RestMethod (compatibilità hardening TLS su Windows/Server)
 function Enable-Tls12 {
@@ -249,16 +249,27 @@ function Invoke-RouterWifiFetchAndReport {
     try {
         # Unifi / Ubiquiti Cloud Key: API stat/device (AP e dispositivi gestiti)
         if($RouterModel -match '^Unifi|^Ubiquiti|^UCK') {
+            Write-Log "Controller WiFi (Unifi): inizio connessione a $RouterIp (modello: $RouterModel)" "INFO"
+            # Bypass certificato SSL auto-firmato per UniFi controller
+            add-type -ErrorAction SilentlyContinue @"
+                using System.Net; using System.Security.Cryptography.X509Certificates;
+                public class TrustAllCertsPolicy : ICertificatePolicy { public bool CheckValidationResult(ServicePoint s, X509Certificate c, WebRequest r, int p) { return true; } }
+"@
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
+            
             $base="https://$RouterIp"
             $session=New-Object Microsoft.PowerShell.Commands.WebRequestSession
             $loginBody=@{username=$Username;password=$Password}|ConvertTo-Json
             try {
-                try { Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null } catch { if($_.Exception.Response.StatusCode -eq "NotFound") { Invoke-WebRequest -Uri "$base/api/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null } else { throw } }
+                Write-Log "Controller WiFi: tentativo login..." "INFO"
+                try { Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null } catch { if($_.Exception.Response.StatusCode -eq "NotFound") { Write-Log "Controller WiFi: fallback su /api/login" "INFO"; Invoke-WebRequest -Uri "$base/api/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null } else { throw } }
+                Write-Log "Controller WiFi: login riuscito, recupero dispositivi..." "INFO"
                 $devicesRes=$null
-                try { $devicesRes=Invoke-RestMethod -Uri "$base/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop } catch { $devicesRes=Invoke-RestMethod -Uri "$base/proxy/network/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop }
+                try { $devicesRes=Invoke-RestMethod -Uri "$base/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop } catch { Write-Log "Controller WiFi: fallback su /proxy/network/api/s/default/stat/device" "INFO"; $devicesRes=Invoke-RestMethod -Uri "$base/proxy/network/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop }
                 if($devicesRes -and $devicesRes.data) { foreach($d in $devicesRes.data) { if(-not $d.mac -or $d.mac -match '00:00:00|FF:FF:FF') { continue }; $mac=$d.mac -replace '-',':'; $ip=if($d.ip){$d.ip}elseif($d.last_ip){$d.last_ip}else{''}; $name=if($d.name){$d.name}else{''}; $devices+=@{mac=$mac;ip=$ip;hostname=$name} } }
                 Write-Log "Unifi Controller: trovati $($devices.Count) dispositivi/AP" "INFO"
-            } catch { $errMsg=if($_.Exception.Message){$_.Exception.Message}else{"Errore Unifi"}; Write-Log "Controller WiFi (Unifi): $errMsg" "WARN" }
+            } catch { $errMsg=if($_.Exception.Message){$_.Exception.Message}else{"Errore Unifi"}; Write-Log "Controller WiFi (Unifi): ERRORE - $errMsg" "WARN" }
             try{$body=@{task_id=$TaskId;success=($errMsg -eq "");devices=$devices;error=$errMsg;device_id=$DeviceId}|ConvertTo-Json -Depth 4; Invoke-RestMethod -Uri "$ServerUrl/api/network-monitoring/agent/router-wifi-result" -Method POST -Headers @{"Content-Type"="application/json";"X-API-Key"=$ApiKey} -Body $body -TimeoutSec 15 -ErrorAction Stop|Out-Null; Write-Log "Risultato Controller WiFi inviato" "INFO"}catch{Write-Log "Invio risultato Controller WiFi fallito: $_" "WARN"}
             return
         }
@@ -303,13 +314,14 @@ function Invoke-UnifiConnectionTestAndReport {
         $base = ($Url -as [string]).Trim().TrimEnd('/')
         if (-not $base) { $msg = "URL non valido"; throw $msg }
         
-        <#
+        # Bypass certificato SSL auto-firmato per UniFi controller
         add-type -ErrorAction SilentlyContinue @"
             using System.Net; using System.Security.Cryptography.X509Certificates;
             public class TrustAllCertsPolicy : ICertificatePolicy { public bool CheckValidationResult(ServicePoint s, X509Certificate c, WebRequest r, int p) { return true; } }
 "@
         [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-        #>
+        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
+        
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
         $loginBody = @{ username = $Username; password = $Password } | ConvertTo-Json
         
