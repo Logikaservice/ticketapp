@@ -6290,7 +6290,8 @@ pause
         return res.status(400).json({ error: 'Richiesti: device_id, agent_id' });
       }
       const dev = await pool.query(
-        'SELECT nd.id, nd.ip_address, nd.mac_address, nd.agent_id, nd.router_model, na.azienda_id FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id WHERE nd.id = $1',
+        `SELECT nd.id, nd.ip_address, nd.mac_address, nd.agent_id, nd.router_model, na.azienda_id, na.unifi_config
+         FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id WHERE nd.id = $1`,
         [device_id]
       );
       if (dev.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato' });
@@ -6303,17 +6304,32 @@ pause
       let password = bodyPassword != null ? String(bodyPassword) : '';
       const mac = dev.rows[0].mac_address;
       const routerModel = dev.rows[0].router_model || 'AGCOMBO';
+      const unifiConfig = dev.rows[0].unifi_config;
       console.log(`📡 Router WiFi request: device_id=${device_id}, mac=${mac}, ip=${ip}, router_model=${routerModel}`);
       
+      // Per Cloud Key/UniFi: usa unifi_config dell'agent (come per controllo firmware) se disponibile
+      const isUnifi = /^Unifi|^Ubiquiti|^UCK/i.test(routerModel);
+      if ((!username || !password) && isUnifi && unifiConfig && unifiConfig.url && unifiConfig.username && unifiConfig.password) {
+        const uUrl = String(unifiConfig.url).trim().replace(/\/$/, '');
+        const uHost = uUrl.replace(/^https?:\/\//i, '').split(/[/:]/)[0];
+        const ipHost = ip.split(':')[0];
+        // URL può essere https://192.168.1.156 o https://192.168.1.156:8443
+        if (uHost === ipHost || uHost === ip) {
+          username = String(unifiConfig.username).trim();
+          password = String(unifiConfig.password);
+          console.log(`✅ Credenziali da unifi_config agent (come firmware): URL=${uHost}, username=${username}`);
+        }
+      }
+      
       if (!username || !password) {
-        if (!mac) return res.status(400).json({ error: 'Dispositivo senza MAC: impossibile recuperare credenziali da KeePass. Inserisci manualmente utente e password.' });
+        if (!mac) return res.status(400).json({ error: 'Dispositivo senza MAC: impossibile recuperare credenziali. Configura UniFi nell\'agent (come per firmware) o inserisci manualmente.' });
         const keepassPassword = process.env.KEEPASS_PASSWORD;
-        if (!keepassPassword) return res.status(400).json({ error: 'KEEPASS_PASSWORD non configurata. Configura KeePass o invia username e password nel body.' });
+        if (!keepassPassword) return res.status(400).json({ error: 'KEEPASS_PASSWORD non configurata. Configura UniFi nell\'agent (modifica agent > Controller UniFi) o invia credenziali nel body.' });
         console.log(`🔑 KeePass: ricerca credenziali per MAC ${mac}...`);
         const creds = await keepassDriveService.getCredentialsByMac(mac, keepassPassword);
         if (!creds || (!creds.username && !creds.password)) {
           console.log(`❌ KeePass: credenziali NON trovate per MAC ${mac}`);
-          return res.status(400).json({ error: 'Credenziali non trovate in KeePass per il MAC di questo dispositivo. Aggiungi l\'entry in KeePass (con UserName e Password) o invia credenziali manualmente.' });
+          return res.status(400).json({ error: 'Credenziali non trovate. Configura UniFi nell\'agent (modifica agent > Controller UniFi) come per il controllo firmware, o aggiungi entry in KeePass.' });
         }
         console.log(`✅ KeePass: credenziali trovate per MAC ${mac} -> username="${creds.username}", password=${creds.password ? '***' : '(vuota)'}`);
         username = creds.username || '';
