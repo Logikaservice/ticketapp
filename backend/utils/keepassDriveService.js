@@ -593,6 +593,67 @@ class KeepassDriveService {
   }
 
   /**
+   * Cerca un MAC nel file KeePass e restituisce username e password dell'entry (per controller/router).
+   * Non usa cache: carica il file, trova l'entry, restituisce solo quella credenziale.
+   */
+  async getCredentialsByMac(macAddress, password) {
+    try {
+      if (!macAddress || !password) return null;
+      const normalizedMac = this.normalizeMacForSearch(macAddress);
+      if (!normalizedMac) return null;
+
+      const fileData = await this.downloadKeepassFile(password);
+      const credentials = new Credentials(ProtectedValue.fromString(password));
+      const db = await Kdbx.load(fileData.buffer.buffer, credentials);
+
+      let result = null;
+      const processGroup = (group) => {
+        if (group.entries && group.entries.length > 0) {
+          for (const entry of group.entries) {
+            const allFieldNames = entry.fields ? Object.keys(entry.fields) : [];
+            const customFieldNames = entry.customFields ? Object.keys(entry.customFields) : [];
+            const standardFields = ['UserName', 'Password', 'URL', 'Notes', 'Title'];
+            const fieldsToCheck = [...new Set([...standardFields, ...allFieldNames, ...customFieldNames])];
+            for (const fieldName of fieldsToCheck) {
+              let fieldValue = (entry.fields && entry.fields[fieldName]) || (entry.customFields && entry.customFields[fieldName]);
+              if (fieldValue) {
+                const valueStr = fieldValue instanceof ProtectedValue ? fieldValue.getText() : String(fieldValue);
+                const macs = this.extractAllMacsFromField(valueStr);
+                for (const m of macs) {
+                  if (this.normalizeMacForSearch(m) === normalizedMac) {
+                    const usernameField = entry.fields && entry.fields['UserName'];
+                    const passwordField = entry.fields && entry.fields['Password'];
+                    const usernameStr = usernameField ? (usernameField instanceof ProtectedValue ? usernameField.getText() : String(usernameField)) : '';
+                    const passwordStr = passwordField ? (passwordField instanceof ProtectedValue ? passwordField.getText() : String(passwordField)) : '';
+                    result = { username: usernameStr || '', password: passwordStr || '' };
+                    return;
+                  }
+                }
+              }
+            }
+          }
+        }
+        if (group.groups && group.groups.length > 0) {
+          for (const sub of group.groups) {
+            processGroup(sub);
+            if (result) return;
+          }
+        }
+      };
+      if (db.groups && db.groups.length > 0) {
+        for (const group of db.groups) {
+          processGroup(group);
+          if (result) break;
+        }
+      }
+      return result;
+    } catch (error) {
+      console.error('❌ getCredentialsByMac KeePass:', error.message);
+      return null;
+    }
+  }
+
+  /**
    * Invalida la cache (forza il ricaricamento al prossimo accesso)
    */
   invalidateCache() {

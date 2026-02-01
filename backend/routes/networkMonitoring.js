@@ -6273,15 +6273,15 @@ pause
 
   // POST /api/network-monitoring/router-wifi-devices/request
   // Richiede all'agent di leggere solo i dispositivi WiFi dal router (AGCOMBO, Fritz, access point, cloud key).
-  // I dispositivi creati sono nell'azienda del router (valido per tutte le aziende).
+  // Se username/password non inviati, le credenziali vengono recuperate da KeePass tramite MAC del dispositivo.
   router.post('/router-wifi-devices/request', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
-      const { device_id, agent_id, router_ip, username, password } = req.body;
-      if (!device_id || !agent_id || !username || !password) {
-        return res.status(400).json({ error: 'Richiesti: device_id, agent_id, username, password' });
+      const { device_id, agent_id, router_ip, username: bodyUsername, password: bodyPassword } = req.body;
+      if (!device_id || !agent_id) {
+        return res.status(400).json({ error: 'Richiesti: device_id, agent_id' });
       }
       const dev = await pool.query(
-        'SELECT nd.id, nd.ip_address, nd.agent_id, na.azienda_id FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id WHERE nd.id = $1',
+        'SELECT nd.id, nd.ip_address, nd.mac_address, nd.agent_id, nd.router_model, na.azienda_id FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id WHERE nd.id = $1',
         [device_id]
       );
       if (dev.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato' });
@@ -6289,13 +6289,29 @@ pause
       if (!ip) return res.status(400).json({ error: 'IP router non disponibile (specifica router_ip)' });
       const isPrivate = /^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(ip);
       if (!isPrivate) return res.status(400).json({ error: 'Solo router su rete locale (192.168.x, 10.x, 172.16-31.x) supportati. L\'agent deve essere sulla stessa rete.' });
+
+      let username = bodyUsername != null ? String(bodyUsername).trim() : '';
+      let password = bodyPassword != null ? String(bodyPassword) : '';
+      if (!username || !password) {
+        const mac = dev.rows[0].mac_address;
+        if (!mac) return res.status(400).json({ error: 'Dispositivo senza MAC: impossibile recuperare credenziali da KeePass. Inserisci manualmente utente e password.' });
+        const keepassPassword = process.env.KEEPASS_PASSWORD;
+        if (!keepassPassword) return res.status(400).json({ error: 'KEEPASS_PASSWORD non configurata. Configura KeePass o invia username e password nel body.' });
+        const creds = await keepassDriveService.getCredentialsByMac(mac, keepassPassword);
+        if (!creds || (!creds.username && !creds.password)) {
+          return res.status(400).json({ error: 'Credenziali non trovate in KeePass per il MAC di questo dispositivo. Aggiungi l\'entry in KeePass (con UserName e Password) o invia credenziali manualmente.' });
+        }
+        username = creds.username || '';
+        password = creds.password || '';
+      }
+
       const agentId = Number(agent_id);
       const taskId = 'rw-' + Date.now() + '-' + require('crypto').randomBytes(4).toString('hex');
       pendingRouterWifiTasks.set(agentId, {
         task_id: taskId,
         router_ip: ip,
-        username: String(username).trim(),
-        password: String(password),
+        username,
+        password,
         router_model: (dev.rows[0].router_model || 'AGCOMBO'),
         device_id: device_id,
         created_at: Date.now()
