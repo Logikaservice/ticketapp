@@ -6502,7 +6502,7 @@ pause
           if (!mac || mac.length < 12) continue;
           const macNorm = normalizeMac(mac);
           const exists = await pool.query(
-            `SELECT 1 FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id
+            `SELECT nd.id FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id
               WHERE na.azienda_id = $1 AND (REPLACE(REPLACE(REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', ''), '.', ''), ' ', '') = $2
               OR (nd.ip_address = $3 AND nd.agent_id = $4))`,
             [aziendaId, macNorm, ip, agentId]
@@ -6514,7 +6514,7 @@ pause
             // Se esiste già, aggiorna il parent_device_id per collegarlo a questo controller/router
             const existingId = exists.rows[0].id;
             deviceIdForMap = existingId;
-            // Aggiorna solo se necessario (opzionale, ma sicuro farlo sempre)
+            // Aggiorna sempre il parent_device_id per collegare l'AP al controller
             await pool.query('UPDATE network_devices SET parent_device_id = $1 WHERE id = $2', [routerId, existingId]);
           } else {
             // Se non esiste, crealo
