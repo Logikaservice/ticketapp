@@ -4,7 +4,7 @@ import {
     ArrowLeft, ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw,
     Monitor, Printer, Wifi, Router, X, Trash2, Link2, Network,
     Smartphone, Tablet, Laptop, Camera, Tv, Watch, Phone, Database, Cloud, Globe, List,
-    Layers, HardDrive, Shield, RadioTower, Speaker, Circle, Lock, Unlock, Key, CheckCircle, AlertTriangle
+    Layers, HardDrive, Shield, RadioTower, Speaker, Circle, Lock, Unlock, Key, CheckCircle, AlertTriangle, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import * as d3 from 'd3-force';
@@ -169,6 +169,13 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const [routerWifiCreatedCount, setRouterWifiCreatedCount] = useState(0);
     const [routerWifiError, setRouterWifiError] = useState('');
     const [routerWifiLoading, setRouterWifiLoading] = useState(false);
+    const [wifiExpanded, setWifiExpanded] = useState(false);
+    const [iconsExpanded, setIconsExpanded] = useState(false);
+
+    useEffect(() => {
+        setWifiExpanded(false);
+        setIconsExpanded(false);
+    }, [selectedNode, selectedDevice]);
 
     const startRouterWifiAnalysis = async (display) => {
         const deviceId = display.id;
@@ -1987,28 +1994,43 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 <>
                                                     {display.details.wifi_sync_status === 'ok' ? (
                                                         <div className="mt-2 text-xs bg-gray-50 p-2 rounded border border-gray-100">
-                                                            <div className="flex items-center gap-1.5 text-green-700 font-medium mb-1">
-                                                                <CheckCircle size={14} />
-                                                                <span>Connessione stabilita</span>
+                                                            <div
+                                                                className="flex items-center justify-between cursor-pointer select-none"
+                                                                onClick={() => setWifiExpanded(!wifiExpanded)}
+                                                            >
+                                                                <div className="flex items-center gap-1.5 text-green-700 font-medium">
+                                                                    <CheckCircle size={14} />
+                                                                    <span>Connessione stabilita</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="text-[9px] text-green-600 font-bold bg-white px-1.5 rounded-full border border-green-200 shadow-sm">
+                                                                        {devices.filter(d => d.parent_device_id === display.id).length} AP
+                                                                    </span>
+                                                                    {wifiExpanded ? <ChevronUp size={14} className="text-green-600" /> : <ChevronDown size={14} className="text-green-600" />}
+                                                                </div>
                                                             </div>
-                                                            {display.details.wifi_sync_last_at && (
-                                                                <div className="text-[10px] text-gray-400 mb-2">Sync: {new Date(display.details.wifi_sync_last_at).toLocaleString()}</div>
-                                                            )}
-                                                            <div className="max-h-32 overflow-y-auto bg-white border border-gray-100 rounded">
-                                                                {devices.filter(d => d.parent_device_id === display.id).length > 0 ? (
-                                                                    devices.filter(d => d.parent_device_id === display.id).map(child => (
-                                                                        <div key={child.id} className="text-[10px] py-1 px-1.5 border-b border-gray-50 flex justify-between items-center">
-                                                                            <span className="truncate">{child.ip_address}</span>
-                                                                            <span className="text-gray-400 font-mono text-[9px] truncate ml-1">{child.mac_address}</span>
-                                                                        </div>
-                                                                    ))
-                                                                ) : (
-                                                                    <div className="p-1.5 text-[10px] text-gray-400 italic">Nessun AP trovato</div>
+
+                                                            <div className={!wifiExpanded ? 'hidden' : 'mt-2 border-t border-gray-200 pt-2'}>
+                                                                {display.details.wifi_sync_last_at && (
+                                                                    <div className="text-[10px] text-gray-400 mb-2">Sync: {new Date(display.details.wifi_sync_last_at).toLocaleString()}</div>
                                                                 )}
+                                                                <div className="max-h-32 overflow-y-auto bg-white border border-gray-100 rounded">
+                                                                    <div className="sticky top-0 bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold text-gray-500 border-b border-gray-200">AP GESTITI</div>
+                                                                    {devices.filter(d => d.parent_device_id === display.id).length > 0 ? (
+                                                                        devices.filter(d => d.parent_device_id === display.id).map(child => (
+                                                                            <div key={child.id} className="text-[10px] py-1 px-1.5 border-b border-gray-50 flex justify-between items-center hover:bg-gray-50">
+                                                                                <span className="truncate">{child.ip_address}</span>
+                                                                                <span className="text-gray-400 font-mono text-[9px] truncate ml-1">{child.mac_address}</span>
+                                                                            </div>
+                                                                        ))
+                                                                    ) : (
+                                                                        <div className="p-1.5 text-[10px] text-gray-400 italic">Nessun AP trovato</div>
+                                                                    )}
+                                                                </div>
+                                                                <button onClick={() => startRouterWifiAnalysis(display)} className="mt-2 w-full text-center text-blue-600 hover:bg-blue-50 py-1 rounded text-[10px] border border-blue-100 transition-colors">
+                                                                    Ricarica / Aggiorna
+                                                                </button>
                                                             </div>
-                                                            <button onClick={() => startRouterWifiAnalysis(display)} className="mt-2 w-full text-center text-blue-600 hover:bg-blue-50 py-1 rounded text-[10px] border border-blue-100 transition-colors">
-                                                                Ricarica / Aggiorna
-                                                            </button>
                                                         </div>
                                                     ) : (
                                                         <div className="flex flex-col gap-1">
@@ -2069,29 +2091,43 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 <>
                                                     {display.details.wifi_sync_status === 'ok' ? (
                                                         <div className="mt-2 text-xs bg-gray-50 p-2 rounded border border-gray-100">
-                                                            <div className="flex items-center gap-1.5 text-green-700 font-medium mb-1">
-                                                                <CheckCircle size={14} />
-                                                                <span>Connessione stabilita</span>
+                                                            <div
+                                                                className="flex items-center justify-between cursor-pointer select-none"
+                                                                onClick={() => setWifiExpanded(!wifiExpanded)}
+                                                            >
+                                                                <div className="flex items-center gap-1.5 text-green-700 font-medium">
+                                                                    <CheckCircle size={14} />
+                                                                    <span>Connessione stabilita</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="text-[9px] text-green-600 font-bold bg-white px-1.5 rounded-full border border-green-200 shadow-sm">
+                                                                        {devices.filter(d => d.parent_device_id === display.id).length} AP
+                                                                    </span>
+                                                                    {wifiExpanded ? <ChevronUp size={14} className="text-green-600" /> : <ChevronDown size={14} className="text-green-600" />}
+                                                                </div>
                                                             </div>
-                                                            {display.details.wifi_sync_last_at && (
-                                                                <div className="text-[10px] text-gray-400 mb-2">Sync: {new Date(display.details.wifi_sync_last_at).toLocaleString()}</div>
-                                                            )}
-                                                            <div className="max-h-32 overflow-y-auto bg-white border border-gray-100 rounded">
-                                                                <div className="sticky top-0 bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold text-gray-500 border-b border-gray-200">AP GESTITI</div>
-                                                                {devices.filter(d => d.parent_device_id === display.id).length > 0 ? (
-                                                                    devices.filter(d => d.parent_device_id === display.id).map(child => (
-                                                                        <div key={child.id} className="text-[10px] py-1 px-1.5 border-b border-gray-50 flex justify-between items-center bg-white hover:bg-gray-50">
-                                                                            <span className="truncate">{child.ip_address}</span>
-                                                                            <span className="text-gray-400 font-mono text-[9px] truncate ml-1">{child.mac_address}</span>
-                                                                        </div>
-                                                                    ))
-                                                                ) : (
-                                                                    <div className="p-1.5 text-[10px] text-gray-400 italic">Nessun AP trovato</div>
+
+                                                            <div className={!wifiExpanded ? 'hidden' : 'mt-2 border-t border-gray-200 pt-2'}>
+                                                                {display.details.wifi_sync_last_at && (
+                                                                    <div className="text-[10px] text-gray-400 mb-2">Sync: {new Date(display.details.wifi_sync_last_at).toLocaleString()}</div>
                                                                 )}
+                                                                <div className="max-h-32 overflow-y-auto bg-white border border-gray-100 rounded">
+                                                                    <div className="sticky top-0 bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold text-gray-500 border-b border-gray-200">AP GESTITI</div>
+                                                                    {devices.filter(d => d.parent_device_id === display.id).length > 0 ? (
+                                                                        devices.filter(d => d.parent_device_id === display.id).map(child => (
+                                                                            <div key={child.id} className="text-[10px] py-1 px-1.5 border-b border-gray-50 flex justify-between items-center bg-white hover:bg-gray-50">
+                                                                                <span className="truncate">{child.ip_address}</span>
+                                                                                <span className="text-gray-400 font-mono text-[9px] truncate ml-1">{child.mac_address}</span>
+                                                                            </div>
+                                                                        ))
+                                                                    ) : (
+                                                                        <div className="p-1.5 text-[10px] text-gray-400 italic">Nessun AP trovato</div>
+                                                                    )}
+                                                                </div>
+                                                                <button onClick={() => startRouterWifiAnalysis(display)} className="mt-2 w-full text-center text-blue-600 hover:bg-blue-50 py-1 rounded text-[10px] border border-blue-100 transition-colors">
+                                                                    Ricarica / Aggiorna
+                                                                </button>
                                                             </div>
-                                                            <button onClick={() => startRouterWifiAnalysis(display)} className="mt-2 w-full text-center text-blue-600 hover:bg-blue-50 py-1 rounded text-[10px] border border-blue-100 transition-colors">
-                                                                Ricarica / Aggiorna
-                                                            </button>
                                                         </div>
                                                     ) : (
                                                         <div className="flex flex-col gap-1">
@@ -2118,8 +2154,22 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     )}
 
                                     <div className="border-b pb-3">
-                                        <label className="text-xs font-medium text-gray-500 mb-2 block">Icona da visualizzare</label>
-                                        <div className="grid grid-cols-5 gap-2">
+                                        <div
+                                            className="flex items-center justify-between cursor-pointer py-1 hover:bg-gray-50 rounded px-1 -mx-1 transition-colors"
+                                            onClick={() => setIconsExpanded(!iconsExpanded)}
+                                        >
+                                            <label className="text-xs font-medium text-gray-500 cursor-pointer select-none">Icona da visualizzare</label>
+                                            <div className="flex items-center gap-1.5">
+                                                {(() => {
+                                                    const currentType = display.type || (display.details?.device_type) || 'unknown';
+                                                    const iconObj = AVAILABLE_ICONS.find(i => i.type === currentType) || AVAILABLE_ICONS.find(i => i.type === 'generic');
+                                                    const Ico = iconObj ? iconObj.icon : Circle;
+                                                    return <Ico size={16} className="text-blue-600" />;
+                                                })()}
+                                                {iconsExpanded ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+                                            </div>
+                                        </div>
+                                        <div className={`grid grid-cols-5 gap-2 mt-2 ${!iconsExpanded ? 'hidden' : ''}`}>
                                             {AVAILABLE_ICONS.map((iconItem) => {
                                                 const IconComp = iconItem.icon;
                                                 const isSelected = display.type === iconItem.type || (display.details?.device_type === iconItem.type);
