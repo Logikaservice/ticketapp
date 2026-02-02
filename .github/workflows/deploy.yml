@@ -8,7 +8,9 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-22.04
+    # Runner self-hosted sul VPS: niente più coda sui runner GitHub.
+    # Vedi docs/SELF-HOSTED-RUNNER.md per la configurazione (una tantum).
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
