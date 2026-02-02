@@ -711,7 +711,7 @@ module.exports = (pool, io) => {
           agent_name || `Agent ${new Date().toISOString()}`,
           rangesArray,
           rangesConfig ? JSON.stringify(rangesConfig) : null,
-          scan_interval_minutes || 15
+          scan_interval_minutes || 2
         ]
       );
 
@@ -737,7 +737,7 @@ module.exports = (pool, io) => {
 
       // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
       // Serve per far capire all'installer quale versione dovrebbe risultare installata.
-      const CURRENT_AGENT_VERSION = '2.6.7'; // Versione di fallback (allineata a $SCRIPT_VERSION)
+      const CURRENT_AGENT_VERSION = '2.6.10'; // Versione di fallback (allineata a $SCRIPT_VERSION)
       let agentPackageVersion = CURRENT_AGENT_VERSION;
       try {
         const projectRoot = path.resolve(__dirname, '..', '..');

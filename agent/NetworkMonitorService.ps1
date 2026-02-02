@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.6.9"
+$SCRIPT_VERSION = "2.6.10"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -185,7 +185,7 @@ if (-not $script:scriptDir) {
 $script:isRunning = $true
 $script:lastScanTime = $null
 $script:lastScanDevices = 0
-$script:scanIntervalMinutes = 15
+$script:scanIntervalMinutes = 2
 $script:statusFile = Join-Path $script:scriptDir ".agent_status.json"
 $script:lastScanPath = Join-Path $script:scriptDir "last_scan.json"
 $script:currentScanIPsFile = Join-Path $script:scriptDir ".current_scan_ips.json"
@@ -1031,19 +1031,33 @@ function Get-NetworkDevices {
                             $tcp = $null
                             try {
                                 $tcp = New-Object System.Net.Sockets.TcpClient
-                                # Timeout molto breve (200ms) per non rallentare troppo
+                                # Timeout leggermente aumentato (500ms) per affidabilità
                                 $connect = $tcp.BeginConnect($targetIP, $port, $null, $null)
-                                if ($connect.AsyncWaitHandle.WaitOne(200, $false)) {
+                                if ($connect.AsyncWaitHandle.WaitOne(500, $false)) {
                                     try {
                                         $tcp.EndConnect($connect)
-                                        $openPort = $port
+                                        # VERIFICA CRITICA: Controlla che la connessione sia realmente attiva
+                                        # Evita falsi positivi quando il dispositivo è disconnesso (ARP cache stale)
+                                        if ($tcp.Connected) {
+                                            $openPort = $port
+                                            $tcp.Close()
+                                            break # Trovata una porta aperta! Dispositivo online.
+                                        }
                                         $tcp.Close()
-                                        break # Trovata una porta aperta! Dispositivo online.
                                     }
-                                    catch {}
+                                    catch {
+                                        # EndConnect ha fallito, la connessione non è riuscita
+                                        if ($tcp) { $tcp.Close() }
+                                    }
+                                }
+                                else {
+                                    # Timeout scaduto
+                                    $tcp.Close()
                                 }
                             }
-                            catch {}
+                            catch {
+                                if ($tcp) { $tcp.Close() }
+                            }
                             finally {
                                 if ($tcp) { 
                                     $tcp.Dispose() 
