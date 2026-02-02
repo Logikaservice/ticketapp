@@ -2028,9 +2028,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                                         <div className="p-1.5 text-[10px] text-gray-400 italic">Nessun AP trovato</div>
                                                                     )}
                                                                 </div>
-                                                                <button onClick={() => startRouterWifiAnalysis(display)} className="mt-2 w-full text-center text-blue-600 hover:bg-blue-50 py-1 rounded text-[10px] border border-blue-100 transition-colors">
-                                                                    Ricarica / Aggiorna
-                                                                </button>
+                                                                {/* Pulsante rimosso: caricamento AP automatico durante scan */}
                                                             </div>
                                                         </div>
                                                     ) : (
@@ -2125,9 +2123,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                                         <div className="p-1.5 text-[10px] text-gray-400 italic">Nessun AP trovato</div>
                                                                     )}
                                                                 </div>
-                                                                <button onClick={() => startRouterWifiAnalysis(display)} className="mt-2 w-full text-center text-blue-600 hover:bg-blue-50 py-1 rounded text-[10px] border border-blue-100 transition-colors">
-                                                                    Ricarica / Aggiorna
-                                                                </button>
+                                                                {/* Pulsante rimosso: caricamento AP automatico durante scan */}
                                                             </div>
                                                         </div>
                                                     ) : (

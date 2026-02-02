@@ -1955,7 +1955,78 @@ module.exports = (pool, io) => {
         }
       }
 
+      // Auto-carica AP per Cloud Key/Controller UniFi (automatico, senza pulsante)
+      try {
+        const unifiDevices = await pool.query(
+          `SELECT nd.id, nd.ip_address, nd.mac_address, nd.router_model, na.unifi_config, na.id as agent_id
+           FROM network_devices nd
+           INNER JOIN network_agents na ON nd.agent_id = na.id
+           WHERE nd.agent_id = $1 
+             AND nd.status = 'online'
+             AND (nd.router_model LIKE '%Unifi%' OR nd.router_model LIKE '%Ubiquiti%' OR nd.router_model LIKE '%UCK%' OR nd.device_type = 'cloud_key')
+          `,
+          [agentId]
+        );
 
+        for (const unifiDev of unifiDevices.rows) {
+          // Crea task solo se non esiste già uno pending per questo device (evita duplicati)
+          const existingTask = Array.from(pendingRouterWifiTasks.entries()).find(
+            ([aid, task]) => aid === agentId && task.device_id === unifiDev.id
+          );
+          if (existingTask) continue; // Task già in coda
+
+          // Recupera credenziali (come in /router-wifi-devices/request)
+          let username = '';
+          let password = '';
+          let controllerUrl = null;
+          const ip = unifiDev.ip_address;
+          const mac = unifiDev.mac_address;
+          const routerModel = unifiDev.router_model || 'Unifi';
+          const unifiConfig = unifiDev.unifi_config;
+
+          // Prova unifi_config
+          if (unifiConfig && unifiConfig.url && unifiConfig.username && unifiConfig.password) {
+            const uUrl = String(unifiConfig.url).trim().replace(/\/$/, '');
+            const uHost = uUrl.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
+            const ipHost = String(ip).split(':')[0].trim();
+            if (uHost === ipHost || uHost === ip) {
+              username = String(unifiConfig.username).trim();
+              password = String(unifiConfig.password);
+              controllerUrl = uUrl;
+            }
+          }
+
+          // Fallback KeePass
+          if (!username || !password) {
+            if (mac && process.env.KEEPASS_PASSWORD) {
+              try {
+                const creds = await keepassDriveService.getCredentialsByMac(mac, process.env.KEEPASS_PASSWORD);
+                if (creds && (creds.username || creds.password)) {
+                  username = creds.username || '';
+                  password = creds.password || '';
+                }
+              } catch (e) { /* ignore */ }
+            }
+          }
+
+          if (username && password) {
+            const taskId = 'rw-auto-' + Date.now() + '-' + unifiDev.id;
+            pendingRouterWifiTasks.set(agentId, {
+              task_id: taskId,
+              router_ip: ip,
+              controller_url: controllerUrl || undefined,
+              username,
+              password,
+              router_model: routerModel,
+              device_id: unifiDev.id,
+              created_at: Date.now()
+            });
+            console.log(`🤖 Auto-task router-wifi per Cloud Key ${unifiDev.id} (${ip}): task ${taskId}`);
+          }
+        }
+      } catch (autoErr) {
+        console.error('❌ Errore auto-carica AP:', autoErr);
+      }
 
       // Gestisci cambiamenti (se forniti dall'agent)
       let changeResults = [];
