@@ -8,9 +8,8 @@ on:
 
 jobs:
   deploy:
-    # Usa il runner self-hosted sul VPS (quando l'hai aggiunto). Prima usava ubuntu-latest
-    # ma GitHub non assegnava più runner → job in coda. Con self-hosted il deploy parte sul tuo VPS.
-    runs-on: [self-hosted, Linux, X64]
+    # Usa i runner standard di GitHub
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
