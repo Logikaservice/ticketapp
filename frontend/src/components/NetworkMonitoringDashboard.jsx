@@ -616,6 +616,35 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     }
   }, [editingAgentId, editAgentData, getAuthHeader, loadAgents]);
 
+  // Reset has_ping_failures
+  const handleResetPingFailures = async () => {
+    if (!selectedCompanyId) return;
+    if (!confirm('Sei sicuro di voler resettare gli avvisi di "Disconnessioni frequenti" per TUTTI i dispositivi di questa azienda?\n\nQuesta azione non risolve i problemi di rete, ma azzera solo i contatori di visualizzazione.')) {
+      return;
+    }
+
+    try {
+      setLoadingCompanyDevices(true);
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/reset-ping-failures`), {
+        method: 'POST',
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore durante il reset');
+      }
+
+      const res = await response.json();
+      alert(res.message || 'Reset effettuato con successo');
+      await loadCompanyDevices(selectedCompanyId); // Ricarica lista
+    } catch (err) {
+      console.error('Errore reset:', err);
+      alert('Errore durante il reset: ' + err.message);
+    } finally {
+      setLoadingCompanyDevices(false);
+    }
+  };
+
   // Carica dispositivi per un'azienda specifica
   const loadCompanyDevices = useCallback(async (aziendaId, silent = false) => {
     try {
@@ -1781,6 +1810,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 {companies.find(c => c.id === selectedCompanyId)?.azienda || 'Dispositivi'}
               </h2>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={handleResetPingFailures}
+                  className="flex items-center gap-2 px-4 py-2 bg-orange-50 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-100 transition-colors mr-2"
+                  title="Resetta l'avviso di 'Disconnessioni rilevate' per tutti i dispositivi di questa azienda"
+                >
+                  <Activity size={18} />
+                  <span className="text-sm font-medium">Reset Errori</span>
+                </button>
                 <button
                   onClick={() => setShowPingFailuresOnly(!showPingFailuresOnly)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${showPingFailuresOnly

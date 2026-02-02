@@ -1227,6 +1227,28 @@ module.exports = (pool, io) => {
     }
   });
 
+  // POST /api/network-monitoring/clients/:aziendaId/reset-ping-failures
+  // Resetta il flag has_ping_failures per tutti i dispositivi dell'azienda specificata
+  router.post('/clients/:aziendaId/reset-ping-failures', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { aziendaId } = req.params;
+      console.log(`🧹 Richiesto reset ping failures per azienda ${aziendaId}`);
+
+      const result = await pool.query(
+        `UPDATE network_devices 
+         SET has_ping_failures = false 
+         WHERE agent_id IN (SELECT id FROM network_agents WHERE azienda_id = $1)`,
+        [aziendaId]
+      );
+
+      console.log(`✅ Reset ping failures per azienda ${aziendaId}: ${result.rowCount} dispositivi aggiornati.`);
+      res.json({ success: true, count: result.rowCount, message: 'Disconnessioni rilevate resettate con successo.' });
+    } catch (err) {
+      console.error('❌ Errore reset ping failures:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // POST /api/network-monitoring/clients/:aziendaId/calculate-topology
   // Rotta manuale per triggerare il calcolo della topologia (analisi switch collegati)
   router.post('/clients/:aziendaId/calculate-topology', authenticateToken, requireRole('tecnico'), async (req, res) => {
