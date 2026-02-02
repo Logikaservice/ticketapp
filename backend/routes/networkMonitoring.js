@@ -127,7 +127,7 @@ module.exports = (pool, io) => {
           status VARCHAR(20) DEFAULT 'offline' CHECK (status IN ('online', 'offline', 'error')),
           version VARCHAR(50),
           network_ranges TEXT[],
-          scan_interval_minutes INTEGER DEFAULT 15,
+          scan_interval_minutes INTEGER DEFAULT 2,
           enabled BOOLEAN DEFAULT true,
           deleted_at TIMESTAMP,
           created_at TIMESTAMP DEFAULT NOW(),
@@ -796,7 +796,7 @@ module.exports = (pool, io) => {
         agent_name: agent.agent_name,
         version: agentPackageVersion,
         network_ranges: agent.network_ranges || [],
-        scan_interval_minutes: agent.scan_interval_minutes || 15,
+        scan_interval_minutes: agent.scan_interval_minutes || 2,
         unifi_config: agent.unifi_config
       });
     } catch (err) {
