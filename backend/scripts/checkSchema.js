@@ -11,11 +11,11 @@ async function checkSchema() {
         const result = await pool.query(`
       SELECT column_name, data_type 
       FROM information_schema.columns 
-      WHERE table_name = 'network_agents'
+      WHERE table_name = 'network_devices'
       ORDER BY column_name
     `);
 
-        console.log('\n📊 === COLONNE TABELLA network_agents ===\n');
+        console.log('\n📊 === COLONNE TABELLA network_devices ===\n');
         result.rows.forEach(row => {
             console.log(`   - ${row.column_name} (${row.data_type})`);
         });

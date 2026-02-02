@@ -1,5 +1,6 @@
 // Verifica agent
-require('dotenv').config({ path: 'c:\\TicketApp\\backend\\.env' });
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const { Pool } = require('pg');
 
 const pool = new Pool({
@@ -9,7 +10,7 @@ const pool = new Pool({
 async function checkAgents() {
     try {
         const result = await pool.query(`
-      SELECT id, agent_name, deleted_at, created_at 
+      SELECT id, agent_name, deleted_at, created_at, api_key, scan_interval_minutes, version, last_heartbeat
       FROM network_agents 
       ORDER BY id
     `);
@@ -17,7 +18,7 @@ async function checkAgents() {
         console.log('\n📊 === ELENCO AGENT ===\n');
         result.rows.forEach(row => {
             const status = row.deleted_at ? '❌ ELIMINATO' : '✅ ATTIVO';
-            console.log(`${status} | ID: ${row.id} | Nome: ${row.agent_name} | Creato: ${row.created_at} | Eliminato: ${row.deleted_at || 'N/A'}`);
+            console.log(`${status} | ID: ${row.id} | Nome: ${row.agent_name} | Ver: ${row.version} | Int: ${row.scan_interval_minutes} | LastHB: ${row.last_heartbeat}`);
         });
         console.log('\n');
 

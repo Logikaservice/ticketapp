@@ -8,15 +8,15 @@ on:
 
 jobs:
   deploy:
-    # Runner self-hosted sul VPS: niente più coda sui runner GitHub.
-    # Vedi docs/SELF-HOSTED-RUNNER.md per la configurazione (una tantum).
+    # Usa il runner self-hosted sul VPS (quando l'hai aggiunto). Prima usava ubuntu-latest
+    # ma GitHub non assegnava più runner → job in coda. Con self-hosted il deploy parte sul tuo VPS.
     runs-on: [self-hosted, Linux, X64]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
