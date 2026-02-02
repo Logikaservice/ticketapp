@@ -550,6 +550,7 @@ const uploadContracts = multer({
 
 // --- SERVIRE FILE STATICI ---
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/agent-updates', express.static(path.join(__dirname, 'public/agent-updates')));
 
 // --- ROUTES ---
 app.get('/api', (req, res) => {
@@ -2011,13 +2012,13 @@ const startServer = async () => {
     try {
       // Determina quale pool usare per il database crypto
       // Se esiste DATABASE_URL_CRYPTO, usa quello, altrimenti usa il pool principale
-      const cryptoPool = process.env.DATABASE_URL_CRYPTO ? 
+      const cryptoPool = process.env.DATABASE_URL_CRYPTO ?
         (() => {
           // Crea un pool temporaneo per crypto se necessario
           // Per ora usiamo il pool principale, ma in futuro potrebbe essere separato
           return pool;
         })() : pool;
-      
+
       await cryptoPool.query(`
         CREATE TABLE IF NOT EXISTS symbol_volumes_24h (
           symbol TEXT PRIMARY KEY,
@@ -2026,7 +2027,7 @@ const startServer = async () => {
         )
       `);
       console.log("✅ Tabella symbol_volumes_24h creata/verificata (auto-init)");
-      
+
       // Crea indice se non esiste
       try {
         await cryptoPool.query(`

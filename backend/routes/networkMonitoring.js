@@ -737,7 +737,7 @@ module.exports = (pool, io) => {
 
       // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
       // Serve per far capire all'installer quale versione dovrebbe risultare installata.
-      const CURRENT_AGENT_VERSION = '2.6.10'; // Versione di fallback (allineata a $SCRIPT_VERSION)
+      const CURRENT_AGENT_VERSION = '2.6.11'; // Versione di fallback (allineata a $SCRIPT_VERSION)
       let agentPackageVersion = CURRENT_AGENT_VERSION;
       try {
         const projectRoot = path.resolve(__dirname, '..', '..');
@@ -1104,66 +1104,87 @@ module.exports = (pool, io) => {
         resp.pending_unifi_test = { test_id: pt.test_id, url: pt.url, username: pt.username, password: pt.password };
         pendingUnifiTests.delete(agentId);
       }
-      let prw = pendingRouterWifiTasks.get(agentId);
-
-      // AUTO-CREATION: Se non c'è task manuale, cerca devices da aggiornare automaticamente
-      if (!prw) {
-        try {
-          const candidate = await pool.query(
-            `SELECT id, ip_address, router_model, mac_address 
-              FROM network_devices 
-              WHERE agent_id = $1 
-              AND router_model IS NOT NULL AND router_model != ''
-              AND (wifi_sync_last_at IS NULL OR wifi_sync_last_at < NOW() - INTERVAL '1 minute')
-              ORDER BY wifi_sync_last_at ASC NULLS FIRST
-              LIMIT 1`,
-            [agentId]
-          );
-
-          if (candidate.rows.length > 0) {
-            const dev = candidate.rows[0];
-            const keepassPassword = process.env.KEEPASS_PASSWORD;
-            let username = '', password = '', controllerUrl = '';
-
-            // Unifi Config
-            const agentInfo = await pool.query('SELECT unifi_config FROM network_agents WHERE id = $1', [agentId]);
-            const unifiConfig = agentInfo.rows[0]?.unifi_config;
-            const isUnifi = dev.router_model.toLowerCase().includes('unifi') || dev.router_model.toLowerCase().includes('uck');
-            if (isUnifi && unifiConfig && unifiConfig.url) {
-              const uUrl = String(unifiConfig.url).trim().replace(/\/$/, '');
-              const uHost = uUrl.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
-              const ipHost = String(dev.ip_address).split(':')[0].trim();
-              if (uHost === ipHost || uHost === dev.ip_address) controllerUrl = uUrl;
-            }
-
-            // KeePass
-            // Utilizziamo un mac normalizzato per la ricerca
-            const mac = (dev.mac_address || '').trim().replace(/-/g, ':').toUpperCase();
-            if (keepassPassword && mac) {
-              try {
-                const creds = await keepassDriveService.getCredentialsByMac(mac, keepassPassword);
-                if (creds) { username = creds.username || ''; password = creds.password || ''; }
-              } catch (kpErr) { console.warn('KeePass auto-fetch error:', kpErr.message); }
-            }
-
-            const taskId = 'rw-auto-' + Date.now();
-            prw = {
-              task_id: taskId, router_ip: dev.ip_address, controller_url: controllerUrl || undefined,
-              username, password, router_model: dev.router_model, device_id: dev.id
-            };
-            // Marca come processato per evitare loop immediati (verrà aggiornato con esito finale dopo)
-            await pool.query('UPDATE network_devices SET wifi_sync_last_at = NOW() WHERE id = $1', [dev.id]);
-            console.log(`🤖 Auto-task Wifi per device ${dev.id} (${dev.ip_address})`);
-          }
-        } catch (autoErr) {
-          console.error('Errore auto-task wifi:', autoErr);
-        }
+      let tasks = [];
+      // 1. Task manuale prioritario
+      if (pendingRouterWifiTasks.has(agentId)) {
+        tasks.push(pendingRouterWifiTasks.get(agentId));
+        pendingRouterWifiTasks.delete(agentId);
       }
 
-      if (prw) {
-        resp.pending_router_wifi_task = { task_id: prw.task_id, router_ip: prw.router_ip, controller_url: prw.controller_url, username: prw.username, password: prw.password, router_model: prw.router_model || 'AGCOMBO', device_id: prw.device_id };
-        if (pendingRouterWifiTasks.has(agentId)) pendingRouterWifiTasks.delete(agentId);
-        console.log(`📡 Router WiFi: task ${prw.task_id} inviato a agent_id=${agentId}, controller_url=${prw.controller_url || '(nessuno)'}`);
+      // 2. AUTO-CREATION: Cerca altri device da aggiornare (fino a 5 per volta)
+      try {
+        const excludeIds = tasks.map(t => t.device_id);
+        // Gestione array vuoto per SQL (se vuoto usa -1 che non esiste)
+        const excludeSql = excludeIds.length > 0 ? excludeIds : [-1];
+
+        const candidates = await pool.query(
+          `SELECT id, ip_address, router_model, mac_address 
+           FROM network_devices 
+           WHERE agent_id = $1 
+           AND router_model IS NOT NULL AND router_model != ''
+           AND (wifi_sync_last_at IS NULL OR wifi_sync_last_at < NOW() - INTERVAL '1 minute')
+           AND id != ALL($2::int[])
+           ORDER BY wifi_sync_last_at ASC NULLS FIRST
+           LIMIT 5`,
+          [agentId, excludeSql]
+        );
+
+        for (const dev of candidates.rows) {
+          const keepassPassword = process.env.KEEPASS_PASSWORD;
+          let username = '', password = '', controllerUrl = '';
+
+          // Unifi Config
+          const agentInfo = await pool.query('SELECT unifi_config FROM network_agents WHERE id = $1', [agentId]);
+          const unifiConfig = agentInfo.rows[0]?.unifi_config;
+          const isUnifi = dev.router_model.toLowerCase().includes('unifi') || dev.router_model.toLowerCase().includes('uck');
+          if (isUnifi && unifiConfig && unifiConfig.url) {
+            const uUrl = String(unifiConfig.url).trim().replace(/\/$/, '');
+            const uHost = uUrl.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
+            const ipHost = String(dev.ip_address).split(':')[0].trim();
+            if (uHost === ipHost || uHost === dev.ip_address) controllerUrl = uUrl;
+          }
+
+          // KeePass
+          const mac = (dev.mac_address || '').trim().replace(/-/g, ':').toUpperCase();
+          if (keepassPassword && mac) {
+            try {
+              const creds = await keepassDriveService.getCredentialsByMac(mac, keepassPassword);
+              if (creds) { username = creds.username || ''; password = creds.password || ''; }
+            } catch (kpErr) { console.warn('KeePass auto-fetch error:', kpErr.message); }
+          }
+
+          const taskId = 'rw-auto-' + Date.now() + '-' + dev.id;
+          const task = {
+            task_id: taskId, router_ip: dev.ip_address, controller_url: controllerUrl || undefined,
+            username, password, router_model: dev.router_model, device_id: dev.id
+          };
+          tasks.push(task);
+
+          // Marca come processato per evitare loop immediati
+          await pool.query('UPDATE network_devices SET wifi_sync_last_at = NOW() WHERE id = $1', [dev.id]);
+          console.log(`🤖 Auto-task Wifi Multiplo per device ${dev.id} (${dev.ip_address})`);
+        }
+      } catch (autoErr) {
+        console.error('Errore auto-task wifi multiplo:', autoErr);
+      }
+
+      if (tasks.length > 0) {
+        // Invia ARRAY di task per agent nuovi (campo pending_router_wifi_tasks)
+        resp.pending_router_wifi_tasks = tasks.map(t => ({
+          task_id: t.task_id, router_ip: t.router_ip, controller_url: t.controller_url,
+          username: t.username, password: t.password,
+          router_model: t.router_model || 'AGCOMBO', device_id: t.device_id
+        }));
+
+        // Retrocompatibilità: invia il primo task nel campo vecchio pending_router_wifi_task
+        const first = tasks[0];
+        resp.pending_router_wifi_task = {
+          task_id: first.task_id, router_ip: first.router_ip, controller_url: first.controller_url,
+          username: first.username, password: first.password,
+          router_model: first.router_model || 'AGCOMBO', device_id: first.device_id
+        };
+
+        console.log(`📡 Router WiFi: inviati ${tasks.length} task a agent ${agentId}`);
       }
       res.json(resp);
     } catch (err) {
@@ -6113,14 +6134,15 @@ pause
   // scaricano da /download/agent/NetworkMonitorService.ps1 e si riavviano (auto-update).
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.6.10'; // Carica AP da Cloud Key/Controller Unifi (credenziali da KeePass, fix SSL, log avanzati)
+      const CURRENT_AGENT_VERSION = '2.6.11'; // Carica AP da Cloud Key/Controller Unifi (credenziali da KeePass, fix SSL, log avanzati)
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
         version: CURRENT_AGENT_VERSION,
-        download_url: `${baseUrl}/agent-updates/agent-update-2.6.10.zip`,
-        release_date: '2026-02-01',
+        download_url: `${baseUrl}/agent-updates/NetworkMonitorService.ps1`,
+        release_date: '2026-02-02',
         features: [
+          'Parallelismo scansione WiFi (router multipli simultanei)',
           'Carica AP associati - Cloud Key/Controller Unifi (credenziali da KeePass, API stat/device, fix SSL, log avanzati)',
           'Router WiFi - Carica dispositivi da router AGCOMBO/TIM e sync automatica sulla mappa',
           'MAC Address Normalization - Formato standard con due punti (AA:BB:CC:DD:EE:FF)',
