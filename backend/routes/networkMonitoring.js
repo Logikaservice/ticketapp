@@ -6465,8 +6465,8 @@ pause
         let routerX = 200; let routerY = 200;
         const posRes = await pool.query(
           `SELECT x, y FROM mappatura_nodes mn
-           INNER JOIN network_devices nd ON REPLACE(REPLACE(REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', ''), '.', ''), ' ') = REPLACE(REPLACE(REPLACE(REPLACE(UPPER(mn.mac_address), ':', ''), '-', ''), '.', ''), ' ')
-           WHERE mn.azienda_id = $1 AND nd.id = $2`,
+            INNER JOIN network_devices nd ON REPLACE(REPLACE(REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', ''), '.', ''), ' ', '') = REPLACE(REPLACE(REPLACE(REPLACE(UPPER(mn.mac_address), ':', ''), '-', ''), '.', ''), ' ', '')
+            WHERE mn.azienda_id = $1 AND nd.id = $2`,
           [aziendaId, routerId]
         );
         if (posRes.rows.length > 0) {
@@ -6481,8 +6481,8 @@ pause
           const macNorm = normalizeMac(mac);
           const exists = await pool.query(
             `SELECT 1 FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id
-             WHERE na.azienda_id = $1 AND (REPLACE(REPLACE(REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', ''), '.', ''), ' ') = $2
-             OR (nd.ip_address = $3 AND nd.agent_id = $4))`,
+              WHERE na.azienda_id = $1 AND (REPLACE(REPLACE(REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', ''), '.', ''), ' ', '') = $2
+              OR (nd.ip_address = $3 AND nd.agent_id = $4))`,
             [aziendaId, macNorm, ip, agentId]
           );
 
