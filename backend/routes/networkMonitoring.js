@@ -1106,9 +1106,9 @@ module.exports = (pool, io) => {
       }
       const prw = pendingRouterWifiTasks.get(agentId);
       if (prw) {
-        resp.pending_router_wifi_task = { task_id: prw.task_id, router_ip: prw.router_ip, username: prw.username, password: prw.password, router_model: prw.router_model || 'AGCOMBO', device_id: prw.device_id };
+        resp.pending_router_wifi_task = { task_id: prw.task_id, router_ip: prw.router_ip, controller_url: prw.controller_url, username: prw.username, password: prw.password, router_model: prw.router_model || 'AGCOMBO', device_id: prw.device_id };
         pendingRouterWifiTasks.delete(agentId);
-        console.log(`📡 Router WiFi: task ${prw.task_id} inviato a agent_id=${agentId}`);
+        console.log(`📡 Router WiFi: task ${prw.task_id} inviato a agent_id=${agentId}, controller_url=${prw.controller_url || '(nessuno)'}`);
       }
       res.json(resp);
     } catch (err) {
@@ -6330,6 +6330,7 @@ pause
       console.log(`📡 Router WiFi request: device_id=${device_id}, mac=${mac}, ip=${ip}, router_model=${routerModel}`);
 
       // Per Cloud Key/UniFi: usa unifi_config dell'agent (come per controllo firmware) se disponibile
+      let controllerUrl = null; // URL completo con porta (es. https://192.168.1.156:8443) per l'agent
       const isUnifi = /^Unifi|^Ubiquiti|^UCK/i.test(routerModel);
       if ((!username || !password) && isUnifi && unifiConfig && unifiConfig.url && unifiConfig.username && unifiConfig.password) {
         const uUrl = String(unifiConfig.url).trim().replace(/\/$/, '');
@@ -6341,8 +6342,16 @@ pause
         if (match) {
           username = String(unifiConfig.username).trim();
           password = String(unifiConfig.password);
-          console.log(`✅ Credenziali da unifi_config agent (come firmware): host=${uHost}, username=${username}`);
+          controllerUrl = uUrl; // l'agent userà questo URL (con porta 8443) invece di solo IP
+          console.log(`✅ Credenziali da unifi_config agent (come firmware): host=${uHost}, username=${username}, controller_url=${controllerUrl}`);
         }
+      }
+      // Se UniFi e abbiamo URL da unifi_config (stesso host), passalo all'agent per usare la porta 8443
+      if (isUnifi && !controllerUrl && unifiConfig && unifiConfig.url) {
+        const uUrl = String(unifiConfig.url).trim().replace(/\/$/, '');
+        const uHost = uUrl.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
+        const ipHost = String(ip).split(':')[0].trim();
+        if (uHost === ipHost || uHost === ip) controllerUrl = uUrl;
       }
 
       if (!username || !password) {
@@ -6365,13 +6374,14 @@ pause
       pendingRouterWifiTasks.set(agentId, {
         task_id: taskId,
         router_ip: ip,
+        controller_url: controllerUrl || undefined,
         username,
         password,
         router_model: routerModel,
         device_id: device_id,
         created_at: Date.now()
       });
-      console.log(`📡 Router WiFi: task ${taskId} creato per agent_id=${agentId}, router ${ip}, model=${routerModel}, username=${username}`);
+      console.log(`📡 Router WiFi: task ${taskId} creato per agent_id=${agentId}, router ${ip}, controller_url=${controllerUrl || '(nessuno)'}, model=${routerModel}, username=${username}`);
       res.json({ task_id: taskId, deferred: true, message: 'L\'agent recupererà i dispositivi al prossimo heartbeat (entro ~5 min).' });
     } catch (err) {
       console.error('❌ Errore router-wifi-devices/request:', err);

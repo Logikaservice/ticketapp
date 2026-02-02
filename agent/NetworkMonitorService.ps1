@@ -399,6 +399,7 @@ function Invoke-RouterWifiFetchAndReport {
     param(
         [string]$TaskId,
         [string]$RouterIp,
+        [string]$ControllerUrl,
         [string]$Username,
         [string]$Password,
         [string]$RouterModel,
@@ -411,7 +412,9 @@ function Invoke-RouterWifiFetchAndReport {
     try {
         # Unifi / Ubiquiti Cloud Key: API stat/device (AP e dispositivi gestiti dal controller)
         if ($RouterModel -match '^Unifi|^Ubiquiti|^UCK') {
-            Write-Log "Controller WiFi (Unifi): inizio connessione a $RouterIp (modello: $RouterModel, user: $Username)" "INFO"
+            # Usa URL completo con porta (es. https://192.168.1.156:8443) se fornito dal server, altrimenti prova :8443
+            $base = if ($ControllerUrl -and $ControllerUrl.Trim()) { $ControllerUrl.Trim().TrimEnd('/') } else { "https://${RouterIp}:8443" }
+            Write-Log "Controller WiFi (Unifi): inizio connessione a $base (modello: $RouterModel, user: $Username)" "INFO"
             # Bypass certificato SSL auto-firmato per UniFi controller
             if (-not ("TrustAllCertsPolicy" -as [type])) {
                 try {
@@ -425,7 +428,7 @@ function Invoke-RouterWifiFetchAndReport {
             [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
             [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
             
-            $base = "https://$RouterIp"
+            if (-not $base.StartsWith('http')) { $base = "https://$base" }
             $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
             $loginBody = @{ username = $Username; password = $Password } | ConvertTo-Json
             try {
@@ -2833,7 +2836,7 @@ while ($script:isRunning) {
                     if ($heartbeatResult.pending_router_wifi_task) {
                         $prw = $heartbeatResult.pending_router_wifi_task
                         try {
-                            Invoke-RouterWifiFetchAndReport -TaskId $prw.task_id -RouterIp $prw.router_ip -Username $prw.username -Password $prw.password -RouterModel $prw.router_model -DeviceId $prw.device_id -ServerUrl $config.server_url -ApiKey $config.api_key
+                            Invoke-RouterWifiFetchAndReport -TaskId $prw.task_id -RouterIp $prw.router_ip -ControllerUrl $prw.controller_url -Username $prw.username -Password $prw.password -RouterModel $prw.router_model -DeviceId $prw.device_id -ServerUrl $config.server_url -ApiKey $config.api_key
                         }
                         catch {
                             Write-Log "Errore recupero dispositivi WiFi da router: $_" "WARN"

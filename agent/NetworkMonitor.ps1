@@ -244,12 +244,14 @@ function Check-UnifiUpdates {
 
 # Recupera dispositivi WiFi dal router (AGCOMBO/TIM) e invia al server
 function Invoke-RouterWifiFetchAndReport {
-    param([string]$TaskId,[string]$RouterIp,[string]$Username,[string]$Password,[string]$RouterModel,[string]$DeviceId,[string]$ServerUrl,[string]$ApiKey)
+    param([string]$TaskId,[string]$RouterIp,[string]$ControllerUrl,[string]$Username,[string]$Password,[string]$RouterModel,[string]$DeviceId,[string]$ServerUrl,[string]$ApiKey)
     $devices=@(); $errMsg=""
     try {
         # Unifi / Ubiquiti Cloud Key: API stat/device (AP e dispositivi gestiti)
         if($RouterModel -match '^Unifi|^Ubiquiti|^UCK') {
-            Write-Log "Controller WiFi (Unifi): inizio connessione a $RouterIp (modello: $RouterModel, user: $Username)" "INFO"
+            # Usa URL completo con porta (es. https://192.168.1.156:8443) se fornito dal server, altrimenti prova :8443
+            $base = if ($ControllerUrl -and $ControllerUrl.Trim()) { $ControllerUrl.Trim().TrimEnd('/') } else { "https://${RouterIp}:8443" }
+            Write-Log "Controller WiFi (Unifi): inizio connessione a $base (modello: $RouterModel, user: $Username)" "INFO"
             # Bypass certificato SSL auto-firmato per UniFi controller
             add-type -ErrorAction SilentlyContinue @"
                 using System.Net; using System.Security.Cryptography.X509Certificates;
@@ -258,7 +260,7 @@ function Invoke-RouterWifiFetchAndReport {
             [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
             [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
             
-            $base="https://$RouterIp"
+            if (-not $base.StartsWith('http')) { $base = "https://$base" }
             $session=New-Object Microsoft.PowerShell.Commands.WebRequestSession
             $loginBody=@{username=$Username;password=$Password}|ConvertTo-Json
             try {
@@ -973,7 +975,7 @@ try {
     if ($heartbeatResult.pending_router_wifi_task) {
         $prw = $heartbeatResult.pending_router_wifi_task
         try {
-            Invoke-RouterWifiFetchAndReport -TaskId $prw.task_id -RouterIp $prw.router_ip -Username $prw.username -Password $prw.password -RouterModel $prw.router_model -DeviceId $prw.device_id -ServerUrl $config.server_url -ApiKey $config.api_key
+            Invoke-RouterWifiFetchAndReport -TaskId $prw.task_id -RouterIp $prw.router_ip -ControllerUrl $prw.controller_url -Username $prw.username -Password $prw.password -RouterModel $prw.router_model -DeviceId $prw.device_id -ServerUrl $config.server_url -ApiKey $config.api_key
         }
         catch { Write-Log "Errore Router WiFi: $_" "WARN" }
     }
