@@ -1370,26 +1370,17 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             return (a.ip_address || '').localeCompare(b.ip_address || '');
         });
 
-    // Verifica se un nodo ha problemi di disconnessione continua o cambi IP
+    // Verifica se un nodo ha problemi di disconnessione continua (flag has_ping_failures)
+    // Usato per mostrare il 'Radar Rosso' di allarme
     const hasDisconnectionIssues = (node) => {
         const d = node.details || {};
 
         // CONTROLLO PRINCIPALE: Flag dal backend per disconnessioni frequenti (5+ in 24h)
+        // Questo corrisponde al pallino rosso "+" nella dashboard
         if (d.has_ping_failures === true) return true;
 
-        // Controlli espliciti standard
-        if (d.has_connection_issues) return true;
-        if (d.status_changes_count > 3) return true;
-        if (d.previous_ip) return true;
-
-        // Controlli euristici
-        if (d.warning || d.error || d.alert || d.is_unstable) return true;
-
-        // Controllo ping (se online ma non risponde)
-        if (d.ping_responsive === false) return true;
-
-        // Controllo eventi recenti (storico instabilità) - DISABILITATO: eventi si riferiscono agli agent
-        // if (unstableDevices.has(node.ip)) return true;
+        // NOTA: Altri controlli (previous_ip, ping_responsive) sono stati rimossi da qui
+        // per evitare confusione. L'avviso radar rosso indica specificamente instabilità/disconnessioni.
 
         return false;
     };
