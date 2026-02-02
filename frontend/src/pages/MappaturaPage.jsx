@@ -236,7 +236,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     setRouterWifiTaskId(null);
                     setRouterWifiTaskStartedAt(null);
                     setRouterWifiLoading(false);
-                    if ((data.created_count ?? 0) > 0) setRefreshDevicesKey(k => k + 1);
+                    // Refresh sempre (anche se created_count=0), così "AP GESTITI" si aggiorna anche per dispositivi già esistenti
+                    setRefreshDevicesKey(k => k + 1);
                     return;
                 }
                 if (data.status === 'error') {
