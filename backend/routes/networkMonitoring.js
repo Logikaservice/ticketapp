@@ -2362,7 +2362,7 @@ module.exports = (pool, io) => {
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
-          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port, nd.notes, nd.is_manual_type, nd.ip_history, nd.additional_ips, nd.is_new_device, nd.router_model,
+          nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port, nd.notes, nd.is_manual_type, nd.ip_history, nd.additional_ips, nd.is_new_device, nd.router_model, nd.wifi_sync_status, nd.wifi_sync_msg, nd.wifi_sync_last_at,
           nd.agent_id, na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
@@ -6466,10 +6466,35 @@ pause
           }
         }
         console.log(`✅ Router WiFi sync: ${createdCount} nuovi dispositivi aggiunti alla mappa (router ${routerId})`);
+
+        // Aggiorna stato sync OK
+        await pool.query(
+          `UPDATE network_devices 
+             SET wifi_sync_status = 'ok', wifi_sync_msg = $1, wifi_sync_last_at = NOW() 
+             WHERE id = $2`,
+          [`Sincronizzazione completata: ${devices.length} dispositivi rilevati (${createdCount} nuovi)`, routerId]
+        );
+
       } catch (syncErr) {
         console.error('❌ Errore sync router WiFi devices:', syncErr);
+        await pool.query(
+          `UPDATE network_devices 
+             SET wifi_sync_status = 'error', wifi_sync_msg = $1, wifi_sync_last_at = NOW() 
+             WHERE id = $2`,
+          [String(syncErr.message), routerDeviceId]
+        );
       }
+    } else if (routerDeviceId) {
+      // Caso di errore riportato dall'agent o dati invalidi
+      const msg = error || (devices && devices.length === 0 ? 'Nessun dispositivo trovato' : 'Errore sconosciuto');
+      await pool.query(
+        `UPDATE network_devices 
+             SET wifi_sync_status = 'error', wifi_sync_msg = $1, wifi_sync_last_at = NOW() 
+             WHERE id = $2`,
+        [msg, routerDeviceId]
+      );
     }
+    res.json({ success: true }); // Ack all'agent comunquer
     routerWifiResults.set(task_id, {
       success: !!success,
       devices: Array.isArray(devices) ? devices : [],

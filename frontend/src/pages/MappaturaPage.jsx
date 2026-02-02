@@ -4,7 +4,7 @@ import {
     ArrowLeft, ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw,
     Monitor, Printer, Wifi, Router, X, Trash2, Link2, Network,
     Smartphone, Tablet, Laptop, Camera, Tv, Watch, Phone, Database, Cloud, Globe, List,
-    Layers, HardDrive, Shield, RadioTower, Speaker, Circle, Lock, Unlock, Key
+    Layers, HardDrive, Shield, RadioTower, Speaker, Circle, Lock, Unlock, Key, CheckCircle, AlertTriangle
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import * as d3 from 'd3-force';
@@ -1984,14 +1984,51 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 <option value="Altro">Altro</option>
                                             </select>
                                             {(display.details?.router_model) && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => startRouterWifiAnalysis(display)}
-                                                    className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-sm font-medium"
-                                                >
-                                                    <Wifi size={16} />
-                                                    Carica dispositivi WiFi
-                                                </button>
+                                                <>
+                                                    {display.details.wifi_sync_status === 'ok' ? (
+                                                        <div className="mt-2 text-xs bg-gray-50 p-2 rounded border border-gray-100">
+                                                            <div className="flex items-center gap-1.5 text-green-700 font-medium mb-1">
+                                                                <CheckCircle size={14} />
+                                                                <span>Connessione stabilita</span>
+                                                            </div>
+                                                            {display.details.wifi_sync_last_at && (
+                                                                <div className="text-[10px] text-gray-400 mb-2">Sync: {new Date(display.details.wifi_sync_last_at).toLocaleString()}</div>
+                                                            )}
+                                                            <div className="max-h-32 overflow-y-auto bg-white border border-gray-100 rounded">
+                                                                {devices.filter(d => d.parent_device_id === display.id).length > 0 ? (
+                                                                    devices.filter(d => d.parent_device_id === display.id).map(child => (
+                                                                        <div key={child.id} className="text-[10px] py-1 px-1.5 border-b border-gray-50 flex justify-between items-center">
+                                                                            <span className="truncate">{child.ip_address}</span>
+                                                                            <span className="text-gray-400 font-mono text-[9px] truncate ml-1">{child.mac_address}</span>
+                                                                        </div>
+                                                                    ))
+                                                                ) : (
+                                                                    <div className="p-1.5 text-[10px] text-gray-400 italic">Nessun AP trovato</div>
+                                                                )}
+                                                            </div>
+                                                            <button onClick={() => startRouterWifiAnalysis(display)} className="mt-2 w-full text-center text-blue-600 hover:bg-blue-50 py-1 rounded text-[10px] border border-blue-100 transition-colors">
+                                                                Ricarica / Aggiorna
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex flex-col gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => startRouterWifiAnalysis(display)}
+                                                                className="mt-2 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-sm font-medium w-full transition-colors"
+                                                            >
+                                                                <Wifi size={16} />
+                                                                Carica dispositivi WiFi
+                                                            </button>
+                                                            {display.details.wifi_sync_status === 'error' && (
+                                                                <div className="text-xs text-red-600 flex items-start gap-1 p-2 bg-red-50 rounded border border-red-100 mt-1">
+                                                                    <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                                                                    <span className="break-words">{display.details.wifi_sync_msg || 'Errore'}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                     )}
@@ -2029,14 +2066,52 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 <option value="Altro">Altro</option>
                                             </select>
                                             {(display.details?.router_model) && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => startRouterWifiAnalysis(display)}
-                                                    className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-sm font-medium"
-                                                >
-                                                    <Wifi size={16} />
-                                                    Carica AP associati
-                                                </button>
+                                                <>
+                                                    {display.details.wifi_sync_status === 'ok' ? (
+                                                        <div className="mt-2 text-xs bg-gray-50 p-2 rounded border border-gray-100">
+                                                            <div className="flex items-center gap-1.5 text-green-700 font-medium mb-1">
+                                                                <CheckCircle size={14} />
+                                                                <span>Connessione stabilita</span>
+                                                            </div>
+                                                            {display.details.wifi_sync_last_at && (
+                                                                <div className="text-[10px] text-gray-400 mb-2">Sync: {new Date(display.details.wifi_sync_last_at).toLocaleString()}</div>
+                                                            )}
+                                                            <div className="max-h-32 overflow-y-auto bg-white border border-gray-100 rounded">
+                                                                <div className="sticky top-0 bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold text-gray-500 border-b border-gray-200">AP GESTITI</div>
+                                                                {devices.filter(d => d.parent_device_id === display.id).length > 0 ? (
+                                                                    devices.filter(d => d.parent_device_id === display.id).map(child => (
+                                                                        <div key={child.id} className="text-[10px] py-1 px-1.5 border-b border-gray-50 flex justify-between items-center bg-white hover:bg-gray-50">
+                                                                            <span className="truncate">{child.ip_address}</span>
+                                                                            <span className="text-gray-400 font-mono text-[9px] truncate ml-1">{child.mac_address}</span>
+                                                                        </div>
+                                                                    ))
+                                                                ) : (
+                                                                    <div className="p-1.5 text-[10px] text-gray-400 italic">Nessun AP trovato</div>
+                                                                )}
+                                                            </div>
+                                                            <button onClick={() => startRouterWifiAnalysis(display)} className="mt-2 w-full text-center text-blue-600 hover:bg-blue-50 py-1 rounded text-[10px] border border-blue-100 transition-colors">
+                                                                Ricarica / Aggiorna
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex flex-col gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => startRouterWifiAnalysis(display)}
+                                                                className="mt-2 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-sm font-medium w-full transition-colors"
+                                                            >
+                                                                <Wifi size={16} />
+                                                                Carica AP associati
+                                                            </button>
+                                                            {display.details.wifi_sync_status === 'error' && (
+                                                                <div className="text-xs text-red-600 flex items-start gap-1 p-2 bg-red-50 rounded border border-red-100 mt-1">
+                                                                    <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                                                                    <span className="break-words">{display.details.wifi_sync_msg || 'Errore'}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </>
                                             )}
 
                                         </div>
