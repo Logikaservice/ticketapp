@@ -1114,7 +1114,7 @@ module.exports = (pool, io) => {
               FROM network_devices 
               WHERE agent_id = $1 
               AND router_model IS NOT NULL AND router_model != ''
-              AND (wifi_sync_last_at IS NULL OR wifi_sync_last_at < NOW() - INTERVAL '15 minutes')
+              AND (wifi_sync_last_at IS NULL OR wifi_sync_last_at < NOW() - INTERVAL '1 minute')
               ORDER BY wifi_sync_last_at ASC NULLS FIRST
               LIMIT 1`,
             [agentId]
