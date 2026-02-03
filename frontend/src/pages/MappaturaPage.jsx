@@ -142,6 +142,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const [hoveredDevice, setHoveredDevice] = useState(null);
     const [tooltipRect, setTooltipRect] = useState(null);
     const [reassociateChildNode, setReassociateChildNode] = useState(null);
+    const [dissociateNode, setDissociateNode] = useState(null);
     const hoveredRowRef = useRef(null);
     const [scale, setScale] = useState(1);
     const [offset, setOffset] = useState({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
