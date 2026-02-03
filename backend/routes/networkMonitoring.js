@@ -6585,12 +6585,18 @@ pause
             // Se esiste già, aggiorna il parent_device_id per collegarlo a questo controller/router
             const existingId = exists.rows[0].id;
             deviceIdForMap = existingId;
-            // Aggiorna sempre il parent_device_id per collegare l'AP al controller
-            await pool.query('UPDATE network_devices SET parent_device_id = $1 WHERE id = $2', [routerId, existingId]);
+            // Aggiorna sempre parent_device_id e imposta device_type='wifi' se non è già impostato manualmente
+            await pool.query(
+              `UPDATE network_devices 
+               SET parent_device_id = $1, 
+                   device_type = CASE WHEN device_type IS NULL OR device_type = '' THEN 'wifi' ELSE device_type END
+               WHERE id = $2`,
+              [routerId, existingId]
+            );
           } else {
-            // Se non esiste, crealo
+            // Se non esiste, crealo con device_type='wifi' (AP rilevato da Cloud Key/UniFi)
             const ins = await pool.query(
-              `INSERT INTO network_devices (agent_id, ip_address, mac_address, parent_device_id, status) VALUES ($1, $2, $3, $4, 'online') RETURNING id`,
+              `INSERT INTO network_devices (agent_id, ip_address, mac_address, parent_device_id, status, device_type) VALUES ($1, $2, $3, $4, 'online', 'wifi') RETURNING id`,
               [agentId, ip || null, mac, routerId]
             );
             if (ins.rows.length > 0) {
