@@ -6648,13 +6648,27 @@ pause
           if (exists.rows.length > 0) {
             const existingId = exists.rows[0].id;
             deviceIdForMap = existingId;
-            // Aggiorna parent_device_id (collega all'AP se trovato, altrimenti al Cloud Key)
-            await pool.query(
-              `UPDATE network_devices 
-               SET parent_device_id = $1
-               WHERE id = $2`,
-              [parentId, existingId]
+            // Aggiorna parent_device_id SOLO se il dispositivo non aveva già un parent "non-AP"
+            // (evita di sovrascrivere associazioni manuali es. 192.168.1.99 -> 192.168.1.1 router)
+            const currentParent = await pool.query(
+              `SELECT nd.parent_device_id, p.device_type as parent_device_type, p.router_model as parent_router_model
+               FROM network_devices nd
+               LEFT JOIN network_devices p ON p.id = nd.parent_device_id
+               WHERE nd.id = $1`,
+              [existingId]
             );
+            const parent = currentParent.rows[0];
+            const currentParentId = parent?.parent_device_id;
+            const parentIsAp = parent?.parent_device_type === 'wifi' || (parent?.parent_router_model && /Unifi|Ubiquiti|UCK/i.test(parent.parent_router_model || ''));
+            const shouldOverwrite = currentParentId == null || parentIsAp;
+            if (shouldOverwrite) {
+              await pool.query(
+                `UPDATE network_devices 
+                 SET parent_device_id = $1
+                 WHERE id = $2`,
+                [parentId, existingId]
+              );
+            }
           } else {
             // Crea client collegato all'AP (o Cloud Key se AP non trovato)
             const ins = await pool.query(

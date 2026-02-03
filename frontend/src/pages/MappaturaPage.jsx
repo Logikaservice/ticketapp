@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
     ArrowLeft, ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw,
-    Monitor, Printer, Wifi, Router, X, Trash2, Link2, Network,
+    Monitor, Printer, Wifi, Router, X, Trash2, Link2, Link2Off, Network,
     Smartphone, Tablet, Laptop, Camera, Tv, Watch, Phone, Database, Cloud, Globe, List,
     Layers, HardDrive, Shield, RadioTower, Speaker, Circle, Lock, Unlock, Key, CheckCircle, AlertTriangle, ChevronDown, ChevronUp
 } from 'lucide-react';
@@ -142,6 +142,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const [hoveredDevice, setHoveredDevice] = useState(null);
     const [tooltipRect, setTooltipRect] = useState(null);
     const [reassociateChildNode, setReassociateChildNode] = useState(null);
+    const [dissociateNode, setDissociateNode] = useState(null);
     const hoveredRowRef = useRef(null);
     const [scale, setScale] = useState(1);
     const [offset, setOffset] = useState({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
@@ -1061,6 +1062,29 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         }
     };
 
+    /** Rimuove l'associazione parent del dispositivo (parent_device_id = null) senza toglierlo dalla mappa */
+    const handleUnsetParent = async (childDevice) => {
+        if (!childDevice?.id) return;
+        const aziendaId = parseAziendaId(selectedCompanyId);
+        if (!aziendaId) return;
+        try {
+            const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaId}/set-parent/${childDevice.id}`), {
+                method: 'PUT',
+                headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ parentIp: '' })
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                alert(err.error || 'Errore rimozione associazione');
+                return;
+            }
+            setRefreshDevicesKey(k => k + 1);
+        } catch (e) {
+            console.error('Errore unset-parent:', e);
+            alert(e?.message || 'Errore rimozione associazione');
+        }
+    };
+
     useEffect(() => {
         if (!hoveredDevice) {
             setTooltipRect(null);
@@ -1620,6 +1644,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             setSelectedNode(null);
                             setSelectedDevice(null);
                             setReassociateChildNode(null);
+                            setDissociateNode(null);
                         }}
                         onMouseDown={handleCanvasMouseDown}
                         onMouseMove={handleCanvasMouseMove}
@@ -1736,6 +1761,20 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                         onMouseLeave={() => setHoveredNode(null)}
                                         onClick={(e) => {
                                             e.stopPropagation();
+                                            if (dissociateNode) {
+                                                // Modalità dissocia: rimuovi il parent del nodo cliccato
+                                                const deviceToDissociate = node.details || node;
+                                                if (deviceToDissociate.id && deviceToDissociate.parent_device_id) {
+                                                    handleUnsetParent(deviceToDissociate);
+                                                    setDissociateNode(null);
+                                                    setSelectedNode(node);
+                                                    setSelectedDevice(null);
+                                                } else {
+                                                    alert('Questo dispositivo non ha un\'associazione da rimuovere');
+                                                    setDissociateNode(null);
+                                                }
+                                                return;
+                                            }
                                             if (reassociateChildNode) {
                                                 if (node.id === reassociateChildNode.id) return;
                                                 associateChildToParent(node, reassociateChildNode.details || reassociateChildNode);
@@ -1885,11 +1924,16 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             <div className="w-80 shrink-0 bg-white shadow-xl border-l border-gray-200 p-4 flex flex-col animate-slideInRight z-50">
                                 <div className="flex justify-between items-start mb-4">
                                     <h3 className="text-lg font-bold text-gray-800 break-all">{display.label || display.ip}</h3>
-                                    <button onClick={() => { setSelectedNode(null); setSelectedDevice(null); setReassociateChildNode(null); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+                                    <button onClick={() => { setSelectedNode(null); setSelectedDevice(null); setReassociateChildNode(null); setDissociateNode(null); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
                                 </div>
                                 {reassociateChildNode && (
                                     <div className="mb-3 py-2 px-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
                                         Clicca il nuovo padre sulla mappa.
+                                    </div>
+                                )}
+                                {dissociateNode && (
+                                    <div className="mb-3 py-2 px-3 rounded-lg bg-orange-50 border border-orange-200 text-orange-800 text-sm">
+                                        Clicca il dispositivo sulla mappa per rimuovere la sua associazione.
                                     </div>
                                 )}
                                 <div className="space-y-3 text-sm">
@@ -2290,11 +2334,25 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => setReassociateChildNode(reassociateChildNode?.id === nodeForPanel.id ? null : nodeForPanel)}
+                                                onClick={() => {
+                                                    setReassociateChildNode(reassociateChildNode?.id === nodeForPanel.id ? null : nodeForPanel);
+                                                    setDissociateNode(null);
+                                                }}
                                                 className={`w-full py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${reassociateChildNode?.id === nodeForPanel.id ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'}`}
                                             >
                                                 <Link2 size={16} />
                                                 {reassociateChildNode?.id === nodeForPanel.id ? 'Annulla · Clicca il nuovo padre' : '+ Associa'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setDissociateNode(dissociateNode?.id === nodeForPanel.id ? null : nodeForPanel);
+                                                    setReassociateChildNode(null);
+                                                }}
+                                                className={`w-full py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${dissociateNode?.id === nodeForPanel.id ? 'bg-orange-100 text-orange-800 border border-orange-300' : 'bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200'}`}
+                                            >
+                                                <Link2Off size={16} />
+                                                {dissociateNode?.id === nodeForPanel.id ? 'Annulla · Clicca il dispositivo' : 'Dissocia'}
                                             </button>
                                             <button
                                                 type="button"
@@ -2323,15 +2381,26 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                                             </div>
                                                                             <div className="text-gray-500 text-xs truncate" title={child.hostname}>{child.hostname || '—'}</div>
                                                                         </div>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => handleRemoveFromMap(nodeForChild)}
-                                                                            className="shrink-0 px-2 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium flex items-center gap-1"
-                                                                            title="Rimuovi dalla mappa"
-                                                                        >
-                                                                            <Trash2 size={12} />
-                                                                            Elimina dalla mappa
-                                                                        </button>
+                                                                        <div className="shrink-0 flex items-center gap-1">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleUnsetParent(child)}
+                                                                                className="px-2 py-1 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 text-xs font-medium flex items-center gap-1"
+                                                                                title="Stacca solo l'associazione (resta in mappa)"
+                                                                            >
+                                                                                <Link2 size={12} />
+                                                                                Stacca
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleRemoveFromMap(nodeForChild)}
+                                                                                className="px-2 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium flex items-center gap-1"
+                                                                                title="Rimuovi dalla mappa"
+                                                                            >
+                                                                                <Trash2 size={12} />
+                                                                                Elimina
+                                                                            </button>
+                                                                        </div>
                                                                     </div>
                                                                 );
                                                             })}
