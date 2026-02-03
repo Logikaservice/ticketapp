@@ -6566,8 +6566,13 @@ pause
           routerX = parseFloat(posRes.rows[0].x) || 200;
           routerY = parseFloat(posRes.rows[0].y) || 200;
         }
-        for (let i = 0; i < devices.length; i++) {
-          const d = devices[i];
+        // Prima passata: processa solo gli AP, crea mappa MAC AP -> ID AP
+        const apMacToIdMap = new Map();
+        const apDevices = devices.filter(d => (d.type || 'ap') === 'ap');
+        const clientDevices = devices.filter(d => d.type === 'client');
+        
+        for (let i = 0; i < apDevices.length; i++) {
+          const d = apDevices[i];
           const mac = (d.mac || '').trim().replace(/-/g, ':');
           const ip = (d.ip || '').trim();
           if (!mac || mac.length < 12) continue;
@@ -6582,10 +6587,8 @@ pause
           let deviceIdForMap = null;
 
           if (exists.rows.length > 0) {
-            // Se esiste già, aggiorna il parent_device_id per collegarlo a questo controller/router
             const existingId = exists.rows[0].id;
             deviceIdForMap = existingId;
-            // Aggiorna sempre parent_device_id e imposta device_type='wifi' se non è già impostato manualmente
             await pool.query(
               `UPDATE network_devices 
                SET parent_device_id = $1, 
@@ -6594,7 +6597,6 @@ pause
               [routerId, existingId]
             );
           } else {
-            // Se non esiste, crealo con device_type='wifi' (AP rilevato da Cloud Key/UniFi)
             const ins = await pool.query(
               `INSERT INTO network_devices (agent_id, ip_address, mac_address, parent_device_id, status, device_type) VALUES ($1, $2, $3, $4, 'online', 'wifi') RETURNING id`,
               [agentId, ip || null, mac, routerId]
@@ -6606,12 +6608,83 @@ pause
           }
 
           if (deviceIdForMap) {
-            const offsetX = 60 * Math.cos((i * 2 * Math.PI) / Math.max(devices.length, 1));
-            const offsetY = 60 * Math.sin((i * 2 * Math.PI) / Math.max(devices.length, 1));
+            apMacToIdMap.set(macNorm, deviceIdForMap);
+            const offsetX = 60 * Math.cos((i * 2 * Math.PI) / Math.max(apDevices.length, 1));
+            const offsetY = 60 * Math.sin((i * 2 * Math.PI) / Math.max(apDevices.length, 1));
             const x = routerX + offsetX;
             const y = routerY + offsetY;
 
-            // Inserisci in mappatura_nodes (se non esiste già o se non è bloccato)
+            await pool.query(
+              `INSERT INTO mappatura_nodes (azienda_id, mac_address, x, y, is_locked) VALUES ($1, $2, $3, $4, false)
+               ON CONFLICT (azienda_id, mac_address) DO UPDATE SET x = EXCLUDED.x, y = EXCLUDED.y WHERE mappatura_nodes.is_locked = false`,
+              [aziendaId, macNorm, x, y]
+            );
+          }
+        }
+
+        // Seconda passata: processa i client, collegali agli AP tramite ap_mac
+        for (let i = 0; i < clientDevices.length; i++) {
+          const d = clientDevices[i];
+          const mac = (d.mac || '').trim().replace(/-/g, ':');
+          const ip = (d.ip || '').trim();
+          const apMac = (d.ap_mac || '').trim().replace(/-/g, ':');
+          if (!mac || mac.length < 12) continue;
+          const macNorm = normalizeMac(mac);
+          const apMacNorm = apMac ? normalizeMac(apMac) : null;
+          
+          // Trova l'ID dell'AP a cui è collegato il client
+          const apId = apMacNorm && apMacToIdMap.has(apMacNorm) ? apMacToIdMap.get(apMacNorm) : null;
+          const parentId = apId || routerId; // Se non trova l'AP, collega al Cloud Key come fallback
+
+          const exists = await pool.query(
+            `SELECT nd.id FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id
+              WHERE na.azienda_id = $1 AND (REPLACE(REPLACE(REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', ''), '.', ''), ' ', '') = $2
+              OR (nd.ip_address = $3 AND nd.agent_id = $4))`,
+            [aziendaId, macNorm, ip, agentId]
+          );
+
+          let deviceIdForMap = null;
+
+          if (exists.rows.length > 0) {
+            const existingId = exists.rows[0].id;
+            deviceIdForMap = existingId;
+            // Aggiorna parent_device_id (collega all'AP se trovato, altrimenti al Cloud Key)
+            await pool.query(
+              `UPDATE network_devices 
+               SET parent_device_id = $1
+               WHERE id = $2`,
+              [parentId, existingId]
+            );
+          } else {
+            // Crea client collegato all'AP (o Cloud Key se AP non trovato)
+            const ins = await pool.query(
+              `INSERT INTO network_devices (agent_id, ip_address, mac_address, parent_device_id, status) VALUES ($1, $2, $3, $4, 'online') RETURNING id`,
+              [agentId, ip || null, mac, parentId]
+            );
+            if (ins.rows.length > 0) {
+              createdCount++;
+              deviceIdForMap = ins.rows[0].id;
+            }
+          }
+
+          if (deviceIdForMap && apId) {
+            // Posiziona il client vicino all'AP (non al Cloud Key)
+            const apPos = await pool.query(
+              `SELECT x, y FROM mappatura_nodes WHERE azienda_id = $1 AND mac_address = $2`,
+              [aziendaId, apMacNorm]
+            );
+            let x = routerX;
+            let y = routerY;
+            if (apPos.rows.length > 0) {
+              x = parseFloat(apPos.rows[0].x) || routerX;
+              y = parseFloat(apPos.rows[0].y) || routerY;
+            }
+            // Offset più piccolo per client (più vicini all'AP)
+            const offsetX = 30 * Math.cos((i * 2 * Math.PI) / Math.max(clientDevices.length, 1));
+            const offsetY = 30 * Math.sin((i * 2 * Math.PI) / Math.max(clientDevices.length, 1));
+            x += offsetX;
+            y += offsetY;
+
             await pool.query(
               `INSERT INTO mappatura_nodes (azienda_id, mac_address, x, y, is_locked) VALUES ($1, $2, $3, $4, false)
                ON CONFLICT (azienda_id, mac_address) DO UPDATE SET x = EXCLUDED.x, y = EXCLUDED.y WHERE mappatura_nodes.is_locked = false`,

@@ -470,6 +470,9 @@ function Invoke-RouterWifiFetchAndReport {
                         Write-Log "Controller WiFi: GET fallito su $devPath - $($_.Exception.Message)" "WARN"
                     }
                 }
+                # Mappa MAC AP -> oggetto AP (per associare client agli AP)
+                $apMap = @{}
+                
                 if ($devicesRes -and $devicesRes.data) {
                     Write-Log "Controller WiFi: trovati $($devicesRes.data.Count) dispositivi nella risposta" "INFO"
                     foreach ($d in $devicesRes.data) {
@@ -477,14 +480,54 @@ function Invoke-RouterWifiFetchAndReport {
                         $mac = $d.mac -replace '-', ':'
                         $ip = if ($d.ip) { $d.ip } elseif ($d.last_ip) { $d.last_ip } else { '' }
                         $name = if ($d.name) { $d.name } else { '' }
-                        $devices += @{ mac = $mac; ip = $ip; hostname = $name }
-                        Write-Log "  - Dispositivo: $mac, IP: $ip, Nome: $name" "INFO"
+                        $devices += @{ mac = $mac; ip = $ip; hostname = $name; type = 'ap' }
+                        $apMap[$mac] = @{ mac = $mac; ip = $ip; name = $name }
+                        Write-Log "  - AP: $mac, IP: $ip, Nome: $name" "INFO"
                     }
                 }
                 elseif ($devicesRes) {
                     Write-Log "Controller WiFi: risposta ricevuta ma nessun campo 'data' trovato" "WARN"
                 }
-                Write-Log "Unifi Controller: trovati $($devices.Count) dispositivi/AP" "INFO"
+                
+                # Recupera anche i client connessi agli AP
+                Write-Log "Controller WiFi: recupero client connessi agli AP..." "INFO"
+                $clientsRes = $null
+                $clientEndpoints = @("/proxy/network/api/s/default/stat/user", "/api/s/default/stat/user", "/proxy/network/api/s/default/stat/sta", "/api/s/default/stat/sta")
+                foreach ($clientPath in $clientEndpoints) {
+                    try {
+                        Write-Log "Controller WiFi: tentativo GET $base$clientPath..." "INFO"
+                        $clientsRes = Invoke-RestMethod -Uri "$base$clientPath" -Method Get -WebSession $session -TimeoutSec 20 -ErrorAction Stop
+                        Write-Log "Controller WiFi: risposta client ricevuta da $clientPath" "INFO"
+                        break
+                    }
+                    catch {
+                        Write-Log "Controller WiFi: GET client fallito su $clientPath - $($_.Exception.Message)" "WARN"
+                    }
+                }
+                
+                if ($clientsRes -and $clientsRes.data) {
+                    Write-Log "Controller WiFi: trovati $($clientsRes.data.Count) client connessi" "INFO"
+                    foreach ($c in $clientsRes.data) {
+                        if (-not $c.mac -or $c.mac -match '00:00:00|FF:FF:FF') { continue }
+                        $clientMac = $c.mac -replace '-', ':'
+                        $clientIp = if ($c.ip) { $c.ip } elseif ($c.fixed_ip) { $c.fixed_ip } else { '' }
+                        $clientName = if ($c.hostname) { $c.hostname } elseif ($c.name) { $c.name } else { '' }
+                        $apMac = if ($c.ap_mac) { ($c.ap_mac -replace '-', ':') } else { '' }
+                        
+                        # Se il client è collegato a un AP che abbiamo trovato, aggiungilo con riferimento
+                        if ($apMac -and $apMap.ContainsKey($apMac)) {
+                            $devices += @{ mac = $clientMac; ip = $clientIp; hostname = $clientName; type = 'client'; ap_mac = $apMac }
+                            Write-Log "  - Client: $clientMac, IP: $clientIp, Nome: $clientName, AP: $apMac" "INFO"
+                        }
+                        else {
+                            # Client senza AP o AP non trovato: aggiungi comunque ma senza ap_mac
+                            $devices += @{ mac = $clientMac; ip = $clientIp; hostname = $clientName; type = 'client' }
+                            Write-Log "  - Client (senza AP): $clientMac, IP: $clientIp, Nome: $clientName" "INFO"
+                        }
+                    }
+                }
+                
+                Write-Log "Unifi Controller: trovati $($devices.Count) dispositivi totali (AP + client)" "INFO"
             }
             catch { $errMsg = if ($_.Exception.Message) { $_.Exception.Message } else { "Errore Unifi" }; Write-Log "Controller WiFi (Unifi): ERRORE - $errMsg" "WARN" }
             $resultUrl = "$ServerUrl/api/network-monitoring/agent/router-wifi-result"

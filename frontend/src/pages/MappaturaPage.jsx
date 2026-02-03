@@ -1361,13 +1361,23 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             return isNaN(n) ? 999 : Math.max(0, Math.min(255, n));
         });
     };
+    // Trova gli ID degli AP (dispositivi WiFi con parent = Cloud Key)
+    const apIds = new Set(
+        (devices || [])
+            .filter(d => d.device_type === 'wifi' && d.parent_device_id != null)
+            .map(d => d.id)
+    );
+    
     const ipList = (devices || [])
         .filter(d => {
             // Mostra solo dispositivi con IP che NON sono già nella mappa
             if (!d.ip_address) return false;
             if (!d.mac_address) return true; // Se non ha MAC, mostra comunque (per retrocompatibilità)
             // Controlla se il MAC è già nella mappa
-            return !macAddressesOnMap.has(normalizeMacForList(d.mac_address));
+            if (macAddressesOnMap.has(normalizeMacForList(d.mac_address))) return false;
+            // Escludi client collegati agli AP (parent_device_id punta a un AP, non al Cloud Key)
+            if (d.parent_device_id != null && apIds.has(d.parent_device_id)) return false;
+            return true;
         })
         .sort((a, b) => {
             const ka = ipToSortKey(a.ip_address);
