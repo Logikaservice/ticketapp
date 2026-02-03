@@ -570,6 +570,7 @@ module.exports = (pool, io) => {
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS notes TEXT;`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_manual_type BOOLEAN DEFAULT false;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_manual_parent BOOLEAN DEFAULT false;`);
           await pool.query(`
             CREATE TABLE IF NOT EXISTS managed_switches (
               id SERIAL PRIMARY KEY,
@@ -1429,7 +1430,7 @@ module.exports = (pool, io) => {
           if (foundOnOtherSwitch) {
             // Collega questo switch all'altro switch (parent_device_id)
             await pool.query(
-              'UPDATE network_devices SET parent_device_id = $1 WHERE id = $2 AND parent_device_id IS NULL',
+              'UPDATE network_devices SET parent_device_id = $1 WHERE id = $2 AND parent_device_id IS NULL AND (is_manual_parent IS FALSE OR is_manual_parent IS NULL)',
               [foundOnOtherSwitch.switch_device_id, sw.switch_device_id]
             );
             console.log(`🔗 Switch collegati: ${sw.ip} (porta ${port}) → ${foundOnOtherSwitch.ip} (${macs.length} MAC sulla porta)`);
@@ -2680,7 +2681,7 @@ module.exports = (pool, io) => {
       }
 
       await client.query('BEGIN');
-      await client.query('UPDATE network_devices SET parent_device_id = $1 WHERE id = $2', [newParentId, childId]);
+      await client.query('UPDATE network_devices SET parent_device_id = $1, is_manual_parent = true WHERE id = $2', [newParentId, childId]);
       await client.query('COMMIT');
 
       res.json({ success: true, message: 'Relazione parentela aggiornata', parent_id: newParentId });
@@ -6570,7 +6571,7 @@ pause
         const apMacToIdMap = new Map();
         const apDevices = devices.filter(d => (d.type || 'ap') === 'ap');
         const clientDevices = devices.filter(d => d.type === 'client');
-        
+
         for (let i = 0; i < apDevices.length; i++) {
           const d = apDevices[i];
           const mac = (d.mac || '').trim().replace(/-/g, ':');
@@ -6631,7 +6632,7 @@ pause
           if (!mac || mac.length < 12) continue;
           const macNorm = normalizeMac(mac);
           const apMacNorm = apMac ? normalizeMac(apMac) : null;
-          
+
           // Trova l'ID dell'AP a cui è collegato il client
           const apId = apMacNorm && apMacToIdMap.has(apMacNorm) ? apMacToIdMap.get(apMacNorm) : null;
           const parentId = apId || routerId; // Se non trova l'AP, collega al Cloud Key come fallback
@@ -6706,14 +6707,14 @@ pause
             );
           }
         }
-        
+
         // Marca come offline i client WiFi che non compaiono più nella risposta UniFi
         // (client che erano collegati agli AP di questo Cloud Key ma ora non sono più connessi)
         try {
           const apIdsList = Array.from(apMacToIdMap.values());
           if (apIdsList.length > 0) {
             const receivedClientMacs = new Set(clientDevices.map(d => normalizeMac((d.mac || '').trim().replace(/-/g, ':'))));
-            
+
             // Trova tutti i client collegati agli AP di questo Cloud Key
             const allClients = await pool.query(
               `SELECT nd.id, nd.mac_address 
@@ -6723,7 +6724,7 @@ pause
                  AND nd.mac_address IS NOT NULL`,
               [apIdsList]
             );
-            
+
             // Marca offline quelli che non sono nella lista ricevuta
             for (const client of allClients.rows) {
               const clientMacNorm = normalizeMac(client.mac_address);
@@ -6736,7 +6737,7 @@ pause
         } catch (offlineErr) {
           console.error('❌ Errore marcatura offline client WiFi:', offlineErr);
         }
-        
+
         console.log(`✅ Router WiFi sync: ${createdCount} nuovi dispositivi aggiunti alla mappa (router ${routerId})`);
 
         // Aggiorna stato sync OK
