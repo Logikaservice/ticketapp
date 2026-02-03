@@ -762,12 +762,42 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
 
     const mapDeviceType = (d, allDevices) => {
         const t = (d.device_type || '').toLowerCase();
+        
+        // Se il tipo è stato impostato manualmente, rispetta sempre quello scelto
+        if (d.is_manual_type && AVAILABLE_ICONS.some(icon => icon.type === t)) return t;
+        
+        // Se non è manuale e ha un tipo valido, usalo
         if (AVAILABLE_ICONS.some(icon => icon.type === t)) return t;
 
-        // Antenne/AP sotto Cloud Key: se il parent è Cloud Key o UniFi, usa icona WiFi (anche se device_type non impostato)
-        if ((!t || t === 'pc' || t === 'generic') && d.parent_device_id != null && Array.isArray(allDevices)) {
-            const parent = allDevices.find(x => x.id === d.parent_device_id);
-            if (parent && (parent.device_type === 'cloud_key' || (parent.router_model && /Unifi|Ubiquiti|UCK/i.test(parent.router_model)))) return 'wifi';
+        // Controlla tutta la gerarchia per trovare Cloud Key/AP/UniFi: se un dispositivo rileva AP/WiFi,
+        // tutti i dispositivi sotto quella radice devono avere icona WiFi (tranne quelli manuali)
+        if ((!t || t === 'pc' || t === 'generic') && d.parent_device_id != null && Array.isArray(allDevices) && !d.is_manual_type) {
+            // Funzione ricorsiva per controllare tutta la gerarchia
+            const checkHierarchyForWifiRoot = (deviceId, visited = new Set()) => {
+                if (!deviceId || visited.has(deviceId)) return false;
+                visited.add(deviceId);
+                
+                const parent = allDevices.find(x => x.id === deviceId);
+                if (!parent) return false;
+                
+                // Se il parent è Cloud Key o UniFi, è una radice WiFi
+                if (parent.device_type === 'cloud_key' || 
+                    parent.device_type === 'wifi' ||
+                    (parent.router_model && /Unifi|Ubiquiti|UCK/i.test(parent.router_model))) {
+                    return true;
+                }
+                
+                // Se il parent ha un parent, controlla ricorsivamente
+                if (parent.parent_device_id) {
+                    return checkHierarchyForWifiRoot(parent.parent_device_id, visited);
+                }
+                
+                return false;
+            };
+            
+            if (checkHierarchyForWifiRoot(d.parent_device_id)) {
+                return 'wifi';
+            }
         }
 
         // Specific mappings
