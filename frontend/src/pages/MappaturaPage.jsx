@@ -186,18 +186,41 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
 
         if (shouldLock) {
             // Blocca il nodo nella nuova posizione
-            setNodes(prev => prev.map(n => {
-                if (n.id === id) return { ...n, x, y, fx: x, fy: y, locked: true };
-                return n;
-            }));
-            // Salva layout
-            saveLayoutRef.current?.();
+            setNodes(prev => {
+                const newNodes = prev.map(n => {
+                    if (n.id === id) return { ...n, x, y, fx: x, fy: y, locked: true };
+                    return n;
+                });
+
+                // Salva immediatamente facendo riferimento ai NUOVI nodi (hack: saveLayoutRef usa simulationRef.nodes normalmente)
+                // Ma simulationRef.nodes potrebbe non essere ancora sincronizzato con lo stato React.
+                // Aggiorniamo direttamente il nodo nella simulazione se esiste.
+                const simNode = simulationRef.current?.nodes()?.find(n => n.id === id);
+                if (simNode) {
+                    simNode.fx = x;
+                    simNode.fy = y;
+                    simNode.locked = true;
+                }
+
+                // Esegui salvataggio immediato
+                setTimeout(() => saveLayoutRef.current?.(), 50);
+                return newNodes;
+            });
         } else {
             // Sblocca (ripristina simulazione)
-            setNodes(prev => prev.map(n => {
-                if (n.id === id) return { ...n, fx: null, fy: null, locked: false };
-                return n;
-            }));
+            setNodes(prev => {
+                const newNodes = prev.map(n => {
+                    if (n.id === id) return { ...n, fx: null, fy: null, locked: false };
+                    return n;
+                });
+                const simNode = simulationRef.current?.nodes()?.find(n => n.id === id);
+                if (simNode) {
+                    simNode.fx = null;
+                    simNode.fy = null;
+                    simNode.locked = false;
+                }
+                return newNodes;
+            });
             // Riavvia simulazione per farlo tornare "al suo posto"
             simulationRef.current?.alpha(0.3).restart();
             // Salva layout (per confermare che è sbloccato)
@@ -1188,14 +1211,13 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                 const payload = list.map(n => {
                     const macAddress = n.details?.mac_address;
                     if (!macAddress) {
-                        console.warn('⚠️ Nodo senza MAC address, impossibile salvare posizione:', n);
                         return null;
                     }
                     return {
                         mac_address: normalizeMac(macAddress),
                         x: n.x,
                         y: n.y,
-                        locked: n.locked || false
+                        locked: n.locked // status locked
                     };
                 }).filter(Boolean);
                 fetch(buildApiUrl(`/api/network-monitoring/clients/${cid}/mappatura-nodes`), {
@@ -1620,7 +1642,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     </div>
                 </div>
 
-                <div className="flex-1 flex min-h-0">
+                <div className="flex-1 flex min-h-0 select-none">
                     {/* Left: toolbar + IP list */}
                     {selectedCompanyId && (
                         <div className="w-48 shrink-0 flex flex-col bg-white border-r border-gray-200 overflow-hidden">
