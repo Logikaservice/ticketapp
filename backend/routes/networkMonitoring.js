@@ -1470,7 +1470,7 @@ module.exports = (pool, io) => {
                    SELECT nd.id FROM network_devices nd
                    INNER JOIN network_agents na ON nd.agent_id = na.id
                    WHERE na.azienda_id = $2 AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', ''), '.', ''), ' ', '') = $3
-                 )`,
+                 ) AND (is_manual_parent IS FALSE OR is_manual_parent IS NULL)`,
                 [virtualSwitchId, aziendaId, mac]
               );
             }
@@ -6594,7 +6594,7 @@ pause
               `UPDATE network_devices 
                SET parent_device_id = $1, 
                    device_type = CASE WHEN device_type IS NULL OR device_type = '' THEN 'wifi' ELSE device_type END
-               WHERE id = $2`,
+               WHERE id = $2 AND (is_manual_parent IS FALSE OR is_manual_parent IS NULL)`,
               [routerId, existingId]
             );
           } else {
@@ -6666,7 +6666,7 @@ pause
               await pool.query(
                 `UPDATE network_devices 
                  SET parent_device_id = $1
-                 WHERE id = $2`,
+                 WHERE id = $2 AND (is_manual_parent IS FALSE OR is_manual_parent IS NULL)`,
                 [parentId, existingId]
               );
             }
