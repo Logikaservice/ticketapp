@@ -178,6 +178,34 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         setIconsExpanded(false);
     }, [selectedNode, selectedDevice]);
 
+    const [pendingLockNode, setPendingLockNode] = useState(null); // { id, x, y, nodeOriginal }
+
+    const confirmLock = (shouldLock) => {
+        if (!pendingLockNode) return;
+        const { id, x, y } = pendingLockNode;
+
+        if (shouldLock) {
+            // Blocca il nodo nella nuova posizione
+            setNodes(prev => prev.map(n => {
+                if (n.id === id) return { ...n, x, y, fx: x, fy: y, locked: true };
+                return n;
+            }));
+            // Salva layout
+            saveLayoutRef.current?.();
+        } else {
+            // Sblocca (ripristina simulazione)
+            setNodes(prev => prev.map(n => {
+                if (n.id === id) return { ...n, fx: null, fy: null, locked: false };
+                return n;
+            }));
+            // Riavvia simulazione per farlo tornare "al suo posto"
+            simulationRef.current?.alpha(0.3).restart();
+            // Salva layout (per confermare che è sbloccato)
+            setTimeout(() => saveLayoutRef.current?.(), 500);
+        }
+        setPendingLockNode(null);
+    };
+
     const startRouterWifiAnalysis = async (display) => {
         const deviceId = display.id;
         const agentId = display.details?.agent_id;
@@ -1355,14 +1383,19 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
 
     const handleNodeMouseDown = (e, node) => {
         e.stopPropagation();
-
-        // Se il nodo è locked, non permettere il trascinamento
+        // Se il nodo è locked, non permettere il trascinamento (o potremmo permetterlo per ri-posizionare?)
+        // Per ora manteniamo il comportamento: se locked, è fisso.
         if (node.locked) {
+            // Opzionale: se vogliamo permettere di spostare un nodo locked, rimuoviamo questo return.
+            // Ma la richiesta parla di "vuoi bloccare la posizione? ... altrimenti torna al suo posto", che implica un nodo unlocked.
             return;
         }
 
         const sim = simulationRef.current;
         if (!sim) return;
+
+        let moved = false;
+
         const onMove = (ev) => {
             const rect = canvasContainerRef.current?.getBoundingClientRect();
             if (!rect) return;
@@ -1372,16 +1405,23 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             const sy = (ev.clientY - rect.top - o.y) / s;
             node.fx = sx; node.fy = sy; node.x = sx; node.y = sy;
             sim.alpha(0.3).restart();
+            moved = true;
         };
         const onUp = () => {
-            // Se il nodo non è locked, rimuovi fx/fy per permettere movimento libero
-            if (!node.locked) {
-                node.fx = null;
-                node.fy = null;
-            }
             window.removeEventListener('mousemove', onMove);
             window.removeEventListener('mouseup', onUp);
-            saveLayoutRef.current?.();
+
+            if (moved && !node.locked) {
+                // Non rimuovere fx/fy subito. Chiedi conferma.
+                setPendingLockNode({ id: node.id, x: node.x, y: node.y });
+            } else {
+                // Se non si è mosso o era già locked (ma qui entriamo solo se !locked), pulisci.
+                if (!node.locked) {
+                    node.fx = null;
+                    node.fy = null;
+                }
+                saveLayoutRef.current?.();
+            }
         };
         window.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onUp);
@@ -1601,36 +1641,39 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     <RotateCw size={16} className="text-gray-600" />
                                     <span className="text-xs font-medium">Aggiorna Layout</span>
                                 </button>
-                                <button
-                                    className={`p-1.5 rounded shadow border flex items-center justify-center gap-1.5 ${reassociateChildNode ? 'bg-amber-100 border-amber-300' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
-                                    title="Associa: seleziona un dispositivo dalla lista e clicca su un nodo nella mappa per associarlo come figlio"
-                                    onClick={() => {
-                                        setReassociateChildNode(reassociateChildNode ? null : 'sidebar-mode');
-                                        setDissociateNode(null);
-                                        setSelectedDevice(null);
-                                        setSelectedNode(null);
-                                    }}
-                                >
-                                    <Link2 size={16} className={reassociateChildNode ? 'text-amber-700' : 'text-blue-600'} />
-                                    <span className={`text-xs font-medium ${reassociateChildNode ? 'text-amber-700' : ''}`}>
-                                        {reassociateChildNode ? 'Annulla Associa' : 'Associa'}
-                                    </span>
-                                </button>
-                                <button
-                                    className={`p-1.5 rounded shadow border flex items-center justify-center gap-1.5 ${dissociateNode ? 'bg-orange-100 border-orange-300' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
-                                    title="Dissocia: clicca su un nodo nella mappa per rimuovere la sua associazione"
-                                    onClick={() => {
-                                        setDissociateNode(dissociateNode ? null : 'sidebar-mode');
-                                        setReassociateChildNode(null);
-                                        setSelectedDevice(null);
-                                        setSelectedNode(null);
-                                    }}
-                                >
-                                    <Link2Off size={16} className={dissociateNode ? 'text-orange-700' : 'text-orange-600'} />
-                                    <span className={`text-xs font-medium ${dissociateNode ? 'text-orange-700' : ''}`}>
-                                        {dissociateNode ? 'Annulla Dissocia' : 'Dissocia'}
-                                    </span>
-                                </button>
+
+                                <div className="grid grid-cols-2 gap-1.5">
+                                    <button
+                                        className={`p-1.5 rounded shadow border flex items-center justify-center gap-1.5 ${reassociateChildNode ? 'bg-amber-100 border-amber-300' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
+                                        title="Associa: seleziona un dispositivo dalla lista e clicca su un nodo nella mappa per associarlo come figlio"
+                                        onClick={() => {
+                                            setReassociateChildNode(reassociateChildNode ? null : 'sidebar-mode');
+                                            setDissociateNode(null);
+                                            setSelectedDevice(null);
+                                            setSelectedNode(null);
+                                        }}
+                                    >
+                                        <Link2 size={16} className={reassociateChildNode ? 'text-amber-700' : 'text-blue-600'} />
+                                        <span className={`text-[10px] font-bold uppercase ${reassociateChildNode ? 'text-amber-700' : 'text-gray-600'}`}>
+                                            {reassociateChildNode ? 'Annulla' : 'Associa'}
+                                        </span>
+                                    </button>
+                                    <button
+                                        className={`p-1.5 rounded shadow border flex items-center justify-center gap-1.5 ${dissociateNode ? 'bg-orange-100 border-orange-300' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
+                                        title="Dissocia: clicca su un nodo nella mappa per rimuovere la sua associazione"
+                                        onClick={() => {
+                                            setDissociateNode(dissociateNode ? null : 'sidebar-mode');
+                                            setReassociateChildNode(null);
+                                            setSelectedDevice(null);
+                                            setSelectedNode(null);
+                                        }}
+                                    >
+                                        <Link2Off size={16} className={dissociateNode ? 'text-orange-700' : 'text-orange-600'} />
+                                        <span className={`text-[10px] font-bold uppercase ${dissociateNode ? 'text-orange-700' : 'text-gray-600'}`}>
+                                            {dissociateNode ? 'Annulla' : 'Dissocia'}
+                                        </span>
+                                    </button>
+                                </div>
                             </div>
                             <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                                 <h4 className="px-2 py-1 text-[10px] font-bold text-gray-600 uppercase border-b border-gray-100 shrink-0" title="Clicca per i dati a destra · Trascina in mappa per aggiungere · Trascina su un pallino per associare come figlio">IP presenti e individuati</h4>
@@ -1794,6 +1837,38 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             className="absolute top-0 left-0 w-full h-full pointer-events-none"
                             style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, transformOrigin: '0 0' }}
                         >
+                            {/* Popup conferma blocco posizione */}
+                            {pendingLockNode && (
+                                <div
+                                    className="absolute z-[100] pointer-events-auto bg-white rounded-lg shadow-xl border border-gray-200 p-2 flex flex-col gap-2 min-w-[140px] animate-in fade-in zoom-in duration-200"
+                                    style={{
+                                        left: pendingLockNode.x,
+                                        top: pendingLockNode.y - 45, // poco sopra il nodo
+                                        transform: 'translate(-50%, -100%)'
+                                    }}
+                                >
+                                    <div className="text-[10px] font-bold text-gray-700 text-center leading-tight">
+                                        Vuoi bloccare la posizione?
+                                    </div>
+                                    <div className="flex gap-1.5">
+                                        <button
+                                            onClick={() => confirmLock(true)}
+                                            className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold py-1 px-2 rounded transition shadow-sm"
+                                        >
+                                            Sì
+                                        </button>
+                                        <button
+                                            onClick={() => confirmLock(false)}
+                                            className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-bold py-1 px-2 rounded transition border border-slate-200"
+                                        >
+                                            No
+                                        </button>
+                                    </div>
+                                    {/* Freccetta in basso */}
+                                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-white drop-shadow-sm"></div>
+                                </div>
+                            )}
+
                             <svg className="overflow-visible absolute top-0 left-0 w-full h-full pointer-events-none">
                                 {links.map((link, i) => {
                                     const src = typeof link.source === 'object' ? link.source : nodes.find(n => n.id === link.source);
