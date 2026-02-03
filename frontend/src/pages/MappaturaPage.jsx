@@ -1397,7 +1397,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             .filter(d => d.device_type === 'wifi' && d.parent_device_id != null)
             .map(d => d.id)
     );
-    
+
     const ipList = (devices || [])
         .filter(d => {
             // Mostra solo dispositivi con IP che NON sono già nella mappa
@@ -1599,7 +1599,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                     setSelectedDevice(d);
                                                     setSelectedNode(null);
                                                 }}
-                                                className={`w-full text-left px-1.5 py-0.5 rounded text-xs font-mono truncate border transition cursor-grab active:cursor-grabbing flex flex-col gap-0.5 ${sel
+                                                className={`w-full text-left px-1.5 py-0.5 rounded text-[10px] font-mono truncate border transition cursor-grab active:cursor-grabbing flex flex-col gap-0.5 ${sel
                                                     ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200'
                                                     : isNew
                                                         ? 'bg-yellow-100 border-yellow-400 hover:bg-yellow-200'
@@ -1620,7 +1620,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 </div>
                                                 {/* MAC address sotto l'IP, in piccolo */}
                                                 {d.mac_address && (
-                                                    <div className="text-[9px] text-gray-500 font-mono pl-3.5 truncate" title={d.mac_address}>
+                                                    <div className="text-[8px] text-gray-500 font-mono pl-3.5 truncate" title={d.mac_address}>
                                                         {d.mac_address}
                                                     </div>
                                                 )}
