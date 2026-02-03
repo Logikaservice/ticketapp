@@ -558,7 +558,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
 
                         mapNodes.push({
                             id: d.id,
-                            type: mapDeviceType(d),
+                            type: mapDeviceType(d, devices),
                             label: (d.notes || d.hostname || '').trim() || d.ip_address,
                             ip: d.ip_address,
                             status: d.status, // Usa lo stato aggiornato dal dispositivo
@@ -760,9 +760,15 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         }
     }, [nodes.length, selectedCompanyId]);
 
-    const mapDeviceType = (d) => {
+    const mapDeviceType = (d, allDevices) => {
         const t = (d.device_type || '').toLowerCase();
         if (AVAILABLE_ICONS.some(icon => icon.type === t)) return t;
+
+        // Antenne/AP sotto Cloud Key: se il parent è Cloud Key o UniFi, usa icona WiFi (anche se device_type non impostato)
+        if ((!t || t === 'pc' || t === 'generic') && d.parent_device_id != null && Array.isArray(allDevices)) {
+            const parent = allDevices.find(x => x.id === d.parent_device_id);
+            if (parent && (parent.device_type === 'cloud_key' || (parent.router_model && /Unifi|Ubiquiti|UCK/i.test(parent.router_model)))) return 'wifi';
+        }
 
         // Specific mappings
         if (t.includes('nas') || t.includes('storage') || t.includes('synology') || t.includes('qnap')) return 'nas';
@@ -961,7 +967,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         }
         const newNode = {
             id: d.id,
-            type: mapDeviceType(d),
+            type: mapDeviceType(d, devices),
             label: (d.notes || d.hostname || '').trim() || d.ip_address,
             ip: d.ip_address,
             status: d.status,
@@ -1024,7 +1030,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             }
             childNode = {
                 id: childDevice.id,
-                type: mapDeviceType(childDevice),
+                type: mapDeviceType(childDevice, devices),
                 label: (childDevice.notes || childDevice.hostname || '').trim() || childDevice.ip_address,
                 ip: childDevice.ip_address,
                 status: childDevice.status,
@@ -1375,8 +1381,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             if (!d.mac_address) return true; // Se non ha MAC, mostra comunque (per retrocompatibilità)
             // Controlla se il MAC è già nella mappa
             if (macAddressesOnMap.has(normalizeMacForList(d.mac_address))) return false;
-            // Escludi client collegati agli AP (parent_device_id punta a un AP, non al Cloud Key)
-            if (d.parent_device_id != null && apIds.has(d.parent_device_id)) return false;
+            // Escludi dalla lista solo i client WiFi ONLINE sotto un AP; se offline tornano in lista e restano marcati offline
+            if (d.parent_device_id != null && apIds.has(d.parent_device_id) && d.status === 'online') return false;
             return true;
         })
         .sort((a, b) => {

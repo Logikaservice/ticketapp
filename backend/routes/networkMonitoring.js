@@ -6692,6 +6692,37 @@ pause
             );
           }
         }
+        
+        // Marca come offline i client WiFi che non compaiono più nella risposta UniFi
+        // (client che erano collegati agli AP di questo Cloud Key ma ora non sono più connessi)
+        try {
+          const apIdsList = Array.from(apMacToIdMap.values());
+          if (apIdsList.length > 0) {
+            const receivedClientMacs = new Set(clientDevices.map(d => normalizeMac((d.mac || '').trim().replace(/-/g, ':'))));
+            
+            // Trova tutti i client collegati agli AP di questo Cloud Key
+            const allClients = await pool.query(
+              `SELECT nd.id, nd.mac_address 
+               FROM network_devices nd
+               WHERE nd.parent_device_id = ANY($1::integer[])
+                 AND nd.status = 'online'
+                 AND nd.mac_address IS NOT NULL`,
+              [apIdsList]
+            );
+            
+            // Marca offline quelli che non sono nella lista ricevuta
+            for (const client of allClients.rows) {
+              const clientMacNorm = normalizeMac(client.mac_address);
+              if (!receivedClientMacs.has(clientMacNorm)) {
+                await pool.query('UPDATE network_devices SET status = $1 WHERE id = $2', ['offline', client.id]);
+                console.log(`📴 Client WiFi disconnesso: MAC ${client.mac_address} (ID ${client.id})`);
+              }
+            }
+          }
+        } catch (offlineErr) {
+          console.error('❌ Errore marcatura offline client WiFi:', offlineErr);
+        }
+        
         console.log(`✅ Router WiFi sync: ${createdCount} nuovi dispositivi aggiunti alla mappa (router ${routerId})`);
 
         // Aggiorna stato sync OK
