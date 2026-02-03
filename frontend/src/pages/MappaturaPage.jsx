@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
     ArrowLeft, ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw,
-    Monitor, Printer, Wifi, Router, X, Trash2, Link2, Network,
+    Monitor, Printer, Wifi, Router, X, Trash2, Link2, Link2Off, Network,
     Smartphone, Tablet, Laptop, Camera, Tv, Watch, Phone, Database, Cloud, Globe, List,
     Layers, HardDrive, Shield, RadioTower, Speaker, Circle, Lock, Unlock, Key, CheckCircle, AlertTriangle, ChevronDown, ChevronUp
 } from 'lucide-react';
@@ -763,10 +763,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
 
     const mapDeviceType = (d, allDevices) => {
         const t = (d.device_type || '').toLowerCase();
-        
+
         // Se il tipo è stato impostato manualmente, rispetta sempre quello scelto
         if (d.is_manual_type && AVAILABLE_ICONS.some(icon => icon.type === t)) return t;
-        
+
         // Se non è manuale e ha un tipo valido, usalo
         if (AVAILABLE_ICONS.some(icon => icon.type === t)) return t;
 
@@ -777,25 +777,25 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             const checkHierarchyForWifiRoot = (deviceId, visited = new Set()) => {
                 if (!deviceId || visited.has(deviceId)) return false;
                 visited.add(deviceId);
-                
+
                 const parent = allDevices.find(x => x.id === deviceId);
                 if (!parent) return false;
-                
+
                 // Se il parent è Cloud Key o UniFi, è una radice WiFi
-                if (parent.device_type === 'cloud_key' || 
+                if (parent.device_type === 'cloud_key' ||
                     parent.device_type === 'wifi' ||
                     (parent.router_model && /Unifi|Ubiquiti|UCK/i.test(parent.router_model))) {
                     return true;
                 }
-                
+
                 // Se il parent ha un parent, controlla ricorsivamente
                 if (parent.parent_device_id) {
                     return checkHierarchyForWifiRoot(parent.parent_device_id, visited);
                 }
-                
+
                 return false;
             };
-            
+
             if (checkHierarchyForWifiRoot(d.parent_device_id)) {
                 return 'wifi';
             }
@@ -1427,7 +1427,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             .filter(d => d.device_type === 'wifi' && d.parent_device_id != null)
             .map(d => d.id)
     );
-    
+
     const ipList = (devices || [])
         .filter(d => {
             // Mostra solo dispositivi con IP che NON sono già nella mappa
