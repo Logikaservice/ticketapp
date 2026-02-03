@@ -2102,7 +2102,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             nodeForPanel.locked = false;
                         }
                         return (
-                            <div className="w-80 shrink-0 bg-white shadow-xl border-l border-gray-200 p-4 flex flex-col animate-slideInRight z-50">
+                            <div className="w-80 shrink-0 bg-white shadow-xl border-l border-gray-200 p-4 flex flex-col animate-slideInRight z-50 select-text">
                                 <div className="flex justify-between items-start mb-4">
                                     <h3 className="text-lg font-bold text-gray-800 break-all">{display.label || display.ip}</h3>
                                     <button onClick={() => { setSelectedNode(null); setSelectedDevice(null); setReassociateChildNode(null); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
