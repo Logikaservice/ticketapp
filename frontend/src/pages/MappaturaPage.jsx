@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
     ArrowLeft, ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw,
-    Monitor, Printer, Wifi, Router, X, Trash2, Link2, Link2Off, Network,
+    Monitor, Printer, Wifi, Router, X, Trash2, Link2, Network,
     Smartphone, Tablet, Laptop, Camera, Tv, Watch, Phone, Database, Cloud, Globe, List,
     Layers, HardDrive, Shield, RadioTower, Speaker, Circle, Lock, Unlock, Key, CheckCircle, AlertTriangle, ChevronDown, ChevronUp
 } from 'lucide-react';
@@ -142,7 +142,6 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const [hoveredDevice, setHoveredDevice] = useState(null);
     const [tooltipRect, setTooltipRect] = useState(null);
     const [reassociateChildNode, setReassociateChildNode] = useState(null);
-    const [dissociateNode, setDissociateNode] = useState(null);
     const hoveredRowRef = useRef(null);
     const [scale, setScale] = useState(1);
     const [offset, setOffset] = useState({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
@@ -1397,7 +1396,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             .filter(d => d.device_type === 'wifi' && d.parent_device_id != null)
             .map(d => d.id)
     );
-
+    
     const ipList = (devices || [])
         .filter(d => {
             // Mostra solo dispositivi con IP che NON sono già nella mappa
@@ -1571,9 +1570,49 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     <RotateCw size={16} className="text-gray-600" />
                                     <span className="text-xs font-medium">Aggiorna Layout</span>
                                 </button>
+                                <button
+                                    className={`p-1.5 rounded shadow border flex items-center justify-center gap-1.5 ${reassociateChildNode ? 'bg-amber-100 border-amber-300' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
+                                    title="Associa: seleziona un dispositivo dalla lista e clicca su un nodo nella mappa per associarlo come figlio"
+                                    onClick={() => {
+                                        setReassociateChildNode(reassociateChildNode ? null : 'sidebar-mode');
+                                        setDissociateNode(null);
+                                        setSelectedDevice(null);
+                                        setSelectedNode(null);
+                                    }}
+                                >
+                                    <Link2 size={16} className={reassociateChildNode ? 'text-amber-700' : 'text-blue-600'} />
+                                    <span className={`text-xs font-medium ${reassociateChildNode ? 'text-amber-700' : ''}`}>
+                                        {reassociateChildNode ? 'Annulla Associa' : 'Associa'}
+                                    </span>
+                                </button>
+                                <button
+                                    className={`p-1.5 rounded shadow border flex items-center justify-center gap-1.5 ${dissociateNode ? 'bg-orange-100 border-orange-300' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
+                                    title="Dissocia: clicca su un nodo nella mappa per rimuovere la sua associazione"
+                                    onClick={() => {
+                                        setDissociateNode(dissociateNode ? null : 'sidebar-mode');
+                                        setReassociateChildNode(null);
+                                        setSelectedDevice(null);
+                                        setSelectedNode(null);
+                                    }}
+                                >
+                                    <Link2Off size={16} className={dissociateNode ? 'text-orange-700' : 'text-orange-600'} />
+                                    <span className={`text-xs font-medium ${dissociateNode ? 'text-orange-700' : ''}`}>
+                                        {dissociateNode ? 'Annulla Dissocia' : 'Dissocia'}
+                                    </span>
+                                </button>
                             </div>
                             <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                                 <h4 className="px-2 py-1 text-[10px] font-bold text-gray-600 uppercase border-b border-gray-100 shrink-0" title="Clicca per i dati a destra · Trascina in mappa per aggiungere · Trascina su un pallino per associare come figlio">IP presenti e individuati</h4>
+                                {reassociateChildNode === 'sidebar-mode' && (
+                                    <div className="px-2 py-1.5 bg-amber-50 border-b border-amber-200 text-amber-800 text-[10px] font-medium shrink-0">
+                                        ✓ Seleziona un IP dalla lista, poi clicca su un nodo nella mappa
+                                    </div>
+                                )}
+                                {dissociateNode === 'sidebar-mode' && (
+                                    <div className="px-2 py-1.5 bg-orange-50 border-b border-orange-200 text-orange-800 text-[10px] font-medium shrink-0">
+                                        ✓ Clicca su un nodo nella mappa per rimuovere la sua associazione
+                                    </div>
+                                )}
                                 <div className="flex-1 overflow-y-auto p-1 space-y-0.5">
                                     {loading && <div className="flex items-center gap-1 text-gray-500 text-xs py-1"><Loader size={12} className="animate-spin" /> Caricamento…</div>}
                                     {!loading && ipList.length === 0 && (
@@ -1598,8 +1637,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 onClick={() => {
                                                     setSelectedDevice(d);
                                                     setSelectedNode(null);
+                                                    // Se siamo in modalità "Associa" dalla sidebar, il dispositivo è già selezionato
+                                                    // L'utente deve solo cliccare su un nodo nella mappa
                                                 }}
-                                                className={`w-full text-left px-1.5 py-0.5 rounded text-[10px] font-mono truncate border transition cursor-grab active:cursor-grabbing flex flex-col gap-0.5 ${sel
+                                                className={`w-full text-left px-1.5 py-0.5 rounded text-xs font-mono truncate border transition cursor-grab active:cursor-grabbing flex flex-col gap-0.5 ${sel
                                                     ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-200'
                                                     : isNew
                                                         ? 'bg-yellow-100 border-yellow-400 hover:bg-yellow-200'
@@ -1620,7 +1661,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 </div>
                                                 {/* MAC address sotto l'IP, in piccolo */}
                                                 {d.mac_address && (
-                                                    <div className="text-[8px] text-gray-500 font-mono pl-3.5 truncate" title={d.mac_address}>
+                                                    <div className="text-[9px] text-gray-500 font-mono pl-3.5 truncate" title={d.mac_address}>
                                                         {d.mac_address}
                                                     </div>
                                                 )}
@@ -1643,8 +1684,9 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             }
                             setSelectedNode(null);
                             setSelectedDevice(null);
-                            setReassociateChildNode(null);
-                            setDissociateNode(null);
+                            // Non resettare le modalità dalla sidebar quando clicchi sul canvas
+                            if (reassociateChildNode !== 'sidebar-mode') setReassociateChildNode(null);
+                            if (dissociateNode !== 'sidebar-mode') setDissociateNode(null);
                         }}
                         onMouseDown={handleCanvasMouseDown}
                         onMouseMove={handleCanvasMouseMove}
@@ -1776,11 +1818,22 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 return;
                                             }
                                             if (reassociateChildNode) {
-                                                if (node.id === reassociateChildNode.id) return;
-                                                associateChildToParent(node, reassociateChildNode.details || reassociateChildNode);
-                                                setReassociateChildNode(null);
-                                                setSelectedNode(reassociateChildNode);
-                                                setSelectedDevice(null);
+                                                // Se reassociateChildNode è un oggetto nodo (dal pannello destro), usa quello
+                                                if (typeof reassociateChildNode === 'object' && reassociateChildNode.id) {
+                                                    if (node.id === reassociateChildNode.id) return;
+                                                    associateChildToParent(node, reassociateChildNode.details || reassociateChildNode);
+                                                    setReassociateChildNode(null);
+                                                    setSelectedNode(reassociateChildNode);
+                                                    setSelectedDevice(null);
+                                                } else if (reassociateChildNode === 'sidebar-mode' && selectedDevice) {
+                                                    // Modalità dalla sidebar: usa il dispositivo selezionato dalla lista
+                                                    associateChildToParent(node, selectedDevice);
+                                                    setReassociateChildNode(null);
+                                                    setSelectedNode(node);
+                                                    setSelectedDevice(null);
+                                                } else if (reassociateChildNode === 'sidebar-mode') {
+                                                    alert('Seleziona prima un dispositivo dalla lista a sinistra');
+                                                }
                                                 return;
                                             }
                                             setSelectedNode(node);
@@ -1924,16 +1977,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             <div className="w-80 shrink-0 bg-white shadow-xl border-l border-gray-200 p-4 flex flex-col animate-slideInRight z-50">
                                 <div className="flex justify-between items-start mb-4">
                                     <h3 className="text-lg font-bold text-gray-800 break-all">{display.label || display.ip}</h3>
-                                    <button onClick={() => { setSelectedNode(null); setSelectedDevice(null); setReassociateChildNode(null); setDissociateNode(null); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+                                    <button onClick={() => { setSelectedNode(null); setSelectedDevice(null); setReassociateChildNode(null); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
                                 </div>
                                 {reassociateChildNode && (
                                     <div className="mb-3 py-2 px-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
                                         Clicca il nuovo padre sulla mappa.
-                                    </div>
-                                )}
-                                {dissociateNode && (
-                                    <div className="mb-3 py-2 px-3 rounded-lg bg-orange-50 border border-orange-200 text-orange-800 text-sm">
-                                        Clicca il dispositivo sulla mappa per rimuovere la sua associazione.
                                     </div>
                                 )}
                                 <div className="space-y-3 text-sm">
@@ -2334,25 +2382,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => {
-                                                    setReassociateChildNode(reassociateChildNode?.id === nodeForPanel.id ? null : nodeForPanel);
-                                                    setDissociateNode(null);
-                                                }}
+                                                onClick={() => setReassociateChildNode(reassociateChildNode?.id === nodeForPanel.id ? null : nodeForPanel)}
                                                 className={`w-full py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${reassociateChildNode?.id === nodeForPanel.id ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'}`}
                                             >
                                                 <Link2 size={16} />
                                                 {reassociateChildNode?.id === nodeForPanel.id ? 'Annulla · Clicca il nuovo padre' : '+ Associa'}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setDissociateNode(dissociateNode?.id === nodeForPanel.id ? null : nodeForPanel);
-                                                    setReassociateChildNode(null);
-                                                }}
-                                                className={`w-full py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${dissociateNode?.id === nodeForPanel.id ? 'bg-orange-100 text-orange-800 border border-orange-300' : 'bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200'}`}
-                                            >
-                                                <Link2Off size={16} />
-                                                {dissociateNode?.id === nodeForPanel.id ? 'Annulla · Clicca il dispositivo' : 'Dissocia'}
                                             </button>
                                             <button
                                                 type="button"
