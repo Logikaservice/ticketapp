@@ -58,11 +58,13 @@ if (-not $loginOk) {
         # GET pagina principale per vedere se c'è un form di login
         $loginPage = Invoke-WebRequest -Uri $baseUrl -Method Get -UseBasicParsing -TimeoutSec 15 -SessionVariable sv -ErrorAction Stop
         
-        # Prova diversi URL comuni per il login
-        $loginUrls = @("/login.html", "/login", "/", "/cgi-bin/login", "/admin/login")
+        # Prova diversi URL comuni per il login (incluso /main.html che è quello della Snom M700)
+        $loginUrls = @("/main.html", "/login.html", "/login", "/", "/cgi-bin/login", "/admin/login")
         $formFound = $false
         $formAction = ""
         $formMethod = "POST"
+        $usernameField = "username"
+        $passwordField = "password"
         
         foreach ($loginPath in $loginUrls) {
             $testUrl = "${scheme}://${BaseIp}$loginPath"
@@ -76,7 +78,16 @@ if (-not $loginOk) {
                     if ($html -match '<form[^>]*method=["'']([^"'']+)["'']') {
                         $formMethod = $matches[1].ToUpper()
                     }
-                    Write-Host "  Form trovato su $loginPath, action: $formAction" -ForegroundColor Gray
+                    
+                    # Cerca i nomi dei campi username/password nel form
+                    if ($html -match '<input[^>]*name=["'']([^"'']+)["''][^>]*(?:type=["'']text["'']|type=["'']email["'']|placeholder=["'']*[Uu]ser|placeholder=["'']*[Nn]ome)') {
+                        $usernameField = $matches[1]
+                    }
+                    if ($html -match '<input[^>]*name=["'']([^"'']+)["''][^>]*type=["'']password["'']') {
+                        $passwordField = $matches[1]
+                    }
+                    
+                    Write-Host "  Form trovato su $loginPath, action: $formAction, campi: $usernameField/$passwordField" -ForegroundColor Gray
                     $formFound = $true
                     break
                 }
@@ -91,7 +102,7 @@ if (-not $loginOk) {
             if ($html -match '<form[^>]*action=["'']([^"'']+)["'']') {
                 $formAction = $matches[1]
             } else {
-                $formAction = $baseUrl  # Default: POST alla stessa pagina
+                $formAction = "${scheme}://${BaseIp}/main.html"  # Prova /main.html come default per Snom
             }
         }
         
@@ -104,14 +115,21 @@ if (-not $loginOk) {
             $postUrl = "${scheme}://${BaseIp}/$formAction"
         }
         
-        # Prova POST con username/password (nomi comuni dei campi)
-        $loginBody = @{
-            username = $Username
-            password = $Password
-            user = $Username
-            pass = $Password
-            login = $Username
+        # Se formAction è vuoto o relativo, prova /main.html
+        if (-not $formAction -or $formAction -eq $baseUrl) {
+            $postUrl = "${scheme}://${BaseIp}/main.html"
         }
+        
+        # Prova POST con username/password (usa i nomi dei campi trovati o quelli comuni)
+        $loginBody = @{
+            $usernameField = $Username
+            $passwordField = $Password
+        }
+        # Aggiungi anche varianti comuni per sicurezza
+        $loginBody["username"] = $Username
+        $loginBody["password"] = $Password
+        $loginBody["user"] = $Username
+        $loginBody["pass"] = $Password
         
         try {
             $postResp = Invoke-WebRequest -Uri $postUrl -Method Post -Body $loginBody -WebSession $sv -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
