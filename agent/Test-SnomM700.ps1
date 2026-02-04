@@ -4,11 +4,12 @@
 # Se la M700 usa HTTPS con certificato auto-firmato, lo script accetta il certificato.
 
 param(
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory=$false)]
     [string]$BaseIp,
     [string]$Username = "admin",
     [string]$Password = "admin",
-    [switch]$UseHttps
+    [switch]$UseHttps,
+    [string]$HtmlFile = ""  # Se specificato, legge da file HTML invece di fare login
 )
 
 $ErrorActionPreference = "Stop"
@@ -129,20 +130,33 @@ if (-not $loginOk) {
     }
 }
 
-if (-not $loginOk) {
-    Write-Host "[ERR] Login fallito. Verifica credenziali o apri nel browser per vedere come funziona il login." -ForegroundColor Red
+# Se è stato fornito un file HTML, leggi da lì invece di fare login
+if ($HtmlFile -and (Test-Path $HtmlFile)) {
+    Write-Host "[INFO] Lettura da file HTML: $HtmlFile" -ForegroundColor Cyan
+    $content = Get-Content -Path $HtmlFile -Raw -Encoding UTF8
+    $loginOk = $true
+} elseif (-not $loginOk) {
+    Write-Host "[ERR] Login fallito. Verifica credenziali o usa -HtmlFile per leggere da file HTML salvato dal browser." -ForegroundColor Red
+    Write-Host "      Esempio: .\Test-SnomM700.ps1 -HtmlFile 'C:\percorso\Ext.html'" -ForegroundColor Yellow
     exit 1
 }
 
 # 2) Leggi pagina Ext.html (Telefoni DECT)
-Write-Host ""
-Write-Host "[3] Lettura pagina Ext.html (Telefoni DECT)..." -ForegroundColor Cyan
-try {
-    $extPage = Invoke-WebRequest -Uri "${scheme}://${BaseIp}/Ext.html" -Method Get -WebSession $sv -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
-    Write-Host "[OK] Ext.html letta: $($extPage.Content.Length) caratteri" -ForegroundColor Green
-    
-    # Estrai dati JavaScript
-    $content = $extPage.Content
+if ($loginOk -and -not $HtmlFile) {
+    Write-Host ""
+    Write-Host "[3] Lettura pagina Ext.html (Telefoni DECT)..." -ForegroundColor Cyan
+    try {
+        $extPage = Invoke-WebRequest -Uri "${scheme}://${BaseIp}/Ext.html" -Method Get -WebSession $sv -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+        Write-Host "[OK] Ext.html letta: $($extPage.Content.Length) caratteri" -ForegroundColor Green
+        $content = $extPage.Content
+    } catch {
+        Write-Host "[ERR] Errore lettura Ext.html: $($_.Exception.Message)" -ForegroundColor Red
+        exit 1
+    }
+}
+
+# Estrai dati JavaScript
+if ($content) {
     
     # Estrai SetExtensions(...)
     if ($content -match 'SetExtensions\("([^"]+)"\)') {
@@ -168,12 +182,10 @@ try {
         Write-Host "  Trovati $($rpns.Count) RPN (celle): $($rpns[0..15] -join ', ')" -ForegroundColor Cyan
     }
     
-    # Salva HTML per debug
-    $extPage.Content | Out-File -FilePath "Test-SnomM700-Ext.html" -Encoding utf8
-    Write-Host "  HTML salvato in Test-SnomM700-Ext.html" -ForegroundColor Gray
-    
-} catch {
-    Write-Host "[ERR] Errore lettura Ext.html: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "[OK] Estrazione dati completata!" -ForegroundColor Green
+} else {
+    Write-Host "[ERR] Nessun contenuto HTML trovato" -ForegroundColor Red
     exit 1
 }
 
