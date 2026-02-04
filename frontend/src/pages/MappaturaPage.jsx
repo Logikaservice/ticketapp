@@ -2228,64 +2228,9 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 <option value="Altro">Altro</option>
                                             </select>
                                             {(display.details?.router_model) && (
-                                                <>
-                                                    {display.details.wifi_sync_status === 'ok' ? (
-                                                        <div className="mt-2 text-xs bg-gray-50 p-2 rounded border border-gray-100">
-                                                            <div
-                                                                className="flex items-center justify-between cursor-pointer select-none"
-                                                                onClick={() => setWifiExpanded(!wifiExpanded)}
-                                                            >
-                                                                <div className="flex items-center gap-1.5 text-green-700 font-medium">
-                                                                    <CheckCircle size={14} />
-                                                                    <span>Connessione stabilita</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-1">
-                                                                    <span className="text-[9px] text-green-600 font-bold bg-white px-1.5 rounded-full border border-green-200 shadow-sm">
-                                                                        {devices.filter(d => d.parent_device_id === display.id).length} AP
-                                                                    </span>
-                                                                    {wifiExpanded ? <ChevronUp size={14} className="text-green-600" /> : <ChevronDown size={14} className="text-green-600" />}
-                                                                </div>
-                                                            </div>
-
-                                                            <div className={!wifiExpanded ? 'hidden' : 'mt-2 border-t border-gray-200 pt-2'}>
-                                                                {display.details.wifi_sync_last_at && (
-                                                                    <div className="text-[10px] text-gray-400 mb-2">Sync: {new Date(display.details.wifi_sync_last_at).toLocaleString()}</div>
-                                                                )}
-                                                                <div className="max-h-32 overflow-y-auto bg-white border border-gray-100 rounded">
-                                                                    <div className="sticky top-0 bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold text-gray-500 border-b border-gray-200">AP GESTITI</div>
-                                                                    {devices.filter(d => d.parent_device_id === display.id).length > 0 ? (
-                                                                        devices.filter(d => d.parent_device_id === display.id).map(child => (
-                                                                            <div key={child.id} className="text-[10px] py-1 px-1.5 border-b border-gray-50 flex justify-between items-center hover:bg-gray-50">
-                                                                                <span className="truncate">{child.ip_address}</span>
-                                                                                <span className="text-gray-400 font-mono text-[9px] truncate ml-1">{child.mac_address}</span>
-                                                                            </div>
-                                                                        ))
-                                                                    ) : (
-                                                                        <div className="p-1.5 text-[10px] text-gray-400 italic">Nessun AP trovato</div>
-                                                                    )}
-                                                                </div>
-                                                                {/* Pulsante rimosso: caricamento AP automatico durante scan */}
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex flex-col gap-1">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => startRouterWifiAnalysis(display)}
-                                                                className="mt-2 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-sm font-medium w-full transition-colors"
-                                                            >
-                                                                <Wifi size={16} />
-                                                                Carica dispositivi WiFi
-                                                            </button>
-                                                            {display.details.wifi_sync_status === 'error' && (
-                                                                <div className="text-xs text-red-600 flex items-start gap-1 p-2 bg-red-50 rounded border border-red-100 mt-1">
-                                                                    <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-                                                                    <span className="break-words">{display.details.wifi_sync_msg || 'Errore'}</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </>
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="text-xs text-gray-500 mt-1 italic">Gestione WiFi automatica</div>
+                                                </div>
                                             )}
                                         </div>
                                     )}
@@ -2323,64 +2268,9 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 <option value="Altro">Altro</option>
                                             </select>
                                             {(display.details?.router_model) && (
-                                                <>
-                                                    {display.details.wifi_sync_status === 'ok' ? (
-                                                        <div className="mt-2 text-xs bg-gray-50 p-2 rounded border border-gray-100">
-                                                            <div
-                                                                className="flex items-center justify-between cursor-pointer select-none"
-                                                                onClick={() => setWifiExpanded(!wifiExpanded)}
-                                                            >
-                                                                <div className="flex items-center gap-1.5 text-green-700 font-medium">
-                                                                    <CheckCircle size={14} />
-                                                                    <span>Connessione stabilita</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-1">
-                                                                    <span className="text-[9px] text-green-600 font-bold bg-white px-1.5 rounded-full border border-green-200 shadow-sm">
-                                                                        {devices.filter(d => d.parent_device_id === display.id).length} AP
-                                                                    </span>
-                                                                    {wifiExpanded ? <ChevronUp size={14} className="text-green-600" /> : <ChevronDown size={14} className="text-green-600" />}
-                                                                </div>
-                                                            </div>
-
-                                                            <div className={!wifiExpanded ? 'hidden' : 'mt-2 border-t border-gray-200 pt-2'}>
-                                                                {display.details.wifi_sync_last_at && (
-                                                                    <div className="text-[10px] text-gray-400 mb-2">Sync: {new Date(display.details.wifi_sync_last_at).toLocaleString()}</div>
-                                                                )}
-                                                                <div className="max-h-32 overflow-y-auto bg-white border border-gray-100 rounded">
-                                                                    <div className="sticky top-0 bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold text-gray-500 border-b border-gray-200">AP GESTITI</div>
-                                                                    {devices.filter(d => d.parent_device_id === display.id).length > 0 ? (
-                                                                        devices.filter(d => d.parent_device_id === display.id).map(child => (
-                                                                            <div key={child.id} className="text-[10px] py-1 px-1.5 border-b border-gray-50 flex justify-between items-center bg-white hover:bg-gray-50">
-                                                                                <span className="truncate">{child.ip_address}</span>
-                                                                                <span className="text-gray-400 font-mono text-[9px] truncate ml-1">{child.mac_address}</span>
-                                                                            </div>
-                                                                        ))
-                                                                    ) : (
-                                                                        <div className="p-1.5 text-[10px] text-gray-400 italic">Nessun AP trovato</div>
-                                                                    )}
-                                                                </div>
-                                                                {/* Pulsante rimosso: caricamento AP automatico durante scan */}
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex flex-col gap-1">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => startRouterWifiAnalysis(display)}
-                                                                className="mt-2 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-sm font-medium w-full transition-colors"
-                                                            >
-                                                                <Wifi size={16} />
-                                                                Carica AP associati
-                                                            </button>
-                                                            {display.details.wifi_sync_status === 'error' && (
-                                                                <div className="text-xs text-red-600 flex items-start gap-1 p-2 bg-red-50 rounded border border-red-100 mt-1">
-                                                                    <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-                                                                    <span className="break-words">{display.details.wifi_sync_msg || 'Errore'}</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </>
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="text-xs text-gray-500 mt-1 italic">Gestione AP/Cloud Key</div>
+                                                </div>
                                             )}
 
                                         </div>
@@ -2508,14 +2398,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 {nodeForPanel.locked ? <Lock size={16} /> : <Unlock size={16} />}
                                                 {nodeForPanel.locked ? 'Sblocca posizione' : 'Fissa posizione'}
                                             </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setReassociateChildNode(reassociateChildNode?.id === nodeForPanel.id ? null : nodeForPanel)}
-                                                className={`w-full py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 ${reassociateChildNode?.id === nodeForPanel.id ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'}`}
-                                            >
-                                                <Link2 size={16} />
-                                                {reassociateChildNode?.id === nodeForPanel.id ? 'Annulla · Clicca il nuovo padre' : '+ Associa'}
-                                            </button>
+
                                             <button
                                                 type="button"
                                                 onClick={() => handleRemoveFromMap(nodeForPanel)}
@@ -2525,51 +2408,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 Elimina dalla mappa
                                             </button>
                                             <p className="text-xs text-gray-400 mt-1.5 text-center">L'IP tornerà nella lista a sinistra.</p>
-                                            {(() => {
-                                                const childDevices = (devices || []).filter(d => d.parent_device_id === display.id);
-                                                if (childDevices.length === 0) return null;
-                                                return (
-                                                    <div className="mt-4 pt-3 border-t border-gray-100">
-                                                        <h4 className="text-xs font-medium text-gray-600 mb-2">Antenne / AP associati ({childDevices.length})</h4>
-                                                        <div className="space-y-1.5 max-h-48 overflow-auto">
-                                                            {childDevices.map((child) => {
-                                                                const nodeForChild = simulationRef.current?.nodes()?.find(n => n.id === child.id) || { id: child.id, details: child };
-                                                                return (
-                                                                    <div key={child.id} className="flex items-center justify-between gap-2 py-1.5 px-2 rounded bg-gray-50 border border-gray-100">
-                                                                        <div className="min-w-0 flex-1">
-                                                                            <div className="flex items-center gap-2">
-                                                                                <span className="font-mono text-sm text-gray-800 truncate">{child.ip_address || '—'}</span>
-                                                                                {child.status === 'offline' && <span className="w-2 h-2 rounded-full bg-red-500" title="Offline"></span>}
-                                                                            </div>
-                                                                            <div className="text-gray-500 text-xs truncate" title={child.hostname}>{child.hostname || '—'}</div>
-                                                                        </div>
-                                                                        <div className="shrink-0 flex items-center gap-1">
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => handleUnsetParent(child)}
-                                                                                className="px-2 py-1 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 text-xs font-medium flex items-center gap-1"
-                                                                                title="Stacca solo l'associazione (resta in mappa)"
-                                                                            >
-                                                                                <Link2 size={12} />
-                                                                                Stacca
-                                                                            </button>
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => handleRemoveFromMap(nodeForChild)}
-                                                                                className="px-2 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium flex items-center gap-1"
-                                                                                title="Rimuovi dalla mappa"
-                                                                            >
-                                                                                <Trash2 size={12} />
-                                                                                Elimina
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })()}
+
                                         </div>
                                     )}
                                 </div>
