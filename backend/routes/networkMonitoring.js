@@ -2530,6 +2530,7 @@ module.exports = (pool, io) => {
       // Ottimizzazione: carica la mappa KeePass UNA SOLA VOLTA invece di per ogni dispositivo
       const keepassPassword = process.env.KEEPASS_PASSWORD;
       let keepassMap = null;
+      let keepassIpMap = null; // MAC normalizzato -> IP da KeePass (per confronto IP)
       if (keepassPassword) {
         try {
           console.log('📥 Caricamento mappa KeePass (una volta per tutti i dispositivi)...');
@@ -2538,6 +2539,33 @@ module.exports = (pool, io) => {
         } catch (keepassErr) {
           console.warn('⚠️ Errore caricamento mappa KeePass:', keepassErr.message);
         }
+      }
+
+      // Crea mappa MAC -> IP da tabella KeePass per l'azienda (se esiste colonna IP)
+      try {
+        const keepassIpResult = await pool.query(
+          `SELECT 
+             LOWER(REPLACE(REPLACE(e.mac_address, ':', ''), '-', '')) AS mac_normalized,
+             LOWER(e.ip) AS ip
+           FROM keepass_entries e
+           JOIN keepass_groups g ON g.id = e.group_id
+           WHERE g.client_id = $1
+             AND e.mac_address IS NOT NULL
+             AND e.ip IS NOT NULL`,
+          [aziendaId]
+        );
+        keepassIpMap = new Map();
+        for (const row of keepassIpResult.rows) {
+          if (row.mac_normalized && row.ip) {
+            keepassIpMap.set(row.mac_normalized, row.ip);
+          }
+        }
+        if (keepassIpResult.rows.length > 0) {
+          console.log(`✅ Mappa KeePass IP caricata: ${keepassIpResult.rows.length} entry (MAC->IP) per azienda ${aziendaId}`);
+        }
+      } catch (keepassIpErr) {
+        // Non bloccare se la tabella/colonna IP non esiste o se c'è un altro errore
+        console.warn('⚠️ Errore caricamento mappa KeePass IP (MAC->IP):', keepassIpErr.message);
       }
 
       // Processa i dispositivi in modo sincrono (veloce, senza chiamate async per ogni dispositivo)
@@ -2549,6 +2577,18 @@ module.exports = (pool, io) => {
             row.hostname = parsed._ !== undefined ? String(parsed._ || '') : row.hostname;
           } catch {
             // Mantieni originale se non è JSON valido
+          }
+        }
+
+        // Confronto IP con KeePass: se per questo MAC esiste un IP diverso in KeePass, segnala mismatch
+        if (row.mac_address && keepassIpMap && keepassIpMap.size > 0) {
+          const normalizedMacLower = row.mac_address.replace(/[:-]/g, '').toLowerCase();
+          const keepassIp = keepassIpMap.get(normalizedMacLower);
+          if (keepassIp) {
+            row.keepass_ip = keepassIp;
+            if (row.ip_address && row.ip_address.toLowerCase() !== keepassIp) {
+              row.keepass_ip_mismatch = true;
+            }
           }
         }
 
