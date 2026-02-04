@@ -598,6 +598,43 @@ module.exports = (pool, io) => {
           `);
           await pool.query(`CREATE INDEX IF NOT EXISTS idx_switch_mac_port_cache_switch ON switch_mac_port_cache(managed_switch_id);`);
           await pool.query(`CREATE INDEX IF NOT EXISTS idx_switch_mac_port_cache_mac ON switch_mac_port_cache(mac_address);`);
+
+          // Nuova tablla Profili Switch (Modelli)
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS network_switch_profiles (
+              id SERIAL PRIMARY KEY,
+              name VARCHAR(255) UNIQUE NOT NULL,
+              description TEXT,
+              default_community VARCHAR(128) DEFAULT 'public',
+              default_version VARCHAR(10) DEFAULT '2c',
+              created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+          `);
+
+          // Seed default profiles if empty
+          const profilesCount = await pool.query('SELECT COUNT(*) FROM network_switch_profiles');
+          if (parseInt(profilesCount.rows[0].count) === 0) {
+            await pool.query(`
+              INSERT INTO network_switch_profiles (name, description) VALUES 
+              ('Netgear GS724TPv3', 'Smart Managed Pro Switch 24 Port'),
+              ('Netgear GS728TPv3', 'Smart Managed Pro Switch 28 Port'),
+              ('Ubiquiti UniFi Switch', 'Ubiquiti Managed Switch'),
+              ('Cisco Catalyst', 'Cisco Enterprise Switch'),
+              ('HP ProCurve', 'HP Enterprise Switch'),
+              ('Generic Managed Switch', 'Generic SNMP Switch')
+            `);
+            console.log('✅ Profili switch di default inseriti');
+          }
+
+          // Aggiungi colonne per gestione switch su network_devices
+          try {
+            await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS switch_profile_id INTEGER REFERENCES network_switch_profiles(id) ON DELETE SET NULL;`);
+            await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS snmp_community VARCHAR(128);`);
+            await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS snmp_version VARCHAR(10) DEFAULT '2c';`);
+            await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_managed_switch BOOLEAN DEFAULT false;`);
+          } catch (err) {
+            console.warn('⚠️ Avviso aggiunta colonne switch su network_devices:', err.message);
+          }
           await pool.query(`CREATE INDEX IF NOT EXISTS idx_switch_mac_port_cache_port ON switch_mac_port_cache(managed_switch_id, port);`);
           await pool.query(`
             CREATE TABLE IF NOT EXISTS mappatura_nodes (
@@ -1202,14 +1239,64 @@ module.exports = (pool, io) => {
   router.get('/agent/managed-switches', authenticateAgent, async (req, res) => {
     try {
       await ensureTables();
-      const aziendaId = req.agent.azienda_id;
-      const r = await pool.query(
-        'SELECT id, ip, snmp_community, snmp_version, name FROM managed_switches WHERE azienda_id = $1 ORDER BY name, ip',
-        [aziendaId]
+      const agentId = req.agent.id;
+
+      // Old: managed_switches table (migrating away from this but keeping for legacy)
+      const oldSwitches = await pool.query(
+        `SELECT ms.id, ms.ip, ms.snmp_community, ms.snmp_version 
+         FROM managed_switches ms
+         INNER JOIN network_agents na ON na.azienda_id = ms.azienda_id
+         WHERE na.id = $1`,
+        [agentId]
       );
-      res.json(r.rows);
+
+      // New: network_devices with check for managed switch status + profile defaults
+      const newSwitches = await pool.query(
+        `SELECT nd.id, nd.ip_address as ip, 
+                COALESCE(nd.snmp_community, nsp.default_community, 'public') as snmp_community,
+                COALESCE(nd.snmp_version, nsp.default_version, '2c') as snmp_version
+         FROM network_devices nd
+         LEFT JOIN network_switch_profiles nsp ON nd.switch_profile_id = nsp.id
+         WHERE nd.agent_id = $1 
+         AND (nd.is_managed_switch = true OR nd.snmp_community IS NOT NULL)
+         AND nd.ip_address IS NOT NULL`,
+        [agentId]
+      );
+
+      // Merge results avoiding duplicate IPs (prefer new system)
+      const result = [];
+      const seenIps = new Set();
+
+      // Add new first (priority)
+      for (const s of newSwitches.rows) {
+        let community = s.snmp_community || 'public';
+        result.push({
+          id: s.id, // ID from network_devices
+          ip: s.ip,
+          snmp_community: community,
+          snmp_version: s.snmp_version || '2c',
+          source: 'network_devices'
+        });
+        seenIps.add(s.ip);
+      }
+
+      // Add old if not seen
+      for (const s of oldSwitches.rows) {
+        if (!seenIps.has(s.ip)) {
+          result.push({
+            id: s.id, // ID from managed_switches
+            ip: s.ip,
+            snmp_community: s.snmp_community || 'public',
+            snmp_version: s.snmp_version || '2c',
+            source: 'managed_switches'
+          });
+          seenIps.add(s.ip);
+        }
+      }
+
+      res.json(result);
     } catch (err) {
-      console.error('❌ Errore GET agent/managed-switches:', err);
+      console.error('❌ Errore recupero managed switches:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });
@@ -2511,6 +2598,7 @@ module.exports = (pool, io) => {
           nd.vendor, 
           nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
           nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port, nd.notes, nd.is_manual_type, nd.ip_history, nd.additional_ips, nd.is_new_device, nd.router_model, nd.wifi_sync_status, nd.wifi_sync_msg, nd.wifi_sync_last_at,
+          nd.switch_profile_id, nd.snmp_community, nd.is_managed_switch,
           nd.agent_id, na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
@@ -4995,6 +5083,51 @@ pause
       res.json({ success: true, router_model: result.rows[0].router_model });
     } catch (err) {
       console.error('❌ Errore aggiornamento router_model:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/switch-profiles
+  // Lista profili switch disponibili
+  router.get('/switch-profiles', authenticateToken, async (req, res) => {
+    try {
+      const result = await pool.query('SELECT * FROM network_switch_profiles ORDER BY name ASC');
+      res.json(result.rows);
+    } catch (err) {
+      console.error('❌ Errore fetching switch profiles:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // PATCH /api/network-monitoring/devices/:id/switch-config
+  // Configura un dispositivo come switch gestito
+  router.patch('/devices/:id/switch-config', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { switch_profile_id, snmp_community, is_managed_switch } = req.body;
+
+      // Normalizza
+      const profileId = switch_profile_id ? parseInt(switch_profile_id) : null;
+      const community = snmp_community ? String(snmp_community).trim() : null;
+      const managed = is_managed_switch === true;
+
+      const result = await pool.query(
+        `UPDATE network_devices 
+         SET switch_profile_id = $1, 
+             snmp_community = $2, 
+             is_managed_switch = $3
+         WHERE id = $4 
+         RETURNING id, switch_profile_id, snmp_community, is_managed_switch`,
+        [profileId, community, managed, id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato' });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error('❌ Errore configurazione switch:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });

@@ -42,6 +42,7 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
     const [managedAdd, setManagedAdd] = useState({ ip: '', snmp_community: 'public', name: '' });
     const [syncLoadingId, setSyncLoadingId] = useState(null);
     const [refreshDevicesKey, setRefreshDevicesKey] = useState(0);
+    const [switchProfiles, setSwitchProfiles] = useState([]);
 
     // Carica le aziende al mount
     useEffect(() => {
@@ -104,6 +105,14 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
         };
         fn();
     }, [selectedCompanyId]);
+
+    // Carica profili switch
+    useEffect(() => {
+        fetch(buildApiUrl('/api/network-monitoring/switch-profiles'), { headers: getAuthHeader() })
+            .then(res => res.json())
+            .then(data => { if (Array.isArray(data)) setSwitchProfiles(data); })
+            .catch(err => console.error('Error loading switch profiles:', err));
+    }, []);
 
     // Inizializza il layout Force-Directed (dispositivi + switch SNMP gestiti)
     const initForceLayout = (deviceList, managedSwitchesList = []) => {
@@ -1107,6 +1116,73 @@ const NetworkTopologyPage = ({ onClose, getAuthHeader, selectedCompanyId: initia
                             <div className="flex justify-between border-b pb-2 shrink-0">
                                 <span className="text-gray-500">Vendor:</span>
                                 <span>{selectedNode.details.vendor}</span>
+                            </div>
+                        )}
+
+                        {(selectedNode.type === 'unmanaged_switch' || selectedNode.type === 'managed_switch' || selectedNode.details?.device_type === 'switch') && (
+                            <div className="mt-2 pt-2 border-t border-gray-100 flex flex-col gap-2 shrink-0">
+                                <h4 className="font-bold text-gray-700 text-xs uppercase">Managed Switch</h4>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-gray-500 text-xs">Modello</label>
+                                    <select
+                                        className="border rounded px-2 py-1 bg-white"
+                                        value={selectedNode.details?.switch_profile_id || ''}
+                                        onChange={async (e) => {
+                                            const pid = e.target.value || null;
+                                            const comm = selectedNode.details?.snmp_community || 'public';
+
+                                            // Optimistic update
+                                            setSelectedNode(prev => prev ? { ...prev, details: { ...prev.details, switch_profile_id: pid, is_managed_switch: !!pid } } : null);
+
+                                            try {
+                                                await fetch(buildApiUrl(`/api/network-monitoring/devices/${selectedNode._realId || selectedNode.id}/switch-config`), {
+                                                    method: 'PATCH',
+                                                    headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({
+                                                        switch_profile_id: pid,
+                                                        snmp_community: comm,
+                                                        is_managed_switch: !!pid
+                                                    })
+                                                });
+                                                setRefreshDevicesKey(k => k + 1);
+                                            } catch (err) { console.error(err); }
+                                        }}
+                                    >
+                                        <option value="">-- Non Gestito --</option>
+                                        {switchProfiles.map(p => (
+                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                {selectedNode.details?.switch_profile_id && (
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-gray-500 text-xs">Community SNMP</label>
+                                        <input
+                                            type="text"
+                                            className="border rounded px-2 py-1"
+                                            value={selectedNode.details?.snmp_community || ''}
+                                            placeholder="public"
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setSelectedNode(prev => prev ? { ...prev, details: { ...prev.details, snmp_community: val } } : null);
+                                            }}
+                                            onBlur={async (e) => {
+                                                try {
+                                                    await fetch(buildApiUrl(`/api/network-monitoring/devices/${selectedNode._realId || selectedNode.id}/switch-config`), {
+                                                        method: 'PATCH',
+                                                        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            switch_profile_id: selectedNode.details?.switch_profile_id,
+                                                            snmp_community: e.target.value,
+                                                            is_managed_switch: true
+                                                        })
+                                                    });
+                                                    setRefreshDevicesKey(k => k + 1);
+                                                } catch (err) { console.error(err); }
+                                            }}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         )}
                         <div className="mt-4 pt-2 border-t border-gray-100 shrink-0">
