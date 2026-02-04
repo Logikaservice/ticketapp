@@ -1669,12 +1669,19 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                 <div className="grid grid-cols-2 gap-1.5">
                                     <button
                                         className={`p-1.5 rounded shadow border flex items-center justify-center gap-1.5 ${reassociateChildNode ? 'bg-amber-100 border-amber-300' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
-                                        title="Associa: seleziona un dispositivo dalla lista e clicca su un nodo nella mappa per associarlo come figlio"
+                                        title="Associa: seleziona un dispositivo (in mappa o nella lista) poi clicca sul nuovo padre in mappa"
                                         onClick={() => {
-                                            setReassociateChildNode(reassociateChildNode ? null : 'sidebar-mode');
+                                            const activeChild = selectedNode || selectedDevice || null;
+                                            if (reassociateChildNode) {
+                                                setReassociateChildNode(null);
+                                                return;
+                                            }
+                                            if (!activeChild) {
+                                                alert('Seleziona prima un dispositivo (dalla mappa o dalla lista) da associare.');
+                                                return;
+                                            }
+                                            setReassociateChildNode(activeChild);
                                             setDissociateNode(null);
-                                            setSelectedDevice(null);
-                                            setSelectedNode(null);
                                         }}
                                     >
                                         <Link2 size={16} className={reassociateChildNode ? 'text-amber-700' : 'text-blue-600'} />
@@ -1684,12 +1691,20 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     </button>
                                     <button
                                         className={`p-1.5 rounded shadow border flex items-center justify-center gap-1.5 ${dissociateNode ? 'bg-orange-100 border-orange-300' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
-                                        title="Dissocia: clicca su un nodo nella mappa per rimuovere la sua associazione"
+                                        title="Dissocia: rimuove il padre del dispositivo selezionato"
                                         onClick={() => {
-                                            setDissociateNode(dissociateNode ? null : 'sidebar-mode');
-                                            setReassociateChildNode(null);
-                                            setSelectedDevice(null);
-                                            setSelectedNode(null);
+                                            if (dissociateNode) {
+                                                setDissociateNode(null);
+                                                return;
+                                            }
+                                            const activeChild = selectedNode || selectedDevice || null;
+                                            if (!activeChild || !(activeChild.details?.parent_device_id ?? activeChild.parent_device_id)) {
+                                                alert('Seleziona prima un dispositivo che ha un padre da cui dissociarlo.');
+                                                return;
+                                            }
+                                            setDissociateNode(activeChild);
+                                            // Esegui subito la dissociazione
+                                            handleUnsetParent(activeChild.details || activeChild);
                                         }}
                                     >
                                         <Link2Off size={16} className={dissociateNode ? 'text-orange-700' : 'text-orange-600'} />
@@ -1701,14 +1716,9 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             </div>
                             <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                                 <h4 className="px-2 py-1 text-[10px] font-bold text-gray-600 uppercase border-b border-gray-100 shrink-0" title="Clicca per i dati a destra · Trascina in mappa per aggiungere · Trascina su un pallino per associare come figlio">IP presenti e individuati</h4>
-                                {reassociateChildNode === 'sidebar-mode' && (
+                                {reassociateChildNode && typeof reassociateChildNode === 'object' && (
                                     <div className="px-2 py-1.5 bg-amber-50 border-b border-amber-200 text-amber-800 text-[10px] font-medium shrink-0">
-                                        ✓ Seleziona un IP dalla lista, poi clicca su un nodo nella mappa
-                                    </div>
-                                )}
-                                {dissociateNode === 'sidebar-mode' && (
-                                    <div className="px-2 py-1.5 bg-orange-50 border-b border-orange-200 text-orange-800 text-[10px] font-medium shrink-0">
-                                        ✓ Clicca su un nodo nella mappa per rimuovere la sua associazione
+                                        ✓ Modalità associa: ora clicca sul nuovo padre in mappa per il dispositivo selezionato.
                                     </div>
                                 )}
                                 <div className="flex-1 overflow-y-auto p-1 space-y-0.5">
@@ -1782,9 +1792,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             }
                             setSelectedNode(null);
                             setSelectedDevice(null);
-                            // Non resettare le modalità dalla sidebar quando clicchi sul canvas
-                            if (reassociateChildNode !== 'sidebar-mode') setReassociateChildNode(null);
-                            if (dissociateNode !== 'sidebar-mode') setDissociateNode(null);
+                            setReassociateChildNode(null);
+                            setDissociateNode(null);
                         }}
                         onMouseDown={handleCanvasMouseDown}
                         onMouseMove={handleCanvasMouseMove}
@@ -1933,20 +1942,6 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                         onMouseLeave={() => setHoveredNode(null)}
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            if (dissociateNode) {
-                                                // Modalità dissocia: rimuovi il parent del nodo cliccato
-                                                const deviceToDissociate = node.details || node;
-                                                if (deviceToDissociate.id && deviceToDissociate.parent_device_id) {
-                                                    handleUnsetParent(deviceToDissociate);
-                                                    setDissociateNode(null);
-                                                    setSelectedNode(node);
-                                                    setSelectedDevice(null);
-                                                } else {
-                                                    alert('Questo dispositivo non ha un\'associazione da rimuovere');
-                                                    setDissociateNode(null);
-                                                }
-                                                return;
-                                            }
                                             if (reassociateChildNode) {
                                                 // Se reassociateChildNode è un oggetto nodo (dal pannello destro), usa quello
                                                 if (typeof reassociateChildNode === 'object' && reassociateChildNode.id) {
