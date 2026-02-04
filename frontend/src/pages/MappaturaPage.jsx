@@ -31,6 +31,8 @@ const AVAILABLE_ICONS = [
     { type: 'tv', icon: Tv, label: 'TV / Screen' },
     { type: 'phone', icon: Phone, label: 'Telefono VoIP' },
     { type: 'pbx', icon: PhoneCall, label: 'Centralino VoIP / PBX' },
+    { type: 'dect_cell', icon: RadioTower, label: 'Cella DECT / Base DECT' },
+    { type: 'dect_handset', icon: Phone, label: 'Cordless DECT' },
     { type: 'database', icon: Database, label: 'Database' },
     { type: 'cloud', icon: Cloud, label: 'Cloud' },
     { type: 'internet', icon: Globe, label: 'Internet' },
@@ -865,6 +867,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         if (t.includes('camera') || t.includes('cctv') || t.includes('cam') || t.includes('dahua') || t.includes('hikvision')) return 'camera';
         if (t.includes('speaker') || t.includes('audio') || t.includes('sonos') || t.includes('alexa') || t.includes('google home')) return 'speaker';
         if (t.includes('pbx') || t.includes('centralino')) return 'pbx';
+        if (t.includes('dect_cell') || t.includes('dect base') || t.includes('dect cell') || t.includes('snom m700')) return 'dect_cell';
+        if (t.includes('dect_handset') || t.includes('dect handset') || t.includes('cordless dect')) return 'dect_handset';
         if (t.includes('phone') || t.includes('voip') || t.includes('sip') || t.includes('yealink')) return 'phone';
         if (t.includes('tv') || t.includes('television') || t.includes('screen') || t.includes('chromecast')) return 'tv';
         if (t.includes('watch') || t.includes('wearable') || t.includes('apple watch')) return 'wearable';
@@ -2308,6 +2312,44 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                             {(display.details?.router_model) && (
                                                 <div className="flex flex-col gap-1">
                                                     <div className="text-xs text-gray-500 mt-1 italic">Analisi centralino (credenziali da KeePass)</div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {((display.type === 'dect_cell') || (display.details?.device_type === 'dect_cell')) && (
+                                        <div className="flex flex-col gap-1 border-b pb-3">
+                                            <label className="text-xs font-medium text-gray-500">Modello / Tipo DECT</label>
+                                            <select
+                                                value={display.details?.router_model ?? ''}
+                                                onChange={async (e) => {
+                                                    const v = e.target.value || null;
+                                                    const val = v || '';
+                                                    if (isNode && selectedNode) setSelectedNode(prev => prev ? { ...prev, details: { ...prev.details, router_model: val || null } } : null);
+                                                    else if (selectedDevice) setSelectedDevice(prev => prev ? { ...prev, router_model: val || null } : null);
+                                                    if (simulationRef.current) {
+                                                        const simNodes = simulationRef.current.nodes();
+                                                        const n = simNodes.find(x => x.id === display.id);
+                                                        if (n) n.details = { ...n.details, router_model: val || null };
+                                                        setNodes([...simNodes]);
+                                                    }
+                                                    try {
+                                                        await fetch(buildApiUrl(`/api/network-monitoring/devices/${display.id}/router-model`), {
+                                                            method: 'PATCH',
+                                                            headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ router_model: val || null })
+                                                        });
+                                                    } catch (err) { console.error('Errore aggiornamento router_model', err); }
+                                                }}
+                                                className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                            >
+                                                <option value="">— Nessuno —</option>
+                                                <option value="Snom_M700">Snom M700</option>
+                                                <option value="Altro">Altro</option>
+                                            </select>
+                                            {(display.details?.router_model) && (
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="text-xs text-gray-500 mt-1 italic">Analisi DECT (credenziali da KeePass)</div>
                                                 </div>
                                             )}
                                         </div>
