@@ -26,8 +26,10 @@ if (-not ("TrustAllCertsPolicy" -as [type])) {
 
 $scheme = if ($UseHttps) { "https" } else { "http" }
 $baseUrl = "${scheme}://${BaseIp}/"
-$cred = [System.Net.CredentialCache]::new()
-$cred.Add([Uri]$baseUrl, "Basic", [System.Net.NetworkCredential]::new($Username, $Password))
+
+# Crea PSCredential per Basic Auth (Invoke-WebRequest richiede PSCredential, non NetworkCredential)
+$securePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$credential = [System.Management.Automation.PSCredential]::new($Username, $securePassword)
 
 Write-Host "Test Snom M700 - Base: $baseUrl" -ForegroundColor Cyan
 Write-Host ""
@@ -35,7 +37,7 @@ Write-Host ""
 # 1) GET pagina principale (con Basic Auth se richiesta)
 $sv = $null
 try {
-    $resp = Invoke-WebRequest -Uri $baseUrl -Method Get -Credential ([System.Net.NetworkCredential]::new($Username, $Password)) -UseBasicParsing -TimeoutSec 15 -SessionVariable sv
+    $resp = Invoke-WebRequest -Uri $baseUrl -Method Get -Credential $credential -UseBasicParsing -TimeoutSec 15 -SessionVariable sv
     Write-Host "[OK] GET $baseUrl -> StatusCode: $($resp.StatusCode)" -ForegroundColor Green
     $len = if ($resp.Content) { $resp.Content.Length } else { 0 }
     Write-Host "     Contenuto: $len caratteri"
