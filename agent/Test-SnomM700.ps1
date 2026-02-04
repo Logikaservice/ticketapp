@@ -57,25 +57,69 @@ if (-not $loginOk) {
         # GET pagina principale per vedere se c'è un form di login
         $loginPage = Invoke-WebRequest -Uri $baseUrl -Method Get -UseBasicParsing -TimeoutSec 15 -SessionVariable sv -ErrorAction Stop
         
-        # Cerca form di login (potrebbe essere su /login.html o simile)
-        $loginUrl = "${scheme}://${BaseIp}/login.html"
-        try {
-            $loginForm = Invoke-WebRequest -Uri $loginUrl -Method Get -WebSession $sv -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
-        } catch {
-            # Se non esiste login.html, usa la pagina principale
-            $loginForm = $loginPage
+        # Prova diversi URL comuni per il login
+        $loginUrls = @("/login.html", "/login", "/", "/cgi-bin/login", "/admin/login")
+        $formFound = $false
+        $formAction = ""
+        $formMethod = "POST"
+        
+        foreach ($loginPath in $loginUrls) {
+            $testUrl = "${scheme}://${BaseIp}$loginPath"
+            try {
+                $testPage = Invoke-WebRequest -Uri $testUrl -Method Get -WebSession $sv -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
+                $html = $testPage.Content
+                
+                # Cerca form di login nell'HTML
+                if ($html -match '<form[^>]*action=["'']([^"'']+)["'']') {
+                    $formAction = $matches[1]
+                    if ($html -match '<form[^>]*method=["'']([^"'']+)["'']') {
+                        $formMethod = $matches[1].ToUpper()
+                    }
+                    Write-Host "  Form trovato su $loginPath, action: $formAction" -ForegroundColor Gray
+                    $formFound = $true
+                    break
+                }
+            } catch {
+                # Continua con il prossimo URL
+            }
         }
         
-        # Prova POST con username/password (form standard)
+        # Se non trovato, usa la pagina principale
+        if (-not $formFound) {
+            $html = $loginPage.Content
+            if ($html -match '<form[^>]*action=["'']([^"'']+)["'']') {
+                $formAction = $matches[1]
+            } else {
+                $formAction = $baseUrl  # Default: POST alla stessa pagina
+            }
+        }
+        
+        # Costruisci URL completo per il POST
+        if ($formAction.StartsWith("http")) {
+            $postUrl = $formAction
+        } elseif ($formAction.StartsWith("/")) {
+            $postUrl = "${scheme}://${BaseIp}$formAction"
+        } else {
+            $postUrl = "${scheme}://${BaseIp}/$formAction"
+        }
+        
+        # Prova POST con username/password (nomi comuni dei campi)
         $loginBody = @{
             username = $Username
             password = $Password
+            user = $Username
+            pass = $Password
+            login = $Username
         }
+        
         try {
-            $postResp = Invoke-WebRequest -Uri $loginUrl -Method Post -Body $loginBody -WebSession $sv -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
-            if ($postResp.StatusCode -eq 200) {
+            $postResp = Invoke-WebRequest -Uri $postUrl -Method Post -Body $loginBody -WebSession $sv -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+            # Verifica se il login è riuscito (controlla se non c'è più "login" nella risposta)
+            if ($postResp.StatusCode -eq 200 -and $postResp.Content -notmatch "(?i)login|password|authentication|unauthorized|401") {
                 Write-Host "[OK] Login form riuscito!" -ForegroundColor Green
                 $loginOk = $true
+            } else {
+                Write-Host "[--] POST completato ma login potrebbe non essere riuscito (verifica contenuto)" -ForegroundColor Yellow
             }
         } catch {
             Write-Host "[--] POST login form fallito: $($_.Exception.Message)" -ForegroundColor Yellow
