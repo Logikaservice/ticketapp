@@ -42,7 +42,7 @@ $loginOk = $false
 try {
     Write-Host "[1] Tentativo login Basic Auth..." -ForegroundColor Cyan
     $resp = Invoke-WebRequest -Uri $baseUrl -Method Get -Credential $credential -UseBasicParsing -TimeoutSec 15 -SessionVariable sv -ErrorAction Stop
-    if ($resp.StatusCode -eq 200 -and $resp.Content -notmatch "login|password|authentication" -i) {
+    if ($resp.StatusCode -eq 200 -and $resp.Content -notmatch "(?i)login|password|authentication") {
         Write-Host "[OK] Login Basic Auth riuscito!" -ForegroundColor Green
         $loginOk = $true
     }
