@@ -168,19 +168,19 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                                     <div
                                         key={dev.device_id}
                                         onClick={() => setSelectedDevice(dev)}
-                                        className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${selectedDevice?.device_id === dev.device_id ? 'bg-indigo-50 border-l-4 border-indigo-600' : 'border-l-4 border-transparent'}`}
+                                        className={`py-2 px-3 cursor-pointer hover:bg-gray-50 transition-colors ${selectedDevice?.device_id === dev.device_id ? 'bg-indigo-50 border-l-4 border-indigo-600' : 'border-l-4 border-transparent'}`}
                                     >
-                                        <div className="flex justify-between items-start mb-1">
-                                            <span className="font-mono font-medium text-gray-800">{dev.ip_address}</span>
+                                        <div className="flex justify-between items-center mb-0.5">
+                                            <span className="font-mono text-sm font-medium text-gray-800">{dev.ip_address}</span>
                                             {dev.is_active ? (
-                                                <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                    <Check size={12} /> Attivo
+                                                <span className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                                                    <Check size={10} /> Attivo
                                                 </span>
                                             ) : (
-                                                <span className="bg-gray-100 text-gray-500 text-xs px-2 py-0.5 rounded-full">Non Attivo</span>
+                                                <span className="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.5 rounded-full">Non Attivo</span>
                                             )}
                                         </div>
-                                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                        <div className="flex justify-between text-[11px] text-gray-500 mt-0.5">
                                             <span className="truncate max-w-[120px]" title={dev.hostname}>{dev.hostname || 'N/A'}</span>
                                             <span className="font-mono">{dev.product_name || '-'}</span>
                                         </div>
