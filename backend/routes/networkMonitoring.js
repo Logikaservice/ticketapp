@@ -33,6 +33,44 @@ module.exports = (pool, io) => {
     }
   };
 
+  // Funzione helper per sincronizzare DB con KeePass
+  const syncKeepassDB = async () => {
+    try {
+      console.log('🔄 Avvio sincronizzazione KeePass -> DB...');
+      if (!process.env.KEEPASS_PASSWORD) {
+        console.warn('⚠️ Password KeePass non configurata, salto sync.');
+        return;
+      }
+      const macMap = await keepassDriveService.getMacToTitleMap(process.env.KEEPASS_PASSWORD);
+      // Fetch devices
+      const res = await pool.query('SELECT id, mac_address, hostname, device_username, keepass_path FROM network_devices WHERE mac_address IS NOT NULL');
+      let updated = 0;
+
+      for (const dev of res.rows) {
+        const normMac = (dev.mac_address || '').replace(/[:-]/g, '').toUpperCase();
+        const kp = macMap.get(normMac);
+        if (kp) {
+          const newHostname = kp.title || dev.hostname; // Prefer KeePass title? Or overwrite? forceSync says overwrite.
+          // forceSyncKeepass.js logic: newHostname = keepassResult.title.trim() if present.
+          const finalHostname = (kp.title && kp.title.trim()) ? kp.title.trim() : dev.hostname;
+          const newUsername = kp.username || '';
+          const newPath = kp.path || '';
+
+          if (finalHostname !== dev.hostname || newUsername !== dev.device_username || newPath !== dev.keepass_path) {
+            await pool.query(
+              'UPDATE network_devices SET hostname = $1, device_username = $2, keepass_path = $3 WHERE id = $4',
+              [finalHostname, newUsername, newPath, dev.id]
+            );
+            updated++;
+          }
+        }
+      }
+      console.log(`✅ Sync KeePass completato. Aggiornati ${updated} dispositivi.`);
+    } catch (e) {
+      console.error('❌ Errore sync KeePass:', e);
+    }
+  };
+
   // Funzione helper per inizializzare le tabelle se non esistono
   const initTables = async () => {
     try {
@@ -7339,6 +7377,16 @@ pause
     } catch (err) {
       console.error('❌ Errore PUT antivirus info:', err);
       res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // POST /api/network-monitoring/sync-keepass
+  router.post('/sync-keepass', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await syncKeepassDB();
+      res.json({ success: true, message: 'Sincronizzazione completata' });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
     }
   });
 
