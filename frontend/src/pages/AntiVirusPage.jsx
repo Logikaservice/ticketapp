@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Search, Save, X, Check, Calendar, AlertTriangle, Monitor } from 'lucide-react';
+import { Shield, Search, X, Check, Calendar, Monitor, Server, Layers, GripVertical } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
 const AntiVirusPage = ({ onClose, getAuthHeader }) => {
@@ -64,7 +64,9 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
             [device.device_id]: {
                 is_active: device.is_active || false,
                 product_name: device.product_name || '',
-                expiration_date: device.expiration_date ? device.expiration_date.split('T')[0] : ''
+                expiration_date: device.expiration_date ? device.expiration_date.split('T')[0] : '',
+                device_type: device.device_type || 'pc',
+                sort_order: device.sort_order || 0
             }
         }));
     };
@@ -88,18 +90,19 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
         }));
     };
 
+    const handleBlurSave = (deviceId) => {
+        // Trigger save on blur
+        handleSaveRow(deviceId);
+    };
+
     const filteredDevices = devices.filter(d =>
         d.ip_address.includes(searchTerm) ||
         (d.hostname && d.hostname.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
-    const handleSaveRow = async (deviceId) => {
-        const draft = drafts[deviceId];
+    const handleSaveRow = async (deviceId, explicitDraft = null) => {
+        const draft = explicitDraft || drafts[deviceId];
         if (!draft) return;
-
-        // Optimistic UI update or loading state per row could be better, but simple isSaving for now
-        // actually we should track saving state per row if we want to be fancy, but let's just use global isSaving for simplicity or ignore it
-        // Let's use a local Set for saving Ids to show spinners individually
 
         try {
             const res = await fetch(buildApiUrl(`/api/network-monitoring/antivirus/${deviceId}`), {
@@ -112,18 +115,41 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
             });
 
             if (res.ok) {
-                // Update main list data
                 setDevices(prev => prev.map(d =>
                     d.device_id === deviceId
                         ? { ...d, ...draft }
                         : d
                 ));
-                alert("Salvato correttamente");
             }
         } catch (e) {
             console.error('Error saving antivirus info:', e);
-            alert("Errore durante il salvataggio");
         }
+    };
+
+    // Drag and Drop Handlers
+    const [draggedItemId, setDraggedItemId] = useState(null);
+
+    const handleDragStart = (e, index) => {
+        setDraggedItemId(selectedDeviceIds[index]);
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", index);
+        e.dataTransfer.setDragImage(e.target.parentNode, 20, 20);
+    };
+
+    const handleDragOver = (e, index) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+    };
+
+    const handleDrop = (e, index) => {
+        e.preventDefault();
+        const draggedIndex = Number(e.dataTransfer.getData("text/plain"));
+        const newItems = [...selectedDeviceIds];
+        const [movedItem] = newItems.splice(draggedIndex, 1);
+        newItems.splice(index, 0, movedItem);
+        setSelectedDeviceIds(newItems);
+
+        // Optionally save sort order here if backend supported batch update of order
     };
 
     return (
@@ -183,28 +209,27 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                             <div className="p-8 text-center text-gray-500">Nessun dispositivo trovato</div>
                         ) : (
                             <div className="divide-y">
-                                {filteredDevices.map(dev => (
-                                    <div
-                                        key={dev.device_id}
-                                        onClick={() => handleSelectDevice(dev)}
-                                        className={`py-2 px-3 cursor-pointer hover:bg-gray-50 transition-colors ${selectedDeviceIds.includes(dev.device_id) ? 'bg-indigo-50 border-l-4 border-indigo-600' : 'border-l-4 border-transparent'}`}
-                                    >
-                                        <div className="flex justify-between items-center mb-0.5">
-                                            <span className="font-mono text-sm font-medium text-gray-800">{dev.ip_address}</span>
-                                            {dev.is_active ? (
-                                                <span className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                                                    <Check size={10} /> Attivo
+                                {filteredDevices.map(dev => {
+                                    const isAdded = selectedDeviceIds.includes(dev.device_id);
+                                    return (
+                                        <div
+                                            key={dev.device_id}
+                                            onClick={() => handleSelectDevice(dev)}
+                                            className={`py-2 px-3 cursor-pointer hover:bg-gray-50 transition-colors flex justify-between items-center ${isAdded ? 'bg-indigo-50 border-l-4 border-indigo-600' : 'border-l-4 border-transparent'}`}
+                                        >
+                                            <div className="flex items-center gap-2 overflow-hidden">
+                                                <span className="font-mono text-sm font-medium text-gray-800">{dev.ip_address}</span>
+                                                <span className="text-gray-400 text-xs mx-1">-</span>
+                                                <span className="text-xs text-gray-500 truncate" title={dev.hostname}>{dev.hostname || 'N/A'}</span>
+                                            </div>
+                                            {isAdded && (
+                                                <span className="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap">
+                                                    <Check size={10} /> Aggiunto
                                                 </span>
-                                            ) : (
-                                                <span className="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.5 rounded-full">Non Attivo</span>
                                             )}
                                         </div>
-                                        <div className="flex justify-between text-[11px] text-gray-500 mt-0.5">
-                                            <span className="truncate max-w-[120px]" title={dev.hostname}>{dev.hostname || 'N/A'}</span>
-                                            <span className="font-mono">{dev.product_name || '-'}</span>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
@@ -217,32 +242,69 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-gray-50 border-b">
                                     <tr>
+                                        <th className="px-2 py-3 w-8"></th>
+                                        <th className="px-4 py-3 font-medium text-gray-600">Attivo</th>
+                                        <th className="px-4 py-3 font-medium text-gray-600">Tipo</th>
                                         <th className="px-4 py-3 font-medium text-gray-600">Dispositivo</th>
-                                        <th className="px-4 py-3 font-medium text-gray-600 text-center">Attivo</th>
                                         <th className="px-4 py-3 font-medium text-gray-600">Prodotto</th>
                                         <th className="px-4 py-3 font-medium text-gray-600">Scadenza</th>
-                                        <th className="px-4 py-3 font-medium text-gray-600 text-right">Azioni</th>
+                                        <th className="px-4 py-3 font-medium text-gray-600 text-right"></th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
-                                    {selectedDeviceIds.map(id => {
+                                    {selectedDeviceIds.map((id, index) => {
                                         const device = devices.find(d => d.device_id === id);
                                         const draft = drafts[id] || {};
                                         if (!device) return null;
 
                                         return (
-                                            <tr key={id} className="hover:bg-gray-50">
-                                                <td className="px-4 py-3">
-                                                    <div className="font-bold text-gray-900">{device.ip_address}</div>
-                                                    <div className="text-xs text-gray-500">{device.hostname || '-'}</div>
+                                            <tr
+                                                key={id}
+                                                className="hover:bg-gray-50 group"
+                                                draggable
+                                                onDragStart={(e) => handleDragStart(e, index)}
+                                                onDragOver={(e) => handleDragOver(e, index)}
+                                                onDrop={(e) => handleDrop(e, index)}
+                                            >
+                                                <td className="px-2 py-3 w-8 text-gray-400 cursor-grab active:cursor-grabbing">
+                                                    <GripVertical size={16} />
                                                 </td>
-                                                <td className="px-4 py-3 text-center">
+                                                <td className="px-4 py-3">
                                                     <input
                                                         type="checkbox"
                                                         className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                                                         checked={draft.is_active || false}
-                                                        onChange={(e) => updateDraft(id, 'is_active', e.target.checked)}
+                                                        onChange={(e) => {
+                                                            const val = e.target.checked;
+                                                            updateDraft(id, 'is_active', val);
+                                                            handleSaveRow(id, { ...draft, is_active: val });
+                                                        }}
                                                     />
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex gap-2">
+                                                        {[
+                                                            { type: 'pc', icon: Monitor, label: 'PC' },
+                                                            { type: 'server', icon: Server, label: 'Server' },
+                                                            { type: 'virtual', icon: Layers, label: 'Virtual' }
+                                                        ].map(t => (
+                                                            <button
+                                                                key={t.type}
+                                                                onClick={() => {
+                                                                    updateDraft(id, 'device_type', t.type);
+                                                                    handleSaveRow(id, { ...draft, device_type: t.type });
+                                                                }}
+                                                                className={`p-1.5 rounded ${draft.device_type === t.type ? 'bg-indigo-100 text-indigo-600 ring-1 ring-indigo-500' : 'text-gray-400 hover:bg-gray-100'}`}
+                                                                title={t.label}
+                                                            >
+                                                                <t.icon size={16} />
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="font-medium text-gray-900">{device.ip_address}</div>
+                                                    <div className="text-xs text-gray-500">{device.hostname || '-'}</div>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <input
@@ -251,6 +313,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                                                         placeholder="Nome prodotto"
                                                         value={draft.product_name || ''}
                                                         onChange={(e) => updateDraft(id, 'product_name', e.target.value)}
+                                                        onBlur={() => handleBlurSave(id)}
                                                     />
                                                 </td>
                                                 <td className="px-4 py-3">
@@ -259,25 +322,17 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                                                         className="w-full border rounded px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
                                                         value={draft.expiration_date || ''}
                                                         onChange={(e) => updateDraft(id, 'expiration_date', e.target.value)}
+                                                        onBlur={() => handleBlurSave(id)}
                                                     />
                                                 </td>
                                                 <td className="px-4 py-3 text-right">
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        <button
-                                                            onClick={() => handleSaveRow(id)}
-                                                            className="p-1.5 text-green-600 hover:bg-green-50 rounded"
-                                                            title="Salva"
-                                                        >
-                                                            <Save size={18} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleRemoveDevice(id)}
-                                                            className="p-1.5 text-red-600 hover:bg-red-50 rounded"
-                                                            title="Rimuovi dalla lista"
-                                                        >
-                                                            <X size={18} />
-                                                        </button>
-                                                    </div>
+                                                    <button
+                                                        onClick={() => handleRemoveDevice(id)}
+                                                        className="p-1.5 text-red-600 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        title="Rimuovi dalla lista"
+                                                    >
+                                                        <X size={18} />
+                                                    </button>
                                                 </td>
                                             </tr>
                                         );

@@ -657,10 +657,17 @@ module.exports = (pool, io) => {
               is_active BOOLEAN DEFAULT false,
               product_name VARCHAR(255),
               expiration_date DATE,
+              device_type VARCHAR(50), -- 'pc', 'server', 'virtual'
+              sort_order INTEGER DEFAULT 0,
               updated_at TIMESTAMPTZ DEFAULT NOW(),
               UNIQUE(device_id)
             );
           `);
+          // Migration
+          try {
+            await pool.query(`ALTER TABLE antivirus_info ADD COLUMN IF NOT EXISTS device_type VARCHAR(50);`);
+            await pool.query(`ALTER TABLE antivirus_info ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;`);
+          } catch (e) { console.warn('AV Migration:', e.message); }
         } catch (migErr) {
           if (!migErr.message?.includes('does not exist')) {
             console.warn('⚠️ Migrazione colonne network_*:', migErr.message);
@@ -7254,7 +7261,9 @@ pause
           nd.status,
           COALESCE(avi.is_active, false) as is_active,
           COALESCE(avi.product_name, '') as product_name,
-          avi.expiration_date
+          avi.expiration_date,
+          COALESCE(avi.device_type, 'pc') as device_type,
+          COALESCE(avi.sort_order, 0) as sort_order
         FROM network_devices nd
         JOIN network_agents na ON nd.agent_id = na.id
         LEFT JOIN antivirus_info avi ON nd.id = avi.device_id
@@ -7285,18 +7294,20 @@ pause
   router.put('/antivirus/:deviceId', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       const { deviceId } = req.params;
-      const { is_active, product_name, expiration_date } = req.body;
+      const { is_active, product_name, expiration_date, device_type, sort_order } = req.body;
 
       // Upsert
       await pool.query(`
-        INSERT INTO antivirus_info (device_id, is_active, product_name, expiration_date, updated_at)
-        VALUES ($1, $2, $3, $4, NOW())
+        INSERT INTO antivirus_info (device_id, is_active, product_name, expiration_date, device_type, sort_order, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW())
         ON CONFLICT (device_id) DO UPDATE 
         SET is_active = EXCLUDED.is_active,
             product_name = EXCLUDED.product_name,
             expiration_date = EXCLUDED.expiration_date,
+            device_type = EXCLUDED.device_type,
+            sort_order = EXCLUDED.sort_order,
             updated_at = NOW()
-      `, [deviceId, is_active === true, product_name || '', expiration_date || null]);
+      `, [deviceId, is_active === true, product_name || '', expiration_date || null, device_type || 'pc', sort_order || 0]);
 
       res.json({ success: true });
     } catch (err) {
