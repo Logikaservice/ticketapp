@@ -11,6 +11,29 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
     const [activeDropdown, setActiveDropdown] = useState(null); // ID of the row with open icon dropdown
+    const [sidebarWidth, setSidebarWidth] = useState(450); // Default width in px
+
+    const startResizing = (mouseDownEvent) => {
+        mouseDownEvent.preventDefault();
+        const startX = mouseDownEvent.clientX;
+        const startWidth = sidebarWidth;
+
+        const doDrag = (mouseMoveEvent) => {
+            requestAnimationFrame(() => {
+                setSidebarWidth(startWidth + mouseMoveEvent.clientX - startX);
+            });
+        };
+
+        const stopDrag = () => {
+            document.removeEventListener('mousemove', doDrag);
+            document.removeEventListener('mouseup', stopDrag);
+            document.body.style.cursor = 'default';
+        };
+
+        document.addEventListener('mousemove', doDrag);
+        document.addEventListener('mouseup', stopDrag);
+        document.body.style.cursor = 'col-resize';
+    };
 
     // Fetch companies
     useEffect(() => {
@@ -348,7 +371,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
             {/* Content */}
             <div className="flex-1 flex overflow-hidden">
                 {/* Left Sidebar - Device List */}
-                <div className="w-1/3 bg-white border-r flex flex-col max-w-md">
+                <div style={{ width: sidebarWidth }} className="bg-white border-r flex flex-col flex-shrink-0 relative">
                     <div className="p-4 border-b space-y-3">
                         <button
                             onClick={handleAddManualDevice}
@@ -383,22 +406,30 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                             <div className="divide-y">
                                 {filteredDevices.map(dev => {
                                     const isAdded = selectedDeviceIds.includes(dev.device_id);
+                                    // Hide IP if it is a manual placeholder "no-ip-"
+                                    const showIp = !dev.ip_address.startsWith('no-ip-');
+
                                     return (
                                         <div
                                             key={dev.device_id}
                                             onClick={() => handleSelectDevice(dev)}
-                                            className={`py-2 px-3 cursor-pointer hover:bg-gray-50 transition-colors flex justify-between items-center ${isAdded ? 'bg-indigo-50 border-l-4 border-indigo-600' : 'border-l-4 border-transparent'}`}
+                                            className={`py-2 px-3 cursor-pointer hover:bg-gray-50 transition-colors flex items-center gap-2 ${isAdded ? 'bg-indigo-50 border-l-4 border-indigo-600' : 'border-l-4 border-transparent'}`}
                                         >
-                                            <div className="flex items-center gap-2 overflow-hidden">
-                                                <span className="font-mono text-sm font-medium text-gray-800">{dev.ip_address}</span>
-                                                <span className="text-gray-400 text-xs mx-1">-</span>
-                                                <span className="text-xs text-gray-500 truncate" title={dev.hostname}>{dev.hostname || 'N/A'}</span>
+                                            <div className="flex items-center gap-2 overflow-hidden w-full text-sm">
+                                                {showIp && (
+                                                    <>
+                                                        <span className="font-mono font-medium text-gray-800 whitespace-nowrap">{dev.ip_address}</span>
+                                                        <span className="text-gray-300">-</span>
+                                                    </>
+                                                )}
+                                                <span className="font-medium text-gray-700 truncate" title={dev.hostname}>{dev.hostname || 'N/A'}</span>
+                                                {dev.device_username && (
+                                                    <>
+                                                        <span className="text-gray-300">-</span>
+                                                        <span className="text-gray-500 truncate italic" title={dev.device_username}>{dev.device_username}</span>
+                                                    </>
+                                                )}
                                             </div>
-                                            {isAdded && (
-                                                <span className="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap">
-                                                    <Check size={10} /> Aggiunto
-                                                </span>
-                                            )}
                                         </div>
                                     );
                                 })}
@@ -406,6 +437,12 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                         )}
                     </div>
                 </div>
+
+                {/* Resizer Handle */}
+                <div
+                    className="w-1 cursor-col-resize hover:bg-indigo-300 bg-gray-100 transition-colors z-10"
+                    onMouseDown={startResizing}
+                />
 
                 {/* Right Panel - Details */}
                 <div className="flex-1 bg-gray-50 p-8 overflow-y-auto">
