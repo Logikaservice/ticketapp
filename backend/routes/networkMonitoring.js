@@ -7316,5 +7316,45 @@ pause
     }
   });
 
+  // POST /api/network-monitoring/clients/:aziendaId/manual-device
+  router.post('/clients/:aziendaId/manual-device', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { aziendaId } = req.params;
+      const { ip_address, hostname, device_type } = req.body;
+
+      if (!ip_address) return res.status(400).json({ error: 'IP Address required' });
+
+      // Find an agent for this company
+      const agentRes = await pool.query('SELECT id FROM network_agents WHERE azienda_id = $1 LIMIT 1', [aziendaId]);
+      if (agentRes.rows.length === 0) {
+        return res.status(404).json({ error: 'Nessun agente trovato per questa azienda' });
+      }
+      const agentId = agentRes.rows[0].id;
+
+      // Insert new device
+      // We use a dummy MAC if needed, or NULL if allowed. To avoid constraint issues with NULLs in index, 
+      // check if we have a restriction. The constraint is UNIQUE(agent_id, ip_address, mac_address).
+      // If mac is null, uniqueness might be loose. Let's try to generate a pseudo-mac for manual devices to be safe and tracked.
+      // 'MANUAL-<random_hex>'
+      const pseudoMac = 'MN-' + crypto.randomBytes(4).toString('hex').toUpperCase().match(/.{1,2}/g).join(':');
+
+      const result = await pool.query(`
+        INSERT INTO network_devices (agent_id, ip_address, mac_address, hostname, device_type, status, is_manual_type, first_seen, last_seen)
+        VALUES ($1, $2, $3, $4, $5, 'online', true, NOW(), NOW())
+        RETURNING id
+      `, [agentId, ip_address, pseudoMac, hostname, device_type]);
+
+      res.json({ success: true, device_id: result.rows[0].id, mac_address: pseudoMac });
+
+    } catch (err) {
+      console.error('❌ Errore POST manual-device:', err);
+      // Handle duplicates
+      if (err.code === '23505') {
+        return res.status(409).json({ error: 'Dispositivo già esistente' });
+      }
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   return router;
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Search, X, Check, Calendar, Monitor, Server, Layers, GripVertical } from 'lucide-react';
+import { Shield, Search, X, Check, Calendar, Monitor, Server, Layers, GripVertical, Plus } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
 const AntiVirusPage = ({ onClose, getAuthHeader }) => {
@@ -152,6 +152,78 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
         const draft = explicitDraft || drafts[deviceId];
         if (!draft) return;
 
+        // Is this a NEW temporary device?
+        if (typeof deviceId === 'number' && deviceId < 0) {
+            // Validation
+            if (!draft.ip_address) {
+                alert("IP Address required");
+                return;
+            }
+
+            try {
+                // 1. Create Device
+                const createRes = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/manual-device`), {
+                    method: 'POST',
+                    headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ip_address: draft.ip_address,
+                        hostname: draft.hostname,
+                        device_type: draft.device_type || 'pc'
+                    })
+                });
+
+                if (createRes.ok) {
+                    const createData = await createRes.json();
+                    const newId = createData.device_id;
+
+                    // 2. Save Antivirus Info with new ID
+                    // We call the same logic but with REAL ID
+                    const realRes = await fetch(buildApiUrl(`/api/network-monitoring/antivirus/${newId}`), {
+                        method: 'PUT',
+                        headers: {
+                            ...getAuthHeader(),
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(draft)
+                    });
+
+                    if (realRes.ok) {
+                        // 3. Update State: Replace Temp ID with Real ID
+                        setDevices(prev => {
+                            // Replace the temp device with the real one (we construct it roughly)
+                            return prev.map(d =>
+                                d.device_id === deviceId
+                                    ? {
+                                        ...d,
+                                        device_id: newId,
+                                        ip_address: draft.ip_address,
+                                        hostname: draft.hostname,
+                                        ...draft
+                                    }
+                                    : d
+                            );
+                        });
+
+                        setSelectedDeviceIds(prev => prev.map(id => id === deviceId ? newId : id));
+                        setDrafts(prev => {
+                            const newDrafts = { ...prev };
+                            newDrafts[newId] = { ...draft }; // Copy draft to new ID
+                            delete newDrafts[deviceId];
+                            return newDrafts;
+                        });
+                    }
+                } else {
+                    const err = await createRes.json();
+                    alert("Errore creazione: " + err.error);
+                }
+            } catch (e) {
+                console.error("Creation error:", e);
+                alert("Errore di creazione");
+            }
+            return;
+        }
+
+        // Standard Update
         try {
             const res = await fetch(buildApiUrl(`/api/network-monitoring/antivirus/${deviceId}`), {
                 method: 'PUT',
@@ -172,6 +244,42 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
         } catch (e) {
             console.error('Error saving antivirus info:', e);
         }
+    };
+
+    const handleAddManualDevice = () => {
+        if (!selectedCompanyId) {
+            alert("Seleziona prima un cliente");
+            return;
+        }
+
+        const tempId = -Date.now(); // Negative ID to mark as temp
+        const maxOrder = Math.max(...devices.map(d => d.sort_order || 0), 0);
+
+        const newDevice = {
+            device_id: tempId,
+            ip_address: '',
+            hostname: '',
+            is_active: true,
+            sort_order: maxOrder + 1,
+            device_type: 'pc'
+        };
+
+        setDevices(prev => [...prev, newDevice]);
+        setSelectedDeviceIds(prev => [...prev, tempId]);
+        setDrafts(prev => ({
+            ...prev,
+            [tempId]: {
+                is_active: true,
+                product_name: '',
+                expiration_date: '',
+                device_type: 'pc',
+                sort_order: maxOrder + 1,
+                ip_address: '', // Specific for inputs
+                hostname: ''    // Specific for inputs
+            }
+        }));
+
+        // Do NOT auto-save row yet, as we need inputs.
     };
 
     // Drag and Drop Handlers
@@ -244,7 +352,14 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
             <div className="flex-1 flex overflow-hidden">
                 {/* Left Sidebar - Device List */}
                 <div className="w-1/3 bg-white border-r flex flex-col max-w-md">
-                    <div className="p-4 border-b">
+                    <div className="p-4 border-b space-y-3">
+                        <button
+                            onClick={handleAddManualDevice}
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors"
+                        >
+                            <Plus size={16} />
+                            Aggiungi Dispositivo
+                        </button>
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                             <input
@@ -365,8 +480,31 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <div className="font-medium text-gray-900">{device.ip_address}</div>
-                                                    <div className="text-xs text-gray-500">{device.hostname || '-'}</div>
+                                                    {id < 0 ? (
+                                                        <div className="space-y-1">
+                                                            <input
+                                                                type="text"
+                                                                placeholder="IP Address (es. 192.168.1.50)"
+                                                                className="w-full border rounded px-2 py-1 text-xs focus:ring-1 focus:ring-indigo-500 outline-none font-mono"
+                                                                value={draft.ip_address || ''}
+                                                                onChange={(e) => updateDraft(id, 'ip_address', e.target.value)}
+                                                                onBlur={() => handleBlurSave(id)}
+                                                            />
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Nome host / Etichetta"
+                                                                className="w-full border rounded px-2 py-1 text-xs focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                                value={draft.hostname || ''}
+                                                                onChange={(e) => updateDraft(id, 'hostname', e.target.value)}
+                                                                onBlur={() => handleBlurSave(id)}
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <div className="font-medium text-gray-900">{device.ip_address}</div>
+                                                            <div className="text-xs text-gray-500">{device.hostname || '-'}</div>
+                                                        </>
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <input
