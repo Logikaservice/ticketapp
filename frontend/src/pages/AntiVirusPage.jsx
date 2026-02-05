@@ -6,17 +6,8 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState('');
     const [devices, setDevices] = useState([]);
-    const [selectedDevice, setSelectedDevice] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [isSaving, setIsSaving] = useState(false);
-
-    // Form state
-    const [formData, setFormData] = useState({
-        is_active: false,
-        product_name: '',
-        expiration_date: ''
-    });
+    const [selectedDeviceIds, setSelectedDeviceIds] = useState([]);
+    const [drafts, setDrafts] = useState({});
 
     // Fetch companies
     useEffect(() => {
@@ -38,7 +29,8 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
     useEffect(() => {
         if (!selectedCompanyId) {
             setDevices([]);
-            setSelectedDevice(null);
+            setSelectedDeviceIds([]);
+            setDrafts({});
             return;
         }
 
@@ -61,49 +53,74 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
         fetchDevices();
     }, [selectedCompanyId, getAuthHeader]);
 
-    // Update form when device selected
-    useEffect(() => {
-        if (selectedDevice) {
-            setFormData({
-                is_active: selectedDevice.is_active || false,
-                product_name: selectedDevice.product_name || '',
-                expiration_date: selectedDevice.expiration_date ? selectedDevice.expiration_date.split('T')[0] : ''
-            });
-        }
-    }, [selectedDevice]);
+    const handleSelectDevice = (device) => {
+        if (selectedDeviceIds.includes(device.device_id)) return;
+
+        setSelectedDeviceIds(prev => [...prev, device.device_id]);
+        setDrafts(prev => ({
+            ...prev,
+            [device.device_id]: {
+                is_active: device.is_active || false,
+                product_name: device.product_name || '',
+                expiration_date: device.expiration_date ? device.expiration_date.split('T')[0] : ''
+            }
+        }));
+    };
+
+    const handleRemoveDevice = (deviceId) => {
+        setSelectedDeviceIds(prev => prev.filter(id => id !== deviceId));
+        setDrafts(prev => {
+            const newDrafts = { ...prev };
+            delete newDrafts[deviceId];
+            return newDrafts;
+        });
+    };
+
+    const updateDraft = (deviceId, field, value) => {
+        setDrafts(prev => ({
+            ...prev,
+            [deviceId]: {
+                ...prev[deviceId],
+                [field]: value
+            }
+        }));
+    };
 
     const filteredDevices = devices.filter(d =>
         d.ip_address.includes(searchTerm) ||
         (d.hostname && d.hostname.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
-    const handleSave = async () => {
-        if (!selectedDevice) return;
-        setIsSaving(true);
+    const handleSaveRow = async (deviceId) => {
+        const draft = drafts[deviceId];
+        if (!draft) return;
+
+        // Optimistic UI update or loading state per row could be better, but simple isSaving for now
+        // actually we should track saving state per row if we want to be fancy, but let's just use global isSaving for simplicity or ignore it
+        // Let's use a local Set for saving Ids to show spinners individually
+
         try {
-            const res = await fetch(buildApiUrl(`/api/network-monitoring/antivirus/${selectedDevice.device_id}`), {
+            const res = await fetch(buildApiUrl(`/api/network-monitoring/antivirus/${deviceId}`), {
                 method: 'PUT',
                 headers: {
                     ...getAuthHeader(),
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(draft)
             });
 
             if (res.ok) {
-                // Update local list
+                // Update main list data
                 setDevices(prev => prev.map(d =>
-                    d.device_id === selectedDevice.device_id
-                        ? { ...d, ...formData }
+                    d.device_id === deviceId
+                        ? { ...d, ...draft }
                         : d
                 ));
-                // Update selected device locally to reflect changes in list immediately if needed
-                setSelectedDevice(prev => ({ ...prev, ...formData }));
+                alert("Salvato correttamente");
             }
         } catch (e) {
             console.error('Error saving antivirus info:', e);
-        } finally {
-            setIsSaving(false);
+            alert("Errore durante il salvataggio");
         }
     };
 
@@ -167,8 +184,8 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                                 {filteredDevices.map(dev => (
                                     <div
                                         key={dev.device_id}
-                                        onClick={() => setSelectedDevice(dev)}
-                                        className={`py-2 px-3 cursor-pointer hover:bg-gray-50 transition-colors ${selectedDevice?.device_id === dev.device_id ? 'bg-indigo-50 border-l-4 border-indigo-600' : 'border-l-4 border-transparent'}`}
+                                        onClick={() => handleSelectDevice(dev)}
+                                        className={`py-2 px-3 cursor-pointer hover:bg-gray-50 transition-colors ${selectedDeviceIds.includes(dev.device_id) ? 'bg-indigo-50 border-l-4 border-indigo-600' : 'border-l-4 border-transparent'}`}
                                     >
                                         <div className="flex justify-between items-center mb-0.5">
                                             <span className="font-mono text-sm font-medium text-gray-800">{dev.ip_address}</span>
@@ -193,93 +210,86 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
 
                 {/* Right Panel - Details */}
                 <div className="flex-1 bg-gray-50 p-8 overflow-y-auto">
-                    {selectedDevice ? (
-                        <div className="bg-white rounded-xl shadow-sm border p-6 max-w-2xl mx-auto">
-                            <div className="flex items-center gap-3 mb-6 pb-4 border-b">
-                                <Monitor className="text-gray-400" size={32} />
-                                <div>
-                                    <h2 className="text-lg font-bold text-gray-900">{selectedDevice.ip_address}</h2>
-                                    <p className="text-sm text-gray-500">{selectedDevice.hostname} • {selectedDevice.mac_address}</p>
-                                </div>
-                                {selectedDevice.status === 'online' ? (
-                                    <span className="ml-auto bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-medium">Online</span>
-                                ) : (
-                                    <span className="ml-auto bg-red-100 text-red-700 text-xs px-2 py-1 rounded-full font-medium">Offline</span>
-                                )}
-                            </div>
+                    {selectedDeviceIds.length > 0 ? (
+                        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-gray-50 border-b">
+                                    <tr>
+                                        <th className="px-4 py-3 font-medium text-gray-600">Dispositivo</th>
+                                        <th className="px-4 py-3 font-medium text-gray-600 text-center">Attivo</th>
+                                        <th className="px-4 py-3 font-medium text-gray-600">Prodotto</th>
+                                        <th className="px-4 py-3 font-medium text-gray-600">Scadenza</th>
+                                        <th className="px-4 py-3 font-medium text-gray-600 text-right">Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {selectedDeviceIds.map(id => {
+                                        const device = devices.find(d => d.device_id === id);
+                                        const draft = drafts[id] || {};
+                                        if (!device) return null;
 
-                            <div className="space-y-6">
-                                {/* Active Switch */}
-                                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
-                                    <div>
-                                        <h3 className="font-medium text-gray-900">Stato Anti-Virus</h3>
-                                        <p className="text-sm text-gray-500">Indica se è presente un antivirus gestito</p>
-                                    </div>
-                                    <label className="relative inline-flex items-center cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            className="sr-only peer"
-                                            checked={formData.is_active}
-                                            onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                                        />
-                                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                                    </label>
-                                </div>
-
-                                {/* Product Name */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Prodotto Installato</label>
-                                    <div className="relative">
-                                        <Shield className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                        <input
-                                            type="text"
-                                            className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                            placeholder="Es. Kaspersky Endpoint Security"
-                                            value={formData.product_name}
-                                            onChange={(e) => setFormData({ ...formData, product_name: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Expiration Date */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Data Scadenza</label>
-                                    <div className="relative">
-                                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                        <input
-                                            type="date"
-                                            className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                            value={formData.expiration_date}
-                                            onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })}
-                                        />
-                                    </div>
-                                    {formData.expiration_date && new Date(formData.expiration_date) < new Date() && (
-                                        <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                                            <AlertTriangle size={14} /> Scaduto o in scadenza
-                                        </p>
-                                    )}
-                                </div>
-
-                                {/* Action Buttons */}
-                                <div className="pt-4 flex justify-end gap-3">
-                                    <button
-                                        onClick={handleSave}
-                                        disabled={isSaving}
-                                        className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 font-medium"
-                                    >
-                                        {isSaving ? <span className="animate-spin">⌛</span> : <Save size={18} />}
-                                        Salva Modifiche
-                                    </button>
-                                </div>
-                            </div>
+                                        return (
+                                            <tr key={id} className="hover:bg-gray-50">
+                                                <td className="px-4 py-3">
+                                                    <div className="font-bold text-gray-900">{device.ip_address}</div>
+                                                    <div className="text-xs text-gray-500">{device.hostname || '-'}</div>
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                                        checked={draft.is_active || false}
+                                                        onChange={(e) => updateDraft(id, 'is_active', e.target.checked)}
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <input
+                                                        type="text"
+                                                        className="w-full border rounded px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                        placeholder="Nome prodotto"
+                                                        value={draft.product_name || ''}
+                                                        onChange={(e) => updateDraft(id, 'product_name', e.target.value)}
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <input
+                                                        type="date"
+                                                        className="w-full border rounded px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                        value={draft.expiration_date || ''}
+                                                        onChange={(e) => updateDraft(id, 'expiration_date', e.target.value)}
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button
+                                                            onClick={() => handleSaveRow(id)}
+                                                            className="p-1.5 text-green-600 hover:bg-green-50 rounded"
+                                                            title="Salva"
+                                                        >
+                                                            <Save size={18} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleRemoveDevice(id)}
+                                                            className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                                                            title="Rimuovi dalla lista"
+                                                        >
+                                                            <X size={18} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
                     ) : (
                         <div className="h-full flex flex-col items-center justify-center text-gray-400">
                             <div className="bg-gray-100 p-6 rounded-full mb-4">
                                 <Shield size={48} className="text-gray-300" />
                             </div>
-                            <p className="text-lg font-medium">Seleziona un IP dalla lista</p>
-                            <p className="text-sm">Visualizza e modifica i dettagli dell'Anti-Virus</p>
+                            <p className="text-lg font-medium">Nessun dispositivo selezionato</p>
+                            <p className="text-sm">Seleziona i dispositivi dalla lista a sinistra per modificarli</p>
                         </div>
                     )}
                 </div>
