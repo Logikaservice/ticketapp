@@ -7250,6 +7250,7 @@ pause
   router.get('/clients/:aziendaId/antivirus-devices', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       const { aziendaId } = req.params;
+      // Retry deploy trigger
       const parsedAziendaId = parseInt(aziendaId, 10);
       if (isNaN(parsedAziendaId)) {
         return res.status(400).json({ error: 'ID azienda non valido' });
