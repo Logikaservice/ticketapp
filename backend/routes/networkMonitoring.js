@@ -3943,23 +3943,55 @@ module.exports = (pool, io) => {
 
 
   // GET /api/network-monitoring/companies
-  // Ottieni lista aziende uniche dal progetto ticket (solo tecnici/admin)
-  // Ottieni lista aziende uniche che hanno agents attivi (solo tecnici/admin)
-  router.get('/companies', authenticateToken, requireRole('tecnico'), async (req, res) => {
+  // Ottieni lista aziende uniche che hanno agents attivi
+  // Accessibile a tecnici/admin e admin aziendali (con filtri appropriati)
+  router.get('/companies', authenticateToken, async (req, res) => {
     try {
-      // Recupera SOLO le aziende che hanno almeno un agent attivo
-      const companiesResult = await pool.query(
-        `SELECT DISTINCT 
+      const userRole = req.user?.ruolo;
+      
+      // Query base per recuperare le aziende con agent attivi
+      let query = `
+        SELECT DISTINCT 
           u.azienda,
-          u.id, -- Prendiamo l'ID diretto (assumendo che network_agents punti all'ID utente corretto)
+          u.id,
           COUNT(na.id) as agent_count
          FROM users u
          JOIN network_agents na ON u.id = na.azienda_id
          WHERE u.azienda IS NOT NULL AND u.azienda != '' AND u.azienda != 'Senza azienda'
          AND na.deleted_at IS NULL
+      `;
+      
+      // Se è admin aziendale, mostra solo le sue aziende
+      if (userRole === 'cliente' && req.user?.admin_companies && Array.isArray(req.user.admin_companies) && req.user.admin_companies.length > 0) {
+        // Aziende accessibili per questo utente
+        let accessibleCompanies = [...req.user.admin_companies];
+        
+        // Caso speciale: Paradiso Group può vedere anche Conad Mercurio, Conad La Torre e Conad Albatros
+        const userAzienda = req.user.azienda || '';
+        if (userAzienda === 'Paradiso Group' || req.user.admin_companies.includes('Paradiso Group')) {
+          const paradisoAccessibleCompanies = [
+            'Conad Mercurio',
+            'Conad La Torre',
+            'Conad Albatros'
+          ];
+          // Aggiungi le aziende Conad se non sono già presenti
+          paradisoAccessibleCompanies.forEach(company => {
+            if (!accessibleCompanies.includes(company)) {
+              accessibleCompanies.push(company);
+            }
+          });
+        }
+        
+        const adminCompanies = accessibleCompanies.map(c => `'${c.replace(/'/g, "''")}'`).join(',');
+        query += ` AND u.azienda IN (${adminCompanies})`;
+      }
+      
+      query += `
          GROUP BY u.azienda, u.id
-         ORDER BY u.azienda ASC`
-      );
+         ORDER BY u.azienda ASC
+      `;
+
+      const companiesResult = await pool.query(query);
 
       // Formatta la risposta
       const companiesResponse = companiesResult.rows.map(row => ({
