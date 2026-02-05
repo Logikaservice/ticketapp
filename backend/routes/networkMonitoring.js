@@ -7322,7 +7322,8 @@ pause
       const { aziendaId } = req.params;
       const { ip_address, hostname, device_type } = req.body;
 
-      if (!ip_address) return res.status(400).json({ error: 'IP Address required' });
+      // Allow empty IP for manual devices - generate a placeholder
+      const finalIp = ip_address || `no-ip-${crypto.randomBytes(3).toString('hex')}`;
 
       // Find an agent for this company
       const agentRes = await pool.query('SELECT id FROM network_agents WHERE azienda_id = $1 LIMIT 1', [aziendaId]);
@@ -7342,7 +7343,7 @@ pause
         INSERT INTO network_devices (agent_id, ip_address, mac_address, hostname, device_type, status, is_manual_type, first_seen, last_seen)
         VALUES ($1, $2, $3, $4, $5, 'online', true, NOW(), NOW())
         RETURNING id
-      `, [agentId, ip_address, pseudoMac, hostname, device_type]);
+      `, [agentId, finalIp, pseudoMac, hostname || 'Nuovo Dispositivo', device_type]);
 
       res.json({ success: true, device_id: result.rows[0].id, mac_address: pseudoMac });
 

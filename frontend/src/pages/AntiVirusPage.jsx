@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Search, X, Check, Calendar, Monitor, Server, Layers, GripVertical, Plus } from 'lucide-react';
+import { Shield, Search, X, Check, Calendar, Monitor, Server, Layers, GripVertical, Plus, Laptop, Smartphone, Tablet } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
 const AntiVirusPage = ({ onClose, getAuthHeader }) => {
@@ -10,6 +10,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
     const [drafts, setDrafts] = useState({});
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
+    const [activeDropdown, setActiveDropdown] = useState(null); // ID of the row with open icon dropdown
 
     // Fetch companies
     useEffect(() => {
@@ -154,11 +155,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
 
         // Is this a NEW temporary device?
         if (typeof deviceId === 'number' && deviceId < 0) {
-            // Validation
-            if (!draft.ip_address) {
-                alert("IP Address required");
-                return;
-            }
+            // Validation: IP is now optional
 
             try {
                 // 1. Create Device
@@ -458,33 +455,65 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                                                         }}
                                                     />
                                                 </td>
-                                                <td className="px-4 py-3">
-                                                    <div className="flex gap-2">
-                                                        {[
-                                                            { type: 'pc', icon: Monitor, label: 'PC' },
-                                                            { type: 'server', icon: Server, label: 'Server' },
-                                                            { type: 'virtual', icon: Layers, label: 'Virtual' }
-                                                        ].map(t => (
-                                                            <button
-                                                                key={t.type}
-                                                                onClick={() => {
-                                                                    updateDraft(id, 'device_type', t.type);
-                                                                    handleSaveRow(id, { ...draft, device_type: t.type });
-                                                                }}
-                                                                className={`p-1.5 rounded ${draft.device_type === t.type ? 'bg-indigo-100 text-indigo-600 ring-1 ring-indigo-500' : 'text-gray-400 hover:bg-gray-100'}`}
-                                                                title={t.label}
-                                                            >
-                                                                <t.icon size={16} />
-                                                            </button>
-                                                        ))}
-                                                    </div>
+                                                <td className="px-4 py-3 relative">
+                                                    <button
+                                                        onClick={() => setActiveDropdown(activeDropdown === id ? null : id)}
+                                                        className="p-1.5 rounded bg-white border hover:bg-gray-50 flex items-center gap-1 text-gray-600 shadow-sm"
+                                                        title="Cambia Tipo"
+                                                    >
+                                                        {(() => {
+                                                            const types = {
+                                                                pc: Monitor,
+                                                                server: Server,
+                                                                virtual: Layers,
+                                                                laptop: Laptop,
+                                                                smartphone: Smartphone,
+                                                                tablet: Tablet
+                                                            };
+                                                            const Icon = types[draft.device_type] || Monitor;
+                                                            return <Icon size={16} />;
+                                                        })()}
+                                                    </button>
+
+                                                    {activeDropdown === id && (
+                                                        <>
+                                                            <div
+                                                                className="fixed inset-0 z-10"
+                                                                onClick={() => setActiveDropdown(null)}
+                                                            />
+                                                            <div className="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-xl z-20 w-48 p-2 grid grid-cols-3 gap-2">
+                                                                {[
+                                                                    { type: 'pc', icon: Monitor, label: 'PC' },
+                                                                    { type: 'server', icon: Server, label: 'Server' },
+                                                                    { type: 'virtual', icon: Layers, label: 'Virtual' },
+                                                                    { type: 'laptop', icon: Laptop, label: 'Portatile' },
+                                                                    { type: 'smartphone', icon: Smartphone, label: 'Cellulare' },
+                                                                    { type: 'tablet', icon: Tablet, label: 'Tablet' }
+                                                                ].map(t => (
+                                                                    <button
+                                                                        key={t.type}
+                                                                        onClick={() => {
+                                                                            updateDraft(id, 'device_type', t.type);
+                                                                            handleSaveRow(id, { ...draft, device_type: t.type });
+                                                                            setActiveDropdown(null);
+                                                                        }}
+                                                                        className={`p-2 rounded flex flex-col items-center gap-1 text-xs ${draft.device_type === t.type ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50'}`}
+                                                                        title={t.label}
+                                                                    >
+                                                                        <t.icon size={20} />
+                                                                        <span>{t.label}</span>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     {id < 0 ? (
                                                         <div className="space-y-1">
                                                             <input
                                                                 type="text"
-                                                                placeholder="IP Address (es. 192.168.1.50)"
+                                                                placeholder="IP Address (Opzionale)"
                                                                 className="w-full border rounded px-2 py-1 text-xs focus:ring-1 focus:ring-indigo-500 outline-none font-mono"
                                                                 value={draft.ip_address || ''}
                                                                 onChange={(e) => updateDraft(id, 'ip_address', e.target.value)}
@@ -501,7 +530,9 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                                                         </div>
                                                     ) : (
                                                         <>
-                                                            <div className="font-medium text-gray-900">{device.ip_address}</div>
+                                                            {!device.ip_address?.startsWith('no-ip-') && (
+                                                                <div className="font-medium text-gray-900">{device.ip_address}</div>
+                                                            )}
                                                             <div className="text-xs text-gray-500">{device.hostname || '-'}</div>
                                                         </>
                                                     )}
