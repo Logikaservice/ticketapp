@@ -433,10 +433,10 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                                                     </>
                                                 )}
                                                 <span className="font-medium text-gray-700 truncate" title={dev.hostname}>{dev.hostname || 'N/A'}</span>
-                                                {dev.device_username && (
+                                                {dev.keepass_path && (
                                                     <>
                                                         <span className="text-gray-300">-</span>
-                                                        <span className="text-gray-500 truncate italic" title={dev.device_username}>{dev.device_username}</span>
+                                                        <span className="text-gray-500 truncate italic" title={dev.keepass_path}>{dev.keepass_path}</span>
                                                     </>
                                                 )}
                                             </div>

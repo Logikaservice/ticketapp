@@ -33,7 +33,7 @@ async function syncKeepass() {
         }
 
         // 2. Prendi tutti i dispositivi dal DB
-        const devicesResult = await pool.query('SELECT id, mac_address, hostname, device_type FROM network_devices WHERE mac_address IS NOT NULL');
+        const devicesResult = await pool.query('SELECT id, mac_address, hostname, device_type, device_username, keepass_path FROM network_devices WHERE mac_address IS NOT NULL');
         console.log(`📊 Analisi di ${devicesResult.rows.length} dispositivi nel DB...`);
 
         let updatedCount = 0;
@@ -75,6 +75,9 @@ async function syncKeepass() {
                     }
                 }
 
+                let newPath = keepassResult.path || '';
+                let newUsername = keepassResult.username || '';
+
                 // Verifica Hostname
                 if (device.hostname !== newHostname) {
                     needsUpdate = true;
@@ -87,10 +90,22 @@ async function syncKeepass() {
                     updateReason += `Type: "${device.device_type}" -> "${newDeviceType}". `;
                 }
 
+                // Verifica Path
+                if (device.keepass_path !== newPath) {
+                    needsUpdate = true;
+                    updateReason += `Path: "${device.keepass_path || ''}" -> "${newPath}". `;
+                }
+
+                // Verifica Username
+                if (device.device_username !== newUsername) {
+                    needsUpdate = true;
+                    updateReason += `Username: "${device.device_username || ''}" -> "${newUsername}". `;
+                }
+
                 if (needsUpdate) {
                     await pool.query(
-                        'UPDATE network_devices SET hostname = $1, device_type = $2 WHERE id = $3',
-                        [newHostname, newDeviceType, device.id]
+                        'UPDATE network_devices SET hostname = $1, device_type = $2, keepass_path = $3, device_username = $4 WHERE id = $5',
+                        [newHostname, newDeviceType, newPath, newUsername, device.id]
                     );
                     updatedCount++;
                 }
