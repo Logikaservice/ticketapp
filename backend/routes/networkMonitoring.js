@@ -228,7 +228,15 @@ module.exports = (pool, io) => {
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS device_username TEXT;
         `);
-        // Aggiungi colonna keepass_path per il percorso gruppo KeePass
+      } catch (err) {
+        // Ignora errore se colonna esiste già
+        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna device_username:', err.message);
+        }
+      }
+
+      // Aggiungi colonna keepass_path per il percorso gruppo KeePass
+      try {
         await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS keepass_path TEXT;
@@ -236,7 +244,7 @@ module.exports = (pool, io) => {
       } catch (err) {
         // Ignora errore se colonna esiste già
         if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonne (username/path):', err.message);
+          console.warn('⚠️ Avviso aggiunta colonna keepass_path:', err.message);
         }
       }
 
