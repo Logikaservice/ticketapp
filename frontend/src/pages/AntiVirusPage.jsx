@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { Shield, Search, X, Check, Calendar, Monitor, Server, Layers, GripVertical, Plus, Laptop, Smartphone, Tablet, RefreshCw } from 'lucide-react';
+import { Shield, Search, X, Check, Calendar, Monitor, Server, Layers, GripVertical, Plus, Laptop, Smartphone, Tablet } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
 const AntiVirusPage = ({ onClose, getAuthHeader }) => {
@@ -33,30 +32,6 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
         document.addEventListener('mousemove', doDrag);
         document.addEventListener('mouseup', stopDrag);
         document.body.style.cursor = 'col-resize';
-        document.addEventListener('mouseup', stopDrag);
-        document.body.style.cursor = 'col-resize';
-    };
-
-    const handleSyncKeepass = async () => {
-        if (!confirm('Vuoi forzare la sincronizzazione completa con KeePass? Potrebbe richiedere alcuni secondi.')) return;
-        setLoading(true);
-        try {
-            const res = await fetch(buildApiUrl('/api/network-monitoring/sync-keepass'), {
-                method: 'POST',
-                headers: getAuthHeader()
-            });
-            if (res.ok) {
-                // Refresh list
-                fetchDevices(false);
-            } else {
-                alert('Errore sincronizzazione');
-            }
-        } catch (e) {
-            console.error(e);
-            alert('Errore connessione');
-        } finally {
-            setLoading(false);
-        }
     };
 
     // Fetch companies
@@ -418,14 +393,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                             Aggiungi Dispositivo
                         </button>
 
-                        <button
-                            onClick={handleSyncKeepass}
-                            disabled={loading}
-                            className="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-700 py-2.5 px-4 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 text-sm font-medium"
-                        >
-                            <RefreshCw size={16} className={loading && !devices.length ? "animate-spin" : ""} />
-                            Sync KeePass
-                        </button>
+
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                             <input

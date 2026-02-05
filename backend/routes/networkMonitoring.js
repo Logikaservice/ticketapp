@@ -24,53 +24,6 @@ module.exports = (pool, io) => {
   const pendingRouterWifiTasks = new Map(); // agentId -> { task_id, router_ip, username, password, router_model, device_id, created_at }
   const routerWifiResults = new Map();      // task_id -> { success, devices: [], error, at }
 
-  // Funzione helper per garantire presenza colonna (Fix immediato per errore 500)
-  const forceKeepassPathColumn = async () => {
-    try {
-      await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS keepass_path TEXT;`);
-    } catch (e) {
-      if (!e.message.includes('duplicate')) console.warn('Force Keepass Path migration:', e.message);
-    }
-  };
-
-  // Funzione helper per sincronizzare DB con KeePass
-  const syncKeepassDB = async () => {
-    try {
-      console.log('🔄 Avvio sincronizzazione KeePass -> DB...');
-      if (!process.env.KEEPASS_PASSWORD) {
-        console.warn('⚠️ Password KeePass non configurata, salto sync.');
-        return;
-      }
-      const macMap = await keepassDriveService.getMacToTitleMap(process.env.KEEPASS_PASSWORD);
-      // Fetch devices
-      const res = await pool.query('SELECT id, mac_address, hostname, device_username, keepass_path FROM network_devices WHERE mac_address IS NOT NULL');
-      let updated = 0;
-
-      for (const dev of res.rows) {
-        const normMac = (dev.mac_address || '').replace(/[:-]/g, '').toUpperCase();
-        const kp = macMap.get(normMac);
-        if (kp) {
-          const newHostname = kp.title || dev.hostname; // Prefer KeePass title? Or overwrite? forceSync says overwrite.
-          // forceSyncKeepass.js logic: newHostname = keepassResult.title.trim() if present.
-          const finalHostname = (kp.title && kp.title.trim()) ? kp.title.trim() : dev.hostname;
-          const newUsername = kp.username || '';
-          const newPath = kp.path || '';
-
-          if (finalHostname !== dev.hostname || newUsername !== dev.device_username || newPath !== dev.keepass_path) {
-            await pool.query(
-              'UPDATE network_devices SET hostname = $1, device_username = $2, keepass_path = $3 WHERE id = $4',
-              [finalHostname, newUsername, newPath, dev.id]
-            );
-            updated++;
-          }
-        }
-      }
-      console.log(`✅ Sync KeePass completato. Aggiornati ${updated} dispositivi.`);
-    } catch (e) {
-      console.error('❌ Errore sync KeePass:', e);
-    }
-  };
-
   // Funzione helper per inizializzare le tabelle se non esistono
   const initTables = async () => {
     try {
@@ -7311,7 +7264,6 @@ pause
       }
 
       await ensureTables();
-      await forceKeepassPathColumn();
 
       const devices = await pool.query(`
         SELECT 
@@ -7320,7 +7272,7 @@ pause
           nd.mac_address,
           COALESCE(nd.hostname, '') as hostname,
           COALESCE(nd.device_username, '') as device_username,
-          COALESCE(nd.keepass_path, '') as keepass_path,
+          COALESCE(nd.device_path, '') as keepass_path,
           nd.status,
           COALESCE(avi.is_active, false) as is_active,
           COALESCE(avi.product_name, '') as product_name,
@@ -7377,16 +7329,6 @@ pause
     } catch (err) {
       console.error('❌ Errore PUT antivirus info:', err);
       res.status(500).json({ error: 'Errore interno del server' });
-    }
-  });
-
-  // POST /api/network-monitoring/sync-keepass
-  router.post('/sync-keepass', authenticateToken, requireRole('tecnico'), async (req, res) => {
-    try {
-      await syncKeepassDB();
-      res.json({ success: true, message: 'Sincronizzazione completata' });
-    } catch (e) {
-      res.status(500).json({ error: e.message });
     }
   });
 
