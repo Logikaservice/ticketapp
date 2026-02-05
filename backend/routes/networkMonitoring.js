@@ -7301,7 +7301,7 @@ pause
       res.json(sortedDevices);
     } catch (err) {
       console.error('❌ Errore GET antivirus-devices:', err);
-      res.status(500).json({ error: 'Errore interno del server' });
+      res.status(500).json({ error: err.message });
     }
   });
 
