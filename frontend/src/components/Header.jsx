@@ -59,6 +59,12 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
     ? 'bg-blue-100 text-blue-800'
     : 'bg-green-100 text-green-800';
 
+  // Verifica se l'utente è un amministratore aziendale
+  const isCompanyAdmin = currentUser?.ruolo === 'cliente' &&
+    currentUser?.admin_companies &&
+    Array.isArray(currentUser.admin_companies) &&
+    currentUser.admin_companies.length > 0;
+
   // Azioni rapide disponibili
   const quickActions = [
     {
@@ -136,7 +142,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       label: 'Monitoraggio Rete',
       icon: Wifi,
       color: 'cyan',
-      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openNetworkMonitoring,
+      visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && openNetworkMonitoring,
       hasSubActions: true,
       subActions: [
         { label: 'Dashboard Monitoraggio', icon: Wifi, color: 'cyan', onClick: () => handleQuickActionClick('networkMonitoring') },

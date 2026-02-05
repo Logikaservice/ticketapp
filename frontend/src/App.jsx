@@ -2990,21 +2990,32 @@ export default function TicketApp() {
         )}
 
         {showNetworkMonitoring && !isOrariHostname && !isVivaldiHostname && !isPackVisionHostname && (
-          // Verifica accesso al network monitoring (solo tecnici/admin)
-          (currentUser?.ruolo === 'admin' || currentUser?.ruolo === 'tecnico') ? (
-            <NetworkMonitoringDashboard
-              getAuthHeader={getAuthHeader}
-              socket={socket}
-              initialView={networkMonitoringInitialView}
-              onViewReset={() => setNetworkMonitoringInitialView(null)}
-              onClose={() => { setShowNetworkMonitoring(false); setShowDashboard(true); setSelectedCompanyForNavigation(null); }}
-              onNavigateToMappatura={(companyId) => {
-                setSelectedCompanyForNavigation(companyId);
-                setShowNetworkMonitoring(false);
-                setShowMappatura(true);
-              }}
-              initialCompanyId={selectedCompanyForNavigation}
-            />
+          // Verifica accesso al network monitoring (tecnici/admin globali/admin aziendali)
+          (() => {
+            const isGlobalAdmin = currentUser?.ruolo === 'admin' || currentUser?.ruolo === 'tecnico';
+            const isCompanyAdmin = currentUser?.ruolo === 'cliente' &&
+              currentUser?.admin_companies &&
+              Array.isArray(currentUser.admin_companies) &&
+              currentUser.admin_companies.length > 0;
+            const hasAccess = isGlobalAdmin || isCompanyAdmin;
+            const isReadOnly = isCompanyAdmin && !isGlobalAdmin; // Solo admin aziendali sono read-only
+            
+            return hasAccess ? (
+              <NetworkMonitoringDashboard
+                getAuthHeader={getAuthHeader}
+                socket={socket}
+                initialView={networkMonitoringInitialView}
+                onViewReset={() => setNetworkMonitoringInitialView(null)}
+                onClose={() => { setShowNetworkMonitoring(false); setShowDashboard(true); setSelectedCompanyForNavigation(null); }}
+                onNavigateToMappatura={(companyId) => {
+                  setSelectedCompanyForNavigation(companyId);
+                  setShowNetworkMonitoring(false);
+                  setShowMappatura(true);
+                }}
+                initialCompanyId={selectedCompanyForNavigation}
+                readOnly={isReadOnly}
+              />
+            ) : (
           ) : (
             // Messaggio di accesso negato
             <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto">
@@ -3100,17 +3111,27 @@ export default function TicketApp() {
               </div>
             )
           ) : showNetworkMonitoring ? (
-            // Verifica accesso al network monitoring (solo tecnici/admin)
-            (currentUser?.ruolo === 'admin' || currentUser?.ruolo === 'tecnico') ? (
-              <div className="animate-slideInRight">
-                <NetworkMonitoringDashboard
-                  getAuthHeader={getAuthHeader}
-                  socket={socket}
-                  initialView={networkMonitoringInitialView}
-                  onViewReset={() => setNetworkMonitoringInitialView(null)}
-                />
-              </div>
-            ) : (
+            // Verifica accesso al network monitoring (tecnici/admin globali/admin aziendali)
+            (() => {
+              const isGlobalAdmin = currentUser?.ruolo === 'admin' || currentUser?.ruolo === 'tecnico';
+              const isCompanyAdmin = currentUser?.ruolo === 'cliente' &&
+                currentUser?.admin_companies &&
+                Array.isArray(currentUser.admin_companies) &&
+                currentUser.admin_companies.length > 0;
+              const hasAccess = isGlobalAdmin || isCompanyAdmin;
+              const isReadOnly = isCompanyAdmin && !isGlobalAdmin; // Solo admin aziendali sono read-only
+              
+              return hasAccess ? (
+                <div className="animate-slideInRight">
+                  <NetworkMonitoringDashboard
+                    getAuthHeader={getAuthHeader}
+                    socket={socket}
+                    initialView={networkMonitoringInitialView}
+                    onViewReset={() => setNetworkMonitoringInitialView(null)}
+                    readOnly={isReadOnly}
+                  />
+                </div>
+              ) : (
               // Messaggio di accesso negato
               <div className="min-h-[60vh] flex items-center justify-center">
                 <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border-2 border-red-200">

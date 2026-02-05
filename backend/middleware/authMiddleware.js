@@ -23,6 +23,26 @@ const authenticateToken = (req, res, next) => {
     const decoded = verifyToken(token);
     
     // Aggiungi i dati utente alla richiesta
+    // Gestisci admin_companies dal token
+    let adminCompanies = [];
+    try {
+      if (decoded.admin_companies) {
+        if (Array.isArray(decoded.admin_companies)) {
+          adminCompanies = decoded.admin_companies;
+        } else if (typeof decoded.admin_companies === 'string') {
+          adminCompanies = JSON.parse(decoded.admin_companies);
+        } else {
+          adminCompanies = decoded.admin_companies;
+        }
+        if (!Array.isArray(adminCompanies)) {
+          adminCompanies = [];
+        }
+      }
+    } catch (e) {
+      console.error('Errore parsing admin_companies nel middleware:', e);
+      adminCompanies = [];
+    }
+    
     req.user = {
       id: decoded.id,
       email: decoded.email,
@@ -31,7 +51,8 @@ const authenticateToken = (req, res, next) => {
       cognome: decoded.cognome,
       telefono: decoded.telefono,
       azienda: decoded.azienda,
-      enabled_projects: decoded.enabled_projects || ['ticket'] // Includi progetti abilitati dal token
+      enabled_projects: decoded.enabled_projects || ['ticket'], // Includi progetti abilitati dal token
+      admin_companies: adminCompanies // Includi aziende di cui è amministratore
     };
     
     console.log(`🔐 Utente autenticato: ${req.user.email} (${req.user.ruolo})`);

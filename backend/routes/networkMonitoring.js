@@ -2403,19 +2403,70 @@ module.exports = (pool, io) => {
     }
   });
 
+  // Helper middleware per verificare accesso admin aziendale
+  const checkCompanyAccess = async (req, res, next) => {
+    const userRole = req.user?.ruolo;
+    const aziendaId = req.params.aziendaId ? parseInt(req.params.aziendaId) : null;
+    
+    // Admin e tecnici hanno accesso completo
+    if (userRole === 'admin' || userRole === 'tecnico') {
+      return next();
+    }
+    
+    // Se è un admin aziendale, verifica che possa accedere all'azienda richiesta
+    if (userRole === 'cliente' && req.user?.admin_companies && Array.isArray(req.user.admin_companies) && req.user.admin_companies.length > 0) {
+      // Se non c'è aziendaId specifico, permette l'accesso (vedrà solo le sue aziende nel filtro)
+      if (!aziendaId) {
+        return next();
+      }
+      
+      // Verifica che l'aziendaId corrisponda a una delle aziende di cui è admin
+      // Devo recuperare il nome dell'azienda dall'ID
+      try {
+        const result = await pool.query('SELECT azienda FROM users WHERE id = $1', [aziendaId]);
+        if (result.rows.length === 0) {
+          return res.status(404).json({ error: 'Azienda non trovata' });
+        }
+        
+        const aziendaName = result.rows[0].azienda;
+        if (req.user.admin_companies.includes(aziendaName)) {
+          return next();
+        } else {
+          return res.status(403).json({ error: 'Accesso negato: non hai i permessi per questa azienda' });
+        }
+      } catch (err) {
+        console.error('Errore verifica accesso azienda:', err);
+        return res.status(500).json({ error: 'Errore interno del server' });
+      }
+    }
+    
+    // Altri ruoli non hanno accesso
+    return res.status(403).json({ error: 'Accesso negato' });
+  };
+
   // GET /api/network-monitoring/clients
   // Ottieni lista aziende che hanno almeno un agent attivo
   router.get('/clients', authenticateToken, async (req, res) => {
     try {
       await ensureTables();
 
-      const result = await pool.query(`
+      const userRole = req.user?.ruolo;
+      let query = `
         SELECT DISTINCT u.id, u.azienda 
         FROM network_agents na 
         INNER JOIN users u ON na.azienda_id = u.id 
         WHERE na.deleted_at IS NULL
-        ORDER BY u.azienda
-      `);
+      `;
+      
+      // Se è admin aziendale, mostra solo le sue aziende
+      if (userRole === 'cliente' && req.user?.admin_companies && Array.isArray(req.user.admin_companies) && req.user.admin_companies.length > 0) {
+        const adminCompanies = req.user.admin_companies.map(c => `'${c.replace(/'/g, "''")}'`).join(',');
+        query += ` AND u.azienda IN (${adminCompanies})`;
+      }
+      
+      query += ` ORDER BY u.azienda`;
+
+      const result = await pool.query(query);
 
       res.json(result.rows);
     } catch (err) {
@@ -2426,7 +2477,7 @@ module.exports = (pool, io) => {
 
   // GET /api/network-monitoring/clients/:aziendaId/devices
   // Ottieni lista dispositivi per un'azienda (per frontend)
-  router.get('/clients/:aziendaId/devices', async (req, res) => {
+  router.get('/clients/:aziendaId/devices', authenticateToken, checkCompanyAccess, async (req, res) => {
     try {
       await ensureTables();
 
@@ -2933,7 +2984,7 @@ module.exports = (pool, io) => {
   };
 
   // GET /api/network-monitoring/clients/:aziendaId/mappatura-nodes
-  router.get('/clients/:aziendaId/mappatura-nodes', authenticateToken, async (req, res) => {
+  router.get('/clients/:aziendaId/mappatura-nodes', authenticateToken, checkCompanyAccess, async (req, res) => {
     try {
       await ensureTables();
       await ensureMappaturaNodesTable();
@@ -3170,7 +3221,7 @@ module.exports = (pool, io) => {
 
   // --- Dispositivi gestiti (Switch SNMP) per topologia ---
   // GET /api/network-monitoring/clients/:aziendaId/managed-switches
-  router.get('/clients/:aziendaId/managed-switches', authenticateToken, async (req, res) => {
+  router.get('/clients/:aziendaId/managed-switches', authenticateToken, checkCompanyAccess, async (req, res) => {
     try {
       await ensureTables();
       const aziendaId = parseInt(req.params.aziendaId, 10);
@@ -3260,7 +3311,7 @@ module.exports = (pool, io) => {
 
   // GET /api/network-monitoring/clients/:aziendaId/changes
   // Ottieni storico cambiamenti per un'azienda (per frontend)
-  router.get('/clients/:aziendaId/changes', async (req, res) => {
+  router.get('/clients/:aziendaId/changes', authenticateToken, checkCompanyAccess, async (req, res) => {
     try {
       await ensureTables();
 
@@ -3302,7 +3353,7 @@ module.exports = (pool, io) => {
 
   // GET /api/network-monitoring/clients/:aziendaId/status
   // Ottieni status agent per un'azienda (per frontend)
-  router.get('/clients/:aziendaId/status', async (req, res) => {
+  router.get('/clients/:aziendaId/status', authenticateToken, checkCompanyAccess, async (req, res) => {
     try {
       await ensureTables();
 

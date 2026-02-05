@@ -17,7 +17,7 @@ import AgentNotifications from './AgentNotifications';
 import TelegramConfigSection from './TelegramConfigSection';
 import { EventBadge, SeverityIndicator } from './EventBadges';
 
-const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, initialCompanyId = null }) => {
+const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, initialCompanyId = null, readOnly = false }) => {
   const [devices, setDevices] = useState([]);
   const [changes, setChanges] = useState([]);
   const [recentChangesCount, setRecentChangesCount] = useState(0); // Conteggio cambiamenti ultime 24h dal backend
@@ -1200,6 +1200,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             </button>
             <div className="h-6 w-px bg-gray-300"></div>
             <h1 className="font-bold text-xl text-gray-800">Monitoraggio Rete</h1>
+            {readOnly && (
+              <div className="ml-4 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-medium flex items-center gap-2">
+                <Eye size={16} />
+                Modalità Visualizzazione
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1253,7 +1259,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         setShowAgentNotificationsList(false);
                         setShowNetworkMenu(false);
                       }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      disabled={readOnly}
+                      className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${
+                        readOnly 
+                          ? 'text-gray-400 cursor-not-allowed' 
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                      title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Crea nuovo agent'}
                     >
                       <Plus size={18} className="text-cyan-600" />
                       Crea Agent
@@ -1266,7 +1278,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         setShowNetworkMenu(false);
                         loadTelegramConfigs();
                       }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      disabled={readOnly}
+                      className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${
+                        readOnly 
+                          ? 'text-gray-400 cursor-not-allowed' 
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                      title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Configurazione Telegram'}
                     >
                       <AlertCircle size={18} className="text-blue-600" />
                       Notifiche Telegram
@@ -1447,7 +1465,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   type="text"
                                   value={editAgentData.agent_name}
                                   onChange={(e) => setEditAgentData({ ...editAgentData, agent_name: e.target.value })}
-                                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  disabled={readOnly}
+                                  className={`w-full px-3 py-1.5 text-sm border rounded ${
+                                    readOnly 
+                                      ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed' 
+                                      : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                                  }`}
                                   placeholder="Nome agent"
                                 />
                               </div>
@@ -1459,8 +1482,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                     const ranges = e.target.value.split('\n').filter(r => r.trim());
                                     setEditAgentData({ ...editAgentData, network_ranges: ranges });
                                   }}
+                                  disabled={readOnly}
                                   rows={3}
-                                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+                                  className={`w-full px-3 py-1.5 text-sm border rounded font-mono ${
+                                    readOnly 
+                                      ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed' 
+                                      : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                                  }`}
                                   placeholder="192.168.1.0/24&#10;10.0.0.0/16"
                                 />
                               </div>
@@ -1472,7 +1500,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   max="1440"
                                   value={editAgentData.scan_interval_minutes}
                                   onChange={(e) => setEditAgentData({ ...editAgentData, scan_interval_minutes: parseInt(e.target.value) || 15 })}
-                                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  disabled={readOnly}
+                                  className={`w-full px-3 py-1.5 text-sm border rounded ${
+                                    readOnly 
+                                      ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed' 
+                                      : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                                  }`}
                                 />
                               </div>
                             </div>
@@ -1500,7 +1533,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           <>
                             <button
                               onClick={handleSaveAgent}
-                              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+                              disabled={readOnly}
+                              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+                                readOnly 
+                                  ? 'bg-gray-400 text-white cursor-not-allowed' 
+                                  : 'bg-green-600 text-white hover:bg-green-700'
+                              }`}
+                              title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Salva modifiche'}
                             >
                               <CheckCircle size={18} />
                               Salva
@@ -1517,8 +1556,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           <>
                             <button
                               onClick={() => handleEditAgent(agent)}
-                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                              title="Modifica configurazione agent (nome, reti, intervallo scansione)"
+                              disabled={readOnly}
+                              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+                                readOnly 
+                                  ? 'bg-gray-400 text-white cursor-not-allowed' 
+                                  : 'bg-blue-600 text-white hover:bg-blue-700'
+                              }`}
+                              title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Modifica configurazione agent (nome, reti, intervallo scansione)'}
                             >
                               <Edit size={18} />
                               Modifica
@@ -1541,16 +1585,26 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             </button>
                             <button
                               onClick={() => disableAgent(agent.id, agent.agent_name)}
-                              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"
-                              title="Disabilita agent (disinstallazione remota al prossimo heartbeat)"
+                              disabled={readOnly}
+                              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+                                readOnly 
+                                  ? 'bg-gray-400 text-white cursor-not-allowed' 
+                                  : 'bg-orange-600 text-white hover:bg-orange-700'
+                              }`}
+                              title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Disabilita agent (disinstallazione remota al prossimo heartbeat)'}
                             >
                               <PowerOff size={18} />
                               Disabilita
                             </button>
                             <button
                               onClick={() => deleteAgent(agent.id, agent.agent_name)}
-                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
-                              title="Elimina agent definitivamente"
+                              disabled={readOnly}
+                              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+                                readOnly 
+                                  ? 'bg-gray-400 text-white cursor-not-allowed' 
+                                  : 'bg-red-600 text-white hover:bg-red-700'
+                              }`}
+                              title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Elimina agent definitivamente'}
                             >
                               <Trash2 size={18} />
                               Elimina
@@ -1573,8 +1627,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             agents={agents}
             telegramConfigs={telegramConfigs}
             loading={telegramConfigLoading}
-            onSave={saveTelegramConfig}
-            onDelete={deleteTelegramConfig}
+            onSave={readOnly ? null : saveTelegramConfig}
+            onDelete={readOnly ? null : deleteTelegramConfig}
+            readOnly={readOnly}
             onClose={() => setShowTelegramConfig(false)}
             getAuthHeader={getAuthHeader}
           />
@@ -1812,8 +1867,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleResetPingFailures}
-                  className="flex items-center gap-2 px-4 py-2 bg-orange-50 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-100 transition-colors mr-2"
-                  title="Resetta l'avviso di 'Disconnessioni rilevate' per tutti i dispositivi di questa azienda"
+                  disabled={readOnly}
+                  className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors mr-2 ${
+                    readOnly 
+                      ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed' 
+                      : 'bg-orange-50 border-orange-300 text-orange-700 hover:bg-orange-100'
+                  }`}
+                  title={readOnly ? 'Non disponibile in modalità visualizzazione' : "Resetta l'avviso di 'Disconnessioni rilevate' per tutti i dispositivi di questa azienda"}
                 >
                   <Activity size={18} />
                   <span className="text-sm font-medium">Reset Errori</span>

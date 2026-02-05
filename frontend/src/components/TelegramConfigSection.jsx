@@ -11,7 +11,8 @@ const TelegramConfigSection = ({
   onSave, 
   onDelete, 
   onClose,
-  getAuthHeader 
+  getAuthHeader,
+  readOnly = false
 }) => {
   const [editingConfig, setEditingConfig] = useState(null);
   const [formData, setFormData] = useState({
@@ -357,8 +358,13 @@ const TelegramConfigSection = ({
             <div className="flex gap-2 pt-4">
               <button
                 type="submit"
-                disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={saving || readOnly || !onSave}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                  readOnly || !onSave
+                    ? 'bg-gray-400 text-white cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                }`}
+                title={readOnly || !onSave ? 'Non disponibile in modalità visualizzazione' : ''}
               >
                 <Save size={18} />
                 {saving ? 'Salvataggio...' : 'Salva'}
@@ -378,7 +384,13 @@ const TelegramConfigSection = ({
       <div className="mb-4">
         <button
           onClick={handleNew}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          disabled={readOnly || !onSave}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+            readOnly || !onSave
+              ? 'bg-gray-400 text-white cursor-not-allowed'
+              : 'bg-blue-600 text-white hover:bg-blue-700'
+          }`}
+          title={readOnly || !onSave ? 'Non disponibile in modalità visualizzazione' : 'Nuova configurazione Telegram'}
         >
           <MessageSquare size={18} />
           Nuova Configurazione
@@ -460,8 +472,13 @@ const TelegramConfigSection = ({
                   </button>
                   <button
                     onClick={() => handleDelete(config.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                    title="Elimina"
+                    disabled={readOnly || !onDelete}
+                    className={`p-2 rounded-lg ${
+                      readOnly || !onDelete
+                        ? 'text-gray-400 cursor-not-allowed'
+                        : 'text-red-600 hover:bg-red-50'
+                    }`}
+                    title={readOnly || !onDelete ? 'Non disponibile in modalità visualizzazione' : 'Elimina'}
                   >
                     <Trash size={18} />
                   </button>

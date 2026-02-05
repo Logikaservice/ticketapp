@@ -30,7 +30,26 @@ const generateToken = (user) => {
     console.log('JWT_SECRET length:', JWT_SECRET ? JWT_SECRET.length : 'N/A');
     console.log('JWT_EXPIRES_IN:', JWT_EXPIRES_IN);
     
-    // Includi enabled_projects se presente
+    // Includi enabled_projects e admin_companies se presenti
+    let adminCompanies = [];
+    try {
+      if (user.admin_companies) {
+        if (Array.isArray(user.admin_companies)) {
+          adminCompanies = user.admin_companies;
+        } else if (typeof user.admin_companies === 'string') {
+          adminCompanies = JSON.parse(user.admin_companies);
+        } else {
+          adminCompanies = user.admin_companies;
+        }
+        if (!Array.isArray(adminCompanies)) {
+          adminCompanies = [];
+        }
+      }
+    } catch (e) {
+      console.error('Errore parsing admin_companies nel token:', e);
+      adminCompanies = [];
+    }
+    
     const payload = {
       id: user.id,
       email: user.email,
@@ -40,6 +59,7 @@ const generateToken = (user) => {
       telefono: user.telefono,
       azienda: user.azienda,
       enabled_projects: user.enabled_projects || ['ticket'], // Includi progetti abilitati
+      admin_companies: adminCompanies, // Includi aziende di cui è amministratore
       iat: Math.floor(Date.now() / 1000) // Issued at
     };
     
