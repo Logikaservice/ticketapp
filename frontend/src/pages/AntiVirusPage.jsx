@@ -45,6 +45,27 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                 if (res.ok) {
                     const data = await res.json();
                     setDevices(data);
+
+                    // Initialize selected devices (those with data)
+                    const existingConfigured = data
+                        .filter(d => d.is_active || d.product_name || d.expiration_date)
+                        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+                    if (existingConfigured.length > 0) {
+                        setSelectedDeviceIds(existingConfigured.map(d => d.device_id));
+                        // Initialize drafts
+                        const initialDrafts = {};
+                        existingConfigured.forEach(d => {
+                            initialDrafts[d.device_id] = {
+                                is_active: d.is_active || false,
+                                product_name: d.product_name || '',
+                                expiration_date: d.expiration_date ? d.expiration_date.split('T')[0] : '',
+                                device_type: d.device_type || 'pc',
+                                sort_order: d.sort_order || 0
+                            };
+                        });
+                        setDrafts(initialDrafts);
+                    }
                 }
             } catch (e) {
                 console.error('Error fetching devices:', e);
@@ -59,25 +80,52 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
         if (selectedDeviceIds.includes(device.device_id)) return;
 
         setSelectedDeviceIds(prev => [...prev, device.device_id]);
+
+        // When adding new, put it at end of list order
+        const maxOrder = Math.max(...devices.map(d => d.sort_order || 0), 0);
+
         setDrafts(prev => ({
             ...prev,
             [device.device_id]: {
-                is_active: device.is_active || false,
+                is_active: true, // Default to true when adding
                 product_name: device.product_name || '',
                 expiration_date: device.expiration_date ? device.expiration_date.split('T')[0] : '',
                 device_type: device.device_type || 'pc',
-                sort_order: device.sort_order || 0
+                sort_order: maxOrder + 1
             }
         }));
+
+        // Auto-save initial state to persist inclusion in list
+        handleSaveRow(device.device_id, {
+            is_active: true,
+            product_name: device.product_name || '',
+            expiration_date: device.expiration_date ? device.expiration_date.split('T')[0] : '',
+            device_type: device.device_type || 'pc',
+            sort_order: maxOrder + 1
+        });
     };
 
     const handleRemoveDevice = (deviceId) => {
-        setSelectedDeviceIds(prev => prev.filter(id => id !== deviceId));
-        setDrafts(prev => {
-            const newDrafts = { ...prev };
-            delete newDrafts[deviceId];
-            return newDrafts;
-        });
+        const device = devices.find(d => d.device_id === deviceId);
+        if (window.confirm(`Rimuovere ${device?.ip_address} dalla lista?`)) {
+            setSelectedDeviceIds(prev => prev.filter(id => id !== deviceId));
+            setDrafts(prev => {
+                const newDrafts = { ...prev };
+                delete newDrafts[deviceId];
+                return newDrafts;
+            });
+
+            // Update backend to clear status (optional, depends on if user wants to delete data or just hide)
+            // For now we just remove from view, but to persist "removal" we might need to set is_active=false or wipe data
+            // Let's set is_active = false and product_name = '' to "clear" it effectively from auto-load
+            handleSaveRow(deviceId, {
+                is_active: false,
+                product_name: '',
+                expiration_date: null,
+                device_type: 'pc',
+                sort_order: 0
+            });
+        }
     };
 
     const updateDraft = (deviceId, field, value) => {
@@ -141,15 +189,27 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
         e.dataTransfer.dropEffect = "move";
     };
 
-    const handleDrop = (e, index) => {
+    const handleDrop = async (e, index) => {
         e.preventDefault();
         const draggedIndex = Number(e.dataTransfer.getData("text/plain"));
+        if (draggedIndex === index) return;
+
         const newItems = [...selectedDeviceIds];
         const [movedItem] = newItems.splice(draggedIndex, 1);
         newItems.splice(index, 0, movedItem);
         setSelectedDeviceIds(newItems);
 
-        // Optionally save sort order here if backend supported batch update of order
+        // Update sort orders in backend
+        // We need to update all affected items. Simple loop for now.
+        newItems.forEach((id, idx) => {
+            const draft = drafts[id] || {};
+            const newOrder = idx;
+            if (draft.sort_order !== newOrder) {
+                updateDraft(id, 'sort_order', newOrder);
+                // Fire and forget save for order
+                handleSaveRow(id, { ...draft, sort_order: newOrder });
+            }
+        });
     };
 
     return (
