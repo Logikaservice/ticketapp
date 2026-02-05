@@ -2429,7 +2429,27 @@ module.exports = (pool, io) => {
         }
         
         const aziendaName = result.rows[0].azienda;
-        if (req.user.admin_companies.includes(aziendaName)) {
+        
+        // Aziende accessibili per questo utente
+        let accessibleCompanies = [...req.user.admin_companies];
+        
+        // Caso speciale: Paradiso Group può vedere anche Conad Mercurio, Conad La Torre e Conad Albatros
+        const userAzienda = req.user.azienda || '';
+        if (userAzienda === 'Paradiso Group' || req.user.admin_companies.includes('Paradiso Group')) {
+          const paradisoAccessibleCompanies = [
+            'Conad Mercurio',
+            'Conad La Torre',
+            'Conad Albatros'
+          ];
+          // Aggiungi le aziende Conad se non sono già presenti
+          paradisoAccessibleCompanies.forEach(company => {
+            if (!accessibleCompanies.includes(company)) {
+              accessibleCompanies.push(company);
+            }
+          });
+        }
+        
+        if (accessibleCompanies.includes(aziendaName)) {
           return next();
         } else {
           return res.status(403).json({ error: 'Accesso negato: non hai i permessi per questa azienda' });
@@ -2460,7 +2480,26 @@ module.exports = (pool, io) => {
       
       // Se è admin aziendale, mostra solo le sue aziende
       if (userRole === 'cliente' && req.user?.admin_companies && Array.isArray(req.user.admin_companies) && req.user.admin_companies.length > 0) {
-        const adminCompanies = req.user.admin_companies.map(c => `'${c.replace(/'/g, "''")}'`).join(',');
+        // Aziende accessibili per questo utente
+        let accessibleCompanies = [...req.user.admin_companies];
+        
+        // Caso speciale: Paradiso Group può vedere anche Conad Mercurio, Conad La Torre e Conad Albatros
+        const userAzienda = req.user.azienda || '';
+        if (userAzienda === 'Paradiso Group' || req.user.admin_companies.includes('Paradiso Group')) {
+          const paradisoAccessibleCompanies = [
+            'Conad Mercurio',
+            'Conad La Torre',
+            'Conad Albatros'
+          ];
+          // Aggiungi le aziende Conad se non sono già presenti
+          paradisoAccessibleCompanies.forEach(company => {
+            if (!accessibleCompanies.includes(company)) {
+              accessibleCompanies.push(company);
+            }
+          });
+        }
+        
+        const adminCompanies = accessibleCompanies.map(c => `'${c.replace(/'/g, "''")}'`).join(',');
         query += ` AND u.azienda IN (${adminCompanies})`;
       }
       
