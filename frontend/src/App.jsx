@@ -3016,7 +3016,6 @@ export default function TicketApp() {
                 readOnly={isReadOnly}
               />
             ) : (
-          ) : (
             // Messaggio di accesso negato
             <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto">
               <div className="min-h-screen flex items-center justify-center">
@@ -3047,6 +3046,7 @@ export default function TicketApp() {
               </div>
             </div>
           )
+          })()
         )}
 
 
@@ -3158,6 +3158,7 @@ export default function TicketApp() {
                 </div>
               </div>
             )
+            })()
           ) : showOrariTurni ? (
             // Verifica accesso al sistema orari (admin e tecnici hanno sempre accesso)
             (currentUser?.ruolo === 'admin' || currentUser?.ruolo === 'tecnico' || currentUser?.enabled_projects?.includes('orari')) ? (
