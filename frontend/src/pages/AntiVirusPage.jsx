@@ -8,6 +8,8 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
     const [devices, setDevices] = useState([]);
     const [selectedDeviceIds, setSelectedDeviceIds] = useState([]);
     const [drafts, setDrafts] = useState({});
+    const [searchTerm, setSearchTerm] = useState('');
+    const [loading, setLoading] = useState(false);
 
     // Fetch companies
     useEffect(() => {
