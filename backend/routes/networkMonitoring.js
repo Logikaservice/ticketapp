@@ -7262,7 +7262,6 @@ pause
           nd.id as device_id,
           nd.ip_address,
           nd.mac_address,
-          nd.mac_address,
           COALESCE(nd.hostname, '') as hostname,
           COALESCE(nd.device_username, '') as device_username,
           COALESCE(nd.keepass_path, '') as keepass_path,
