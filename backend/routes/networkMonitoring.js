@@ -236,7 +236,7 @@ module.exports = (pool, io) => {
       } catch (err) {
         // Ignora errore se colonna esiste già
         if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonne device_username/keepass_path:', err.message);
+          console.warn('⚠️ Avviso aggiunta colonne (username/path):', err.message);
         }
       }
 
@@ -7250,7 +7250,6 @@ pause
   router.get('/clients/:aziendaId/antivirus-devices', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       const { aziendaId } = req.params;
-      // Retry deploy trigger
       const parsedAziendaId = parseInt(aziendaId, 10);
       if (isNaN(parsedAziendaId)) {
         return res.status(400).json({ error: 'ID azienda non valido' });
