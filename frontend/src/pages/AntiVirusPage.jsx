@@ -60,8 +60,8 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
             return;
         }
 
-        const fetchDevices = async () => {
-            setLoading(true);
+        const fetchDevices = async (silent = false) => {
+            if (!silent) setLoading(true);
             try {
                 const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/antivirus-devices`), {
                     headers: getAuthHeader()
@@ -70,34 +70,44 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                     const data = await res.json();
                     setDevices(data);
 
-                    // Initialize selected devices (those with data)
-                    const existingConfigured = data
-                        .filter(d => d.is_active || d.product_name || d.expiration_date)
-                        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+                    // Initialize selected devices ONLY on initial load (not silent update)
+                    if (!silent) {
+                        const existingConfigured = data
+                            .filter(d => d.is_active || d.product_name || d.expiration_date)
+                            .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
-                    if (existingConfigured.length > 0) {
-                        setSelectedDeviceIds(existingConfigured.map(d => d.device_id));
-                        // Initialize drafts
-                        const initialDrafts = {};
-                        existingConfigured.forEach(d => {
-                            initialDrafts[d.device_id] = {
-                                is_active: d.is_active || false,
-                                product_name: d.product_name || '',
-                                expiration_date: d.expiration_date ? d.expiration_date.split('T')[0] : '',
-                                device_type: d.device_type || 'pc',
-                                sort_order: d.sort_order || 0
-                            };
-                        });
-                        setDrafts(initialDrafts);
+                        if (existingConfigured.length > 0) {
+                            setSelectedDeviceIds(existingConfigured.map(d => d.device_id));
+                            // Initialize drafts
+                            const initialDrafts = {};
+                            existingConfigured.forEach(d => {
+                                initialDrafts[d.device_id] = {
+                                    is_active: d.is_active || false,
+                                    product_name: d.product_name || '',
+                                    expiration_date: d.expiration_date ? d.expiration_date.split('T')[0] : '',
+                                    device_type: d.device_type || 'pc',
+                                    sort_order: d.sort_order || 0
+                                };
+                            });
+                            setDrafts(initialDrafts);
+                        }
                     }
                 }
             } catch (e) {
                 console.error('Error fetching devices:', e);
             } finally {
-                setLoading(false);
+                if (!silent) setLoading(false);
             }
         };
-        fetchDevices();
+
+        fetchDevices(false);
+
+        // Auto-refresh every 10 seconds
+        const intervalId = setInterval(() => {
+            fetchDevices(true);
+        }, 10000);
+
+        return () => clearInterval(intervalId);
     }, [selectedCompanyId, getAuthHeader]);
 
     const handleSelectDevice = (device) => {
