@@ -24,6 +24,15 @@ module.exports = (pool, io) => {
   const pendingRouterWifiTasks = new Map(); // agentId -> { task_id, router_ip, username, password, router_model, device_id, created_at }
   const routerWifiResults = new Map();      // task_id -> { success, devices: [], error, at }
 
+  // Funzione helper per garantire presenza colonna (Fix immediato per errore 500)
+  const forceKeepassPathColumn = async () => {
+    try {
+      await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS keepass_path TEXT;`);
+    } catch (e) {
+      if (!e.message.includes('duplicate')) console.warn('Force Keepass Path migration:', e.message);
+    }
+  };
+
   // Funzione helper per inizializzare le tabelle se non esistono
   const initTables = async () => {
     try {
@@ -7264,6 +7273,7 @@ pause
       }
 
       await ensureTables();
+      await forceKeepassPathColumn();
 
       const devices = await pool.query(`
         SELECT 
@@ -7272,7 +7282,7 @@ pause
           nd.mac_address,
           COALESCE(nd.hostname, '') as hostname,
           COALESCE(nd.device_username, '') as device_username,
-          '' as keepass_path,
+          COALESCE(nd.keepass_path, '') as keepass_path,
           nd.status,
           COALESCE(avi.is_active, false) as is_active,
           COALESCE(avi.product_name, '') as product_name,
