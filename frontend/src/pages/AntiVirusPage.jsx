@@ -317,10 +317,12 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                                         const draft = drafts[id] || {};
                                         if (!device) return null;
 
+                                        const isExpired = draft.expiration_date && new Date(draft.expiration_date) < new Date(new Date().setHours(0, 0, 0, 0));
+
                                         return (
                                             <tr
                                                 key={id}
-                                                className="hover:bg-gray-50 group"
+                                                className={`group ${isExpired ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
                                                 draggable
                                                 onDragStart={(e) => handleDragStart(e, index)}
                                                 onDragOver={(e) => handleDragOver(e, index)}
