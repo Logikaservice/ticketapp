@@ -7272,7 +7272,7 @@ pause
           nd.mac_address,
           COALESCE(nd.hostname, '') as hostname,
           COALESCE(nd.device_username, '') as device_username,
-          '' as keepass_path,
+          COALESCE(nd.keepass_path, '') as keepass_path,
           nd.status,
           COALESCE(avi.is_active, false) as is_active,
           COALESCE(avi.product_name, '') as product_name,
@@ -7283,6 +7283,7 @@ pause
         JOIN network_agents na ON nd.agent_id = na.id
         LEFT JOIN antivirus_info avi ON nd.id = avi.device_id
         WHERE na.azienda_id = $1
+        AND nd.ip_address NOT LIKE 'virtual-%'
       `, [parsedAziendaId]);
 
       // Ordinamento IP
