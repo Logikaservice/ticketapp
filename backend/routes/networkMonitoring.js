@@ -7272,7 +7272,7 @@ pause
           nd.mac_address,
           COALESCE(nd.hostname, '') as hostname,
           COALESCE(nd.device_username, '') as device_username,
-          COALESCE(nd.keepass_path, '') as keepass_path,
+          '' as keepass_path,
           nd.status,
           COALESCE(avi.is_active, false) as is_active,
           COALESCE(avi.product_name, '') as product_name,

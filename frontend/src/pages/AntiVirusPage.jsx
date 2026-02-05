@@ -92,6 +92,9 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                             setDrafts(initialDrafts);
                         }
                     }
+                } else {
+                    const errText = await res.text();
+                    console.error('Server error fetching devices:', res.status, errText);
                 }
             } catch (e) {
                 console.error('Error fetching devices:', e);
