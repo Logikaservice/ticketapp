@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { Shield, Search, X, Check, Calendar, Monitor, Server, Layers, GripVertical, Plus, Laptop, Smartphone, Tablet } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
