@@ -648,6 +648,19 @@ module.exports = (pool, io) => {
           `);
           try { await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false;`); } catch (e) { }
           await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_azienda ON mappatura_nodes(azienda_id);`);
+
+          // Tabella per Anti-Virus info (richiesta feature Anti-Virus menu)
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS antivirus_info (
+              id SERIAL PRIMARY KEY,
+              device_id INTEGER NOT NULL REFERENCES network_devices(id) ON DELETE CASCADE,
+              is_active BOOLEAN DEFAULT false,
+              product_name VARCHAR(255),
+              expiration_date DATE,
+              updated_at TIMESTAMPTZ DEFAULT NOW(),
+              UNIQUE(device_id)
+            );
+          `);
         } catch (migErr) {
           if (!migErr.message?.includes('does not exist')) {
             console.warn('⚠️ Migrazione colonne network_*:', migErr.message);
@@ -2407,19 +2420,19 @@ module.exports = (pool, io) => {
   const checkCompanyAccess = async (req, res, next) => {
     const userRole = req.user?.ruolo;
     const aziendaId = req.params.aziendaId ? parseInt(req.params.aziendaId) : null;
-    
+
     // Admin e tecnici hanno accesso completo
     if (userRole === 'admin' || userRole === 'tecnico') {
       return next();
     }
-    
+
     // Se è un admin aziendale, verifica che possa accedere all'azienda richiesta
     if (userRole === 'cliente' && req.user?.admin_companies && Array.isArray(req.user.admin_companies) && req.user.admin_companies.length > 0) {
       // Se non c'è aziendaId specifico, permette l'accesso (vedrà solo le sue aziende nel filtro)
       if (!aziendaId) {
         return next();
       }
-      
+
       // Verifica che l'aziendaId corrisponda a una delle aziende di cui è admin
       // Devo recuperare il nome dell'azienda dall'ID
       try {
@@ -2427,12 +2440,12 @@ module.exports = (pool, io) => {
         if (result.rows.length === 0) {
           return res.status(404).json({ error: 'Azienda non trovata' });
         }
-        
+
         const aziendaName = result.rows[0].azienda;
-        
+
         // Aziende accessibili per questo utente
         let accessibleCompanies = [...req.user.admin_companies];
-        
+
         // Caso speciale: Paradiso Group può vedere anche Conad Mercurio, Conad La Torre e Conad Albatros
         const userAzienda = req.user.azienda || '';
         if (userAzienda === 'Paradiso Group' || req.user.admin_companies.includes('Paradiso Group')) {
@@ -2448,7 +2461,7 @@ module.exports = (pool, io) => {
             }
           });
         }
-        
+
         if (accessibleCompanies.includes(aziendaName)) {
           return next();
         } else {
@@ -2459,7 +2472,7 @@ module.exports = (pool, io) => {
         return res.status(500).json({ error: 'Errore interno del server' });
       }
     }
-    
+
     // Altri ruoli non hanno accesso
     return res.status(403).json({ error: 'Accesso negato' });
   };
@@ -2477,12 +2490,12 @@ module.exports = (pool, io) => {
         INNER JOIN users u ON na.azienda_id = u.id 
         WHERE na.deleted_at IS NULL
       `;
-      
+
       // Se è admin aziendale, mostra solo le sue aziende
       if (userRole === 'cliente' && req.user?.admin_companies && Array.isArray(req.user.admin_companies) && req.user.admin_companies.length > 0) {
         // Aziende accessibili per questo utente
         let accessibleCompanies = [...req.user.admin_companies];
-        
+
         // Caso speciale: Paradiso Group può vedere anche Conad Mercurio, Conad La Torre e Conad Albatros
         const userAzienda = req.user.azienda || '';
         if (userAzienda === 'Paradiso Group' || req.user.admin_companies.includes('Paradiso Group')) {
@@ -2498,11 +2511,11 @@ module.exports = (pool, io) => {
             }
           });
         }
-        
+
         const adminCompanies = accessibleCompanies.map(c => `'${c.replace(/'/g, "''")}'`).join(',');
         query += ` AND u.azienda IN (${adminCompanies})`;
       }
-      
+
       query += ` ORDER BY u.azienda`;
 
       const result = await pool.query(query);
@@ -3948,7 +3961,7 @@ module.exports = (pool, io) => {
   router.get('/companies', authenticateToken, async (req, res) => {
     try {
       const userRole = req.user?.ruolo;
-      
+
       // Query base per recuperare le aziende con agent attivi
       let query = `
         SELECT DISTINCT 
@@ -3960,12 +3973,12 @@ module.exports = (pool, io) => {
          WHERE u.azienda IS NOT NULL AND u.azienda != '' AND u.azienda != 'Senza azienda'
          AND na.deleted_at IS NULL
       `;
-      
+
       // Se è admin aziendale, mostra solo le sue aziende
       if (userRole === 'cliente' && req.user?.admin_companies && Array.isArray(req.user.admin_companies) && req.user.admin_companies.length > 0) {
         // Aziende accessibili per questo utente
         let accessibleCompanies = [...req.user.admin_companies];
-        
+
         // Caso speciale: Paradiso Group può vedere anche Conad Mercurio, Conad La Torre e Conad Albatros
         const userAzienda = req.user.azienda || '';
         if (userAzienda === 'Paradiso Group' || req.user.admin_companies.includes('Paradiso Group')) {
@@ -3981,11 +3994,11 @@ module.exports = (pool, io) => {
             }
           });
         }
-        
+
         const adminCompanies = accessibleCompanies.map(c => `'${c.replace(/'/g, "''")}'`).join(',');
         query += ` AND u.azienda IN (${adminCompanies})`;
       }
-      
+
       query += `
          GROUP BY u.azienda, u.id
          ORDER BY u.azienda ASC
@@ -7217,6 +7230,79 @@ pause
     req.on('close', () => {
       child.kill();
     });
+  });
+
+  // --- ANTI-VIRUS ROUTES ---
+
+  // GET /api/network-monitoring/clients/:aziendaId/antivirus-devices
+  router.get('/clients/:aziendaId/antivirus-devices', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { aziendaId } = req.params;
+      const parsedAziendaId = parseInt(aziendaId, 10);
+      if (isNaN(parsedAziendaId)) {
+        return res.status(400).json({ error: 'ID azienda non valido' });
+      }
+
+      await ensureTables();
+
+      const devices = await pool.query(`
+        SELECT 
+          nd.id as device_id,
+          nd.ip_address,
+          nd.mac_address,
+          COALESCE(nd.hostname, '') as hostname,
+          nd.status,
+          COALESCE(avi.is_active, false) as is_active,
+          COALESCE(avi.product_name, '') as product_name,
+          avi.expiration_date
+        FROM network_devices nd
+        JOIN network_agents na ON nd.agent_id = na.id
+        LEFT JOIN antivirus_info avi ON nd.id = avi.device_id
+        WHERE na.azienda_id = $1
+      `, [parsedAziendaId]);
+
+      // Ordinamento IP
+      const sortedDevices = devices.rows.sort((a, b) => {
+        const ipA = (a.ip_address || '').split('.').map(Number);
+        const ipB = (b.ip_address || '').split('.').map(Number);
+        if (ipA.length < 4) return -1;
+        if (ipB.length < 4) return 1;
+        for (let i = 0; i < 4; i++) {
+          if (ipA[i] < ipB[i]) return -1;
+          if (ipA[i] > ipB[i]) return 1;
+        }
+        return 0;
+      });
+
+      res.json(sortedDevices);
+    } catch (err) {
+      console.error('❌ Errore GET antivirus-devices:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // PUT /api/network-monitoring/antivirus/:deviceId
+  router.put('/antivirus/:deviceId', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { deviceId } = req.params;
+      const { is_active, product_name, expiration_date } = req.body;
+
+      // Upsert
+      await pool.query(`
+        INSERT INTO antivirus_info (device_id, is_active, product_name, expiration_date, updated_at)
+        VALUES ($1, $2, $3, $4, NOW())
+        ON CONFLICT (device_id) DO UPDATE 
+        SET is_active = EXCLUDED.is_active,
+            product_name = EXCLUDED.product_name,
+            expiration_date = EXCLUDED.expiration_date,
+            updated_at = NOW()
+      `, [deviceId, is_active === true, product_name || '', expiration_date || null]);
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error('❌ Errore PUT antivirus info:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
   });
 
   return router;
