@@ -7,12 +7,26 @@ const { verifyToken, extractTokenFromHeader } = require('../utils/jwtUtils');
  * Verifica se l'utente è autenticato tramite JWT token
  */
 const authenticateToken = (req, res, next) => {
+  // Log per debug route Office
+  if (req.path && req.path.includes('/office/')) {
+    console.log('🔍 ============================================');
+    console.log('🔍 MIDDLEWARE AUTHENTICATE - RICHIESTA OFFICE');
+    console.log('🔍 ============================================');
+    console.log('🔍 Path:', req.path);
+    console.log('🔍 Method:', req.method);
+    console.log('🔍 URL:', req.originalUrl);
+    console.log('🔍 Headers Authorization:', req.headers.authorization ? 'Presente (' + req.headers.authorization.substring(0, 20) + '...)' : 'MANCANTE');
+  }
+  
   try {
     // Estrai il token dall'header Authorization
     const token = extractTokenFromHeader(req);
     
     if (!token) {
       console.log('❌ Token JWT mancante');
+      if (req.path && req.path.includes('/office/')) {
+        console.log('❌ RICHIESTA OFFICE BLOCCATA: Token mancante');
+      }
       return res.status(401).json({ 
         error: 'Token di autenticazione richiesto',
         code: 'MISSING_TOKEN'
@@ -20,7 +34,18 @@ const authenticateToken = (req, res, next) => {
     }
     
     // Verifica il token
-    const decoded = verifyToken(token);
+    let decoded;
+    try {
+      decoded = verifyToken(token);
+      if (req.path && req.path.includes('/office/')) {
+        console.log('✅ Token verificato con successo per Office');
+      }
+    } catch (verifyError) {
+      if (req.path && req.path.includes('/office/')) {
+        console.log('❌ RICHIESTA OFFICE BLOCCATA: Errore verifica token:', verifyError.message);
+      }
+      throw verifyError;
+    }
     
     // Aggiungi i dati utente alla richiesta
     // Gestisci admin_companies dal token
@@ -56,10 +81,17 @@ const authenticateToken = (req, res, next) => {
     };
     
     console.log(`🔐 Utente autenticato: ${req.user.email} (${req.user.ruolo})`);
+    if (req.path && req.path.includes('/office/')) {
+      console.log('✅ RICHIESTA OFFICE AUTENTICATA - Passo alla route');
+    }
     next();
     
   } catch (error) {
     console.log(`❌ Errore autenticazione: ${error.message}`);
+    if (req.path && req.path.includes('/office/')) {
+      console.log('❌ RICHIESTA OFFICE BLOCCATA: Errore autenticazione:', error.message);
+      console.log('❌ Stack:', error.stack);
+    }
     return res.status(401).json({ 
       error: error.message,
       code: 'INVALID_TOKEN'
