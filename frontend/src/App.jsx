@@ -35,6 +35,7 @@ import NetworkMonitoringDashboard from './components/NetworkMonitoringDashboard'
 import MappaturaPage from './pages/MappaturaPage';
 import AntiVirusPage from './pages/AntiVirusPage';
 import PingTerminalPage from './pages/PingTerminalPage';
+import OfficePage from './pages/OfficePage';
 import { buildApiUrl } from './utils/apiConfig';
 
 const INITIAL_NEW_CLIENT_DATA = {
@@ -155,6 +156,7 @@ export default function TicketApp() {
   const [showNetworkMap, setShowNetworkMap] = useState(false);
   const [showMappatura, setShowMappatura] = useState(false);
   const [showAntiVirus, setShowAntiVirus] = useState(false);
+  const [showOffice, setShowOffice] = useState(false);
   const [networkMonitoringInitialView, setNetworkMonitoringInitialView] = useState(null); // 'agents' o 'create'
   const [selectedCompanyForNavigation, setSelectedCompanyForNavigation] = useState(null); // Azienda selezionata per navigazione tra monitoraggio e mappatura
 
@@ -244,11 +246,20 @@ export default function TicketApp() {
     };
   }, []);
 
+  const handleOpenOffice = () => {
+    setShowOffice(true);
+    setShowDashboard(false);
+    setShowNetworkMonitoring(false);
+    setShowMappatura(false);
+    setShowAntiVirus(false);
+  };
+
   const handleOpenAntiVirus = () => {
     setShowAntiVirus(true);
     setShowDashboard(false);
     setShowNetworkMonitoring(false);
     setShowMappatura(false);
+    setShowOffice(false);
     setShowOrariTurni(false);
     setShowVivaldi(false);
     setShowPackVision(false);
@@ -2964,7 +2975,8 @@ export default function TicketApp() {
               openNetworkMonitoringDeviceTypes: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('deviceTypes'); },
               openNetworkMonitoringNotifications: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('notifications'); },
               openNetworkMonitoringTelegram: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('telegram'); },
-              openMappatura: () => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); },
+              openMappatura: () => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowOffice(false); },
+              openOffice: handleOpenOffice,
               openAntiVirus: handleOpenAntiVirus,
             }}
             openNetworkMonitoringNotifications={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('notifications'); }}
@@ -3083,6 +3095,15 @@ export default function TicketApp() {
               setShowMappatura(false);
               setShowNetworkMonitoring(true);
             }}
+          />
+        )}
+
+        {showOffice && (
+          <OfficePage
+            onClose={() => { setShowOffice(false); setShowDashboard(true); }}
+            getAuthHeader={getAuthHeader}
+            selectedCompanyId={selectedCompanyForNavigation || (currentUser?.ruolo === 'cliente' ? currentUser?.azienda_id : null)}
+            currentUser={currentUser}
           />
         )}
 

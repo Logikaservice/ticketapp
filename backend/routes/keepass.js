@@ -1915,6 +1915,33 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
+  // GET /api/keepass/office/:aziendaName - Recupera dati Office da Keepass
+  router.get('/office/:aziendaName', requireRole('tecnico'), async (req, res) => {
+    try {
+      const { aziendaName } = req.params;
+      const keepassPassword = process.env.KEEPASS_PASSWORD;
+
+      if (!keepassPassword) {
+        return res.status(500).json({ error: 'Password Keepass non configurata' });
+      }
+
+      if (!aziendaName) {
+        return res.status(400).json({ error: 'Nome azienda richiesto' });
+      }
+
+      const officeData = await keepassDriveService.getOfficeData(keepassPassword, aziendaName);
+
+      if (!officeData) {
+        return res.status(404).json({ error: 'Office non trovato per questa azienda' });
+      }
+
+      res.json(officeData);
+    } catch (err) {
+      console.error('❌ Errore recupero Office:', err);
+      res.status(500).json({ error: 'Errore durante il recupero dei dati Office' });
+    }
+  });
+
   return router;
 };
 

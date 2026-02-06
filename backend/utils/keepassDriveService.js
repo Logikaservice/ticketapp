@@ -452,6 +452,161 @@ class KeepassDriveService {
   }
 
   /**
+   * Cerca la voce "Office" come radice e poi "Login" con i campi personalizzati
+   * @param {string} password - Password del file Keepass
+   * @param {string} aziendaName - Nome azienda per filtrare (es. "Theorica")
+   * @returns {Object|null} Oggetto con titolo Office, campi personalizzati 1-5 e scadenza, o null se non trovato
+   */
+  async getOfficeData(password, aziendaName) {
+    try {
+      // Scarica il file da Google Drive
+      const fileData = await this.downloadKeepassFile(password);
+      const fileBuffer = fileData.buffer;
+
+      // Carica il file KDBX
+      const credentials = new Credentials(ProtectedValue.fromString(password));
+      const db = await Kdbx.load(fileBuffer.buffer, credentials);
+
+      console.log(`✅ File KDBX caricato per ricerca Office: ${db.name || 'Senza nome'}`);
+
+      let officeTitle = null;
+      let loginEntry = null;
+
+      // Funzione ricorsiva per cercare Office e Login
+      const searchOfficeAndLogin = (group, groupPath = '', isInOfficeGroup = false) => {
+        const groupName = group.name || 'Root';
+        const currentPath = groupPath ? `${groupPath} > ${groupName}` : groupName;
+
+        // Verifica se il percorso appartiene all'azienda
+        let shouldInclude = true;
+        if (aziendaName) {
+          const pathSegments = currentPath.split('>').map(seg => seg.trim()).filter(seg => seg);
+          const gestioneIndex = pathSegments.findIndex(seg => seg.toLowerCase() === 'gestione');
+
+          if (gestioneIndex === -1) {
+            shouldInclude = false;
+          } else {
+            const aziendaSegmentIndex = gestioneIndex + 1;
+            if (aziendaSegmentIndex >= pathSegments.length) {
+              shouldInclude = true; // Continua a processare i sottogruppi
+            } else {
+              const aziendaSegmentInPath = pathSegments[aziendaSegmentIndex];
+              const aziendaNameNormalized = aziendaName.trim().toLowerCase();
+              const segmentNormalized = aziendaSegmentInPath.trim().toLowerCase();
+              shouldInclude = (aziendaNameNormalized === segmentNormalized);
+            }
+          }
+
+          if (!shouldInclude) {
+            return;
+          }
+        }
+
+        // Cerca "Office" come gruppo
+        const isOfficeGroup = groupName.toLowerCase() === 'office';
+        const currentIsInOfficeGroup = isInOfficeGroup || isOfficeGroup;
+
+        // Se abbiamo trovato Office, prendi il titolo dal gruppo
+        if (isOfficeGroup && !officeTitle) {
+          officeTitle = groupName || 'Office';
+        }
+
+        // Se siamo nel gruppo Office, cerca "Login" nelle entry
+        if (currentIsInOfficeGroup && group.entries && group.entries.length > 0) {
+          for (const entry of group.entries) {
+            const titleField = entry.fields && entry.fields['Title'];
+            const title = titleField ? (titleField instanceof ProtectedValue ? titleField.getText() : String(titleField)) : '';
+            
+            if (title.toLowerCase() === 'login') {
+              // Estrai i campi personalizzati
+              const customFields = {};
+              if (entry.customFields) {
+                for (const [fieldName, fieldValue] of Object.entries(entry.customFields)) {
+                  const value = fieldValue instanceof ProtectedValue
+                    ? fieldValue.getText()
+                    : String(fieldValue || '');
+                  customFields[fieldName] = value;
+                }
+              }
+
+              // Estrai anche i campi standard per verificare se ci sono campi personalizzati lì
+              if (entry.fields) {
+                for (const [fieldName, fieldValue] of Object.entries(entry.fields)) {
+                  // Salta i campi standard
+                  if (['Title', 'UserName', 'Password', 'URL', 'Notes'].includes(fieldName)) {
+                    continue;
+                  }
+                  const value = fieldValue instanceof ProtectedValue
+                    ? fieldValue.getText()
+                    : String(fieldValue || '');
+                  if (!customFields[fieldName]) {
+                    customFields[fieldName] = value;
+                  }
+                }
+              }
+
+              // Estrai la scadenza se presente
+              let expires = null;
+              if (entry.times && entry.times.expires) {
+                expires = entry.times.expires;
+              }
+
+              loginEntry = {
+                title: title || 'Login',
+                customFields: customFields,
+                expires: expires
+              };
+              break;
+            }
+          }
+        }
+
+        // Processa i sottogruppi
+        if (group.groups && group.groups.length > 0) {
+          for (const subGroup of group.groups) {
+            searchOfficeAndLogin(subGroup, currentPath, currentIsInOfficeGroup);
+          }
+        }
+      };
+
+      // Processa tutti i gruppi root
+      if (db.groups && db.groups.length > 0) {
+        for (const group of db.groups) {
+          searchOfficeAndLogin(group);
+        }
+      }
+
+      if (!officeTitle || !loginEntry) {
+        console.log(`ℹ️ Office o Login non trovati per "${aziendaName}"`);
+        return null;
+      }
+
+      // Estrai i campi personalizzati 1, 2, 3, 4, 5
+      // Prova diversi nomi possibili per i campi personalizzati
+      const custom1 = loginEntry.customFields['Campo personalizzato 1'] || loginEntry.customFields['Custom Field 1'] || loginEntry.customFields['Campo 1'] || loginEntry.customFields['1'] || '';
+      const custom2 = loginEntry.customFields['Campo personalizzato 2'] || loginEntry.customFields['Custom Field 2'] || loginEntry.customFields['Campo 2'] || loginEntry.customFields['2'] || '';
+      const custom3 = loginEntry.customFields['Campo personalizzato 3'] || loginEntry.customFields['Custom Field 3'] || loginEntry.customFields['Campo 3'] || loginEntry.customFields['3'] || '';
+      const custom4 = loginEntry.customFields['Campo personalizzato 4'] || loginEntry.customFields['Custom Field 4'] || loginEntry.customFields['Campo 4'] || loginEntry.customFields['4'] || '';
+      const custom5 = loginEntry.customFields['Campo personalizzato 5'] || loginEntry.customFields['Custom Field 5'] || loginEntry.customFields['Campo 5'] || loginEntry.customFields['5'] || '';
+
+      return {
+        title: officeTitle,
+        customFields: {
+          custom1,
+          custom2,
+          custom3,
+          custom4,
+          custom5
+        },
+        expires: loginEntry.expires ? loginEntry.expires.toISOString() : null
+      };
+    } catch (error) {
+      console.error('❌ Errore ricerca Office in Keepass:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Verifica se il file KeePass è stato modificato su Google Drive
    */
   async checkFileModified(password) {
