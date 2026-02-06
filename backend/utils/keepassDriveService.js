@@ -669,17 +669,8 @@ class KeepassDriveService {
             custom2,
             custom3,
             custom4,
-            custom5,
-            // Aggiungi anche tutti gli altri campi personalizzati trovati
-            ...Object.fromEntries(
-              Object.entries(file.customFields || {}).filter(([k]) => 
-                !['Campo personalizzato 1', 'Custom Field 1', 'Campo 1', '1',
-                  'Campo personalizzato 2', 'Custom Field 2', 'Campo 2', '2',
-                  'Campo personalizzato 3', 'Custom Field 3', 'Campo 3', '3',
-                  'Campo personalizzato 4', 'Custom Field 4', 'Campo 4', '4',
-                  'Campo personalizzato 5', 'Custom Field 5', 'Campo 5', '5'].includes(k)
-              )
-            )
+            custom5
+            // SOLO i campi personalizzati 1-5, nient'altro
           },
           expires: file.expires ? file.expires.toISOString() : null
         };
