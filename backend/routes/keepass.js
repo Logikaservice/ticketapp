@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const xml2js = require('xml2js');
 const crypto = require('crypto');
-const { requireRole } = require('../middleware/authMiddleware');
+const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
 const keepassDriveService = require('../utils/keepassDriveService');
 const telegramService = require('../utils/telegramService');
 
@@ -1916,8 +1916,20 @@ module.exports = function createKeepassRouter(pool) {
   });
 
   // GET /api/keepass/office/:aziendaName - Recupera dati Office da Keepass
-  router.get('/office/:aziendaName', requireRole('tecnico'), async (req, res) => {
+  router.get('/office/:aziendaName', authenticateToken, async (req, res) => {
     try {
+      const userRole = req.user?.ruolo;
+      const userId = req.user?.id;
+      const adminCompanies = req.user?.admin_companies || [];
+
+      // Verifica permessi: solo tecnici o amministratori aziendali
+      if (userRole !== 'tecnico' && userRole !== 'admin') {
+        // Se è cliente, verifica che sia amministratore di almeno un'azienda
+        if (userRole === 'cliente' && (!adminCompanies || adminCompanies.length === 0)) {
+          return res.status(403).json({ error: 'Accesso negato: permessi insufficienti' });
+        }
+      }
+
       const { aziendaName } = req.params;
       const keepassPassword = process.env.KEEPASS_PASSWORD;
 

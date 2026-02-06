@@ -13,6 +13,8 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId, currentUser }) 
   useEffect(() => {
     if (selectedCompanyId) {
       loadOfficeData();
+    } else {
+      setError('Seleziona prima un\'azienda');
     }
   }, [selectedCompanyId]);
 
