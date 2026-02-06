@@ -4452,7 +4452,7 @@ module.exports = (pool, io) => {
       }
 
       // Versione agent per ZIP e config.json incluso (allineata a NetworkMonitorService.ps1 $SCRIPT_VERSION)
-      const CURRENT_AGENT_VERSION = '2.6.12';
+      const CURRENT_AGENT_VERSION = '2.6.14';
       const agentVersion = CURRENT_AGENT_VERSION;
       console.log(`ℹ️ Versione agent per ZIP: ${agentVersion} `);
 
