@@ -1764,59 +1764,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         {/* Pulsante Stampa */}
                         <button
                             onClick={() => {
-                                // Salva lo stato corrente della scala e offset
-                                const currentScale = scaleRef.current || 1;
-                                const currentOffset = offsetRef.current || { x: 0, y: 0 };
-                                
-                                // Imposta una scala ottimale per la stampa (più grande per essere leggibile)
-                                const printScale = Math.max(1.5, currentScale * 1.3);
-                                scaleRef.current = printScale;
-                                
-                                // Centra la mappa se possibile
-                                if (nodes.length > 0 && simulationRef.current) {
-                                    const simNodes = simulationRef.current.nodes();
-                                    if (simNodes.length > 0) {
-                                        const bounds = simNodes.reduce((acc, n) => {
-                                            if (n.x !== undefined && n.y !== undefined) {
-                                                acc.minX = Math.min(acc.minX, n.x);
-                                                acc.maxX = Math.max(acc.maxX, n.x);
-                                                acc.minY = Math.min(acc.minY, n.y);
-                                                acc.maxY = Math.max(acc.maxY, n.y);
-                                            }
-                                            return acc;
-                                        }, { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
-                                        
-                                        if (bounds.minX !== Infinity) {
-                                            const centerX = (bounds.minX + bounds.maxX) / 2;
-                                            const centerY = (bounds.minY + bounds.maxY) / 2;
-                                            const containerWidth = canvasContainerRef.current?.clientWidth || window.innerWidth;
-                                            const containerHeight = canvasContainerRef.current?.clientHeight || window.innerHeight;
-                                            offsetRef.current = {
-                                                x: containerWidth / 2 - centerX * printScale,
-                                                y: containerHeight / 2 - centerY * printScale
-                                            };
-                                            setOffset(offsetRef.current);
-                                        }
-                                    }
-                                }
-                                
-                                setScale(printScale);
-                                
-                                // Aspetta che il rendering si aggiorni prima di stampare
-                                setTimeout(() => {
-                                    window.print();
-                                    
-                                    // Ripristina lo stato originale dopo la stampa
-                                    setTimeout(() => {
-                                        scaleRef.current = currentScale;
-                                        offsetRef.current = currentOffset;
-                                        setScale(currentScale);
-                                        setOffset(currentOffset);
-                                    }, 500);
-                                }, 300);
+                                window.print();
                             }}
                             className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
-                            title="Stampa la mappa (senza la lista a sinistra)"
+                            title="Stampa la mappa (senza la lista a sinistra). Regola lo zoom prima di stampare."
                         >
                             <Printer size={18} />
                             Stampa
