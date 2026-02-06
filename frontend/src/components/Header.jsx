@@ -1,10 +1,10 @@
 // src/components/Header.jsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table, Wifi, Server as ServerIcon, MapPin, Shield } from 'lucide-react';
+import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table, Wifi, Server as ServerIcon, MapPin, Shield, AlertTriangle, AlertCircle } from 'lucide-react';
 import AgentNotifications from './AgentNotifications';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, openNetworkMonitoring, openNetworkMonitoringAgents, openNetworkMonitoringCreateAgent, openNetworkMonitoringDeviceTypes, openAntiVirus, isOrariDomain = false, getAuthHeader = null, socket = null }) => {
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, openNetworkMonitoring, openNetworkMonitoringAgents, openNetworkMonitoringCreateAgent, openNetworkMonitoringDeviceTypes, openNetworkMonitoringNotifications, openNetworkMonitoringTelegram, openMappatura, openAntiVirus, isOrariDomain = false, getAuthHeader = null, socket = null }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [expandedAction, setExpandedAction] = useState(null);
@@ -159,8 +159,12 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && openNetworkMonitoring,
       hasSubActions: true,
       subActions: [
-        { label: 'Dashboard Monitoraggio', icon: Wifi, color: 'cyan', onClick: () => handleQuickActionClick('networkMonitoring') },
-        { label: 'Mappatura', icon: MapPin, color: 'emerald', onClick: () => handleQuickActionClick('mappatura') }
+        { label: 'Dashboard Monitoraggio', icon: Wifi, color: 'cyan', onClick: () => { if (openNetworkMonitoring) { openNetworkMonitoring(); setShowQuickActions(false); setExpandedAction(null); } } },
+        { label: 'Mappatura', icon: MapPin, color: 'emerald', onClick: () => { if (openMappatura) { openMappatura(); setShowQuickActions(false); setExpandedAction(null); } } },
+        { label: 'Agent Esistenti', icon: ServerIcon, color: 'cyan', onClick: () => { if (openNetworkMonitoringAgents) { openNetworkMonitoringAgents(); setShowQuickActions(false); setExpandedAction(null); } } },
+        { label: 'Notifiche Agent', icon: AlertTriangle, color: 'yellow', onClick: () => { if (openNetworkMonitoringNotifications) { openNetworkMonitoringNotifications(); setShowQuickActions(false); setExpandedAction(null); } } },
+        { label: 'Crea Agent', icon: Plus, color: 'cyan', onClick: () => { if (openNetworkMonitoringCreateAgent) { openNetworkMonitoringCreateAgent(); setShowQuickActions(false); setExpandedAction(null); } } },
+        { label: 'Notifiche Telegram', icon: AlertCircle, color: 'blue', onClick: () => { if (openNetworkMonitoringTelegram) { openNetworkMonitoringTelegram(); setShowQuickActions(false); setExpandedAction(null); } } }
       ]
     },
     {

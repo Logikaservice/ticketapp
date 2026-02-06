@@ -238,20 +238,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     network_ranges: [],
     scan_interval_minutes: 15
   });
-  const [showNetworkMenu, setShowNetworkMenu] = useState(false);
-  const networkMenuRef = useRef(null);
-
-  // Chiudi menu quando si clicca fuori
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (networkMenuRef.current && !networkMenuRef.current.contains(event.target)) {
-        setShowNetworkMenu(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   // Carica lista agent (definito prima per essere usato in useEffect)
   const loadAgents = useCallback(async () => {
@@ -388,6 +374,24 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       }
     } else if (initialView === 'create') {
       setShowCreateAgentModal(true);
+      // Reset dopo un breve delay per permettere al componente di renderizzare
+      if (onViewReset) {
+        setTimeout(() => onViewReset(), 100);
+      }
+    } else if (initialView === 'notifications') {
+      setShowAgentNotificationsList(true);
+      setShowAgentsList(false);
+      loadAgents();
+      loadAgentEvents({ limit: 200, unreadOnly: false });
+      // Reset dopo un breve delay per permettere al componente di renderizzare
+      if (onViewReset) {
+        setTimeout(() => onViewReset(), 100);
+      }
+    } else if (initialView === 'telegram') {
+      setShowTelegramConfig(true);
+      setShowAgentsList(false);
+      setShowAgentNotificationsList(false);
+      loadTelegramConfigs();
       // Reset dopo un breve delay per permettere al componente di renderizzare
       if (onViewReset) {
         setTimeout(() => onViewReset(), 100);
@@ -1301,6 +1305,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             </button>
             <div className="h-6 w-px bg-gray-300"></div>
             <h1 className="font-bold text-xl text-gray-800">Monitoraggio Rete</h1>
+            {/* Notifiche Agent - spostato a destra del titolo */}
+            {getAuthHeader && socket && (
+              <AgentNotifications
+                getAuthHeader={getAuthHeader}
+                socket={socket}
+                onOpenNetworkMonitoring={null}
+              />
+            )}
             {readOnly && (
               <div className="ml-4 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-medium flex items-center gap-2">
                 <Eye size={16} />
@@ -1317,93 +1329,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* Menu hamburger */}
-            <div className="relative" ref={networkMenuRef} style={{ position: 'relative' }}>
-              <button
-                onClick={() => setShowNetworkMenu(!showNetworkMenu)}
-                className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
-                title="Menu Monitoraggio Rete"
-              >
-                <Menu size={24} />
-              </button>
-
-              {/* Dropdown menu - posizionato sotto il pulsante */}
-              {showNetworkMenu && (
-                <div className="absolute left-0 top-full mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50" style={{ position: 'absolute' }}>
-                  <div className="py-1">
-                    <button
-                      onClick={() => {
-                        setShowAgentsList(true);
-                        setShowAgentNotificationsList(false);
-                        loadAgents();
-                        setShowNetworkMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                    >
-                      <ServerIcon size={18} className="text-cyan-600" />
-                      Agent Esistenti
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowAgentNotificationsList(true);
-                        setShowAgentsList(false);
-                        setShowNetworkMenu(false);
-                        // Carica dati necessari
-                        loadAgents();
-                        loadAgentEvents({ limit: 200, unreadOnly: false });
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                    >
-                      <AlertTriangle size={18} className="text-yellow-600" />
-                      Notifiche Agent
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowCreateAgentModal(true);
-                        setShowAgentNotificationsList(false);
-                        setShowNetworkMenu(false);
-                      }}
-                      disabled={readOnly}
-                      className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${readOnly
-                        ? 'text-gray-400 cursor-not-allowed'
-                        : 'text-gray-700 hover:bg-gray-100'
-                        }`}
-                      title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Crea nuovo agent'}
-                    >
-                      <Plus size={18} className="text-cyan-600" />
-                      Crea Agent
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowTelegramConfig(true);
-                        setShowAgentsList(false);
-                        setShowAgentNotificationsList(false);
-                        setShowNetworkMenu(false);
-                        loadTelegramConfigs();
-                      }}
-                      disabled={readOnly}
-                      className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${readOnly
-                        ? 'text-gray-400 cursor-not-allowed'
-                        : 'text-gray-700 hover:bg-gray-100'
-                        }`}
-                      title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Configurazione Telegram'}
-                    >
-                      <AlertCircle size={18} className="text-blue-600" />
-                      Notifiche Telegram
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Notifiche Agent */}
-            {getAuthHeader && socket && (
-              <AgentNotifications
-                getAuthHeader={getAuthHeader}
-                socket={socket}
-                onOpenNetworkMonitoring={null}
-              />
-            )}
+            {/* Menu hamburger rimosso - ora è nel Header principale */}
 
             {!onClose && (
               <div>

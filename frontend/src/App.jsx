@@ -2962,8 +2962,14 @@ export default function TicketApp() {
               openNetworkMonitoringAgents: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('agents'); },
               openNetworkMonitoringCreateAgent: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('create'); },
               openNetworkMonitoringDeviceTypes: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('deviceTypes'); },
+              openNetworkMonitoringNotifications: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('notifications'); },
+              openNetworkMonitoringTelegram: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('telegram'); },
+              openMappatura: () => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); },
               openAntiVirus: handleOpenAntiVirus,
             }}
+            openNetworkMonitoringNotifications={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('notifications'); }}
+            openNetworkMonitoringTelegram={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('telegram'); }}
+            openMappatura={() => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); }}
             openCreateContract={() => setShowContractModal(true)}
             openContractsList={() => setShowContractsListModal(true)}
             isOrariDomain={isOrariDomain}
