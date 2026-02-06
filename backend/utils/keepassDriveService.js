@@ -576,6 +576,15 @@ class KeepassDriveService {
 
       // Helper per estrarre i dati dall'entry
       const extractEntryData = (entry, entryTitle) => {
+        // Estrai username (campo standard KeePass)
+        let username = '';
+        if (entry.fields && entry.fields['UserName']) {
+          const usernameField = entry.fields['UserName'];
+          username = usernameField instanceof ProtectedValue
+            ? usernameField.getText()
+            : String(usernameField || '');
+        }
+
         // Estrai i campi personalizzati
         const customFields = {};
         if (entry.customFields) {
@@ -591,7 +600,7 @@ class KeepassDriveService {
         // Estrai anche i campi standard per verificare se ci sono campi personalizzati lì
         if (entry.fields) {
           for (const [fieldName, fieldValue] of Object.entries(entry.fields)) {
-            // Salta i campi standard
+            // Salta i campi standard principali
             if (['Title', 'UserName', 'Password', 'URL', 'Notes'].includes(fieldName)) {
               continue;
             }
@@ -613,6 +622,7 @@ class KeepassDriveService {
 
         return {
           title: entryTitle,
+          username,
           customFields: customFields,
           expires: expires
         };
@@ -692,6 +702,9 @@ class KeepassDriveService {
 
       return {
         title: officeTitle,
+        // Titolo e username dell'entry utilizzata (Login o Office)
+        loginTitle: loginEntry.title || officeTitle || 'Office',
+        username: loginEntry.username || '',
         customFields: {
           custom1,
           custom2,

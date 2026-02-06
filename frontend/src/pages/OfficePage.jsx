@@ -212,8 +212,28 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
           <div className="max-w-3xl mx-auto">
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
               {/* Titolo Office */}
-              <div className="mb-6 pb-4 border-b border-gray-200">
+              <div className="mb-4 pb-4 border-b border-gray-200">
                 <h2 className="text-2xl font-bold text-gray-900">{officeData.title || 'Office'}</h2>
+              </div>
+
+              {/* Credenziali principali */}
+              <div className="space-y-2 mb-6">
+                <h3 className="text-lg font-semibold text-gray-700 mb-2">Credenziali Office</h3>
+                
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Titolo login</p>
+                    <p className="text-gray-900">
+                      {officeData.loginTitle || officeData.title || 'Office'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Nome utente</p>
+                    <p className="text-gray-900 font-mono">
+                      {officeData.username && officeData.username.trim() !== '' ? officeData.username : <span className="text-gray-400 italic">(non impostato)</span>}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Campi personalizzati */}
