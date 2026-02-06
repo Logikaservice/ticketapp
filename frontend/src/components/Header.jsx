@@ -161,10 +161,20 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       subActions: [
         { label: 'Dashboard Monitoraggio', icon: Wifi, color: 'cyan', onClick: () => { if (openNetworkMonitoring) { openNetworkMonitoring(); setShowQuickActions(false); setExpandedAction(null); } } },
         { label: 'Mappatura', icon: MapPin, color: 'emerald', onClick: () => { if (openMappatura) { openMappatura(); setShowQuickActions(false); setExpandedAction(null); } } },
+        { label: 'Notifiche Telegram', icon: AlertCircle, color: 'blue', onClick: () => { if (openNetworkMonitoringTelegram) { openNetworkMonitoringTelegram(); setShowQuickActions(false); setExpandedAction(null); } } }
+      ]
+    },
+    {
+      id: 'agent',
+      label: 'Agent',
+      icon: ServerIcon,
+      color: 'cyan',
+      visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && openNetworkMonitoringAgents,
+      hasSubActions: true,
+      subActions: [
         { label: 'Agent Esistenti', icon: ServerIcon, color: 'cyan', onClick: () => { if (openNetworkMonitoringAgents) { openNetworkMonitoringAgents(); setShowQuickActions(false); setExpandedAction(null); } } },
         { label: 'Notifiche Agent', icon: AlertTriangle, color: 'yellow', onClick: () => { if (openNetworkMonitoringNotifications) { openNetworkMonitoringNotifications(); setShowQuickActions(false); setExpandedAction(null); } } },
-        { label: 'Crea Agent', icon: Plus, color: 'cyan', onClick: () => { if (openNetworkMonitoringCreateAgent) { openNetworkMonitoringCreateAgent(); setShowQuickActions(false); setExpandedAction(null); } } },
-        { label: 'Notifiche Telegram', icon: AlertCircle, color: 'blue', onClick: () => { if (openNetworkMonitoringTelegram) { openNetworkMonitoringTelegram(); setShowQuickActions(false); setExpandedAction(null); } } }
+        { label: 'Crea Agent', icon: Plus, color: 'cyan', onClick: () => { if (openNetworkMonitoringCreateAgent) { openNetworkMonitoringCreateAgent(); setShowQuickActions(false); setExpandedAction(null); } } }
       ]
     },
     {
