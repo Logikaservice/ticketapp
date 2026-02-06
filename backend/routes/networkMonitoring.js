@@ -5221,21 +5221,40 @@ pause
 
   // PATCH /api/network-monitoring/devices/:id/router-model
   // Imposta il modello router (es. AGCOMBO, Fritz!Box) per dispositivi tipo router/gateway
+  // PATCH /api/network-monitoring/devices/:id/router-model
+  // Imposta il modello router (es. AGCOMBO, Fritz!Box) per dispositivi tipo router/gateway e Switch
   router.patch('/devices/:id/router-model', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       const { id } = req.params;
       const { router_model } = req.body;
 
-      const result = await pool.query(
-        'UPDATE network_devices SET router_model = $1 WHERE id = $2 RETURNING id, router_model',
-        [router_model?.trim() || null, id]
-      );
+      const val = router_model?.trim() || null;
+
+      // Lista modelli che sono Switch Gestiti
+      const MANAGED_SWITCH_MODELS = ['Netgear_GS724TPv3', 'Zyxel_GS1900_24', 'Netgear_GS308EP'];
+      const isSwitch = MANAGED_SWITCH_MODELS.includes(val);
+
+      let query = 'UPDATE network_devices SET router_model = $1';
+      const params = [val, id];
+
+      if (isSwitch) {
+        query += ', is_managed_switch = true';
+        // Se necessario, potremmo settare snmp_community = 'public' se nullo, ma l'agent ha già fallback
+      }
+
+      query += ' WHERE id = $2 RETURNING id, router_model, is_managed_switch';
+
+      const result = await pool.query(query, params);
 
       if (result.rows.length === 0) {
         return res.status(404).json({ error: 'Dispositivo non trovato' });
       }
 
-      res.json({ success: true, router_model: result.rows[0].router_model });
+      res.json({
+        success: true,
+        router_model: result.rows[0].router_model,
+        is_managed_switch: result.rows[0].is_managed_switch
+      });
     } catch (err) {
       console.error('❌ Errore aggiornamento router_model:', err);
       res.status(500).json({ error: 'Errore interno del server' });
