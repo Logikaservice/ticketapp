@@ -582,11 +582,24 @@ class KeepassDriveService {
           }
         }
 
-        // Estrai la scadenza se presente
+        // Estrai la scadenza se presente e attiva
         let expires = null;
         if (entry.times && entry.times.expires) {
-          expires = entry.times.expires;
-          // console.log(`    📅 Scadenza trovata: ${expires}`);
+          const expiresDate = entry.times.expires;
+          // Verifica che la scadenza sia effettivamente impostata (non è un valore di default)
+          // In Keepass, se la scadenza non è impostata, potrebbe essere una data molto lontana nel futuro
+          // Controlliamo se è una data valida e non troppo lontana (es. oltre 100 anni)
+          const maxDate = new Date();
+          maxDate.setFullYear(maxDate.getFullYear() + 100);
+          
+          if (expiresDate instanceof Date && expiresDate <= maxDate) {
+            expires = expiresDate;
+            console.log(`    📅 Scadenza trovata e attiva: ${expiresDate.toISOString()}`);
+          } else {
+            console.log(`    ⚠️ Scadenza trovata ma non valida o troppo lontana: ${expiresDate}`);
+          }
+        } else {
+          console.log(`    ℹ️ Nessuna scadenza impostata per questa entry`);
         }
 
         return {
@@ -623,43 +636,61 @@ class KeepassDriveService {
         console.log(`📄 File ${index + 1}/${officeFiles.length}: "${file.title}"`);
         console.log(`   📋 Campi personalizzati trovati:`);
         console.log(`      Chiavi disponibili:`, Object.keys(file.customFields || {}));
+        console.log(`      Valori completi:`, JSON.stringify(file.customFields, null, 2));
         
         // Estrai i campi personalizzati 1, 2, 3, 4, 5 per questo file
-        const custom1 = file.customFields['Campo personalizzato 1'] || 
-                        file.customFields['Custom Field 1'] || 
-                        file.customFields['Campo 1'] || 
-                        file.customFields['1'] ||
-                        file.customFields['campo personalizzato 1'] ||
-                        file.customFields['custom field 1'] ||
-                        '';
-        const custom2 = file.customFields['Campo personalizzato 2'] || 
-                        file.customFields['Custom Field 2'] || 
-                        file.customFields['Campo 2'] || 
-                        file.customFields['2'] ||
-                        file.customFields['campo personalizzato 2'] ||
-                        file.customFields['custom field 2'] ||
-                        '';
-        const custom3 = file.customFields['Campo personalizzato 3'] || 
-                        file.customFields['Custom Field 3'] || 
-                        file.customFields['Campo 3'] || 
-                        file.customFields['3'] ||
-                        file.customFields['campo personalizzato 3'] ||
-                        file.customFields['custom field 3'] ||
-                        '';
-        const custom4 = file.customFields['Campo personalizzato 4'] || 
-                        file.customFields['Custom Field 4'] || 
-                        file.customFields['Campo 4'] || 
-                        file.customFields['4'] ||
-                        file.customFields['campo personalizzato 4'] ||
-                        file.customFields['custom field 4'] ||
-                        '';
-        const custom5 = file.customFields['Campo personalizzato 5'] || 
-                        file.customFields['Custom Field 5'] || 
-                        file.customFields['Campo 5'] || 
-                        file.customFields['5'] ||
-                        file.customFields['campo personalizzato 5'] ||
-                        file.customFields['custom field 5'] ||
-                        '';
+        // Prova vari nomi possibili (case-insensitive)
+        const getCustomField = (num) => {
+          const possibleNames = [
+            `Campo personalizzato ${num}`,
+            `Custom Field ${num}`,
+            `Campo ${num}`,
+            `${num}`,
+            `campo personalizzato ${num}`,
+            `custom field ${num}`,
+            `campo ${num}`,
+            `Campo Personalizzato ${num}`,
+            `CUSTOM FIELD ${num}`,
+            `CAMPO ${num}`
+          ];
+          
+          for (const name of possibleNames) {
+            if (file.customFields && file.customFields[name] !== undefined && file.customFields[name] !== null && file.customFields[name] !== '') {
+              const value = String(file.customFields[name]).trim();
+              if (value) {
+                console.log(`      ✅ Campo ${num} trovato con nome "${name}": "${value}"`);
+                return value;
+              }
+            }
+          }
+          
+          // Prova anche case-insensitive matching
+          if (file.customFields) {
+            for (const [key, value] of Object.entries(file.customFields)) {
+              const keyLower = key.toLowerCase().trim();
+              const numStr = String(num);
+              if (keyLower === numStr || 
+                  keyLower === `campo personalizzato ${numStr}` ||
+                  keyLower === `custom field ${numStr}` ||
+                  keyLower === `campo ${numStr}`) {
+                const valueStr = String(value || '').trim();
+                if (valueStr) {
+                  console.log(`      ✅ Campo ${num} trovato con nome case-insensitive "${key}": "${valueStr}"`);
+                  return valueStr;
+                }
+              }
+            }
+          }
+          
+          console.log(`      ⚠️ Campo ${num} non trovato`);
+          return '';
+        };
+        
+        const custom1 = getCustomField(1);
+        const custom2 = getCustomField(2);
+        const custom3 = getCustomField(3);
+        const custom4 = getCustomField(4);
+        const custom5 = getCustomField(5);
         
         return {
           title: file.title,
