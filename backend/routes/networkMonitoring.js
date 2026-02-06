@@ -6638,7 +6638,7 @@ pause
   // scaricano da /download/agent/NetworkMonitorService.ps1 e si riavviano (auto-update).
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.6.12'; // Client connessi agli AP UniFi + auto-carica AP
+      const CURRENT_AGENT_VERSION = '2.6.14'; // Versione corrente agent
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
