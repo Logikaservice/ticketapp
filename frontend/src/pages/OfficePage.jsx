@@ -25,9 +25,10 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
         if (response.ok) {
           const data = await response.json();
           setCompanies(data);
-          // Se non c'è azienda selezionata e c'è almeno un'azienda, seleziona la prima
-          if (!selectedCompanyId && data.length > 0) {
-            setSelectedCompanyId(String(data[0].id));
+          // Non selezionare automaticamente nessuna azienda - l'utente deve selezionarla manualmente
+          // Se c'era un'azienda iniziale passata come prop, mantienila
+          if (initialCompanyId && !selectedCompanyId) {
+            setSelectedCompanyId(String(initialCompanyId));
           }
         } else {
           console.error("Errore fetch aziende:", response.status);

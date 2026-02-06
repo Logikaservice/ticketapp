@@ -494,6 +494,11 @@ class KeepassDriveService {
               const aziendaNameNormalized = aziendaName.trim().toLowerCase();
               const segmentNormalized = aziendaSegmentInPath.trim().toLowerCase();
               shouldInclude = (aziendaNameNormalized === segmentNormalized);
+              
+              // Debug: log quando troviamo il match dell'azienda
+              if (shouldInclude) {
+                console.log(`  ✅ MATCH azienda trovato! "${aziendaSegmentInPath}" matcha "${aziendaName}" nel percorso "${currentPath}"`);
+              }
             }
           }
 
@@ -502,35 +507,48 @@ class KeepassDriveService {
           }
         }
 
-        // Cerca "Office" come gruppo
+        // Cerca "Office" come gruppo (case-insensitive)
         const isOfficeGroup = groupName.toLowerCase() === 'office';
         const currentIsInOfficeGroup = isInOfficeGroup || isOfficeGroup;
 
         // Se abbiamo trovato Office, prendi il titolo dal gruppo
         if (isOfficeGroup && !officeTitle) {
           officeTitle = groupName || 'Office';
+          console.log(`  ✅ Gruppo Office trovato! Percorso: "${currentPath}"`);
         }
 
         // Se siamo nel gruppo Office, cerca "Login" nelle entry
         if (currentIsInOfficeGroup && group.entries && group.entries.length > 0) {
+          console.log(`  🔍 Cercando entry "Login" nel gruppo Office (${group.entries.length} entry trovate)`);
           for (const entry of group.entries) {
             const titleField = entry.fields && entry.fields['Title'];
             const title = titleField ? (titleField instanceof ProtectedValue ? titleField.getText() : String(titleField)) : '';
             
+            console.log(`    - Entry trovata: "${title}"`);
+            
             if (title.toLowerCase() === 'login') {
+              console.log(`  ✅ Entry "Login" trovata nel gruppo Office!`);
+              
               // Estrai i campi personalizzati
               const customFields = {};
               if (entry.customFields) {
+                console.log(`    📋 Campi personalizzati trovati: ${Object.keys(entry.customFields).join(', ')}`);
                 for (const [fieldName, fieldValue] of Object.entries(entry.customFields)) {
                   const value = fieldValue instanceof ProtectedValue
                     ? fieldValue.getText()
                     : String(fieldValue || '');
                   customFields[fieldName] = value;
                 }
+              } else {
+                console.log(`    ⚠️ Nessun campo personalizzato trovato in entry.customFields`);
               }
 
               // Estrai anche i campi standard per verificare se ci sono campi personalizzati lì
               if (entry.fields) {
+                const fieldNames = Object.keys(entry.fields).filter(f => !['Title', 'UserName', 'Password', 'URL', 'Notes'].includes(f));
+                if (fieldNames.length > 0) {
+                  console.log(`    📋 Altri campi trovati in entry.fields: ${fieldNames.join(', ')}`);
+                }
                 for (const [fieldName, fieldValue] of Object.entries(entry.fields)) {
                   // Salta i campi standard
                   if (['Title', 'UserName', 'Password', 'URL', 'Notes'].includes(fieldName)) {
@@ -549,6 +567,7 @@ class KeepassDriveService {
               let expires = null;
               if (entry.times && entry.times.expires) {
                 expires = entry.times.expires;
+                console.log(`    📅 Scadenza trovata: ${expires}`);
               }
 
               loginEntry = {
@@ -576,10 +595,19 @@ class KeepassDriveService {
         }
       }
 
-      if (!officeTitle || !loginEntry) {
-        console.log(`ℹ️ Office o Login non trovati per "${aziendaName}"`);
+      if (!officeTitle) {
+        console.log(`❌ Gruppo "Office" non trovato per "${aziendaName}"`);
+        console.log(`   💡 Verifica che esista un gruppo chiamato "Office" sotto "gestione > ${aziendaName}"`);
         return null;
       }
+      
+      if (!loginEntry) {
+        console.log(`❌ Entry "Login" non trovata nel gruppo Office per "${aziendaName}"`);
+        console.log(`   💡 Verifica che esista un'entry chiamata "Login" nel gruppo Office`);
+        return null;
+      }
+      
+      console.log(`✅ Office e Login trovati con successo per "${aziendaName}"`);
 
       // Estrai i campi personalizzati 1, 2, 3, 4, 5
       // Prova diversi nomi possibili per i campi personalizzati
