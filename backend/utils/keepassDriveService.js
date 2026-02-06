@@ -470,9 +470,9 @@ class KeepassDriveService {
       console.log(`✅ File KDBX caricato per ricerca Office: ${db.name || 'Senza nome'}`);
 
       let officeTitle = null;
-      let loginEntry = null;
+      const officeFiles = []; // Array per contenere TUTTE le entry trovate nel gruppo Office
 
-      // Funzione ricorsiva per cercare Office e Login
+      // Funzione ricorsiva per cercare Office e tutte le entry nel gruppo
       const searchOfficeAndLogin = (group, groupPath = '', isInOfficeGroup = false) => {
         const groupName = group.name || 'Root';
         const currentPath = groupPath ? `${groupPath} > ${groupName}` : groupName;
@@ -535,33 +535,11 @@ class KeepassDriveService {
             const title = titleField ? (titleField instanceof ProtectedValue ? titleField.getText() : String(titleField)) : '';
             const titleLower = title.trim().toLowerCase();
 
-            // CASO 1: Entry "Login" dentro gruppo "Office" (Priorità assoluta)
-            if (currentIsInOfficeGroup && titleLower === 'login') {
-              console.log(`  ✅ Entry "Login" trovata nel gruppo Office!`);
-
-              // Sovrascrivi qualsiasi cosa trovata prima (anche fallback)
-              loginEntry = extractEntryData(entry, title || 'Login');
-              officeTitle = officeTitle || 'Office';
-              // Trovato il caso migliore, possiamo fermare la ricerca in questo gruppo?
-              // Meglio continuare nel caso ci siano duplicati, ma questo è il vincitore.
-            }
-            // CASO 2: Entry "Office" (dentro o fuori gruppo Office)
-            // Accettabile se non abbiamo trovato "Login"
-            else if (titleLower === 'office') {
-              console.log(`  ✅ Entry "Office" trovata nel percorso: "${currentPath}"`);
-
-              // Se non abbiamo già un "Login" (che vince su tutto), usiamo questo
-              if (!loginEntry || loginEntry.title.toLowerCase() !== 'login') {
-                loginEntry = extractEntryData(entry, title || 'Office');
-                officeTitle = officeTitle || title || 'Office';
-              }
-            }
-            // CASO 3: Fallback - Qualsiasi entry nel gruppo "Office"
-            // Se siamo nel gruppo Office, e non abbiamo trovato nulla di meglio, prendiamo la prima entry che capita
-            else if (currentIsInOfficeGroup && !loginEntry) {
-              console.log(`  ⚠️ Entry generica "${title}" trovata nel gruppo Office (usata come fallback)`);
-              loginEntry = extractEntryData(entry, title || 'Office Data');
-              officeTitle = officeTitle || 'Office';
+            // Se siamo nel gruppo Office, aggiungi TUTTE le entry trovate
+            if (currentIsInOfficeGroup) {
+              console.log(`  ✅ Entry "${title}" trovata nel gruppo Office!`);
+              const fileData = extractEntryData(entry, title || 'Senza titolo');
+              officeFiles.push(fileData);
             }
           }
         }
@@ -639,80 +617,86 @@ class KeepassDriveService {
         console.log(`⚠️ Nessun gruppo root trovato nel database Keepass`);
       }
 
-      if (!loginEntry) {
+      if (!officeTitle || officeFiles.length === 0) {
         console.log(`❌ Dati Office non trovati per "${aziendaName}"`);
         console.log(`   💡 Verifica che esista:`);
-        console.log(`      1. Un Gruppo "Office" con dentro una Entry "Login"`);
-        console.log(`      2. Oppure una Entry chiamata "Office"`);
+        console.log(`      Un Gruppo "Office" con dentro delle Entry`);
         console.log(`      (Sotto il percorso gestione > ${aziendaName})`);
         return null;
       }
 
-      console.log(`✅ Office e Login trovati con successo per "${aziendaName}"`);
+      console.log(`✅ Gruppo Office trovato con ${officeFiles.length} file/entry per "${aziendaName}"`);
 
-      // Log di debug: mostra tutti i campi personalizzati trovati
-      console.log(`📋 Campi personalizzati trovati nell'entry Login:`);
-      console.log(`   Chiavi disponibili:`, Object.keys(loginEntry.customFields || {}));
-      console.log(`   Valori:`, Object.entries(loginEntry.customFields || {}).map(([k, v]) => `${k}: ${v}`).join(', '));
-      
-      // Estrai i campi personalizzati 1, 2, 3, 4, 5
-      // Prova vari nomi possibili per ogni campo (case-insensitive)
-      const custom1 = loginEntry.customFields['Campo personalizzato 1'] || 
-                      loginEntry.customFields['Custom Field 1'] || 
-                      loginEntry.customFields['Campo 1'] || 
-                      loginEntry.customFields['1'] ||
-                      loginEntry.customFields['campo personalizzato 1'] ||
-                      loginEntry.customFields['custom field 1'] ||
-                      '';
-      const custom2 = loginEntry.customFields['Campo personalizzato 2'] || 
-                      loginEntry.customFields['Custom Field 2'] || 
-                      loginEntry.customFields['Campo 2'] || 
-                      loginEntry.customFields['2'] ||
-                      loginEntry.customFields['campo personalizzato 2'] ||
-                      loginEntry.customFields['custom field 2'] ||
-                      '';
-      const custom3 = loginEntry.customFields['Campo personalizzato 3'] || 
-                      loginEntry.customFields['Custom Field 3'] || 
-                      loginEntry.customFields['Campo 3'] || 
-                      loginEntry.customFields['3'] ||
-                      loginEntry.customFields['campo personalizzato 3'] ||
-                      loginEntry.customFields['custom field 3'] ||
-                      '';
-      const custom4 = loginEntry.customFields['Campo personalizzato 4'] || 
-                      loginEntry.customFields['Custom Field 4'] || 
-                      loginEntry.customFields['Campo 4'] || 
-                      loginEntry.customFields['4'] ||
-                      loginEntry.customFields['campo personalizzato 4'] ||
-                      loginEntry.customFields['custom field 4'] ||
-                      '';
-      const custom5 = loginEntry.customFields['Campo personalizzato 5'] || 
-                      loginEntry.customFields['Custom Field 5'] || 
-                      loginEntry.customFields['Campo 5'] || 
-                      loginEntry.customFields['5'] ||
-                      loginEntry.customFields['campo personalizzato 5'] ||
-                      loginEntry.customFields['custom field 5'] ||
-                      '';
-      
-      console.log(`📋 Campi estratti:`);
-      console.log(`   custom1: "${custom1}"`);
-      console.log(`   custom2: "${custom2}"`);
-      console.log(`   custom3: "${custom3}"`);
-      console.log(`   custom4: "${custom4}"`);
-      console.log(`   custom5: "${custom5}"`);
+      // Processa ogni file trovato per estrarre i campi personalizzati
+      const processedFiles = officeFiles.map((file, index) => {
+        console.log(`📄 File ${index + 1}/${officeFiles.length}: "${file.title}"`);
+        console.log(`   📋 Campi personalizzati trovati:`);
+        console.log(`      Chiavi disponibili:`, Object.keys(file.customFields || {}));
+        
+        // Estrai i campi personalizzati 1, 2, 3, 4, 5 per questo file
+        const custom1 = file.customFields['Campo personalizzato 1'] || 
+                        file.customFields['Custom Field 1'] || 
+                        file.customFields['Campo 1'] || 
+                        file.customFields['1'] ||
+                        file.customFields['campo personalizzato 1'] ||
+                        file.customFields['custom field 1'] ||
+                        '';
+        const custom2 = file.customFields['Campo personalizzato 2'] || 
+                        file.customFields['Custom Field 2'] || 
+                        file.customFields['Campo 2'] || 
+                        file.customFields['2'] ||
+                        file.customFields['campo personalizzato 2'] ||
+                        file.customFields['custom field 2'] ||
+                        '';
+        const custom3 = file.customFields['Campo personalizzato 3'] || 
+                        file.customFields['Custom Field 3'] || 
+                        file.customFields['Campo 3'] || 
+                        file.customFields['3'] ||
+                        file.customFields['campo personalizzato 3'] ||
+                        file.customFields['custom field 3'] ||
+                        '';
+        const custom4 = file.customFields['Campo personalizzato 4'] || 
+                        file.customFields['Custom Field 4'] || 
+                        file.customFields['Campo 4'] || 
+                        file.customFields['4'] ||
+                        file.customFields['campo personalizzato 4'] ||
+                        file.customFields['custom field 4'] ||
+                        '';
+        const custom5 = file.customFields['Campo personalizzato 5'] || 
+                        file.customFields['Custom Field 5'] || 
+                        file.customFields['Campo 5'] || 
+                        file.customFields['5'] ||
+                        file.customFields['campo personalizzato 5'] ||
+                        file.customFields['custom field 5'] ||
+                        '';
+        
+        return {
+          title: file.title,
+          username: file.username || '',
+          customFields: {
+            custom1,
+            custom2,
+            custom3,
+            custom4,
+            custom5,
+            // Aggiungi anche tutti gli altri campi personalizzati trovati
+            ...Object.fromEntries(
+              Object.entries(file.customFields || {}).filter(([k]) => 
+                !['Campo personalizzato 1', 'Custom Field 1', 'Campo 1', '1',
+                  'Campo personalizzato 2', 'Custom Field 2', 'Campo 2', '2',
+                  'Campo personalizzato 3', 'Custom Field 3', 'Campo 3', '3',
+                  'Campo personalizzato 4', 'Custom Field 4', 'Campo 4', '4',
+                  'Campo personalizzato 5', 'Custom Field 5', 'Campo 5', '5'].includes(k)
+              )
+            )
+          },
+          expires: file.expires ? file.expires.toISOString() : null
+        };
+      });
 
       return {
         title: officeTitle,
-        // Titolo e username dell'entry utilizzata (Login o Office)
-        loginTitle: loginEntry.title || officeTitle || 'Office',
-        username: loginEntry.username || '',
-        customFields: {
-          custom1,
-          custom2,
-          custom3,
-          custom4,
-          custom5
-        },
-        expires: loginEntry.expires ? loginEntry.expires.toISOString() : null
+        files: processedFiles
       };
     } catch (error) {
       console.error('❌ Errore ricerca Office in Keepass:', error.message);
