@@ -1917,15 +1917,30 @@ module.exports = function createKeepassRouter(pool) {
 
   // GET /api/keepass/office/:aziendaName - Recupera dati Office da Keepass
   router.get('/office/:aziendaName', authenticateToken, async (req, res) => {
+    console.log('🔍 ============================================');
+    console.log('🔍 RICHIESTA OFFICE RICEVUTA');
+    console.log('🔍 ============================================');
+    console.log('🔍 URL:', req.originalUrl);
+    console.log('🔍 Params:', req.params);
+    console.log('🔍 User:', req.user ? { id: req.user.id, ruolo: req.user.ruolo, email: req.user.email } : 'NON AUTENTICATO');
+    console.log('🔍 Headers:', { 
+      authorization: req.headers.authorization ? 'Presente' : 'Mancante',
+      'x-user-id': req.headers['x-user-id'],
+      'x-user-role': req.headers['x-user-role']
+    });
+    
     try {
       const userRole = req.user?.ruolo;
       const userId = req.user?.id;
       const adminCompanies = req.user?.admin_companies || [];
 
+      console.log('🔍 Verifica permessi - Ruolo:', userRole, 'Admin Companies:', adminCompanies);
+
       // Verifica permessi: solo tecnici o amministratori aziendali
       if (userRole !== 'tecnico' && userRole !== 'admin') {
         // Se è cliente, verifica che sia amministratore di almeno un'azienda
         if (userRole === 'cliente' && (!adminCompanies || adminCompanies.length === 0)) {
+          console.log('❌ Accesso negato: permessi insufficienti');
           return res.status(403).json({ error: 'Accesso negato: permessi insufficienti' });
         }
       }
