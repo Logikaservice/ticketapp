@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.6.12"
+$SCRIPT_VERSION = "2.6.13"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2492,7 +2492,8 @@ function Ensure-TrayFiles {
         @{ Name = "NetworkMonitorTrayIcon.ps1"; Url = "$baseUrl/api/network-monitoring/download/agent/NetworkMonitorTrayIcon.ps1" },
         @{ Name = "Start-TrayIcon-Hidden.vbs"; Url = "$baseUrl/api/network-monitoring/download/agent/Start-TrayIcon-Hidden.vbs" },
         @{ Name = "Avvia-TrayIcon.bat"; Url = "$baseUrl/api/network-monitoring/download/agent/Avvia-TrayIcon.bat" },
-        @{ Name = "Test-RouterWifi.ps1"; Url = "$baseUrl/api/network-monitoring/download/agent/Test-RouterWifi.ps1" }
+        @{ Name = "Test-RouterWifi.ps1"; Url = "$baseUrl/api/network-monitoring/download/agent/Test-RouterWifi.ps1" },
+        @{ Name = "Riavvia_Agent.bat"; Url = "$baseUrl/api/network-monitoring/download/agent/Riavvia_Agent.bat" }
     )
     foreach ($t in $trayFiles) {
         $dest = Join-Path $InstallDir $t.Name

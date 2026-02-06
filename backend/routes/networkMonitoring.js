@@ -7373,5 +7373,39 @@ pause
     }
   });
 
+  // DELETE /api/network-monitoring/devices/:id
+  // Elimina definitivamente un dispositivo dal database
+  router.delete('/devices/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Verifica esistenza
+      const check = await pool.query('SELECT id, mac_address FROM network_devices WHERE id = $1', [id]);
+      if (check.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato' });
+      }
+
+      await pool.query('DELETE FROM network_devices WHERE id = $1', [id]);
+      console.log(`🗑️ Dispositivo ${id} eliminato definitivamente dal DB da utente ${req.user.id}`);
+
+      // Opzionale: pulizia mappatura_nodes se necessario, ma solitamente puliamo per MAC se correlato
+      const mac = check.rows[0].mac_address;
+      if (mac) {
+        try {
+          // Normalizza MAC
+          const macNorm = mac.replace(/[:-]/g, '').toUpperCase();
+          // Se la tabella mappatura_nodes usa mac_address come FK o riferimento
+          // await pool.query('DELETE FROM mappatura_nodes WHERE mac_address = $1', [mac]);
+          // O se usiamo l'API esistente di mappatura
+        } catch (e) { }
+      }
+
+      res.json({ success: true, message: 'Dispositivo eliminato definitivamente' });
+    } catch (err) {
+      console.error('❌ Errore DELETE device:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   return router;
 };

@@ -2317,6 +2317,46 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                         </div>
                                     )}
 
+                                    {((display.type === 'switch') || (display.details?.device_type === 'switch')) && (
+                                        <div className="flex flex-col gap-1 border-b pb-3">
+                                            <label className="text-xs font-medium text-gray-500">Modello Switch (Managed)</label>
+                                            <select
+                                                value={display.details?.router_model ?? ''}
+                                                onChange={async (e) => {
+                                                    const v = e.target.value || null;
+                                                    const val = v || '';
+                                                    if (isNode && selectedNode) setSelectedNode(prev => prev ? { ...prev, details: { ...prev.details, router_model: val || null } } : null);
+                                                    else if (selectedDevice) setSelectedDevice(prev => prev ? { ...prev, router_model: val || null } : null);
+                                                    if (simulationRef.current) {
+                                                        const simNodes = simulationRef.current.nodes();
+                                                        const n = simNodes.find(x => x.id === display.id);
+                                                        if (n) n.details = { ...n.details, router_model: val || null };
+                                                        setNodes([...simNodes]);
+                                                    }
+                                                    try {
+                                                        await fetch(buildApiUrl(`/api/network-monitoring/devices/${display.id}/router-model`), {
+                                                            method: 'PATCH',
+                                                            headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ router_model: val || null })
+                                                        });
+                                                    } catch (err) { console.error('Errore aggiornamento router_model', err); }
+                                                }}
+                                                className="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                            >
+                                                <option value="">— Nessuno / Unmanaged —</option>
+                                                <option value="Netgear_GS724TPv3">Netgear GS724TPv3 (Smart Managed)</option>
+                                                <option value="Zyxel_GS1900_24">Zyxel GS1900-24 (Managed)</option>
+                                                <option value="Netgear_GS308EP">Netgear GS308EP (Managed)</option>
+                                                <option value="Altro">Altro</option>
+                                            </select>
+                                            {(display.details?.router_model) && (
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="text-xs text-gray-500 mt-1 italic">Analisi porte (SNMP/Rest) attiva se configurato</div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {((display.type === 'dect_cell') || (display.details?.device_type === 'dect_cell')) && (
                                         <div className="flex flex-col gap-1 border-b pb-3">
                                             <label className="text-xs font-medium text-gray-500">Modello / Tipo DECT</label>
@@ -2485,6 +2525,40 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                             >
                                                 <Trash2 size={16} />
                                                 Elimina dalla mappa
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    if (!confirm('ATTENZIONE: Stai per eliminare DEFINITIVAMENTE questo dispositivo dal database.\n\nQuesta azione è irreversibile. Continuare?')) return;
+
+                                                    try {
+                                                        const res = await fetch(buildApiUrl(`/api/network-monitoring/devices/${display.id}`), {
+                                                            method: 'DELETE',
+                                                            headers: getAuthHeader()
+                                                        });
+
+                                                        if (res.ok) {
+                                                            // Rimuovi dalla mappa se presente (pulisce nodes, links)
+                                                            handleRemoveFromMap(nodeForPanel);
+                                                            // Rimuovi dalla lista devices principale
+                                                            setDevices(prev => prev.filter(d => d.id !== display.id));
+                                                            // Chiudi pannello laterale
+                                                            setSelectedNode(null);
+                                                            setSelectedDevice(null);
+                                                        } else {
+                                                            const err = await res.json().catch(() => ({}));
+                                                            alert('Errore: ' + (err.error || 'Impossibile eliminare il dispositivo'));
+                                                        }
+                                                    } catch (e) {
+                                                        console.error(e);
+                                                        alert('Errore durante l\'eliminazione');
+                                                    }
+                                                }}
+                                                className="w-full py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 font-medium text-sm flex items-center justify-center gap-2 mt-2 shadow-sm"
+                                            >
+                                                <Trash2 size={16} />
+                                                Elimina Definitivamente
                                             </button>
                                             <p className="text-xs text-gray-400 mt-1.5 text-center">L'IP tornerà nella lista a sinistra.</p>
 
