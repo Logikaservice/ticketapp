@@ -94,7 +94,10 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
       const data = await response.json();
       console.log('📦 Dati Office ricevuti dal backend:', data);
       console.log('📦 customFields:', data.customFields);
+      console.log('📦 Tipo customFields:', typeof data.customFields);
+      console.log('📦 È array?', Array.isArray(data.customFields));
       console.log('📦 Chiavi customFields:', data.customFields ? Object.keys(data.customFields) : 'null');
+      console.log('📦 Valori customFields:', data.customFields ? Object.entries(data.customFields).map(([k, v]) => `${k}: "${v}"`).join(', ') : 'null');
       setOfficeData(data);
     } catch (err) {
       console.error('Errore caricamento Office:', err);
@@ -218,80 +221,52 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                 <h3 className="text-lg font-semibold text-gray-700 mb-3">Campi personalizzati</h3>
                 
                 {/* Debug: mostra struttura dati */}
-                {process.env.NODE_ENV === 'development' && (
-                  <div className="mb-4 p-3 bg-gray-100 rounded text-xs font-mono">
-                    <strong>Debug:</strong> Chiavi customFields: {officeData.customFields ? Object.keys(officeData.customFields).join(', ') : 'null'}<br/>
-                    <strong>Valori:</strong> {officeData.customFields ? JSON.stringify(officeData.customFields, null, 2) : 'null'}
-                  </div>
-                )}
+                <div className="mb-4 p-3 bg-gray-100 rounded text-xs font-mono">
+                  <strong>Debug:</strong> Chiavi customFields: {officeData.customFields ? Object.keys(officeData.customFields).join(', ') : 'null'}<br/>
+                  <strong>Valori:</strong> {officeData.customFields ? JSON.stringify(officeData.customFields, null, 2) : 'null'}
+                </div>
                 
-                {/* Mostra custom1-5 solo se hanno valori non vuoti */}
-                {officeData.customFields?.custom1 && officeData.customFields.custom1.trim() !== '' && (
-                  <div className="border-l-4 border-blue-500 pl-4 py-2">
-                    <label className="text-sm font-medium text-gray-500">Campo personalizzato 1</label>
-                    <p className="text-gray-900 mt-1">{officeData.customFields.custom1}</p>
-                  </div>
-                )}
-
-                {officeData.customFields?.custom2 && officeData.customFields.custom2.trim() !== '' && (
-                  <div className="border-l-4 border-green-500 pl-4 py-2">
-                    <label className="text-sm font-medium text-gray-500">Campo personalizzato 2</label>
-                    <p className="text-gray-900 mt-1">{officeData.customFields.custom2}</p>
-                  </div>
-                )}
-
-                {officeData.customFields?.custom3 && officeData.customFields.custom3.trim() !== '' && (
-                  <div className="border-l-4 border-yellow-500 pl-4 py-2">
-                    <label className="text-sm font-medium text-gray-500">Campo personalizzato 3</label>
-                    <p className="text-gray-900 mt-1">{officeData.customFields.custom3}</p>
-                  </div>
-                )}
-
-                {officeData.customFields?.custom4 && officeData.customFields.custom4.trim() !== '' && (
-                  <div className="border-l-4 border-purple-500 pl-4 py-2">
-                    <label className="text-sm font-medium text-gray-500">Campo personalizzato 4</label>
-                    <p className="text-gray-900 mt-1">{officeData.customFields.custom4}</p>
-                  </div>
-                )}
-
-                {officeData.customFields?.custom5 && officeData.customFields.custom5.trim() !== '' && (
-                  <div className="border-l-4 border-red-500 pl-4 py-2">
-                    <label className="text-sm font-medium text-gray-500">Campo personalizzato 5</label>
-                    <p className="text-gray-900 mt-1">{officeData.customFields.custom5}</p>
-                  </div>
-                )}
-
-                {/* Mostra tutti gli altri campi personalizzati trovati */}
+                {/* Mostra TUTTI i campi personalizzati trovati */}
                 {officeData.customFields && Object.keys(officeData.customFields).length > 0 && (
                   <div className="space-y-2">
-                    {Object.entries(officeData.customFields)
-                      .filter(([key, value]) => {
-                        // Mostra solo campi che non sono custom1-5 vuoti o che hanno valori
-                        if (['custom1', 'custom2', 'custom3', 'custom4', 'custom5'].includes(key)) {
-                          return value && String(value).trim() !== '';
-                        }
-                        // Mostra tutti gli altri campi
-                        return true;
-                      })
-                      .map(([key, value]) => (
-                        <div key={key} className="border-l-4 border-gray-400 pl-4 py-2">
-                          <label className="text-sm font-medium text-gray-500">
-                            {key === 'custom1' ? 'Campo personalizzato 1' :
-                             key === 'custom2' ? 'Campo personalizzato 2' :
-                             key === 'custom3' ? 'Campo personalizzato 3' :
-                             key === 'custom4' ? 'Campo personalizzato 4' :
-                             key === 'custom5' ? 'Campo personalizzato 5' :
-                             key}
-                          </label>
-                          <p className="text-gray-900 mt-1">{String(value || '(vuoto)')}</p>
+                    {Object.entries(officeData.customFields).map(([key, value]) => {
+                      // Determina il colore del bordo in base al campo
+                      const getBorderColor = (k) => {
+                        if (k === 'custom1') return 'border-blue-500';
+                        if (k === 'custom2') return 'border-green-500';
+                        if (k === 'custom3') return 'border-yellow-500';
+                        if (k === 'custom4') return 'border-purple-500';
+                        if (k === 'custom5') return 'border-red-500';
+                        return 'border-gray-400';
+                      };
+                      
+                      // Determina l'etichetta
+                      const getLabel = (k) => {
+                        if (k === 'custom1') return 'Campo personalizzato 1';
+                        if (k === 'custom2') return 'Campo personalizzato 2';
+                        if (k === 'custom3') return 'Campo personalizzato 3';
+                        if (k === 'custom4') return 'Campo personalizzato 4';
+                        if (k === 'custom5') return 'Campo personalizzato 5';
+                        return k;
+                      };
+                      
+                      const valueStr = value ? String(value).trim() : '';
+                      
+                      return (
+                        <div key={key} className={`border-l-4 ${getBorderColor(key)} pl-4 py-2`}>
+                          <label className="text-sm font-medium text-gray-500">{getLabel(key)}</label>
+                          {valueStr ? (
+                            <p className="text-gray-900 mt-1">{valueStr}</p>
+                          ) : (
+                            <p className="text-gray-400 italic mt-1">(vuoto)</p>
+                          )}
                         </div>
-                      ))}
+                      );
+                    })}
                   </div>
                 )}
 
-                {(!officeData.customFields || 
-                  Object.keys(officeData.customFields).length === 0 ||
-                  Object.values(officeData.customFields).every(v => !v || String(v).trim() === '')) && (
+                {(!officeData.customFields || Object.keys(officeData.customFields).length === 0) && (
                   <p className="text-gray-500 italic">Nessun campo personalizzato trovato</p>
                 )}
               </div>
