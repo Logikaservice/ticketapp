@@ -610,7 +610,43 @@ module.exports = (pool, io) => {
             );
           `);
           await pool.query(`CREATE INDEX IF NOT EXISTS idx_switch_mac_port_cache_switch ON switch_mac_port_cache(managed_switch_id);`);
+          await pool.query(`CREATE INDEX IF NOT EXISTS idx_switch_mac_port_cache_device ON switch_mac_port_cache(switch_device_id);`);
           await pool.query(`CREATE INDEX IF NOT EXISTS idx_switch_mac_port_cache_mac ON switch_mac_port_cache(mac_address);`);
+
+          // MIGRATION: Rimuovi FK su managed_switch_id e rendilo nullabile (per supportare switch gestiti direttamente da network_devices)
+          try {
+            await pool.query(`ALTER TABLE switch_mac_port_cache ALTER COLUMN managed_switch_id DROP NOT NULL;`);
+            await pool.query(`ALTER TABLE switch_mac_port_cache DROP CONSTRAINT IF EXISTS switch_mac_port_cache_managed_switch_id_fkey;`);
+
+            // Aggiorna vincolo UNIQUE: usa switch_device_id invece di managed_switch_id
+            // Prima pulisci eventuali duplicati su switch_device_id
+            await pool.query(`
+              DELETE FROM switch_mac_port_cache a 
+              USING switch_mac_port_cache b 
+              WHERE a.id < b.id 
+              AND a.switch_device_id = b.switch_device_id 
+              AND a.mac_address = b.mac_address;
+            `);
+
+            // Rimuovi vecchio vincolo unique se esiste
+            await pool.query(`ALTER TABLE switch_mac_port_cache DROP CONSTRAINT IF EXISTS switch_mac_port_cache_managed_switch_id_mac_address_key;`);
+
+            // Crea nuovo vincolo unique (se non esiste già)
+            // Nota: switch_device_id può essere null in vecchi record? Dovrebbe essere stato popolato.
+            // Se fallisce, significa che ci sono null. Ma nel codice POST è sempre settato.
+            const uniqueCheck = await pool.query(`
+              SELECT count(*) FROM pg_constraint WHERE conname = 'switch_mac_port_cache_device_mac_key'
+            `);
+            if (parseInt(uniqueCheck.rows[0].count) === 0) {
+              await pool.query(`
+                CREATE UNIQUE INDEX switch_mac_port_cache_device_mac_idx 
+                ON switch_mac_port_cache (switch_device_id, mac_address) 
+                WHERE switch_device_id IS NOT NULL;
+              `);
+            }
+          } catch (migErr) {
+            console.warn('⚠️ Migrazione switch_mac_port_cache:', migErr.message);
+          }
 
           // Nuova tablla Profili Switch (Modelli)
           await pool.query(`
@@ -1344,13 +1380,36 @@ module.exports = (pool, io) => {
       if (!managed_switch_id || !switch_ip || !mac_to_port || typeof mac_to_port !== 'object') {
         return res.status(400).json({ error: 'managed_switch_id, switch_ip e mac_to_port (oggetto) richiesti' });
       }
-      const sw = await pool.query(
+
+      // Verifica se l'ID corrisponde a uno switch legacy o nuovo (network_device)
+      let isLegacy = false;
+      let existingSwitchId = null;
+
+      // 1. Cerca in managed_switches (legacy)
+      const swLegacy = await pool.query(
         'SELECT id FROM managed_switches WHERE id = $1 AND azienda_id = $2',
         [managed_switch_id, aziendaId]
       );
-      if (sw.rows.length === 0) {
+      if (swLegacy.rows.length > 0) {
+        isLegacy = true;
+        existingSwitchId = swLegacy.rows[0].id;
+      } else {
+        // 2. Cerca in network_devices (nuovo)
+        const swNew = await pool.query(
+          `SELECT nd.id FROM network_devices nd 
+           INNER JOIN network_agents na ON nd.agent_id = na.id
+           WHERE nd.id = $1 AND na.azienda_id = $2 AND nd.is_managed_switch = true`,
+          [managed_switch_id, aziendaId]
+        );
+        if (swNew.rows.length > 0) {
+          existingSwitchId = swNew.rows[0].id;
+        }
+      }
+
+      if (!existingSwitchId) {
         return res.status(404).json({ error: 'Switch gestito non trovato o non appartenente all\'azienda' });
       }
+
       const ip = String(switch_ip).trim();
       const macToPort = new Map();
       for (const [k, v] of Object.entries(mac_to_port)) {
@@ -1358,27 +1417,36 @@ module.exports = (pool, io) => {
         const port = typeof v === 'number' ? v : parseInt(v, 10);
         if (mac && mac.length >= 12 && !isNaN(port)) macToPort.set(mac, port);
       }
+
       // Trova o crea network_device per lo switch (IP)
       let switchDeviceId;
-      let dev = await pool.query(
-        `SELECT nd.id FROM network_devices nd
-         INNER JOIN network_agents na ON nd.agent_id = na.id
-         WHERE na.azienda_id = $1 AND TRIM(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g')) = $2
-         LIMIT 1`,
-        [aziendaId, ip]
-      );
-      if (dev.rows.length > 0) {
-        switchDeviceId = dev.rows[0].id;
+
+      // Se è un nuovo switch, l'ID passato È GIA' la network_device ID
+      if (!isLegacy) {
+        switchDeviceId = existingSwitchId;
       } else {
-        const ag = await pool.query('SELECT id FROM network_agents WHERE azienda_id = $1 AND deleted_at IS NULL ORDER BY id LIMIT 1', [aziendaId]);
-        if (ag.rows.length === 0) return res.status(400).json({ error: 'Nessun agent trovato per questa azienda' });
-        const ins = await pool.query(
-          `INSERT INTO network_devices (agent_id, ip_address, device_type, status) VALUES ($1, $2, 'switch', 'online')
-           RETURNING id`,
-          [ag.rows[0].id, ip]
+        // Se legacy, cercalo per IP
+        let dev = await pool.query(
+          `SELECT nd.id FROM network_devices nd
+           INNER JOIN network_agents na ON nd.agent_id = na.id
+           WHERE na.azienda_id = $1 AND TRIM(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g')) = $2
+           LIMIT 1`,
+          [aziendaId, ip]
         );
-        switchDeviceId = ins.rows[0].id;
+        if (dev.rows.length > 0) {
+          switchDeviceId = dev.rows[0].id;
+        } else {
+          const ag = await pool.query('SELECT id FROM network_agents WHERE azienda_id = $1 AND deleted_at IS NULL ORDER BY id LIMIT 1', [aziendaId]);
+          if (ag.rows.length === 0) return res.status(400).json({ error: 'Nessun agent trovato per questa azienda' });
+          const ins = await pool.query(
+            `INSERT INTO network_devices (agent_id, ip_address, device_type, status) VALUES ($1, $2, 'switch', 'online')
+             RETURNING id`,
+            [ag.rows[0].id, ip]
+          );
+          switchDeviceId = ins.rows[0].id;
+        }
       }
+
       // Dispositivi azienda con mac_address: match e aggiorna parent_device_id, port
       const devices = await pool.query(
         `SELECT nd.id, nd.mac_address FROM network_devices nd
@@ -1398,15 +1466,30 @@ module.exports = (pool, io) => {
       }
 
       // Salva la tabella MAC→porta nella cache (per analisi switch collegati)
-      // Prima cancella la cache vecchia per questo switch
-      await pool.query('DELETE FROM switch_mac_port_cache WHERE managed_switch_id = $1', [managed_switch_id]);
+      // Prima cancella la cache vecchia per questo switch (usando switch_device_id è più sicuro ora)
+      await pool.query('DELETE FROM switch_mac_port_cache WHERE switch_device_id = $1', [switchDeviceId]);
+
       // Poi inserisci tutti i MAC→porta
       for (const [mac, port] of macToPort.entries()) {
         const macFormatted = mac.length === 12 ? `${mac.substring(0, 2)}:${mac.substring(2, 4)}:${mac.substring(4, 6)}:${mac.substring(6, 8)}:${mac.substring(8, 10)}:${mac.substring(10, 12)}`.toUpperCase() : mac;
-        await pool.query(
-          'INSERT INTO switch_mac_port_cache (managed_switch_id, switch_device_id, mac_address, port) VALUES ($1, $2, $3, $4) ON CONFLICT (managed_switch_id, mac_address) DO UPDATE SET port = $4, updated_at = NOW()',
-          [managed_switch_id, switchDeviceId, macFormatted, port]
-        );
+
+        // managed_switch_id è popolato solo se legacy
+        const msId = isLegacy ? existingSwitchId : null;
+
+        // Usa una query che supporta il nuovo unique constraint su (switch_device_id, mac_address)
+        // Usiamo ON CONFLICT DO UPDATE generico o specifico se l'indice è presente
+        // Per sicurezza usiamo INSERT ... ON CONFLICT (switch_device_id, mac_address) DO UPDATE...
+        // MA dato che abbiamo appena cancellato per switch_device_id, una insert semplice dovrebbe bastare
+        // (a meno di duplicati nel map in input, che il map gestisce)
+        try {
+          await pool.query(
+            'INSERT INTO switch_mac_port_cache (managed_switch_id, switch_device_id, mac_address, port) VALUES ($1, $2, $3, $4)',
+            [msId, switchDeviceId, macFormatted, port]
+          );
+        } catch (insErr) {
+          // Ignora duplicati unici
+          console.warn('⚠️ Insert cache fallita (duplicato?):', insErr.message);
+        }
       }
 
       console.log(`📥 switch-address-table: switch_ip=${ip}, managed_switch_id=${managed_switch_id}, macs_found=${macToPort.size}, macs_matched=${updated}`);
@@ -1464,13 +1547,14 @@ module.exports = (pool, io) => {
   // Identifica porte con più MAC (indica switch collegato) e verifica se quei MAC sono su altri switch gestiti
   const analyzeConnectedSwitches = async (aziendaId) => {
     try {
-      // Recupera tutti gli switch gestiti e i loro network_devices
+      // Recupera tutti gli switch gestiti (sia legacy che nuovi)
       const switches = await pool.query(
-        `SELECT ms.id, ms.ip, ms.name, nd.id as switch_device_id
-         FROM managed_switches ms
-         LEFT JOIN network_devices nd ON TRIM(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g')) = ms.ip AND nd.device_type = 'switch'
-         LEFT JOIN network_agents na ON nd.agent_id = na.id AND na.azienda_id = $1
-         WHERE ms.azienda_id = $1`,
+        `SELECT nd.id as switch_device_id, nd.ip_address as ip, nd.hostname as name
+         FROM network_devices nd
+         INNER JOIN network_agents na ON nd.agent_id = na.id AND na.azienda_id = $1
+         LEFT JOIN managed_switches ms ON ms.ip = TRIM(REGEXP_REPLACE(nd.ip_address, '[{}"]', '', 'g')) AND ms.azienda_id = $1
+         WHERE (nd.is_managed_switch = true OR ms.id IS NOT NULL)
+         AND nd.device_type = 'switch'`,
         [aziendaId]
       );
 
@@ -1482,7 +1566,8 @@ module.exports = (pool, io) => {
       // Utile se l'utente ha spostato cavi o se i dispositivi sono stati resettati
       for (const sw of switches.rows) {
         if (!sw.switch_device_id) continue;
-        const macPorts = await pool.query('SELECT mac_address, port FROM switch_mac_port_cache WHERE managed_switch_id = $1', [sw.id]);
+        // Usa switch_device_id per la cache (il nuovo standard)
+        const macPorts = await pool.query('SELECT mac_address, port FROM switch_mac_port_cache WHERE switch_device_id = $1', [sw.switch_device_id]);
 
         for (const row of macPorts.rows) {
           const macNorm = normalizeMac(row.mac_address);
@@ -1506,8 +1591,8 @@ module.exports = (pool, io) => {
 
         // Recupera tutte le MAC→porta per questo switch
         const macPorts = await pool.query(
-          'SELECT mac_address, port FROM switch_mac_port_cache WHERE managed_switch_id = $1',
-          [sw.id]
+          'SELECT mac_address, port FROM switch_mac_port_cache WHERE switch_device_id = $1',
+          [sw.switch_device_id]
         );
 
         // Raggruppa per porta: porta -> [mac1, mac2, ...]
@@ -1531,8 +1616,8 @@ module.exports = (pool, io) => {
 
             // Verifica se almeno uno di questi MAC è presente sull'altro switch
             const otherMacs = await pool.query(
-              'SELECT mac_address FROM switch_mac_port_cache WHERE managed_switch_id = $1',
-              [otherSw.id]
+              'SELECT mac_address FROM switch_mac_port_cache WHERE switch_device_id = $1',
+              [otherSw.switch_device_id]
             );
             const otherMacSet = new Set();
             for (const row of otherMacs.rows) {
@@ -1558,7 +1643,7 @@ module.exports = (pool, io) => {
             // MAC non trovati su altri switch gestiti = switch virtuale/non gestito
             // Crea uno switch virtuale e collega questi MAC a quello switch virtuale
             // Prima verifica se esiste già uno switch virtuale per questa porta
-            const virtualIp = `virtual-switch-${sw.id}-port-${port}`;
+            const virtualIp = `virtual-switch-${sw.switch_device_id}-port-${port}`;
             const existingVirtual = await pool.query(
               `SELECT nd.id FROM network_devices nd
                INNER JOIN network_agents na ON nd.agent_id = na.id
