@@ -2366,6 +2366,77 @@ function Get-ServerConfig {
     }
 }
 
+function Sync-ConfigFromServer {
+    param(
+        [string]$ServerUrl,
+        [string]$ApiKey
+    )
+    try {
+        $serverConfigResult = Get-ServerConfig -ServerUrl $ServerUrl -ApiKey $ApiKey
+        if ($serverConfigResult.success) {
+            $newConfig = $serverConfigResult.config
+            $configPath = Join-Path $script:scriptDir "config.json"
+            $configUpdated = $false
+            
+            # Check scan_interval_minutes
+            if ($newConfig.scan_interval_minutes) {
+                $serverInterval = $newConfig.scan_interval_minutes
+                # Se l'intervallo ├¿ diverso, aggiornalo solo in memoria (il servizio lo usa direttamente)
+                if ($serverInterval -ne $script:scanIntervalMinutes) {
+                    Write-Log "Rilevato cambio intervallo scansione: $($script:scanIntervalMinutes) -> $serverInterval minuti" "INFO"
+                    $script:scanIntervalMinutes = $serverInterval
+                    $configUpdated = $true
+                }
+            }
+            
+            # Check network_ranges (aggiorna in memoria e su disco se cambiati)
+            if ($newConfig.network_ranges -and ($newConfig.network_ranges -is [Array])) {
+                $serverRanges = $newConfig.network_ranges | Sort-Object
+                $currentRanges = if ($script:config.network_ranges) { $script:config.network_ranges | Sort-Object } else { @() }
+                
+                $rangesChanged = $false
+                if ($serverRanges.Count -ne $currentRanges.Count) {
+                    $rangesChanged = $true
+                }
+                else {
+                    for ($i = 0; $i -lt $serverRanges.Count; $i++) {
+                        if ($serverRanges[$i] -ne $currentRanges[$i]) { $rangesChanged = $true; break }
+                    }
+                }
+                
+                if ($rangesChanged) {
+                    Write-Log "Rilevato cambio network_ranges: aggiornamento configurazione locale..." "INFO"
+                    # Aggiorna memoria
+                    if ($script:config) { $script:config.network_ranges = $newConfig.network_ranges }
+                    $configUpdated = $true
+                }
+            }
+
+            # Persistenza su config.json se ci sono cambiamenti
+            if ($configUpdated -and (Test-Path $configPath)) {
+                try {
+                    $localConfig = Get-Content $configPath -Raw | ConvertFrom-Json
+                    if ($newConfig.scan_interval_minutes) { $localConfig.scan_interval_minutes = $newConfig.scan_interval_minutes }
+                    if ($newConfig.network_ranges) { $localConfig.network_ranges = $newConfig.network_ranges }
+                    # Opzionale: se il server invia anche network_ranges_config, aggiornalo
+                    if ($newConfig.network_ranges_config) { $localConfig.network_ranges_config = $newConfig.network_ranges_config }
+                    
+                    $localConfig | ConvertTo-Json -Depth 10 | Out-File -FilePath $configPath -Encoding UTF8 -Force
+                    Write-Log "Config.json locale aggiornato con nuove impostazioni." "INFO"
+                }
+                catch {
+                    Write-Log "Errore scrittura config.json: $_" "WARN"
+                }
+            }
+        }
+        return $serverConfigResult
+    }
+    catch {
+        # Non bloccare se il sync fallisce, ritorna errore gestito
+        return @{ success = $false; error = $_.Exception.Message }
+    }
+}
+
 function Send-Heartbeat {
     param(
         [string]$ServerUrl,
@@ -2439,70 +2510,8 @@ function Send-Heartbeat {
 
         $pendingUnifi = $response.pending_unifi_test
         
-        # Recupera configurazione dal server per verificare aggiornamenti (intervallo, network_ranges)
-        try {
-            $serverConfigResult = Get-ServerConfig -ServerUrl $ServerUrl -ApiKey $ApiKey
-            if ($serverConfigResult.success) {
-                $newConfig = $serverConfigResult.config
-                $configPath = Join-Path $script:scriptDir "config.json"
-                $configUpdated = $false
-                $localConfig = $null
-                
-                # Check scan_interval_minutes
-                if ($newConfig.scan_interval_minutes) {
-                    $serverInterval = $newConfig.scan_interval_minutes
-                    # Se l'intervallo ├¿ diverso, aggiornalo solo in memoria (il servizio lo usa direttamente)
-                    if ($serverInterval -ne $script:scanIntervalMinutes) {
-                        Write-Log "Rilevato cambio intervallo scansione: $($script:scanIntervalMinutes) -> $serverInterval minuti" "INFO"
-                        $script:scanIntervalMinutes = $serverInterval
-                        $configUpdated = $true
-                    }
-                }
-                
-                # Check network_ranges (aggiorna in memoria e su disco se cambiati)
-                if ($newConfig.network_ranges -and ($newConfig.network_ranges -is [Array])) {
-                    $serverRanges = $newConfig.network_ranges | Sort-Object
-                    $currentRanges = if ($script:config.network_ranges) { $script:config.network_ranges | Sort-Object } else { @() }
-                    
-                    $rangesChanged = $false
-                    if ($serverRanges.Count -ne $currentRanges.Count) {
-                        $rangesChanged = $true
-                    }
-                    else {
-                        for ($i = 0; $i -lt $serverRanges.Count; $i++) {
-                            if ($serverRanges[$i] -ne $currentRanges[$i]) { $rangesChanged = $true; break }
-                        }
-                    }
-                    
-                    if ($rangesChanged) {
-                        Write-Log "Rilevato cambio network_ranges: aggiornamento configurazione locale..." "INFO"
-                        # Aggiorna memoria
-                        if ($script:config) { $script:config.network_ranges = $newConfig.network_ranges }
-                        $configUpdated = $true
-                    }
-                }
-
-                # Persistenza su config.json se ci sono cambiamenti
-                if ($configUpdated -and (Test-Path $configPath)) {
-                    try {
-                        $localConfig = Get-Content $configPath -Raw | ConvertFrom-Json
-                        if ($newConfig.scan_interval_minutes) { $localConfig.scan_interval_minutes = $newConfig.scan_interval_minutes }
-                        if ($newConfig.network_ranges) { $localConfig.network_ranges = $newConfig.network_ranges }
-                        # Opzionale: se il server invia anche network_ranges_config, aggiornalo
-                        if ($newConfig.network_ranges_config) { $localConfig.network_ranges_config = $newConfig.network_ranges_config }
-                        
-                        $localConfig | ConvertTo-Json -Depth 10 | Out-File -FilePath $configPath -Encoding UTF8 -Force
-                        Write-Log "Config.json locale aggiornato con nuove impostazioni." "INFO"
-                    }
-                    catch {
-                        Write-Log "Errore scrittura config.json: $_" "WARN"
-                    }
-                }
-            }
-        }
-        catch {
-            # Non bloccare l'esecuzione se il controllo configurazione fallisce
-        }
+        # Sincronizza configurazione (include intervallo e range reti)
+        $serverConfigResult = Sync-ConfigFromServer -ServerUrl $ServerUrl -ApiKey $ApiKey
         
         return @{ success = $true; uninstall = $false; config = $serverConfigResult.config; pending_unifi_test = $pendingUnifi; pending_router_wifi_task = $response.pending_router_wifi_task }
     }
@@ -2980,6 +2989,14 @@ while ($script:isRunning) {
         
         # Controlla se ├¿ il momento di eseguire una scansione (programmata o forzata)
         if ($now -ge $nextScanTime -or $forceScan) {
+            
+            # Sincronizza configurazione PRIMA della scansione per assicurare che network_ranges sia aggiornato
+            # (rispetta l'intervallo di scan che puo' essere diverso da heartbeat)
+            try {
+                Sync-ConfigFromServer -ServerUrl $config.server_url -ApiKey $config.api_key | Out-Null
+            }
+            catch { Write-Log "Errore sync config pre-scan: $_" "WARN" }
+
             if ($forceScan) {
                 Write-Log "Esecuzione scansione FORZATA..."
             }
