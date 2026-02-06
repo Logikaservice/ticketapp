@@ -45,6 +45,11 @@ style.innerHTML = `
   
   /* Stili per la stampa - nasconde sidebar sinistra e altri elementi non necessari */
   @media print {
+    @page {
+      size: A4 landscape;
+      margin: 10mm;
+    }
+    
     /* Nascondi la sidebar sinistra */
     .mappatura-left-sidebar {
       display: none !important;
@@ -72,6 +77,8 @@ style.innerHTML = `
       margin: 0 !important;
       padding: 0 !important;
       overflow: visible !important;
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
     }
     
     /* Container principale */
@@ -79,7 +86,8 @@ style.innerHTML = `
       width: 100% !important;
       height: 100vh !important;
       display: flex !important;
-      flex-direction: column !important;
+      flex-direction: row !important;
+      page-break-inside: avoid !important;
     }
     
     /* Stile per la mappa durante la stampa */
@@ -89,6 +97,32 @@ style.innerHTML = `
       position: relative !important;
       overflow: visible !important;
       page-break-inside: avoid !important;
+      transform: scale(1.2) !important;
+      transform-origin: top left !important;
+    }
+    
+    /* Assicura che il contenuto SVG sia scalato correttamente */
+    .mappatura-canvas-container svg {
+      width: 100% !important;
+      height: 100% !important;
+      max-width: none !important;
+      max-height: none !important;
+    }
+    
+    /* Migliora la leggibilità del testo */
+    .mappatura-canvas-container text,
+    .mappatura-canvas-container span,
+    .mappatura-canvas-container div {
+      font-size: 12px !important;
+      color: #000 !important;
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+    
+    /* Assicura che i nodi siano ben visibili */
+    .mappatura-canvas-container [class*="rounded-xl"] {
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
     }
     
     /* Nascondi pulsanti e controlli interattivi */
@@ -107,11 +141,21 @@ style.innerHTML = `
     svg,
     canvas {
       visibility: visible !important;
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
     }
     
     /* Stile per il titolo della blueprint (mantienilo visibile) */
     .mappatura-canvas-container h1 {
       display: block !important;
+      font-size: 18px !important;
+      color: #000 !important;
+    }
+    
+    /* Evita interruzioni di pagina */
+    .mappatura-canvas-container > * {
+      page-break-inside: avoid !important;
+      page-break-after: avoid !important;
     }
   }
 `;
@@ -1720,7 +1764,56 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         {/* Pulsante Stampa */}
                         <button
                             onClick={() => {
-                                window.print();
+                                // Salva lo stato corrente della scala e offset
+                                const currentScale = scaleRef.current || 1;
+                                const currentOffset = offsetRef.current || { x: 0, y: 0 };
+                                
+                                // Imposta una scala ottimale per la stampa (più grande per essere leggibile)
+                                const printScale = Math.max(1.5, currentScale * 1.3);
+                                scaleRef.current = printScale;
+                                
+                                // Centra la mappa se possibile
+                                if (nodes.length > 0 && simulationRef.current) {
+                                    const simNodes = simulationRef.current.nodes();
+                                    if (simNodes.length > 0) {
+                                        const bounds = simNodes.reduce((acc, n) => {
+                                            if (n.x !== undefined && n.y !== undefined) {
+                                                acc.minX = Math.min(acc.minX, n.x);
+                                                acc.maxX = Math.max(acc.maxX, n.x);
+                                                acc.minY = Math.min(acc.minY, n.y);
+                                                acc.maxY = Math.max(acc.maxY, n.y);
+                                            }
+                                            return acc;
+                                        }, { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+                                        
+                                        if (bounds.minX !== Infinity) {
+                                            const centerX = (bounds.minX + bounds.maxX) / 2;
+                                            const centerY = (bounds.minY + bounds.maxY) / 2;
+                                            const containerWidth = canvasContainerRef.current?.clientWidth || window.innerWidth;
+                                            const containerHeight = canvasContainerRef.current?.clientHeight || window.innerHeight;
+                                            offsetRef.current = {
+                                                x: containerWidth / 2 - centerX * printScale,
+                                                y: containerHeight / 2 - centerY * printScale
+                                            };
+                                            setOffset(offsetRef.current);
+                                        }
+                                    }
+                                }
+                                
+                                setScale(printScale);
+                                
+                                // Aspetta che il rendering si aggiorni prima di stampare
+                                setTimeout(() => {
+                                    window.print();
+                                    
+                                    // Ripristina lo stato originale dopo la stampa
+                                    setTimeout(() => {
+                                        scaleRef.current = currentScale;
+                                        offsetRef.current = currentOffset;
+                                        setScale(currentScale);
+                                        setOffset(currentOffset);
+                                    }, 500);
+                                }, 300);
                             }}
                             className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
                             title="Stampa la mappa (senza la lista a sinistra)"
