@@ -4,17 +4,48 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Loader, Calendar, X } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
-const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId, currentUser }) => {
+const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [officeData, setOfficeData] = useState(null);
   const [companyName, setCompanyName] = useState('');
+  const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId);
+  const [companies, setCompanies] = useState([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(true);
+
+  // Carica le aziende al mount
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      if (!getAuthHeader) return;
+      try {
+        setLoadingCompanies(true);
+        const response = await fetch(buildApiUrl('/api/network-monitoring/clients'), {
+          headers: getAuthHeader()
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setCompanies(data);
+          // Se non c'è azienda selezionata e c'è almeno un'azienda, seleziona la prima
+          if (!selectedCompanyId && data.length > 0) {
+            setSelectedCompanyId(String(data[0].id));
+          }
+        } else {
+          console.error("Errore fetch aziende:", response.status);
+          setError('Errore nel caricamento delle aziende');
+        }
+      } catch (err) {
+        console.error("Errore caricamento aziende:", err);
+        setError('Errore nel caricamento delle aziende');
+      } finally {
+        setLoadingCompanies(false);
+      }
+    };
+    fetchCompanies();
+  }, []);
 
   useEffect(() => {
     if (selectedCompanyId) {
       loadOfficeData();
-    } else {
-      setError('Seleziona prima un\'azienda');
     }
   }, [selectedCompanyId]);
 
@@ -99,14 +130,52 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId, currentUser }) 
           </button>
           <div>
             <h1 className="text-xl font-bold text-gray-900">Office</h1>
-            <p className="text-sm text-gray-600">{companyName || 'Caricamento...'}</p>
+            <p className="text-sm text-gray-600">{companyName || 'Seleziona un\'azienda'}</p>
           </div>
+        </div>
+        <div className="flex items-center gap-4">
+          {!loadingCompanies && (
+            <select
+              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              value={selectedCompanyId || ''}
+              onChange={(e) => {
+                setSelectedCompanyId(e.target.value);
+                setError(null);
+                setOfficeData(null);
+              }}
+            >
+              <option value="">Seleziona Azienda...</option>
+              {companies.map(c => (
+                <option key={c.id} value={String(c.id)}>{c.azienda}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        {loading && (
+        {loadingCompanies && (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <Loader size={32} className="animate-spin text-blue-600 mx-auto mb-4" />
+              <p className="text-gray-600">Caricamento aziende...</p>
+            </div>
+          </div>
+        )}
+
+        {!loadingCompanies && !selectedCompanyId && (
+          <div className="max-w-2xl mx-auto mt-8">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+              <div>
+                <h3 className="font-semibold text-blue-800 mb-1">Seleziona un'azienda</h3>
+                <p className="text-blue-700">Seleziona un'azienda dal menu in alto per visualizzare i dati Office da Keepass.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {loading && selectedCompanyId && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <Loader size={32} className="animate-spin text-blue-600 mx-auto mb-4" />
@@ -115,7 +184,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId, currentUser }) 
           </div>
         )}
 
-        {error && (
+        {!loading && !loadingCompanies && error && selectedCompanyId && (
           <div className="max-w-2xl mx-auto mt-8">
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
               <X size={20} className="text-red-600 shrink-0 mt-0.5" />
