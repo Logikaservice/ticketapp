@@ -209,10 +209,11 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
         )}
 
         {!loading && !error && officeData && (
-          <div className="max-w-4xl mx-auto space-y-6">
+          <div className="max-w-7xl mx-auto">
             {/* Lista di tutti i file trovati */}
             {officeData.files && officeData.files.length > 0 ? (
-              officeData.files.map((file, index) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {officeData.files.map((file, index) => (
                 <div key={index} className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
                   {/* Titolo e username del file */}
                   <div className="mb-4 pb-4 border-b border-gray-200">
@@ -291,7 +292,8 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                     </div>
                   )}
                 </div>
-              ))
+                ))}
+              </div>
             ) : (
               <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
                 <p className="text-gray-500 italic">Nessun file trovato nel gruppo Office</p>
