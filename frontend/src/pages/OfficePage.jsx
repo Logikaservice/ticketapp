@@ -209,101 +209,101 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
         )}
 
         {!loading && !error && officeData && (
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-4xl mx-auto space-y-6">
+            {/* Titolo Office */}
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-              {/* Titolo Office */}
-              <div className="mb-4 pb-4 border-b border-gray-200">
-                <h2 className="text-2xl font-bold text-gray-900">{officeData.title || 'Office'}</h2>
-              </div>
-
-              {/* Credenziali principali */}
-              <div className="space-y-2 mb-6">
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">Credenziali Office</h3>
-                
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Titolo login</p>
-                    <p className="text-gray-900">
-                      {officeData.loginTitle || officeData.title || 'Office'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Nome utente</p>
-                    <p className="text-gray-900 font-mono">
-                      {officeData.username && officeData.username.trim() !== '' ? officeData.username : <span className="text-gray-400 italic">(non impostato)</span>}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Campi personalizzati */}
-              <div className="space-y-4 mb-6">
-                <h3 className="text-lg font-semibold text-gray-700 mb-3">Campi personalizzati</h3>
-                
-                {/* Debug: mostra struttura dati */}
-                <div className="mb-4 p-3 bg-gray-100 rounded text-xs font-mono">
-                  <strong>Debug:</strong> Chiavi customFields: {officeData.customFields ? Object.keys(officeData.customFields).join(', ') : 'null'}<br/>
-                  <strong>Valori:</strong> {officeData.customFields ? JSON.stringify(officeData.customFields, null, 2) : 'null'}
-                </div>
-                
-                {/* Mostra TUTTI i campi personalizzati trovati */}
-                {officeData.customFields && Object.keys(officeData.customFields).length > 0 && (
-                  <div className="space-y-2">
-                    {Object.entries(officeData.customFields).map(([key, value]) => {
-                      // Determina il colore del bordo in base al campo
-                      const getBorderColor = (k) => {
-                        if (k === 'custom1') return 'border-blue-500';
-                        if (k === 'custom2') return 'border-green-500';
-                        if (k === 'custom3') return 'border-yellow-500';
-                        if (k === 'custom4') return 'border-purple-500';
-                        if (k === 'custom5') return 'border-red-500';
-                        return 'border-gray-400';
-                      };
-                      
-                      // Determina l'etichetta
-                      const getLabel = (k) => {
-                        if (k === 'custom1') return 'Campo personalizzato 1';
-                        if (k === 'custom2') return 'Campo personalizzato 2';
-                        if (k === 'custom3') return 'Campo personalizzato 3';
-                        if (k === 'custom4') return 'Campo personalizzato 4';
-                        if (k === 'custom5') return 'Campo personalizzato 5';
-                        return k;
-                      };
-                      
-                      const valueStr = value ? String(value).trim() : '';
-                      
-                      return (
-                        <div key={key} className={`border-l-4 ${getBorderColor(key)} pl-4 py-2`}>
-                          <label className="text-sm font-medium text-gray-500">{getLabel(key)}</label>
-                          {valueStr ? (
-                            <p className="text-gray-900 mt-1">{valueStr}</p>
-                          ) : (
-                            <p className="text-gray-400 italic mt-1">(vuoto)</p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {(!officeData.customFields || Object.keys(officeData.customFields).length === 0) && (
-                  <p className="text-gray-500 italic">Nessun campo personalizzato trovato</p>
-                )}
-              </div>
-
-              {/* Scadenza */}
-              {officeData.expires && (
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={20} className="text-gray-600" />
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Scadenza</label>
-                      <p className="text-gray-900 mt-1 font-semibold">{formatDate(officeData.expires)}</p>
-                    </div>
-                  </div>
-                </div>
+              <h2 className="text-2xl font-bold text-gray-900">{officeData.title || 'Office'}</h2>
+              {officeData.files && officeData.files.length > 0 && (
+                <p className="text-sm text-gray-600 mt-1">
+                  {officeData.files.length} {officeData.files.length === 1 ? 'file trovato' : 'file trovati'}
+                </p>
               )}
             </div>
+
+            {/* Lista di tutti i file trovati */}
+            {officeData.files && officeData.files.length > 0 ? (
+              officeData.files.map((file, index) => (
+                <div key={index} className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                  {/* Titolo e username del file */}
+                  <div className="mb-4 pb-4 border-b border-gray-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900">{file.title || `File ${index + 1}`}</h3>
+                      </div>
+                      {file.username && file.username.trim() !== '' && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Nome utente</p>
+                          <p className="text-gray-900 font-mono">{file.username}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Campi personalizzati del file */}
+                  <div className="space-y-4 mb-4">
+                    <h4 className="text-md font-semibold text-gray-700">Campi personalizzati</h4>
+                    
+                    {file.customFields && Object.keys(file.customFields).length > 0 ? (
+                      <div className="space-y-2">
+                        {Object.entries(file.customFields).map(([key, value]) => {
+                          // Determina il colore del bordo in base al campo
+                          const getBorderColor = (k) => {
+                            if (k === 'custom1') return 'border-blue-500';
+                            if (k === 'custom2') return 'border-green-500';
+                            if (k === 'custom3') return 'border-yellow-500';
+                            if (k === 'custom4') return 'border-purple-500';
+                            if (k === 'custom5') return 'border-red-500';
+                            return 'border-gray-400';
+                          };
+                          
+                          // Determina l'etichetta
+                          const getLabel = (k) => {
+                            if (k === 'custom1') return 'Campo personalizzato 1';
+                            if (k === 'custom2') return 'Campo personalizzato 2';
+                            if (k === 'custom3') return 'Campo personalizzato 3';
+                            if (k === 'custom4') return 'Campo personalizzato 4';
+                            if (k === 'custom5') return 'Campo personalizzato 5';
+                            return k;
+                          };
+                          
+                          const valueStr = value ? String(value).trim() : '';
+                          
+                          return (
+                            <div key={key} className={`border-l-4 ${getBorderColor(key)} pl-4 py-2`}>
+                              <label className="text-sm font-medium text-gray-500">{getLabel(key)}</label>
+                              {valueStr ? (
+                                <p className="text-gray-900 mt-1">{valueStr}</p>
+                              ) : (
+                                <p className="text-gray-400 italic mt-1">(vuoto)</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 italic">Nessun campo personalizzato trovato</p>
+                    )}
+                  </div>
+
+                  {/* Scadenza del file */}
+                  {file.expires && (
+                    <div className="pt-4 border-t border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <Calendar size={20} className="text-gray-600" />
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Scadenza</p>
+                          <p className="text-gray-900">{formatDate(file.expires)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                <p className="text-gray-500 italic">Nessun file trovato nel gruppo Office</p>
+              </div>
+            )}
           </div>
         )}
       </div>
