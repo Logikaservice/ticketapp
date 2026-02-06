@@ -210,16 +210,6 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
 
         {!loading && !error && officeData && (
           <div className="max-w-4xl mx-auto space-y-6">
-            {/* Titolo Office */}
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-              <h2 className="text-2xl font-bold text-gray-900">{officeData.title || 'Office'}</h2>
-              {officeData.files && officeData.files.length > 0 && (
-                <p className="text-sm text-gray-600 mt-1">
-                  {officeData.files.length} {officeData.files.length === 1 ? 'file trovato' : 'file trovati'}
-                </p>
-              )}
-            </div>
-
             {/* Lista di tutti i file trovati */}
             {officeData.files && officeData.files.length > 0 ? (
               officeData.files.map((file, index) => (
