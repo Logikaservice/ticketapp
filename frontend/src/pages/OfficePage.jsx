@@ -249,11 +249,24 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                   </div>
                 )}
 
-                {(!officeData.customFields?.custom1 && 
-                  !officeData.customFields?.custom2 && 
-                  !officeData.customFields?.custom3 && 
-                  !officeData.customFields?.custom4 && 
-                  !officeData.customFields?.custom5) && (
+                {/* Mostra tutti i campi personalizzati se non sono custom1-5 */}
+                {officeData.customFields && Object.keys(officeData.customFields).length > 0 && 
+                 !officeData.customFields?.custom1 && 
+                 !officeData.customFields?.custom2 && 
+                 !officeData.customFields?.custom3 && 
+                 !officeData.customFields?.custom4 && 
+                 !officeData.customFields?.custom5 && (
+                  <div className="space-y-2">
+                    {Object.entries(officeData.customFields).map(([key, value]) => (
+                      <div key={key} className="border-l-4 border-gray-400 pl-4 py-2">
+                        <label className="text-sm font-medium text-gray-500">{key}</label>
+                        <p className="text-gray-900 mt-1">{String(value)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {(!officeData.customFields || Object.keys(officeData.customFields).length === 0) && (
                   <p className="text-gray-500 italic">Nessun campo personalizzato trovato</p>
                 )}
               </div>

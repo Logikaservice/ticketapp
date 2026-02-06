@@ -640,13 +640,55 @@ class KeepassDriveService {
 
       console.log(`✅ Office e Login trovati con successo per "${aziendaName}"`);
 
+      // Log di debug: mostra tutti i campi personalizzati trovati
+      console.log(`📋 Campi personalizzati trovati nell'entry Login:`);
+      console.log(`   Chiavi disponibili:`, Object.keys(loginEntry.customFields || {}));
+      console.log(`   Valori:`, Object.entries(loginEntry.customFields || {}).map(([k, v]) => `${k}: ${v}`).join(', '));
+      
       // Estrai i campi personalizzati 1, 2, 3, 4, 5
-      // Prova diversi nomi possibili per i campi personalizzati
-      const custom1 = loginEntry.customFields['Campo personalizzato 1'] || loginEntry.customFields['Custom Field 1'] || loginEntry.customFields['Campo 1'] || loginEntry.customFields['1'] || '';
-      const custom2 = loginEntry.customFields['Campo personalizzato 2'] || loginEntry.customFields['Custom Field 2'] || loginEntry.customFields['Campo 2'] || loginEntry.customFields['2'] || '';
-      const custom3 = loginEntry.customFields['Campo personalizzato 3'] || loginEntry.customFields['Custom Field 3'] || loginEntry.customFields['Campo 3'] || loginEntry.customFields['3'] || '';
-      const custom4 = loginEntry.customFields['Campo personalizzato 4'] || loginEntry.customFields['Custom Field 4'] || loginEntry.customFields['Campo 4'] || loginEntry.customFields['4'] || '';
-      const custom5 = loginEntry.customFields['Campo personalizzato 5'] || loginEntry.customFields['Custom Field 5'] || loginEntry.customFields['Campo 5'] || loginEntry.customFields['5'] || '';
+      // Prova vari nomi possibili per ogni campo (case-insensitive)
+      const custom1 = loginEntry.customFields['Campo personalizzato 1'] || 
+                      loginEntry.customFields['Custom Field 1'] || 
+                      loginEntry.customFields['Campo 1'] || 
+                      loginEntry.customFields['1'] ||
+                      loginEntry.customFields['campo personalizzato 1'] ||
+                      loginEntry.customFields['custom field 1'] ||
+                      '';
+      const custom2 = loginEntry.customFields['Campo personalizzato 2'] || 
+                      loginEntry.customFields['Custom Field 2'] || 
+                      loginEntry.customFields['Campo 2'] || 
+                      loginEntry.customFields['2'] ||
+                      loginEntry.customFields['campo personalizzato 2'] ||
+                      loginEntry.customFields['custom field 2'] ||
+                      '';
+      const custom3 = loginEntry.customFields['Campo personalizzato 3'] || 
+                      loginEntry.customFields['Custom Field 3'] || 
+                      loginEntry.customFields['Campo 3'] || 
+                      loginEntry.customFields['3'] ||
+                      loginEntry.customFields['campo personalizzato 3'] ||
+                      loginEntry.customFields['custom field 3'] ||
+                      '';
+      const custom4 = loginEntry.customFields['Campo personalizzato 4'] || 
+                      loginEntry.customFields['Custom Field 4'] || 
+                      loginEntry.customFields['Campo 4'] || 
+                      loginEntry.customFields['4'] ||
+                      loginEntry.customFields['campo personalizzato 4'] ||
+                      loginEntry.customFields['custom field 4'] ||
+                      '';
+      const custom5 = loginEntry.customFields['Campo personalizzato 5'] || 
+                      loginEntry.customFields['Custom Field 5'] || 
+                      loginEntry.customFields['Campo 5'] || 
+                      loginEntry.customFields['5'] ||
+                      loginEntry.customFields['campo personalizzato 5'] ||
+                      loginEntry.customFields['custom field 5'] ||
+                      '';
+      
+      console.log(`📋 Campi estratti:`);
+      console.log(`   custom1: "${custom1}"`);
+      console.log(`   custom2: "${custom2}"`);
+      console.log(`   custom3: "${custom3}"`);
+      console.log(`   custom4: "${custom4}"`);
+      console.log(`   custom5: "${custom5}"`);
 
       return {
         title: officeTitle,
