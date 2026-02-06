@@ -241,7 +241,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
 
                   {/* Campi personalizzati del file */}
                   <div className="space-y-4 mb-4">
-                    <h4 className="text-md font-semibold text-gray-700">Campi personalizzati</h4>
+                    <h4 className="text-md font-semibold text-gray-700">Attivo su:</h4>
                     
                     {file.customFields && Object.keys(file.customFields).length > 0 ? (
                       <div className="space-y-2">
