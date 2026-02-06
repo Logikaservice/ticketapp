@@ -552,6 +552,14 @@ const uploadContracts = multer({
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/agent-updates', express.static(path.join(__dirname, 'public/agent-updates')));
 
+// Middleware di logging per tutte le richieste API (per debug)
+app.use((req, res, next) => {
+  if (req.path && req.path.startsWith('/api/')) {
+    console.log(`📥 ${req.method} ${req.path} - Headers Auth: ${req.headers.authorization ? 'Presente' : 'Mancante'}`);
+  }
+  next();
+});
+
 // --- ROUTES ---
 app.get('/api', (req, res) => {
   res.json({ message: "API del sistema di ticketing funzionante." });
@@ -1356,7 +1364,15 @@ if (vivaldiRoutes) {
 app.use((req, res, next) => {
   // Solo per route API non trovate
   if (req.path.startsWith('/api/') && !res.headersSent) {
+    console.log(`⚠️ ============================================`);
     console.log(`⚠️ Route API non trovata: ${req.method} ${req.path}`);
+    console.log(`⚠️ URL completo: ${req.originalUrl}`);
+    console.log(`⚠️ Headers:`, {
+      authorization: req.headers.authorization ? 'Presente' : 'Mancante',
+      'x-user-id': req.headers['x-user-id'],
+      'x-user-role': req.headers['x-user-role']
+    });
+    console.log(`⚠️ ============================================`);
     return res.status(404).json({ error: 'Route non trovata', path: req.path });
   }
   // Per altre route (static files, etc.), passa al prossimo middleware
