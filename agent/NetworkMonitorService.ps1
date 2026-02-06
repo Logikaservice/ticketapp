@@ -5,15 +5,15 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.6.12
-# Data ultima modifica: 2026-01-30
+# Versione: 2.6.14
+# Data ultima modifica: 2026-02-06
 
 param(
     [string]$ConfigPath = "config.json"
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.6.13"
+$SCRIPT_VERSION = "2.6.14"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2439,25 +2439,63 @@ function Send-Heartbeat {
 
         $pendingUnifi = $response.pending_unifi_test
         
-        # Recupera configurazione dal server per verificare se scan_interval_minutes ├¿ cambiato
+        # Recupera configurazione dal server per verificare aggiornamenti (intervallo, network_ranges)
         try {
             $serverConfigResult = Get-ServerConfig -ServerUrl $ServerUrl -ApiKey $ApiKey
-            if ($serverConfigResult.success -and $serverConfigResult.config.scan_interval_minutes) {
-                $serverInterval = $serverConfigResult.config.scan_interval_minutes
+            if ($serverConfigResult.success) {
+                $newConfig = $serverConfigResult.config
+                $configPath = Join-Path $script:scriptDir "config.json"
+                $configUpdated = $false
+                $localConfig = $null
                 
-                # Se l'intervallo ├¿ diverso, aggiornalo solo in memoria (il servizio lo usa direttamente)
-                if ($serverInterval -ne $script:scanIntervalMinutes) {
-                    Write-Log "Rilevato cambio intervallo scansione: $($script:scanIntervalMinutes) -> $serverInterval minuti" "INFO"
-                    $script:scanIntervalMinutes = $serverInterval
+                # Check scan_interval_minutes
+                if ($newConfig.scan_interval_minutes) {
+                    $serverInterval = $newConfig.scan_interval_minutes
+                    # Se l'intervallo ├¿ diverso, aggiornalo solo in memoria (il servizio lo usa direttamente)
+                    if ($serverInterval -ne $script:scanIntervalMinutes) {
+                        Write-Log "Rilevato cambio intervallo scansione: $($script:scanIntervalMinutes) -> $serverInterval minuti" "INFO"
+                        $script:scanIntervalMinutes = $serverInterval
+                        $configUpdated = $true
+                    }
+                }
+                
+                # Check network_ranges (aggiorna in memoria e su disco se cambiati)
+                if ($newConfig.network_ranges -and ($newConfig.network_ranges -is [Array])) {
+                    $serverRanges = $newConfig.network_ranges | Sort-Object
+                    $currentRanges = if ($script:config.network_ranges) { $script:config.network_ranges | Sort-Object } else { @() }
                     
-                    # Aggiorna config.json locale per persistenza
-                    $configPath = Join-Path $script:scriptDir "config.json"
-                    if (Test-Path $configPath) {
+                    $rangesChanged = $false
+                    if ($serverRanges.Count -ne $currentRanges.Count) {
+                        $rangesChanged = $true
+                    }
+                    else {
+                        for ($i = 0; $i -lt $serverRanges.Count; $i++) {
+                            if ($serverRanges[$i] -ne $currentRanges[$i]) { $rangesChanged = $true; break }
+                        }
+                    }
+                    
+                    if ($rangesChanged) {
+                        Write-Log "Rilevato cambio network_ranges: aggiornamento configurazione locale..." "INFO"
+                        # Aggiorna memoria
+                        if ($script:config) { $script:config.network_ranges = $newConfig.network_ranges }
+                        $configUpdated = $true
+                    }
+                }
+
+                # Persistenza su config.json se ci sono cambiamenti
+                if ($configUpdated -and (Test-Path $configPath)) {
+                    try {
                         $localConfig = Get-Content $configPath -Raw | ConvertFrom-Json
-                        $localConfig.scan_interval_minutes = $serverInterval
+                        if ($newConfig.scan_interval_minutes) { $localConfig.scan_interval_minutes = $newConfig.scan_interval_minutes }
+                        if ($newConfig.network_ranges) { $localConfig.network_ranges = $newConfig.network_ranges }
+                        # Opzionale: se il server invia anche network_ranges_config, aggiornalo
+                        if ($newConfig.network_ranges_config) { $localConfig.network_ranges_config = $newConfig.network_ranges_config }
+                        
                         $localConfig | ConvertTo-Json -Depth 10 | Out-File -FilePath $configPath -Encoding UTF8 -Force
-                        Write-Log "Config.json locale aggiornato con nuovo intervallo ($serverInterval minuti)" "INFO"
-                        Write-Log "Il nuovo intervallo sara' applicato dalla prossima scansione" 'INFO'
+                        Write-Log "Config.json locale aggiornato con nuove impostazioni." "INFO"
+                    }
+                    catch {
+                        Write-Log "Errore scrittura config.json: $_" "WARN"
                     }
                 }
             }
