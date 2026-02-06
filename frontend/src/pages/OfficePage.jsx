@@ -19,7 +19,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
       if (!getAuthHeader) return;
       try {
         setLoadingCompanies(true);
-        const response = await fetch(buildApiUrl('/api/network-monitoring/clients'), {
+        const response = await fetch(buildApiUrl('/api/network-monitoring/all-clients'), {
           headers: getAuthHeader()
         });
         if (response.ok) {

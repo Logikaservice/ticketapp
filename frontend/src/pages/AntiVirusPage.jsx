@@ -39,7 +39,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
     useEffect(() => {
         const fetchCompanies = async () => {
             try {
-                const res = await fetch(buildApiUrl('/api/network-monitoring/clients'), { headers: getAuthHeader() });
+                const res = await fetch(buildApiUrl('/api/network-monitoring/all-clients'), { headers: getAuthHeader() });
                 if (res.ok) {
                     const data = await res.json();
                     setCompanies(data);

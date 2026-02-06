@@ -2632,6 +2632,55 @@ module.exports = (pool, io) => {
     }
   });
 
+  // GET /api/network-monitoring/all-clients
+  // Ottieni TUTTE le aziende (non filtrate per agent) - per Office e Antivirus
+  router.get('/all-clients', authenticateToken, async (req, res) => {
+    try {
+      await ensureTables();
+
+      const userRole = req.user?.ruolo;
+      let query = `
+        SELECT DISTINCT u.id, u.azienda 
+        FROM users u
+        WHERE u.ruolo = 'cliente' AND u.azienda IS NOT NULL AND u.azienda != ''
+      `;
+
+      // Se è admin aziendale, mostra solo le sue aziende
+      if (userRole === 'cliente' && req.user?.admin_companies && Array.isArray(req.user.admin_companies) && req.user.admin_companies.length > 0) {
+        // Aziende accessibili per questo utente
+        let accessibleCompanies = [...req.user.admin_companies];
+
+        // Caso speciale: Paradiso Group può vedere anche Conad Mercurio, Conad La Torre e Conad Albatros
+        const userAzienda = req.user.azienda || '';
+        if (userAzienda === 'Paradiso Group' || req.user.admin_companies.includes('Paradiso Group')) {
+          const paradisoAccessibleCompanies = [
+            'Conad Mercurio',
+            'Conad La Torre',
+            'Conad Albatros'
+          ];
+          // Aggiungi le aziende Conad se non sono già presenti
+          paradisoAccessibleCompanies.forEach(company => {
+            if (!accessibleCompanies.includes(company)) {
+              accessibleCompanies.push(company);
+            }
+          });
+        }
+
+        const adminCompanies = accessibleCompanies.map(c => `'${c.replace(/'/g, "''")}'`).join(',');
+        query += ` AND u.azienda IN (${adminCompanies})`;
+      }
+
+      query += ` ORDER BY u.azienda`;
+
+      const result = await pool.query(query);
+
+      res.json(result.rows);
+    } catch (err) {
+      console.error('❌ Errore recupero tutte le aziende:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // GET /api/network-monitoring/clients/:aziendaId/devices
   // Ottieni lista dispositivi per un'azienda (per frontend)
   router.get('/clients/:aziendaId/devices', authenticateToken, checkCompanyAccess, async (req, res) => {
