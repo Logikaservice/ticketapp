@@ -26,10 +26,6 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
           const data = await response.json();
           setCompanies(data);
           // Non selezionare automaticamente nessuna azienda - l'utente deve selezionarla manualmente
-          // Se c'era un'azienda iniziale passata come prop, mantienila
-          if (initialCompanyId && !selectedCompanyId) {
-            setSelectedCompanyId(String(initialCompanyId));
-          }
         } else {
           console.error("Errore fetch aziende:", response.status);
           setError('Errore nel caricamento delle aziende');
@@ -45,13 +41,14 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
   }, []);
 
   useEffect(() => {
-    if (selectedCompanyId) {
-      loadOfficeData();
-    }
+    // Non caricare automaticamente i dati - l'utente deve selezionare manualmente l'azienda
+    // I dati verranno caricati solo quando l'utente seleziona un'azienda dal dropdown
   }, [selectedCompanyId]);
 
-  const loadOfficeData = async () => {
-    if (!selectedCompanyId || !getAuthHeader) {
+  const loadOfficeData = async (companyIdOverride = null) => {
+    const companyIdToUse = companyIdOverride || selectedCompanyId;
+    
+    if (!companyIdToUse || !getAuthHeader) {
       setError('Azienda non selezionata');
       return;
     }
@@ -60,17 +57,8 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
     setError(null);
 
     try {
-      // Prima recupera il nome dell'azienda
-      const companiesResponse = await fetch(buildApiUrl('/api/network-monitoring/companies'), {
-        headers: getAuthHeader()
-      });
-
-      if (!companiesResponse.ok) {
-        throw new Error('Errore nel caricamento delle aziende');
-      }
-
-      const companies = await companiesResponse.json();
-      const company = companies.find(c => c.id === parseInt(selectedCompanyId));
+      // Usa l'azienda già caricata dalla lista companies
+      const company = companies.find(c => String(c.id) === String(companyIdToUse));
       
       if (!company) {
         throw new Error('Azienda non trovata');
@@ -139,10 +127,17 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
             <select
               className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
               value={selectedCompanyId || ''}
-              onChange={(e) => {
-                setSelectedCompanyId(e.target.value);
+              onChange={async (e) => {
+                const newCompanyId = e.target.value;
+                setSelectedCompanyId(newCompanyId);
                 setError(null);
                 setOfficeData(null);
+                setCompanyName('');
+                
+                // Carica i dati solo se è stata selezionata un'azienda
+                if (newCompanyId) {
+                  await loadOfficeData(newCompanyId);
+                }
               }}
             >
               <option value="">Seleziona Azienda...</option>

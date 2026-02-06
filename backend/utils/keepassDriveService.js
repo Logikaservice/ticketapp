@@ -589,10 +589,14 @@ class KeepassDriveService {
       };
 
       // Processa tutti i gruppi root
+      console.log(`🔍 Inizio ricerca Office per azienda: "${aziendaName}"`);
       if (db.groups && db.groups.length > 0) {
+        console.log(`📁 Trovati ${db.groups.length} gruppi root`);
         for (const group of db.groups) {
           searchOfficeAndLogin(group);
         }
+      } else {
+        console.log(`⚠️ Nessun gruppo root trovato nel database Keepass`);
       }
 
       if (!officeTitle) {
