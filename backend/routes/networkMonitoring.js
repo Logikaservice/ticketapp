@@ -5246,15 +5246,35 @@ pause
 
       // Verifica che sia uno switch virtuale/unmanaged o comunque eliminabile
       // Per sicurezza, potremmo limitare l'eliminazione solo a 'unmanaged_switch' o 'manual'
-      const dev = await pool.query('SELECT device_type FROM network_devices WHERE id = $1', [id]);
+      const dev = await pool.query('SELECT device_type, mac_address FROM network_devices WHERE id = $1', [id]);
       if (dev.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato' });
 
       if (dev.rows[0].device_type !== 'unmanaged_switch') {
         return res.status(400).json({ error: 'Solo gli switch virtuali/unmanaged possono essere eliminati manualmente.' });
       }
 
+      const macAddress = dev.rows[0].mac_address;
+
+      // Elimina i dispositivi collegati (che hanno questo switch come parent)
+      await pool.query('DELETE FROM network_devices WHERE parent_id = $1', [id]);
+      console.log(`🗑️ Eliminati dispositivi collegati allo switch virtuale ${id}`);
+
+      // Elimina dalla mappatura_nodes se presente (usando MAC address)
+      if (macAddress) {
+        try {
+          const macNorm = macAddress.replace(/[:-]/g, '').toUpperCase();
+          await pool.query('DELETE FROM mappatura_nodes WHERE mac_address = $1', [macNorm]);
+          console.log(`🗑️ Eliminato nodo mappatura per MAC ${macNorm}`);
+        } catch (e) {
+          console.warn('⚠️ Errore eliminazione mappatura_nodes (potrebbe non esistere):', e.message);
+        }
+      }
+
+      // Elimina lo switch virtuale stesso
       await pool.query('DELETE FROM network_devices WHERE id = $1', [id]);
-      res.json({ success: true, message: 'Dispositivo eliminato' });
+      console.log(`🗑️ Switch virtuale ${id} eliminato definitivamente dal database`);
+
+      res.json({ success: true, message: 'Switch virtuale e dispositivi collegati eliminati' });
     } catch (err) {
       console.error('❌ Errore eliminazione dispositivo:', err);
       res.status(500).json({ error: 'Errore interno del server' });

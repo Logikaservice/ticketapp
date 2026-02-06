@@ -1,13 +1,14 @@
 // src/components/Header.jsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table, Wifi, Server as ServerIcon, MapPin, Shield, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table, Wifi, Server as ServerIcon, MapPin, Shield, AlertTriangle, AlertCircle, ChevronRight } from 'lucide-react';
 import AgentNotifications from './AgentNotifications';
 
 const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, openNetworkMonitoring, openNetworkMonitoringAgents, openNetworkMonitoringCreateAgent, openNetworkMonitoringDeviceTypes, openNetworkMonitoringNotifications, openNetworkMonitoringTelegram, openMappatura, openAntiVirus, isOrariDomain = false, getAuthHeader = null, socket = null }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [expandedAction, setExpandedAction] = useState(null);
+  const [expandedSubAction, setExpandedSubAction] = useState(null); // Per sottomenù annidati
   const menuRef = useRef(null);
   const quickActionsRef = useRef(null);
 
@@ -20,6 +21,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       if (quickActionsRef.current && !quickActionsRef.current.contains(event.target)) {
         setShowQuickActions(false);
         setExpandedAction(null);
+        setExpandedSubAction(null);
       }
     };
 
@@ -161,20 +163,18 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       subActions: [
         { label: 'Dashboard Monitoraggio', icon: Wifi, color: 'cyan', onClick: () => { if (openNetworkMonitoring) { openNetworkMonitoring(); setShowQuickActions(false); setExpandedAction(null); } } },
         { label: 'Mappatura', icon: MapPin, color: 'emerald', onClick: () => { if (openMappatura) { openMappatura(); setShowQuickActions(false); setExpandedAction(null); } } },
+        { 
+          label: 'Agent', 
+          icon: ServerIcon, 
+          color: 'cyan',
+          hasSubActions: true,
+          subActions: [
+            { label: 'Agent Esistenti', icon: ServerIcon, color: 'cyan', onClick: () => { if (openNetworkMonitoringAgents) { openNetworkMonitoringAgents(); setShowQuickActions(false); setExpandedAction(null); } } },
+            { label: 'Notifiche Agent', icon: AlertTriangle, color: 'yellow', onClick: () => { if (openNetworkMonitoringNotifications) { openNetworkMonitoringNotifications(); setShowQuickActions(false); setExpandedAction(null); } } },
+            { label: 'Crea Agent', icon: Plus, color: 'cyan', onClick: () => { if (openNetworkMonitoringCreateAgent) { openNetworkMonitoringCreateAgent(); setShowQuickActions(false); setExpandedAction(null); } } }
+          ]
+        },
         { label: 'Notifiche Telegram', icon: AlertCircle, color: 'blue', onClick: () => { if (openNetworkMonitoringTelegram) { openNetworkMonitoringTelegram(); setShowQuickActions(false); setExpandedAction(null); } } }
-      ]
-    },
-    {
-      id: 'agent',
-      label: 'Agent',
-      icon: ServerIcon,
-      color: 'cyan',
-      visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && openNetworkMonitoringAgents,
-      hasSubActions: true,
-      subActions: [
-        { label: 'Agent Esistenti', icon: ServerIcon, color: 'cyan', onClick: () => { if (openNetworkMonitoringAgents) { openNetworkMonitoringAgents(); setShowQuickActions(false); setExpandedAction(null); } } },
-        { label: 'Notifiche Agent', icon: AlertTriangle, color: 'yellow', onClick: () => { if (openNetworkMonitoringNotifications) { openNetworkMonitoringNotifications(); setShowQuickActions(false); setExpandedAction(null); } } },
-        { label: 'Crea Agent', icon: Plus, color: 'cyan', onClick: () => { if (openNetworkMonitoringCreateAgent) { openNetworkMonitoringCreateAgent(); setShowQuickActions(false); setExpandedAction(null); } } }
       ]
     },
     {
@@ -335,19 +335,59 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                   <div className="ml-4 border-l-2 border-gray-200 pl-2">
                     {action.subActions.map((subAction, idx) => {
                       const SubIcon = subAction.icon;
+                      const subActionKey = `${action.id}-${idx}`;
+                      const isSubActionExpanded = expandedSubAction === subActionKey;
+                      
                       return (
-                        <button
-                          key={idx}
-                          onClick={() => {
-                            subAction.onClick();
-                            setShowQuickActions(false);
-                            setExpandedAction(null);
-                          }}
-                          className={`w-full flex items-center gap-3 px-4 py-2 text-left transition ${colorClasses[subAction.color]}`}
-                        >
-                          <SubIcon size={16} className={getIconTextClass(subAction.color)} />
-                          <span className="text-sm">{subAction.label}</span>
-                        </button>
+                        <div key={idx}>
+                          <button
+                            onClick={() => {
+                              if (subAction.hasSubActions) {
+                                // Se ha sottomenù, espandi/contrai
+                                setExpandedSubAction(isSubActionExpanded ? null : subActionKey);
+                              } else if (subAction.onClick) {
+                                // Se ha onClick, esegui e chiudi menu
+                                subAction.onClick();
+                                setShowQuickActions(false);
+                                setExpandedAction(null);
+                                setExpandedSubAction(null);
+                              }
+                            }}
+                            className={`w-full flex items-center gap-3 px-4 py-2 text-left transition ${colorClasses[subAction.color]}`}
+                          >
+                            <SubIcon size={16} className={getIconTextClass(subAction.color)} />
+                            <span className="text-sm flex-1">{subAction.label}</span>
+                            {subAction.hasSubActions && (
+                              <ChevronRight size={14} className={`transition-transform ${isSubActionExpanded ? 'rotate-90' : ''}`} />
+                            )}
+                          </button>
+                          
+                          {/* Sottomenù annidati */}
+                          {subAction.hasSubActions && isSubActionExpanded && subAction.subActions && (
+                            <div className="ml-4 border-l-2 border-gray-300 pl-2">
+                              {subAction.subActions.map((nestedAction, nestedIdx) => {
+                                const NestedIcon = nestedAction.icon;
+                                return (
+                                  <button
+                                    key={nestedIdx}
+                                    onClick={() => {
+                                      if (nestedAction.onClick) {
+                                        nestedAction.onClick();
+                                        setShowQuickActions(false);
+                                        setExpandedAction(null);
+                                        setExpandedSubAction(null);
+                                      }
+                                    }}
+                                    className={`w-full flex items-center gap-3 px-4 py-2 text-left transition ${colorClasses[nestedAction.color]}`}
+                                  >
+                                    <NestedIcon size={14} className={getIconTextClass(nestedAction.color)} />
+                                    <span className="text-sm">{nestedAction.label}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>

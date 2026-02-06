@@ -42,6 +42,78 @@ const AVAILABLE_ICONS = [
 const style = document.createElement('style');
 style.innerHTML = `
   /* Animazioni personalizzate rimosse - ora usiamo animate-ping di Tailwind */
+  
+  /* Stili per la stampa - nasconde sidebar sinistra e altri elementi non necessari */
+  @media print {
+    /* Nascondi la sidebar sinistra */
+    .mappatura-left-sidebar {
+      display: none !important;
+    }
+    
+    /* Nascondi header e controlli */
+    .mappatura-header {
+      display: none !important;
+    }
+    
+    /* Nascondi sidebar destra se presente */
+    .mappatura-right-sidebar {
+      display: none !important;
+    }
+    
+    /* Nascondi tooltip e overlay */
+    [class*="tooltip"],
+    [class*="overlay"],
+    [class*="modal"] {
+      display: none !important;
+    }
+    
+    /* Assicura che la mappa occupi tutta la pagina */
+    body {
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: visible !important;
+    }
+    
+    /* Container principale */
+    .mappatura-main-content {
+      width: 100% !important;
+      height: 100vh !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+    
+    /* Stile per la mappa durante la stampa */
+    .mappatura-canvas-container {
+      width: 100% !important;
+      height: 100vh !important;
+      position: relative !important;
+      overflow: visible !important;
+      page-break-inside: avoid !important;
+    }
+    
+    /* Nascondi pulsanti e controlli interattivi */
+    button {
+      display: none !important;
+    }
+    
+    /* Nascondi elementi di navigazione */
+    select,
+    input[type="text"],
+    input[type="number"] {
+      display: none !important;
+    }
+    
+    /* Assicura che SVG e canvas siano visibili */
+    svg,
+    canvas {
+      visibility: visible !important;
+    }
+    
+    /* Stile per il titolo della blueprint (mantienilo visibile) */
+    .mappatura-canvas-container h1 {
+      display: block !important;
+    }
+  }
 `;
 document.head.appendChild(style);
 
@@ -1570,6 +1642,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             return isParent ? 'bg-violet-600 border-violet-800' : 'bg-violet-500 border-violet-700';
         }
 
+        // Switch: cyan tenue (più scuro se è padre)
+        if (node.type === 'switch' || node.type === 'unmanaged_switch') {
+            return isParent ? 'bg-cyan-600 border-cyan-800' : 'bg-cyan-500 border-cyan-700';
+        }
+
         // Offline: rosso (con lampeggio se appena cambiato, più scuro se è padre)
         if (node.status === 'offline') {
             if (isBlinking) {
@@ -1605,7 +1682,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             `}</style>
             <div className="fixed inset-0 bg-gray-50 z-[100] flex flex-col font-sans w-full h-full overflow-hidden">
                 {/* Header */}
-                <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
+                <div className="mappatura-header bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
                     <div className="flex items-center gap-4">
                         <button onClick={() => { saveLayoutRef.current?.(); onClose(); }} className="p-2 hover:bg-gray-100 rounded-full" title="Chiudi Mappatura">
                             <ArrowLeft size={24} className="text-gray-600" />
@@ -1640,6 +1717,18 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             </button>
                         )}
 
+                        {/* Pulsante Stampa */}
+                        <button
+                            onClick={() => {
+                                window.print();
+                            }}
+                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
+                            title="Stampa la mappa (senza la lista a sinistra)"
+                        >
+                            <Printer size={18} />
+                            Stampa
+                        </button>
+
                         <div className="flex bg-gray-100 rounded-lg p-1">
                             <button className="p-1.5 hover:bg-white rounded transition" onClick={() => setScale(s => Math.min(s + 0.1, 4))}><ZoomIn size={18} className="text-gray-600" /></button>
                             <button className="p-1.5 hover:bg-white rounded transition ml-1" onClick={() => setScale(s => Math.max(s - 0.1, 0.1))}><ZoomOut size={18} className="text-gray-600" /></button>
@@ -1648,10 +1737,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     </div>
                 </div>
 
-                <div className="flex-1 flex min-h-0 select-none">
+                <div className="flex-1 flex min-h-0 select-none mappatura-main-content">
                     {/* Left: toolbar + IP list */}
                     {selectedCompanyId && (
-                        <div className="w-48 shrink-0 flex flex-col bg-white border-r border-gray-200 overflow-hidden">
+                        <div className="mappatura-left-sidebar w-48 shrink-0 flex flex-col bg-white border-r border-gray-200 overflow-hidden">
                             <div className="p-2 flex flex-col gap-1.5 border-b border-gray-100 shrink-0">
                                 <button
                                     className="bg-white p-1.5 rounded shadow border border-gray-200 hover:bg-gray-50 flex items-center justify-center gap-1.5"
@@ -1788,7 +1877,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     {/* Canvas */}
                     <div
                         ref={canvasContainerRef}
-                        className="flex-1 min-h-0 bg-white relative overflow-hidden cursor-move touch-none"
+                        className="mappatura-canvas-container flex-1 min-h-0 bg-white relative overflow-hidden cursor-move touch-none"
                         onClick={() => {
                             if (justDroppedRef.current) {
                                 justDroppedRef.current = false;
@@ -1989,6 +2078,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                         {(() => {
                                             const isRouter = node.type === 'router' || node.type === 'gateway';
                                             const isCloudKey = node.type === 'cloud_key';
+                                            const isSwitch = node.type === 'switch' || node.type === 'unmanaged_switch';
                                             const isBlackStyle = isSelected && isRouter;
 
                                             // Classi base
@@ -2000,6 +2090,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 containerClasses += "bg-slate-900 border-slate-700 shadow-xl scale-110 ring-2 ring-slate-400";
                                             } else if (isSelected && isCloudKey) {
                                                 containerClasses += "bg-violet-900 border-violet-700 shadow-xl scale-110 ring-2 ring-violet-400";
+                                            } else if (isSelected && isSwitch) {
+                                                containerClasses += "bg-cyan-900 border-cyan-700 shadow-xl scale-110 ring-2 ring-cyan-400";
                                             } else if (isSelected) {
                                                 containerClasses += "bg-white border-blue-500 shadow-lg scale-110 ring-2 ring-blue-200";
                                             } else if (!isOnline) {
@@ -2008,6 +2100,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 containerClasses += "bg-violet-100 border-violet-300 shadow-sm hover:border-violet-400";
                                             } else if (isRouter) {
                                                 containerClasses += "bg-indigo-100 border-indigo-300 shadow-sm hover:border-indigo-400";
+                                            } else if (isSwitch) {
+                                                containerClasses += "bg-cyan-50 border-cyan-300 shadow-sm hover:border-cyan-400";
                                             } else {
                                                 containerClasses += "bg-white border-slate-200 shadow-sm hover:border-blue-400";
                                             }
@@ -2016,9 +2110,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                             let iconColor = "text-slate-600";
                                             if (isBlackStyle) iconColor = "text-white";
                                             else if (isSelected && isCloudKey) iconColor = "text-white";
+                                            else if (isSelected && isSwitch) iconColor = "text-white";
                                             else if (isSelected) iconColor = "text-blue-600";
                                             else if (!isVirtual && !isOnline) iconColor = "text-red-400";
                                             else if (isCloudKey) iconColor = "text-violet-700";
+                                            else if (isSwitch) iconColor = "text-cyan-700";
 
                                             return (
                                                 <div className={containerClasses}>
@@ -2103,7 +2199,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             nodeForPanel.locked = false;
                         }
                         return (
-                            <div className="w-80 shrink-0 bg-white shadow-xl border-l border-gray-200 p-4 flex flex-col animate-slideInRight z-50 select-text">
+                            <div className="mappatura-right-sidebar w-80 shrink-0 bg-white shadow-xl border-l border-gray-200 p-4 flex flex-col animate-slideInRight z-50 select-text">
                                 <div className="flex justify-between items-start mb-4">
                                     <h3 className="text-lg font-bold text-gray-800 break-all">{display.label || display.ip}</h3>
                                     <button onClick={() => { setSelectedNode(null); setSelectedDevice(null); setReassociateChildNode(null); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
@@ -2454,6 +2550,57 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                         </div>
                                     </div>
 
+                                    {/* Pulsante Elimina per Switch Virtuali - sempre visibile */}
+                                    {isVirtualSwitchNode(display) && (
+                                        <div className="pt-3 border-t border-gray-100 space-y-2">
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    if (!confirm('ATTENZIONE: Stai per eliminare DEFINITIVAMENTE questo Switch Virtuale dal database.\n\nQuesta azione è irreversibile e rimuoverà anche tutti i dispositivi collegati. Continuare?')) return;
+
+                                                    try {
+                                                        const res = await fetch(buildApiUrl(`/api/network-monitoring/devices/${display.id}`), {
+                                                            method: 'DELETE',
+                                                            headers: getAuthHeader()
+                                                        });
+
+                                                        if (res.ok) {
+                                                            // Rimuovi dalla mappa se presente (pulisce nodes, links)
+                                                            if (onMap && nodeForPanel) {
+                                                                handleRemoveFromMap(nodeForPanel);
+                                                            }
+                                                            // Rimuovi dalla lista devices principale
+                                                            setDevices(prev => prev.filter(d => d.id !== display.id));
+                                                            // Rimuovi anche dai nodi se presente
+                                                            setNodes(prev => prev.filter(n => n.id !== display.id));
+                                                            setLinks(prev => prev.filter(l => {
+                                                                const sourceId = typeof l.source === 'object' ? l.source?.id : l.source;
+                                                                const targetId = typeof l.target === 'object' ? l.target?.id : l.target;
+                                                                return Number(sourceId) !== Number(display.id) && Number(targetId) !== Number(display.id);
+                                                            }));
+                                                            // Chiudi pannello laterale
+                                                            setSelectedNode(null);
+                                                            setSelectedDevice(null);
+                                                            // Aggiorna la lista dei dispositivi
+                                                            setRefreshDevicesKey(k => k + 1);
+                                                        } else {
+                                                            const err = await res.json().catch(() => ({}));
+                                                            alert('Errore: ' + (err.error || 'Impossibile eliminare lo Switch Virtuale'));
+                                                        }
+                                                    } catch (e) {
+                                                        console.error(e);
+                                                        alert('Errore durante l\'eliminazione');
+                                                    }
+                                                }}
+                                                className="w-full py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 font-medium text-sm flex items-center justify-center gap-2 shadow-sm"
+                                            >
+                                                <Trash2 size={16} />
+                                                Elimina Switch Virtuale
+                                            </button>
+                                            <p className="text-xs text-gray-400 mt-1.5 text-center">Questa azione eliminerà lo switch virtuale dal database e dalla mappa.</p>
+                                        </div>
+                                    )}
+
                                     {onMap && nodeForPanel && (
                                         <div className="pt-3 border-t border-gray-100 space-y-2">
                                             <button
@@ -2518,49 +2665,53 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 {nodeForPanel.locked ? 'Sblocca posizione' : 'Fissa posizione'}
                                             </button>
 
-                                            <button
-                                                type="button"
-                                                onClick={() => handleRemoveFromMap(nodeForPanel)}
-                                                className="w-full py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-medium text-sm flex items-center justify-center gap-2"
-                                            >
-                                                <Trash2 size={16} />
-                                                Elimina dalla mappa
-                                            </button>
+                                            {!isVirtualSwitchNode(display) && (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemoveFromMap(nodeForPanel)}
+                                                        className="w-full py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-medium text-sm flex items-center justify-center gap-2"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                        Elimina dalla mappa
+                                                    </button>
 
-                                            <button
-                                                type="button"
-                                                onClick={async () => {
-                                                    if (!confirm('ATTENZIONE: Stai per eliminare DEFINITIVAMENTE questo dispositivo dal database.\n\nQuesta azione è irreversibile. Continuare?')) return;
+                                                    <button
+                                                        type="button"
+                                                        onClick={async () => {
+                                                            if (!confirm('ATTENZIONE: Stai per eliminare DEFINITIVAMENTE questo dispositivo dal database.\n\nQuesta azione è irreversibile. Continuare?')) return;
 
-                                                    try {
-                                                        const res = await fetch(buildApiUrl(`/api/network-monitoring/devices/${display.id}`), {
-                                                            method: 'DELETE',
-                                                            headers: getAuthHeader()
-                                                        });
+                                                            try {
+                                                                const res = await fetch(buildApiUrl(`/api/network-monitoring/devices/${display.id}`), {
+                                                                    method: 'DELETE',
+                                                                    headers: getAuthHeader()
+                                                                });
 
-                                                        if (res.ok) {
-                                                            // Rimuovi dalla mappa se presente (pulisce nodes, links)
-                                                            handleRemoveFromMap(nodeForPanel);
-                                                            // Rimuovi dalla lista devices principale
-                                                            setDevices(prev => prev.filter(d => d.id !== display.id));
-                                                            // Chiudi pannello laterale
-                                                            setSelectedNode(null);
-                                                            setSelectedDevice(null);
-                                                        } else {
-                                                            const err = await res.json().catch(() => ({}));
-                                                            alert('Errore: ' + (err.error || 'Impossibile eliminare il dispositivo'));
-                                                        }
-                                                    } catch (e) {
-                                                        console.error(e);
-                                                        alert('Errore durante l\'eliminazione');
-                                                    }
-                                                }}
-                                                className="w-full py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 font-medium text-sm flex items-center justify-center gap-2 mt-2 shadow-sm"
-                                            >
-                                                <Trash2 size={16} />
-                                                Elimina Definitivamente
-                                            </button>
-                                            <p className="text-xs text-gray-400 mt-1.5 text-center">L'IP tornerà nella lista a sinistra.</p>
+                                                                if (res.ok) {
+                                                                    // Rimuovi dalla mappa se presente (pulisce nodes, links)
+                                                                    handleRemoveFromMap(nodeForPanel);
+                                                                    // Rimuovi dalla lista devices principale
+                                                                    setDevices(prev => prev.filter(d => d.id !== display.id));
+                                                                    // Chiudi pannello laterale
+                                                                    setSelectedNode(null);
+                                                                    setSelectedDevice(null);
+                                                                } else {
+                                                                    const err = await res.json().catch(() => ({}));
+                                                                    alert('Errore: ' + (err.error || 'Impossibile eliminare il dispositivo'));
+                                                                }
+                                                            } catch (e) {
+                                                                console.error(e);
+                                                                alert('Errore durante l\'eliminazione');
+                                                            }
+                                                        }}
+                                                        className="w-full py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 font-medium text-sm flex items-center justify-center gap-2 mt-2 shadow-sm"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                        Elimina Definitivamente
+                                                    </button>
+                                                    <p className="text-xs text-gray-400 mt-1.5 text-center">L'IP tornerà nella lista a sinistra.</p>
+                                                </>
+                                            )}
 
                                         </div>
                                     )}
