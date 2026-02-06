@@ -245,40 +245,43 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                     
                     {file.customFields && Object.keys(file.customFields).length > 0 ? (
                       <div className="space-y-2">
-                        {Object.entries(file.customFields).map(([key, value]) => {
-                          // Determina il colore del bordo in base al campo
-                          const getBorderColor = (k) => {
-                            if (k === 'custom1') return 'border-blue-500';
-                            if (k === 'custom2') return 'border-green-500';
-                            if (k === 'custom3') return 'border-yellow-500';
-                            if (k === 'custom4') return 'border-purple-500';
-                            if (k === 'custom5') return 'border-red-500';
-                            return 'border-gray-400';
-                          };
-                          
-                          // Determina l'etichetta
-                          const getLabel = (k) => {
-                            if (k === 'custom1') return 'Campo personalizzato 1';
-                            if (k === 'custom2') return 'Campo personalizzato 2';
-                            if (k === 'custom3') return 'Campo personalizzato 3';
-                            if (k === 'custom4') return 'Campo personalizzato 4';
-                            if (k === 'custom5') return 'Campo personalizzato 5';
-                            return k;
-                          };
-                          
-                          const valueStr = value ? String(value).trim() : '';
-                          
-                          return (
-                            <div key={key} className={`border-l-4 ${getBorderColor(key)} pl-4 py-2`}>
-                              <label className="text-sm font-medium text-gray-500">{getLabel(key)}</label>
-                              {valueStr ? (
-                                <p className="text-gray-900 mt-1">{valueStr}</p>
-                              ) : (
-                                <p className="text-gray-400 italic mt-1">(vuoto)</p>
-                              )}
-                            </div>
-                          );
-                        })}
+                        {Object.entries(file.customFields)
+                          .filter(([key]) => ['custom1', 'custom2', 'custom3', 'custom4', 'custom5'].includes(key))
+                          .sort(([keyA], [keyB]) => {
+                            // Ordina per numero: custom1, custom2, custom3, custom4, custom5
+                            const numA = parseInt(keyA.replace('custom', ''));
+                            const numB = parseInt(keyB.replace('custom', ''));
+                            return numA - numB;
+                          })
+                          .map(([key, value]) => {
+                            // Estrai il numero dal nome del campo (custom1 -> 1, custom2 -> 2, ecc.)
+                            const fieldNumber = key.replace('custom', '');
+                            const valueStr = value ? String(value).trim() : '';
+                            
+                            // Determina il colore del bordo in base al campo
+                            const getBorderColor = (num) => {
+                              if (num === '1') return 'border-blue-500';
+                              if (num === '2') return 'border-green-500';
+                              if (num === '3') return 'border-yellow-500';
+                              if (num === '4') return 'border-purple-500';
+                              if (num === '5') return 'border-red-500';
+                              return 'border-gray-400';
+                            };
+                            
+                            return (
+                              <div key={key} className={`border-l-4 ${getBorderColor(fieldNumber)} pl-4 py-2`}>
+                                {valueStr ? (
+                                  <p className="text-gray-900">
+                                    <span className="font-semibold">{fieldNumber}.</span> {valueStr}
+                                  </p>
+                                ) : (
+                                  <p className="text-gray-400 italic">
+                                    <span className="font-semibold">{fieldNumber}.</span> (vuoto)
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
                       </div>
                     ) : (
                       <p className="text-gray-500 italic">Nessun campo personalizzato trovato</p>
