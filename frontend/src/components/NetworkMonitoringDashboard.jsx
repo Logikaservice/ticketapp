@@ -1178,6 +1178,107 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     agentsOffline: agents.filter(a => a.status === 'offline').length
   };
 
+  // Sezione Controlli (Azienda, Refresh, Mappatura)
+  const controlsSection = (
+    <>
+      {/* Dropdown selezione azienda */}
+      <div className="relative">
+        <select
+          value={selectedCompanyId || ''}
+          onChange={(e) => {
+            const companyId = e.target.value ? parseInt(e.target.value) : null;
+            setSelectedCompanyId(companyId);
+            if (companyId) {
+              loadCompanyDevices(companyId);
+            } else {
+              setCompanyDevices([]);
+            }
+          }}
+          className="px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer min-w-[200px]"
+        >
+          <option value="">Tutte le Aziende</option>
+          {companies.map((company) => (
+            <option key={company.id} value={company.id}>
+              {company.azienda}
+            </option>
+          ))}
+        </select>
+        <Building
+          size={18}
+          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
+        />
+      </div>
+
+      <button
+        onClick={() => setAutoRefresh(!autoRefresh)}
+        className={`px-4 py-2 rounded-lg flex items-center gap-2 ${autoRefresh
+          ? 'bg-green-100 text-green-800 hover:bg-green-200'
+          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+      >
+        <Activity size={18} />
+        Auto-refresh {autoRefresh ? 'ON' : 'OFF'}
+      </button>
+
+      <button
+        onClick={handleRefresh}
+        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+        disabled={loading}
+        title="Aggiorna dati da Keepass e ricarica dispositivi"
+      >
+        <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+        Aggiorna
+      </button>
+
+      {/* Pulsante Mappatura */}
+      {onNavigateToMappatura && (
+        <button
+          onClick={() => onNavigateToMappatura(selectedCompanyId)}
+          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+          title="Vai alla Mappatura Topologica"
+        >
+          <Network size={18} />
+          Mappatura
+        </button>
+      )}
+
+      {/* Versione agent più alta */}
+      {agents.length > 0 && (() => {
+        // Trova la versione più alta tra tutti gli agent
+        const compareVersions = (v1, v2) => {
+          if (!v1) return 1;
+          if (!v2) return -1;
+          const parts1 = v1.split('.').map(Number);
+          const parts2 = v2.split('.').map(Number);
+          for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+            const part1 = parts1[i] || 0;
+            const part2 = parts2[i] || 0;
+            if (part1 > part2) return -1;
+            if (part1 < part2) return 1;
+          }
+          return 0;
+        };
+
+        const highestVersionAgent = agents.reduce((highest, agent) => {
+          if (!highest) return agent;
+          if (!agent.version) return highest;
+          if (!highest.version) return agent;
+          return compareVersions(agent.version, highest.version) < 0 ? agent : highest;
+        }, null);
+
+        if (highestVersionAgent && highestVersionAgent.version) {
+          return (
+            <div className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex items-center gap-2 min-w-[140px]">
+              <span className="text-xs text-gray-500">Versione:</span>
+              <span className="font-mono font-semibold text-blue-600">{highestVersionAgent.version}</span>
+            </div>
+          );
+        }
+        return null;
+      })()}
+    </>
+  );
+
   if (loading && devices.length === 0) {
     return (
       <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto">
@@ -1206,6 +1307,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 Modalità Visualizzazione
               </div>
             )}
+          </div>
+          <div className="flex items-center gap-3">
+            {controlsSection}
           </div>
         </div>
       )}
@@ -1260,11 +1364,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         setShowNetworkMenu(false);
                       }}
                       disabled={readOnly}
-                      className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${
-                        readOnly 
-                          ? 'text-gray-400 cursor-not-allowed' 
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
+                      className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${readOnly
+                        ? 'text-gray-400 cursor-not-allowed'
+                        : 'text-gray-700 hover:bg-gray-100'
+                        }`}
                       title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Crea nuovo agent'}
                     >
                       <Plus size={18} className="text-cyan-600" />
@@ -1279,11 +1382,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         loadTelegramConfigs();
                       }}
                       disabled={readOnly}
-                      className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${
-                        readOnly 
-                          ? 'text-gray-400 cursor-not-allowed' 
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
+                      className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${readOnly
+                        ? 'text-gray-400 cursor-not-allowed'
+                        : 'text-gray-700 hover:bg-gray-100'
+                        }`}
                       title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Configurazione Telegram'}
                     >
                       <AlertCircle size={18} className="text-blue-600" />
@@ -1317,101 +1419,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Dropdown selezione azienda */}
-            <div className="relative">
-              <select
-                value={selectedCompanyId || ''}
-                onChange={(e) => {
-                  const companyId = e.target.value ? parseInt(e.target.value) : null;
-                  setSelectedCompanyId(companyId);
-                  if (companyId) {
-                    loadCompanyDevices(companyId);
-                  } else {
-                    setCompanyDevices([]);
-                  }
-                }}
-                className="px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer min-w-[200px]"
-              >
-                <option value="">Tutte le Aziende</option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.azienda}
-                  </option>
-                ))}
-              </select>
-              <Building
-                size={18}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
-              />
-            </div>
-
-            <button
-              onClick={() => setAutoRefresh(!autoRefresh)}
-              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${autoRefresh
-                ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-            >
-              <Activity size={18} />
-              Auto-refresh {autoRefresh ? 'ON' : 'OFF'}
-            </button>
-
-            <button
-              onClick={handleRefresh}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-              disabled={loading}
-              title="Aggiorna dati da Keepass e ricarica dispositivi"
-            >
-              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-              Aggiorna
-            </button>
-
-            {/* Pulsante Mappatura */}
-            {onNavigateToMappatura && (
-              <button
-                onClick={() => onNavigateToMappatura(selectedCompanyId)}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
-                title="Vai alla Mappatura Topologica"
-              >
-                <Network size={18} />
-                Mappatura
-              </button>
-            )}
-
-            {/* Versione agent più alta */}
-            {agents.length > 0 && (() => {
-              // Trova la versione più alta tra tutti gli agent
-              const compareVersions = (v1, v2) => {
-                if (!v1) return 1;
-                if (!v2) return -1;
-                const parts1 = v1.split('.').map(Number);
-                const parts2 = v2.split('.').map(Number);
-                for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
-                  const part1 = parts1[i] || 0;
-                  const part2 = parts2[i] || 0;
-                  if (part1 > part2) return -1;
-                  if (part1 < part2) return 1;
-                }
-                return 0;
-              };
-
-              const highestVersionAgent = agents.reduce((highest, agent) => {
-                if (!highest) return agent;
-                if (!agent.version) return highest;
-                if (!highest.version) return agent;
-                return compareVersions(agent.version, highest.version) < 0 ? agent : highest;
-              }, null);
-
-              if (highestVersionAgent && highestVersionAgent.version) {
-                return (
-                  <div className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex items-center gap-2 min-w-[140px]">
-                    <span className="text-xs text-gray-500">Versione:</span>
-                    <span className="font-mono font-semibold text-blue-600">{highestVersionAgent.version}</span>
-                  </div>
-                );
-              }
-              return null;
-            })()}
+            {!onClose && controlsSection}
           </div>
         </div>
 
@@ -1466,11 +1474,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   value={editAgentData.agent_name}
                                   onChange={(e) => setEditAgentData({ ...editAgentData, agent_name: e.target.value })}
                                   disabled={readOnly}
-                                  className={`w-full px-3 py-1.5 text-sm border rounded ${
-                                    readOnly 
-                                      ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed' 
-                                      : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
-                                  }`}
+                                  className={`w-full px-3 py-1.5 text-sm border rounded ${readOnly
+                                    ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed'
+                                    : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                                    }`}
                                   placeholder="Nome agent"
                                 />
                               </div>
@@ -1484,11 +1491,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   }}
                                   disabled={readOnly}
                                   rows={3}
-                                  className={`w-full px-3 py-1.5 text-sm border rounded font-mono ${
-                                    readOnly 
-                                      ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed' 
-                                      : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
-                                  }`}
+                                  className={`w-full px-3 py-1.5 text-sm border rounded font-mono ${readOnly
+                                    ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed'
+                                    : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                                    }`}
                                   placeholder="192.168.1.0/24&#10;10.0.0.0/16"
                                 />
                               </div>
@@ -1501,11 +1507,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   value={editAgentData.scan_interval_minutes}
                                   onChange={(e) => setEditAgentData({ ...editAgentData, scan_interval_minutes: parseInt(e.target.value) || 15 })}
                                   disabled={readOnly}
-                                  className={`w-full px-3 py-1.5 text-sm border rounded ${
-                                    readOnly 
-                                      ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed' 
-                                      : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
-                                  }`}
+                                  className={`w-full px-3 py-1.5 text-sm border rounded ${readOnly
+                                    ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed'
+                                    : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                                    }`}
                                 />
                               </div>
                             </div>
@@ -1534,11 +1539,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             <button
                               onClick={handleSaveAgent}
                               disabled={readOnly}
-                              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                                readOnly 
-                                  ? 'bg-gray-400 text-white cursor-not-allowed' 
-                                  : 'bg-green-600 text-white hover:bg-green-700'
-                              }`}
+                              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${readOnly
+                                ? 'bg-gray-400 text-white cursor-not-allowed'
+                                : 'bg-green-600 text-white hover:bg-green-700'
+                                }`}
                               title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Salva modifiche'}
                             >
                               <CheckCircle size={18} />
@@ -1557,11 +1561,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             <button
                               onClick={() => handleEditAgent(agent)}
                               disabled={readOnly}
-                              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                                readOnly 
-                                  ? 'bg-gray-400 text-white cursor-not-allowed' 
-                                  : 'bg-blue-600 text-white hover:bg-blue-700'
-                              }`}
+                              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${readOnly
+                                ? 'bg-gray-400 text-white cursor-not-allowed'
+                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                                }`}
                               title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Modifica configurazione agent (nome, reti, intervallo scansione)'}
                             >
                               <Edit size={18} />
@@ -1586,11 +1589,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             <button
                               onClick={() => disableAgent(agent.id, agent.agent_name)}
                               disabled={readOnly}
-                              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                                readOnly 
-                                  ? 'bg-gray-400 text-white cursor-not-allowed' 
-                                  : 'bg-orange-600 text-white hover:bg-orange-700'
-                              }`}
+                              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${readOnly
+                                ? 'bg-gray-400 text-white cursor-not-allowed'
+                                : 'bg-orange-600 text-white hover:bg-orange-700'
+                                }`}
                               title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Disabilita agent (disinstallazione remota al prossimo heartbeat)'}
                             >
                               <PowerOff size={18} />
@@ -1599,11 +1601,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             <button
                               onClick={() => deleteAgent(agent.id, agent.agent_name)}
                               disabled={readOnly}
-                              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                                readOnly 
-                                  ? 'bg-gray-400 text-white cursor-not-allowed' 
-                                  : 'bg-red-600 text-white hover:bg-red-700'
-                              }`}
+                              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${readOnly
+                                ? 'bg-gray-400 text-white cursor-not-allowed'
+                                : 'bg-red-600 text-white hover:bg-red-700'
+                                }`}
                               title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Elimina agent definitivamente'}
                             >
                               <Trash2 size={18} />
@@ -1868,11 +1869,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 <button
                   onClick={handleResetPingFailures}
                   disabled={readOnly}
-                  className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors mr-2 ${
-                    readOnly 
-                      ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed' 
-                      : 'bg-orange-50 border-orange-300 text-orange-700 hover:bg-orange-100'
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors mr-2 ${readOnly
+                    ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-orange-50 border-orange-300 text-orange-700 hover:bg-orange-100'
+                    }`}
                   title={readOnly ? 'Non disponibile in modalità visualizzazione' : "Resetta l'avviso di 'Disconnessioni rilevate' per tutti i dispositivi di questa azienda"}
                 >
                   <Activity size={18} />
@@ -2171,74 +2171,74 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   ))}
                               </div>
                             </td>
-                          {/* 4. MAC */}
-                          <td className="py-1 px-4 text-sm font-mono text-gray-600 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              {/* Warning: MAC cambiato (storico previous_mac) */}
-                              {device.previous_mac && (
-                                <div className="flex items-center gap-1">
+                            {/* 4. MAC */}
+                            <td className="py-1 px-4 text-sm font-mono text-gray-600 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                {/* Warning: MAC cambiato (storico previous_mac) */}
+                                {device.previous_mac && (
+                                  <div className="flex items-center gap-1">
+                                    <div className="relative group">
+                                      <AlertTriangle className="w-4 h-4 text-orange-500" />
+                                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                        MAC precedente: {device.previous_mac ? device.previous_mac.replace(/-/g, ':') : '-'}
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/reset-warnings`), {
+                                            method: 'PATCH',
+                                            headers: {
+                                              ...getAuthHeader(),
+                                              'Content-Type': 'application/json'
+                                            }
+                                          });
+
+                                          if (!response.ok) {
+                                            const errorData = await response.json();
+                                            throw new Error(errorData.error || 'Errore reset warning');
+                                          }
+
+                                          setCompanyDevices(prev => prev.map(d =>
+                                            d.id === device.id ? { ...d, previous_ip: null, previous_mac: null } : d
+                                          ));
+                                        } catch (err) {
+                                          console.error('Errore reset warning:', err);
+                                          alert(`Errore: ${err.message}`);
+                                        }
+                                      }}
+                                      className="text-orange-500 hover:text-orange-700 transition-colors"
+                                      title="Rimuovi warning"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                )}
+
+                                {/* Warning: IP diverso da KeePass per stesso MAC */}
+                                {device.keepass_ip_mismatch && (
                                   <div className="relative group">
-                                    <AlertTriangle className="w-4 h-4 text-orange-500" />
-                                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                                      MAC precedente: {device.previous_mac ? device.previous_mac.replace(/-/g, ':') : '-'}
+                                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap max-w-xs">
+                                      IP diverso da KeePass:
+                                      <br />
+                                      <span className="font-mono">
+                                        KeePass: {device.keepass_ip || 'N/D'}
+                                      </span>
+                                      <br />
+                                      <span className="font-mono">
+                                        Rilevato: {device.ip_address || 'N/D'}
+                                      </span>
                                     </div>
                                   </div>
-                                  <button
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      try {
-                                        const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/reset-warnings`), {
-                                          method: 'PATCH',
-                                          headers: {
-                                            ...getAuthHeader(),
-                                            'Content-Type': 'application/json'
-                                          }
-                                        });
+                                )}
 
-                                        if (!response.ok) {
-                                          const errorData = await response.json();
-                                          throw new Error(errorData.error || 'Errore reset warning');
-                                        }
-
-                                        setCompanyDevices(prev => prev.map(d =>
-                                          d.id === device.id ? { ...d, previous_ip: null, previous_mac: null } : d
-                                        ));
-                                      } catch (err) {
-                                        console.error('Errore reset warning:', err);
-                                        alert(`Errore: ${err.message}`);
-                                      }
-                                    }}
-                                    className="text-orange-500 hover:text-orange-700 transition-colors"
-                                    title="Rimuovi warning"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              )}
-
-                              {/* Warning: IP diverso da KeePass per stesso MAC */}
-                              {device.keepass_ip_mismatch && (
-                                <div className="relative group">
-                                  <AlertTriangle className="w-4 h-4 text-amber-500" />
-                                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap max-w-xs">
-                                    IP diverso da KeePass:
-                                    <br />
-                                    <span className="font-mono">
-                                      KeePass: {device.keepass_ip || 'N/D'}
-                                    </span>
-                                    <br />
-                                    <span className="font-mono">
-                                      Rilevato: {device.ip_address || 'N/D'}
-                                    </span>
-                                  </div>
-                                </div>
-                              )}
-
-                              <span className={newDevicesInList.has(device.id) ? "bg-yellow-100 px-1 rounded font-bold" : ""}>
-                                {device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}
-                              </span>
-                            </div>
-                          </td>
+                                <span className={newDevicesInList.has(device.id) ? "bg-yellow-100 px-1 rounded font-bold" : ""}>
+                                  {device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}
+                                </span>
+                              </div>
+                            </td>
                             <td className="py-1 px-4 text-sm text-gray-600 whitespace-nowrap">{device.hostname || '-'}</td>
                             <td className="py-1 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_username || '-'}</td>
                             <td className="py-1 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_path || '-'}</td>
