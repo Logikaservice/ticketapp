@@ -533,23 +533,35 @@ class KeepassDriveService {
           for (const entry of group.entries) {
             const titleField = entry.fields && entry.fields['Title'];
             const title = titleField ? (titleField instanceof ProtectedValue ? titleField.getText() : String(titleField)) : '';
-            const titleLower = title.toLowerCase();
+            const titleLower = title.trim().toLowerCase();
 
-            // CASO 1: Entry "Login" dentro gruppo "Office" (Standard)
+            // CASO 1: Entry "Login" dentro gruppo "Office" (Priorità assoluta)
             if (currentIsInOfficeGroup && titleLower === 'login') {
               console.log(`  ✅ Entry "Login" trovata nel gruppo Office!`);
 
-              // Estrai i dati e assegna a loginEntry
+              // Sovrascrivi qualsiasi cosa trovata prima (anche fallback)
               loginEntry = extractEntryData(entry, title || 'Login');
-              officeTitle = officeTitle || 'Office'; // Assicura che officeTitle sia settato
+              officeTitle = officeTitle || 'Office';
+              // Trovato il caso migliore, possiamo fermare la ricerca in questo gruppo?
+              // Meglio continuare nel caso ci siano duplicati, ma questo è il vincitore.
             }
-            // CASO 2: Entry "Office" direttamente nella cartella azienda (o sottocartelle)
-            // Solo se non abbiamo ancora trovato una entry "Login" preferenziale
-            else if (!loginEntry && titleLower === 'office') {
-              console.log(`  ✅ Entry "Office" trovata direttamente nel percorso: "${currentPath}"`);
+            // CASO 2: Entry "Office" (dentro o fuori gruppo Office)
+            // Accettabile se non abbiamo trovato "Login"
+            else if (titleLower === 'office') {
+              console.log(`  ✅ Entry "Office" trovata nel percorso: "${currentPath}"`);
 
-              loginEntry = extractEntryData(entry, title || 'Office');
-              officeTitle = officeTitle || title || 'Office';
+              // Se non abbiamo già un "Login" (che vince su tutto), usiamo questo
+              if (!loginEntry || loginEntry.title.toLowerCase() !== 'login') {
+                loginEntry = extractEntryData(entry, title || 'Office');
+                officeTitle = officeTitle || title || 'Office';
+              }
+            }
+            // CASO 3: Fallback - Qualsiasi entry nel gruppo "Office"
+            // Se siamo nel gruppo Office, e non abbiamo trovato nulla di meglio, prendiamo la prima entry che capita
+            else if (currentIsInOfficeGroup && !loginEntry) {
+              console.log(`  ⚠️ Entry generica "${title}" trovata nel gruppo Office (usata come fallback)`);
+              loginEntry = extractEntryData(entry, title || 'Office Data');
+              officeTitle = officeTitle || 'Office';
             }
           }
         }
