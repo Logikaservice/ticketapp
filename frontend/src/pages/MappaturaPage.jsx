@@ -45,11 +45,6 @@ style.innerHTML = `
   
   /* Stili per la stampa - nasconde sidebar sinistra e altri elementi non necessari */
   @media print {
-    @page {
-      size: A4 landscape;
-      margin: 10mm;
-    }
-    
     /* Nascondi la sidebar sinistra */
     .mappatura-left-sidebar {
       display: none !important;
