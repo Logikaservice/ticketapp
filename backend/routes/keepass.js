@@ -1930,17 +1930,34 @@ module.exports = function createKeepassRouter(pool) {
         }
       }
 
-      const { aziendaName } = req.params;
+      let { aziendaName } = req.params;
+      
+      // Decodifica il nome dell'azienda dall'URL (potrebbe essere URL-encoded)
+      try {
+        aziendaName = decodeURIComponent(aziendaName);
+      } catch (e) {
+        console.warn('⚠️ Errore decodifica nome azienda, uso valore originale:', aziendaName);
+      }
+      
+      // Pulisci il nome da eventuali caratteri strani o ID
+      aziendaName = aziendaName.split(':')[0].trim();
+      
+      console.log('🔍 Richiesta Office per azienda:', aziendaName);
+      console.log('🔍 Parametro originale:', req.params.aziendaName);
+      
       const keepassPassword = process.env.KEEPASS_PASSWORD;
 
       if (!keepassPassword) {
+        console.error('❌ Password Keepass non configurata');
         return res.status(500).json({ error: 'Password Keepass non configurata' });
       }
 
       if (!aziendaName) {
+        console.error('❌ Nome azienda vuoto dopo pulizia');
         return res.status(400).json({ error: 'Nome azienda richiesto' });
       }
 
+      console.log('🔍 Chiamata getOfficeData con azienda:', aziendaName);
       const officeData = await keepassDriveService.getOfficeData(keepassPassword, aziendaName);
 
       if (!officeData) {

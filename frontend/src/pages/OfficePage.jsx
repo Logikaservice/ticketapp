@@ -64,10 +64,20 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
         throw new Error('Azienda non trovata');
       }
 
-      setCompanyName(company.azienda || '');
+      const aziendaName = company.azienda || '';
+      console.log('🔍 Caricamento Office per azienda:', aziendaName, 'ID:', company.id);
+      
+      // Pulisci il nome dell'azienda da eventuali caratteri strani o ID
+      const cleanAziendaName = aziendaName.split(':')[0].trim();
+      console.log('🔍 Nome azienda pulito:', cleanAziendaName);
+      
+      setCompanyName(cleanAziendaName);
 
       // Ora recupera i dati Office da Keepass
-      const response = await fetch(buildApiUrl(`/api/keepass/office/${encodeURIComponent(company.azienda)}`), {
+      const apiUrl = buildApiUrl(`/api/keepass/office/${encodeURIComponent(cleanAziendaName)}`);
+      console.log('🔍 URL API chiamato:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
         headers: getAuthHeader()
       });
 
