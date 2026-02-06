@@ -507,15 +507,6 @@ class KeepassDriveService {
           }
         }
 
-        if (officeTitle && loginEntry) {
-          // Abbiamo già trovato tutto, non serve continuare in questo ramo
-          // (ma continuiamo se vogliamo trovare la struttura "migliore" o se ci sono duplicati?)
-          // Per ora se troviamo la struttura standard (Gruppo Office > Login), ci fermiamo.
-          if (officeTitle === 'Office' && loginEntry.title === 'Login') {
-            // Priorità alla struttura standard
-          }
-        }
-
         // Cerca "Office" come gruppo (case-insensitive)
         const isOfficeGroup = groupName.toLowerCase() === 'office';
         const currentIsInOfficeGroup = isInOfficeGroup || isOfficeGroup;
