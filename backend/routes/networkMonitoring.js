@@ -5303,15 +5303,17 @@ pause
       const { id } = req.params;
 
       // Verifica che sia uno switch virtuale/unmanaged o comunque eliminabile
-      // Per sicurezza, potremmo limitare l'eliminazione solo a 'unmanaged_switch' o 'manual'
-      const dev = await pool.query('SELECT device_type, mac_address FROM network_devices WHERE id = $1', [id]);
+      const dev = await pool.query('SELECT device_type, mac_address, ip_address FROM network_devices WHERE id = $1', [id]);
       if (dev.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato' });
 
-      if (dev.rows[0].device_type !== 'unmanaged_switch') {
+      const row = dev.rows[0];
+      const isUnmanagedSwitch = row.device_type === 'unmanaged_switch';
+      const isVirtualByIp = row.ip_address && String(row.ip_address).trim().toLowerCase().startsWith('virtual-');
+      if (!isUnmanagedSwitch && !isVirtualByIp) {
         return res.status(400).json({ error: 'Solo gli switch virtuali/unmanaged possono essere eliminati manualmente.' });
       }
 
-      const macAddress = dev.rows[0].mac_address;
+      const macAddress = row.mac_address;
 
       // Elimina i dispositivi collegati (che hanno questo switch come parent)
       await pool.query('DELETE FROM network_devices WHERE parent_id = $1', [id]);
