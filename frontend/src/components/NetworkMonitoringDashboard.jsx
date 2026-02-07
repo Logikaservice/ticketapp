@@ -2317,6 +2317,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 <table className="w-full min-w-[1200px]">
                   <thead>
                     <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 w-10" title="Tipo dispositivo (solo se riconosciuto)"></th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo Evento</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
@@ -2337,6 +2338,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''
                             } ${change.severity === 'critical' ? 'bg-red-50' : ''}`}
                         >
+                          {/* Icona tipo dispositivo: solo per eventi dispositivo con device_type riconosciuto */}
+                          <td className="py-3 px-2 w-10 whitespace-nowrap align-middle">
+                            {!isAgent && change.device_type && String(change.device_type).trim() !== '' ? (
+                              <span className="inline-flex items-center justify-center" title={change.device_type}>
+                                {getDeviceIcon(change.device_type, 18, 'text-gray-500')}
+                              </span>
+                            ) : null}
+                          </td>
                           <td className="py-3 px-4 whitespace-nowrap">
                             {(() => {
                               const actualEventType = change.event_type || change.change_type;
