@@ -5316,7 +5316,7 @@ pause
       const macAddress = row.mac_address;
 
       // Elimina i dispositivi collegati (che hanno questo switch come parent)
-      await pool.query('DELETE FROM network_devices WHERE parent_id = $1', [id]);
+      await pool.query('DELETE FROM network_devices WHERE parent_device_id = $1', [id]);
       console.log(`🗑️ Eliminati dispositivi collegati allo switch virtuale ${id}`);
 
       // Elimina dalla mappatura_nodes se presente (usando MAC address)
