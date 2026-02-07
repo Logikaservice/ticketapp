@@ -10,7 +10,7 @@ import {
   CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle, Terminal, Network, History, Key
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
-import { getDeviceIcon } from '../utils/deviceTypeIcons';
+import { getDeviceIcon, AVAILABLE_ICONS } from '../utils/deviceTypeIcons';
 import CreateAgentModal from './Modals/CreateAgentModal';
 import EditAgentModal from './Modals/EditAgentModal';
 import MonitoringScheduleModal from './Modals/MonitoringScheduleModal';
@@ -58,6 +58,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [availableNetworks, setAvailableNetworks] = useState([]); // Reti disponibili per l'azienda selezionata
   const [eventTypeFilter, setEventTypeFilter] = useState('all'); // all, device, agent
   const [ipContextMenu, setIpContextMenu] = useState({ show: false, ip: '', x: 0, y: 0 });
+  const [deviceTypePickerDeviceId, setDeviceTypePickerDeviceId] = useState(null); // id dispositivo per cui è aperto il picker tipo (icona)
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedDeviceForSchedule, setSelectedDeviceForSchedule] = useState(null);
   const [showEditAgentModal, setShowEditAgentModal] = useState(false);
@@ -1979,12 +1980,59 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 </label>
                               </div>
                             </td>
-                            {/* 2. Icona tipo dispositivo + Status (Online/Offline) - stesse icone della Mappatura */}
-                            <td className="py-1 px-4 w-12">
+                            {/* 2. Icona tipo dispositivo (modificabile) + Status - stessa lista Mappatura, sincronizzato ovunque */}
+                            <td className="py-1 px-4 w-12 align-top">
                               <div className="flex items-center gap-1.5">
-                                <span className="flex-shrink-0" title={device.device_type || 'Tipo dispositivo'}>
-                                  {getDeviceIcon(device.device_type, 18, 'text-gray-500')}
-                                </span>
+                                <div className="relative flex-shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeviceTypePickerDeviceId(prev => prev === device.id ? null : device.id)}
+                                    className="p-0.5 rounded hover:bg-gray-200 transition-colors inline-flex items-center justify-center"
+                                    title="Clicca per cambiare tipo dispositivo (si aggiorna anche in Mappatura)"
+                                  >
+                                    {getDeviceIcon(device.device_type, 18, 'text-gray-500')}
+                                  </button>
+                                  {deviceTypePickerDeviceId === device.id && (
+                                    <>
+                                      <div className="fixed inset-0 z-20" aria-hidden="true" onClick={() => setDeviceTypePickerDeviceId(null)} />
+                                      <div className="absolute left-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-xl p-2 max-h-[280px] overflow-y-auto">
+                                        <p className="text-xs font-medium text-gray-500 mb-2 px-1">Tipo dispositivo</p>
+                                        <div className="grid grid-cols-5 gap-1.5">
+                                          {AVAILABLE_ICONS.map((iconItem) => {
+                                            const IconComp = iconItem.icon;
+                                            const isSelected = (device.device_type || '').toLowerCase() === iconItem.type;
+                                            return (
+                                              <button
+                                                key={iconItem.type}
+                                                type="button"
+                                                onClick={async () => {
+                                                  const newType = iconItem.type;
+                                                  try {
+                                                    const res = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/type`), {
+                                                      method: 'PATCH',
+                                                      headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                                                      body: JSON.stringify({ device_type: newType })
+                                                    });
+                                                    if (res.ok) {
+                                                      setCompanyDevices(prev => prev.map(d =>
+                                                        d.id === device.id ? { ...d, device_type: newType } : d
+                                                      ));
+                                                      setDeviceTypePickerDeviceId(null);
+                                                    }
+                                                  } catch (e) { console.error('Errore aggiornamento tipo', e); }
+                                                }}
+                                                className={`p-1.5 rounded-lg flex items-center justify-center transition-all ${isSelected ? 'bg-blue-100 ring-2 ring-blue-500 text-blue-700' : 'bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-800'}`}
+                                                title={iconItem.label}
+                                              >
+                                                <IconComp size={18} strokeWidth={1.5} />
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
                                 <StatusBadge status={device.status} pingResponsive={device.ping_responsive} />
                               </div>
                             </td>
