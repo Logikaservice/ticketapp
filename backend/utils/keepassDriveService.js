@@ -549,7 +549,7 @@ class KeepassDriveService {
             expires = exp;
           }
         }
-        // 2. Se non presente, cerca nei campi personalizzati (Scadenza, Scade, Data scadenza, Expiry, etc.)
+        // 2. Se non presente, cerca nel campo personalizzato "Expiry Date"
         if (!expires) {
           const customFields = {};
           if (entry.customFields) {
@@ -565,16 +565,14 @@ class KeepassDriveService {
               }
             }
           }
-          const scadenzaKeys = ['scadenza', 'scade', 'data scadenza', 'expiry', 'expires', 'data scadenza'];
           for (const [key, val] of Object.entries(customFields)) {
             if (!val || typeof val !== 'string') continue;
-            const keyLower = key.toLowerCase().trim();
-            if (scadenzaKeys.some(sk => keyLower.includes(sk))) {
+            if (key.trim().toLowerCase() === 'expiry date') {
               const parsed = parseDateFromString(val.trim());
               if (parsed) {
                 expires = parsed;
-                break;
               }
+              break;
             }
           }
         }
