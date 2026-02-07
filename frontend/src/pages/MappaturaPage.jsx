@@ -7,37 +7,8 @@ import {
     Layers, HardDrive, Shield, RadioTower, Speaker, Circle, Lock, Unlock, Key, CheckCircle, AlertTriangle, ChevronDown, ChevronUp, PhoneCall
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
+import { AVAILABLE_ICONS } from '../utils/deviceTypeIcons';
 import * as d3 from 'd3-force';
-
-const AVAILABLE_ICONS = [
-    { type: 'pc', icon: Monitor, label: 'PC / Monitor' },
-    { type: 'server', icon: Server, label: 'Server' },
-    { type: 'virtualization', icon: Layers, label: 'Virtualizzazione' },
-    { type: 'nas', icon: HardDrive, label: 'NAS / Storage' },
-    { type: 'router', icon: Router, label: 'Router' },
-    { type: 'firewall', icon: Shield, label: 'Firewall' },
-    { type: 'switch', icon: Network, label: 'Switch' },
-    { type: 'unmanaged_switch', icon: Network, label: 'Unmanaged Switch' },
-    { type: 'wifi', icon: Wifi, label: 'WiFi / AP' },
-    { type: 'cloud_key', icon: Key, label: 'Cloud Key / Controller WiFi' },
-    { type: 'radio', icon: RadioTower, label: 'Ponte Radio' },
-    { type: 'printer', icon: Printer, label: 'Stampante' },
-    { type: 'smartphone', icon: Smartphone, label: 'Smartphone' },
-    { type: 'tablet', icon: Tablet, label: 'Tablet' },
-    { type: 'laptop', icon: Laptop, label: 'Laptop' },
-    { type: 'wearable', icon: Watch, label: 'Wearable' },
-    { type: 'camera', icon: Camera, label: 'Camera / CCTV' },
-    { type: 'speaker', icon: Speaker, label: 'Speaker / Audio' },
-    { type: 'tv', icon: Tv, label: 'TV / Screen' },
-    { type: 'phone', icon: Phone, label: 'Telefono VoIP' },
-    { type: 'pbx', icon: PhoneCall, label: 'Centralino VoIP / PBX' },
-    { type: 'dect_cell', icon: RadioTower, label: 'Cella DECT / Base DECT' },
-    { type: 'dect_handset', icon: Phone, label: 'Cordless DECT' },
-    { type: 'database', icon: Database, label: 'Database' },
-    { type: 'cloud', icon: Cloud, label: 'Cloud' },
-    { type: 'internet', icon: Globe, label: 'Internet' },
-    { type: 'generic', icon: Circle, label: 'Generico / Altro' }
-];
 
 const style = document.createElement('style');
 style.innerHTML = `

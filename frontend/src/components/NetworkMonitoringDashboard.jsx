@@ -10,6 +10,7 @@ import {
   CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle, Terminal, Network, History, Key
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
+import { getDeviceIcon } from '../utils/deviceTypeIcons';
 import CreateAgentModal from './Modals/CreateAgentModal';
 import EditAgentModal from './Modals/EditAgentModal';
 import MonitoringScheduleModal from './Modals/MonitoringScheduleModal';
@@ -987,19 +988,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     return () => clearTimeout(timeoutId);
   }, [changesSearchTerm, loadChanges]);
 
-  // Icona dispositivo per tipo
-  const getDeviceIcon = (deviceType) => {
-    switch (deviceType?.toLowerCase()) {
-      case 'server': return <Server className="w-5 h-5" />;
-      case 'router': return <Router className="w-5 h-5" />;
-      case 'printer': return <Printer className="w-5 h-5" />;
-      case 'workstation': return <Monitor className="w-5 h-5" />;
-      case 'wifi': return <Wifi className="w-5 h-5" />;
-      case 'cloud_key': return <Key className="w-5 h-5" />;
-      default: return <Activity className="w-5 h-5" />;
-    }
-  };
-
   // Badge status (3 stati: Online, No Ping, Offline)
   const StatusBadge = ({ status, pingResponsive }) => {
     // Offline: dispositivo completamente irraggiungibile
@@ -1886,7 +1874,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                     <thead>
                       <tr className="border-b border-gray-200">
                         <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Opzioni</th>
-                        <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 w-12" title="Online/Offline"></th>
+                        <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 w-12" title="Tipo / Online-Offline"></th>
                         <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">IP</th>
                         <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">MAC</th>
                         <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Titolo</th>
@@ -1991,9 +1979,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 </label>
                               </div>
                             </td>
-                            {/* 2. Status (Online/Offline) */}
+                            {/* 2. Icona tipo dispositivo + Status (Online/Offline) - stesse icone della Mappatura */}
                             <td className="py-1 px-4 w-12">
-                              <StatusBadge status={device.status} pingResponsive={device.ping_responsive} />
+                              <div className="flex items-center gap-1.5">
+                                <span className="flex-shrink-0" title={device.device_type || 'Tipo dispositivo'}>
+                                  {getDeviceIcon(device.device_type, 18, 'text-gray-500')}
+                                </span>
+                                <StatusBadge status={device.status} pingResponsive={device.ping_responsive} />
+                              </div>
                             </td>
                             {/* 3. IP */}
                             <td className="py-1 px-4 text-sm font-mono text-gray-900 whitespace-nowrap">
