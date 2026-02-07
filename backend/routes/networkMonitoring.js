@@ -584,6 +584,15 @@ module.exports = (pool, io) => {
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS notes TEXT;`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_manual_type BOOLEAN DEFAULT false;`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_manual_parent BOOLEAN DEFAULT false;`);
+          // Migrazione dati: unifica tipo 'virtualization' -> 'virtual' (stessa icona, un solo tipo)
+          try {
+            const upd = await pool.query(`UPDATE network_devices SET device_type = 'virtual' WHERE device_type = 'virtualization'`);
+            if (upd.rowCount > 0) {
+              console.log(`✅ Migrazione: ${upd.rowCount} dispositivo/i da 'virtualization' a 'virtual'`);
+            }
+          } catch (migErr) {
+            if (!migErr.message.includes('does not exist')) console.warn('⚠️ Migrazione virtualization->virtual:', migErr.message);
+          }
           await pool.query(`
             CREATE TABLE IF NOT EXISTS managed_switches (
               id SERIAL PRIMARY KEY,

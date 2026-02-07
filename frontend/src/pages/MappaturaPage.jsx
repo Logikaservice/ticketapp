@@ -939,7 +939,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
 
         // Specific mappings
         if (t.includes('nas') || t.includes('storage') || t.includes('synology') || t.includes('qnap')) return 'nas';
-        if (t.includes('virt') || t.includes('vm') || t.includes('proxmox') || t.includes('esxi') || t.includes('hyper-v')) return 'virtualization';
+        if (t.includes('virt') || t.includes('vm') || t.includes('proxmox') || t.includes('esxi') || t.includes('hyper-v')) return 'virtual';
         if (t.includes('firewall') || t.includes('gate') || t.includes('pfsense') || t.includes('opnsense') || t.includes('forti')) return 'firewall';
         if (t.includes('radio') || t.includes('antenna') || t.includes('bridge') || t.includes('nanostation') || t.includes('airmax')) return 'radio';
         if (t.includes('printer') || t.includes('stampante') || t.includes('mfp')) return 'printer';

@@ -12,8 +12,7 @@ import {
 export const AVAILABLE_ICONS = [
   { type: 'pc', icon: Monitor, label: 'PC / Monitor' },
   { type: 'server', icon: Server, label: 'Server' },
-  { type: 'virtualization', icon: Layers, label: 'Virtualizzazione' },
-  { type: 'virtual', icon: Layers, label: 'Virtuale' },
+  { type: 'virtual', icon: Layers, label: 'Virtuale / Virtualizzazione' },
   { type: 'nas', icon: HardDrive, label: 'NAS / Storage' },
   { type: 'router', icon: Router, label: 'Router' },
   { type: 'firewall', icon: Shield, label: 'Firewall' },
@@ -49,7 +48,8 @@ export const AVAILABLE_ICONS = [
  * @param {string} className - classi Tailwind opzionali
  */
 export function getDeviceIcon(deviceType, size = 18, className = 'text-gray-600') {
-  const t = (deviceType || '').toLowerCase().trim();
+  let t = (deviceType || '').toLowerCase().trim();
+  if (t === 'virtualization') t = 'virtual'; // unificato: stessa icona
   const def = AVAILABLE_ICONS.find(i => i.type === t) || AVAILABLE_ICONS.find(i => i.type === 'pc');
   const Icon = def ? def.icon : Monitor;
   if (t === 'generic' || t === '') {
