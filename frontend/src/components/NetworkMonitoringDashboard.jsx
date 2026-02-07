@@ -1,6 +1,7 @@
 // src/components/NetworkMonitoringDashboard.jsx
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Wifi, WifiOff, Monitor, Server, Printer, Router,
   AlertCircle, AlertTriangle, CheckCircle, Clock, RefreshCw,
@@ -59,6 +60,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [eventTypeFilter, setEventTypeFilter] = useState('all'); // all, device, agent
   const [ipContextMenu, setIpContextMenu] = useState({ show: false, ip: '', x: 0, y: 0 });
   const [deviceTypePickerDeviceId, setDeviceTypePickerDeviceId] = useState(null); // id dispositivo per cui è aperto il picker tipo (icona)
+  const [deviceTypePickerAnchor, setDeviceTypePickerAnchor] = useState(null); // { left, top } per posizionare il popover in fixed
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedDeviceForSchedule, setSelectedDeviceForSchedule] = useState(null);
   const [showEditAgentModal, setShowEditAgentModal] = useState(false);
@@ -1875,7 +1877,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                     <thead>
                       <tr className="border-b border-gray-200">
                         <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Opzioni</th>
-                        <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 w-12" title="Tipo / Online-Offline"></th>
+                        <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 min-w-[5rem]" title="Tipo / Online-Offline"></th>
                         <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">IP</th>
                         <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">MAC</th>
                         <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Titolo</th>
@@ -1981,57 +1983,26 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                               </div>
                             </td>
                             {/* 2. Icona tipo dispositivo (modificabile) + Status - stessa lista Mappatura, sincronizzato ovunque */}
-                            <td className="py-1 px-4 w-12 align-top">
+                            <td className="py-1 px-4 min-w-[5rem] align-top">
                               <div className="flex items-center gap-1.5">
                                 <div className="relative flex-shrink-0">
                                   <button
                                     type="button"
-                                    onClick={() => setDeviceTypePickerDeviceId(prev => prev === device.id ? null : device.id)}
-                                    className="p-0.5 rounded hover:bg-gray-200 transition-colors inline-flex items-center justify-center"
+                                    onClick={(e) => {
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      if (deviceTypePickerDeviceId === device.id) {
+                                        setDeviceTypePickerDeviceId(null);
+                                        setDeviceTypePickerAnchor(null);
+                                      } else {
+                                        setDeviceTypePickerDeviceId(device.id);
+                                        setDeviceTypePickerAnchor({ left: rect.left, top: rect.bottom + 6 });
+                                      }
+                                    }}
+                                    className="p-1 rounded hover:bg-gray-200 transition-colors inline-flex items-center justify-center min-w-[28px] min-h-[28px]"
                                     title="Clicca per cambiare tipo dispositivo (si aggiorna anche in Mappatura)"
                                   >
-                                    {getDeviceIcon(device.device_type, 18, 'text-gray-500')}
+                                    {getDeviceIcon(device.device_type, 20, 'text-gray-600')}
                                   </button>
-                                  {deviceTypePickerDeviceId === device.id && (
-                                    <>
-                                      <div className="fixed inset-0 z-20" aria-hidden="true" onClick={() => setDeviceTypePickerDeviceId(null)} />
-                                      <div className="absolute left-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-xl p-2 max-h-[280px] overflow-y-auto">
-                                        <p className="text-xs font-medium text-gray-500 mb-2 px-1">Tipo dispositivo</p>
-                                        <div className="grid grid-cols-5 gap-1.5">
-                                          {AVAILABLE_ICONS.map((iconItem) => {
-                                            const IconComp = iconItem.icon;
-                                            const isSelected = (device.device_type || '').toLowerCase() === iconItem.type;
-                                            return (
-                                              <button
-                                                key={iconItem.type}
-                                                type="button"
-                                                onClick={async () => {
-                                                  const newType = iconItem.type;
-                                                  try {
-                                                    const res = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/type`), {
-                                                      method: 'PATCH',
-                                                      headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
-                                                      body: JSON.stringify({ device_type: newType })
-                                                    });
-                                                    if (res.ok) {
-                                                      setCompanyDevices(prev => prev.map(d =>
-                                                        d.id === device.id ? { ...d, device_type: newType } : d
-                                                      ));
-                                                      setDeviceTypePickerDeviceId(null);
-                                                    }
-                                                  } catch (e) { console.error('Errore aggiornamento tipo', e); }
-                                                }}
-                                                className={`p-1.5 rounded-lg flex items-center justify-center transition-all ${isSelected ? 'bg-blue-100 ring-2 ring-blue-500 text-blue-700' : 'bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-800'}`}
-                                                title={iconItem.label}
-                                              >
-                                                <IconComp size={18} strokeWidth={1.5} />
-                                              </button>
-                                            );
-                                          })}
-                                        </div>
-                                      </div>
-                                    </>
-                                  )}
                                 </div>
                                 <StatusBadge status={device.status} pingResponsive={device.ping_responsive} />
                               </div>
@@ -2564,6 +2535,56 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             )}
           </div>
         </div>
+
+        {/* Popover Tipo dispositivo: portale a schermo intero così le icone non vengono mai tagliate */}
+        {deviceTypePickerDeviceId != null && deviceTypePickerAnchor && (() => {
+          const device = companyDevices.find(d => d.id === deviceTypePickerDeviceId);
+          if (!device) return null;
+          return createPortal(
+            <>
+              <div className="fixed inset-0 z-20 bg-black/20" aria-hidden="true" onClick={() => { setDeviceTypePickerDeviceId(null); setDeviceTypePickerAnchor(null); }} />
+              <div
+                className="fixed z-30 bg-white border border-gray-200 rounded-xl shadow-2xl p-4 min-w-[380px] max-w-[95vw]"
+                style={{ left: Math.min(deviceTypePickerAnchor.left, window.innerWidth - 400), top: Math.min(deviceTypePickerAnchor.top, window.innerHeight - 340) }}
+              >
+                <p className="text-sm font-semibold text-gray-700 mb-3">Tipo dispositivo</p>
+                <div className="grid grid-cols-6 gap-3 max-h-[300px] overflow-y-auto">
+                  {AVAILABLE_ICONS.map((iconItem) => {
+                    const IconComp = iconItem.icon;
+                    const isSelected = (device.device_type || '').toLowerCase() === iconItem.type;
+                    return (
+                      <button
+                        key={iconItem.type}
+                        type="button"
+                        onClick={async () => {
+                          const newType = iconItem.type;
+                          try {
+                            const res = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/type`), {
+                              method: 'PATCH',
+                              headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ device_type: newType })
+                            });
+                            if (res.ok) {
+                              setCompanyDevices(prev => prev.map(d => d.id === device.id ? { ...d, device_type: newType } : d));
+                              setDeviceTypePickerDeviceId(null);
+                              setDeviceTypePickerAnchor(null);
+                            }
+                          } catch (e) { console.error('Errore aggiornamento tipo', e); }
+                        }}
+                        className={`p-3 rounded-xl flex flex-col items-center justify-center gap-1 transition-all ${isSelected ? 'bg-blue-100 ring-2 ring-blue-500 text-blue-700' : 'bg-gray-50 hover:bg-gray-100 text-gray-700 hover:text-gray-900'}`}
+                        title={iconItem.label}
+                      >
+                        <IconComp size={28} strokeWidth={1.5} />
+                        <span className="text-[10px] leading-tight text-center truncate w-full">{iconItem.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </>,
+            document.body
+          );
+        })()}
 
         {/* Modal creazione agent - NON aggiornare dati durante creazione */}
         {showCreateAgentModal && (
