@@ -5557,9 +5557,9 @@ pause
         }
       }
 
-      // Ottieni tutti i dispositivi con MAC address
+      // Ottieni tutti i dispositivi con MAC address (incluso hostname = Titolo da Keepass)
       const devicesResult = await pool.query(
-        `SELECT id, mac_address, device_type, device_path, device_username, is_manual_type 
+        `SELECT id, mac_address, hostname, device_type, device_path, device_username, is_manual_type 
          FROM network_devices 
          WHERE mac_address IS NOT NULL AND mac_address != ''`
       );
@@ -5582,8 +5582,9 @@ pause
           // Normalizza il MAC per la ricerca
           const normalizedMac = device.mac_address.replace(/[:-]/g, '').toUpperCase();
 
-          // Debug per MAC specifico che l'utente sta cercando
-          if (normalizedMac === '101331CDFF6C' || device.mac_address.toLowerCase().includes('10:13:31:cd:ff:6c')) {
+          // Debug per MAC specifici (Smil Service: CC:96:E5:0E:60:2F, altro: 101331CDFF6C)
+          const debugMacs = ['101331CDFF6C', 'CC96E50E602F'];
+          if (debugMacs.includes(normalizedMac) || device.mac_address.toLowerCase().replace(/[:-]/g, '').includes('cc96e50e602f')) {
             console.log(`🔍 DEBUG MAC ${device.mac_address}:`);
             console.log(`   - MAC originale nel DB: "${device.mac_address}"`);
             console.log(`   - MAC normalizzato: "${normalizedMac}"`);
@@ -5598,6 +5599,8 @@ pause
           if (keepassResult) {
             // Estrai solo l'ultimo elemento del percorso
             const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
+            // Titolo Keepass = hostname nel DB (colonna mostrata come "Titolo" in UI)
+            const hostnameFromKeepass = keepassResult.title && keepassResult.title.trim() !== '' ? keepassResult.title.trim() : null;
 
             // MAPPING ICONE KEEPASS -> TIPO DISPOSITIVO
             let deviceType = keepassResult.title;
@@ -5619,8 +5622,8 @@ pause
               }
             }
 
-            // Debug per MAC specifico
-            if (normalizedMac === '101331CDFF6C') {
+            // Debug per MAC specifico (CC:96:E5:0E:60:2F, 10:13:31:cd:ff:6c)
+            if (normalizedMac === '101331CDFF6C' || normalizedMac === 'CC96E50E602F') {
               console.log(`  🔍 MAC ${device.mac_address} trovato in Keepass:`);
               console.log(`     - Titolo da Keepass: "${keepassResult.title}"`);
               console.log(`     - IconId da Keepass: ${iconId} -> Map: "${deviceType}"`);
@@ -5630,50 +5633,53 @@ pause
               console.log(`     - device_path attuale: "${device.device_path}"`);
             }
 
-            // Verifica se i valori sono diversi da quelli attuali
+            // Verifica se i valori sono diversi da quelli attuali (incluso hostname = Titolo)
             // IMPORTANTE: considera anche il caso in cui i valori attuali sono NULL
             // Inoltre: NON aggiornare se il tipo è stato impostato manualmente dall'utente
             const needsUpdate = !device.is_manual_type && (
+              (device.hostname !== hostnameFromKeepass) ||
               (device.device_type !== deviceType) ||
               (device.device_path !== lastPathElement) ||
               (device.device_username !== (keepassResult.username || null)) ||
+              (device.hostname === null && hostnameFromKeepass !== null) ||
               (device.device_type === null && deviceType !== null) ||
               (device.device_path === null && lastPathElement !== null) ||
               (device.device_username === null && keepassResult.username !== null && keepassResult.username !== '')
             );
 
             if (needsUpdate) {
-              // Aggiorna il dispositivo nel database
+              // Aggiorna il dispositivo nel database (incluso hostname = Titolo da Keepass)
               await pool.query(
                 `UPDATE network_devices 
-                 SET device_type = $1, device_path = $2, device_username = $3 
-                 WHERE id = $4`,
-                [deviceType, lastPathElement, keepassResult.username || null, device.id]
+                 SET hostname = $1, device_type = $2, device_path = $3, device_username = $4 
+                 WHERE id = $5`,
+                [hostnameFromKeepass, deviceType, lastPathElement, keepassResult.username || null, device.id]
               );
 
-              if (normalizedMac === '101331CDFF6C') {
-                console.log(`  ✅✅✅ MAC ${device.mac_address} AGGIORNATO: device_type="${deviceType}", device_path="${lastPathElement}", device_username="${keepassResult.username || ''}"`);
+              if (normalizedMac === '101331CDFF6C' || normalizedMac === 'CC96E50E602F') {
+                console.log(`  ✅✅✅ MAC ${device.mac_address} AGGIORNATO: hostname="${hostnameFromKeepass}", device_type="${deviceType}", device_path="${lastPathElement}", device_username="${keepassResult.username || ''}"`);
               } else {
-                console.log(`  ✅ Dispositivo ID ${device.id} (MAC: ${device.mac_address}) aggiornato: device_type="${deviceType}", device_path="${lastPathElement}", device_username="${keepassResult.username || ''}"`);
+                console.log(`  ✅ Dispositivo ID ${device.id} (MAC: ${device.mac_address}) aggiornato: hostname="${hostnameFromKeepass}", device_type="${deviceType}", device_path="${lastPathElement}", device_username="${keepassResult.username || ''}"`);
               }
               updatedCount++;
             } else {
-              if (normalizedMac === '101331CDFF6C') {
+              if (normalizedMac === '101331CDFF6C' || normalizedMac === 'CC96E50E602F') {
                 console.log(`  ℹ️ MAC ${device.mac_address} già aggiornato, nessuna modifica necessaria`);
               }
               unchangedCount++;
             }
           } else {
-            // MAC non trovato in KeePass: resetta i valori se erano presenti
+            // MAC non trovato in KeePass: resetta i valori se erano presenti (incluso hostname/Titolo)
             // SOLO se non è manuale
-            if (!device.is_manual_type && (device.device_type !== null || device.device_path !== null || device.device_username !== null)) {
+            const hasAnyKeepassData = device.hostname !== null || device.device_type !== null || device.device_path !== null || device.device_username !== null;
+            if (!device.is_manual_type && hasAnyKeepassData) {
               console.log(`  🔍 MAC ${device.mac_address} (normalizzato: ${normalizedMac}) NON trovato in KeePass`);
-              console.log(`     Valori attuali: device_type="${device.device_type}", device_path="${device.device_path}", device_username="${device.device_username}"`);
+              console.log(`     Valori attuali: hostname="${device.hostname}", device_type="${device.device_type}", device_path="${device.device_path}", device_username="${device.device_username}"`);
               console.log(`     Reset in corso...`);
 
               await pool.query(
                 `UPDATE network_devices 
-                 SET device_type = NULL, device_path = NULL, device_username = NULL 
+                 SET hostname = NULL, device_type = NULL, device_path = NULL, device_username = NULL 
                  WHERE id = $1`,
                 [device.id]
               );

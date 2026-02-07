@@ -244,12 +244,15 @@ class KeepassDriveService {
                 if (entry.icon && typeof entry.icon === 'object' && entry.icon.id !== undefined) {
                   iconId = entry.icon.id;
                 }
-                if (!macMap.has(normalizedMac)) {
-                  macMap.set(normalizedMac, { title: titleStr || '', path: currentPath || '', username: usernameStr || '', iconId: iconId });
-                  console.log(`  📝 MAC ${mac} (normalizzato: ${normalizedMac}) -> Titolo: "${titleStr || ''}", IconId: ${iconId}, Utente: "${usernameStr || ''}", Percorso: "${currentPath || ''}"`);
+                // Sovrascrivi sempre (ultima entry vince): così se lo stesso MAC è in più entry (es. Cestino e sotto Smil Service)
+                // dopo un aggiornamento in Keepass viene usata l’entry più recente nell’ordine di scansione
+                const entryData = { title: titleStr || '', path: currentPath || '', username: usernameStr || '', iconId: iconId };
+                if (macMap.has(normalizedMac)) {
+                  console.log(`  📝 MAC ${mac} (normalizzato: ${normalizedMac}) già presente -> sovrascrivo con Titolo: "${titleStr || ''}", Percorso: "${currentPath || ''}"`);
                 } else {
-                  console.log(`  ⚠️ MAC ${mac} (normalizzato: ${normalizedMac}) già presente nella mappa, ignoro duplicato`);
+                  console.log(`  📝 MAC ${mac} (normalizzato: ${normalizedMac}) -> Titolo: "${titleStr || ''}", IconId: ${iconId}, Utente: "${usernameStr || ''}", Percorso: "${currentPath || ''}"`);
                 }
+                macMap.set(normalizedMac, entryData);
               } else {
                 console.log(`  ⚠️ MAC ${mac} non può essere normalizzato per la ricerca`);
               }
