@@ -510,17 +510,72 @@ class KeepassDriveService {
         return result;
       }
 
+      const parseDateFromString = (str) => {
+        if (!str || typeof str !== 'string') return null;
+        const s = str.trim();
+        if (!s) return null;
+        const iso = /^\d{4}-\d{2}-\d{2}(T[\d:.-]+Z?)?$/;
+        if (iso.test(s)) {
+          const d = new Date(s);
+          return isNaN(d.getTime()) ? null : d;
+        }
+        const it1 = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/;
+        const m1 = s.match(it1);
+        if (m1) {
+          const d = new Date(parseInt(m1[3], 10), parseInt(m1[2], 10) - 1, parseInt(m1[1], 10));
+          return isNaN(d.getTime()) ? null : d;
+        }
+        const it2 = /^(\d{4})[\/\-](\d{2})[\/\-](\d{2})$/;
+        const m2 = s.match(it2);
+        if (m2) {
+          const d = new Date(parseInt(m2[1], 10), parseInt(m2[2], 10) - 1, parseInt(m2[3], 10));
+          return isNaN(d.getTime()) ? null : d;
+        }
+        const d = new Date(s);
+        return isNaN(d.getTime()) ? null : d;
+      };
+
       const extractEntry = (entry) => {
         const titleF = entry.fields && entry.fields['Title'];
         const userF = entry.fields && entry.fields['UserName'];
         const urlF = entry.fields && entry.fields['URL'];
         let expires = null;
+        // 1. Scadenza standard KeePass (entry.times.expires)
         if (entry.times && entry.times.expires) {
           const exp = entry.times.expires;
           const maxDate = new Date();
           maxDate.setFullYear(maxDate.getFullYear() + 100);
           if (exp instanceof Date && exp <= maxDate) {
             expires = exp;
+          }
+        }
+        // 2. Se non presente, cerca nei campi personalizzati (Scadenza, Scade, Data scadenza, Expiry, etc.)
+        if (!expires) {
+          const customFields = {};
+          if (entry.customFields) {
+            for (const [k, v] of Object.entries(entry.customFields)) {
+              customFields[k] = v instanceof ProtectedValue ? v.getText() : String(v || '');
+            }
+          }
+          if (entry.fields) {
+            for (const [k, v] of Object.entries(entry.fields)) {
+              if (['Title', 'UserName', 'Password', 'URL', 'Notes'].includes(k)) continue;
+              if (!customFields[k]) {
+                customFields[k] = v instanceof ProtectedValue ? v.getText() : String(v || '');
+              }
+            }
+          }
+          const scadenzaKeys = ['scadenza', 'scade', 'data scadenza', 'expiry', 'expires', 'data scadenza'];
+          for (const [key, val] of Object.entries(customFields)) {
+            if (!val || typeof val !== 'string') continue;
+            const keyLower = key.toLowerCase().trim();
+            if (scadenzaKeys.some(sk => keyLower.includes(sk))) {
+              const parsed = parseDateFromString(val.trim());
+              if (parsed) {
+                expires = parsed;
+                break;
+              }
+            }
           }
         }
         return {
