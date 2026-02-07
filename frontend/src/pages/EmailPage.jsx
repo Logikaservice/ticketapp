@@ -10,6 +10,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
   const [error, setError] = useState(null);
   const [items, setItems] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [companyName, setCompanyName] = useState('');
   const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId);
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
@@ -49,6 +50,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
       setItems([]);
       setError(null);
       setHasSearched(false);
+      setCompanyName('');
     }
   }, [selectedCompanyId, companies, loadingCompanies]);
 
@@ -88,6 +90,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
       const data = await response.json();
       setItems(data.items || []);
       setHasSearched(true);
+      setCompanyName(aziendaName);
     } catch (err) {
       setError(err.message || 'Errore nel caricamento');
       setHasSearched(true);
@@ -107,41 +110,55 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
           >
             <ArrowLeft size={24} className="text-gray-600" />
           </button>
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
-              <Mail size={24} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Email</h1>
-              <p className="text-sm text-gray-600">Domini e caselle da KeePass</p>
-            </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Email</h1>
+            <p className="text-sm text-gray-600">{companyName || 'Seleziona un\'azienda'}</p>
           </div>
+        </div>
+        <div className="flex items-center gap-4">
+          {!loadingCompanies && (
+            <select
+              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              value={selectedCompanyId || ''}
+              onChange={async (e) => {
+                const newCompanyId = e.target.value || null;
+                setSelectedCompanyId(newCompanyId);
+                setError(null);
+                setItems([]);
+                setCompanyName('');
+                if (newCompanyId) {
+                  const company = companies.find(c => String(c.id) === String(newCompanyId));
+                  if (company) {
+                    setCompanyName((company.azienda || '').split(':')[0].trim());
+                  }
+                }
+              }}
+            >
+              <option value="">Seleziona Azienda...</option>
+              {companies.map(c => (
+                <option key={c.id} value={String(c.id)}>{c.azienda || `ID ${c.id}`}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-4xl mx-auto">
-          <div className="mb-4 flex flex-wrap items-center gap-4">
-            <label className="text-sm font-medium text-gray-700">Azienda</label>
-            <select
-              value={selectedCompanyId || ''}
-              onChange={(e) => setSelectedCompanyId(e.target.value || null)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm min-w-[200px]"
-            >
-              <option value="">Seleziona azienda</option>
-              {companies.map(c => (
-                <option key={c.id} value={c.id}>{c.azienda || `ID ${c.id}`}</option>
-              ))}
-            </select>
-          </div>
+          {loadingCompanies && (
+            <div className="flex justify-center items-center py-12">
+              <Loader size={32} className="animate-spin text-blue-600 mr-3" />
+              <span className="text-gray-600">Caricamento aziende...</span>
+            </div>
+          )}
 
-          {error && (
+          {!loadingCompanies && error && (
             <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
               {error}
             </div>
           )}
 
-          {items.length > 0 && (
+          {!loadingCompanies && items.length > 0 && (
             <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
@@ -194,11 +211,27 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
             </div>
           )}
 
-          {!loading && items.length === 0 && !error && (
+          {!loadingCompanies && !selectedCompanyId && (
+            <div className="max-w-2xl mx-auto mt-8">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+                <div>
+                  <h3 className="font-semibold text-blue-800 mb-1">Seleziona un'azienda</h3>
+                  <p className="text-blue-700">Seleziona un'azienda dal menu in alto per visualizzare la cartella Email da KeePass.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!loadingCompanies && loading && selectedCompanyId && (
+            <div className="flex justify-center items-center py-12">
+              <Loader size={32} className="animate-spin text-blue-600 mr-3" />
+              <span className="text-gray-600">Caricamento Email da KeePass...</span>
+            </div>
+          )}
+
+          {!loadingCompanies && selectedCompanyId && !loading && items.length === 0 && !error && hasSearched && (
             <div className="bg-white rounded-lg shadow border border-gray-200 p-8 text-center text-gray-500">
-              {hasSearched
-                ? 'Nessuna voce nella cartella Email per questa azienda.'
-                : 'Seleziona un\'azienda e clicca "Carica Email" per vedere la cartella Email da KeePass.'}
+              Nessuna voce nella cartella Email per questa azienda.
             </div>
           )}
         </div>
