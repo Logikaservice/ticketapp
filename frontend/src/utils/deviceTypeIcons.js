@@ -5,7 +5,7 @@
 import React from 'react';
 import {
   Monitor, Server, Layers, HardDrive, Router, Shield, Network,
-  Wifi, Key, RadioTower, Printer, Smartphone, Tablet, Laptop, Camera, Tv, Watch,
+  Wifi, Key, RadioTower, Printer, Smartphone, Tablet, Laptop, Camera, Video, Tv, Watch,
   Phone, Database, Cloud, Globe, Circle, PhoneCall, Speaker
 } from 'lucide-react';
 
@@ -28,6 +28,7 @@ export const AVAILABLE_ICONS = [
   { type: 'laptop', icon: Laptop, label: 'Laptop' },
   { type: 'wearable', icon: Watch, label: 'Wearable' },
   { type: 'camera', icon: Camera, label: 'Camera / CCTV' },
+  { type: 'telecamera', icon: Video, label: 'Telecamera' },
   { type: 'speaker', icon: Speaker, label: 'Speaker / Audio' },
   { type: 'tv', icon: Tv, label: 'TV / Screen' },
   { type: 'phone', icon: Phone, label: 'Telefono VoIP' },
