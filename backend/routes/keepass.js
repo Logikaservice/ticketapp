@@ -1986,6 +1986,37 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
+  // GET /api/keepass/email/:aziendaName - Recupera struttura Email da Keepass (cartella Email, righe divisorie @)
+  router.get('/email/:aziendaName', authenticateToken, async (req, res) => {
+    try {
+      const userRole = req.user?.ruolo;
+      const adminCompanies = req.user?.admin_companies || [];
+      if (userRole !== 'tecnico' && userRole !== 'admin') {
+        if (userRole === 'cliente' && (!adminCompanies || adminCompanies.length === 0)) {
+          return res.status(403).json({ error: 'Accesso negato' });
+        }
+      }
+
+      let { aziendaName } = req.params;
+      try { aziendaName = decodeURIComponent(aziendaName); } catch (e) {}
+      aziendaName = aziendaName.split(':')[0].trim();
+
+      const keepassPassword = process.env.KEEPASS_PASSWORD;
+      if (!keepassPassword) {
+        return res.status(500).json({ error: 'Password Keepass non configurata' });
+      }
+      if (!aziendaName) {
+        return res.status(400).json({ error: 'Nome azienda richiesto' });
+      }
+
+      const structure = await keepassDriveService.getEmailStructureByAzienda(keepassPassword, aziendaName);
+      res.json({ items: structure });
+    } catch (err) {
+      console.error('❌ Errore recupero Email:', err);
+      res.status(500).json({ error: 'Errore durante il recupero dei dati Email' });
+    }
+  });
+
   return router;
 };
 

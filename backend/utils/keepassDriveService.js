@@ -455,6 +455,100 @@ class KeepassDriveService {
   }
 
   /**
+   * Recupera la struttura Email da Keepass per un'azienda.
+   * Cerca gestione > Azienda > Email (o EMail), poi per ogni sottocartella tipo @nomequalcosa
+   * aggiunge una riga divisoria (azzurra) e le entry sotto con Titolo, Username, URL.
+   * @param {string} password - Password del file Keepass
+   * @param {string} aziendaName - Nome azienda (es. "Conad Mercurio")
+   * @returns {Array} Array di { type: 'divider', name } o { type: 'entry', title, username, url }
+   */
+  async getEmailStructureByAzienda(password, aziendaName) {
+    try {
+      const fileData = await this.downloadKeepassFile(password);
+      const credentials = new Credentials(ProtectedValue.fromString(password));
+      const db = await Kdbx.load(fileData.buffer.buffer, credentials);
+
+      const result = [];
+
+      const findEmailGroup = (group, path = '') => {
+        const name = group.name || 'Root';
+        const currentPath = path ? `${path} > ${name}` : name;
+        const segments = currentPath.split('>').map(s => s.trim()).filter(Boolean);
+
+        if (aziendaName) {
+          const gestioneIdx = segments.findIndex(s => s.toLowerCase() === 'gestione');
+          if (gestioneIdx === -1) return null;
+          const aziendaIdx = gestioneIdx + 1;
+          if (aziendaIdx >= segments.length) {
+            // ancora sotto gestione, continua a cercare
+          } else {
+            const segAzienda = segments[aziendaIdx].trim().toLowerCase();
+            const aziendaNorm = aziendaName.trim().toLowerCase();
+            if (segAzienda !== aziendaNorm) return null;
+          }
+        }
+
+        if (name.toLowerCase() === 'email' || name.toLowerCase() === 'e-mail') {
+          return group;
+        }
+        if (group.groups) {
+          for (const sub of group.groups) {
+            const found = findEmailGroup(sub, currentPath);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      let emailGroup = null;
+      for (const root of db.groups || []) {
+        emailGroup = findEmailGroup(root);
+        if (emailGroup) break;
+      }
+
+      if (!emailGroup) {
+        return result;
+      }
+
+      const extractEntry = (entry) => {
+        const titleF = entry.fields && entry.fields['Title'];
+        const userF = entry.fields && entry.fields['UserName'];
+        const urlF = entry.fields && entry.fields['URL'];
+        return {
+          type: 'entry',
+          title: titleF ? (titleF instanceof ProtectedValue ? titleF.getText() : String(titleF)) : '',
+          username: userF ? (userF instanceof ProtectedValue ? userF.getText() : String(userF)) : '',
+          url: urlF ? (urlF instanceof ProtectedValue ? urlF.getText() : String(urlF)) : ''
+        };
+      };
+
+      // Prima: sottogruppi (tipo @nomequalcosa) come divisori + entry sotto
+      if (emailGroup.groups) {
+        for (const sub of emailGroup.groups) {
+          const subName = sub.name || '';
+          result.push({ type: 'divider', name: subName });
+          if (sub.entries) {
+            for (const entry of sub.entries) {
+              result.push(extractEntry(entry));
+            }
+          }
+        }
+      }
+      // Poi: entry dirette nel gruppo Email
+      if (emailGroup.entries) {
+        for (const entry of emailGroup.entries) {
+          result.push(extractEntry(entry));
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('❌ Errore getEmailStructureByAzienda:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Cerca la voce "Office" come radice e poi "Login" con i campi personalizzati
    * @param {string} password - Password del file Keepass
    * @param {string} aziendaName - Nome azienda per filtrare (es. "Theorica")
