@@ -5,8 +5,8 @@
 import React from 'react';
 import {
   Monitor, Server, Layers, HardDrive, Router, Shield, Network,
-  Wifi, Key, RadioTower, Printer, Smartphone, Tablet, Laptop, Camera, Video, Tv, Watch,
-  Phone, Database, Cloud, Globe, Circle, PhoneCall, Speaker
+  Wifi, Key, RadioTower, Printer, Smartphone, Tablet, Laptop, Video, Tv,
+  Phone, Database, Cloud, Globe, Circle, PhoneCall
 } from 'lucide-react';
 
 export const AVAILABLE_ICONS = [
@@ -26,10 +26,7 @@ export const AVAILABLE_ICONS = [
   { type: 'smartphone', icon: Smartphone, label: 'Smartphone' },
   { type: 'tablet', icon: Tablet, label: 'Tablet' },
   { type: 'laptop', icon: Laptop, label: 'Laptop' },
-  { type: 'wearable', icon: Watch, label: 'Wearable' },
-  { type: 'camera', icon: Camera, label: 'Camera / CCTV' },
   { type: 'telecamera', icon: Video, label: 'Telecamera' },
-  { type: 'speaker', icon: Speaker, label: 'Speaker / Audio' },
   { type: 'tv', icon: Tv, label: 'TV / Screen' },
   { type: 'phone', icon: Phone, label: 'Telefono VoIP' },
   { type: 'pbx', icon: PhoneCall, label: 'Centralino VoIP / PBX' },
@@ -38,8 +35,7 @@ export const AVAILABLE_ICONS = [
   { type: 'database', icon: Database, label: 'Database' },
   { type: 'cloud', icon: Cloud, label: 'Cloud' },
   { type: 'internet', icon: Globe, label: 'Internet' },
-  { type: 'generic', icon: Circle, label: 'Generico / Altro' },
-  { type: 'workstation', icon: Monitor, label: 'Workstation' }
+  { type: 'generic', icon: Circle, label: 'Generico / Altro' }
 ];
 
 /**
@@ -51,6 +47,8 @@ export const AVAILABLE_ICONS = [
 export function getDeviceIcon(deviceType, size = 18, className = 'text-gray-600') {
   let t = (deviceType || '').toLowerCase().trim();
   if (t === 'virtualization') t = 'virtual'; // unificato: stessa icona
+  if (t === 'camera') t = 'telecamera'; // tipo rimosso, stessa icona
+  if (t === 'wearable' || t === 'speaker' || t === 'workstation') t = 'pc'; // tipi rimossi -> fallback pc
   const def = AVAILABLE_ICONS.find(i => i.type === t) || AVAILABLE_ICONS.find(i => i.type === 'pc');
   const Icon = def ? def.icon : Monitor;
   if (t === 'generic' || t === '') {
