@@ -2633,16 +2633,16 @@ module.exports = (pool, io) => {
   });
 
   // GET /api/network-monitoring/all-clients
-  // Ottieni TUTTE le aziende (non filtrate per agent) - per Office e Antivirus
+  // Ottieni TUTTE le aziende (non filtrate per agent) - per Office e Antivirus, una sola riga per azienda (nome normalizzato con TRIM)
   router.get('/all-clients', authenticateToken, async (req, res) => {
     try {
       await ensureTables();
 
       const userRole = req.user?.ruolo;
       let query = `
-        SELECT DISTINCT u.id, u.azienda 
+        SELECT MIN(u.id) AS id, TRIM(u.azienda) AS azienda
         FROM users u
-        WHERE u.ruolo = 'cliente' AND u.azienda IS NOT NULL AND u.azienda != ''
+        WHERE u.ruolo = 'cliente' AND u.azienda IS NOT NULL AND TRIM(u.azienda) != ''
       `;
 
       // Se è admin aziendale, mostra solo le sue aziende
@@ -2667,10 +2667,10 @@ module.exports = (pool, io) => {
         }
 
         const adminCompanies = accessibleCompanies.map(c => `'${c.replace(/'/g, "''")}'`).join(',');
-        query += ` AND u.azienda IN (${adminCompanies})`;
+        query += ` AND TRIM(u.azienda) IN (${adminCompanies})`;
       }
 
-      query += ` ORDER BY u.azienda`;
+      query += ` GROUP BY TRIM(u.azienda) ORDER BY azienda`;
 
       const result = await pool.query(query);
 

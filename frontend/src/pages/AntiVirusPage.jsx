@@ -42,7 +42,14 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                 const res = await fetch(buildApiUrl('/api/network-monitoring/all-clients'), { headers: getAuthHeader() });
                 if (res.ok) {
                     const data = await res.json();
-                    setCompanies(data);
+                    const seen = new Set();
+                    const unique = (data || []).filter(c => {
+                        const name = (c.azienda || c.nome + ' ' + c.cognome || '').trim();
+                        if (!name || seen.has(name)) return false;
+                        seen.add(name);
+                        return true;
+                    });
+                    setCompanies(unique);
                 }
             } catch (e) {
                 console.error('Error fetching companies:', e);

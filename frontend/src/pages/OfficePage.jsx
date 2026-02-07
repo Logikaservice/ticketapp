@@ -24,8 +24,15 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
         });
         if (response.ok) {
           const data = await response.json();
-          setCompanies(data);
-          // Non selezionare automaticamente nessuna azienda - l'utente deve selezionarla manualmente
+          // Deduplica per nome azienda (mantieni primo id per ogni nome)
+          const seen = new Set();
+          const unique = (data || []).filter(c => {
+            const name = (c.azienda || '').trim();
+            if (!name || seen.has(name)) return false;
+            seen.add(name);
+            return true;
+          });
+          setCompanies(unique);
         } else {
           console.error("Errore fetch aziende:", response.status);
           setError('Errore nel caricamento delle aziende');
