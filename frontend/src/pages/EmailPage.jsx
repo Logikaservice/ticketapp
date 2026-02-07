@@ -42,6 +42,16 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
     fetchCompanies();
   }, [getAuthHeader]);
 
+  useEffect(() => {
+    if (selectedCompanyId && companies.length > 0 && !loadingCompanies) {
+      loadEmailData();
+    } else if (!selectedCompanyId) {
+      setItems([]);
+      setError(null);
+      setHasSearched(false);
+    }
+  }, [selectedCompanyId, companies, loadingCompanies]);
+
   const loadEmailData = async () => {
     if (!selectedCompanyId || !getAuthHeader) {
       setError('Seleziona un\'azienda');
@@ -123,13 +133,6 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                 <option key={c.id} value={c.id}>{c.azienda || `ID ${c.id}`}</option>
               ))}
             </select>
-            <button
-              onClick={loadEmailData}
-              disabled={!selectedCompanyId || loading}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Caricamento…' : 'Carica Email'}
-            </button>
           </div>
 
           {error && (
