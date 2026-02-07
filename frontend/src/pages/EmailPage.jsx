@@ -149,6 +149,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">Titolo</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">Nome Utente</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">URL</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Scadenza</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -156,14 +157,23 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                     if (item.type === 'divider') {
                       return (
                         <tr key={`div-${idx}`} className="bg-sky-100 border-y border-sky-200">
-                          <td colSpan={3} className="py-2 px-4 font-medium text-sky-800">
+                          <td colSpan={4} className="py-2 px-4 font-medium text-sky-800">
                             {item.name || '—'}
                           </td>
                         </tr>
                       );
                     }
+                    const expiresDate = item.expires ? new Date(item.expires) : null;
+                    const isExpired = expiresDate && expiresDate < new Date();
+                    const formatScadenza = (d) => {
+                      if (!d || !(d instanceof Date) || isNaN(d.getTime())) return '—';
+                      return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    };
                     return (
-                      <tr key={`ent-${idx}`} className="border-b border-gray-100 hover:bg-gray-50">
+                      <tr
+                        key={`ent-${idx}`}
+                        className={`border-b border-gray-100 ${isExpired ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
+                      >
                         <td className="py-2 px-4 text-gray-900">{item.title || '—'}</td>
                         <td className="py-2 px-4 text-gray-600 font-mono">{item.username || '—'}</td>
                         <td className="py-2 px-4 text-gray-600 truncate max-w-[280px]" title={item.url || ''}>
@@ -172,6 +182,9 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                               {item.url}
                             </a>
                           ) : '—'}
+                        </td>
+                        <td className={`py-2 px-4 whitespace-nowrap ${isExpired ? 'text-red-700 font-medium' : 'text-gray-600'}`}>
+                          {formatScadenza(expiresDate)}
                         </td>
                       </tr>
                     );

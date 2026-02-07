@@ -514,11 +514,21 @@ class KeepassDriveService {
         const titleF = entry.fields && entry.fields['Title'];
         const userF = entry.fields && entry.fields['UserName'];
         const urlF = entry.fields && entry.fields['URL'];
+        let expires = null;
+        if (entry.times && entry.times.expires) {
+          const exp = entry.times.expires;
+          const maxDate = new Date();
+          maxDate.setFullYear(maxDate.getFullYear() + 100);
+          if (exp instanceof Date && exp <= maxDate) {
+            expires = exp;
+          }
+        }
         return {
           type: 'entry',
           title: titleF ? (titleF instanceof ProtectedValue ? titleF.getText() : String(titleF)) : '',
           username: userF ? (userF instanceof ProtectedValue ? userF.getText() : String(userF)) : '',
-          url: urlF ? (urlF instanceof ProtectedValue ? urlF.getText() : String(urlF)) : ''
+          url: urlF ? (urlF instanceof ProtectedValue ? urlF.getText() : String(urlF)) : '',
+          expires: expires
         };
       };
 
