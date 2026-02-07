@@ -7,7 +7,7 @@ import {
     Layers, HardDrive, Shield, RadioTower, Speaker, Circle, Lock, Unlock, Key, CheckCircle, AlertTriangle, ChevronDown, ChevronUp, PhoneCall
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
-import { AVAILABLE_ICONS } from '../utils/deviceTypeIcons';
+import { AVAILABLE_ICONS, getDeviceIcon } from '../utils/deviceTypeIcons';
 import * as d3 from 'd3-force';
 
 const style = document.createElement('style');
@@ -1868,6 +1868,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                             <div className={`w-2 h-2 rounded-full shrink-0 ${d.status === 'online' ? 'bg-green-500' : d.status === 'offline' ? 'bg-red-500' : 'bg-gray-400'}`} title={d.status || 'unknown'}></div>
                                                         );
                                                     })()}
+                                                    {/* Icona tipo dispositivo (solo visualizzazione, non cliccabile) */}
+                                                    <span className="shrink-0 flex items-center" title={d.device_type || 'tipo'}>{getDeviceIcon(d.device_type, 14, 'text-gray-500')}</span>
                                                     <span className="truncate flex-1">{d.ip_address}</span>
                                                 </div>
                                                 {/* MAC address sotto l'IP, in piccolo */}
