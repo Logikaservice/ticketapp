@@ -1,10 +1,10 @@
 // src/components/Header.jsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table, Wifi, Server as ServerIcon, MapPin, Shield, AlertTriangle, AlertCircle, ChevronRight, Building2 } from 'lucide-react';
+import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table, Wifi, Server as ServerIcon, MapPin, Shield, AlertTriangle, AlertCircle, ChevronRight, Building2, Mail } from 'lucide-react';
 import AgentNotifications from './AgentNotifications';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, openNetworkMonitoring, openNetworkMonitoringAgents, openNetworkMonitoringCreateAgent, openNetworkMonitoringDeviceTypes, openNetworkMonitoringNotifications, openNetworkMonitoringTelegram, openMappatura, openOffice, openAntiVirus, isOrariDomain = false, getAuthHeader = null, socket = null }) => {
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, openNetworkMonitoring, openNetworkMonitoringAgents, openNetworkMonitoringCreateAgent, openNetworkMonitoringDeviceTypes, openNetworkMonitoringNotifications, openNetworkMonitoringTelegram, openMappatura, openOffice, openAntiVirus, openEmail, isOrariDomain = false, getAuthHeader = null, socket = null }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [expandedAction, setExpandedAction] = useState(null);
@@ -52,6 +52,12 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       } else if (action === 'antivirus') {
         if (openAntiVirus) {
           openAntiVirus();
+          setShowQuickActions(false);
+          setExpandedAction(null);
+        }
+      } else if (action === 'email') {
+        if (openEmail) {
+          openEmail();
           setShowQuickActions(false);
           setExpandedAction(null);
         }
@@ -160,6 +166,14 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       color: 'slate',
       visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && openOffice,
       onClick: () => { if (openOffice) { openOffice(); setShowQuickActions(false); setExpandedAction(null); } }
+    },
+    {
+      id: 'email',
+      label: 'Email',
+      icon: Mail,
+      color: 'blue',
+      visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && openEmail,
+      onClick: () => handleQuickActionClick('email')
     },
     {
       id: 'networkMonitoring',

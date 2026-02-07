@@ -36,6 +36,7 @@ import MappaturaPage from './pages/MappaturaPage';
 import AntiVirusPage from './pages/AntiVirusPage';
 import PingTerminalPage from './pages/PingTerminalPage';
 import OfficePage from './pages/OfficePage';
+import EmailPage from './pages/EmailPage';
 import { buildApiUrl } from './utils/apiConfig';
 
 const INITIAL_NEW_CLIENT_DATA = {
@@ -156,6 +157,7 @@ export default function TicketApp() {
   const [showNetworkMap, setShowNetworkMap] = useState(false);
   const [showMappatura, setShowMappatura] = useState(false);
   const [showAntiVirus, setShowAntiVirus] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
   const [showOffice, setShowOffice] = useState(false);
   const [networkMonitoringInitialView, setNetworkMonitoringInitialView] = useState(null); // 'agents' o 'create'
   const [selectedCompanyForNavigation, setSelectedCompanyForNavigation] = useState(null); // Azienda selezionata per navigazione tra monitoraggio e mappatura
@@ -252,6 +254,7 @@ export default function TicketApp() {
     setShowNetworkMonitoring(false);
     setShowMappatura(false);
     setShowAntiVirus(false);
+    setShowEmail(false);
   };
 
   const handleOpenAntiVirus = () => {
@@ -263,7 +266,21 @@ export default function TicketApp() {
     setShowOrariTurni(false);
     setShowVivaldi(false);
     setShowPackVision(false);
+    setShowEmail(false);
   };
+
+  const handleOpenEmail = () => {
+    setShowEmail(true);
+    setShowDashboard(false);
+    setShowNetworkMonitoring(false);
+    setShowMappatura(false);
+    setShowOrariTurni(false);
+    setShowVivaldi(false);
+    setShowAntiVirus(false);
+    setShowOffice(false);
+    setShowPackVision(false);
+  };
+
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
   const [dashboardHighlights, setDashboardHighlights] = useState({});
   const [prevTicketStates, setPrevTicketStates] = useState({});
@@ -2969,19 +2986,20 @@ export default function TicketApp() {
               openOrariTurni: () => { setShowOrariTurni(true); setShowDashboard(false); setShowVivaldi(false); setShowNetworkMonitoring(false); },
               openVivaldi: () => { setShowVivaldi(true); setShowDashboard(false); setShowOrariTurni(false); setShowNetworkMonitoring(false); },
               openPackVision: () => setShowPackVision(true),
-              openNetworkMonitoring: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView(null); },
-              openNetworkMonitoringAgents: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('agents'); },
-              openNetworkMonitoringCreateAgent: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('create'); },
-              openNetworkMonitoringDeviceTypes: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('deviceTypes'); },
-              openNetworkMonitoringNotifications: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('notifications'); },
-              openNetworkMonitoringTelegram: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('telegram'); },
-              openMappatura: () => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowOffice(false); },
+              openNetworkMonitoring: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView(null); },
+              openNetworkMonitoringAgents: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('agents'); },
+              openNetworkMonitoringCreateAgent: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('create'); },
+              openNetworkMonitoringDeviceTypes: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('deviceTypes'); },
+              openNetworkMonitoringNotifications: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('notifications'); },
+              openNetworkMonitoringTelegram: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('telegram'); },
+              openMappatura: () => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowOffice(false); setShowEmail(false); },
               openOffice: handleOpenOffice,
               openAntiVirus: handleOpenAntiVirus,
+              openEmail: handleOpenEmail,
             }}
-            openNetworkMonitoringNotifications={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('notifications'); }}
-            openNetworkMonitoringTelegram={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setNetworkMonitoringInitialView('telegram'); }}
-            openMappatura={() => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); }}
+            openNetworkMonitoringNotifications={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('notifications'); }}
+            openNetworkMonitoringTelegram={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('telegram'); }}
+            openMappatura={() => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); }}
             openCreateContract={() => setShowContractModal(true)}
             openContractsList={() => setShowContractsListModal(true)}
             isOrariDomain={isOrariDomain}
@@ -3008,10 +3026,10 @@ export default function TicketApp() {
           </div>
         )}
 
-        {!showDashboard && !showOrariTurni && !showVivaldi && !showPackVision && !showNetworkMonitoring && !showNetworkMap && !showMappatura && !showAntiVirus && (
+        {!showDashboard && !showOrariTurni && !showVivaldi && !showPackVision && !showNetworkMonitoring && !showNetworkMap && !showMappatura && !showAntiVirus && !showEmail && (
           <div
             className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200"
-            onClick={() => { setShowDashboard(true); setShowNetworkMap(false); setShowMappatura(false); setShowAntiVirus(false); }}
+            onClick={() => { setShowDashboard(true); setShowNetworkMap(false); setShowMappatura(false); setShowAntiVirus(false); setShowEmail(false); }}
           >
             Torna alla Dashboard
           </div>
@@ -3111,6 +3129,12 @@ export default function TicketApp() {
           <AntiVirusPage
             onClose={() => { setShowAntiVirus(false); setShowDashboard(true); }}
             getAuthHeader={getAuthHeader}
+          />
+        )}
+
+        {showEmail && (
+          <EmailPage
+            onClose={() => { setShowEmail(false); setShowDashboard(true); }}
           />
         )}
 
