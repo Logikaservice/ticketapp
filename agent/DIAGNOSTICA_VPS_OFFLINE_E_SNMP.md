@@ -161,3 +161,65 @@ Se sui PC girava una versione di `NetworkMonitorService.ps1` **corrotta** (~124k
 - `agent/NetworkMonitorService.ps1`: `Send-Heartbeat`, `Send-ScanResults`, `Sync-ManagedSwitchesSnmp`
 - `backend/routes/networkMonitoring.js`: `authenticateAgent`, `POST /agent/heartbeat`, `POST /agent/scan-results`, `GET /agent/managed-switches`, `POST /agent/switch-address-table`
 - `agent/config.example.json`: `server_url`, `api_key`
+
+---
+
+## 7. Agent che si disconnette ogni giorno (servizio che termina)
+
+Se il PC è un **server** (niente sospensione, niente riavvii automatici) e l’agent va offline in modo ricorrente, la causa probabile è che il **processo PowerShell dell’agent termina** (crash, eccezione non gestita, o uscita). NSSM riavvia il processo dopo 60 secondi (`AppRestartDelay`), ma il server considera offline chi non invia heartbeat da 8+ minuti, quindi potresti dover riavviare manualmente o aspettare il riavvio NSSM.
+
+### 7.1 Verificare che sia il processo a terminare
+
+1. **Log agent**  
+   Apri `C:\ProgramData\NetworkMonitorAgent\NetworkMonitorService.log` (o la cartella di installazione) e cerca l’**ora dell’ultimo** “Heartbeat completato” prima della disconnessione. Se i log si interrompono bruscamente (nessun “Errore nel loop principale” subito dopo), il processo è probabilmente terminato senza uscire dal catch (es. crash .NET/PowerShell).
+
+2. **Log stderr NSSM**  
+   Controlla `NetworkMonitorService_stderr.log` nella stessa cartella: eventuali errori fatali o stack trace prima dell’offline.
+
+3. **Event Viewer (Windows)**  
+   - **Visualizzatore eventi** → Registri applicazioni di Windows → **Applicazione**  
+   Cerca eventi con origine **PowerShell** o **.NET Runtime** o il nome del servizio, in corrispondenza dell’ora in cui l’agent risulta offline.  
+   - **Registro di sistema** → eventi del **Service Control Manager** per “NetworkMonitorService”: arresto/avvio del servizio o del processo.
+
+4. **Ora ricorrente**  
+   Se l’offline avviene sempre alla stessa ora (es. di notte), può esserci un task pianificato, un aggiornamento o un altro processo che termina l’agent.
+
+### 7.2 Cosa fare
+
+- **Ripristino del servizio Windows**  
+  `services.msc` → **NetworkMonitorService** → Proprietà → scheda **Ripristino**:  
+  - Primo tentativo: **Riavvia il servizio**  
+  - Secondo tentativo: **Riavvia il servizio**  
+  - Tentativi successivi: **Riavvia il servizio**  
+  - “Reinizia il servizio dopo”: **1** minuto  
+  Così, se il servizio (NSSM) si arresta, Windows lo riavvia. Il riavvio del **processo** figlio è già gestito da NSSM (`AppExit Default Restart`).
+
+- **Watchdog (consigliato)**  
+  Usa lo script **Watchdog-Servizio.ps1** (vedi sotto) con una **attività pianificata** ogni 5 minuti: se il servizio è fermo, lo riavvia. Così anche in casi anomali (NSSM che non riavvia, servizio fermato per errore) l’agent torna online senza intervento manuale.
+
+- **Ridurre il ritardo di riavvio NSSM**  
+  Di default NSSM riavvia il processo dopo 60 secondi. Puoi ridurlo a 30 secondi eseguendo (come Amministratore) lo script **Riduci-Ritardo-Riavvio.ps1** dalla cartella dell’agent, oppure a mano:
+  ```powershell
+  & "C:\ProgramData\NetworkMonitorAgent\nssm.exe" set NetworkMonitorService AppRestartDelay 30000
+  ```
+  Non serve riavviare il servizio: la modifica vale al prossimo riavvio del processo. L’agent tornerà online prima dopo un eventuale crash.
+
+- **Aggiornamento automatico**  
+  Se l’agent fa auto-update e subito dopo va offline, controlla che il nuovo `NetworkMonitorService.ps1` scaricato non sia corrotto (dimensioni file, assenza errori in stderr dopo l’update). In caso di update fallito, NSSM riavvia il vecchio script; se il nuovo file è rotto, potresti avere loop di crash/restart.
+
+### 7.3 Script Watchdog (riavvia servizio se fermo)
+
+Lo script `agent/Watchdog-Servizio.ps1` controlla se il **servizio Windows** `NetworkMonitorService` è in esecuzione; se è **Stopped**, lo avvia e registra l’evento in `Watchdog-Servizio.log`.  
+Utile se in rari casi il servizio (NSSM) va in Stopped; quando è solo il **processo** PowerShell a terminare, è NSSM che lo riavvia dopo 60 s (vedi riduzione ritardo sotto).
+
+**Creare l’attività pianificata** (eseguire PowerShell **come Amministratore**):
+
+```powershell
+$scriptPath = "C:\ProgramData\NetworkMonitorAgent\Watchdog-Servizio.ps1"
+if (-not (Test-Path $scriptPath)) { $scriptPath = "C:\NetworkMonitorAgent\Watchdog-Servizio.ps1" }
+$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$scriptPath`""
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration ([TimeSpan]::MaxValue)
+Register-ScheduledTask -TaskName "NetworkMonitorAgentWatchdog" -Action $action -Trigger $trigger -RunLevel Highest -Description "Riavvia NetworkMonitorService se fermo"
+```
+
+Oppure da **Utilità di pianificazione**: programma `powershell.exe`, argomenti come sopra, trigger ogni 5 minuti, “Esegui con privilegi più alti”, “Esegui anche quando l’utente non ha effettuato l’accesso”.

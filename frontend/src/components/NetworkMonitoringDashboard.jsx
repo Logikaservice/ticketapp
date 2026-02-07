@@ -1068,6 +1068,19 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     });
   };
 
+  // Titolo da mostrare in tabella: accorciato per switch virtuali per evitare overflow e barra di scroll orizzontale
+  const MAX_TITLE_LENGTH_VIRTUAL = 18;
+  const getDisplayTitle = (device) => {
+    const title = device.hostname || '-';
+    if (!title || title === '-') return title;
+    const isVirtual = (device.device_type || '').toLowerCase() === 'virtual' ||
+      (device.device_type || '').toLowerCase() === 'virtualization' ||
+      (device.ip_address && String(device.ip_address).toLowerCase().startsWith('virtual-'));
+    if (!isVirtual) return title;
+    if (title.length <= MAX_TITLE_LENGTH_VIRTUAL) return title;
+    return title.slice(0, MAX_TITLE_LENGTH_VIRTUAL) + '…';
+  };
+
   // Gestisce il click sull'IP per mostrare il menu contestuale
   const handleIpClick = (e, ip) => {
     e.preventDefault();
@@ -1880,11 +1893,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 min-w-[5rem]" title="Tipo / Online-Offline"></th>
                         <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">IP</th>
                         <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">MAC</th>
-                        <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Titolo</th>
-                        <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Utente</th>
-                        <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Percorso</th>
+                        <th className="text-left py-2 px-3 text-sm font-semibold text-gray-700 max-w-[11rem] truncate" title="Titolo (switch virtuali accorciati)">Titolo</th>
+                        <th className="text-left py-2 px-3 text-sm font-semibold text-gray-700 whitespace-nowrap">Utente</th>
+                        <th className="text-left py-2 px-3 text-sm font-semibold text-gray-700 whitespace-nowrap">Percorso</th>
                         <th className="text-center py-2 px-2 text-sm font-semibold text-gray-700 w-10 whitespace-nowrap" title="Aggiornamento firmware disponibile (UniFi)">FW</th>
-                        <th className="text-left py-2 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Scan</th>
+                        <th className="text-left py-2 px-3 text-sm font-semibold text-gray-700 whitespace-nowrap min-w-[5.5rem]">Scan</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2177,9 +2190,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 </span>
                               </div>
                             </td>
-                            <td className="py-1 px-4 text-sm text-gray-600 whitespace-nowrap">{device.hostname || '-'}</td>
-                            <td className="py-1 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_username || '-'}</td>
-                            <td className="py-1 px-4 text-sm text-gray-600 whitespace-nowrap">{device.device_path || '-'}</td>
+                            <td className="py-1 px-3 text-sm text-gray-600 max-w-[11rem] truncate" title={device.hostname || '-'}>
+                              {getDisplayTitle(device)}
+                            </td>
+                            <td className="py-1 px-3 text-sm text-gray-600 whitespace-nowrap">{device.device_username || '-'}</td>
+                            <td className="py-1 px-3 text-sm text-gray-600 whitespace-nowrap max-w-[8rem] truncate" title={device.device_path || '-'}>{device.device_path || '-'}</td>
                             <td className="py-1 px-2 text-center whitespace-nowrap">
                               {device.upgrade_available && (
                                 <div className="flex justify-center" title="Aggiornamento Firmware Disponibile">
@@ -2187,7 +2202,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 </div>
                               )}
                             </td>
-                            <td className="py-1 px-4 text-sm text-gray-500 whitespace-nowrap">{formatDate(device.last_seen)}</td>
+                            <td className="py-1 px-3 text-sm text-gray-500 whitespace-nowrap min-w-[5.5rem]">{formatDate(device.last_seen)}</td>
                           </tr>
                         );
                       })}

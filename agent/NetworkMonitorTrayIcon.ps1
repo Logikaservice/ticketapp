@@ -526,10 +526,18 @@ function Update-Countdown {
             }
             
             $intervalMinutes = if ($status.scan_interval_minutes) { [int]$status.scan_interval_minutes } else { 15 }
-            $nextScanTime = $lastScanTime.AddMinutes($intervalMinutes)
             $now = Get-Date
+            # Se last_scan e' nel futuro (fuso orario, parsing solo ora, file vecchio da altro PC), correggi: considera "ultima scansione = ora"
+            if ($lastScanTime -gt $now) {
+                $lastScanTime = $now
+            }
+            $nextScanTime = $lastScanTime.AddMinutes($intervalMinutes)
             $timeRemaining = $nextScanTime - $now
-            
+            # Se il countdown supera l'intervallo (es. 51 min con intervallo 2 min), last_scan era sbagliato: mostra al max intervallo
+            $maxRemainingSeconds = $intervalMinutes * 60
+            if ($timeRemaining.TotalSeconds -gt $maxRemainingSeconds) {
+                $timeRemaining = [TimeSpan]::FromSeconds($maxRemainingSeconds)
+            }
             if ($timeRemaining.TotalSeconds -gt 0) {
                 $minutes = [Math]::Floor($timeRemaining.TotalMinutes)
                 $seconds = [Math]::Floor($timeRemaining.TotalSeconds % 60)

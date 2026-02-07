@@ -6724,14 +6724,15 @@ pause
   // scaricano da /download/agent/NetworkMonitorService.ps1 e si riavviano (auto-update).
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.6.14'; // Versione corrente agent
+      const CURRENT_AGENT_VERSION = '2.6.15'; // Versione corrente agent
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
         version: CURRENT_AGENT_VERSION,
         download_url: `${baseUrl}/agent-updates/NetworkMonitorService.ps1`,
-        release_date: '2026-02-02',
+        release_date: '2026-02-07',
         features: [
+          'Tray - Fix countdown Prossima scansione (max intervallo, last_scan nel futuro)',
           'Parallelismo scansione WiFi (router multipli simultanei)',
           'Carica AP associati - Cloud Key/Controller Unifi (credenziali da KeePass, API stat/device, fix SSL, log avanzati)',
           'Router WiFi - Carica dispositivi da router AGCOMBO/TIM e sync automatica sulla mappa',
