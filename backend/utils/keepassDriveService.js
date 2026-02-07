@@ -510,78 +510,21 @@ class KeepassDriveService {
         return result;
       }
 
-      const parseDateFromString = (str) => {
-        if (!str || typeof str !== 'string') return null;
-        const s = str.trim();
-        if (!s) return null;
-        const iso = /^\d{4}-\d{2}-\d{2}(T[\d:.-]+Z?)?$/;
-        if (iso.test(s)) {
-          const d = new Date(s);
-          return isNaN(d.getTime()) ? null : d;
-        }
-        const it1 = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/;
-        const m1 = s.match(it1);
-        if (m1) {
-          const d = new Date(parseInt(m1[3], 10), parseInt(m1[2], 10) - 1, parseInt(m1[1], 10));
-          return isNaN(d.getTime()) ? null : d;
-        }
-        const it2 = /^(\d{4})[\/\-](\d{2})[\/\-](\d{2})$/;
-        const m2 = s.match(it2);
-        if (m2) {
-          const d = new Date(parseInt(m2[1], 10), parseInt(m2[2], 10) - 1, parseInt(m2[3], 10));
-          return isNaN(d.getTime()) ? null : d;
-        }
-        const d = new Date(s);
-        return isNaN(d.getTime()) ? null : d;
-      };
-
-      const extractEntry = (entry) => {
+      const extractEntry = (entry, divider = '') => {
         const titleF = entry.fields && entry.fields['Title'];
         const userF = entry.fields && entry.fields['UserName'];
         const urlF = entry.fields && entry.fields['URL'];
-        let expires = null;
-        // 1. Scadenza standard KeePass (entry.times.expires)
-        if (entry.times && entry.times.expires) {
-          const exp = entry.times.expires;
-          const maxDate = new Date();
-          maxDate.setFullYear(maxDate.getFullYear() + 100);
-          if (exp instanceof Date && exp <= maxDate) {
-            expires = exp;
-          }
-        }
-        // 2. Se non presente, cerca nel campo personalizzato "Expiry Date"
-        if (!expires) {
-          const customFields = {};
-          if (entry.customFields) {
-            for (const [k, v] of Object.entries(entry.customFields)) {
-              customFields[k] = v instanceof ProtectedValue ? v.getText() : String(v || '');
-            }
-          }
-          if (entry.fields) {
-            for (const [k, v] of Object.entries(entry.fields)) {
-              if (['Title', 'UserName', 'Password', 'URL', 'Notes'].includes(k)) continue;
-              if (!customFields[k]) {
-                customFields[k] = v instanceof ProtectedValue ? v.getText() : String(v || '');
-              }
-            }
-          }
-          for (const [key, val] of Object.entries(customFields)) {
-            if (!val || typeof val !== 'string') continue;
-            if (key.trim().toLowerCase() === 'expiry date') {
-              const parsed = parseDateFromString(val.trim());
-              if (parsed) {
-                expires = parsed;
-              }
-              break;
-            }
-          }
-        }
+        const title = titleF ? (titleF instanceof ProtectedValue ? titleF.getText() : String(titleF)) : '';
+        const username = userF ? (userF instanceof ProtectedValue ? userF.getText() : String(userF)) : '';
+        const url = urlF ? (urlF instanceof ProtectedValue ? urlF.getText() : String(urlF)) : '';
+        // Scadenza gestita da noi nel DB, non da KeePass
         return {
           type: 'entry',
-          title: titleF ? (titleF instanceof ProtectedValue ? titleF.getText() : String(titleF)) : '',
-          username: userF ? (userF instanceof ProtectedValue ? userF.getText() : String(userF)) : '',
-          url: urlF ? (urlF instanceof ProtectedValue ? urlF.getText() : String(urlF)) : '',
-          expires: expires
+          title,
+          username,
+          url,
+          divider: divider || '',
+          expires: null
         };
       };
 
@@ -592,7 +535,7 @@ class KeepassDriveService {
           result.push({ type: 'divider', name: subName });
           if (sub.entries) {
             for (const entry of sub.entries) {
-              result.push(extractEntry(entry));
+              result.push(extractEntry(entry, subName));
             }
           }
         }
@@ -600,7 +543,7 @@ class KeepassDriveService {
       // Poi: entry dirette nel gruppo Email
       if (emailGroup.entries) {
         for (const entry of emailGroup.entries) {
-          result.push(extractEntry(entry));
+          result.push(extractEntry(entry, ''));
         }
       }
 
@@ -742,19 +685,16 @@ class KeepassDriveService {
           }
         }
 
-        // Estrai la scadenza se presente e attiva
+        // Estrai la scadenza: entry.times.expiryTime è la data, entry.times.expires è il bool checkbox
         let expires = null;
-        if (entry.times && entry.times.expires) {
-          const expiresDate = entry.times.expires;
-          // Verifica che la scadenza sia effettivamente impostata (non è un valore di default)
-          // In Keepass, se la scadenza non è impostata, potrebbe essere una data molto lontana nel futuro
-          // Controlliamo se è una data valida e non troppo lontana (es. oltre 100 anni)
+        if (entry.times && entry.times.expiryTime && entry.times.expires) {
+          const expiresDate = entry.times.expiryTime;
+          const d = expiresDate instanceof Date ? expiresDate : new Date(expiresDate);
           const maxDate = new Date();
           maxDate.setFullYear(maxDate.getFullYear() + 100);
-          
-          if (expiresDate instanceof Date && expiresDate <= maxDate) {
-            expires = expiresDate;
-            console.log(`    📅 Scadenza trovata e attiva: ${expiresDate.toISOString()}`);
+          if (!isNaN(d.getTime()) && d <= maxDate) {
+            expires = d;
+            console.log(`    📅 Scadenza trovata e attiva: ${d.toISOString()}`);
           } else {
             console.log(`    ⚠️ Scadenza trovata ma non valida o troppo lontana: ${expiresDate}`);
           }

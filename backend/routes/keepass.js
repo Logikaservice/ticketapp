@@ -1986,6 +1986,23 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
+  // Migrazione tabella email_expiry_info (scadenza editabile come Anti-Virus)
+  const ensureEmailExpiryTable = async () => {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS email_expiry_info (
+        id SERIAL PRIMARY KEY,
+        azienda_name VARCHAR(255) NOT NULL,
+        title VARCHAR(500) NOT NULL,
+        username VARCHAR(500) NOT NULL,
+        url TEXT NOT NULL DEFAULT '',
+        divider VARCHAR(255) NOT NULL DEFAULT '',
+        expiration_date DATE,
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(azienda_name, title, username, url, divider)
+      )
+    `);
+  };
+
   // GET /api/keepass/email/:aziendaName - Recupera struttura Email da Keepass (cartella Email, righe divisorie @)
   router.get('/email/:aziendaName', authenticateToken, async (req, res) => {
     try {
@@ -2009,11 +2026,56 @@ module.exports = function createKeepassRouter(pool) {
         return res.status(400).json({ error: 'Nome azienda richiesto' });
       }
 
+      await ensureEmailExpiryTable();
       const structure = await keepassDriveService.getEmailStructureByAzienda(keepassPassword, aziendaName);
+
+      // Carica scadenze dal DB e mergia negli items
+      const expiryRows = await pool.query(
+        `SELECT title, username, url, COALESCE(divider,'') as divider, expiration_date FROM email_expiry_info WHERE azienda_name = $1`,
+        [aziendaName]
+      );
+      const expiryMap = {};
+      for (const row of expiryRows.rows) {
+        const key = `${row.title}|${row.username}|${row.url || ''}|${row.divider || ''}`;
+        expiryMap[key] = row.expiration_date ? new Date(row.expiration_date).toISOString() : null;
+      }
+
+      for (const item of structure) {
+        if (item.type === 'entry') {
+          const key = `${item.title}|${item.username}|${item.url || ''}|${item.divider || ''}`;
+          item.expires = expiryMap[key] || null;
+        }
+      }
+
       res.json({ items: structure });
     } catch (err) {
       console.error('❌ Errore recupero Email:', err);
       res.status(500).json({ error: 'Errore durante il recupero dei dati Email' });
+    }
+  });
+
+  // PUT /api/keepass/email-expiry - Salva scadenza per entry Email (come Anti-Virus)
+  router.put('/email-expiry', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
+    try {
+      const { aziendaName, title, username, url, divider, expiration_date } = req.body;
+      if (!aziendaName || !title || username === undefined) {
+        return res.status(400).json({ error: 'aziendaName, title e username richiesti' });
+      }
+
+      await ensureEmailExpiryTable();
+      const urlVal = url != null ? String(url) : '';
+      const divVal = divider != null ? String(divider) : '';
+      await pool.query(`
+        INSERT INTO email_expiry_info (azienda_name, title, username, url, divider, expiration_date, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        ON CONFLICT (azienda_name, title, username, url, divider) 
+        DO UPDATE SET expiration_date = EXCLUDED.expiration_date, updated_at = NOW()
+      `, [aziendaName, title || '', username || '', urlVal, divVal, expiration_date || null]);
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error('❌ Errore salvataggio scadenza Email:', err);
+      res.status(500).json({ error: 'Errore salvataggio scadenza' });
     }
   });
 
