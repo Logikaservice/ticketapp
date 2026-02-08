@@ -207,8 +207,8 @@ class KeepassDriveService {
             const standardFields = ['UserName', 'Password', 'URL', 'Notes', 'Title'];
             const fieldsToCheck = [...new Set([...standardFields, ...allFieldNames, ...customFieldNames])]; // Unisci senza duplicati
 
-            // DEBUG: Log COMPLETO per le prime 10 entry
-            if (entryCount <= 10) {
+            // DEBUG: Log COMPLETO per le prime 50 entry
+            if (entryCount <= 50) {
               console.log(`\n🔍 DEBUG Entry #${entryCount}: "${titleStr}" (Path: "${currentPath}")`);
               console.log(`   - allFieldNames (entry.fields): ${allFieldNames.join(', ')}`);
               console.log(`   - customFieldNames (entry.customFields): ${customFieldNames.join(', ')}`);
