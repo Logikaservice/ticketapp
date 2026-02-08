@@ -57,7 +57,6 @@ class KeepassDriveService {
       // Se è specificato il file ID direttamente, usalo (più efficiente)
       if (process.env.KEEPASS_FILE_ID) {
         fileId = process.env.KEEPASS_FILE_ID;
-        console.log(`📥 Usando file ID specificato: ${fileId}`);
 
         // Verifica che il file esista e ottieni la data di modifica
         try {
@@ -67,15 +66,12 @@ class KeepassDriveService {
           });
           fileName = fileInfo.data.name || 'keepass.kdbx';
           modifiedTime = fileInfo.data.modifiedTime;
-          console.log(`📄 Nome file: ${fileName}`);
-          console.log(`📅 Data modifica file: ${modifiedTime}`);
         } catch (err) {
           throw new Error(`File con ID ${fileId} non trovato su Google Drive: ${err.message}`);
         }
       } else {
         // Altrimenti cerca per nome (compatibilità con configurazione precedente)
         const fileNameToSearch = process.env.KEEPASS_FILE_NAME || 'keepass.kdbx';
-        console.log(`🔍 Cercando file per nome: ${fileNameToSearch}`);
 
         const searchQuery = `name='${fileNameToSearch}' and trashed=false`;
         const response = await drive.files.list({
@@ -91,8 +87,6 @@ class KeepassDriveService {
         fileId = response.data.files[0].id;
         fileName = response.data.files[0].name || fileNameToSearch;
         modifiedTime = response.data.files[0].modifiedTime;
-        console.log(`📥 File trovato: ${fileName} (ID: ${fileId})`);
-        console.log(`📅 Data modifica file: ${modifiedTime}`);
       }
 
       // Scarica il file
@@ -164,8 +158,6 @@ class KeepassDriveService {
    */
   async loadMacToTitleMap(password) {
     try {
-      console.log('🔄 Caricamento mappa MAC->Titolo da KeePass...');
-
       // Scarica il file da Google Drive (con data di modifica)
       const fileData = await this.downloadKeepassFile(password);
       const fileBuffer = fileData.buffer;
@@ -174,8 +166,6 @@ class KeepassDriveService {
       // Carica il file KDBX
       const credentials = new Credentials(ProtectedValue.fromString(password));
       const db = await Kdbx.load(fileBuffer.buffer, credentials);
-
-      console.log(`✅ File KDBX caricato: ${db.name || 'Senza nome'}`);
 
       // Crea la mappa MAC -> {title, path}
       const macMap = new Map();
@@ -247,14 +237,7 @@ class KeepassDriveService {
                 // Sovrascrivi sempre (ultima entry vince): così se lo stesso MAC è in più entry (es. Cestino e sotto Smil Service)
                 // dopo un aggiornamento in Keepass viene usata l’entry più recente nell’ordine di scansione
                 const entryData = { title: titleStr || '', path: currentPath || '', username: usernameStr || '', iconId: iconId };
-                if (macMap.has(normalizedMac)) {
-                  console.log(`  📝 MAC ${mac} (normalizzato: ${normalizedMac}) già presente -> sovrascrivo con Titolo: "${titleStr || ''}", Percorso: "${currentPath || ''}"`);
-                } else {
-                  console.log(`  📝 MAC ${mac} (normalizzato: ${normalizedMac}) -> Titolo: "${titleStr || ''}", IconId: ${iconId}, Utente: "${usernameStr || ''}", Percorso: "${currentPath || ''}"`);
-                }
                 macMap.set(normalizedMac, entryData);
-              } else {
-                console.log(`  ⚠️ MAC ${mac} non può essere normalizzato per la ricerca`);
               }
             }
           }
@@ -275,22 +258,8 @@ class KeepassDriveService {
         }
       }
 
-      console.log(`✅ Mappa MAC->Titolo creata: ${macMap.size} entry trovate`);
-
       // Salva la data di modifica del file
       this.lastFileModifiedTime = modifiedTime;
-
-      // Debug: mostra alcuni esempi di MAC nella mappa
-      if (macMap.size > 0) {
-        const examples = Array.from(macMap.entries()).slice(0, 5);
-        console.log(`   Esempi MAC nella mappa:`);
-        examples.forEach(([mac, result]) => {
-          console.log(`     - ${mac} -> Titolo: "${result.title}", Utente: "${result.username || ''}", Percorso: "${result.path}"`);
-        });
-      } else {
-        console.log(`   ⚠️ ATTENZIONE: Nessun MAC trovato nel file KeePass!`);
-        console.log(`   Verifica che i MAC siano presenti nei campi (inclusi campi personalizzati)`);
-      }
 
       return macMap;
     } catch (error) {
@@ -315,7 +284,6 @@ class KeepassDriveService {
       const credentials = new Credentials(ProtectedValue.fromString(password));
       const db = await Kdbx.load(fileBuffer.buffer, credentials);
 
-      console.log(`✅ File KDBX caricato: ${db.name || 'Senza nome'}`);
 
       const entries = [];
       const foundAziendeAfterGestione = new Set(); // Raccogli nomi aziende trovate dopo "gestione" per debug
@@ -365,12 +333,6 @@ class KeepassDriveService {
 
               // Match IDENTICO esatto: solo case-insensitive, nessuna variazione accettata
               shouldInclude = (aziendaNameNormalized === segmentNormalized);
-
-              if (shouldInclude) {
-                console.log(`  ✅ MATCH trovato! Segmento "${aziendaSegmentInPath}" matcha "${aziendaName}" nel percorso "${currentPath}"`);
-              } else if (segmentNormalized.includes(aziendaNameNormalized)) {
-                console.log(`  ⚠️ Segmento "${aziendaSegmentInPath}" dopo "gestione" non matcha "${aziendaName}" (percorso: "${currentPath}")`);
-              }
             }
           }
 
@@ -429,22 +391,6 @@ class KeepassDriveService {
         for (const group of db.groups) {
           processGroup(group);
         }
-      }
-
-      console.log(`✅ Entry Keepass caricate: ${entries.length} entry${aziendaName ? ` filtrate per "${aziendaName}"` : ''}`);
-
-      // Se non sono state trovate entry e c'era un filtro azienda, mostra suggerimenti
-      if (entries.length === 0 && aziendaName && foundAziendeAfterGestione.size > 0) {
-        const aziendeList = Array.from(foundAziendeAfterGestione).sort();
-        const firstTen = aziendeList.slice(0, 10);
-        const remaining = aziendeList.length - 10;
-
-        console.log(`ℹ️ Nessuna credenziale trovata per "${aziendaName}" in Keepass`);
-        console.log(`   💡 Suggerimento: Verifica che il nome azienda nel database corrisponda esattamente a quello in Keepass`);
-        console.log(`   📁 Prime ${firstTen.length} aziende disponibili: ${firstTen.join(', ')}${remaining > 0 ? ` (+${remaining} altre)` : ''}`);
-      } else if (entries.length === 0 && aziendaName && foundAziendeAfterGestione.size === 0) {
-        console.log(`ℹ️ Nessuna credenziale trovata per "${aziendaName}" in Keepass`);
-        console.log(`   💡 Suggerimento: Verifica la struttura del file Keepass (deve avere una cartella "gestione")`);
       }
 
       return entries;
@@ -577,8 +523,6 @@ class KeepassDriveService {
       const credentials = new Credentials(ProtectedValue.fromString(password));
       const db = await Kdbx.load(fileBuffer.buffer, credentials);
 
-      console.log(`✅ File KDBX caricato per ricerca Office: ${db.name || 'Senza nome'}`);
-
       let officeTitle = null;
       const officeFiles = []; // Array per contenere TUTTE le entry trovate nel gruppo Office
 
@@ -604,11 +548,6 @@ class KeepassDriveService {
               const aziendaNameNormalized = aziendaName.trim().toLowerCase();
               const segmentNormalized = aziendaSegmentInPath.trim().toLowerCase();
               shouldInclude = (aziendaNameNormalized === segmentNormalized);
-
-              // Debug: log quando troviamo il match dell'azienda
-              if (shouldInclude) {
-                console.log(`  ✅ MATCH azienda trovato! "${aziendaSegmentInPath}" matcha "${aziendaName}" nel percorso "${currentPath}"`);
-              }
             }
           }
 
@@ -624,7 +563,6 @@ class KeepassDriveService {
         // Se abbiamo trovato il gruppo Office, salviamo il titolo (se non ne abbiamo già uno)
         if (isOfficeGroup && (!officeTitle || officeTitle !== 'Office')) {
           officeTitle = groupName || 'Office';
-          console.log(`  ✅ Gruppo Office trovato! Percorso: "${currentPath}"`);
         }
 
         // Controlla le entry del gruppo corrente
@@ -638,7 +576,6 @@ class KeepassDriveService {
 
             // Se siamo nel gruppo Office, aggiungi TUTTE le entry trovate
             if (currentIsInOfficeGroup) {
-              console.log(`  ✅ Entry "${title}" trovata nel gruppo Office!`);
               const fileData = extractEntryData(entry, title || 'Senza titolo');
               officeFiles.push(fileData);
             }
@@ -667,7 +604,6 @@ class KeepassDriveService {
         // Estrai i campi personalizzati
         const customFields = {};
         if (entry.customFields) {
-          // console.log(`    📋 Campi personalizzati trovati: ${Object.keys(entry.customFields).join(', ')}`);
           for (const [fieldName, fieldValue] of Object.entries(entry.customFields)) {
             const value = fieldValue instanceof ProtectedValue
               ? fieldValue.getText()
@@ -701,12 +637,7 @@ class KeepassDriveService {
           maxDate.setFullYear(maxDate.getFullYear() + 100);
           if (!isNaN(d.getTime()) && d <= maxDate) {
             expires = d;
-            console.log(`    📅 Scadenza trovata e attiva: ${d.toISOString()}`);
-          } else {
-            console.log(`    ⚠️ Scadenza trovata ma non valida o troppo lontana: ${expiresDate}`);
           }
-        } else {
-          console.log(`    ℹ️ Nessuna scadenza impostata per questa entry`);
         }
 
         return {
@@ -718,33 +649,18 @@ class KeepassDriveService {
       };
 
       // Processa tutti i gruppi root
-      console.log(`🔍 Inizio ricerca Office per azienda: "${aziendaName}"`);
       if (db.groups && db.groups.length > 0) {
-        // console.log(`📁 Trovati ${db.groups.length} gruppi root`);
         for (const group of db.groups) {
           searchOfficeAndLogin(group);
         }
-      } else {
-        console.log(`⚠️ Nessun gruppo root trovato nel database Keepass`);
       }
 
       if (!officeTitle || officeFiles.length === 0) {
-        console.log(`❌ Dati Office non trovati per "${aziendaName}"`);
-        console.log(`   💡 Verifica che esista:`);
-        console.log(`      Un Gruppo "Office" con dentro delle Entry`);
-        console.log(`      (Sotto il percorso gestione > ${aziendaName})`);
         return null;
       }
 
-      console.log(`✅ Gruppo Office trovato con ${officeFiles.length} file/entry per "${aziendaName}"`);
-
       // Processa ogni file trovato per estrarre i campi personalizzati
-      const processedFiles = officeFiles.map((file, index) => {
-        console.log(`📄 File ${index + 1}/${officeFiles.length}: "${file.title}"`);
-        console.log(`   📋 Campi personalizzati trovati:`);
-        console.log(`      Chiavi disponibili:`, Object.keys(file.customFields || {}));
-        console.log(`      Valori completi:`, JSON.stringify(file.customFields, null, 2));
-        
+      const processedFiles = officeFiles.map((file) => {
         // Estrai i campi personalizzati 1, 2, 3, 4, 5 per questo file
         // Prova vari nomi possibili (case-insensitive)
         const getCustomField = (num) => {
@@ -764,32 +680,25 @@ class KeepassDriveService {
           for (const name of possibleNames) {
             if (file.customFields && file.customFields[name] !== undefined && file.customFields[name] !== null && file.customFields[name] !== '') {
               const value = String(file.customFields[name]).trim();
-              if (value) {
-                console.log(`      ✅ Campo ${num} trovato con nome "${name}": "${value}"`);
-                return value;
-              }
+              if (value) return value;
             }
           }
-          
+
           // Prova anche case-insensitive matching
           if (file.customFields) {
             for (const [key, value] of Object.entries(file.customFields)) {
               const keyLower = key.toLowerCase().trim();
               const numStr = String(num);
-              if (keyLower === numStr || 
+              if (keyLower === numStr ||
                   keyLower === `campo personalizzato ${numStr}` ||
                   keyLower === `custom field ${numStr}` ||
                   keyLower === `campo ${numStr}`) {
                 const valueStr = String(value || '').trim();
-                if (valueStr) {
-                  console.log(`      ✅ Campo ${num} trovato con nome case-insensitive "${key}": "${valueStr}"`);
-                  return valueStr;
-                }
+                if (valueStr) return valueStr;
               }
             }
           }
-          
-          console.log(`      ⚠️ Campo ${num} non trovato`);
+
           return '';
         };
         
@@ -873,12 +782,8 @@ class KeepassDriveService {
     if (currentModifiedTime) {
       if (!this.lastFileModifiedTime) {
         // Prima volta che viene caricato - salva la data di modifica
-        console.log('📅 Prima caricamento file KeePass');
       } else if (currentModifiedTime !== this.lastFileModifiedTime) {
         // File modificato - forza il ricaricamento
-        console.log('🔄 File KeePass modificato su Google Drive - invalidazione cache e ricaricamento');
-        console.log(`   Data precedente: ${this.lastFileModifiedTime}`);
-        console.log(`   Data attuale: ${currentModifiedTime}`);
         this.macToTitleMap = null;
         this.lastCacheUpdate = null;
         this.lastFileModifiedTime = null;
@@ -923,37 +828,23 @@ class KeepassDriveService {
   async findMacTitle(macAddress, password) {
     try {
       if (!macAddress) {
-        console.log(`ℹ️ findMacTitle chiamato con MAC null o undefined`);
         return null;
       }
 
       // Normalizza il MAC per la ricerca
       const normalizedMac = this.normalizeMacForSearch(macAddress);
       if (!normalizedMac) {
-        console.log(`⚠️ MAC ${macAddress} non può essere normalizzato`);
         return null;
       }
 
-      console.log(`🔍 Ricerca MAC: "${macAddress}" -> Normalizzato: "${normalizedMac}"`);
-
       // Ottieni la mappa (con cache)
       const macMap = await this.getMacToTitleMap(password);
-
-      console.log(`📊 Mappa KeePass caricata: ${macMap.size} MAC address trovati`);
 
       // Cerca il MAC nella mappa
       const result = macMap.get(normalizedMac);
 
       if (result) {
-        console.log(`✅ MAC ${macAddress} (normalizzato: ${normalizedMac}) trovato in KeePass -> Titolo: "${result.title}", Utente: "${result.username || ''}", Percorso: "${result.path}"`);
         return result;
-      } else {
-        console.log(`ℹ️ MAC ${macAddress} (normalizzato: ${normalizedMac}) non trovato in KeePass`);
-        // Debug: mostra i primi 5 MAC nella mappa per confronto
-        if (macMap.size > 0) {
-          const first5Macs = Array.from(macMap.keys()).slice(0, 5);
-          console.log(`   📋 Esempi MAC nella mappa: ${first5Macs.join(', ')}`);
-        }
       }
 
       return null;
@@ -1033,7 +924,6 @@ class KeepassDriveService {
     this.macToTitleMap = null;
     this.lastCacheUpdate = null;
     this.lastFileModifiedTime = null; // Reset anche la data di modifica per forzare il controllo
-    console.log('🔄 Cache KeePass invalidata completamente');
   }
 }
 

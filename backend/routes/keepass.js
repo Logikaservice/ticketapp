@@ -93,7 +93,6 @@ module.exports = function createKeepassRouter(pool) {
       let encrypted = cipher.update(passwordToEncrypt, 'utf8', 'hex');
       encrypted += cipher.final('hex');
       const result = iv.toString('hex') + ':' + encrypted;
-      console.log(`🔐 Password cifrata (lunghezza originale: ${passwordToEncrypt.length}, cifrata: ${result.length})`);
       return result;
     } catch (err) {
       console.error('❌ Errore cifratura password:', err);
@@ -105,19 +104,16 @@ module.exports = function createKeepassRouter(pool) {
   // Helper: Decifra password (per visualizzazione)
   const decryptPassword = (encryptedPassword) => {
     if (!encryptedPassword) {
-      console.log('⚠️ decryptPassword: encryptedPassword è null o vuoto');
       return null;
     }
     
     // Se la password è una stringa vuota cifrata, potrebbe essere solo ':'
     if (encryptedPassword === '' || encryptedPassword.trim() === '') {
-      console.log('⚠️ decryptPassword: encryptedPassword è stringa vuota');
       return '';
     }
     
     try {
       const parts = encryptedPassword.split(':');
-      console.log('🔓 decryptPassword: parts.length =', parts.length);
       
       if (parts.length !== 2) {
         console.error('❌ decryptPassword: formato errato, parts.length =', parts.length);
@@ -129,13 +125,11 @@ module.exports = function createKeepassRouter(pool) {
       const encrypted = parts[1];
       const key = getEncryptionKey();
       
-      console.log('🔓 decryptPassword: IV length =', iv.length, 'encrypted length =', encrypted.length);
       
       const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
       let decrypted = decipher.update(encrypted, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
       
-      console.log('✅ decryptPassword: decifratura riuscita, lunghezza =', decrypted.length);
       return decrypted;
     } catch (err) {
       console.error('❌ Errore decifratura password:', err.message);
@@ -212,7 +206,6 @@ module.exports = function createKeepassRouter(pool) {
       if (groupNode.Name) {
         groupName = Array.isArray(groupNode.Name) ? groupNode.Name[0] : groupNode.Name;
       }
-      console.log(`  📁 Processando gruppo: "${groupName}"`);
       
       // Estrai UUID gruppo
       let groupUuid = null;
@@ -227,37 +220,19 @@ module.exports = function createKeepassRouter(pool) {
       }
 
       // Inserisci il gruppo
-      console.log(`  💾 Inserimento gruppo nel database...`);
       const groupResult = await client.query(
         `INSERT INTO keepass_groups (name, parent_id, client_id, uuid, notes) 
          VALUES ($1, $2, $3, $4, $5) RETURNING id`,
         [groupName, parentId, clientId, groupUuid, groupNotes]
       );
       const groupId = groupResult.rows[0].id;
-      console.log(`  ✅ Gruppo inserito con ID: ${groupId}`);
 
       // Processa le entry del gruppo (gestisci sia array che oggetto singolo)
       if (groupNode.Entry) {
         const entries = Array.isArray(groupNode.Entry) ? groupNode.Entry : [groupNode.Entry];
-        console.log(`  📝 Trovate ${entries.length} entry nel gruppo`);
         for (let i = 0; i < entries.length; i++) {
           const entry = entries[i];
           try {
-            // Debug: mostra tutti i campi String disponibili per la prima entry
-            if (i === 0 && entry.String) {
-              const stringArray = Array.isArray(entry.String) ? entry.String : [entry.String];
-              console.log(`    🔍 Campi String disponibili nella prima entry:`, stringArray.map(s => {
-                let key = '';
-                if (s.Key) {
-                  const keyValue = Array.isArray(s.Key) ? s.Key[0] : s.Key;
-                  key = typeof keyValue === 'string' ? keyValue : (keyValue?._ || keyValue?.$?.Key || String(keyValue || ''));
-                } else if (s.$ && s.$.Key) {
-                  key = s.$.Key;
-                }
-                return key;
-              }).filter(Boolean));
-            }
-            
             // Prova prima con 'Title', poi con 'Name' se Title è vuoto
             let title = getStringValue(entry.String, 'Title');
             if (!title || title.trim() === '') {
@@ -269,37 +244,14 @@ module.exports = function createKeepassRouter(pool) {
             const url = getStringValue(entry.String, 'URL');
             const notes = getStringValue(entry.String, 'Notes');
             
-            // Debug: verifica tipo password dopo getStringValue
             if (typeof password !== 'string') {
-              console.warn(`    ⚠️ getStringValue ha restituito un ${typeof password} invece di stringa:`, password);
-              // Se è ancora un oggetto, prova a estrarre il valore manualmente
               if (password && typeof password === 'object') {
                 password = password._ !== undefined ? String(password._ || '') : '';
-                console.warn(`    🔧 Password convertita manualmente, nuova lunghezza: ${password.length}`);
               } else {
                 password = String(password || '');
               }
             }
-            
-            console.log(`    📄 Entry ${i + 1}/${entries.length}: "${title || 'Senza titolo'}"`);
-            
-            // Debug: mostra cosa verrà salvato nel database per la prima entry
-            if (i === 0) {
-              console.log(`    💾 Dati che verranno salvati nel DB:`, {
-                title: title,
-                titleType: typeof title,
-                titleLength: title ? title.length : 0,
-                username: username,
-                usernameType: typeof username,
-                usernameLength: username ? username.length : 0,
-                url: url,
-                urlType: typeof url,
-                notes: notes ? notes.substring(0, 50) : '',
-                notesType: typeof notes,
-                notesLength: notes ? notes.length : 0
-              });
-            }
-            
+
             // Estrai UUID entry
             let entryUuid = null;
             if (entry.UUID) {
@@ -322,44 +274,25 @@ module.exports = function createKeepassRouter(pool) {
               // Se è un oggetto, estrai il testo da _ (xml2js mette il testo qui quando ci sono attributi)
               // Se _ non esiste, il valore è vuoto (solo attributi come ProtectInMemory)
               passwordString = password._ !== undefined ? String(password._ || '') : '';
-              if (passwordString === '' && password.$) {
-                console.log(`    ℹ️ Password vuota (solo attributi ProtectInMemory nel XML)`);
-              }
             } else {
               passwordString = password ? String(password) : '';
             }
             
-            console.log(`    🔐 Password estratta, tipo originale: ${typeof password}, lunghezza: ${passwordString.length}`);
-            
             // Se la password è vuota, salta questa entry
             if (!passwordString || passwordString.trim() === '') {
-              console.log(`    ⏭️ Password vuota, salto questa entry: "${title || 'Senza titolo'}"`);
-              continue; // Salta questa entry e passa alla successiva
+              continue;
             }
-            
-            if (typeof password !== 'string' && password) {
-              console.warn(`    ⚠️ Password non era una stringa, valore originale:`, password);
-            }
-            
-            // Cifra la password (ora sappiamo che non è vuota)
+
             const encryptedPassword = encryptPassword(passwordString);
-            
             if (!encryptedPassword) {
-              console.error(`    ❌ ERRORE: Password non cifrata per entry "${title || 'Senza titolo'}"`);
               throw new Error(`Errore nella cifratura della password per entry: ${title || 'Senza titolo'}`);
             }
-            
-            console.log(`    ✅ Password cifrata con successo, lunghezza cifrata: ${encryptedPassword.length}`);
-            
-            // Assicurati che password_encrypted non sia null (campo NOT NULL)
-            const finalEncryptedPassword = encryptedPassword;
-            
+
             await client.query(
               `INSERT INTO keepass_entries (group_id, title, username, password_encrypted, url, notes, uuid, icon_id) 
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-              [groupId, title || 'Senza titolo', username || '', finalEncryptedPassword, url || '', notes || '', entryUuid, iconId]
+              [groupId, title || 'Senza titolo', username || '', encryptedPassword, url || '', notes || '', entryUuid, iconId]
             );
-            console.log(`    ✅ Entry inserita`);
           } catch (entryErr) {
             console.error(`    ❌ Errore inserimento entry ${i + 1}:`, entryErr);
             console.error(`    Stack:`, entryErr.stack);
@@ -368,8 +301,6 @@ module.exports = function createKeepassRouter(pool) {
             throw entryErr;
           }
         }
-      } else {
-        console.log(`  ℹ️ Nessuna entry trovata nel gruppo`);
       }
 
       // Processa i sottogruppi ricorsivamente (gestisci sia array che oggetto singolo)
@@ -389,60 +320,41 @@ module.exports = function createKeepassRouter(pool) {
 
   // POST /api/keepass/import - Importa file XML KeePass (solo tecnico)
   router.post('/import', upload.single('xmlFile'), async (req, res) => {
-    console.log('📥 Ricevuta richiesta import KeePass');
     try {
-      // Verifica ruolo tecnico
       const role = (req.headers['x-user-role'] || req.body?.role || '').toString();
-      console.log('👤 Ruolo utente:', role);
       if (role !== 'tecnico') {
         return res.status(403).json({ error: 'Solo i tecnici possono importare file KeePass' });
       }
 
       if (!req.file) {
-        console.log('❌ File non ricevuto');
         return res.status(400).json({ error: 'File XML mancante' });
       }
 
-      console.log('📄 File ricevuto:', req.file.originalname, 'Size:', req.file.size);
-
       const { clientId } = req.body;
-      console.log('👥 Client ID:', clientId);
       if (!clientId) {
         return res.status(400).json({ error: 'ID cliente mancante' });
       }
 
-      // Verifica che il cliente esista
-      console.log('🔍 Verifica cliente nel database...');
       const clientCheck = await pool.query('SELECT id, email FROM users WHERE id = $1 AND ruolo = $2', 
         [clientId, 'cliente']);
       if (clientCheck.rows.length === 0) {
-        console.log('❌ Cliente non trovato:', clientId);
         return res.status(404).json({ error: 'Cliente non trovato' });
       }
-      console.log('✅ Cliente trovato:', clientCheck.rows[0].email);
 
-      // Leggi e parsea il file XML
-      console.log('📖 Lettura file XML...');
       let xmlContent;
       try {
-        // Prova a leggere da file path (diskStorage) o da buffer (memoryStorage)
         if (req.file.path && fs.existsSync(req.file.path)) {
-          console.log('📁 Leggo da path:', req.file.path);
           xmlContent = fs.readFileSync(req.file.path, 'utf8');
         } else if (req.file.buffer) {
-          console.log('💾 Leggo da buffer');
           xmlContent = req.file.buffer.toString('utf8');
         } else {
-          console.log('❌ Nessun metodo disponibile per leggere il file');
           return res.status(400).json({ error: 'Impossibile leggere il file XML' });
         }
-        console.log('✅ File letto, dimensione:', xmlContent.length, 'caratteri');
       } catch (readErr) {
         console.error('❌ Errore lettura file XML:', readErr);
         return res.status(400).json({ error: 'Errore nella lettura del file XML: ' + readErr.message });
       }
 
-      console.log('🔍 Parsing XML...');
       let result;
       try {
         const parser = new xml2js.Parser({ 
@@ -454,9 +366,6 @@ module.exports = function createKeepassRouter(pool) {
           explicitRoot: false
         });
         result = await parser.parseStringPromise(xmlContent);
-        console.log('✅ XML parsato con successo');
-        console.log('📋 Struttura root:', Object.keys(result));
-        console.log('📋 Contenuto root (primi 200 caratteri):', JSON.stringify(result).substring(0, 200));
       } catch (parseErr) {
         console.error('❌ Errore parsing XML:', parseErr);
         console.error('Stack:', parseErr.stack);
@@ -473,13 +382,10 @@ module.exports = function createKeepassRouter(pool) {
         // Se c'è direttamente Root, wrappa in KeePassFile
         keePassFile = { Root: result.Root };
       } else {
-        // Prova a cercare in qualsiasi chiave del risultato
         const keys = Object.keys(result);
-        console.log('🔍 Chiavi trovate nel risultato:', keys);
         for (const key of keys) {
           if (key.toLowerCase().includes('keepass') || result[key]?.Root) {
             keePassFile = result[key];
-            console.log('✅ Trovato KeePassFile in chiave:', key);
             break;
           }
         }
@@ -511,7 +417,6 @@ module.exports = function createKeepassRouter(pool) {
         return res.status(400).json({ error: 'Nessun gruppo trovato nel file XML' });
       }
 
-      console.log('💾 Connessione al database...');
       
       // Verifica che le tabelle esistano
       try {
@@ -521,7 +426,6 @@ module.exports = function createKeepassRouter(pool) {
           WHERE table_schema = 'public' 
           AND table_name IN ('keepass_groups', 'keepass_entries')
         `);
-        console.log('📊 Tabelle trovate:', tableCheck.rows.map(r => r.table_name));
         if (tableCheck.rows.length < 2) {
           console.error('❌ Tabelle keepass mancanti! Chiama /api/init-db per crearle.');
           return res.status(500).json({ 
@@ -542,24 +446,19 @@ module.exports = function createKeepassRouter(pool) {
       try {
         await client.query('BEGIN');
         transactionStarted = true;
-        console.log('✅ Transazione iniziata');
 
         // Elimina eventuali dati esistenti per questo cliente
-        console.log('🗑️ Eliminazione dati esistenti per cliente...');
         try {
           await client.query('DELETE FROM keepass_entries WHERE group_id IN (SELECT id FROM keepass_groups WHERE client_id = $1)', [clientId]);
           await client.query('DELETE FROM keepass_groups WHERE client_id = $1', [clientId]);
-          console.log('✅ Dati esistenti eliminati');
         } catch (deleteErr) {
           console.error('❌ Errore eliminazione dati esistenti:', deleteErr);
           throw deleteErr;
         }
 
         // Processa tutti i gruppi dalla root
-        console.log('🔄 Processamento gruppi...');
         try {
           await processGroup(rootGroup, null, clientId, client);
-          console.log('✅ Gruppi processati');
         } catch (processErr) {
           console.error('❌ Errore processamento gruppi:', processErr);
           throw processErr;
@@ -567,7 +466,6 @@ module.exports = function createKeepassRouter(pool) {
 
         await client.query('COMMIT');
         transactionStarted = false;
-        console.log('✅ Transazione completata');
 
         // Elimina il file temporaneo se esiste
         if (req.file.path && fs.existsSync(req.file.path)) {
@@ -588,7 +486,6 @@ module.exports = function createKeepassRouter(pool) {
         if (transactionStarted) {
           try {
             await client.query('ROLLBACK');
-            console.log('✅ Rollback eseguito');
           } catch (rollbackErr) {
             console.error('❌ Errore durante rollback:', rollbackErr);
           }
@@ -596,7 +493,6 @@ module.exports = function createKeepassRouter(pool) {
         throw dbErr;
       } finally {
         client.release();
-        console.log('🔌 Connessione database rilasciata');
       }
     } catch (err) {
       console.error('❌ Errore import KeePass:', err);
@@ -635,7 +531,6 @@ module.exports = function createKeepassRouter(pool) {
         return res.status(401).json({ error: 'Utente non autenticato' });
       }
 
-      console.log('🔍 Recupero credenziali per utente:', userId, 'ruolo:', role);
 
       // I tecnici possono vedere tutte le credenziali, i clienti solo le proprie
       let query, params;
@@ -709,46 +604,7 @@ module.exports = function createKeepassRouter(pool) {
       }
 
       const result = await pool.query(query, params);
-      
-      console.log('📊 Query eseguita, righe restituite:', result.rows.length);
-      
-      // Debug: mostra alcune righe per vedere i dati
-      if (result.rows.length > 0) {
-        console.log('📊 Prime 3 righe dal database:', result.rows.slice(0, 3).map(row => ({
-          group_id: row.group_id,
-          group_name: row.group_name,
-          client_id: row.client_id,
-          entry_id: row.entry_id,
-          title: row.title,
-          username: row.username,
-          url: row.url,
-          notes: row.notes ? String(row.notes).substring(0, 50) : ''
-        })));
-        
-        // Cerca entry che contengono "ger" o "gera" nei dati del database
-        const rowsWithGer = result.rows.filter(row => {
-          if (!row.entry_id) return false;
-          const title = String(row.title || '').toLowerCase();
-          const username = String(row.username || '').toLowerCase();
-          const notes = String(row.notes || '').toLowerCase();
-          const groupName = String(row.group_name || '').toLowerCase();
-          return title.includes('ger') || username.includes('ger') || notes.includes('ger') || groupName.includes('ger') ||
-                 title.includes('gera') || username.includes('gera') || notes.includes('gera') || groupName.includes('gera');
-        });
-        console.log('🔍 Righe dal database che contengono "ger" o "gera":', rowsWithGer.length);
-        if (rowsWithGer.length > 0) {
-          console.log('🔍 Dettagli righe con "ger/gera":', rowsWithGer.map(row => ({
-            entry_id: row.entry_id,
-            title: row.title,
-            username: row.username,
-            group_name: row.group_name,
-            client_id: row.client_id
-          })));
-        } else {
-          console.warn('⚠️ Nessuna riga dal database contiene "ger" o "gera"!');
-        }
-      }
-      
+
       // Organizza i dati in una struttura gerarchica
       const groupsMap = new Map();
       const entries = [];
@@ -866,16 +722,6 @@ module.exports = function createKeepassRouter(pool) {
       
       sortGroups(rootGroups);
 
-      console.log('📤 Invio credenziali al frontend:');
-      console.log(`   - Gruppi root: ${rootGroups.length}`);
-      console.log(`   - Totale gruppi (con children): ${allGroups.length}`);
-      
-      if (rootGroups.length > 0) {
-        const totalEntries = allGroups.reduce((sum, g) => sum + (g.entries?.length || 0), 0);
-        console.log(`   - Totale entry: ${totalEntries}`);
-        console.log(`   - Primo gruppo root: "${rootGroups[0].name}" (${rootGroups[0].entries?.length || 0} entries, ${rootGroups[0].children?.length || 0} children)`);
-      }
-
       res.json({ groups: rootGroups });
     } catch (err) {
       console.error('Errore recupero credenziali:', err);
@@ -901,11 +747,9 @@ module.exports = function createKeepassRouter(pool) {
 
       // Se viene fornita password_encrypted direttamente (entry da Drive), usala
       if (password_encrypted) {
-        console.log('🔓 Decifratura password da Drive per utente:', userId, 'ruolo:', role);
         encryptedPassword = password_encrypted;
       } else if (entryId) {
         // Se viene fornito entryId (entry del database), caricala dal database
-        console.log('🔓 Decifratura password per entry:', entryId, 'utente:', userId, 'ruolo:', role);
 
         // Verifica che l'entry appartenga al cliente (o che sia un tecnico)
         let query, params;
@@ -934,26 +778,19 @@ module.exports = function createKeepassRouter(pool) {
         console.error('❌ Parametri mancanti - entryId o password_encrypted richiesti');
         return res.status(400).json({ error: 'Parametri mancanti: entryId o password_encrypted richiesti' });
       }
-      console.log('🔐 Password cifrata trovata, tipo:', typeof encryptedPassword);
-      console.log('🔐 Password cifrata, lunghezza:', encryptedPassword?.length || 0);
       
       // Se la password è un oggetto (JSON salvato come stringa), prova a parsarla
       if (typeof encryptedPassword === 'object' && encryptedPassword !== null) {
-        console.warn('⚠️ Password cifrata è un oggetto, provo a convertire...');
         encryptedPassword = JSON.stringify(encryptedPassword);
       }
-      
-      // Se è una stringa che inizia con '{', potrebbe essere JSON salvato come stringa
+
       if (typeof encryptedPassword === 'string' && encryptedPassword.trim().startsWith('{')) {
-        console.warn('⚠️ Password cifrata sembra essere JSON, provo a parsare...');
         try {
           const parsed = JSON.parse(encryptedPassword);
           // Se è un oggetto con campo _, estrai il valore
           if (parsed._ !== undefined) {
             encryptedPassword = String(parsed._ || '');
-            console.log('✅ Estratto valore da oggetto JSON, nuova lunghezza:', encryptedPassword.length);
           } else {
-            console.warn('⚠️ Oggetto JSON senza campo _, uso stringa vuota');
             encryptedPassword = '';
           }
         } catch (parseErr) {
@@ -962,12 +799,7 @@ module.exports = function createKeepassRouter(pool) {
         }
       }
       
-      console.log('🔐 Password cifrata (primi 100 caratteri):', encryptedPassword?.substring(0, 100) || 'vuota');
-
       if (!encryptedPassword || encryptedPassword.trim() === '') {
-        console.warn('⚠️ Password cifrata vuota per entry:', entryId);
-        console.warn('⚠️ Questo significa che la password era vuota durante l\'import o non è stata cifrata correttamente');
-        console.warn('⚠️ Soluzione: reimporta il file XML KeePass per cifrare correttamente tutte le password');
         return res.json({ 
           password: '',
           warning: 'Password vuota o non cifrata. Reimporta il file XML per correggere.'
@@ -976,29 +808,21 @@ module.exports = function createKeepassRouter(pool) {
 
       // Verifica che sia nel formato corretto (iv:encrypted)
       if (!encryptedPassword.includes(':')) {
-        console.error('❌ Password cifrata non è nel formato corretto (iv:encrypted)');
-        console.error('❌ Formato attuale:', encryptedPassword.substring(0, 100));
         return res.json({ 
           password: '',
           warning: 'Password in formato non supportato. Reimporta il file XML per correggere.'
         });
       }
 
-      console.log('🔓 Tentativo decifratura...');
       const decryptedPassword = decryptPassword(encryptedPassword);
-      console.log('🔓 Risultato decifratura:', decryptedPassword !== null ? `lunghezza ${decryptedPassword.length}` : 'null');
 
-      // Restituisci stringa vuota invece di null se la decifratura restituisce null
       if (decryptedPassword === null) {
-        console.error('❌ Errore nella decifratura - encryptedPassword (primi 100 caratteri):', encryptedPassword?.substring(0, 100));
-        console.error('❌ Formato password cifrata:', encryptedPassword?.includes(':') ? 'formato corretto (iv:encrypted)' : 'formato errato');
         return res.json({ 
           password: '',
           warning: 'Errore nella decifratura. La password potrebbe essere in un formato non supportato. Reimporta il file XML.'
         });
       }
 
-      console.log('✅ Password decifrata con successo, lunghezza:', decryptedPassword.length);
       res.json({ password: decryptedPassword });
     } catch (err) {
       console.error('❌ Errore decifratura password:', err);
@@ -1274,11 +1098,9 @@ module.exports = function createKeepassRouter(pool) {
       return res.status(403).json({ error: 'Accesso negato: solo tecnici possono eseguire la migrazione' });
     }
     
-    console.log(`✅ Migrazione autorizzata per: ${req.user.email} (${req.user.ruolo})`);
     
     const client = await pool.connect();
     try {
-      console.log('🔄 Inizio migrazione credenziali KeePass...');
       
       // Estrai tutte le entry dal database
       const allEntries = await client.query(`
@@ -1296,7 +1118,6 @@ module.exports = function createKeepassRouter(pool) {
         ORDER BY e.id
       `);
       
-      console.log(`📊 Trovate ${allEntries.rows.length} entry da verificare`);
       
       let updated = 0;
       let errors = 0;
@@ -1376,7 +1197,6 @@ module.exports = function createKeepassRouter(pool) {
           // 1. Verifica password vuota (solo per logging, non eliminiamo)
           const isEmpty = isPasswordEmpty(entry.password_encrypted);
           if (isEmpty) {
-            console.log(`ℹ️ Entry ${entry.id} ("${entry.title || 'Senza titolo'}") ha password vuota - verrà mantenuta ma non mostrata`);
           }
           
           // 2. Verifica e correggi titolo
@@ -1416,7 +1236,6 @@ module.exports = function createKeepassRouter(pool) {
               [entry.id, ...updateValues]
             );
             updated++;
-            console.log(`✅ Entry ${entry.id} ("${entry.title || 'Senza titolo'}") aggiornata:`, Object.keys(updates).join(', '));
           }
         } catch (err) {
           errors++;
@@ -1426,7 +1245,6 @@ module.exports = function createKeepassRouter(pool) {
       }
       
       // Aggiorna anche i nomi dei gruppi
-      console.log('🔄 Verifica nomi gruppi...');
       const allGroups = await client.query('SELECT id, name FROM keepass_groups ORDER BY id');
       
       let groupsUpdated = 0;
@@ -1435,16 +1253,9 @@ module.exports = function createKeepassRouter(pool) {
         if (nameString !== group.name) {
           await client.query('UPDATE keepass_groups SET name = $1 WHERE id = $2', [nameString, group.id]);
           groupsUpdated++;
-          console.log(`✅ Gruppo ${group.id} aggiornato: name`);
         }
       }
       
-      console.log('✅ Migrazione completata!');
-      console.log(`📊 Riepilogo:`);
-      console.log(`   - Entry aggiornate: ${updated}`);
-      console.log(`   - Gruppi aggiornati: ${groupsUpdated}`);
-      console.log(`   - Errori: ${errors}`);
-      console.log(`   - Nota: Entry con password vuote sono state mantenute nel database`);
       
       res.json({
         success: true,
@@ -1543,7 +1354,6 @@ module.exports = function createKeepassRouter(pool) {
 
         await client.query('COMMIT');
 
-        console.log(`✅ Credenziali KeePass eliminate per cliente ID ${clientId}: ${deleteGroups.rowCount} gruppi, ${deleteEntries.rowCount} entry`);
 
         res.json({ 
           message: 'Credenziali eliminate con successo',
@@ -1679,7 +1489,6 @@ module.exports = function createKeepassRouter(pool) {
 
       const reportId = result.rows[0].id;
 
-      console.log(`✅ Segnalazione KeePass creata: ID ${reportId}, User ${userId}, Tipo: ${tipo || 'informazione'}`);
 
       // Crea anche un avviso nella tabella alerts per renderlo visibile negli "Avvisi Importanti"
       try {
@@ -1729,7 +1538,6 @@ module.exports = function createKeepassRouter(pool) {
         ]);
 
         const alertId = alertResult.rows[0].id;
-        console.log(`✅ Avviso creato negli "Avvisi Importanti": ID ${alertId}`);
 
       } catch (alertErr) {
         console.error('⚠️ Errore creazione avviso (segnalazione comunque salvata):', alertErr);
@@ -1891,7 +1699,6 @@ module.exports = function createKeepassRouter(pool) {
                 html: emailBody
               })
               .then(() => {
-                console.log(`📧 Email segnalazione KeePass inviata a ${tecnico.email}`);
               })
               .catch(emailErr => {
                 console.error(`❌ Errore invio email a ${tecnico.email}:`, emailErr.message);
@@ -1917,62 +1724,31 @@ module.exports = function createKeepassRouter(pool) {
 
   // GET /api/keepass/office/:aziendaName - Recupera dati Office da Keepass
   router.get('/office/:aziendaName', authenticateToken, async (req, res) => {
-    console.log('🔍 ============================================');
-    console.log('🔍 RICHIESTA OFFICE RICEVUTA');
-    console.log('🔍 ============================================');
-    console.log('🔍 URL:', req.originalUrl);
-    console.log('🔍 Params:', req.params);
-    console.log('🔍 User:', req.user ? { id: req.user.id, ruolo: req.user.ruolo, email: req.user.email } : 'NON AUTENTICATO');
-    console.log('🔍 Headers:', { 
-      authorization: req.headers.authorization ? 'Presente' : 'Mancante',
-      'x-user-id': req.headers['x-user-id'],
-      'x-user-role': req.headers['x-user-role']
-    });
-    
     try {
       const userRole = req.user?.ruolo;
-      const userId = req.user?.id;
       const adminCompanies = req.user?.admin_companies || [];
-
-      console.log('🔍 Verifica permessi - Ruolo:', userRole, 'Admin Companies:', adminCompanies);
 
       // Verifica permessi: solo tecnici o amministratori aziendali
       if (userRole !== 'tecnico' && userRole !== 'admin') {
-        // Se è cliente, verifica che sia amministratore di almeno un'azienda
         if (userRole === 'cliente' && (!adminCompanies || adminCompanies.length === 0)) {
-          console.log('❌ Accesso negato: permessi insufficienti');
           return res.status(403).json({ error: 'Accesso negato: permessi insufficienti' });
         }
       }
 
       let { aziendaName } = req.params;
-      
-      // Decodifica il nome dell'azienda dall'URL (potrebbe essere URL-encoded)
       try {
         aziendaName = decodeURIComponent(aziendaName);
-      } catch (e) {
-        console.warn('⚠️ Errore decodifica nome azienda, uso valore originale:', aziendaName);
-      }
-      
-      // Pulisci il nome da eventuali caratteri strani o ID
+      } catch (e) {}
       aziendaName = aziendaName.split(':')[0].trim();
-      
-      console.log('🔍 Richiesta Office per azienda:', aziendaName);
-      console.log('🔍 Parametro originale:', req.params.aziendaName);
-      
-      const keepassPassword = process.env.KEEPASS_PASSWORD;
 
+      const keepassPassword = process.env.KEEPASS_PASSWORD;
       if (!keepassPassword) {
-        console.error('❌ Password Keepass non configurata');
         return res.status(500).json({ error: 'Password Keepass non configurata' });
       }
-
       if (!aziendaName) {
-        console.error('❌ Nome azienda vuoto dopo pulizia');
         return res.status(400).json({ error: 'Nome azienda richiesto' });
       }
 
-      console.log('🔍 Chiamata getOfficeData con azienda:', aziendaName);
       const officeData = await keepassDriveService.getOfficeData(keepassPassword, aziendaName);
 
       if (!officeData) {
