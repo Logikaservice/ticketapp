@@ -928,6 +928,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     }
   }, [selectedCompanyId, loadCompanyDevices]);
 
+  // Sincronizza filtro Eventi di Rete con l'azienda selezionata nella vista principale: così gli eventi mostrati sono solo di quell'azienda
+  useEffect(() => {
+    setChangesCompanyFilter(selectedCompanyId ?? null);
+  }, [selectedCompanyId]);
+
   // Chiude il menu contestuale quando si preme ESC
   useEffect(() => {
     const handleEscape = (e) => {
@@ -2296,7 +2301,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 >
                   <option value="">Tutte le Aziende</option>
                   {companies
-                    .filter(company => company.agents_count > 0)
+                    .filter(company => (company.agents_count ?? company.agent_count ?? 0) > 0 || company.id === changesCompanyFilter || company.id === selectedCompanyId)
                     .map((company) => (
                       <option key={company.id} value={company.id}>
                         {company.azienda}
