@@ -1799,7 +1799,16 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         {/* Intro per clienti (readOnly): sotto le 5 card, leggermente separato */}
         {readOnly && (
           <div className="mt-10 pt-8 border-t border-gray-200">
-            <MonitoraggioIntroCard />
+            <MonitoraggioIntroCard
+              companies={companies}
+              value={selectedCompanyId}
+              onChange={(companyId) => {
+                const id = companyId ? parseInt(companyId, 10) : null;
+                setSelectedCompanyId(id);
+                if (id) loadCompanyDevices(id);
+                else setCompanyDevices([]);
+              }}
+            />
           </div>
         )}
 

@@ -1,8 +1,8 @@
 // Blocco introduttivo "Progetto esclusivo" per clienti in Monitoraggio Rete / Mappatura
-// Mostrato prima del selettore azienda, con effetti hover sulle card
+// Mostrato sotto le 5 card / sotto header, con CTA e selettore azienda opzionale
 
 import React from 'react';
-import { Zap, ShieldCheck, Monitor, Map } from 'lucide-react';
+import { Zap, ShieldCheck, Monitor, Map, Building } from 'lucide-react';
 
 const features = [
   {
@@ -39,7 +39,10 @@ const features = [
   }
 ];
 
-const MonitoraggioIntroCard = () => {
+const MonitoraggioIntroCard = ({ companies = [], value = '', onChange = null }) => {
+  const showSelector = Array.isArray(companies) && companies.length > 0 && typeof onChange === 'function';
+  const selectValue = value != null ? String(value) : '';
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8 mb-8 transition-shadow duration-300">
       {/* Pill label */}
@@ -78,6 +81,29 @@ const MonitoraggioIntroCard = () => {
           );
         })}
       </div>
+
+      {/* Call to action + selettore azienda */}
+      <p className="text-gray-600 mt-8 mb-3">
+        Seleziona la tua azienda nel menu per vedere dispositivi e mappa.
+      </p>
+      {showSelector && (
+        <div className="relative max-w-sm">
+          <select
+            value={selectValue}
+            onChange={(e) => {
+              const v = e.target.value;
+              onChange(v ? v : null);
+            }}
+            className="w-full pl-4 pr-10 py-3 bg-white border border-gray-300 rounded-lg text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none cursor-pointer"
+          >
+            <option value="">Seleziona Azienda...</option>
+            {companies.filter(c => c.id != null).map((c) => (
+              <option key={c.id} value={String(c.id)}>{c.azienda || `ID ${c.id}`}</option>
+            ))}
+          </select>
+          <Building size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        </div>
+      )}
     </div>
   );
 };

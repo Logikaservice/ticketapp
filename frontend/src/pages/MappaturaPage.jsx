@@ -1752,7 +1752,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                 {/* Intro per clienti: sotto l'header, leggermente separato */}
                 {isCliente && (
                     <div className="shrink-0 px-6 pt-6 pb-4 border-b border-gray-200">
-                        <MonitoraggioIntroCard />
+                        <MonitoraggioIntroCard
+                            companies={companies}
+                            value={selectedCompanyId}
+                            onChange={(companyId) => setSelectedCompanyId(companyId ? String(companyId) : '')}
+                        />
                     </div>
                 )}
 
