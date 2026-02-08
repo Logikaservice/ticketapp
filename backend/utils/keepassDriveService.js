@@ -131,18 +131,18 @@ class KeepassDriveService {
    */
   extractAllMacsFromField(value) {
     if (!value) return [];
-    const str = String(value).toUpperCase();
+    // Normalizza: unifica spazi/trattini/duepunti così riconosciamo anche "F8 BC 12 85 2F AE" o "F8-BC-12-85-2F-AE"
+    let str = String(value).toUpperCase().trim();
+    str = str.replace(/\s+/g, ':').replace(/-/g, ':');
     const macs = [];
 
-    // Pattern per MAC address: XX-XX-XX-XX-XX-XX o XX:XX:XX:XX:XX:XX o XXXXXXXXXXXX
-    // Usa flag 'g' per trovare TUTTI i MAC nel campo
-    const macPattern = /([0-9A-F]{2}[:-]){5}[0-9A-F]{2}|[0-9A-F]{12}/g;
+    // Pattern per MAC: XX:XX:XX:XX:XX:XX o XXXXXXXXXXXX (dopo normalizzazione)
+    const macPattern = /([0-9A-F]{2}:){5}[0-9A-F]{2}|[0-9A-F]{12}/g;
     const matches = str.match(macPattern);
 
     if (matches && matches.length > 0) {
       for (const match of matches) {
-        // Normalizza: rimuovi separatori e aggiungi trattini
-        let mac = match.replace(/[:-]/g, '');
+        let mac = match.replace(/:/g, '');
         if (mac.length === 12) {
           mac = mac.replace(/(..)(..)(..)(..)(..)(..)/, '$1-$2-$3-$4-$5-$6');
           macs.push(mac.toUpperCase());
@@ -182,16 +182,31 @@ class KeepassDriveService {
             const titleField = entry.fields && entry.fields['Title'];
             const titleStr = titleField ? (titleField instanceof ProtectedValue ? titleField.getText() : String(titleField)) : '';
 
-            // Estrai anche il campo UserName (Nome Utente)
+            // Estrai anche il campo UserName (Nome Utente); fallback su campi personalizzati "Utente" / "User"
             const usernameField = entry.fields && entry.fields['UserName'];
-            const usernameStr = usernameField ? (usernameField instanceof ProtectedValue ? usernameField.getText() : String(usernameField)) : '';
+            let usernameStr = usernameField ? (usernameField instanceof ProtectedValue ? usernameField.getText() : String(usernameField)) : '';
+            if (!usernameStr || !usernameStr.trim()) {
+              const getCustom = (name) => {
+                if (!entry.customFields) return null;
+                return typeof entry.customFields.get === 'function' ? entry.customFields.get(name) : entry.customFields[name];
+              };
+              const altField = (entry.fields && (entry.fields['Utente'] || entry.fields['User'])) || getCustom('Utente') || getCustom('User');
+              if (altField) {
+                usernameStr = altField instanceof ProtectedValue ? altField.getText() : String(altField);
+              }
+            }
 
             // Cerca MAC in TUTTI i campi (inclusi campi personalizzati)
             // Prima ottieni tutti i nomi dei campi disponibili
             const allFieldNames = entry.fields ? Object.keys(entry.fields) : [];
-
-            // Verifica anche se ci sono customFields (alcune versioni di kdbxweb li mettono qui)
-            const customFieldNames = entry.customFields ? Object.keys(entry.customFields) : [];
+            let customFieldNames = [];
+            if (entry.customFields) {
+              if (typeof entry.customFields.keys === 'function') {
+                customFieldNames = [...entry.customFields.keys()];
+              } else {
+                customFieldNames = Object.keys(entry.customFields);
+              }
+            }
 
             const standardFields = ['UserName', 'Password', 'URL', 'Notes', 'Title'];
             const fieldsToCheck = [...new Set([...standardFields, ...allFieldNames, ...customFieldNames])]; // Unisci senza duplicati
@@ -202,12 +217,14 @@ class KeepassDriveService {
             const foundMacs = [];
 
             for (const fieldName of fieldsToCheck) {
-              // Prova prima in entry.fields, poi in entry.customFields
+              // Prova prima in entry.fields, poi in entry.customFields (oggetto o Map)
               let fieldValue = null;
               if (entry.fields && entry.fields[fieldName]) {
                 fieldValue = entry.fields[fieldName];
-              } else if (entry.customFields && entry.customFields[fieldName]) {
-                fieldValue = entry.customFields[fieldName];
+              } else if (entry.customFields) {
+                fieldValue = typeof entry.customFields.get === 'function'
+                  ? entry.customFields.get(fieldName)
+                  : entry.customFields[fieldName];
               }
 
               if (fieldValue) {
