@@ -2950,10 +2950,10 @@ module.exports = (pool, io) => {
         // IMPORTANTE: NON sovrascrivere device_type se è stato modificato manualmente (is_manual_type = true)
         if (row.mac_address && keepassMap && !row.is_manual_type) {
           try {
-            // Normalizza il MAC per la ricerca (prova sia uppercase che lowercase per massima compatibilità)
-            const normalizedMacUpper = row.mac_address.replace(/[:-]/g, '').toUpperCase();
-            const normalizedMacLower = row.mac_address.replace(/[:-]/g, '').toLowerCase();
-            let keepassResult = keepassMap.get(normalizedMacUpper) || keepassMap.get(normalizedMacLower);
+            // Normalizza il MAC: solo caratteri esadecimali, 12 caratteri, uppercase (come chiavi in keepassMap)
+            const macHex = (row.mac_address || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+            const normalizedMac = macHex.length === 12 ? macHex : row.mac_address.replace(/[:-]/g, '').toUpperCase();
+            let keepassResult = keepassMap.get(normalizedMac);
 
             if (keepassResult) {
               // Titolo (in UI = hostname): da KeePass Title
@@ -3705,16 +3705,16 @@ module.exports = (pool, io) => {
         // Cerca MAC nella mappa KeePass (già caricata) - SOLO se non è stato impostato manualmente
         if (row.mac_address && keepassMap && !row.is_manual_type) {
           try {
-            // Normalizza il MAC per la ricerca
-            const normalizedMac = row.mac_address.replace(/[:-]/g, '').toUpperCase();
+            // Normalizza il MAC: solo caratteri esadecimali, 12 caratteri, uppercase (come chiavi in keepassMap)
+            const macHex = (row.mac_address || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+            const normalizedMac = macHex.length === 12 ? macHex : row.mac_address.replace(/[:-]/g, '').toUpperCase();
             const keepassResult = keepassMap.get(normalizedMac);
 
             if (keepassResult) {
-              // Estrai solo l'ultimo elemento del percorso
               const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
               row.device_type = keepassResult.title;
-              row.device_path = lastPathElement;
-              row.device_username = keepassResult.username || null;
+              row.device_path = (lastPathElement && lastPathElement.trim()) ? lastPathElement.trim() : null;
+              row.device_username = (keepassResult.username && keepassResult.username.trim()) ? keepassResult.username.trim() : null;
             }
             // Se non trovato, mantieni i valori esistenti dal database
           } catch (keepassErr) {
@@ -5605,7 +5605,7 @@ pause
       const testMac = '101331CDFF6C';
       if (keepassMap.has(testMac)) {
         const testResult = keepassMap.get(testMac);
-        console.log(`✅ MAC ${testMac} trovato in mappa Keepass: Titolo="${testResult.title}", Path="${testResult.path}"`);
+        console.log(`✅ MAC ${testMac} trovato in mappa Keepass: Titolo="${testResult.title}", Path="${testResult.path}", Username="${testResult.username}"`);
       } else {
         console.log(`⚠️ MAC ${testMac} NON trovato in mappa Keepass`);
         // Mostra MAC simili per debug
@@ -5684,11 +5684,13 @@ pause
             if (normalizedMac === '101331CDFF6C' || normalizedMac === 'CC96E50E602F') {
               console.log(`  🔍 MAC ${device.mac_address} trovato in Keepass:`);
               console.log(`     - Titolo da Keepass: "${keepassResult.title}"`);
+              console.log(`     - Username da Keepass: "${keepassResult.username}"`);
               console.log(`     - IconId da Keepass: ${iconId} -> Map: "${deviceType}"`);
               console.log(`     - Path da Keepass: "${keepassResult.path}"`);
               console.log(`     - LastPathElement: "${lastPathElement}"`);
               console.log(`     - device_type attuale: "${device.device_type}"`);
               console.log(`     - device_path attuale: "${device.device_path}"`);
+              console.log(`     - device_username attuale: "${device.device_username}"`);
             }
 
             // Verifica se i valori sono diversi da quelli attuali (incluso hostname = Titolo)
