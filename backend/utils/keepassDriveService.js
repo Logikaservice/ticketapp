@@ -131,18 +131,16 @@ class KeepassDriveService {
    */
   extractAllMacsFromField(value) {
     if (!value) return [];
-    // Normalizza: unifica spazi/trattini/duepunti così riconosciamo anche "F8 BC 12 85 2F AE" o "F8-BC-12-85-2F-AE"
-    let str = String(value).toUpperCase().trim();
-    str = str.replace(/\s+/g, ':').replace(/-/g, ':');
+    const str = String(value).toUpperCase();
     const macs = [];
 
-    // Pattern per MAC: XX:XX:XX:XX:XX:XX o XXXXXXXXXXXX (dopo normalizzazione)
-    const macPattern = /([0-9A-F]{2}:){5}[0-9A-F]{2}|[0-9A-F]{12}/g;
+    // Pattern per MAC address: XX-XX-XX-XX-XX-XX o XX:XX:XX:XX:XX:XX o XXXXXXXXXXXX (senza spazi)
+    const macPattern = /([0-9A-F]{2}[:-]){5}[0-9A-F]{2}|[0-9A-F]{12}/g;
     const matches = str.match(macPattern);
 
     if (matches && matches.length > 0) {
       for (const match of matches) {
-        let mac = match.replace(/:/g, '');
+        let mac = match.replace(/[:-]/g, '');
         if (mac.length === 12) {
           mac = mac.replace(/(..)(..)(..)(..)(..)(..)/, '$1-$2-$3-$4-$5-$6');
           macs.push(mac.toUpperCase());

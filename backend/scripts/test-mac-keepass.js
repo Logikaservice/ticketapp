@@ -38,9 +38,10 @@ async function main() {
     if (result) {
       const lastPathElement = result.path ? result.path.split(' > ').pop() : null;
       console.log(`✅ MAC TROVATO in KeePass:`);
-      console.log(`   - Titolo: "${result.title}"`);
-      console.log(`   - Percorso completo: "${result.path}"`);
-      console.log(`   - Ultimo elemento percorso: "${lastPathElement}"`);
+      console.log(`   - Titolo:  "${result.title || ''}"`);
+      console.log(`   - Utente:  "${result.username || ''}"`);
+      console.log(`   - Percorso completo: "${result.path || ''}"`);
+      console.log(`   - Ultimo elemento percorso (Percorso): "${lastPathElement || ''}"`);
     } else {
       console.log(`❌ MAC NON TROVATO in KeePass`);
       console.log(`\n📋 Esempi MAC presenti nella mappa (primi 10):`);
