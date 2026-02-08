@@ -1749,19 +1749,6 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     </div>
                 </div>
 
-                {/* Intro per clienti: sotto l'header, centrato come in Monitoraggio */}
-                {isCliente && (
-                    <div className="shrink-0 px-6 pt-6 pb-4 border-b border-gray-200 flex justify-center">
-                        <div className="w-full max-w-4xl">
-                            <MonitoraggioIntroCard
-                                companies={companies}
-                                value={selectedCompanyId}
-                                onChange={(companyId) => setSelectedCompanyId(companyId ? String(companyId) : '')}
-                            />
-                        </div>
-                    </div>
-                )}
-
                 <div className="flex-1 flex min-h-0 select-none mappatura-main-content">
                     {/* Left: toolbar + IP list */}
                     {selectedCompanyId && (
@@ -1970,12 +1957,22 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             </div>
                         )}
                         {!selectedCompanyId && !loading && (
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <div className="bg-white p-6 rounded-lg shadow-lg text-center border border-gray-200">
-                                    <Server size={48} className="mx-auto text-gray-300 mb-2" />
-                                    <h3 className="text-lg font-bold text-gray-700">Seleziona un'azienda</h3>
-                                    <p className="text-gray-500 text-sm">Usa il menu in alto per avviare la mappatura.</p>
-                                </div>
+                            <div className="absolute inset-0 flex items-center justify-center p-6 overflow-y-auto z-10">
+                                {isCliente ? (
+                                    <div className="w-full max-w-4xl pointer-events-auto">
+                                        <MonitoraggioIntroCard
+                                            companies={companies}
+                                            value={selectedCompanyId}
+                                            onChange={(companyId) => setSelectedCompanyId(companyId ? String(companyId) : '')}
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="bg-white p-6 rounded-lg shadow-lg text-center border border-gray-200 pointer-events-none">
+                                        <Server size={48} className="mx-auto text-gray-300 mb-2" />
+                                        <h3 className="text-lg font-bold text-gray-700">Seleziona un'azienda</h3>
+                                        <p className="text-gray-500 text-sm">Usa il menu in alto per avviare la mappatura.</p>
+                                    </div>
+                                )}
                             </div>
                         )}
                         {selectedCompanyId && !loading && nodes.length === 0 && (
