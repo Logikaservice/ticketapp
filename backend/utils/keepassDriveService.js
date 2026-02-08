@@ -178,7 +178,15 @@ class KeepassDriveService {
             // kdbxweb usa entry.fields come oggetto, non come Map
             // Accediamo direttamente alle proprietà
             const titleField = entry.fields && entry.fields['Title'];
-            const titleStr = titleField ? (titleField instanceof ProtectedValue ? titleField.getText() : String(titleField)) : '';
+            let titleStr = titleField ? (titleField instanceof ProtectedValue ? titleField.getText() : String(titleField)) : '';
+            if (!titleStr || !titleStr.trim()) {
+              const getCustom = (name) => {
+                if (!entry.customFields) return null;
+                return typeof entry.customFields.get === 'function' ? entry.customFields.get(name) : entry.customFields[name];
+              };
+              const alt = getCustom('Titolo') || getCustom('Hostname') || getCustom('Nome') || (entry.fields && (entry.fields['Titolo'] || entry.fields['Hostname'] || entry.fields['Nome']));
+              if (alt) titleStr = alt instanceof ProtectedValue ? alt.getText() : String(alt);
+            }
 
             // Estrai anche il campo UserName (Nome Utente); fallback su campi personalizzati "Utente" / "User"
             const usernameField = entry.fields && entry.fields['UserName'];
