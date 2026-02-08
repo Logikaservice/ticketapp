@@ -188,20 +188,6 @@ class KeepassDriveService {
               if (alt) titleStr = alt instanceof ProtectedValue ? alt.getText() : String(alt);
             }
 
-            // Estrai anche il campo UserName (Nome Utente); fallback su campi personalizzati "Utente" / "User"
-            const usernameField = entry.fields && entry.fields['UserName'];
-            let usernameStr = usernameField ? (usernameField instanceof ProtectedValue ? usernameField.getText() : String(usernameField)) : '';
-            if (!usernameStr || !usernameStr.trim()) {
-              const getCustom = (name) => {
-                if (!entry.customFields) return null;
-                return typeof entry.customFields.get === 'function' ? entry.customFields.get(name) : entry.customFields[name];
-              };
-              const altField = (entry.fields && (entry.fields['Utente'] || entry.fields['User'])) || getCustom('Utente') || getCustom('User');
-              if (altField) {
-                usernameStr = altField instanceof ProtectedValue ? altField.getText() : String(altField);
-              }
-            }
-
             // Cerca MAC in TUTTI i campi (inclusi campi personalizzati)
             // Prima ottieni tutti i nomi dei campi disponibili
             const allFieldNames = entry.fields ? Object.keys(entry.fields) : [];
@@ -247,18 +233,34 @@ class KeepassDriveService {
             }
 
             // Aggiungi TUTTI i MAC trovati alla mappa
+            // IMPORTANTE: Estrai l'username per ogni entry che contiene almeno un MAC
             for (const { mac, field } of foundMacs) {
               // mac è già normalizzato da extractAllMacsFromField (formato XX-XX-XX-XX-XX-XX)
               // Normalizziamo per la ricerca (rimuoviamo separatori)
               const normalizedMac = this.normalizeMacForSearch(mac);
               if (normalizedMac) {
+                // Estrai il campo UserName (Nome Utente); fallback su campi personalizzati "Utente" / "User"
+                // QUESTO VIENE FATTO PER OGNI MAC TROVATO, garantendo che l'username sia sempre associato correttamente
+                const usernameField = entry.fields && entry.fields['UserName'];
+                let usernameStr = usernameField ? (usernameField instanceof ProtectedValue ? usernameField.getText() : String(usernameField)) : '';
+                if (!usernameStr || !usernameStr.trim()) {
+                  const getCustom = (name) => {
+                    if (!entry.customFields) return null;
+                    return typeof entry.customFields.get === 'function' ? entry.customFields.get(name) : entry.customFields[name];
+                  };
+                  const altField = (entry.fields && (entry.fields['Utente'] || entry.fields['User'])) || getCustom('Utente') || getCustom('User');
+                  if (altField) {
+                    usernameStr = altField instanceof ProtectedValue ? altField.getText() : String(altField);
+                  }
+                }
+
                 // Estrai Icon ID (supporta sia primitive che object)
                 let iconId = entry.icon;
                 if (entry.icon && typeof entry.icon === 'object' && entry.icon.id !== undefined) {
                   iconId = entry.icon.id;
                 }
                 // Sovrascrivi sempre (ultima entry vince): così se lo stesso MAC è in più entry (es. Cestino e sotto Smil Service)
-                // dopo un aggiornamento in Keepass viene usata l’entry più recente nell’ordine di scansione
+                // dopo un aggiornamento in Keepass viene usata l'entry più recente nell'ordine di scansione
                 const entryData = { title: titleStr || '', path: currentPath || '', username: usernameStr || '', iconId: iconId };
                 macMap.set(normalizedMac, entryData);
               }
@@ -699,7 +701,7 @@ class KeepassDriveService {
             `CUSTOM FIELD ${num}`,
             `CAMPO ${num}`
           ];
-          
+
           for (const name of possibleNames) {
             if (file.customFields && file.customFields[name] !== undefined && file.customFields[name] !== null && file.customFields[name] !== '') {
               const value = String(file.customFields[name]).trim();
@@ -713,9 +715,9 @@ class KeepassDriveService {
               const keyLower = key.toLowerCase().trim();
               const numStr = String(num);
               if (keyLower === numStr ||
-                  keyLower === `campo personalizzato ${numStr}` ||
-                  keyLower === `custom field ${numStr}` ||
-                  keyLower === `campo ${numStr}`) {
+                keyLower === `campo personalizzato ${numStr}` ||
+                keyLower === `custom field ${numStr}` ||
+                keyLower === `campo ${numStr}`) {
                 const valueStr = String(value || '').trim();
                 if (valueStr) return valueStr;
               }
@@ -724,13 +726,13 @@ class KeepassDriveService {
 
           return '';
         };
-        
+
         const custom1 = getCustomField(1);
         const custom2 = getCustomField(2);
         const custom3 = getCustomField(3);
         const custom4 = getCustomField(4);
         const custom5 = getCustomField(5);
-        
+
         return {
           title: file.title,
           username: file.username || '',
