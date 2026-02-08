@@ -528,7 +528,16 @@ class KeepassDriveService {
         };
       };
 
-      // Prima: sottogruppi (tipo @nomequalcosa) come divisori + entry sotto
+      // Prima in assoluto: entry "fratelle" della cartella Email (figli diretti dell'azienda, stesso livello di Email)
+      // In KeePass possono essere prima o dopo la cartella Email; vanno sempre in cima alla lista, anche senza titolo
+      const parentGroup = emailGroup.parentGroup;
+      if (parentGroup && parentGroup.entries && parentGroup.entries.length > 0) {
+        for (const entry of parentGroup.entries) {
+          result.push(extractEntry(entry, ''));
+        }
+      }
+
+      // Poi: sottogruppi di Email (tipo @nomequalcosa) come divisori + entry sotto
       if (emailGroup.groups) {
         for (const sub of emailGroup.groups) {
           const subName = sub.name || '';
@@ -540,7 +549,7 @@ class KeepassDriveService {
           }
         }
       }
-      // Poi: entry dirette nel gruppo Email
+      // Infine: entry dirette nel gruppo Email (non in sottocartelle)
       if (emailGroup.entries) {
         for (const entry of emailGroup.entries) {
           result.push(extractEntry(entry, ''));
