@@ -1693,14 +1693,8 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                 }
             `}</style>
             <div className="fixed inset-0 bg-gray-50 z-[100] flex flex-col font-sans w-full h-full overflow-hidden">
-                {/* Intro per clienti: messaggio "Progetto esclusivo" prima del selettore azienda */}
-                {isCliente && (
-                    <div className="shrink-0 overflow-y-auto px-6 pt-6 pb-2">
-                        <MonitoraggioIntroCard />
-                    </div>
-                )}
                 {/* Header */}
-                <div className="mappatura-header bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
+                <div className="mappatura-header bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10 shrink-0">
                     <div className="flex items-center gap-4">
                         <button onClick={() => { saveLayoutRef.current?.(); onClose(); }} className="p-2 hover:bg-gray-100 rounded-full" title="Chiudi Mappatura">
                             <ArrowLeft size={24} className="text-gray-600" />
@@ -1754,6 +1748,13 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         </div>
                     </div>
                 </div>
+
+                {/* Intro per clienti: sotto l'header, leggermente separato */}
+                {isCliente && (
+                    <div className="shrink-0 px-6 pt-6 pb-4 border-b border-gray-200">
+                        <MonitoraggioIntroCard />
+                    </div>
+                )}
 
                 <div className="flex-1 flex min-h-0 select-none mappatura-main-content">
                     {/* Left: toolbar + IP list */}

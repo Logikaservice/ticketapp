@@ -1309,12 +1309,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
   return (
     <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto">
-      {/* Intro per clienti (readOnly): messaggio "Progetto esclusivo" prima del selettore azienda */}
-      {readOnly && (
-        <div className="bg-white border-b border-gray-100 px-6 py-6">
-          <MonitoraggioIntroCard />
-        </div>
-      )}
       {/* Header Navigazione */}
       {onClose && (
         <div className="bg-white border-b px-6 py-3 flex justify-between items-center sticky top-0 z-40 shadow-sm">
@@ -1801,6 +1795,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
           </div>
         </div>
+
+        {/* Intro per clienti (readOnly): sotto le 5 card, leggermente separato */}
+        {readOnly && (
+          <div className="mt-10 pt-8 border-t border-gray-200">
+            <MonitoraggioIntroCard />
+          </div>
+        )}
 
         {/* Vista Dettaglio Dispositivi Azienda (mostrata solo se un'azienda è selezionata) */}
         {selectedCompanyId && (
