@@ -367,8 +367,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     }
   };
 
-  // Gestisci initialView dal menu
+  // Gestisci initialView dal menu (Agent e Notifiche Telegram solo per tecnici: se readOnly non aprire queste viste)
   useEffect(() => {
+    if (readOnly && (initialView === 'agents' || initialView === 'create' || initialView === 'notifications' || initialView === 'telegram')) {
+      return;
+    }
     if (initialView === 'agents') {
       setShowAgentsList(true);
       loadAgents();
@@ -402,7 +405,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialView]);
+  }, [initialView, readOnly]);
 
   // Carica dispositivi
   const loadDevices = useCallback(async (silent = false) => {
@@ -1360,8 +1363,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           </div>
         )}
 
-        {/* Lista Agent Esistenti */}
-        {showAgentsList && (
+        {/* Lista Agent Esistenti (solo per tecnici, nascosta in readOnly) */}
+        {!readOnly && showAgentsList && (
           <div className="mb-6 bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -1551,8 +1554,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           </div>
         )}
 
-        {/* Configurazione Notifiche Telegram */}
-        {showTelegramConfig && (
+        {/* Configurazione Notifiche Telegram (solo per tecnici, nascosta in readOnly) */}
+        {!readOnly && showTelegramConfig && (
           <TelegramConfigSection
             companies={companies}
             agents={agents}
@@ -1566,8 +1569,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           />
         )}
 
-        {/* Lista Notifiche Agent */}
-        {showAgentNotificationsList && (
+        {/* Lista Notifiche Agent (solo per tecnici, nascosta in readOnly) */}
+        {!readOnly && showAgentNotificationsList && (
           <div className="mb-6 bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">

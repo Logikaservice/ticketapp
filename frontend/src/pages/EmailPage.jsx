@@ -3,10 +3,12 @@
 // Scadenza editabile come Anti-Virus (salvata nel DB, non KeePass)
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Loader } from 'lucide-react';
+import { ArrowLeft, Loader, MessageCircle } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
-const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId }) => {
+const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser, onOpenTicket }) => {
+  const canEditExpiry = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
+  const showAssistenzaButton = currentUser?.ruolo === 'cliente' && typeof onOpenTicket === 'function';
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [items, setItems] = useState([]);
@@ -222,6 +224,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">Nome Utente</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">URL</th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">Scadenza</th>
+                    {showAssistenzaButton && <th className="text-left py-3 px-4 font-semibold text-gray-700 w-32">Assistenza</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -229,7 +232,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                     if (item.type === 'divider') {
                       return (
                         <tr key={`div-${idx}`} className="bg-sky-100 border-y border-sky-200">
-                          <td colSpan={4} className="py-2 px-4 font-medium text-sky-800">
+                          <td colSpan={showAssistenzaButton ? 5 : 4} className="py-2 px-4 font-medium text-sky-800">
                             {item.name || '—'}
                           </td>
                         </tr>
@@ -254,14 +257,34 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                           ) : '—'}
                         </td>
                         <td className={`py-2 px-4 whitespace-nowrap ${isExpired ? 'text-red-700 font-medium' : 'text-gray-600'}`}>
-                          <input
-                            type="date"
-                            className="w-full max-w-[140px] border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                            value={draft.expiration_date || ''}
-                            onChange={(e) => updateDraft(key, 'expiration_date', e.target.value)}
-                            onBlur={(e) => handleSaveExpiry(item, e.target.value)}
-                          />
+                          {canEditExpiry ? (
+                            <input
+                              type="date"
+                              className="w-full max-w-[140px] border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                              value={draft.expiration_date || ''}
+                              onChange={(e) => updateDraft(key, 'expiration_date', e.target.value)}
+                              onBlur={(e) => handleSaveExpiry(item, e.target.value)}
+                            />
+                          ) : (
+                            <span>{draft.expiration_date ? new Date(draft.expiration_date + 'T12:00:00').toLocaleDateString('it-IT') : '—'}</span>
+                          )}
                         </td>
+                        {showAssistenzaButton && (
+                          <td className="py-2 px-4">
+                            <button
+                              type="button"
+                              onClick={() => onOpenTicket({
+                                titolo: `Assistenza Email - ${(item.title || item.username || 'Account').toString().trim()}`,
+                                descrizione: `Richiesta assistenza relativa all'account email:\n\nTitolo: ${item.title || '—'}\nUtente: ${item.username || '—'}\nURL: ${item.url || '—'}\nAzienda: ${companyName || '—'}`
+                              })}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                              title="Apri un ticket di assistenza"
+                            >
+                              <MessageCircle size={16} />
+                              Apri ticket
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}

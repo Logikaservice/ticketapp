@@ -1799,6 +1799,22 @@ export default function TicketApp() {
   // ====================================================================
   const openNewTicketModal = () => { resetNewTicketData(); setModalState({ type: 'newTicket' }); };
 
+  /** Apre il modal nuovo ticket con titolo/descrizione precompilati (es. da Email per assistenza). */
+  const openNewTicketWithData = (data = {}) => {
+    const nomeRichiedente = currentUser?.ruolo === 'cliente' ? `${currentUser.nome} ${currentUser.cognome || ''}`.trim() : '';
+    setNewTicketData({
+      titolo: data.titolo ?? '',
+      descrizione: data.descrizione ?? '',
+      categoria: 'assistenza',
+      priorita: 'media',
+      nomerichiedente: nomeRichiedente,
+      dataapertura: ''
+    });
+    setIsEditingTicket(null);
+    setSelectedClientForNewTicket(selectedCompanyForNavigation || currentUser?.azienda_id || '');
+    setModalState({ type: 'newTicket' });
+  };
+
   // Funzione per creare un ticket da un avviso
   const handleCreateTicketFromAlert = (alert) => {
     const nomeRichiedente = currentUser?.ruolo === 'cliente' ? `${currentUser.nome} ${currentUser.cognome || ''}`.trim() : '';
@@ -3137,6 +3153,8 @@ export default function TicketApp() {
             onClose={() => { setShowEmail(false); setShowDashboard(true); }}
             getAuthHeader={getAuthHeader}
             selectedCompanyId={selectedCompanyForNavigation || (currentUser?.ruolo === 'cliente' ? currentUser?.azienda_id : null) || (currentUser?.admin_companies && currentUser.admin_companies.length > 0 ? currentUser.admin_companies[0] : null)}
+            currentUser={currentUser}
+            onOpenTicket={openNewTicketWithData}
           />
         )}
 
