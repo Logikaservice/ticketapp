@@ -1796,8 +1796,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           </div>
         </div>
 
-        {/* Intro per clienti (readOnly): sotto le 5 card, leggermente separato */}
-        {readOnly && (
+        {/* Intro per clienti (readOnly): sotto le 5 card, solo se nessuna azienda selezionata; quando selezioni l'azienda scompare e lascia spazio alla lista */}
+        {readOnly && !selectedCompanyId && (
           <div className="mt-10 pt-8 border-t border-gray-200">
             <MonitoraggioIntroCard
               companies={companies}
