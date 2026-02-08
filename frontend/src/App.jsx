@@ -3129,6 +3129,7 @@ export default function TicketApp() {
               setShowMappatura(false);
               setShowNetworkMonitoring(true);
             }}
+            currentUser={currentUser}
           />
         )}
 

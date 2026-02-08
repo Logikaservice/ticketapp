@@ -18,6 +18,7 @@ import MonitoringScheduleModal from './Modals/MonitoringScheduleModal';
 import AgentNotifications from './AgentNotifications';
 import TelegramConfigSection from './TelegramConfigSection';
 import { EventBadge, SeverityIndicator } from './EventBadges';
+import MonitoraggioIntroCard from './MonitoraggioIntroCard';
 
 const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, initialCompanyId = null, readOnly = false }) => {
   const [devices, setDevices] = useState([]);
@@ -1308,6 +1309,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
   return (
     <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto">
+      {/* Intro per clienti (readOnly): messaggio "Progetto esclusivo" prima del selettore azienda */}
+      {readOnly && (
+        <div className="bg-white border-b border-gray-100 px-6 py-6">
+          <MonitoraggioIntroCard />
+        </div>
+      )}
       {/* Header Navigazione */}
       {onClose && (
         <div className="bg-white border-b px-6 py-3 flex justify-between items-center sticky top-0 z-40 shadow-sm">
