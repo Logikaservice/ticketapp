@@ -2885,6 +2885,22 @@ module.exports = (pool, io) => {
       const keepassPassword = process.env.KEEPASS_PASSWORD;
       let keepassMap = null;
       let keepassIpMap = null; // MAC normalizzato -> IP da KeePass (per confronto IP)
+      let aziendaName = null; // Nome dell'azienda per filtrare le entry di KeePass
+
+      // Recupera il nome dell'azienda per filtrare le entry di KeePass
+      try {
+        const aziendaResult = await pool.query(
+          'SELECT azienda FROM users WHERE id = $1',
+          [aziendaId]
+        );
+        if (aziendaResult.rows.length > 0) {
+          aziendaName = aziendaResult.rows[0].azienda;
+          console.log(`📋 Nome azienda: "${aziendaName}"`);
+        }
+      } catch (aziendaErr) {
+        console.warn('⚠️ Errore recupero nome azienda:', aziendaErr.message);
+      }
+
       if (keepassPassword) {
         try {
           console.log('📥 Caricamento mappa KeePass (una volta per tutti i dispositivi)...');
@@ -2954,6 +2970,16 @@ module.exports = (pool, io) => {
             const macHex = (row.mac_address || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
             const normalizedMac = macHex.length === 12 ? macHex : row.mac_address.replace(/[:-]/g, '').toUpperCase();
             let keepassResult = keepassMap.get(normalizedMac);
+
+            // FILTRO PER AZIENDA: verifica che il path contenga il nome dell'azienda
+            if (keepassResult && aziendaName) {
+              const keepassPath = keepassResult.path || '';
+              // Verifica se il path contiene il nome dell'azienda (case-insensitive)
+              if (!keepassPath.toLowerCase().includes(aziendaName.toLowerCase())) {
+                console.log(`⚠️ MAC ${row.mac_address}: trovato in KeePass ma path "${keepassPath}" non contiene azienda "${aziendaName}" - IGNORATO`);
+                keepassResult = null; // Ignora questo risultato
+              }
+            }
 
             if (keepassResult) {
               // Titolo (in UI = hostname): da KeePass Title
@@ -5616,10 +5642,14 @@ pause
       }
 
       // Ottieni tutti i dispositivi con MAC address (incluso hostname = Titolo da Keepass)
+      // Includi anche il nome dell'azienda per filtrare le entry di KeePass
       const devicesResult = await pool.query(
-        `SELECT id, mac_address, hostname, device_type, device_path, device_username, is_manual_type 
-         FROM network_devices 
-         WHERE mac_address IS NOT NULL AND mac_address != ''`
+        `SELECT nd.id, nd.mac_address, nd.hostname, nd.device_type, nd.device_path, nd.device_username, nd.is_manual_type, nd.agent_id,
+                u.azienda as azienda_name
+         FROM network_devices nd
+         INNER JOIN network_agents na ON nd.agent_id = na.id
+         LEFT JOIN users u ON na.azienda_id = u.id
+         WHERE nd.mac_address IS NOT NULL AND nd.mac_address != ''`
       );
 
       console.log(`📊 Trovati ${devicesResult.rows.length} dispositivi con MAC address da verificare`);

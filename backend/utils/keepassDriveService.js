@@ -167,6 +167,7 @@ class KeepassDriveService {
 
       // Crea la mappa MAC -> {title, path}
       const macMap = new Map();
+      let entryCount = 0; // Contatore per debug
 
       // Funzione ricorsiva per processare gruppi ed entry
       const processGroup = (group, groupPath = '') => {
@@ -175,6 +176,8 @@ class KeepassDriveService {
         // Processa le entry del gruppo
         if (group.entries && group.entries.length > 0) {
           for (const entry of group.entries) {
+            entryCount++; // Incrementa il contatore per debug
+
             // kdbxweb usa entry.fields come oggetto, non come Map
             // Accediamo direttamente alle proprietà
             const titleField = entry.fields && entry.fields['Title'];
@@ -204,12 +207,29 @@ class KeepassDriveService {
             const standardFields = ['UserName', 'Password', 'URL', 'Notes', 'Title'];
             const fieldsToCheck = [...new Set([...standardFields, ...allFieldNames, ...customFieldNames])]; // Unisci senza duplicati
 
-            // DEBUG: Log dei campi per entry specifiche (per capire perché alcuni campi non vengono letti)
-            if (titleStr && (titleStr.includes('Contabilita') || titleStr.includes('acdomain'))) {
-              console.log(`\n🔍 DEBUG Entry: "${titleStr}"`);
+            // DEBUG: Log COMPLETO per le prime 10 entry
+            if (entryCount <= 10) {
+              console.log(`\n🔍 DEBUG Entry #${entryCount}: "${titleStr}" (Path: "${currentPath}")`);
               console.log(`   - allFieldNames (entry.fields): ${allFieldNames.join(', ')}`);
               console.log(`   - customFieldNames (entry.customFields): ${customFieldNames.join(', ')}`);
               console.log(`   - fieldsToCheck (totale): ${fieldsToCheck.join(', ')}`);
+
+              // Mostra i VALORI di tutti i campi personalizzati
+              if (customFieldNames.length > 0) {
+                console.log(`   - Valori campi personalizzati:`);
+                customFieldNames.forEach(fieldName => {
+                  let fieldValue = null;
+                  if (entry.customFields) {
+                    fieldValue = typeof entry.customFields.get === 'function'
+                      ? entry.customFields.get(fieldName)
+                      : entry.customFields[fieldName];
+                  }
+                  const valueStr = fieldValue instanceof ProtectedValue
+                    ? '[PROTECTED]'
+                    : String(fieldValue || '(vuoto)');
+                  console.log(`      * "${fieldName}": "${valueStr.substring(0, 50)}${valueStr.length > 50 ? '...' : ''}"`);
+                });
+              }
             }
 
             let foundMac = null;
