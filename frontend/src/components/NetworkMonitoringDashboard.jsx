@@ -1189,6 +1189,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     agentsOffline: agents.filter(a => a.status === 'offline').length
   };
 
+  // Eventi di Rete: nascosti ai clienti (readOnly) che non hanno agent per l'azienda selezionata
+  const selectedCompany = companies.find(c => c.id === selectedCompanyId);
+  const selectedCompanyAgentsCount = selectedCompany?.agents_count ?? selectedCompany?.agent_count ?? 0;
+  const showEventiDiRete = !readOnly || selectedCompanyAgentsCount > 0;
+
   // Sezione Controlli (Azienda, Refresh, Mappatura)
   const controlsSection = (
     <>
@@ -2253,7 +2258,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           </>
         )}
 
-        {/* Sezione eventi unificati (dispositivi + agent) */}
+        {/* Sezione eventi unificati (dispositivi + agent): nascosta se cliente senza agent */}
+        {showEventiDiRete && (
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
@@ -2553,6 +2559,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             )}
           </div>
         </div>
+        )}
 
         {/* Popover Tipo dispositivo: portale a schermo intero così le icone non vengono mai tagliate */}
         {deviceTypePickerDeviceId != null && deviceTypePickerAnchor && (() => {

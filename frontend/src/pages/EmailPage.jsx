@@ -7,8 +7,9 @@ import { ArrowLeft, Loader, MessageCircle } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
 const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser, onOpenTicket }) => {
+  const isCliente = currentUser?.ruolo === 'cliente';
   const canEditExpiry = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
-  const showAssistenzaButton = currentUser?.ruolo === 'cliente' && typeof onOpenTicket === 'function';
+  const showAssistenzaButton = isCliente && typeof onOpenTicket === 'function';
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [items, setItems] = useState([]);
@@ -173,7 +174,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {!loadingCompanies && (
+          {!loadingCompanies && (isCliente ? !!selectedCompanyId : true) && (
             <select
               className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
               value={selectedCompanyId || ''}
@@ -294,12 +295,36 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
           )}
 
           {!loadingCompanies && !selectedCompanyId && (
-            <div className="max-w-2xl mx-auto mt-8">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
-                <div>
-                  <h3 className="font-semibold text-blue-800 mb-1">Seleziona un'azienda</h3>
-                  <p className="text-blue-700">Seleziona un'azienda dal menu in alto per visualizzare la cartella Email da KeePass.</p>
-                </div>
+            <div className="flex flex-col items-center justify-center flex-1 min-h-0 py-8">
+              <div className={`bg-blue-50 border border-blue-200 rounded-xl p-6 flex flex-col items-center gap-4 max-w-md w-full ${isCliente ? 'shadow-md' : ''}`}>
+                <h3 className="font-semibold text-blue-800 text-lg">Seleziona un'azienda</h3>
+                {isCliente ? (
+                  <>
+                    <p className="text-blue-700 text-sm text-center">Scegli l'azienda per visualizzare la cartella Email da KeePass.</p>
+                    <select
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                      value={selectedCompanyId || ''}
+                      onChange={async (e) => {
+                        const newCompanyId = e.target.value || null;
+                        setSelectedCompanyId(newCompanyId);
+                        setError(null);
+                        setItems([]);
+                        setCompanyName('');
+                        if (newCompanyId) {
+                          const company = companies.find(c => String(c.id) === String(newCompanyId));
+                          if (company) setCompanyName((company.azienda || '').split(':')[0].trim());
+                        }
+                      }}
+                    >
+                      <option value="">Seleziona Azienda...</option>
+                      {companies.map(c => (
+                        <option key={c.id} value={String(c.id)}>{c.azienda || `ID ${c.id}`}</option>
+                      ))}
+                    </select>
+                  </>
+                ) : (
+                  <p className="text-blue-700 text-sm text-center">Seleziona un'azienda dal menu in alto per visualizzare la cartella Email da KeePass.</p>
+                )}
               </div>
             </div>
           )}
