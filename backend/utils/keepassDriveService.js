@@ -188,6 +188,7 @@ class KeepassDriveService {
               if (alt) titleStr = alt instanceof ProtectedValue ? alt.getText() : String(alt);
             }
 
+
             // Cerca MAC in TUTTI i campi (inclusi campi personalizzati)
             // Prima ottieni tutti i nomi dei campi disponibili
             const allFieldNames = entry.fields ? Object.keys(entry.fields) : [];
@@ -202,6 +203,15 @@ class KeepassDriveService {
 
             const standardFields = ['UserName', 'Password', 'URL', 'Notes', 'Title'];
             const fieldsToCheck = [...new Set([...standardFields, ...allFieldNames, ...customFieldNames])]; // Unisci senza duplicati
+
+            // DEBUG: Log dei campi per entry specifiche (per capire perché alcuni campi non vengono letti)
+            if (titleStr && (titleStr.includes('Contabilita') || titleStr.includes('acdomain'))) {
+              console.log(`\n🔍 DEBUG Entry: "${titleStr}"`);
+              console.log(`   - allFieldNames (entry.fields): ${allFieldNames.join(', ')}`);
+              console.log(`   - customFieldNames (entry.customFields): ${customFieldNames.join(', ')}`);
+              console.log(`   - fieldsToCheck (totale): ${fieldsToCheck.join(', ')}`);
+            }
+
             let foundMac = null;
             let foundMacField = null;
 
@@ -229,8 +239,26 @@ class KeepassDriveService {
                 for (const mac of allMacsInField) {
                   foundMacs.push({ mac, field: fieldName });
                 }
+
+                // DEBUG: Log per entry specifiche
+                if (titleStr && (titleStr.includes('Contabilita') || titleStr.includes('acdomain'))) {
+                  if (allMacsInField.length > 0) {
+                    console.log(`   ✅ Campo "${fieldName}": trovati ${allMacsInField.length} MAC: ${allMacsInField.join(', ')}`);
+                  }
+                }
               }
             }
+
+            // DEBUG: Log finale per entry specifiche
+            if (titleStr && (titleStr.includes('Contabilita') || titleStr.includes('acdomain'))) {
+              console.log(`   📊 Totale MAC trovati: ${foundMacs.length}`);
+              if (foundMacs.length > 0) {
+                foundMacs.forEach(({ mac, field }) => {
+                  console.log(`      - MAC ${mac} trovato in campo "${field}"`);
+                });
+              }
+            }
+
 
             // Aggiungi TUTTI i MAC trovati alla mappa
             // IMPORTANTE: Estrai l'username per ogni entry che contiene almeno un MAC
