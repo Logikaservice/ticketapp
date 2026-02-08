@@ -2946,25 +2946,29 @@ module.exports = (pool, io) => {
           }
         }
 
-        // Cerca MAC nella mappa KeePass (già caricata)
+        // Cerca MAC nella mappa KeePass (già caricata) - per TUTTI i dispositivi (online e offline)
         // IMPORTANTE: NON sovrascrivere device_type se è stato modificato manualmente (is_manual_type = true)
         if (row.mac_address && keepassMap && !row.is_manual_type) {
           try {
-            // Normalizza il MAC per la ricerca
-            const normalizedMac = row.mac_address.replace(/[:-]/g, '').toUpperCase();
-            const keepassResult = keepassMap.get(normalizedMac);
+            // Normalizza il MAC per la ricerca (prova sia uppercase che lowercase per massima compatibilità)
+            const normalizedMacUpper = row.mac_address.replace(/[:-]/g, '').toUpperCase();
+            const normalizedMacLower = row.mac_address.replace(/[:-]/g, '').toLowerCase();
+            let keepassResult = keepassMap.get(normalizedMacUpper) || keepassMap.get(normalizedMacLower);
 
             if (keepassResult) {
-              // Estrai solo l'ultimo elemento del percorso
+              // Titolo (in UI = hostname): da KeePass Title
+              row.hostname = (keepassResult.title && keepassResult.title.trim()) ? keepassResult.title.trim() : (row.hostname || null);
+              // Percorso: ultimo segmento del path KeePass
               const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
+              row.device_path = (lastPathElement && lastPathElement.trim()) ? lastPathElement.trim() : null;
+              // Utente: da KeePass UserName (o fallback Utente/User in keepassDriveService)
+              row.device_username = (keepassResult.username && keepassResult.username.trim()) ? keepassResult.username.trim() : null;
 
               // MAPPING ICONE KEEPASS -> TIPO DISPOSITIVO
-              // Sovrascrive il titolo se l'icona è specifica
               let deviceType = keepassResult.title;
               const iconId = keepassResult.iconId;
 
               if (iconId !== undefined) {
-                // Mappa Icon ID KeePass (standard set) ai nostri tipi
                 switch (Number(iconId)) {
                   case 3: deviceType = 'server'; break;         // Server
                   case 4: deviceType = 'pc'; break;             // Screen/Monitor
@@ -2979,10 +2983,7 @@ module.exports = (pool, io) => {
                 }
               }
 
-              // NON sovrascrivere device_type se è stato modificato manualmente
               row.device_type = deviceType;
-              row.device_path = lastPathElement;
-              row.device_username = keepassResult.username || null;
             }
             // Se non trovato, mantieni i valori esistenti dal database
           } catch (keepassErr) {
