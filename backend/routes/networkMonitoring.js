@@ -4119,6 +4119,52 @@ module.exports = (pool, io) => {
   });
 
 
+  // GET /api/network-monitoring/debug/keepass-lookup?mac=44:8A:5B:4B:68:8D
+  // Verifica cosa KeePass restituisce per un MAC (Titolo, Utente, Percorso). Solo tecnici/admin. Utile su VPS.
+  router.get('/debug/keepass-lookup', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
+    try {
+      const mac = (req.query.mac || '').trim();
+      if (!mac) {
+        return res.status(400).json({ error: 'Parametro mac obbligatorio (es. ?mac=44:8A:5B:4B:68:8D)' });
+      }
+      const password = process.env.KEEPASS_PASSWORD;
+      if (!password) {
+        return res.status(500).json({ error: 'KEEPASS_PASSWORD non configurato' });
+      }
+      keepassDriveService.invalidateCache();
+      const keepassMap = await keepassDriveService.getMacToTitleMap(password);
+      const normalizedUpper = mac.replace(/[:-]/g, '').toUpperCase();
+      const normalizedLower = mac.replace(/[:-]/g, '').toLowerCase();
+      const result = keepassMap.get(normalizedUpper) || keepassMap.get(normalizedLower);
+      if (result) {
+        const percorsoUltimo = result.path ? result.path.split(' > ').pop() : null;
+        return res.json({
+          found: true,
+          mac: mac,
+          macNormalized: normalizedUpper,
+          titolo: result.title || '',
+          utente: result.username || '',
+          percorso: result.path || '',
+          percorsoUltimo: percorsoUltimo || ''
+        });
+      }
+      const sampleMacs = Array.from(keepassMap.keys()).slice(0, 8).map(k => {
+        const e = keepassMap.get(k);
+        return { mac: k, titolo: (e && e.title) || '' };
+      });
+      return res.json({
+        found: false,
+        mac: mac,
+        macNormalized: normalizedUpper,
+        message: 'MAC non trovato nella mappa KeePass (file su Google Drive).',
+        sampleMacs
+      });
+    } catch (err) {
+      console.error('Errore keepass-lookup:', err);
+      return res.status(500).json({ error: err.message || 'Errore lookup KeePass' });
+    }
+  });
+
   // GET /api/network-monitoring/companies
   // Ottieni lista aziende uniche che hanno agents attivi
   // Accessibile a tecnici/admin e admin aziendali (con filtri appropriati)
