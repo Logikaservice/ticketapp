@@ -45,29 +45,32 @@ const MonitoraggioIntroCard = ({ companies = [], value = '', onChange = null }) 
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8 mb-8 transition-shadow duration-300">
-      {/* Call to action + selettore azienda in cima (sopra la pill) */}
-      <p className="text-gray-600 mb-3">
-        Seleziona la tua azienda nel menu per vedere dispositivi e mappa.
-      </p>
-      {showSelector && (
-        <div className="relative max-w-sm mb-8">
-          <select
-            value={selectValue}
-            onChange={(e) => {
-              const v = e.target.value;
-              onChange(v ? v : null);
-            }}
-            className="w-full pl-4 pr-10 py-3 bg-white border border-gray-300 rounded-lg text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none cursor-pointer"
-          >
-            <option value="">Seleziona Azienda...</option>
-            {companies.filter(c => c.id != null).map((c) => (
-              <option key={c.id} value={String(c.id)}>{c.azienda || `ID ${c.id}`}</option>
-            ))}
-          </select>
-          <Building size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-        </div>
-      )}
+      {/* Blocco 1: CTA + selettore azienda, centrati e separati da sotto */}
+      <div className="flex flex-col items-center text-center pb-8 mb-8 border-b border-gray-200">
+        <p className="text-gray-600 mb-3">
+          Seleziona la tua azienda nel menu per vedere dispositivi e mappa.
+        </p>
+        {showSelector && (
+          <div className="relative w-full max-w-sm">
+            <select
+              value={selectValue}
+              onChange={(e) => {
+                const v = e.target.value;
+                onChange(v ? v : null);
+              }}
+              className="w-full pl-4 pr-10 py-3 bg-white border border-gray-300 rounded-lg text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none cursor-pointer"
+            >
+              <option value="">Seleziona Azienda...</option>
+              {companies.filter(c => c.id != null).map((c) => (
+                <option key={c.id} value={String(c.id)}>{c.azienda || `ID ${c.id}`}</option>
+              ))}
+            </select>
+            <Building size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          </div>
+        )}
+      </div>
 
+      {/* Blocco 2: Progetto esclusivo (pill, titolo, descrizione, card) */}
       {/* Pill label */}
       <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 mb-4">
         PROGETTO ESCLUSIVO & PERSONALIZZATO
