@@ -232,6 +232,31 @@ class KeepassDriveService {
               }
             }
 
+            // DEBUG SPECIFICO: Log per entry di Theorica
+            if (currentPath && currentPath.toLowerCase().includes('theorica')) {
+              console.log(`\n🎯 THEORICA Entry: "${titleStr}" (Path: "${currentPath}")`);
+              console.log(`   - customFields type: ${typeof entry.customFields}`);
+              console.log(`   - customFields is Map: ${entry.customFields instanceof Map}`);
+              console.log(`   - customFieldNames: [${customFieldNames.join(', ')}]`);
+
+              if (entry.customFields) {
+                console.log(`   - Tentativo lettura diretta customFields:`);
+                // Prova diversi metodi di accesso
+                if (typeof entry.customFields.forEach === 'function') {
+                  entry.customFields.forEach((value, key) => {
+                    const val = value instanceof ProtectedValue ? '[PROTECTED]' : String(value || '');
+                    console.log(`      * forEach: "${key}" = "${val.substring(0, 50)}"`);
+                  });
+                }
+                if (typeof entry.customFields.entries === 'function') {
+                  for (const [key, value] of entry.customFields.entries()) {
+                    const val = value instanceof ProtectedValue ? '[PROTECTED]' : String(value || '');
+                    console.log(`      * entries: "${key}" = "${val.substring(0, 50)}"`);
+                  }
+                }
+              }
+            }
+
             let foundMac = null;
             let foundMacField = null;
 
