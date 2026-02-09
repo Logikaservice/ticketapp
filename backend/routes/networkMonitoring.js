@@ -2969,17 +2969,10 @@ module.exports = (pool, io) => {
             // Normalizza il MAC: solo caratteri esadecimali, 12 caratteri, uppercase (come chiavi in keepassMap)
             const macHex = (row.mac_address || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
             const normalizedMac = macHex.length === 12 ? macHex : row.mac_address.replace(/[:-]/g, '').toUpperCase();
-            let keepassResult = keepassMap.get(normalizedMac);
-
-            // FILTRO PER AZIENDA: verifica che il path contenga il nome dell'azienda
-            if (keepassResult && aziendaName) {
-              const keepassPath = keepassResult.path || '';
-              // Verifica se il path contiene il nome dell'azienda (case-insensitive)
-              if (!keepassPath.toLowerCase().includes(aziendaName.toLowerCase())) {
-                console.log(`⚠️ MAC ${row.mac_address}: trovato in KeePass ma path "${keepassPath}" non contiene azienda "${aziendaName}" - IGNORATO`);
-                keepassResult = null; // Ignora questo risultato
-              }
-            }
+            const keepassEntries = keepassMap.get(normalizedMac);
+            const keepassResult = Array.isArray(keepassEntries)
+              ? keepassDriveService.pickEntryForAzienda(keepassEntries, aziendaName)
+              : keepassEntries;
 
             if (keepassResult) {
               // Titolo (in UI = hostname): da KeePass Title
@@ -3734,7 +3727,10 @@ module.exports = (pool, io) => {
             // Normalizza il MAC: solo caratteri esadecimali, 12 caratteri, uppercase (come chiavi in keepassMap)
             const macHex = (row.mac_address || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
             const normalizedMac = macHex.length === 12 ? macHex : row.mac_address.replace(/[:-]/g, '').toUpperCase();
-            const keepassResult = keepassMap.get(normalizedMac);
+            const keepassEntries = keepassMap.get(normalizedMac);
+            const keepassResult = Array.isArray(keepassEntries)
+              ? keepassDriveService.pickEntryForAzienda(keepassEntries, row.azienda)
+              : keepassEntries;
 
             if (keepassResult) {
               const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
@@ -4161,8 +4157,12 @@ module.exports = (pool, io) => {
       const keepassMap = await keepassDriveService.getMacToTitleMap(password);
       const normalizedUpper = mac.replace(/[:-]/g, '').toUpperCase();
       const normalizedLower = mac.replace(/[:-]/g, '').toLowerCase();
-      const result = keepassMap.get(normalizedUpper) || keepassMap.get(normalizedLower);
-      if (result) {
+      const raw = keepassMap.get(normalizedUpper) || keepassMap.get(normalizedLower);
+      const aziendaQuery = (req.query.azienda || '').trim();
+      const result = Array.isArray(raw) && raw.length > 0
+        ? keepassDriveService.pickEntryForAzienda(raw, aziendaQuery || null)
+        : raw;
+      if (result && typeof result === 'object') {
         const percorsoUltimo = result.path ? result.path.split(' > ').pop() : null;
         return res.json({
           found: true,
@@ -4176,7 +4176,8 @@ module.exports = (pool, io) => {
       }
       const sampleMacs = Array.from(keepassMap.keys()).slice(0, 8).map(k => {
         const e = keepassMap.get(k);
-        return { mac: k, titolo: (e && e.title) || '' };
+        const entry = Array.isArray(e) && e.length > 0 ? e[0] : e;
+        return { mac: k, titolo: (entry && entry.title) || '' };
       });
       return res.json({
         found: false,

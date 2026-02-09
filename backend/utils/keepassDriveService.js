@@ -332,10 +332,11 @@ class KeepassDriveService {
                 if (entry.icon && typeof entry.icon === 'object' && entry.icon.id !== undefined) {
                   iconId = entry.icon.id;
                 }
-                // Sovrascrivi sempre (ultima entry vince): così se lo stesso MAC è in più entry (es. Cestino e sotto Smil Service)
-                // dopo un aggiornamento in Keepass viene usata l'entry più recente nell'ordine di scansione
+                // Stesso MAC può apparire in più entry (es. Theorica e Cestino): teniamo TUTTE le entry per MAC.
+                // In fase di lettura (route dispositivi) si sceglie l'entry il cui path contiene il nome azienda (es. "Theorica").
                 const entryData = { title: titleStr || '', path: currentPath || '', username: usernameStr || '', iconId: iconId };
-                macMap.set(normalizedMac, entryData);
+                if (!macMap.has(normalizedMac)) macMap.set(normalizedMac, []);
+                macMap.get(normalizedMac).push(entryData);
               }
             }
           }
@@ -938,13 +939,14 @@ class KeepassDriveService {
       // Ottieni la mappa (con cache)
       const macMap = await this.getMacToTitleMap(password);
 
-      // Cerca il MAC nella mappa
+      // Cerca il MAC nella mappa (ora è un array di entry; senza contesto azienda restituiamo l'ultima)
       const result = macMap.get(normalizedMac);
-
-      if (result) {
-        return result;
+      if (Array.isArray(result) && result.length > 0) {
+        return result[result.length - 1];
       }
-
+      if (result && typeof result === 'object' && result.path !== undefined) {
+        return result; // backward compat: cache con singola entry
+      }
       return null;
     } catch (error) {
       console.error(`❌ Errore ricerca MAC ${macAddress} in KeePass:`, error.message);
@@ -1013,6 +1015,34 @@ class KeepassDriveService {
       console.error('❌ getCredentialsByMac KeePass:', error.message);
       return null;
     }
+  }
+
+  /**
+   * Dato un array di entry KeePass per lo stesso MAC, restituisce quella il cui path corrisponde all'azienda.
+   * Es. aziendaName "Theorica" -> preferisce entry con path "gestione > Theorica > Router > ...".
+   * Se nessuna corrisponde, restituisce l'ultima (comportamento "ultima vince").
+   * @param {Array} entries - Array di { title, path, username, iconId }
+   * @param {string} aziendaName - Nome azienda (es. "Theorica")
+   * @returns {Object|null} Una singola entry o null
+   */
+  pickEntryForAzienda(entries, aziendaName) {
+    if (!entries || !Array.isArray(entries) || entries.length === 0) return null;
+    const an = (aziendaName || '').trim().toLowerCase();
+    if (!an) return entries[entries.length - 1];
+    // Preferisci l'entry il cui path contiene il nome azienda (es. "gestione > Theorica > ...")
+    let best = null;
+    let bestPathLen = 0;
+    for (const e of entries) {
+      const path = (e.path || '').trim().toLowerCase();
+      if (path.includes(an)) {
+        // Se più entry matchano, prendi quella con path più lungo (più specifica)
+        if (path.length > bestPathLen) {
+          bestPathLen = path.length;
+          best = e;
+        }
+      }
+    }
+    return best || entries[entries.length - 1];
   }
 
   /**
