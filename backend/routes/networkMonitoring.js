@@ -2122,7 +2122,7 @@ module.exports = (pool, io) => {
                  ping_responsive = $6,
                  upgrade_available = $7,
                  device_type = CASE WHEN is_manual_type THEN device_type ELSE COALESCE($8, device_type) END,
-                 device_path = CASE WHEN is_manual_type THEN device_path ELSE COALESCE($9, device_path) END,
+                 device_path = COALESCE($9, device_path),
                  additional_ips = $11,
                  is_new_device = false
                  WHERE id = $10`,
@@ -2963,8 +2963,9 @@ module.exports = (pool, io) => {
         }
 
         // Cerca MAC nella mappa KeePass (già caricata) - per TUTTI i dispositivi (online e offline)
-        // IMPORTANTE: NON sovrascrivere device_type se è stato modificato manualmente (is_manual_type = true)
-        if (row.mac_address && keepassMap && !row.is_manual_type) {
+        // Titolo, Utente e Percorso vengono SEMPRE aggiornati da KeePass.
+        // Solo device_type viene protetto se is_manual_type = true.
+        if (row.mac_address && keepassMap) {
           try {
             // Normalizza il MAC: solo caratteri esadecimali, 12 caratteri, uppercase (come chiavi in keepassMap)
             const macHex = (row.mac_address || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
@@ -2975,34 +2976,36 @@ module.exports = (pool, io) => {
               : keepassEntries;
 
             if (keepassResult) {
-              // Titolo (in UI = hostname): da KeePass Title
+              // Titolo (in UI = hostname): da KeePass Title — SEMPRE aggiornato
               row.hostname = (keepassResult.title && keepassResult.title.trim()) ? keepassResult.title.trim() : (row.hostname || null);
-              // Percorso: ultimo segmento del path KeePass
+              // Percorso: ultimo segmento del path KeePass — SEMPRE aggiornato
               const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
               row.device_path = (lastPathElement && lastPathElement.trim()) ? lastPathElement.trim() : null;
-              // Utente: da KeePass UserName (o fallback Utente/User in keepassDriveService)
+              // Utente: da KeePass UserName — SEMPRE aggiornato
               row.device_username = (keepassResult.username && keepassResult.username.trim()) ? keepassResult.username.trim() : null;
 
-              // MAPPING ICONE KEEPASS -> TIPO DISPOSITIVO
-              let deviceType = keepassResult.title;
-              const iconId = keepassResult.iconId;
+              // MAPPING ICONE KEEPASS -> TIPO DISPOSITIVO (solo se NON manuale)
+              if (!row.is_manual_type) {
+                let deviceType = keepassResult.title;
+                const iconId = keepassResult.iconId;
 
-              if (iconId !== undefined) {
-                switch (Number(iconId)) {
-                  case 3: deviceType = 'server'; break;         // Server
-                  case 4: deviceType = 'pc'; break;             // Screen/Monitor
-                  case 18: deviceType = 'printer'; break;       // Scanner/Printer
-                  case 19: deviceType = 'nas'; break;           // Archive
-                  case 22: deviceType = 'nas'; break;           // Drive
-                  case 27: deviceType = 'laptop'; break;        // Laptop
-                  case 28: deviceType = 'smartphone'; break;    // Mobile Phone
-                  case 29: deviceType = 'firewall'; break;      // Key/Lock -> Firewall?
-                  case 34: deviceType = 'wifi'; break;          // Network/Wifi
-                  case 61: deviceType = 'switch'; break;        // Networking
+                if (iconId !== undefined) {
+                  switch (Number(iconId)) {
+                    case 3: deviceType = 'server'; break;         // Server
+                    case 4: deviceType = 'pc'; break;             // Screen/Monitor
+                    case 18: deviceType = 'printer'; break;       // Scanner/Printer
+                    case 19: deviceType = 'nas'; break;           // Archive
+                    case 22: deviceType = 'nas'; break;           // Drive
+                    case 27: deviceType = 'laptop'; break;        // Laptop
+                    case 28: deviceType = 'smartphone'; break;    // Mobile Phone
+                    case 29: deviceType = 'firewall'; break;      // Key/Lock -> Firewall?
+                    case 34: deviceType = 'wifi'; break;          // Network/Wifi
+                    case 61: deviceType = 'switch'; break;        // Networking
+                  }
                 }
-              }
 
-              row.device_type = deviceType;
+                row.device_type = deviceType;
+              }
             }
             // Se non trovato, mantieni i valori esistenti dal database
           } catch (keepassErr) {
@@ -3721,8 +3724,10 @@ module.exports = (pool, io) => {
           }
         }
 
-        // Cerca MAC nella mappa KeePass (già caricata) - SOLO se non è stato impostato manualmente
-        if (row.mac_address && keepassMap && !row.is_manual_type) {
+        // Cerca MAC nella mappa KeePass (già caricata)
+        // Titolo, Utente e Percorso vengono SEMPRE aggiornati da KeePass.
+        // Solo device_type viene protetto se is_manual_type = true.
+        if (row.mac_address && keepassMap) {
           try {
             // Normalizza il MAC: solo caratteri esadecimali, 12 caratteri, uppercase (come chiavi in keepassMap)
             const macHex = (row.mac_address || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
@@ -3733,10 +3738,16 @@ module.exports = (pool, io) => {
               : keepassEntries;
 
             if (keepassResult) {
+              // Titolo, Percorso, Utente — SEMPRE aggiornati
+              row.hostname = (keepassResult.title && keepassResult.title.trim()) ? keepassResult.title.trim() : (row.hostname || null);
               const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
-              row.device_type = keepassResult.title;
               row.device_path = (lastPathElement && lastPathElement.trim()) ? lastPathElement.trim() : null;
               row.device_username = (keepassResult.username && keepassResult.username.trim()) ? keepassResult.username.trim() : null;
+
+              // device_type — solo se NON manuale
+              if (!row.is_manual_type) {
+                row.device_type = keepassResult.title;
+              }
             }
             // Se non trovato, mantieni i valori esistenti dal database
           } catch (keepassErr) {
