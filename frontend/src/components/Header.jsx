@@ -112,7 +112,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
         { label: 'Log accessi', icon: Activity, color: 'orange', onClick: () => { if (openAccessLogs) { openAccessLogs(); } setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } }
       ]
     },
-    // === Voci flat per i clienti ===
+    // === Menu cliente (ordine: Nuove funzionalità, Office, Email, Monitoraggio Rete, Impostazioni) ===
     {
       id: 'alerts',
       label: 'Nuove funzionalità',
@@ -121,36 +121,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       visible: !isOrariDomain && currentUser?.ruolo === 'cliente',
       onClick: () => handleQuickActionClick('alerts')
     },
-    {
-      id: 'inactivityTimer',
-      label: 'Timer Inattività',
-      icon: Clock,
-      color: 'sky',
-      visible: !isOrariDomain && currentUser?.ruolo === 'cliente' && openInactivityTimer,
-      onClick: () => {
-        if (openInactivityTimer) {
-          openInactivityTimer();
-          setShowQuickActions(false);
-          setExpandedAction(null);
-        }
-      }
-    },
-    {
-      id: 'settings',
-      label: 'Account',
-      icon: Settings,
-      color: 'slate',
-      visible: currentUser?.ruolo !== 'tecnico',
-      onClick: () => handleQuickActionClick('settings')
-    },
-    {
-      id: 'antivirus',
-      label: 'Anti-Virus',
-      icon: Shield,
-      color: 'indigo',
-      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico',
-      onClick: () => handleQuickActionClick('antivirus')
-    },
+    // === Voci condivise tecnico + cliente (Office, Email, Monitoraggio Rete) ===
     {
       id: 'office',
       label: 'Office',
@@ -192,6 +163,28 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
           { label: 'Notifiche Telegram', icon: AlertCircle, color: 'blue', onClick: () => { if (openNetworkMonitoringTelegram) { openNetworkMonitoringTelegram(); setShowQuickActions(false); setExpandedAction(null); } } }
         ] : [])
       ]
+    },
+    // === IMPOSTAZIONI (gruppo per cliente) ===
+    {
+      id: 'impostazioniCliente',
+      label: 'Impostazioni',
+      icon: Settings,
+      color: 'slate',
+      visible: !isOrariDomain && currentUser?.ruolo === 'cliente',
+      hasSubActions: true,
+      subActions: [
+        { label: 'Account', icon: Settings, color: 'slate', onClick: () => { openSettings(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } },
+        ...(openInactivityTimer ? [{ label: 'Timer Inattività', icon: Clock, color: 'sky', onClick: () => { openInactivityTimer(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } }] : [])
+      ]
+    },
+    // === Voci solo tecnico ===
+    {
+      id: 'antivirus',
+      label: 'Anti-Virus',
+      icon: Shield,
+      color: 'indigo',
+      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico',
+      onClick: () => handleQuickActionClick('antivirus')
     },
     {
       id: 'progetti',
