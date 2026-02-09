@@ -81,45 +81,45 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
 
   // Azioni rapide disponibili
   const quickActions = [
+    // === IMPOSTAZIONI (gruppo per tecnico) ===
+    {
+      id: 'impostazioni',
+      label: 'Impostazioni',
+      icon: Settings,
+      color: 'slate',
+      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico',
+      hasSubActions: true,
+      subActions: [
+        { label: 'Account', icon: Settings, color: 'slate', onClick: () => { openSettings(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } },
+        { label: 'Nuove funzionalità', icon: Sparkles, color: 'emerald', onClick: () => { openAlertsHistory(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } },
+        {
+          label: 'Gestione Clienti', icon: Users, color: 'blue',
+          hasSubActions: true,
+          subActions: [
+            { label: 'Nuovo Cliente', icon: UserPlus, color: 'emerald', onClick: openNewClientModal },
+            { label: 'Gestisci Clienti', icon: List, color: 'sky', onClick: openManageClientsModal }
+          ]
+        },
+        {
+          label: 'Gestione Contratti', icon: FileText, color: 'rose',
+          hasSubActions: true,
+          subActions: [
+            { label: 'Nuovo Contratto', icon: Plus, color: 'emerald', onClick: openCreateContract },
+            { label: 'Lista Contratti', icon: Table, color: 'sky', onClick: openContractsList }
+          ]
+        },
+        { label: 'Analytics', icon: BarChart3, color: 'purple', onClick: () => { if (openAnalytics) { openAnalytics(); } setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } },
+        { label: 'Log accessi', icon: Activity, color: 'orange', onClick: () => { if (openAccessLogs) { openAccessLogs(); } setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } }
+      ]
+    },
+    // === Voci flat per i clienti ===
     {
       id: 'alerts',
       label: 'Nuove funzionalità',
       icon: Sparkles,
       color: 'emerald',
-      visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'cliente'),
+      visible: !isOrariDomain && currentUser?.ruolo === 'cliente',
       onClick: () => handleQuickActionClick('alerts')
-    },
-    {
-      id: 'clients',
-      label: 'Gestione Clienti',
-      icon: Users,
-      color: 'blue',
-      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico',
-      hasSubActions: true,
-      subActions: [
-        { label: 'Nuovo Cliente', icon: UserPlus, color: 'emerald', onClick: openNewClientModal },
-        { label: 'Gestisci Clienti', icon: List, color: 'sky', onClick: openManageClientsModal }
-      ]
-    },
-    {
-      id: 'contracts',
-      label: 'Gestione Contratti',
-      icon: FileText,
-      color: 'rose',
-      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico',
-      hasSubActions: true,
-      subActions: [
-        { label: 'Nuovo Contratto', icon: Plus, color: 'emerald', onClick: openCreateContract },
-        { label: 'Lista Contratti', icon: Table, color: 'sky', onClick: openContractsList }
-      ]
-    },
-    {
-      id: 'analytics',
-      label: 'Analytics',
-      icon: BarChart3,
-      color: 'purple',
-      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openAnalytics,
-      onClick: () => handleQuickActionClick('analytics')
     },
     {
       id: 'inactivityTimer',
@@ -137,19 +137,11 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
     },
     {
       id: 'settings',
-      label: 'Impostazioni',
+      label: 'Account',
       icon: Settings,
       color: 'slate',
-      visible: true,
+      visible: currentUser?.ruolo !== 'tecnico',
       onClick: () => handleQuickActionClick('settings')
-    },
-    {
-      id: 'accessLogs',
-      label: 'Log accessi',
-      icon: Activity,
-      color: 'orange',
-      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openAccessLogs,
-      onClick: () => handleQuickActionClick('accessLogs')
     },
     {
       id: 'antivirus',
