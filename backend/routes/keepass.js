@@ -1762,6 +1762,67 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
+  // === Tabella office_card_status: scaduta (sì/no) e nota per ogni scheda Office ===
+  const ensureOfficeCardStatusTable = async () => {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS office_card_status (
+        id SERIAL PRIMARY KEY,
+        azienda_name VARCHAR(255) NOT NULL,
+        card_title VARCHAR(500) NOT NULL,
+        card_username VARCHAR(500) NOT NULL DEFAULT '',
+        is_expired BOOLEAN NOT NULL DEFAULT false,
+        note TEXT NOT NULL DEFAULT '',
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(azienda_name, card_title, card_username)
+      )
+    `);
+  };
+  ensureOfficeCardStatusTable().catch(err => console.warn('⚠️ Errore creazione tabella office_card_status:', err.message));
+
+  // GET /api/keepass/office-card-status/:aziendaName — stato scaduta+nota per tutte le card di un'azienda
+  router.get('/office-card-status/:aziendaName', authenticateToken, async (req, res) => {
+    try {
+      let { aziendaName } = req.params;
+      try { aziendaName = decodeURIComponent(aziendaName); } catch (e) {}
+      aziendaName = aziendaName.split(':')[0].trim();
+      await ensureOfficeCardStatusTable();
+      const result = await pool.query(
+        'SELECT card_title, card_username, is_expired, note FROM office_card_status WHERE azienda_name = $1',
+        [aziendaName]
+      );
+      res.json(result.rows);
+    } catch (err) {
+      console.error('❌ Errore recupero office-card-status:', err);
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  // PUT /api/keepass/office-card-status — aggiorna scaduta+nota per una card
+  router.put('/office-card-status', authenticateToken, async (req, res) => {
+    try {
+      const userRole = req.user?.ruolo;
+      if (userRole !== 'tecnico' && userRole !== 'admin') {
+        return res.status(403).json({ error: 'Solo tecnici/admin possono modificare' });
+      }
+      const { azienda_name, card_title, card_username, is_expired, note } = req.body;
+      if (!azienda_name || !card_title) {
+        return res.status(400).json({ error: 'azienda_name e card_title obbligatori' });
+      }
+      await ensureOfficeCardStatusTable();
+      await pool.query(
+        `INSERT INTO office_card_status (azienda_name, card_title, card_username, is_expired, note, updated_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
+         ON CONFLICT (azienda_name, card_title, card_username)
+         DO UPDATE SET is_expired = $4, note = $5, updated_at = NOW()`,
+        [azienda_name, card_title, card_username || '', is_expired === true, note || '']
+      );
+      res.json({ success: true });
+    } catch (err) {
+      console.error('❌ Errore aggiornamento office-card-status:', err);
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
   // Migrazione tabella email_expiry_info (scadenza editabile come Anti-Virus)
   const ensureEmailExpiryTable = async () => {
     await pool.query(`

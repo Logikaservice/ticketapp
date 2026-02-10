@@ -1,11 +1,12 @@
 // frontend/src/pages/OfficePage.jsx
 
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Loader, Calendar, X } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { ArrowLeft, Loader, Calendar, X, CheckSquare, Square, StickyNote } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
 const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser }) => {
   const isCliente = currentUser?.ruolo === 'cliente';
+  const isTecnico = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [officeData, setOfficeData] = useState(null);
@@ -13,6 +14,8 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
   const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId);
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
+  const [cardStatuses, setCardStatuses] = useState({});  // chiave = "title||username" → { is_expired, note }
+  const saveTimers = useRef({});
 
   // Carica le aziende al mount
   useEffect(() => {
@@ -107,6 +110,8 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
       console.log('📦 Chiavi customFields:', data.customFields ? Object.keys(data.customFields) : 'null');
       console.log('📦 Valori customFields:', data.customFields ? Object.entries(data.customFields).map(([k, v]) => `${k}: "${v}"`).join(', ') : 'null');
       setOfficeData(data);
+      // Carica stati scaduta/nota per le card di questa azienda
+      await loadCardStatuses(cleanAziendaName);
     } catch (err) {
       console.error('Errore caricamento Office:', err);
       setError(err.message || 'Errore nel caricamento dei dati Office');
@@ -114,6 +119,57 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
       setLoading(false);
     }
   };
+
+  // Chiave univoca per ogni card
+  const cardKey = (file) => `${file.title || ''}||${file.username || ''}`;
+
+  // Carica stati card dal backend
+  const loadCardStatuses = useCallback(async (azienda) => {
+    if (!azienda || !getAuthHeader) return;
+    try {
+      const resp = await fetch(buildApiUrl(`/api/keepass/office-card-status/${encodeURIComponent(azienda)}`), { headers: getAuthHeader() });
+      if (resp.ok) {
+        const rows = await resp.json();
+        const map = {};
+        for (const r of rows) {
+          map[`${r.card_title || ''}||${r.card_username || ''}`] = { is_expired: r.is_expired, note: r.note || '' };
+        }
+        setCardStatuses(map);
+      }
+    } catch (e) { console.warn('Errore caricamento card status:', e); }
+  }, [getAuthHeader]);
+
+  // Salva stato card (con debounce per la nota)
+  const saveCardStatus = useCallback(async (file, fields) => {
+    if (!companyName || !getAuthHeader || !isTecnico) return;
+    const key = cardKey(file);
+    const current = cardStatuses[key] || { is_expired: false, note: '' };
+    const merged = { ...current, ...fields };
+    setCardStatuses(prev => ({ ...prev, [key]: merged }));
+    try {
+      await fetch(buildApiUrl('/api/keepass/office-card-status'), {
+        method: 'PUT',
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          azienda_name: companyName,
+          card_title: file.title || '',
+          card_username: file.username || '',
+          is_expired: merged.is_expired,
+          note: merged.note
+        })
+      });
+    } catch (e) { console.warn('Errore salvataggio card status:', e); }
+  }, [companyName, getAuthHeader, isTecnico, cardStatuses]);
+
+  // Salva nota con debounce (evita troppe chiamate durante la digitazione)
+  const saveNoteDebounced = useCallback((file, note) => {
+    const key = cardKey(file);
+    setCardStatuses(prev => ({ ...prev, [key]: { ...(prev[key] || { is_expired: false, note: '' }), note } }));
+    if (saveTimers.current[key]) clearTimeout(saveTimers.current[key]);
+    saveTimers.current[key] = setTimeout(() => {
+      saveCardStatus(file, { note });
+    }, 800);
+  }, [saveCardStatus]);
 
   const formatDate = (dateString) => {
     if (!dateString) return null;
@@ -242,8 +298,10 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
             {/* Lista di tutti i file trovati */}
             {officeData.files && officeData.files.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {officeData.files.map((file, index) => (
-                <div key={index} className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                {officeData.files.map((file, index) => {
+                const status = cardStatuses[cardKey(file)] || { is_expired: false, note: '' };
+                return (
+                <div key={index} className={`bg-white rounded-lg shadow-md border-2 p-6 transition-colors ${status.is_expired ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
                   {/* Titolo e username del file */}
                   <div className="mb-4 pb-4 border-b border-gray-200">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -320,8 +378,47 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                       </div>
                     </div>
                   )}
+
+                  {/* Stato scaduta + Nota */}
+                  <div className={`pt-4 mt-4 border-t ${status.is_expired ? 'border-red-300' : 'border-gray-200'}`}>
+                    <div className="flex items-center gap-4">
+                      {/* Toggle Scaduta */}
+                      <button
+                        onClick={() => isTecnico && saveCardStatus(file, { is_expired: !status.is_expired })}
+                        className={`flex items-center gap-2 shrink-0 ${isTecnico ? 'cursor-pointer' : 'cursor-default'}`}
+                        title={isTecnico ? 'Segna come scaduta / non scaduta' : ''}
+                        disabled={!isTecnico}
+                      >
+                        {status.is_expired
+                          ? <CheckSquare size={22} className="text-red-600" />
+                          : <Square size={22} className="text-gray-400" />
+                        }
+                        <span className={`text-sm font-semibold ${status.is_expired ? 'text-red-700' : 'text-gray-500'}`}>
+                          {status.is_expired ? 'Scaduta' : 'Non scaduta'}
+                        </span>
+                      </button>
+
+                      {/* Campo Nota */}
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <StickyNote size={16} className="text-gray-400 shrink-0" />
+                        <span className="text-xs font-medium text-gray-500 shrink-0">Nota:</span>
+                        {isTecnico ? (
+                          <input
+                            type="text"
+                            value={status.note}
+                            onChange={(e) => saveNoteDebounced(file, e.target.value)}
+                            placeholder="Aggiungi una nota..."
+                            className={`flex-1 min-w-0 text-sm border rounded px-2 py-1 outline-none focus:ring-1 ${status.is_expired ? 'border-red-300 focus:ring-red-400 bg-red-50' : 'border-gray-300 focus:ring-blue-400'}`}
+                          />
+                        ) : (
+                          <span className="text-sm text-gray-700 truncate">{status.note || '-'}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                ))}
+                );
+                })}
               </div>
             ) : (
               <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
