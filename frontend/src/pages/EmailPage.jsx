@@ -1,6 +1,6 @@
 // frontend/src/pages/EmailPage.jsx
 // Pagina Email - struttura da KeePass (cartella Email per azienda, righe divisorie per @nomequalcosa)
-// Scadenza editabile come Anti-Virus (salvata nel DB, non KeePass)
+// Scadenza letta da KeePass (entry.times.expiryTime); riga in rosso se scaduta
 
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Loader, MessageCircle } from 'lucide-react';
@@ -8,7 +8,6 @@ import { buildApiUrl } from '../utils/apiConfig';
 
 const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser, onOpenTicket }) => {
   const isCliente = currentUser?.ruolo === 'cliente';
-  const canEditExpiry = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
   const showAssistenzaButton = isCliente && typeof onOpenTicket === 'function';
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -18,44 +17,16 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
   const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId);
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
-  const [drafts, setDrafts] = useState({}); // { key: { expiration_date } } per editing scadenza
 
   const entryKey = (item) => `${item.title || ''}|${item.username || ''}|${item.url || ''}|${item.divider || ''}`;
 
-  const updateDraft = (key, field, value) => {
-    setDrafts(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
-  };
-
-  const handleSaveExpiry = async (item, currentValue) => {
-    if (!companyName) return;
-    const expiration_date = (currentValue !== undefined ? currentValue : drafts[entryKey(item)]?.expiration_date) || null;
-    const key = entryKey(item);
+  const formatExpiry = (expires) => {
+    if (!expires) return '—';
     try {
-      const res = await fetch(buildApiUrl('/api/keepass/email-expiry'), {
-        method: 'PUT',
-        headers: {
-          ...getAuthHeader(),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          aziendaName: companyName,
-          title: item.title || '',
-          username: item.username || '',
-          url: item.url || '',
-          divider: item.divider || '',
-          expiration_date: expiration_date || null
-        })
-      });
-      if (res.ok) {
-        setItems(prev => prev.map(it => {
-          if (it.type === 'entry' && entryKey(it) === key) {
-            return { ...it, expires: expiration_date ? new Date(expiration_date).toISOString() : null };
-          }
-          return it;
-        }));
-      }
-    } catch (e) {
-      console.error('Errore salvataggio scadenza:', e);
+      const d = new Date(expires);
+      return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch {
+      return '—';
     }
   };
 
@@ -114,7 +85,6 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
     setLoading(true);
     setError(null);
     setItems([]);
-    setDrafts({});
 
     try {
       const response = await fetch(buildApiUrl(`/api/keepass/email/${encodeURIComponent(aziendaName)}`), {
@@ -133,20 +103,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
       }
 
       const data = await response.json();
-      const itemsList = data.items || [];
-      setItems(itemsList);
-
-      // Inizializza drafts per le entry (scadenza editabile)
-      const initialDrafts = {};
-      itemsList.forEach((item) => {
-        if (item.type === 'entry') {
-          const key = entryKey(item);
-          initialDrafts[key] = {
-            expiration_date: item.expires ? item.expires.split('T')[0] : ''
-          };
-        }
-      });
-      setDrafts(initialDrafts);
+      setItems(data.items || []);
       setHasSearched(true);
       setCompanyName(aziendaName);
     } catch (err) {
@@ -240,9 +197,8 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                       );
                     }
                     const key = entryKey(item);
-                    const draft = drafts[key] || { expiration_date: item.expires ? item.expires.split('T')[0] : '' };
-                    const expiresDate = draft.expiration_date ? new Date(draft.expiration_date) : null;
-                    const isExpired = expiresDate && expiresDate < new Date(new Date().setHours(0, 0, 0, 0));
+                    const expiresDate = item.expires ? new Date(item.expires) : null;
+                    const isExpired = expiresDate && !isNaN(expiresDate.getTime()) && expiresDate < new Date();
                     return (
                       <tr
                         key={`ent-${idx}`}
@@ -258,17 +214,12 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                           ) : '—'}
                         </td>
                         <td className={`py-2 px-4 whitespace-nowrap ${isExpired ? 'text-red-700 font-medium' : 'text-gray-600'}`}>
-                          {canEditExpiry ? (
-                            <input
-                              type="date"
-                              className="w-full max-w-[140px] border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                              value={draft.expiration_date || ''}
-                              onChange={(e) => updateDraft(key, 'expiration_date', e.target.value)}
-                              onBlur={(e) => handleSaveExpiry(item, e.target.value)}
-                            />
-                          ) : (
-                            <span>{draft.expiration_date ? new Date(draft.expiration_date + 'T12:00:00').toLocaleDateString('it-IT') : '—'}</span>
-                          )}
+                          {item.expires ? (
+                            <span title={isExpired ? 'Scaduta' : ''}>
+                              {formatExpiry(item.expires)}
+                              {isExpired ? ' (scaduta)' : ''}
+                            </span>
+                          ) : '—'}
                         </td>
                         {showAssistenzaButton && (
                           <td className="py-2 px-4">

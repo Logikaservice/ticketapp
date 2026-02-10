@@ -1863,27 +1863,8 @@ module.exports = function createKeepassRouter(pool) {
         return res.status(400).json({ error: 'Nome azienda richiesto' });
       }
 
-      await ensureEmailExpiryTable();
       const structure = await keepassDriveService.getEmailStructureByAzienda(keepassPassword, aziendaName);
-
-      // Carica scadenze dal DB e mergia negli items
-      const expiryRows = await pool.query(
-        `SELECT title, username, url, COALESCE(divider,'') as divider, expiration_date FROM email_expiry_info WHERE azienda_name = $1`,
-        [aziendaName]
-      );
-      const expiryMap = {};
-      for (const row of expiryRows.rows) {
-        const key = `${row.title}|${row.username}|${row.url || ''}|${row.divider || ''}`;
-        expiryMap[key] = row.expiration_date ? new Date(row.expiration_date).toISOString() : null;
-      }
-
-      for (const item of structure) {
-        if (item.type === 'entry') {
-          const key = `${item.title}|${item.username}|${item.url || ''}|${item.divider || ''}`;
-          item.expires = expiryMap[key] || null;
-        }
-      }
-
+      // Scadenza ora letta da KeePass (entry.times.expiryTime); non più da email_expiry_info
       res.json({ items: structure });
     } catch (err) {
       console.error('❌ Errore recupero Email:', err);
