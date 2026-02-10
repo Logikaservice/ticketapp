@@ -300,8 +300,10 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {officeData.files.map((file, index) => {
                 const status = cardStatuses[cardKey(file)] || { is_expired: false, note: '' };
+                const keepassExpired = file.expires ? new Date(file.expires) < new Date() : false;
+                const isExpired = status.is_expired || keepassExpired;
                 return (
-                <div key={index} className={`bg-white rounded-lg shadow-sm border-2 px-4 py-3 transition-colors ${status.is_expired ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
+                <div key={index} className={`bg-white rounded-lg shadow-sm border-2 px-4 py-3 transition-colors ${isExpired ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
                   {/* Titolo e username del file */}
                   <div className="mb-2 pb-2 border-b border-gray-200">
                     <div className="flex items-center justify-between gap-2">
@@ -363,16 +365,16 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
 
                   {/* Scadenza del file */}
                   {file.expires && (
-                    <div className="pt-2 border-t border-gray-200">
+                    <div className={`pt-2 border-t ${isExpired ? 'border-red-300' : 'border-gray-200'}`}>
                       <div className="flex items-center gap-2">
-                        <Calendar size={16} className="text-gray-600" />
-                        <p className="text-xs text-gray-500">Scadenza: <span className="text-gray-900 font-medium">{formatDate(file.expires)}</span></p>
+                        <Calendar size={16} className={keepassExpired ? 'text-red-600' : 'text-gray-600'} />
+                        <p className="text-xs text-gray-500">Scadenza: <span className={`font-medium ${keepassExpired ? 'text-red-700' : 'text-gray-900'}`}>{formatDate(file.expires)}{keepassExpired ? ' (scaduta)' : ''}</span></p>
                       </div>
                     </div>
                   )}
 
                   {/* Stato scaduta + Nota */}
-                  <div className={`pt-2 mt-2 border-t ${status.is_expired ? 'border-red-300' : 'border-gray-200'}`}>
+                  <div className={`pt-2 mt-2 border-t ${isExpired ? 'border-red-300' : 'border-gray-200'}`}>
                     <div className="flex items-center gap-3">
                       {/* Toggle Scaduta */}
                       <button
@@ -399,7 +401,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                             value={status.note}
                             onChange={(e) => saveNoteDebounced(file, e.target.value)}
                             placeholder="Aggiungi nota..."
-                            className={`flex-1 min-w-0 text-xs border rounded px-2 py-1 outline-none focus:ring-1 ${status.is_expired ? 'border-red-300 focus:ring-red-400 bg-red-50' : 'border-gray-300 focus:ring-blue-400'}`}
+                            className={`flex-1 min-w-0 text-xs border rounded px-2 py-1 outline-none focus:ring-1 ${isExpired ? 'border-red-300 focus:ring-red-400 bg-red-50' : 'border-gray-300 focus:ring-blue-400'}`}
                           />
                         ) : (
                           <span className="text-xs text-gray-700 truncate">{status.note || '-'}</span>
