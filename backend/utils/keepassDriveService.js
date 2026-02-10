@@ -595,7 +595,27 @@ class KeepassDriveService {
         };
       };
 
-      // Ordine: Email → entry dirette → per ogni @dominio: divisore dominio, entry dirette, per ogni sottocartella: divisore (titolo), entry annidate
+      // Gerarchia come in KeePass: traversata ricorsiva con depth; supporta groups e children (kdbxweb)
+      const getChildGroups = (g) => {
+        if (!g) return [];
+        const arr = g.groups || g.children || g.subGroups;
+        return Array.isArray(arr) ? arr : [];
+      };
+
+      const visitGroup = (group, depth) => {
+        const groupName = (group.name || '').trim();
+        result.push({ type: 'divider', name: groupName, level: depth });
+        if (group.entries) {
+          for (const entry of group.entries) {
+            const item = extractEntry(entry, groupName);
+            result.push({ ...item, level: depth });
+          }
+        }
+        for (const child of getChildGroups(group)) {
+          visitGroup(child, depth + 1);
+        }
+      };
+
       // 1. Entry dirette del gruppo Email (senza sottocartelle)
       if (emailGroup.entries) {
         for (const entry of emailGroup.entries) {
@@ -603,30 +623,9 @@ class KeepassDriveService {
         }
       }
 
-      // 2. Per ogni cartella @dominio: divisore (level 0), entry dirette, poi sottocartelle come titolo (level 1) con entry annidate
-      if (emailGroup.groups) {
-        for (const sub of emailGroup.groups) {
-          const subName = sub.name || '';
-          result.push({ type: 'divider', name: subName, level: 0 });
-          if (sub.entries) {
-            for (const entry of sub.entries) {
-              const item = extractEntry(entry, subName);
-              result.push({ ...item, level: 0 });
-            }
-          }
-          if (sub.groups) {
-            for (const nested of sub.groups) {
-              const nestedName = nested.name || '';
-              result.push({ type: 'divider', name: nestedName, level: 1 });
-              if (nested.entries) {
-                for (const entry of nested.entries) {
-                  const item = extractEntry(entry, nestedName);
-                  result.push({ ...item, level: 1 });
-                }
-              }
-            }
-          }
-        }
+      // 2. Ogni sottocartella di Email (@dominio, poi pec.dominio annidato) con depth reale
+      for (const sub of getChildGroups(emailGroup)) {
+        visitGroup(sub, 0);
       }
 
       return result;
