@@ -190,9 +190,15 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                     if (item.type === 'divider') {
                       const isNested = item.level === 1;
                       return (
-                        <tr key={`div-${idx}`} className="bg-sky-100 border-y border-sky-200">
-                          <td colSpan={showAssistenzaButton ? 5 : 4} className={`py-1 px-3 font-medium text-sky-800 ${isNested ? 'pl-8' : ''}`}>
-                            {isNested && <span className="text-sky-600 mr-1">↳</span>}
+                        <tr
+                          key={`div-${idx}`}
+                          className={`bg-sky-100 border-y border-sky-200 ${isNested ? 'border-l-4 border-l-sky-400 bg-sky-50' : ''}`}
+                        >
+                          <td
+                            colSpan={showAssistenzaButton ? 5 : 4}
+                            className={`py-1 px-3 font-medium text-sky-800 ${isNested ? 'pl-10' : ''}`}
+                          >
+                            {isNested && <span className="text-sky-600 mr-2">└</span>}
                             {item.name || '—'}
                           </td>
                         </tr>
@@ -202,13 +208,16 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                     const expiresDate = item.expires ? new Date(item.expires) : null;
                     const isExpired = expiresDate && !isNaN(expiresDate.getTime()) && expiresDate < new Date();
                     const isNested = item.level === 1;
-                    const cellPad = isNested ? 'py-1 px-3 pl-8' : 'py-1 px-3';
+                    const rowClass = isNested
+                      ? 'border-b border-gray-100 border-l-4 border-l-sky-300 bg-sky-50/50 hover:bg-sky-50'
+                      : `border-b border-gray-100 ${isExpired ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`;
+                    const cellPad = isNested ? 'py-1 px-3 pl-10' : 'py-1 px-3';
                     return (
-                      <tr
-                        key={`ent-${idx}`}
-                        className={`border-b border-gray-100 ${isExpired ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
-                      >
-                        <td className={`${cellPad} text-gray-900`}>{isNested && <span className="text-gray-400 mr-1">↳</span>}{item.title || '—'}</td>
+                      <tr key={`ent-${idx}`} className={rowClass}>
+                        <td className={`${cellPad} text-gray-900`}>
+                          {isNested && <span className="text-sky-500 mr-2">└</span>}
+                          {item.title || '—'}
+                        </td>
                         <td className={`${cellPad} text-gray-600 font-mono`}>{item.username || '—'}</td>
                         <td className={`${cellPad} text-gray-600 truncate max-w-[280px]`} title={item.url || ''}>
                           {item.url ? (
