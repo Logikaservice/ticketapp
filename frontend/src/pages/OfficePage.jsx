@@ -1,7 +1,7 @@
 // frontend/src/pages/OfficePage.jsx
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ArrowLeft, Loader, Calendar, X, CheckSquare, Square, StickyNote } from 'lucide-react';
+import { ArrowLeft, Loader, Calendar, X, StickyNote } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
 const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser }) => {
@@ -14,7 +14,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
   const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId);
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
-  const [cardStatuses, setCardStatuses] = useState({});  // chiave = "title||username" → { is_expired, note }
+  const [cardStatuses, setCardStatuses] = useState({});  // chiave = "title||username" → { note }
   const saveTimers = useRef({});
 
   // Carica le aziende al mount
@@ -132,7 +132,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
         const rows = await resp.json();
         const map = {};
         for (const r of rows) {
-          map[`${r.card_title || ''}||${r.card_username || ''}`] = { is_expired: r.is_expired, note: r.note || '' };
+          map[`${r.card_title || ''}||${r.card_username || ''}`] = { note: r.note || '' };
         }
         setCardStatuses(map);
       }
@@ -143,7 +143,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
   const saveCardStatus = useCallback(async (file, fields) => {
     if (!companyName || !getAuthHeader || !isTecnico) return;
     const key = cardKey(file);
-    const current = cardStatuses[key] || { is_expired: false, note: '' };
+    const current = cardStatuses[key] || { note: '' };
     const merged = { ...current, ...fields };
     setCardStatuses(prev => ({ ...prev, [key]: merged }));
     try {
@@ -154,7 +154,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
           azienda_name: companyName,
           card_title: file.title || '',
           card_username: file.username || '',
-          is_expired: merged.is_expired,
+          is_expired: false,
           note: merged.note
         })
       });
@@ -164,7 +164,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
   // Salva nota con debounce (evita troppe chiamate durante la digitazione)
   const saveNoteDebounced = useCallback((file, note) => {
     const key = cardKey(file);
-    setCardStatuses(prev => ({ ...prev, [key]: { ...(prev[key] || { is_expired: false, note: '' }), note } }));
+    setCardStatuses(prev => ({ ...prev, [key]: { ...(prev[key] || { note: '' }), note } }));
     if (saveTimers.current[key]) clearTimeout(saveTimers.current[key]);
     saveTimers.current[key] = setTimeout(() => {
       saveCardStatus(file, { note });
@@ -299,9 +299,9 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
             {officeData.files && officeData.files.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {officeData.files.map((file, index) => {
-                const status = cardStatuses[cardKey(file)] || { is_expired: false, note: '' };
+                const status = cardStatuses[cardKey(file)] || { note: '' };
                 const keepassExpired = file.expires ? new Date(file.expires) < new Date() : false;
-                const isExpired = status.is_expired || keepassExpired;
+                const isExpired = keepassExpired;
                 return (
                 <div key={index} className={`bg-white rounded-lg shadow-sm border-2 px-4 py-3 transition-colors ${isExpired ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
                   {/* Titolo e username del file */}
@@ -363,52 +363,37 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                     )}
                   </div>
 
-                  {/* Scadenza del file */}
+                  {/* Scadenza + Nota (automatica da KeePass) */}
                   {file.expires && (
                     <div className={`pt-2 border-t ${isExpired ? 'border-red-300' : 'border-gray-200'}`}>
-                      <div className="flex items-center gap-2">
-                        <Calendar size={16} className={keepassExpired ? 'text-red-600' : 'text-gray-600'} />
-                        <p className="text-xs text-gray-500">Scadenza: <span className={`font-medium ${keepassExpired ? 'text-red-700' : 'text-gray-900'}`}>{formatDate(file.expires)}{keepassExpired ? ' (scaduta)' : ''}</span></p>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Calendar size={16} className={keepassExpired ? 'text-red-600' : 'text-gray-600'} />
+                          <p className="text-xs text-gray-500">
+                            Scadenza:{' '}
+                            <span className={`font-medium ${keepassExpired ? 'text-red-700' : 'text-gray-900'}`}>
+                              {formatDate(file.expires)}
+                              {keepassExpired ? ' (scaduta)' : ''}
+                            </span>
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0 sm:max-w-xs">
+                          <span className="text-xs text-gray-500 shrink-0">Nota:</span>
+                          {isTecnico ? (
+                            <input
+                              type="text"
+                              value={status.note}
+                              onChange={(e) => saveNoteDebounced(file, e.target.value)}
+                              placeholder="Aggiungi nota..."
+                              className={`flex-1 min-w-0 text-xs border rounded px-2 py-1 outline-none focus:ring-1 ${isExpired ? 'border-red-300 focus:ring-red-400 bg-red-50' : 'border-gray-300 focus:ring-blue-400'}`}
+                            />
+                          ) : (
+                            <span className="text-xs text-gray-700 truncate">{status.note || '-'}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
-
-                  {/* Stato scaduta + Nota */}
-                  <div className={`pt-2 mt-2 border-t ${isExpired ? 'border-red-300' : 'border-gray-200'}`}>
-                    <div className="flex items-center gap-3">
-                      {/* Toggle Scaduta */}
-                      <button
-                        onClick={() => isTecnico && saveCardStatus(file, { is_expired: !status.is_expired })}
-                        className={`flex items-center gap-1.5 shrink-0 ${isTecnico ? 'cursor-pointer' : 'cursor-default'}`}
-                        title={isTecnico ? 'Segna come scaduta / non scaduta' : ''}
-                        disabled={!isTecnico}
-                      >
-                        {status.is_expired
-                          ? <CheckSquare size={18} className="text-red-600" />
-                          : <Square size={18} className="text-gray-400" />
-                        }
-                        <span className={`text-xs font-semibold ${status.is_expired ? 'text-red-700' : 'text-gray-500'}`}>
-                          {status.is_expired ? 'Scaduta' : 'Non scaduta'}
-                        </span>
-                      </button>
-
-                      {/* Campo Nota */}
-                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                        <span className="text-xs text-gray-500 shrink-0">Nota:</span>
-                        {isTecnico ? (
-                          <input
-                            type="text"
-                            value={status.note}
-                            onChange={(e) => saveNoteDebounced(file, e.target.value)}
-                            placeholder="Aggiungi nota..."
-                            className={`flex-1 min-w-0 text-xs border rounded px-2 py-1 outline-none focus:ring-1 ${isExpired ? 'border-red-300 focus:ring-red-400 bg-red-50' : 'border-gray-300 focus:ring-blue-400'}`}
-                          />
-                        ) : (
-                          <span className="text-xs text-gray-700 truncate">{status.note || '-'}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
                 </div>
                 );
                 })}
