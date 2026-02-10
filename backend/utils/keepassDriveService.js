@@ -562,15 +562,26 @@ class KeepassDriveService {
         const title = titleF ? (titleF instanceof ProtectedValue ? titleF.getText() : String(titleF)) : '';
         const username = userF ? (userF instanceof ProtectedValue ? userF.getText() : String(userF)) : '';
         const url = urlF ? (urlF instanceof ProtectedValue ? urlF.getText() : String(urlF)) : '';
-        // Scadenza da KeePass (entry.times.expiryTime + entry.times.expires)
+        // Scadenza da KeePass: expiryTime può essere Date, stringa ISO, o oggetto con .value/.getTime()
         let expires = null;
-        if (entry.times && entry.times.expiryTime && entry.times.expires) {
-          const expiresDate = entry.times.expiryTime;
-          const d = expiresDate instanceof Date ? expiresDate : new Date(expiresDate);
-          const maxDate = new Date();
-          maxDate.setFullYear(maxDate.getFullYear() + 100);
-          if (!isNaN(d.getTime()) && d <= maxDate) {
-            expires = d.toISOString();
+        if (entry.times) {
+          const raw = entry.times.expiryTime ?? entry.times.ExpiryTime;
+          if (raw != null) {
+            let d;
+            if (raw instanceof Date) {
+              d = raw;
+            } else if (typeof raw === 'object' && typeof raw.getTime === 'function') {
+              d = raw;
+            } else if (typeof raw === 'object' && raw.value != null) {
+              d = new Date(raw.value);
+            } else {
+              d = new Date(raw);
+            }
+            const maxDate = new Date();
+            maxDate.setFullYear(maxDate.getFullYear() + 100);
+            if (!isNaN(d.getTime()) && d.getTime() > 0 && d <= maxDate) {
+              expires = d.toISOString();
+            }
           }
         }
         return {

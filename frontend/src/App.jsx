@@ -1819,6 +1819,23 @@ export default function TicketApp() {
   const handleCreateTicketFromAlert = (alert) => {
     const nomeRichiedente = currentUser?.ruolo === 'cliente' ? `${currentUser.nome} ${currentUser.cognome || ''}`.trim() : '';
 
+    // Avviso "Email in scadenza" (solo tecnico): titolo e descrizione per intervento
+    if (alert.isEmailExpiry) {
+      const expDate = alert.expires ? new Date(alert.expires).toLocaleDateString('it-IT') : 'N/D';
+      setNewTicketData({
+        titolo: `Intervento scadenza email – ${alert.username || alert.emailTitle || ''} – ${alert.aziendaName || ''}`,
+        descrizione: `Richiesta intervento per rinnovo/scadenza email.\n\nAzienda: ${alert.aziendaName || ''}\nEmail/Account: ${alert.username || ''}\nTitolo entry: ${alert.emailTitle || alert.title || ''}\nScadenza: ${expDate}\nGiorni rimanenti: ${alert.daysLeft ?? 'N/D'}\n\n${alert.body || ''}`,
+        categoria: 'assistenza',
+        priorita: 'media',
+        nomerichiedente: nomeRichiedente,
+        dataapertura: ''
+      });
+      setIsEditingTicket(null);
+      setSelectedClientForNewTicket('');
+      setModalState({ type: 'newTicket' });
+      return;
+    }
+
     // Determina la priorità in base al livello dell'avviso
     let priorita = 'media';
     if (alert.level === 'danger') {

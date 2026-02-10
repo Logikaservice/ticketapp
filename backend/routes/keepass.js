@@ -1840,6 +1840,60 @@ module.exports = function createKeepassRouter(pool) {
     `);
   };
 
+  // GET /api/keepass/email-upcoming-expiries?days=30 - Email in scadenza entro N giorni (solo tecnico/admin, per Avvisi Importanti)
+  router.get('/email-upcoming-expiries', authenticateToken, async (req, res) => {
+    try {
+      const userRole = req.user?.ruolo;
+      if (userRole !== 'tecnico' && userRole !== 'admin') {
+        return res.status(403).json({ error: 'Accesso negato' });
+      }
+      const days = Math.min(90, Math.max(1, parseInt(req.query.days, 10) || 30));
+      const keepassPassword = process.env.KEEPASS_PASSWORD;
+      if (!keepassPassword) {
+        return res.status(500).json({ error: 'Password Keepass non configurata' });
+      }
+      // Stessa fonte aziende della pagina Email (all-clients): TRIM(u.azienda), GROUP BY
+      const aziendeResult = await pool.query(
+        `SELECT TRIM(u.azienda) AS azienda FROM users u WHERE u.ruolo = 'cliente' AND u.azienda IS NOT NULL AND TRIM(u.azienda) != '' GROUP BY TRIM(u.azienda) ORDER BY azienda`
+      );
+      const now = new Date();
+      const limit = new Date(now);
+      limit.setDate(limit.getDate() + days);
+      const results = [];
+      const aziendeRows = aziendeResult.rows || [];
+      for (const row of aziendeRows) {
+        const aziendaName = (row.azienda || '').split(':')[0].trim();
+        if (!aziendaName) continue;
+        try {
+          const structure = await keepassDriveService.getEmailStructureByAzienda(keepassPassword, aziendaName);
+          for (const item of structure) {
+            if (item.type !== 'entry' || !item.expires) continue;
+            const exp = new Date(item.expires);
+            if (isNaN(exp.getTime())) continue;
+            if (exp < now) continue; // già scaduta: non mostrare negli "in scadenza"
+            if (exp > limit) continue; // oltre la finestra
+            const daysLeft = Math.ceil((exp - now) / (24 * 60 * 60 * 1000));
+            results.push({
+              aziendaName,
+              title: item.title || '',
+              username: item.username || '',
+              url: item.url || '',
+              divider: item.divider || '',
+              expires: item.expires,
+              daysLeft
+            });
+          }
+        } catch (e) {
+          console.warn('email-upcoming-expiries: skip azienda', aziendaName, e.message);
+        }
+      }
+      res.json(results);
+    } catch (err) {
+      console.error('❌ Errore email-upcoming-expiries:', err);
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
   // GET /api/keepass/email/:aziendaName - Recupera struttura Email da Keepass (cartella Email, righe divisorie @)
   router.get('/email/:aziendaName', authenticateToken, async (req, res) => {
     try {

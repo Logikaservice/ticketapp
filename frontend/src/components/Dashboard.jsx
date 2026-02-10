@@ -62,7 +62,9 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
   // Funzione per verificare se l'utente corrente può modificare/eliminare un avviso
   const canEditAlert = (alert) => {
     if (!currentUser) return false;
-    
+    // Gli avvisi "Email in scadenza" sono virtuali, non modificabili/eliminabili
+    if (alert.isEmailExpiry) return false;
+
     // I tecnici possono sempre modificare/eliminare tutti gli avvisi
     if (currentUser.ruolo === 'tecnico') return true;
     
@@ -91,6 +93,9 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
   };
 
   const getCountdown = (alert) => {
+    if (alert.isEmailExpiry) {
+      return { label: alert.daysLeft != null ? `Scade tra ${alert.daysLeft} giorni` : 'In scadenza', isExpired: false };
+    }
     if (alert.isPermanent) {
       return { label: 'Avviso permanente', isExpired: false };
     }
@@ -323,8 +328,8 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
                     </div>
                   )}
 
-                  {/* Pulsante per creare ticket dall'avviso - per clienti E tecnici, solo per avvisi Informazione, Avviso e Critico */}
-                  {(currentUser?.ruolo === 'cliente' || currentUser?.ruolo === 'tecnico') && onCreateTicketFromAlert && (avv.level === 'info' || avv.level === 'warning' || avv.level === 'danger') && (
+                  {/* Pulsante per creare ticket dall'avviso - per clienti E tecnici; anche per avviso "Email in scadenza" (solo tecnico) */}
+                  {(currentUser?.ruolo === 'cliente' || currentUser?.ruolo === 'tecnico') && onCreateTicketFromAlert && (avv.isEmailExpiry || avv.level === 'info' || avv.level === 'warning' || avv.level === 'danger') && (
                     <div className="mt-3">
                       <button
                         onClick={() => onCreateTicketFromAlert(avv)}
@@ -803,6 +808,8 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
   // Avvisi: ora da API backend
   const [alerts, setAlerts] = React.useState([]);
+  // Avvisi "Email in scadenza" (solo tecnico, stessa sezione Avvisi Importanti)
+  const [emailExpiryAlerts, setEmailExpiryAlerts] = React.useState([]);
   // Usa buildApiUrl direttamente per evitare doppio slash
   const apiBase = buildApiUrl('') || '';
   const isKeepassAdmin = currentUser?.ruolo === 'cliente' &&
@@ -1090,6 +1097,54 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       fetchAlerts();
     }
   }, [alertsRefreshTrigger]);
+
+  const fetchEmailUpcomingExpiries = React.useCallback(async () => {
+    if (currentUser?.ruolo !== 'tecnico' && currentUser?.ruolo !== 'admin') {
+      setEmailExpiryAlerts([]);
+      return;
+    }
+    try {
+      const res = await fetch(buildApiUrl('/api/keepass/email-upcoming-expiries?days=30'), {
+        headers: getAuthHeader()
+      });
+      if (!res.ok) {
+        console.warn('email-upcoming-expiries:', res.status);
+        setEmailExpiryAlerts([]);
+        return;
+      }
+      const list = await res.json();
+      const formatDate = (d) => {
+        if (!d) return 'N/D';
+        const dt = new Date(d);
+        return Number.isNaN(dt.getTime()) ? 'N/D' : dt.toLocaleDateString('it-IT');
+      };
+      const mapped = (list || []).map((e) => ({
+        id: `email-expiry-${(e.aziendaName || '').replace(/[^a-z0-9]/gi, '-')}-${(e.username || e.title || '').replace(/[^a-z0-9]/gi, '-')}`,
+        title: 'Email in scadenza',
+        body: `${e.aziendaName || ''} – ${e.username || ''} – scade il ${formatDate(e.expires)} (tra ${e.daysLeft ?? '?'} giorni)`,
+        level: 'warning',
+        isEmailExpiry: true,
+        aziendaName: e.aziendaName,
+        username: e.username,
+        emailTitle: e.title,
+        expires: e.expires,
+        daysLeft: e.daysLeft
+      }));
+      setEmailExpiryAlerts(mapped);
+    } catch (err) {
+      console.error('Errore caricamento email in scadenza:', err);
+      setEmailExpiryAlerts([]);
+    }
+  }, [currentUser?.ruolo, getAuthHeader]);
+
+  useEffect(() => {
+    fetchEmailUpcomingExpiries();
+  }, [fetchEmailUpcomingExpiries]);
+  useEffect(() => {
+    if (alertsRefreshTrigger > 0) {
+      fetchEmailUpcomingExpiries();
+    }
+  }, [alertsRefreshTrigger, fetchEmailUpcomingExpiries]);
 
   const [newAlert, setNewAlert] = React.useState({ title: '', body: '', level: 'warning' });
   const levelToColor = (level) => {
@@ -1661,7 +1716,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           {/* AVVISI IMPORTANTI */}
           <div className="mb-6">
             <AlertsPanel
-              alerts={alerts}
+              alerts={[...alerts, ...emailExpiryAlerts]}
               onDelete={deleteAlert}
               onOpenTicket={(t) => {
                 if (!t || !t.id) return;
