@@ -297,46 +297,41 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
           <div className="max-w-7xl mx-auto">
             {/* Lista di tutti i file trovati */}
             {officeData.files && officeData.files.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {officeData.files.map((file, index) => {
                 const status = cardStatuses[cardKey(file)] || { is_expired: false, note: '' };
                 return (
-                <div key={index} className={`bg-white rounded-lg shadow-md border-2 p-6 transition-colors ${status.is_expired ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
+                <div key={index} className={`bg-white rounded-lg shadow-sm border-2 px-4 py-3 transition-colors ${status.is_expired ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
                   {/* Titolo e username del file */}
-                  <div className="mb-4 pb-4 border-b border-gray-200">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      <div>
-                        <h3 className="text-xl font-bold text-gray-900">{file.title || `File ${index + 1}`}</h3>
-                      </div>
+                  <div className="mb-2 pb-2 border-b border-gray-200">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-base font-bold text-gray-900 truncate">{file.title || `File ${index + 1}`}</h3>
                       {file.username && file.username.trim() !== '' && (
-                        <div>
-                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Nome utente</p>
-                          <p className="text-gray-900 font-mono">{file.username}</p>
+                        <div className="text-right shrink-0">
+                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Nome utente</p>
+                          <p className="text-xs text-gray-900 font-mono">{file.username}</p>
                         </div>
                       )}
                     </div>
                   </div>
 
                   {/* Campi personalizzati del file */}
-                  <div className="space-y-4 mb-4">
-                    <h4 className="text-md font-semibold text-gray-700">Attivo su:</h4>
+                  <div className="mb-2">
+                    <h4 className="text-xs font-semibold text-gray-500 mb-1">Attivo su:</h4>
                     
                     {file.customFields && Object.keys(file.customFields).length > 0 ? (
-                      <div className="space-y-2">
+                      <div className="space-y-0.5">
                         {Object.entries(file.customFields)
                           .filter(([key]) => ['custom1', 'custom2', 'custom3', 'custom4', 'custom5'].includes(key))
                           .sort(([keyA], [keyB]) => {
-                            // Ordina per numero: custom1, custom2, custom3, custom4, custom5
                             const numA = parseInt(keyA.replace('custom', ''));
                             const numB = parseInt(keyB.replace('custom', ''));
                             return numA - numB;
                           })
                           .map(([key, value]) => {
-                            // Estrai il numero dal nome del campo (custom1 -> 1, custom2 -> 2, ecc.)
                             const fieldNumber = key.replace('custom', '');
                             const valueStr = value ? String(value).trim() : '';
                             
-                            // Determina il colore del bordo in base al campo
                             const getBorderColor = (num) => {
                               if (num === '1') return 'border-blue-500';
                               if (num === '2') return 'border-green-500';
@@ -347,13 +342,13 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                             };
                             
                             return (
-                              <div key={key} className={`border-l-4 ${getBorderColor(fieldNumber)} pl-4 py-2`}>
+                              <div key={key} className={`border-l-4 ${getBorderColor(fieldNumber)} pl-3 py-1`}>
                                 {valueStr ? (
-                                  <p className="text-gray-900">
+                                  <p className="text-sm text-gray-900">
                                     <span className="font-semibold">{fieldNumber}.</span> {valueStr}
                                   </p>
                                 ) : (
-                                  <p className="text-gray-400 italic">
+                                  <p className="text-sm text-gray-400 italic">
                                     <span className="font-semibold">{fieldNumber}.</span> (vuoto)
                                   </p>
                                 )}
@@ -362,56 +357,52 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                           })}
                       </div>
                     ) : (
-                      <p className="text-gray-500 italic">Nessun campo personalizzato trovato</p>
+                      <p className="text-xs text-gray-500 italic">Nessun campo personalizzato trovato</p>
                     )}
                   </div>
 
                   {/* Scadenza del file */}
                   {file.expires && (
-                    <div className="pt-4 border-t border-gray-200">
+                    <div className="pt-2 border-t border-gray-200">
                       <div className="flex items-center gap-2">
-                        <Calendar size={20} className="text-gray-600" />
-                        <div>
-                          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Scadenza</p>
-                          <p className="text-gray-900">{formatDate(file.expires)}</p>
-                        </div>
+                        <Calendar size={16} className="text-gray-600" />
+                        <p className="text-xs text-gray-500">Scadenza: <span className="text-gray-900 font-medium">{formatDate(file.expires)}</span></p>
                       </div>
                     </div>
                   )}
 
                   {/* Stato scaduta + Nota */}
-                  <div className={`pt-4 mt-4 border-t ${status.is_expired ? 'border-red-300' : 'border-gray-200'}`}>
-                    <div className="flex items-center gap-4">
+                  <div className={`pt-2 mt-2 border-t ${status.is_expired ? 'border-red-300' : 'border-gray-200'}`}>
+                    <div className="flex items-center gap-3">
                       {/* Toggle Scaduta */}
                       <button
                         onClick={() => isTecnico && saveCardStatus(file, { is_expired: !status.is_expired })}
-                        className={`flex items-center gap-2 shrink-0 ${isTecnico ? 'cursor-pointer' : 'cursor-default'}`}
+                        className={`flex items-center gap-1.5 shrink-0 ${isTecnico ? 'cursor-pointer' : 'cursor-default'}`}
                         title={isTecnico ? 'Segna come scaduta / non scaduta' : ''}
                         disabled={!isTecnico}
                       >
                         {status.is_expired
-                          ? <CheckSquare size={22} className="text-red-600" />
-                          : <Square size={22} className="text-gray-400" />
+                          ? <CheckSquare size={18} className="text-red-600" />
+                          : <Square size={18} className="text-gray-400" />
                         }
-                        <span className={`text-sm font-semibold ${status.is_expired ? 'text-red-700' : 'text-gray-500'}`}>
+                        <span className={`text-xs font-semibold ${status.is_expired ? 'text-red-700' : 'text-gray-500'}`}>
                           {status.is_expired ? 'Scaduta' : 'Non scaduta'}
                         </span>
                       </button>
 
                       {/* Campo Nota */}
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <StickyNote size={16} className="text-gray-400 shrink-0" />
-                        <span className="text-xs font-medium text-gray-500 shrink-0">Nota:</span>
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        <span className="text-xs text-gray-500 shrink-0">Nota:</span>
                         {isTecnico ? (
                           <input
                             type="text"
                             value={status.note}
                             onChange={(e) => saveNoteDebounced(file, e.target.value)}
-                            placeholder="Aggiungi una nota..."
-                            className={`flex-1 min-w-0 text-sm border rounded px-2 py-1 outline-none focus:ring-1 ${status.is_expired ? 'border-red-300 focus:ring-red-400 bg-red-50' : 'border-gray-300 focus:ring-blue-400'}`}
+                            placeholder="Aggiungi nota..."
+                            className={`flex-1 min-w-0 text-xs border rounded px-2 py-1 outline-none focus:ring-1 ${status.is_expired ? 'border-red-300 focus:ring-red-400 bg-red-50' : 'border-gray-300 focus:ring-blue-400'}`}
                           />
                         ) : (
-                          <span className="text-sm text-gray-700 truncate">{status.note || '-'}</span>
+                          <span className="text-xs text-gray-700 truncate">{status.note || '-'}</span>
                         )}
                       </div>
                     </div>
