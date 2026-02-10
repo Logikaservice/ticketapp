@@ -178,19 +178,21 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Titolo</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Nome Utente</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">URL</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Scadenza</th>
-                    {showAssistenzaButton && <th className="text-left py-3 px-4 font-semibold text-gray-700 w-32">Assistenza</th>}
+                    <th className="text-left py-1.5 px-3 font-semibold text-gray-700">Titolo</th>
+                    <th className="text-left py-1.5 px-3 font-semibold text-gray-700">Nome Utente</th>
+                    <th className="text-left py-1.5 px-3 font-semibold text-gray-700">URL</th>
+                    <th className="text-left py-1.5 px-3 font-semibold text-gray-700">Scadenza</th>
+                    {showAssistenzaButton && <th className="text-left py-1.5 px-3 font-semibold text-gray-700 w-32">Assistenza</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item, idx) => {
                     if (item.type === 'divider') {
+                      const isNested = item.level === 1;
                       return (
                         <tr key={`div-${idx}`} className="bg-sky-100 border-y border-sky-200">
-                          <td colSpan={showAssistenzaButton ? 5 : 4} className="py-2 px-4 font-medium text-sky-800">
+                          <td colSpan={showAssistenzaButton ? 5 : 4} className={`py-1 px-3 font-medium text-sky-800 ${isNested ? 'pl-8' : ''}`}>
+                            {isNested && <span className="text-sky-600 mr-1">↳</span>}
                             {item.name || '—'}
                           </td>
                         </tr>
@@ -199,21 +201,23 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                     const key = entryKey(item);
                     const expiresDate = item.expires ? new Date(item.expires) : null;
                     const isExpired = expiresDate && !isNaN(expiresDate.getTime()) && expiresDate < new Date();
+                    const isNested = item.level === 1;
+                    const cellPad = isNested ? 'py-1 px-3 pl-8' : 'py-1 px-3';
                     return (
                       <tr
                         key={`ent-${idx}`}
                         className={`border-b border-gray-100 ${isExpired ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
                       >
-                        <td className="py-2 px-4 text-gray-900">{item.title || '—'}</td>
-                        <td className="py-2 px-4 text-gray-600 font-mono">{item.username || '—'}</td>
-                        <td className="py-2 px-4 text-gray-600 truncate max-w-[280px]" title={item.url || ''}>
+                        <td className={`${cellPad} text-gray-900`}>{isNested && <span className="text-gray-400 mr-1">↳</span>}{item.title || '—'}</td>
+                        <td className={`${cellPad} text-gray-600 font-mono`}>{item.username || '—'}</td>
+                        <td className={`${cellPad} text-gray-600 truncate max-w-[280px]`} title={item.url || ''}>
                           {item.url ? (
                             <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                               {item.url}
                             </a>
                           ) : '—'}
                         </td>
-                        <td className={`py-2 px-4 whitespace-nowrap ${isExpired ? 'text-red-700 font-medium' : 'text-gray-600'}`}>
+                        <td className={`${cellPad} whitespace-nowrap ${isExpired ? 'text-red-700 font-medium' : 'text-gray-600'}`}>
                           {item.expires ? (
                             <span title={isExpired ? 'Scaduta' : ''}>
                               {formatExpiry(item.expires)}
@@ -222,17 +226,17 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                           ) : '—'}
                         </td>
                         {showAssistenzaButton && (
-                          <td className="py-2 px-4">
+                          <td className={cellPad}>
                             <button
                               type="button"
                               onClick={() => onOpenTicket({
                                 titolo: `Assistenza Email - ${(item.title || item.username || 'Account').toString().trim()}`,
                                 descrizione: `Richiesta assistenza relativa all'account email:\n\nTitolo: ${item.title || '—'}\nUtente: ${item.username || '—'}\nURL: ${item.url || '—'}\nAzienda: ${companyName || '—'}`
                               })}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors"
                               title="Apri un ticket di assistenza"
                             >
-                              <MessageCircle size={16} />
+                              <MessageCircle size={14} />
                               Apri ticket
                             </button>
                           </td>
