@@ -186,9 +186,31 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item, idx) => {
+                  {(() => {
+                    let currentLevel = 0;
+                    let lastDomainLevel0 = null;
+                    const domainFromName = (n) => (n || '').replace(/^@/, '').trim().toLowerCase();
+                    const isSubOf = (subName, domainName) => {
+                      const d = domainFromName(domainName);
+                      const s = (subName || '').toLowerCase();
+                      return s === d || s.endsWith('.' + d);
+                    };
+                    const withLevel = items.map((it) => {
+                      if (it.type === 'divider') {
+                        const name = (it.name || '').trim();
+                        const nestedByTree = it.level === 1;
+                        const nestedByName = lastDomainLevel0 != null && name && isSubOf(name, lastDomainLevel0);
+                        const isNested = nestedByTree || nestedByName;
+                        if (!isNested) lastDomainLevel0 = name;
+                        currentLevel = isNested ? 1 : 0;
+                        return { ...it, _level: currentLevel };
+                      }
+                      return { ...it, _level: currentLevel };
+                    });
+                    return withLevel;
+                  })().map((item, idx) => {
+                    const isNested = item._level === 1;
                     if (item.type === 'divider') {
-                      const isNested = item.level === 1;
                       return (
                         <tr
                           key={`div-${idx}`}
@@ -207,7 +229,6 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                     const key = entryKey(item);
                     const expiresDate = item.expires ? new Date(item.expires) : null;
                     const isExpired = expiresDate && !isNaN(expiresDate.getTime()) && expiresDate < new Date();
-                    const isNested = item.level === 1;
                     const rowClass = isNested
                       ? 'border-b border-gray-100 border-l-4 border-l-sky-300 bg-sky-50/50 hover:bg-sky-50'
                       : `border-b border-gray-100 ${isExpired ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`;
