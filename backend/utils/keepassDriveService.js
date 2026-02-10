@@ -628,6 +628,128 @@ class KeepassDriveService {
   }
 
   /**
+   * Email in scadenza per tutte le aziende: carica KeePass UNA sola volta e restituisce le entry con scadenza nel range [now, limit].
+   * Evita N download (uno per azienda) che causano timeout 504.
+   * @param {string} password - Password KeePass
+   * @param {string[]} aziendeNames - Lista nomi aziende (stesso ordine/lista della pagina Email)
+   * @param {Date} now - Data ora
+   * @param {Date} limit - Data limite (es. now + 30 giorni)
+   * @returns {Array<{aziendaName, title, username, url, divider, expires, daysLeft}>}
+   */
+  async getEmailUpcomingExpiriesAll(password, aziendeNames, now, limit) {
+    const results = [];
+    const aziendeSet = new Set((aziendeNames || []).map(a => (a || '').trim().toLowerCase()).filter(Boolean));
+    if (aziendeSet.size === 0) return results;
+
+    const fileData = await this.downloadKeepassFile(password);
+    const credentials = new Credentials(ProtectedValue.fromString(password));
+    const db = await Kdbx.load(fileData.buffer.buffer, credentials);
+
+    const extractEntry = (entry, divider = '') => {
+      const titleF = entry.fields && entry.fields['Title'];
+      const userF = entry.fields && entry.fields['UserName'];
+      const urlF = entry.fields && entry.fields['URL'];
+      const title = titleF ? (titleF instanceof ProtectedValue ? titleF.getText() : String(titleF)) : '';
+      const username = userF ? (userF instanceof ProtectedValue ? userF.getText() : String(userF)) : '';
+      const url = urlF ? (urlF instanceof ProtectedValue ? urlF.getText() : String(urlF)) : '';
+      let expires = null;
+      if (entry.times) {
+        const raw = entry.times.expiryTime ?? entry.times.ExpiryTime;
+        if (raw != null) {
+          let d;
+          if (raw instanceof Date) d = raw;
+          else if (typeof raw === 'object' && typeof raw.getTime === 'function') d = raw;
+          else if (typeof raw === 'object' && raw.value != null) d = new Date(raw.value);
+          else d = new Date(raw);
+          const maxDate = new Date();
+          maxDate.setFullYear(maxDate.getFullYear() + 100);
+          if (!isNaN(d.getTime()) && d.getTime() > 0 && d <= maxDate) expires = d.toISOString();
+        }
+      }
+      return { type: 'entry', title, username, url, divider: divider || '', expires };
+    };
+
+    const findEmailGroupUnder = (group) => {
+      if (!group) return null;
+      if (group.name && (group.name.toLowerCase() === 'email' || group.name.toLowerCase() === 'e-mail')) return group;
+      for (const sub of group.groups || []) {
+        const found = findEmailGroupUnder(sub);
+        if (found) return found;
+      }
+      return null;
+    };
+
+    const collectExpiriesFromGroup = (emailGroup, aziendaName, divider = '') => {
+      const list = [];
+      if (emailGroup.entries) {
+        for (const entry of emailGroup.entries) {
+          const item = extractEntry(entry, divider);
+          if (item.expires) list.push({ ...item, aziendaName });
+        }
+      }
+      if (emailGroup.groups) {
+        for (const sub of emailGroup.groups) {
+          const subName = sub.name || '';
+          if (sub.entries) {
+            for (const entry of sub.entries) {
+              const item = extractEntry(entry, subName);
+              if (item.expires) list.push({ ...item, aziendaName });
+            }
+          }
+        }
+      }
+      return list;
+    };
+
+    const visit = (group, pathSegments = []) => {
+      const name = group.name || '';
+      const segments = [...pathSegments, name].filter(Boolean);
+      const gestioneIdx = segments.findIndex(s => s.toLowerCase() === 'gestione');
+      // Solo quando siamo al gruppo Azienda (figlio diretto di Gestione), non più in profondità
+      if (gestioneIdx >= 0 && segments.length === gestioneIdx + 2) {
+        const aziendaSeg = segments[gestioneIdx + 1].trim().toLowerCase();
+        if (aziendeSet.has(aziendaSeg)) {
+          const emailGroup = findEmailGroupUnder(group);
+          if (emailGroup) {
+            const aziendaName = segments[gestioneIdx + 1].trim();
+            return collectExpiriesFromGroup(emailGroup, aziendaName);
+          }
+        }
+        return [];
+      }
+      let collected = [];
+      for (const sub of group.groups || []) {
+        collected = collected.concat(visit(sub, segments));
+      }
+      return collected;
+    };
+
+    let allEntries = [];
+    for (const root of db.groups || []) {
+      allEntries = allEntries.concat(visit(root, []));
+    }
+
+    for (const item of allEntries) {
+      if (!item.expires) continue;
+      const exp = new Date(item.expires);
+      if (isNaN(exp.getTime())) continue;
+      if (exp < now) continue;
+      if (exp > limit) continue;
+      const daysLeft = Math.ceil((exp - now) / (24 * 60 * 60 * 1000));
+      results.push({
+        aziendaName: item.aziendaName,
+        title: item.title || '',
+        username: item.username || '',
+        url: item.url || '',
+        divider: item.divider || '',
+        expires: item.expires,
+        daysLeft
+      });
+    }
+    return results;
+  }
+
+  /**
    * Cerca la voce "Office" come radice e poi "Login" con i campi personalizzati
    * @param {string} password - Password del file Keepass
    * @param {string} aziendaName - Nome azienda per filtrare (es. "Theorica")
