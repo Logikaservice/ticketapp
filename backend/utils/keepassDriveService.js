@@ -562,9 +562,10 @@ class KeepassDriveService {
         const title = titleF ? (titleF instanceof ProtectedValue ? titleF.getText() : String(titleF)) : '';
         const username = userF ? (userF instanceof ProtectedValue ? userF.getText() : String(userF)) : '';
         const url = urlF ? (urlF instanceof ProtectedValue ? urlF.getText() : String(urlF)) : '';
-        // Scadenza da KeePass: expiryTime può essere Date, stringa ISO, o oggetto con .value/.getTime()
+        // Scadenza da KeePass: mostrare solo se l'utente ha attivato "Scadenza" (checkbox expires)
         let expires = null;
-        if (entry.times) {
+        const useExpiry = entry.times && (entry.times.expires === true || entry.times.Expires === true);
+        if (useExpiry) {
           const raw = entry.times.expiryTime ?? entry.times.ExpiryTime;
           if (raw != null) {
             let d;
@@ -653,7 +654,8 @@ class KeepassDriveService {
       const username = userF ? (userF instanceof ProtectedValue ? userF.getText() : String(userF)) : '';
       const url = urlF ? (urlF instanceof ProtectedValue ? urlF.getText() : String(urlF)) : '';
       let expires = null;
-      if (entry.times) {
+      const useExpiry = entry.times && (entry.times.expires === true || entry.times.Expires === true);
+      if (useExpiry) {
         const raw = entry.times.expiryTime ?? entry.times.ExpiryTime;
         if (raw != null) {
           let d;
