@@ -1,5 +1,5 @@
 # Install-CommAgent.ps1
-# Installer per Logika Communication Agent
+# Installer per Logika Service - Communication Agent
 # Copia i file, registra l'agent e configura l'avvio automatico
 
 param(
@@ -34,10 +34,13 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
 $version = "Unknown"
 $servicePath = Join-Path $PSScriptRoot "CommAgentService.ps1"
 if (Test-Path $servicePath) {
-    $content = Get-Content $servicePath -Raw
-    if ($content -match '\$SCRIPT_VERSION = "([^"]+)"') {
-        $version = $matches[1]
+    try {
+        $content = Get-Content $servicePath -Raw -ErrorAction SilentlyContinue
+        if ($content -match '\$SCRIPT_VERSION = "([^"]+)"') {
+            $version = $matches[1]
+        }
     }
+    catch {}
 }
 
 Clear-Host
@@ -173,6 +176,9 @@ try {
             Write-Host "    📧 Email: $($agentConfig.user_email)" -ForegroundColor Cyan
             Write-Host "    💻 PC: $($agentConfig.machine_name)" -ForegroundColor Cyan
             Write-Host "    🔑 Agent ID: $($agentConfig.agent_id)" -ForegroundColor Cyan
+            Write-Host ""
+            Write-Host "    [INFO] Se non vedi l'icona viola vicino all'orologio," -ForegroundColor Yellow
+            Write-Host "           controlla nella freccetta 'mostra icone nascoste'." -ForegroundColor Yellow
         }
     }
     else {
