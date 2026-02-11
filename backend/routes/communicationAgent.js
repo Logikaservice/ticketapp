@@ -423,18 +423,27 @@ module.exports = (pool, io) => {
     // ============================================
     router.get('/download-agent', async (req, res) => {
         try {
-            // Supporta autenticazione via query parameter (per window.open) o header
+            // Supporta auth via Token (query/header) OPPURE API Key (header)
             const token = req.query.token || (req.headers.authorization && req.headers.authorization.replace('Bearer ', ''));
-            if (!token) {
-                return res.status(401).json({ error: 'Token richiesto' });
+            const apiKey = req.headers['x-comm-api-key'];
+
+            if (!token && !apiKey) {
+                return res.status(401).json({ error: 'Autenticazione richiesta (Token o API Key)' });
             }
 
-            const jwt = require('jsonwebtoken');
-            let decoded;
-            try {
-                decoded = jwt.verify(token, process.env.JWT_SECRET || 'logika-secret-key');
-            } catch (err) {
-                return res.status(401).json({ error: 'Token non valido' });
+            if (token) {
+                const jwt = require('jsonwebtoken');
+                try {
+                    jwt.verify(token, process.env.JWT_SECRET || 'logika-secret-key');
+                } catch (err) {
+                    return res.status(401).json({ error: 'Token non valido' });
+                }
+            } else if (apiKey) {
+                // Verifica API Key nel DB
+                const agentResult = await pool.query('SELECT id FROM comm_agents WHERE api_key = $1', [apiKey]);
+                if (agentResult.rows.length === 0) {
+                    return res.status(401).json({ error: 'API Key non valida' });
+                }
             }
 
             // Il package include gli script dell'agent

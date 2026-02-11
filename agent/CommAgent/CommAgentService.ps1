@@ -229,26 +229,59 @@ function Check-Update {
     param([switch]$Force)
     $config = Load-Config
     
-    # Logica semplificata check version
     try {
         $vUrl = "$($config.server_url)/api/comm-agent/agent-version"
         $vData = Invoke-RestMethod -Uri $vUrl -Method GET -ErrorAction Stop
         
         if ($vData.version -ne $SCRIPT_VERSION) {
-            Show-CustomToast -Title "Aggiornamento Disponibile" -Message "Scaricamento nuova versione $($vData.version) in corso..." -Type "Warning"
+            # Notifica inizio update (discreta)
+            if ($script:trayIcon) {
+                $script:trayIcon.BalloonTipTitle = "Aggiornamento in corso..."
+                $script:trayIcon.BalloonTipText = "Scaricamento versione $($vData.version)"
+                $script:trayIcon.ShowBalloonTip(3000)
+            }
              
-            # Qui scaricherebbe lo zip e lancerebbe update...
-            # (Implementazione completa richiede script batch di swap)
+            # 1. Download ZIP
+            $zipPath = Join-Path $env:TEMP "LogikaCommAgent_Update.zip"
+            $extractPath = Join-Path $env:TEMP "LogikaCommAgent_Update"
+            $dlUrl = "$($config.server_url)/api/comm-agent/download-agent"
              
-            # Simuliamo avviso per ora
-            Write-Log "Update rilevato: $($vData.version)"
+            $headerDict = @{ "X-Comm-API-Key" = $config.api_key }
+            Invoke-RestMethod -Uri $dlUrl -Headers $headerDict -OutFile $zipPath
+             
+            # 2. Extract
+            if (Test-Path $extractPath) { Remove-Item $extractPath -Recurse -Force }
+            Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+             
+            # 3. Create Updater Script (BAT) per sovrascrivere i file mentre questo processo muore
+            $updaterBat = Join-Path $env:TEMP "LogikaUpdate.bat"
+            $myPath = $script:scriptDir
+            $vbsLauncher = Join-Path $myPath "Start-CommAgent-Hidden.vbs"
+             
+            $batContent = @"
+@echo off
+timeout /t 3 /nobreak >nul
+xcopy /Y /E "$extractPath\*" "$myPath\"
+start "" wscript.exe "$vbsLauncher"
+del "%~f0"
+"@
+            $batContent | Out-File -FilePath $updaterBat -Encoding ASCII -Force
+             
+            # 4. Launch Updater & Die
+            Start-Process -FilePath $updaterBat -WindowStyle Hidden
+             
+            $script:trayIcon.Visible = $false
+            [System.Windows.Forms.Application]::Exit()
+            Stop-Process -Id $PID -Force
             return $true
         }
         elseif ($Force) {
             Show-CustomToast -Title "Nessun Aggiornamento" -Message "Sei gia' all'ultima versione ($SCRIPT_VERSION)." -Type "Info"
         }
     }
-    catch {}
+    catch {
+        Write-Log "Errore durante auto-update: $_" "ERROR"
+    }
     return $false
 }
 
