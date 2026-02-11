@@ -444,8 +444,18 @@ module.exports = (pool, io) => {
                 return res.status(404).json({ error: 'File agent non trovati' });
             }
 
+            // Leggi versione dallo script
+            let version = '1.0.0';
+            try {
+                const serviceContent = fs.readFileSync(path.join(agentDir, 'CommAgentService.ps1'), 'utf8');
+                const match = serviceContent.match(/\$SCRIPT_VERSION = "([^"]+)"/);
+                if (match) version = match[1];
+            } catch (e) {
+                console.error('Errore lettura versione agent:', e);
+            }
+
             res.setHeader('Content-Type', 'application/zip');
-            res.setHeader('Content-Disposition', 'attachment; filename="LogikaCommAgent.zip"');
+            res.setHeader('Content-Disposition', `attachment; filename="LogikaCommAgent-v${version}.zip"`);
 
             const archive = archiver('zip', { zlib: { level: 9 } });
             archive.pipe(res);
