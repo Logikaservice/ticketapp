@@ -250,6 +250,16 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
               </button>
             )}
 
+            {!isOrariDomain && currentUser?.ruolo === 'tecnico' && openCommAgent && (
+              <button
+                onClick={() => { openCommAgent(); }}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition shadow-sm"
+              >
+                <Bell size={16} />
+                Comunicazioni
+              </button>
+            )}
+
             {!isOrariDomain && currentUser?.ruolo === 'tecnico' && getAuthHeader && (
               <AgentNotifications
                 getAuthHeader={getAuthHeader}
