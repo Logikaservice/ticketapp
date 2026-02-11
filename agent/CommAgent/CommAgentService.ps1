@@ -1,6 +1,7 @@
 # CommAgentService.ps1
-# Agent di Comunicazione Logika - Riceve notifiche push dal server
-# Gira nella sessione utente (non come servizio Windows)
+# Logika Service - Communication Agent
+# Riceve notifiche push dal server e le mostra sul desktop del cliente
+# Include: System Tray Icon, Auto-Update, Heartbeat
 # Versione: 1.0.0
 
 param(
@@ -10,6 +11,9 @@ param(
 
 $SCRIPT_VERSION = "1.0.0"
 $HEARTBEAT_INTERVAL_SECONDS = 15
+$UPDATE_CHECK_INTERVAL_SECONDS = 300  # Check update ogni 5 minuti
+$APP_NAME = "Logika Service Agent"
+$APP_TOOLTIP = "Logika Service - Communication Agent v$SCRIPT_VERSION"
 
 # Forza TLS 1.2
 try {
@@ -19,7 +23,15 @@ catch {
     try { [Net.ServicePointManager]::SecurityProtocol = 3072 } catch { }
 }
 
-# Directory script
+# ============================================
+# ASSEMBLIES PER SYSTEM TRAY
+# ============================================
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+# ============================================
+# DIRECTORY E FILE
+# ============================================
 $script:scriptDir = $null
 if ($PSScriptRoot) {
     $script:scriptDir = $PSScriptRoot
@@ -34,6 +46,9 @@ else {
 $script:configFile = Join-Path $script:scriptDir "config.json"
 $script:logFile = Join-Path $script:scriptDir "CommAgent.log"
 $script:isRunning = $true
+$script:trayIcon = $null
+$script:lastUpdateCheck = [DateTime]::MinValue
+$script:consecutiveErrors = 0
 
 # ============================================
 # LOGGING
@@ -52,6 +67,207 @@ function Write-Log {
         }
     }
     catch { }
+}
+
+# ============================================
+# CREA ICONA LOGIKA SERVICE
+# ============================================
+function New-LogikaIcon {
+    param([string]$Status = "online")  # online, offline, error
+
+    $bmp = New-Object System.Drawing.Bitmap(32, 32)
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    $g.Clear([System.Drawing.Color]::Transparent)
+
+    # Colore base in base allo stato
+    switch ($Status) {
+        "online" { 
+            $bgBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+                (New-Object System.Drawing.Point(0, 0)),
+                (New-Object System.Drawing.Point(32, 32)),
+                [System.Drawing.Color]::FromArgb(255, 99, 102, 241),   # Indigo
+                [System.Drawing.Color]::FromArgb(255, 139, 92, 246)    # Purple
+            )
+            $statusColor = [System.Drawing.Color]::FromArgb(255, 34, 197, 94)  # Green dot
+        }
+        "offline" { 
+            $bgBrush = New-Object System.Drawing.Drawing2D.SolidBrush(
+                [System.Drawing.Color]::FromArgb(255, 100, 116, 139)   # Slate
+            )
+            $statusColor = [System.Drawing.Color]::FromArgb(255, 234, 179, 8)  # Yellow dot
+        }
+        "error" { 
+            $bgBrush = New-Object System.Drawing.Drawing2D.SolidBrush(
+                [System.Drawing.Color]::FromArgb(255, 239, 68, 68)     # Red
+            )
+            $statusColor = [System.Drawing.Color]::FromArgb(255, 239, 68, 68)  # Red dot
+        }
+    }
+
+    # Cerchio sfondo
+    $g.FillEllipse($bgBrush, 1, 1, 30, 30)
+
+    # Lettera "L" per Logika
+    $font = New-Object System.Drawing.Font("Segoe UI", 16, [System.Drawing.FontStyle]::Bold)
+    $whiteBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::White)
+    $sf = New-Object System.Drawing.StringFormat
+    $sf.Alignment = [System.Drawing.StringAlignment]::Center
+    $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
+    $rect = New-Object System.Drawing.RectangleF(0, -1, 32, 32)
+    $g.DrawString("L", $font, $whiteBrush, $rect, $sf)
+
+    # Pallino di stato (in basso a destra)
+    $statusBrush = New-Object System.Drawing.SolidBrush($statusColor)
+    $g.FillEllipse($statusBrush, 22, 22, 9, 9)
+    $borderPen = New-Object System.Drawing.Pen([System.Drawing.Color]::White, 1.5)
+    $g.DrawEllipse($borderPen, 22, 22, 9, 9)
+
+    $g.Dispose()
+    $font.Dispose()
+    $whiteBrush.Dispose()
+    $statusBrush.Dispose()
+    $borderPen.Dispose()
+    $bgBrush.Dispose()
+    $sf.Dispose()
+
+    $hIcon = $bmp.GetHicon()
+    $icon = [System.Drawing.Icon]::FromHandle($hIcon)
+    return $icon
+}
+
+# ============================================
+# SYSTEM TRAY ICON
+# ============================================
+function Initialize-TrayIcon {
+    param($Config)
+
+    $script:trayIcon = New-Object System.Windows.Forms.NotifyIcon
+    $script:trayIcon.Icon = New-LogikaIcon -Status "online"
+    $script:trayIcon.Text = $APP_TOOLTIP
+    $script:trayIcon.Visible = $true
+
+    # Menu contestuale
+    $contextMenu = New-Object System.Windows.Forms.ContextMenuStrip
+
+    # Header (non cliccabile)
+    $headerItem = $contextMenu.Items.Add("$APP_NAME v$SCRIPT_VERSION")
+    $headerItem.Enabled = $false
+    $headerItem.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+
+    $contextMenu.Items.Add("-")  # Separatore
+
+    # Info
+    $infoItem = $contextMenu.Items.Add("ℹ️  Info Connessione")
+    $infoItem.Add_Click({
+            $config = Load-Config
+            $infoText = "Logika Service - Communication Agent`n`n"
+            $infoText += "Versione: $SCRIPT_VERSION`n"
+            $infoText += "Utente: $($config.user_email)`n"
+            $infoText += "Azienda: $($config.user_azienda)`n"
+            $infoText += "PC: $($config.machine_name)`n"
+            $infoText += "Server: $($config.server_url)`n"
+            $infoText += "Agent ID: $($config.agent_id)`n`n"
+            $infoText += "Directory: $($script:scriptDir)"
+            [System.Windows.Forms.MessageBox]::Show($infoText, "Logika Service Agent", 0, [System.Windows.Forms.MessageBoxIcon]::Information)
+        })
+
+    # Apri Log
+    $logItem = $contextMenu.Items.Add("📋  Apri Log")
+    $logItem.Add_Click({
+            if (Test-Path $script:logFile) {
+                Start-Process notepad.exe -ArgumentList $script:logFile
+            }
+            else {
+                [System.Windows.Forms.MessageBox]::Show("Nessun file di log trovato.", "Logika Service Agent", 0, [System.Windows.Forms.MessageBoxIcon]::Warning)
+            }
+        })
+
+    # Check Update
+    $updateItem = $contextMenu.Items.Add("🔄  Controlla Aggiornamenti")
+    $updateItem.Add_Click({
+            $config = Load-Config
+            $updated = Check-Update -Config $config -Force
+            if (-not $updated) {
+                [System.Windows.Forms.MessageBox]::Show("Sei già alla versione più recente ($SCRIPT_VERSION).", "Logika Service Agent", 0, [System.Windows.Forms.MessageBoxIcon]::Information)
+            }
+        })
+
+    $contextMenu.Items.Add("-")  # Separatore
+
+    # Apri Portale
+    $portalItem = $contextMenu.Items.Add("🌐  Apri Portale Logika")
+    $portalItem.Add_Click({
+            $config = Load-Config
+            $url = if ($config.server_url) { $config.server_url } else { "https://ticket.logikaservice.it" }
+            Start-Process $url
+        })
+
+    $contextMenu.Items.Add("-")  # Separatore
+
+    # Riavvia
+    $restartItem = $contextMenu.Items.Add("🔃  Riavvia Agent")
+    $restartItem.Add_Click({
+            Write-Log "Riavvio manuale richiesto dall'utente" "INFO"
+            $vbsPath = Join-Path $script:scriptDir "Start-CommAgent-Hidden.vbs"
+            if (Test-Path $vbsPath) {
+                Start-Process -FilePath "wscript.exe" -ArgumentList "`"$vbsPath`""
+            }
+            $script:isRunning = $false
+            if ($script:trayIcon) {
+                $script:trayIcon.Visible = $false
+                $script:trayIcon.Dispose()
+            }
+            [System.Windows.Forms.Application]::Exit()
+        })
+
+    # Esci
+    $exitItem = $contextMenu.Items.Add("❌  Esci")
+    $exitItem.Add_Click({
+            Write-Log "Chiusura richiesta dall'utente" "INFO"
+            $script:isRunning = $false
+            if ($script:trayIcon) {
+                $script:trayIcon.Visible = $false
+                $script:trayIcon.Dispose()
+            }
+            [System.Windows.Forms.Application]::Exit()
+        })
+
+    $script:trayIcon.ContextMenuStrip = $contextMenu
+
+    # Double-click apre info
+    $script:trayIcon.Add_DoubleClick({
+            $config = Load-Config
+            $infoText = "Logika Service - Communication Agent`n`n"
+            $infoText += "Versione: $SCRIPT_VERSION`n"
+            $infoText += "Stato: Online ✅`n"
+            $infoText += "Utente: $($config.user_email)`n"
+            $infoText += "PC: $($config.machine_name)"
+            [System.Windows.Forms.MessageBox]::Show($infoText, "Logika Service Agent", 0, [System.Windows.Forms.MessageBoxIcon]::Information)
+        })
+
+    Write-Log "System Tray icon inizializzata" "INFO"
+}
+
+function Update-TrayStatus {
+    param([string]$Status = "online", [string]$TooltipExtra = "")
+    
+    if ($script:trayIcon) {
+        try {
+            $newIcon = New-LogikaIcon -Status $Status
+            $script:trayIcon.Icon = $newIcon
+            $tooltip = $APP_TOOLTIP
+            if ($TooltipExtra) {
+                $tooltip += "`n$TooltipExtra"
+            }
+            # Tooltip max 63 chars
+            if ($tooltip.Length -gt 63) { $tooltip = $tooltip.Substring(0, 63) }
+            $script:trayIcon.Text = $tooltip
+        }
+        catch {
+            Write-Log "Errore aggiornamento tray: $_" "WARN"
+        }
+    }
 }
 
 # ============================================
@@ -201,7 +417,106 @@ function Send-MessageRead {
 }
 
 # ============================================
-# NOTIFICA WPF INNOVATIVA
+# AUTO-UPDATE
+# ============================================
+function Check-Update {
+    param($Config, [switch]$Force)
+
+    # Non controllare troppo spesso
+    $now = Get-Date
+    if (-not $Force -and ($now - $script:lastUpdateCheck).TotalSeconds -lt $UPDATE_CHECK_INTERVAL_SECONDS) {
+        return $false
+    }
+    $script:lastUpdateCheck = $now
+
+    try {
+        $versionResponse = Invoke-RestMethod -Uri "$($Config.server_url)/api/comm-agent/agent-version" -Method GET -TimeoutSec 10 -ErrorAction Stop
+        $serverVersion = $versionResponse.version
+
+        if ($serverVersion -and $serverVersion -ne $SCRIPT_VERSION) {
+            Write-Log "Nuova versione disponibile: $serverVersion (attuale: $SCRIPT_VERSION)" "INFO"
+
+            # Notifica l'utente
+            if ($script:trayIcon) {
+                $script:trayIcon.BalloonTipTitle = "Logika Service - Aggiornamento"
+                $script:trayIcon.BalloonTipText = "Aggiornamento da v$SCRIPT_VERSION a v$serverVersion in corso..."
+                $script:trayIcon.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+                $script:trayIcon.ShowBalloonTip(5000)
+            }
+
+            # Scarica file aggiornati
+            $filesToUpdate = @("CommAgentService.ps1", "CommAgentNotifier.ps1")
+            $updateSuccess = $true
+
+            foreach ($file in $filesToUpdate) {
+                try {
+                    $downloadUrl = "$($Config.server_url)/api/comm-agent/download/agent/$file"
+                    $tempFile = Join-Path $script:scriptDir "$file.tmp"
+                    $destFile = Join-Path $script:scriptDir $file
+
+                    Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile -TimeoutSec 30 -ErrorAction Stop
+
+                    # Verifica che il file scaricato non sia vuoto o un errore JSON
+                    $content = Get-Content $tempFile -Raw -ErrorAction SilentlyContinue
+                    if ($content -and $content.Length -gt 100 -and $content -notlike '*"error"*') {
+                        # Backup del file attuale
+                        $backupFile = Join-Path $script:scriptDir "$file.bak"
+                        if (Test-Path $destFile) {
+                            Copy-Item -Path $destFile -Destination $backupFile -Force
+                        }
+                        # Sostituisci
+                        Move-Item -Path $tempFile -Destination $destFile -Force
+                        Write-Log "Aggiornato: $file" "INFO"
+                    }
+                    else {
+                        Write-Log "File scaricato non valido: $file" "WARN"
+                        $updateSuccess = $false
+                        if (Test-Path $tempFile) { Remove-Item $tempFile -Force }
+                    }
+                }
+                catch {
+                    Write-Log "Errore download $file : $($_.Exception.Message)" "WARN"
+                    $updateSuccess = $false
+                    $tempFile = Join-Path $script:scriptDir "$file.tmp"
+                    if (Test-Path $tempFile) { Remove-Item $tempFile -Force }
+                }
+            }
+
+            if ($updateSuccess) {
+                Write-Log "Auto-update completato. Riavvio agent..." "INFO"
+
+                if ($script:trayIcon) {
+                    $script:trayIcon.BalloonTipTitle = "Logika Service"
+                    $script:trayIcon.BalloonTipText = "Aggiornamento completato! Riavvio in corso..."
+                    $script:trayIcon.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+                    $script:trayIcon.ShowBalloonTip(3000)
+                    Start-Sleep -Seconds 2
+                }
+
+                # Riavvia l'agent
+                $vbsPath = Join-Path $script:scriptDir "Start-CommAgent-Hidden.vbs"
+                if (Test-Path $vbsPath) {
+                    Start-Process -FilePath "wscript.exe" -ArgumentList "`"$vbsPath`""
+                }
+                
+                $script:isRunning = $false
+                if ($script:trayIcon) {
+                    $script:trayIcon.Visible = $false
+                    $script:trayIcon.Dispose()
+                }
+                [System.Windows.Forms.Application]::Exit()
+                return $true
+            }
+        }
+    }
+    catch {
+        Write-Log "Errore check update: $($_.Exception.Message)" "DEBUG"
+    }
+    return $false
+}
+
+# ============================================
+# NOTIFICA WPF
 # ============================================
 function Show-Notification {
     param(
@@ -218,7 +533,6 @@ function Show-Notification {
 
     if (-not (Test-Path $notifierScript)) {
         Write-Log "Notifier non trovato: $notifierScript" "WARN"
-        # Fallback: usa BalloonTip nativo
         Show-FallbackNotification -Title $Title -Body $Body
         return
     }
@@ -250,15 +564,12 @@ function Show-Notification {
 function Show-FallbackNotification {
     param([string]$Title, [string]$Body)
     try {
-        Add-Type -AssemblyName System.Windows.Forms
-        $notify = New-Object System.Windows.Forms.NotifyIcon
-        $notify.Icon = [System.Drawing.SystemIcons]::Information
-        $notify.BalloonTipTitle = "Logika: $Title"
-        $notify.BalloonTipText = $Body
-        $notify.Visible = $true
-        $notify.ShowBalloonTip(10000)
-        Start-Sleep -Seconds 11
-        $notify.Dispose()
+        if ($script:trayIcon) {
+            $script:trayIcon.BalloonTipTitle = "Logika Service: $Title"
+            $script:trayIcon.BalloonTipText = $Body
+            $script:trayIcon.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+            $script:trayIcon.ShowBalloonTip(10000)
+        }
     }
     catch {
         Write-Log "Errore fallback notification: $_" "WARN"
@@ -266,66 +577,95 @@ function Show-FallbackNotification {
 }
 
 # ============================================
-# LOOP PRINCIPALE
+# TIMER + LOOP PRINCIPALE
 # ============================================
 function Start-MainLoop {
     param($Config)
 
-    Write-Log "=== Comm Agent avviato (v$SCRIPT_VERSION) ===" "INFO"
+    Write-Log "=== Logika Service Agent avviato (v$SCRIPT_VERSION) ===" "INFO"
     Write-Log "Server: $($Config.server_url)" "INFO"
     Write-Log "Utente: $($Config.user_email)" "INFO"
     Write-Log "PC: $($Config.machine_name)" "INFO"
-    Write-Log "Intervallo heartbeat: ${HEARTBEAT_INTERVAL_SECONDS}s" "INFO"
+    Write-Log "Heartbeat: ogni ${HEARTBEAT_INTERVAL_SECONDS}s | Update check: ogni ${UPDATE_CHECK_INTERVAL_SECONDS}s" "INFO"
 
-    $consecutiveErrors = 0
+    # Inizializza tray icon
+    Initialize-TrayIcon -Config $Config
 
-    while ($script:isRunning) {
-        try {
-            $messages = Send-Heartbeat -Config $Config
+    # Mostra notifica di avvio
+    if ($script:trayIcon) {
+        $script:trayIcon.BalloonTipTitle = "Logika Service"
+        $script:trayIcon.BalloonTipText = "Communication Agent attivo - $($Config.user_email)"
+        $script:trayIcon.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+        $script:trayIcon.ShowBalloonTip(3000)
+    }
 
-            if ($messages -and $messages.Count -gt 0) {
-                foreach ($msg in $messages) {
-                    $sender = ""
-                    if ($msg.sender_nome) {
-                        $sender = "$($msg.sender_nome) $($msg.sender_cognome)"
+    # Timer per heartbeat (usa timer WinForms per non bloccare il message pump)
+    $timer = New-Object System.Windows.Forms.Timer
+    $timer.Interval = $HEARTBEAT_INTERVAL_SECONDS * 1000
+
+    $timer.Add_Tick({
+            try {
+                $config = Load-Config
+                if (-not $config -or -not $config.api_key) { return }
+
+                # Heartbeat
+                $messages = Send-Heartbeat -Config $config
+
+                if ($messages -and $messages.Count -gt 0) {
+                    foreach ($msg in $messages) {
+                        $sender = ""
+                        if ($msg.sender_nome) {
+                            $sender = "$($msg.sender_nome) $($msg.sender_cognome)"
+                        }
+                        elseif ($msg.sender_email) {
+                            $sender = $msg.sender_email
+                        }
+                        else {
+                            $sender = "Logika Service"
+                        }
+
+                        Show-Notification `
+                            -Title $msg.title `
+                            -Body $msg.body `
+                            -Sender $sender `
+                            -Priority $msg.priority `
+                            -Category $msg.category `
+                            -Timestamp $msg.created_at
+
+                        Send-MessageRead -Config $config -MessageId $msg.id
+                        Start-Sleep -Milliseconds 500
                     }
-                    elseif ($msg.sender_email) {
-                        $sender = $msg.sender_email
-                    }
-                    else {
-                        $sender = "Logika Service"
-                    }
+                }
 
-                    Show-Notification `
-                        -Title $msg.title `
-                        -Body $msg.body `
-                        -Sender $sender `
-                        -Priority $msg.priority `
-                        -Category $msg.category `
-                        -Timestamp $msg.created_at
+                # Reset errori
+                $script:consecutiveErrors = 0
+                Update-TrayStatus -Status "online" -TooltipExtra "Ultimo check: $(Get-Date -Format 'HH:mm:ss')"
 
-                    # Marca come letto dopo visualizzazione
-                    Send-MessageRead -Config $Config -MessageId $msg.id
-
-                    # Piccolo delay tra notifiche multiple
-                    Start-Sleep -Milliseconds 500
+                # Check update periodico
+                Check-Update -Config $config
+            }
+            catch {
+                $script:consecutiveErrors++
+                Write-Log "Errore nel tick: $($_.Exception.Message) (#$($script:consecutiveErrors))" "WARN"
+            
+                if ($script:consecutiveErrors -gt 5) {
+                    Update-TrayStatus -Status "error" -TooltipExtra "Errore connessione"
                 }
             }
+        })
 
-            $consecutiveErrors = 0
-        }
-        catch {
-            $consecutiveErrors++
-            Write-Log "Errore nel loop: $($_.Exception.Message) (errore consecutivo #$consecutiveErrors)" "WARN"
+    $timer.Start()
+    Write-Log "Timer heartbeat avviato" "INFO"
 
-            # Se troppi errori consecutivi, aumenta il delay
-            if ($consecutiveErrors -gt 10) {
-                Start-Sleep -Seconds 60
-                continue
-            }
-        }
+    # Avvia il message pump di WinForms (necessario per il tray icon)
+    [System.Windows.Forms.Application]::Run()
 
-        Start-Sleep -Seconds $HEARTBEAT_INTERVAL_SECONDS
+    # Cleanup
+    $timer.Stop()
+    $timer.Dispose()
+    if ($script:trayIcon) {
+        $script:trayIcon.Visible = $false
+        $script:trayIcon.Dispose()
     }
 }
 
@@ -342,9 +682,11 @@ if (-not $config -or -not $config.api_key) {
     # Nessuna config: chiedi registrazione interattiva
     Write-Host ""
     Write-Host "  ╔════════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "  ║       Logika Communication Agent v$SCRIPT_VERSION       ║" -ForegroundColor Cyan
+    Write-Host "  ║     Logika Service - Communication Agent      ║" -ForegroundColor Cyan
+    Write-Host "  ║                 v$SCRIPT_VERSION                        ║" -ForegroundColor Cyan
     Write-Host "  ╠════════════════════════════════════════════════╣" -ForegroundColor Cyan
     Write-Host "  ║  Registra il tuo PC per ricevere notifiche    ║" -ForegroundColor White
+    Write-Host "  ║  dal team Logika Service                      ║" -ForegroundColor White
     Write-Host "  ╚════════════════════════════════════════════════╝" -ForegroundColor Cyan
     Write-Host ""
 
@@ -371,7 +713,7 @@ if (-not $config -or -not $config.api_key) {
 
     Write-Host ""
     Write-Host "  [OK] Registrazione completata!" -ForegroundColor Green
-    Write-Host "  L'agent è ora attivo e riceverà le notifiche." -ForegroundColor Green
+    Write-Host "  L'agent Logika Service è ora attivo." -ForegroundColor Green
     Write-Host ""
 
     # Rimuovi file di pre-config se presente
@@ -380,5 +722,5 @@ if (-not $config -or -not $config.api_key) {
     }
 }
 
-# Avvia il loop principale
+# Avvia il loop principale con tray icon
 Start-MainLoop -Config $config

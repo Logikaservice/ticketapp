@@ -34,7 +34,7 @@ Clear-Host
 Write-Host ""
 Write-Host "  ╔═══════════════════════════════════════════════════════╗" -ForegroundColor Cyan
 Write-Host "  ║                                                       ║" -ForegroundColor Cyan
-Write-Host "  ║     🔔  Logika Communication Agent - Installer        ║" -ForegroundColor Cyan
+Write-Host "  ║     🔔  Logika Service - Agent Installer       ║" -ForegroundColor Cyan
 Write-Host "  ║                                                       ║" -ForegroundColor Cyan
 Write-Host "  ╚═══════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
@@ -135,7 +135,7 @@ try {
     $shortcut.TargetPath = "wscript.exe"
     $shortcut.Arguments = "`"$vbsPath`""
     $shortcut.WorkingDirectory = $INSTALL_DIR
-    $shortcut.Description = "Logika Communication Agent"
+    $shortcut.Description = "Logika Service - Communication Agent"
     $shortcut.WindowStyle = 7  # Minimized
     $shortcut.Save()
     Write-Host "    ✅ Shortcut Startup creato" -ForegroundColor Green
