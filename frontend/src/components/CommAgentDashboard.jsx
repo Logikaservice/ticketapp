@@ -6,7 +6,7 @@ import {
     Bell, Megaphone, ArrowLeft, MoreVertical, Trash2
 } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+import { buildApiUrl } from '../utils/apiConfig';
 
 const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
     // State
@@ -39,7 +39,7 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
     // Fetch data
     const fetchAgents = useCallback(async () => {
         try {
-            const res = await fetch(`${API_BASE}/api/comm-agent/agents`, { headers: getHeaders() });
+            const res = await fetch(buildApiUrl('/api/comm-agent/agents'), { headers: getHeaders() });
             if (res.ok) setAgents(await res.json());
         } catch (err) {
             console.error('Errore fetch agents:', err);
@@ -48,7 +48,7 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
 
     const fetchCompanies = useCallback(async () => {
         try {
-            const res = await fetch(`${API_BASE}/api/comm-agent/companies`, { headers: getHeaders() });
+            const res = await fetch(buildApiUrl('/api/comm-agent/companies'), { headers: getHeaders() });
             if (res.ok) setCompanies(await res.json());
         } catch (err) {
             console.error('Errore fetch companies:', err);
@@ -57,7 +57,7 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
 
     const fetchMessages = useCallback(async () => {
         try {
-            const res = await fetch(`${API_BASE}/api/comm-agent/messages?limit=50`, { headers: getHeaders() });
+            const res = await fetch(buildApiUrl('/api/comm-agent/messages?limit=50'), { headers: getHeaders() });
             if (res.ok) setMessages(await res.json());
         } catch (err) {
             console.error('Errore fetch messages:', err);
@@ -88,7 +88,7 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
 
         setSending(true);
         try {
-            const res = await fetch(`${API_BASE}/api/comm-agent/messages/send`, {
+            const res = await fetch(buildApiUrl('/api/comm-agent/messages/send'), {
                 method: 'POST',
                 headers: getHeaders(),
                 body: JSON.stringify({
@@ -153,7 +153,7 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
     const handleDeleteAgent = async (agentId) => {
         if (!window.confirm('Eliminare questo agent?')) return;
         try {
-            await fetch(`${API_BASE}/api/comm-agent/agents/${agentId}`, {
+            await fetch(buildApiUrl(`/api/comm-agent/agents/${agentId}`), {
                 method: 'DELETE',
                 headers: getHeaders()
             });
