@@ -418,9 +418,22 @@ module.exports = (pool, io) => {
     // ============================================
     // DOWNLOAD AGENT PACKAGE
     // ============================================
-    router.get('/download-agent', authenticateToken, async (req, res) => {
+    router.get('/download-agent', async (req, res) => {
         try {
-            const user = req.user;
+            // Supporta autenticazione via query parameter (per window.open) o header
+            const token = req.query.token || (req.headers.authorization && req.headers.authorization.replace('Bearer ', ''));
+            if (!token) {
+                return res.status(401).json({ error: 'Token richiesto' });
+            }
+
+            const jwt = require('jsonwebtoken');
+            let decoded;
+            try {
+                decoded = jwt.verify(token, process.env.JWT_SECRET || 'logika-secret-key');
+            } catch (err) {
+                return res.status(401).json({ error: 'Token non valido' });
+            }
+
             // Il package include gli script dell'agent
             const agentDir = path.join(__dirname, '..', '..', 'agent', 'CommAgent');
 

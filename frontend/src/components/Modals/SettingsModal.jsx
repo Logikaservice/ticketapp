@@ -1,5 +1,6 @@
 import React from 'react';
-import { X, Settings } from 'lucide-react';
+import { X, Settings, Download, Bell } from 'lucide-react';
+import { buildApiUrl } from '../../utils/apiConfig';
 
 const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, closeModal, currentUser }) => {
 
@@ -7,7 +8,7 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
-        
+
         {/* Header con lo stile giallo sfumato */}
         <div className="p-6 border-b bg-gradient-to-r from-yellow-500 to-amber-500 text-white rounded-t-2xl">
           <div className="flex items-center justify-between">
@@ -123,6 +124,36 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
               />
             </div>
           </div>
+
+          {/* Download Communication Agent - solo per clienti */}
+          {currentUser?.ruolo === 'cliente' && (
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                <Bell size={16} className="text-purple-500" />
+                Communication Agent
+              </h3>
+              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4">
+                <p className="text-sm text-gray-600 mb-3">
+                  Installa il Communication Agent sul tuo PC per ricevere le notifiche dal team Logika Service in tempo reale.
+                </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      const token = localStorage.getItem('token');
+                      window.open(buildApiUrl('/api/comm-agent/download-agent') + '?token=' + token, '_blank');
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition shadow-md text-sm font-semibold"
+                  >
+                    <Download size={16} />
+                    Scarica Agent
+                  </button>
+                  <span className="text-xs text-gray-500">
+                    Pacchetto ZIP con installer automatico
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer con i pulsanti */}
