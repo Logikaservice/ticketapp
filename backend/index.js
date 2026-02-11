@@ -844,6 +844,10 @@ app.use('/api/contracts', contractsRoutes);
 // Route Network Monitoring (agent usa API Key, quindi senza JWT. Frontend routes protette dopo)
 app.use('/api/network-monitoring', networkMonitoringRoutes);
 
+// Route Communication Agent (notifiche push ai client)
+const communicationAgentRoutes = require('./routes/communicationAgent')(pool, io);
+app.use('/api/comm-agent', communicationAgentRoutes);
+
 
 
 

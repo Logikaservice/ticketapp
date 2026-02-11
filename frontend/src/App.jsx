@@ -31,6 +31,7 @@ import VivaldiManager from './components/VivaldiManager';
 import PackVisionWithAuth from './components/PackVisionWithAuth';
 import PackVision from './components/PackVision';
 import NetworkMonitoringDashboard from './components/NetworkMonitoringDashboard';
+import CommAgentDashboard from './components/CommAgentDashboard';
 // import NetworkTopologyPage from './pages/NetworkTopologyPage'; // RIMOSSO SU RICHIESTA UTENTE
 import MappaturaPage from './pages/MappaturaPage';
 import AntiVirusPage from './pages/AntiVirusPage';
@@ -161,6 +162,7 @@ export default function TicketApp() {
   const [showOffice, setShowOffice] = useState(false);
   const [networkMonitoringInitialView, setNetworkMonitoringInitialView] = useState(null); // 'agents' o 'create'
   const [selectedCompanyForNavigation, setSelectedCompanyForNavigation] = useState(null); // Azienda selezionata per navigazione tra monitoraggio e mappatura
+  const [showCommAgent, setShowCommAgent] = useState(false); // Communication Agent Dashboard
 
   const [settingsData, setSettingsData] = useState({
     nome: '',
@@ -3029,6 +3031,7 @@ export default function TicketApp() {
               openOffice: handleOpenOffice,
               openAntiVirus: handleOpenAntiVirus,
               openEmail: handleOpenEmail,
+              openCommAgent: () => setShowCommAgent(true),
             }}
             openNetworkMonitoringNotifications={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('notifications'); }}
             openNetworkMonitoringTelegram={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('telegram'); }}
@@ -3070,6 +3073,14 @@ export default function TicketApp() {
 
         {showPackVision && (
           <PackVision onClose={() => setShowPackVision(false)} />
+        )}
+
+        {showCommAgent && (
+          <CommAgentDashboard
+            currentUser={currentUser}
+            closeModal={() => setShowCommAgent(false)}
+            notify={notify}
+          />
         )}
 
         {showNetworkMonitoring && !isOrariHostname && !isVivaldiHostname && !isPackVisionHostname && (
