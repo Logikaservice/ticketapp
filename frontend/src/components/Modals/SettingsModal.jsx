@@ -139,7 +139,7 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => {
-                      const token = localStorage.getItem('token');
+                      const token = localStorage.getItem('authToken');
                       window.open(buildApiUrl('/api/comm-agent/download-agent') + '?token=' + token, '_blank');
                     }}
                     className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition shadow-md text-sm font-semibold"

@@ -29,7 +29,7 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
 
     // Auth headers
     const getHeaders = useCallback(() => {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('authToken');
         return {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
