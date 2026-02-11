@@ -30,11 +30,21 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
     exit
 }
 
+# Leggi versione dal servizio
+$version = "Unknown"
+$servicePath = Join-Path $PSScriptRoot "CommAgentService.ps1"
+if (Test-Path $servicePath) {
+    $content = Get-Content $servicePath -Raw
+    if ($content -match '\$SCRIPT_VERSION = "([^"]+)"') {
+        $version = $matches[1]
+    }
+}
+
 Clear-Host
 Write-Host ""
 Write-Host "  ╔═══════════════════════════════════════════════════════╗" -ForegroundColor Cyan
 Write-Host "  ║                                                       ║" -ForegroundColor Cyan
-Write-Host "  ║     🔔  Logika Service - Agent Installer       ║" -ForegroundColor Cyan
+Write-Host "  ║   🔔  Logika Service - Agent Installer v$version       ║" -ForegroundColor Cyan
 Write-Host "  ║                                                       ║" -ForegroundColor Cyan
 Write-Host "  ╚═══════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
