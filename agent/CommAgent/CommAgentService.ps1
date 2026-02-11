@@ -1,11 +1,8 @@
-# ============================================
-# CommAgentService.ps1
-# Logika Service - Communication Agent
-# Versione con Custom UI "Toast" e Fix ASCII
-# ============================================
-
-$SCRIPT_VERSION = "1.0.0"
+$SCRIPT_VERSION = "1.1.0"
 $HEARTBEAT_INTERVAL_SECONDS = 15
+$UPDATE_CHECK_INTERVAL_SECONDS = 300
+$APP_NAME = "Logika Service Agent"
+$APP_TOOLTIP = "Logika Service - Communication Agent v$SCRIPT_VERSION"
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
 $APP_TOOLTIP = "Logika Service - Communication Agent v$SCRIPT_VERSION"
