@@ -158,7 +158,7 @@ function Initialize-TrayIcon {
     $contextMenu.Items.Add("-")  # Separatore
 
     # Info
-    $infoItem = $contextMenu.Items.Add("ℹ️  Info Connessione")
+    $infoItem = $contextMenu.Items.Add("Info Connessione")
     $infoItem.Add_Click({
             $config = Load-Config
             $infoText = "Logika Service - Communication Agent`n`n"
@@ -173,7 +173,7 @@ function Initialize-TrayIcon {
         })
 
     # Apri Log
-    $logItem = $contextMenu.Items.Add("📋  Apri Log")
+    $logItem = $contextMenu.Items.Add("Apri Log")
     $logItem.Add_Click({
             if (Test-Path $script:logFile) {
                 Start-Process notepad.exe -ArgumentList $script:logFile
@@ -184,7 +184,7 @@ function Initialize-TrayIcon {
         })
 
     # Check Update
-    $updateItem = $contextMenu.Items.Add("🔄  Controlla Aggiornamenti")
+    $updateItem = $contextMenu.Items.Add("Controlla Aggiornamenti")
     $updateItem.Add_Click({
             $config = Load-Config
             $updated = Check-Update -Config $config -Force
@@ -196,7 +196,7 @@ function Initialize-TrayIcon {
     $contextMenu.Items.Add("-")  # Separatore
 
     # Apri Portale
-    $portalItem = $contextMenu.Items.Add("🌐  Apri Portale Logika")
+    $portalItem = $contextMenu.Items.Add("Apri Portale Logika")
     $portalItem.Add_Click({
             $config = Load-Config
             $url = if ($config.server_url) { $config.server_url } else { "https://ticket.logikaservice.it" }
@@ -206,7 +206,7 @@ function Initialize-TrayIcon {
     $contextMenu.Items.Add("-")  # Separatore
 
     # Riavvia
-    $restartItem = $contextMenu.Items.Add("🔃  Riavvia Agent")
+    $restartItem = $contextMenu.Items.Add("Riavvia Agent")
     $restartItem.Add_Click({
             Write-Log "Riavvio manuale richiesto dall'utente" "INFO"
             $vbsPath = Join-Path $script:scriptDir "Start-CommAgent-Hidden.vbs"
@@ -222,7 +222,7 @@ function Initialize-TrayIcon {
         })
 
     # Esci
-    $exitItem = $contextMenu.Items.Add("❌  Esci")
+    $exitItem = $contextMenu.Items.Add("Esci")
     $exitItem.Add_Click({
             Write-Log "Chiusura richiesta dall'utente" "INFO"
             $script:isRunning = $false
