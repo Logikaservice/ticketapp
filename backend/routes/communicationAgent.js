@@ -261,7 +261,7 @@ module.exports = (pool, io) => {
     router.post('/messages/send', authenticateToken, requireRole('tecnico'), async (req, res) => {
         try {
             await ensureTables();
-            const { target_type, target_agent_id, target_company, title, body, priority, category } = req.body;
+            const { target_type, target_agent_id, target_company, target_companies, title, body, priority, category } = req.body;
 
             if (!title || !body) {
                 return res.status(400).json({ error: 'Titolo e corpo messaggio richiesti' });
@@ -271,11 +271,14 @@ module.exports = (pool, io) => {
                 return res.status(400).json({ error: 'Tipo target non valido (single/group/broadcast)' });
             }
 
+            // Supporta sia target_company (singola) che target_companies (array)
+            const companiesList = target_companies || (target_company ? [target_company] : []);
+
             // Inserisci il messaggio
             const msgResult = await pool.query(
                 `INSERT INTO comm_messages (sender_id, target_type, target_agent_id, target_company, title, body, priority, category)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, created_at`,
-                [req.user.id, target_type, target_agent_id || null, target_company || null, title, body, priority || 'normal', category || 'info']
+                [req.user.id, target_type, target_agent_id || null, companiesList.join(', ') || null, title, body, priority || 'normal', category || 'info']
             );
 
             const messageId = msgResult.rows[0].id;
@@ -284,12 +287,12 @@ module.exports = (pool, io) => {
             let targetAgents = [];
             if (target_type === 'single' && target_agent_id) {
                 targetAgents = [{ id: target_agent_id }];
-            } else if (target_type === 'group' && target_company) {
+            } else if (target_type === 'group' && companiesList.length > 0) {
                 const groupResult = await pool.query(
                     `SELECT ca.id FROM comm_agents ca
            JOIN users u ON ca.user_id = u.id
-           WHERE TRIM(LOWER(u.azienda)) = TRIM(LOWER($1))`,
-                    [target_company]
+           WHERE TRIM(LOWER(u.azienda)) = ANY($1::text[])`,
+                    [companiesList.map(c => c.trim().toLowerCase())]
                 );
                 targetAgents = groupResult.rows;
             } else if (target_type === 'broadcast') {

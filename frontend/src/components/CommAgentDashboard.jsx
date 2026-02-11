@@ -21,7 +21,7 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
     // Form state
     const [targetType, setTargetType] = useState('broadcast');
     const [selectedAgent, setSelectedAgent] = useState(null);
-    const [selectedCompany, setSelectedCompany] = useState('');
+    const [selectedCompanies, setSelectedCompanies] = useState([]);
     const [title, setTitle] = useState('');
     const [body, setBody] = useState('');
     const [priority, setPriority] = useState('normal');
@@ -81,8 +81,8 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
             notify?.('Seleziona un destinatario', 'error');
             return;
         }
-        if (targetType === 'group' && !selectedCompany) {
-            notify?.('Seleziona un\'azienda', 'error');
+        if (targetType === 'group' && selectedCompanies.length === 0) {
+            notify?.('Seleziona almeno un\'azienda', 'error');
             return;
         }
 
@@ -94,7 +94,7 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
                 body: JSON.stringify({
                     target_type: targetType,
                     target_agent_id: targetType === 'single' ? selectedAgent?.id : null,
-                    target_company: targetType === 'group' ? selectedCompany : null,
+                    target_companies: targetType === 'group' ? selectedCompanies : null,
                     title: title.trim(),
                     body: body.trim(),
                     priority,
@@ -258,7 +258,7 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
                                             { value: 'group', label: 'Azienda', icon: <Building2 size={16} />, desc: 'Per azienda' },
                                             { value: 'single', label: 'Singolo', icon: <Monitor size={16} />, desc: 'Un solo PC' }
                                         ].map(opt => (
-                                            <button key={opt.value} onClick={() => { setTargetType(opt.value); setSelectedAgent(null); setSelectedCompany(''); }}
+                                            <button key={opt.value} onClick={() => { setTargetType(opt.value); setSelectedAgent(null); setSelectedCompanies([]); }}
                                                 style={{
                                                     flex: 1, padding: '14px 12px', borderRadius: 12, cursor: 'pointer',
                                                     border: targetType === opt.value ? '2px solid #818CF8' : '2px solid #334155',
@@ -273,19 +273,66 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
                                         ))}
                                     </div>
 
-                                    {/* Selettore Azienda */}
+                                    {/* Selettore Aziende (multi-select) */}
                                     {targetType === 'group' && (
-                                        <select value={selectedCompany} onChange={e => setSelectedCompany(e.target.value)}
-                                            style={{
-                                                width: '100%', marginTop: 12, padding: '10px 14px', borderRadius: 10,
-                                                background: '#1e293b', color: '#E2E8F0', border: '1px solid #334155',
-                                                fontSize: 13, cursor: 'pointer'
-                                            }}>
-                                            <option value="">-- Seleziona azienda --</option>
-                                            {companies.map(c => (
-                                                <option key={c.azienda} value={c.azienda}>{c.azienda} ({c.agent_count} agent)</option>
-                                            ))}
-                                        </select>
+                                        <div style={{ marginTop: 12 }}>
+                                            {companies.length > 0 ? (
+                                                <>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                                        <span style={{ fontSize: 11, color: '#64748B' }}>
+                                                            {selectedCompanies.length} di {companies.length} selezionate
+                                                        </span>
+                                                        <button onClick={() => setSelectedCompanies(
+                                                            selectedCompanies.length === companies.length ? [] : companies.map(c => c.azienda)
+                                                        )} style={{
+                                                            padding: '4px 10px', borderRadius: 6, border: '1px solid #334155',
+                                                            background: '#1e293b', color: '#818CF8', cursor: 'pointer', fontSize: 11, fontWeight: 600
+                                                        }}>
+                                                            {selectedCompanies.length === companies.length ? 'Deseleziona Tutte' : 'Seleziona Tutte'}
+                                                        </button>
+                                                    </div>
+                                                    <div style={{ maxHeight: 180, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                        {companies.map(c => {
+                                                            const isSelected = selectedCompanies.includes(c.azienda);
+                                                            return (
+                                                                <button key={c.azienda}
+                                                                    onClick={() => setSelectedCompanies(prev =>
+                                                                        isSelected ? prev.filter(x => x !== c.azienda) : [...prev, c.azienda]
+                                                                    )}
+                                                                    style={{
+                                                                        padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
+                                                                        border: isSelected ? '2px solid #818CF8' : '1px solid #334155',
+                                                                        background: isSelected ? 'rgba(99,102,241,0.1)' : '#1e293b',
+                                                                        color: '#E2E8F0', display: 'flex', alignItems: 'center', gap: 10,
+                                                                        textAlign: 'left', transition: 'all 0.15s'
+                                                                    }}>
+                                                                    <div style={{
+                                                                        width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+                                                                        border: isSelected ? '2px solid #818CF8' : '2px solid #475569',
+                                                                        background: isSelected ? '#818CF8' : 'transparent',
+                                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                        transition: 'all 0.15s'
+                                                                    }}>
+                                                                        {isSelected && <CheckCircle2 size={12} color="white" />}
+                                                                    </div>
+                                                                    <div style={{ flex: 1 }}>
+                                                                        <div style={{ fontSize: 13, fontWeight: 600 }}>{c.azienda}</div>
+                                                                        <div style={{ fontSize: 11, color: '#64748B' }}>{c.agent_count} agent</div>
+                                                                    </div>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div style={{
+                                                    padding: 16, textAlign: 'center', color: '#64748B', fontSize: 13,
+                                                    background: '#1e293b', borderRadius: 10, border: '1px solid #334155'
+                                                }}>
+                                                    Nessuna azienda con agent installati
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
 
                                     {/* Selettore Agent singolo */}
@@ -455,7 +502,7 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
                                             <span style={{ color: '#64748B' }}>Destinatari:</span>
                                             <span style={{ color: '#E2E8F0', fontWeight: 600 }}>
                                                 {targetType === 'broadcast' ? `Tutti (${agents.length})` :
-                                                    targetType === 'group' ? (selectedCompany || 'Nessuna azienda') :
+                                                    targetType === 'group' ? (selectedCompanies.length > 0 ? `${selectedCompanies.length} aziend${selectedCompanies.length === 1 ? 'a' : 'e'}` : 'Nessuna azienda') :
                                                         (selectedAgent ? `${selectedAgent.nome} ${selectedAgent.cognome}` : 'Nessuno')}
                                             </span>
                                         </div>
