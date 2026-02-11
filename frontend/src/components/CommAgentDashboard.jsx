@@ -167,9 +167,9 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
     return (
         <div style={{
             position: 'fixed', inset: 0, zIndex: 50, display: 'flex',
-            alignItems: 'center', justifyContent: 'center',
+            alignItems: 'flex-start', justifyContent: 'center',
             background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
-            padding: '20px'
+            padding: '40px 20px 20px'
         }}>
             <div style={{
                 width: '100%', maxWidth: 1100, maxHeight: '90vh',
