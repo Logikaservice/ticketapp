@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.1.9"
+$SCRIPT_VERSION = "1.2.0"
 $HEARTBEAT_INTERVAL_SECONDS = 15
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -346,6 +346,7 @@ Set WshShell = Nothing
             
             $batContent = @"
 @echo off
+setlocal enabledelayedexpansion
 echo [%date% %time%] Aggiornamento LogikaCommAgent in corso... > "$logFile"
 echo [%date% %time%] Attesa chiusura processo agent (7 secondi)... >> "$logFile"
 timeout /t 7 /nobreak >nul
@@ -356,12 +357,29 @@ if errorlevel 1 (
     exit /b 1
 )
 echo [%date% %time%] File copiati con successo >> "$logFile"
-echo [%date% %time%] Riavvio agent... >> "$logFile"
-if exist "$vbsLauncherEscaped" (
-    start "" wscript.exe "$vbsLauncherEscaped"
+echo [%date% %time%] Verifica file dopo copia... >> "$logFile"
+if exist "$myPathEscaped\CommAgentService.ps1" (
+    echo [%date% %time%] CommAgentService.ps1 trovato >> "$logFile"
 ) else (
-    start "" powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "$myPathEscaped\CommAgentService.ps1"
+    echo [%date% %time%] ERRORE: CommAgentService.ps1 non trovato dopo copia >> "$logFile"
+    exit /b 1
 )
+echo [%date% %time%] Riavvio agent... >> "$logFile"
+echo [%date% %time%] Verifica VBS launcher: $vbsLauncherEscaped >> "$logFile"
+if exist "$vbsLauncherEscaped" (
+    echo [%date% %time%] VBS launcher trovato, avvio con wscript.exe >> "$logFile"
+    start "" /D "$myPathEscaped" wscript.exe "Start-CommAgent-Hidden.vbs"
+    if errorlevel 1 (
+        echo [%date% %time%] ERRORE: Avvio VBS fallito, uso PowerShell diretto >> "$logFile"
+        start "" /D "$myPathEscaped" powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "CommAgentService.ps1"
+    )
+) else (
+    echo [%date% %time%] VBS launcher non trovato, uso PowerShell diretto >> "$logFile"
+    start "" /D "$myPathEscaped" powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "CommAgentService.ps1"
+)
+echo [%date% %time%] Attesa avvio processo (2 secondi)... >> "$logFile"
+timeout /t 2 /nobreak >nul
+echo [%date% %time%] Aggiornamento completato >> "$logFile"
 timeout /t 1 /nobreak >nul
 del "%~f0"
 "@
