@@ -406,7 +406,7 @@ del "%~f0"
         $errorMsg = $_.Exception.Message
         Write-Log "ERRORE durante auto-update: $errorMsg" "ERROR"
         Write-Log "Stack: $($_.ScriptStackTrace)" "ERROR"
-        Show-CustomToast -Title "Errore Aggiornamento" -Message "Errore: $errorMsg" -Type "Error"
+        # Non mostrare toast durante aggiornamento per evitare errori che bloccano il processo
     }
     return $false
 }
