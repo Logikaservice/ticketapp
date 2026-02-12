@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.1.6"
+$SCRIPT_VERSION = "1.1.7"
 $HEARTBEAT_INTERVAL_SECONDS = 15
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -260,18 +260,13 @@ function Check-Update {
         if ($vData.version -ne $SCRIPT_VERSION) {
             Write-Log "Nuova versione disponibile: $($vData.version)" "INFO"
             
-            # Notifica inizio update
+            # Notifica inizio update (solo balloon, no toast per evitare errori durante update)
             if ($script:trayIcon) {
                 $script:trayIcon.BalloonTipTitle = "Aggiornamento in corso..."
                 $script:trayIcon.BalloonTipText = "Scaricamento versione $($vData.version)"
                 $script:trayIcon.ShowBalloonTip(3000)
             }
-            # Mostra toast (non bloccare aggiornamento se fallisce)
-            try {
-                Show-CustomToast -Title "Aggiornamento Disponibile" -Message "Scaricamento versione $($vData.version)..." -Type "Info"
-            } catch {
-                Write-Log "Errore mostrando toast aggiornamento: $_" "WARN"
-            }
+            # NON mostrare toast durante aggiornamento per evitare errori che bloccano il processo
              
             # 1. Download ZIP (usa Invoke-WebRequest, non Invoke-RestMethod!)
             $zipPath = Join-Path $env:TEMP "LogikaCommAgent_Update.zip"
@@ -288,14 +283,14 @@ function Check-Update {
             }
             catch {
                 Write-Log "ERRORE download: $_" "ERROR"
-                Show-CustomToast -Title "Errore Download" -Message "Impossibile scaricare l'aggiornamento: $_" -Type "Error"
+                # Non mostrare toast durante aggiornamento per evitare errori
                 return $false
             }
             
             # Verifica che il file sia stato scaricato
             if (-not (Test-Path $zipPath)) {
                 Write-Log "ERRORE: File ZIP non trovato dopo download" "ERROR"
-                Show-CustomToast -Title "Errore Download" -Message "File ZIP non trovato" -Type "Error"
+                # Non mostrare toast durante aggiornamento per evitare errori
                 return $false
             }
             
@@ -308,7 +303,7 @@ function Check-Update {
             }
             catch {
                 Write-Log "ERRORE estrazione: $_" "ERROR"
-                Show-CustomToast -Title "Errore Estrazione" -Message "Impossibile estrarre l'aggiornamento: $_" -Type "Error"
+                # Non mostrare toast durante aggiornamento per evitare errori
                 return $false
             }
              
@@ -369,11 +364,16 @@ del "%~f0"
             # Verifica che il BAT esista
             if (-not (Test-Path $updaterBat)) {
                 Write-Log "ERRORE: Script BAT non creato: $updaterBat" "ERROR"
-                Show-CustomToast -Title "Errore Aggiornamento" -Message "Script aggiornamento non creato" -Type "Error"
+                # Non mostrare toast durante aggiornamento per evitare errori
                 return $false
             }
             
-            Show-CustomToast -Title "Riavvio Agent" -Message "L'agent si riavvierà tra pochi secondi..." -Type "Info"
+            # Notifica riavvio solo con balloon (no toast durante aggiornamento)
+            if ($script:trayIcon) {
+                $script:trayIcon.BalloonTipTitle = "Riavvio Agent"
+                $script:trayIcon.BalloonTipText = "L'agent si riavvierà tra pochi secondi..."
+                $script:trayIcon.ShowBalloonTip(2000)
+            }
             
             try {
                 # Avvia il BAT script
@@ -394,7 +394,7 @@ del "%~f0"
             }
             catch {
                 Write-Log "ERRORE avvio script aggiornamento: $_" "ERROR"
-                Show-CustomToast -Title "Errore Aggiornamento" -Message "Impossibile avviare script: $_" -Type "Error"
+                # Non mostrare toast durante aggiornamento per evitare errori
                 return $false
             }
         }
