@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.7"
+$SCRIPT_VERSION = "1.2.8"
 $HEARTBEAT_INTERVAL_SECONDS = 15
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -415,22 +415,26 @@ if %errorlevel% equ 0 (
     echo [%date% %time%] Processo %AGENT_PID% già terminato. >> "%LOG_FILE%"
 )
 
+:: Kill wscript.exe too, just in case
+taskkill /F /IM wscript.exe >> "%LOG_FILE%" 2>&1
+
 echo [%date% %time%] Copia file da %EXTRACT_PATH% a %TARGET_PATH% >> "%LOG_FILE%"
-:: Usa robocopy con retry
-robocopy "%EXTRACT_PATH%" "%TARGET_PATH%" /E /IS /IT /R:3 /W:2 /NP /NDL /NFL >> "%LOG_FILE%" 2>&1
+:: Usa robocopy con retry, escludi log
+robocopy "%EXTRACT_PATH%" "%TARGET_PATH%" /E /IS /IT /R:3 /W:2 /NP /NDL /NFL /XF *.log >> "%LOG_FILE%" 2>&1
 set "ROBOCOPY_EXIT=%errorlevel%"
-:: Robocopy exit codes < 8 sono success/warning
+
+:: Se output code >= 8 (FAILED), verifica se almeno il servizio c'è
 if %ROBOCOPY_EXIT% geq 8 (
-    echo [%date% %time%] ERRORE: Copia file fallita (codice %ROBOCOPY_EXIT%) >> "%LOG_FILE%"
-    exit /b 1
+    echo [%date% %time%] WARNING: Robocopy ha segnalato errori (codice %ROBOCOPY_EXIT%). Verifica file essenziali... >> "%LOG_FILE%"
+) else (
+    echo [%date% %time%] File copiati con successo (codice %ROBOCOPY_EXIT%) >> "%LOG_FILE%"
 )
-echo [%date% %time%] File copiati con successo >> "%LOG_FILE%"
 
 echo [%date% %time%] Verifica file dopo copia... >> "%LOG_FILE%"
 if exist "%TARGET_PATH%\CommAgentService.ps1" (
-    echo [%date% %time%] CommAgentService.ps1 trovato >> "%LOG_FILE%"
+    echo [%date% %time%] CommAgentService.ps1 trovato. Procedo. >> "%LOG_FILE%"
 ) else (
-    echo [%date% %time%] ERRORE: CommAgentService.ps1 non trovato dopo copia >> "%LOG_FILE%"
+    echo [%date% %time%] ERRORE CRITICO: CommAgentService.ps1 non trovato dopo copia >> "%LOG_FILE%"
     exit /b 1
 )
 
