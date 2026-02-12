@@ -378,11 +378,15 @@ if %errorlevel% neq 0 (
 :: Se è stato passato un file parametri, leggi da lì
 if not "%~1"=="" (
     if exist "%~1" (
+        :: Leggi tutte le righe dal file parametri
         set /p "EXTRACT_PATH=" < "%~1"
         set /p "TARGET_PATH=" < "%~1"
         set /p "VBS_LAUNCHER=" < "%~1"
         set /p "LOG_FILE=" < "%~1"
-        echo [%date% %time%] Parametri letti da file temporaneo: EXTRACT_PATH=%EXTRACT_PATH%, TARGET_PATH=%TARGET_PATH% > "%LOG_FILE%"
+        :: Crea il log file se non esiste e scrivi i parametri
+        echo [%date% %time%] Parametri letti da file temporaneo >> "%LOG_FILE%"
+        echo [%date% %time%] EXTRACT_PATH=%EXTRACT_PATH% >> "%LOG_FILE%"
+        echo [%date% %time%] TARGET_PATH=%TARGET_PATH% >> "%LOG_FILE%"
         del "%~1"
     )
 )
