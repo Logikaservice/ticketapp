@@ -114,27 +114,34 @@ function Show-CustomToast {
     $lblTitle.Location = New-Object System.Drawing.Point(12, 12)
     $panelHead.Controls.Add($lblTitle)
 
-    # LABEL: by Rapa Alessandro (posizionato dopo il titolo con spazio)
+    # LABEL: by Rapa Alessandro (allineato a destra, prima del pulsante X)
     $lblSub = New-Object System.Windows.Forms.Label
     $lblSub.Text = "by Rapa Alessandro"
     $lblSub.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Italic)
     $lblSub.ForeColor = [System.Drawing.Color]::FromArgb(120, 120, 120)
     $lblSub.AutoSize = $true
-    # Posiziona dopo "LOGIKA SERVICE" con margine
-    $titleWidth = $lblTitle.PreferredWidth
-    $lblSub.Location = New-Object System.Drawing.Point($titleWidth + 18, 14)
+    # Posiziona a destra, prima del pulsante X (che è largo 25px e ha margine destro)
+    $lblSub.Location = New-Object System.Drawing.Point(385 - $lblSub.PreferredWidth - 30, 14)
     $panelHead.Controls.Add($lblSub)
 
-    # Pulsante X piccolo in alto a destra (prima del testo per non sovrapporsi)
-    $btnX = New-Object System.Windows.Forms.Label
-    $btnX.Text = "✕"
-    $btnX.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Regular)
+    # Pulsante X piccolo in alto a destra (usa Button invece di Label per migliore gestione eventi)
+    $btnX = New-Object System.Windows.Forms.Button
+    $btnX.Text = "×"
+    $btnX.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Regular)
     $btnX.ForeColor = [System.Drawing.Color]::FromArgb(150, 150, 150)
+    $btnX.FlatAppearance.BorderSize = 0
+    $btnX.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $btnX.BackColor = [System.Drawing.Color]::Transparent
     $btnX.Size = New-Object System.Drawing.Size(25, 25)
     $btnX.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
     $btnX.Location = New-Object System.Drawing.Point(385, 10)
     $btnX.Cursor = [System.Windows.Forms.Cursors]::Hand
-    $btnX.Add_Click({ $form.Close() })
+    $btnX.Add_Click({
+        if ($form -and !$form.IsDisposed) {
+            $form.Close()
+            $form.Dispose()
+        }
+    })
     $panelHead.Controls.Add($btnX)
 
     # BODY TEXT (usa tutta la larghezza disponibile con word wrap)
@@ -162,7 +169,12 @@ function Show-CustomToast {
     $btnClose.Size = New-Object System.Drawing.Size(130, 32)
     $btnClose.Location = New-Object System.Drawing.Point(270, 135)
     $btnClose.Cursor = [System.Windows.Forms.Cursors]::Hand
-    $btnClose.Add_Click({ $form.Close() })
+    $btnClose.Add_Click({
+        if ($form -and !$form.IsDisposed) {
+            $form.Close()
+            $form.Dispose()
+        }
+    })
     $form.Controls.Add($btnClose)
 
     # Salva riferimento per gestire chiusura
