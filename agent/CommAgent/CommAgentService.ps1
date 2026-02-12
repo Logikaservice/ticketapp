@@ -231,56 +231,117 @@ function Check-Update {
     
     try {
         $vUrl = "$($config.server_url)/api/comm-agent/agent-version"
+        Write-Log "Controllo versione: $vUrl" "INFO"
         $vData = Invoke-RestMethod -Uri $vUrl -Method GET -ErrorAction Stop
         
+        Write-Log "Versione server: $($vData.version), agent corrente: $SCRIPT_VERSION" "INFO"
+        
         if ($vData.version -ne $SCRIPT_VERSION) {
-            # Notifica inizio update (discreta)
+            Write-Log "Nuova versione disponibile: $($vData.version)" "INFO"
+            
+            # Notifica inizio update
             if ($script:trayIcon) {
                 $script:trayIcon.BalloonTipTitle = "Aggiornamento in corso..."
                 $script:trayIcon.BalloonTipText = "Scaricamento versione $($vData.version)"
                 $script:trayIcon.ShowBalloonTip(3000)
             }
+            Show-CustomToast -Title "Aggiornamento Disponibile" -Message "Scaricamento versione $($vData.version)..." -Type "Info"
              
-            # 1. Download ZIP
+            # 1. Download ZIP (usa Invoke-WebRequest, non Invoke-RestMethod!)
             $zipPath = Join-Path $env:TEMP "LogikaCommAgent_Update.zip"
             $extractPath = Join-Path $env:TEMP "LogikaCommAgent_Update"
             $dlUrl = "$($config.server_url)/api/comm-agent/download-agent"
-             
-            $headerDict = @{ "X-Comm-API-Key" = $config.api_key }
-            Invoke-RestMethod -Uri $dlUrl -Headers $headerDict -OutFile $zipPath
-             
+            
+            Write-Log "Download da: $dlUrl" "INFO"
+            
+            # Usa Invoke-WebRequest per download file binario
+            $headers = @{ "X-Comm-API-Key" = $config.api_key }
+            try {
+                Invoke-WebRequest -Uri $dlUrl -Headers $headers -OutFile $zipPath -ErrorAction Stop
+                Write-Log "Download completato: $zipPath" "INFO"
+            }
+            catch {
+                Write-Log "ERRORE download: $_" "ERROR"
+                Show-CustomToast -Title "Errore Download" -Message "Impossibile scaricare l'aggiornamento: $_" -Type "Error"
+                return $false
+            }
+            
+            # Verifica che il file sia stato scaricato
+            if (-not (Test-Path $zipPath)) {
+                Write-Log "ERRORE: File ZIP non trovato dopo download" "ERROR"
+                Show-CustomToast -Title "Errore Download" -Message "File ZIP non trovato" -Type "Error"
+                return $false
+            }
+            
             # 2. Extract
+            Write-Log "Estrazione ZIP..." "INFO"
             if (Test-Path $extractPath) { Remove-Item $extractPath -Recurse -Force }
-            Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+            try {
+                Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force -ErrorAction Stop
+                Write-Log "Estrazione completata: $extractPath" "INFO"
+            }
+            catch {
+                Write-Log "ERRORE estrazione: $_" "ERROR"
+                Show-CustomToast -Title "Errore Estrazione" -Message "Impossibile estrarre l'aggiornamento: $_" -Type "Error"
+                return $false
+            }
              
             # 3. Create Updater Script (BAT) per sovrascrivere i file mentre questo processo muore
             $updaterBat = Join-Path $env:TEMP "LogikaUpdate.bat"
             $myPath = $script:scriptDir
             $vbsLauncher = Join-Path $myPath "Start-CommAgent-Hidden.vbs"
+            
+            Write-Log "Creazione script aggiornamento: $updaterBat" "INFO"
+            Write-Log "Directory agent: $myPath" "INFO"
+            Write-Log "Launcher VBS: $vbsLauncher" "INFO"
              
+            # Crea VBS launcher se non esiste
+            if (-not (Test-Path $vbsLauncher)) {
+                Write-Log "Creazione VBS launcher: $vbsLauncher" "INFO"
+                $vbsContent = @"
+Set WshShell = CreateObject("WScript.Shell")
+WshShell.Run "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$myPath\CommAgentService.ps1`"", 0
+Set WshShell = Nothing
+"@
+                $vbsContent | Out-File -FilePath $vbsLauncher -Encoding ASCII -Force
+            }
+            
             $batContent = @"
 @echo off
 timeout /t 3 /nobreak >nul
 xcopy /Y /E "$extractPath\*" "$myPath\"
-start "" wscript.exe "$vbsLauncher"
+if exist "$vbsLauncher" (
+    start "" wscript.exe "$vbsLauncher"
+) else (
+    powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "$myPath\CommAgentService.ps1"
+)
 del "%~f0"
 "@
             $batContent | Out-File -FilePath $updaterBat -Encoding ASCII -Force
+            Write-Log "Script BAT creato: $updaterBat" "INFO"
              
             # 4. Launch Updater & Die
+            Write-Log "Avvio script aggiornamento..." "INFO"
+            Show-CustomToast -Title "Riavvio Agent" -Message "L'agent si riavvierà tra pochi secondi..." -Type "Info"
+            
             Start-Process -FilePath $updaterBat -WindowStyle Hidden
-             
+            
+            # Attendi un attimo prima di chiudere
+            Start-Sleep -Seconds 1
+            
             $script:trayIcon.Visible = $false
             [System.Windows.Forms.Application]::Exit()
-            Stop-Process -Id $PID -Force
-            return $true
+            exit 0
         }
         elseif ($Force) {
             Show-CustomToast -Title "Nessun Aggiornamento" -Message "Sei gia' all'ultima versione ($SCRIPT_VERSION)." -Type "Info"
         }
     }
     catch {
-        Write-Log "Errore durante auto-update: $_" "ERROR"
+        $errorMsg = $_.Exception.Message
+        Write-Log "ERRORE durante auto-update: $errorMsg" "ERROR"
+        Write-Log "Stack: $($_.ScriptStackTrace)" "ERROR"
+        Show-CustomToast -Title "Errore Aggiornamento" -Message "Errore: $errorMsg" -Type "Error"
     }
     return $false
 }
