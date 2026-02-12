@@ -467,10 +467,20 @@ module.exports = (pool, io) => {
                     return res.status(401).json({ error: 'Token non valido' });
                 }
             } else if (apiKey) {
-                // Verifica API Key nel DB
-                const agentResult = await pool.query('SELECT id FROM comm_agents WHERE api_key = $1', [apiKey]);
+                // Verifica API Key nel DB e estrai email/password dell'utente associato
+                await ensureTables();
+                const agentResult = await pool.query(
+                    'SELECT ca.user_id, u.email, u.password FROM comm_agents ca JOIN users u ON ca.user_id = u.id WHERE ca.api_key = $1',
+                    [apiKey]
+                );
                 if (agentResult.rows.length === 0) {
                     return res.status(401).json({ error: 'API Key non valida' });
+                }
+                // Estrai email e password per includere install_config.json anche durante aggiornamento automatico
+                if (agentResult.rows[0].email && agentResult.rows[0].password) {
+                    userEmail = agentResult.rows[0].email;
+                    userPassword = agentResult.rows[0].password;
+                    console.log(`✅ Package agent con credenziali precompilate per aggiornamento automatico: ${userEmail}`);
                 }
             }
 
