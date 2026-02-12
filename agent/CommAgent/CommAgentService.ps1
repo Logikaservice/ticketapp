@@ -313,32 +313,71 @@ Set WshShell = Nothing
                 $vbsContent | Out-File -FilePath $vbsLauncher -Encoding ASCII -Force
             }
             
+            # Escapa i percorsi per il BAT (sostituisci \ con \\ e " con "")
+            $extractPathEscaped = $extractPath -replace '\\', '\\' -replace '"', '""'
+            $myPathEscaped = $myPath -replace '\\', '\\' -replace '"', '""'
+            $vbsLauncherEscaped = $vbsLauncher -replace '\\', '\\' -replace '"', '""'
+            $logFile = Join-Path $env:TEMP "LogikaUpdate.log"
+            
             $batContent = @"
 @echo off
+echo [%date% %time%] Aggiornamento LogikaCommAgent in corso... > "$logFile"
 timeout /t 3 /nobreak >nul
-xcopy /Y /E "$extractPath\*" "$myPath\"
-if exist "$vbsLauncher" (
-    start "" wscript.exe "$vbsLauncher"
-) else (
-    powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "$myPath\CommAgentService.ps1"
+echo [%date% %time%] Copia file da $extractPathEscaped a $myPathEscaped >> "$logFile"
+xcopy /Y /E /I "$extractPathEscaped\*" "$myPathEscaped\" >> "$logFile" 2>&1
+if errorlevel 1 (
+    echo [%date% %time%] ERRORE: Copia file fallita >> "$logFile"
+    exit /b 1
 )
+echo [%date% %time%] File copiati con successo >> "$logFile"
+echo [%date% %time%] Riavvio agent... >> "$logFile"
+if exist "$vbsLauncherEscaped" (
+    start "" wscript.exe "$vbsLauncherEscaped"
+) else (
+    start "" powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "$myPathEscaped\CommAgentService.ps1"
+)
+timeout /t 1 /nobreak >nul
 del "%~f0"
 "@
             $batContent | Out-File -FilePath $updaterBat -Encoding ASCII -Force
             Write-Log "Script BAT creato: $updaterBat" "INFO"
              
             # 4. Launch Updater & Die
-            Write-Log "Avvio script aggiornamento..." "INFO"
+            Write-Log "Avvio script aggiornamento: $updaterBat" "INFO"
+            Write-Log "Directory estrazione: $extractPath" "INFO"
+            Write-Log "Directory destinazione: $myPath" "INFO"
+            
+            # Verifica che il BAT esista
+            if (-not (Test-Path $updaterBat)) {
+                Write-Log "ERRORE: Script BAT non creato: $updaterBat" "ERROR"
+                Show-CustomToast -Title "Errore Aggiornamento" -Message "Script aggiornamento non creato" -Type "Error"
+                return $false
+            }
+            
             Show-CustomToast -Title "Riavvio Agent" -Message "L'agent si riavvierà tra pochi secondi..." -Type "Info"
             
-            Start-Process -FilePath $updaterBat -WindowStyle Hidden
-            
-            # Attendi un attimo prima di chiudere
-            Start-Sleep -Seconds 1
-            
-            $script:trayIcon.Visible = $false
-            [System.Windows.Forms.Application]::Exit()
-            exit 0
+            try {
+                # Avvia il BAT script
+                $proc = Start-Process -FilePath $updaterBat -WindowStyle Hidden -PassThru -ErrorAction Stop
+                Write-Log "Processo BAT avviato: PID $($proc.Id)" "INFO"
+                
+                # Attendi un attimo per assicurarsi che il processo sia partito
+                Start-Sleep -Seconds 2
+                
+                # Chiudi l'applicazione
+                Write-Log "Chiusura agent per permettere aggiornamento..." "INFO"
+                $script:trayIcon.Visible = $false
+                [System.Windows.Forms.Application]::Exit()
+                
+                # Forza exit se Application.Exit non funziona
+                Start-Sleep -Seconds 1
+                exit 0
+            }
+            catch {
+                Write-Log "ERRORE avvio script aggiornamento: $_" "ERROR"
+                Show-CustomToast -Title "Errore Aggiornamento" -Message "Impossibile avviare script: $_" -Type "Error"
+                return $false
+            }
         }
         elseif ($Force) {
             Show-CustomToast -Title "Nessun Aggiornamento" -Message "Sei gia' all'ultima versione ($SCRIPT_VERSION)." -Type "Info"
