@@ -327,16 +327,15 @@ function Check-Update {
             Write-Log "Directory agent: $myPath" "INFO"
             Write-Log "Launcher VBS: $vbsLauncher" "INFO"
              
-            # Crea VBS launcher se non esiste
-            if (-not (Test-Path $vbsLauncher)) {
-                Write-Log "Creazione VBS launcher: $vbsLauncher" "INFO"
-                $vbsContent = @"
+            # Crea/ricrea VBS launcher sempre (per assicurarsi che sia aggiornato)
+            Write-Log "Creazione/aggiornamento VBS launcher: $vbsLauncher" "INFO"
+            $vbsContent = @"
 Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$myPath\CommAgentService.ps1`"", 0
+WshShell.Run "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File ""$myPath\CommAgentService.ps1""", 0
 Set WshShell = Nothing
 "@
-                $vbsContent | Out-File -FilePath $vbsLauncher -Encoding ASCII -Force
-            }
+            $vbsContent | Out-File -FilePath $vbsLauncher -Encoding ASCII -Force
+            Write-Log "VBS launcher creato/aggiornato" "INFO"
             
             # Escapa i percorsi per il BAT (sostituisci \ con \\ e " con "")
             $extractPathEscaped = $extractPath -replace '\\', '\\' -replace '"', '""'
@@ -368,14 +367,18 @@ echo [%date% %time%] Riavvio agent... >> "$logFile"
 echo [%date% %time%] Verifica VBS launcher: $vbsLauncherEscaped >> "$logFile"
 if exist "$vbsLauncherEscaped" (
     echo [%date% %time%] VBS launcher trovato, avvio con wscript.exe >> "$logFile"
-    start "" /D "$myPathEscaped" wscript.exe "Start-CommAgent-Hidden.vbs"
+    cd /D "$myPathEscaped"
+    start "" wscript.exe "Start-CommAgent-Hidden.vbs"
     if errorlevel 1 (
-        echo [%date% %time%] ERRORE: Avvio VBS fallito, uso PowerShell diretto >> "$logFile"
-        start "" /D "$myPathEscaped" powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "CommAgentService.ps1"
+        echo [%date% %time%] ERRORE: Avvio VBS fallito (codice %errorlevel%), uso PowerShell diretto >> "$logFile"
+        start "" powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "CommAgentService.ps1"
+    ) else (
+        echo [%date% %time%] VBS launcher avviato con successo >> "$logFile"
     )
 ) else (
-    echo [%date% %time%] VBS launcher non trovato, uso PowerShell diretto >> "$logFile"
-    start "" /D "$myPathEscaped" powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "CommAgentService.ps1"
+    echo [%date% %time%] VBS launcher non trovato, creazione e uso PowerShell diretto >> "$logFile"
+    cd /D "$myPathEscaped"
+    start "" powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "CommAgentService.ps1"
 )
 echo [%date% %time%] Attesa avvio processo (2 secondi)... >> "$logFile"
 timeout /t 2 /nobreak >nul
