@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.3"
+$SCRIPT_VERSION = "1.2.4"
 $HEARTBEAT_INTERVAL_SECONDS = 15
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -351,22 +351,43 @@ set "TARGET_PATH=$myPathEscaped"
 set "VBS_LAUNCHER=$vbsLauncherEscaped"
 set "LOG_FILE=$logFile"
 
-:: Verifica privilegi amministratore
-net session >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [%date% %time%] Riavvio con privilegi elevati... > "%LOG_FILE%"
-    :: Passa i parametri come argomenti quando si riavvia
-    powershell -Command "Start-Process -FilePath '%~f0' -Verb RunAs -ArgumentList '""%EXTRACT_PATH%"" ""%TARGET_PATH%"" ""%VBS_LAUNCHER%"" ""%LOG_FILE%""'"
-    exit /b 0
-)
-
 :: Se ci sono argomenti, usa quelli invece delle variabili d'ambiente
 if not "%~1"=="" (
     set "EXTRACT_PATH=%~1"
     set "TARGET_PATH=%~2"
     set "VBS_LAUNCHER=%~3"
     set "LOG_FILE=%~4"
+    echo [%date% %time%] Parametri ricevuti: EXTRACT_PATH=%EXTRACT_PATH%, TARGET_PATH=%TARGET_PATH% >> "%LOG_FILE%"
 )
+
+:: Verifica privilegi amministratore
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [%date% %time%] Privilegi amministratore non disponibili, riavvio con privilegi elevati... >> "%LOG_FILE%"
+    :: Crea un file temporaneo con i parametri per passarli al processo elevato
+    set "PARAM_FILE=%TEMP%\LogikaUpdateParams.txt"
+    echo %EXTRACT_PATH% > "%PARAM_FILE%"
+    echo %TARGET_PATH% >> "%PARAM_FILE%"
+    echo %VBS_LAUNCHER% >> "%PARAM_FILE%"
+    echo %LOG_FILE% >> "%PARAM_FILE%"
+    :: Riavvia con privilegi elevati passando il file parametri
+    powershell -Command "Start-Process -FilePath '%~f0' -Verb RunAs -ArgumentList '""%PARAM_FILE%""'"
+    exit /b 0
+)
+
+:: Se è stato passato un file parametri, leggi da lì
+if not "%~1"=="" (
+    if exist "%~1" (
+        set /p "EXTRACT_PATH=" < "%~1"
+        set /p "TARGET_PATH=" < "%~1"
+        set /p "VBS_LAUNCHER=" < "%~1"
+        set /p "LOG_FILE=" < "%~1"
+        del "%~1"
+        echo [%date% %time%] Parametri letti da file temporaneo >> "%LOG_FILE%"
+    )
+)
+
+echo [%date% %time%] Privilegi amministratore verificati >> "%LOG_FILE%"
 
 echo [%date% %time%] Aggiornamento LogikaCommAgent in corso... > "%LOG_FILE%"
 echo [%date% %time%] Privilegi amministratore verificati >> "%LOG_FILE%"
@@ -453,16 +474,26 @@ del "%~f0"
                 
                 # Avvia il BAT script con privilegi amministratore (necessario per scrivere in ProgramData)
                 Write-Log "Avvio BAT script con privilegi amministratore: $updaterBat" "INFO"
+                Write-Log "Parametri BAT: extractPath=$extractPath, myPath=$myPath" "INFO"
+                
+                # Usa PowerShell per avviare il BAT con privilegi elevati
+                # Il BAT stesso gestirà l'auto-elevazione se necessario
                 try {
                     $proc = Start-Process -FilePath $updaterBat -Verb RunAs -WindowStyle Hidden -PassThru -ErrorAction Stop
                     Write-Log "Processo BAT avviato con privilegi elevati: PID $($proc.Id)" "INFO"
                 }
                 catch {
                     Write-Log "ERRORE: Impossibile avviare BAT con privilegi elevati: $_" "ERROR"
-                    Write-Log "Tentativo senza privilegi elevati..." "WARN"
-                    # Fallback: prova senza privilegi elevati (potrebbe fallire su ProgramData)
-                    $proc = Start-Process -FilePath $updaterBat -WindowStyle Hidden -PassThru -ErrorAction Stop
-                    Write-Log "Processo BAT avviato senza privilegi elevati: PID $($proc.Id)" "INFO"
+                    Write-Log "Dettagli: $($_.Exception.Message)" "ERROR"
+                    # Fallback: prova senza privilegi elevati (il BAT stesso si eleverà)
+                    try {
+                        $proc = Start-Process -FilePath $updaterBat -WindowStyle Hidden -PassThru -ErrorAction Stop
+                        Write-Log "Processo BAT avviato senza privilegi elevati (si eleverà automaticamente): PID $($proc.Id)" "INFO"
+                    }
+                    catch {
+                        Write-Log "ERRORE CRITICO: Impossibile avviare BAT script: $_" "ERROR"
+                        return $false
+                    }
                 }
                 
                 # Attendi che il BAT inizi l'esecuzione
