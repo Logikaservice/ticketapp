@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.1"
+$SCRIPT_VERSION = "1.2.2"
 $HEARTBEAT_INTERVAL_SECONDS = 15
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -346,43 +346,67 @@ Set WshShell = Nothing
             $batContent = @"
 @echo off
 setlocal enabledelayedexpansion
-echo [%date% %time%] Aggiornamento LogikaCommAgent in corso... > "$logFile"
-echo [%date% %time%] Attesa chiusura processo agent (7 secondi)... >> "$logFile"
-timeout /t 7 /nobreak >nul
-echo [%date% %time%] Copia file da $extractPathEscaped a $myPathEscaped >> "$logFile"
-xcopy /Y /E /I "$extractPathEscaped\*" "$myPathEscaped\" >> "$logFile" 2>&1
-if errorlevel 1 (
-    echo [%date% %time%] ERRORE: Copia file fallita >> "$logFile"
+set "EXTRACT_PATH=$extractPathEscaped"
+set "TARGET_PATH=$myPathEscaped"
+set "VBS_LAUNCHER=$vbsLauncherEscaped"
+set "LOG_FILE=$logFile"
+
+:: Verifica privilegi amministratore
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [%date% %time%] Riavvio con privilegi elevati... > "%LOG_FILE%"
+    powershell -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+    exit /b 0
+)
+
+echo [%date% %time%] Aggiornamento LogikaCommAgent in corso... > "%LOG_FILE%"
+echo [%date% %time%] Privilegi amministratore verificati >> "%LOG_FILE%"
+echo [%date% %time%] Attesa chiusura processo agent (10 secondi)... >> "%LOG_FILE%"
+timeout /t 10 /nobreak >nul
+
+echo [%date% %time%] Verifica processi PowerShell agent ancora attivi... >> "%LOG_FILE%"
+tasklist /FI "IMAGENAME eq powershell.exe" /FO CSV | findstr /I "CommAgentService" >nul
+if %errorlevel% equ 0 (
+    echo [%date% %time%] Processo agent ancora attivo, attesa aggiuntiva (5 secondi)... >> "%LOG_FILE%"
+    timeout /t 5 /nobreak >nul
+)
+
+echo [%date% %time%] Copia file da %EXTRACT_PATH% a %TARGET_PATH% >> "%LOG_FILE%"
+:: Usa robocopy invece di xcopy per migliore gestione permessi e retry automatico
+robocopy "%EXTRACT_PATH%" "%TARGET_PATH%" /E /IS /IT /R:3 /W:2 /NP /NDL /NFL >> "%LOG_FILE%" 2>&1
+set "ROBOCOPY_EXIT=%errorlevel%"
+if %ROBOCOPY_EXIT% geq 8 (
+    echo [%date% %time%] ERRORE: Copia file fallita (codice %ROBOCOPY_EXIT%) >> "%LOG_FILE%"
     exit /b 1
 )
-echo [%date% %time%] File copiati con successo >> "$logFile"
-echo [%date% %time%] Verifica file dopo copia... >> "$logFile"
-if exist "$myPathEscaped\CommAgentService.ps1" (
-    echo [%date% %time%] CommAgentService.ps1 trovato >> "$logFile"
+echo [%date% %time%] File copiati con successo >> "%LOG_FILE%"
+echo [%date% %time%] Verifica file dopo copia... >> "%LOG_FILE%"
+if exist "%TARGET_PATH%\CommAgentService.ps1" (
+    echo [%date% %time%] CommAgentService.ps1 trovato >> "%LOG_FILE%"
 ) else (
-    echo [%date% %time%] ERRORE: CommAgentService.ps1 non trovato dopo copia >> "$logFile"
+    echo [%date% %time%] ERRORE: CommAgentService.ps1 non trovato dopo copia >> "%LOG_FILE%"
     exit /b 1
 )
-echo [%date% %time%] Riavvio agent... >> "$logFile"
-echo [%date% %time%] Verifica VBS launcher: $vbsLauncherEscaped >> "$logFile"
-if exist "$vbsLauncherEscaped" (
-    echo [%date% %time%] VBS launcher trovato, avvio con wscript.exe >> "$logFile"
-    cd /D "$myPathEscaped"
+echo [%date% %time%] Riavvio agent... >> "%LOG_FILE%"
+echo [%date% %time%] Verifica VBS launcher: %VBS_LAUNCHER% >> "%LOG_FILE%"
+if exist "%VBS_LAUNCHER%" (
+    echo [%date% %time%] VBS launcher trovato, avvio con wscript.exe >> "%LOG_FILE%"
+    cd /D "%TARGET_PATH%"
     start "" wscript.exe "Start-CommAgent-Hidden.vbs"
     if errorlevel 1 (
-        echo [%date% %time%] ERRORE: Avvio VBS fallito (codice %errorlevel%), uso PowerShell diretto >> "$logFile"
+        echo [%date% %time%] ERRORE: Avvio VBS fallito (codice %errorlevel%), uso PowerShell diretto >> "%LOG_FILE%"
         start "" powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "CommAgentService.ps1"
     ) else (
-        echo [%date% %time%] VBS launcher avviato con successo >> "$logFile"
+        echo [%date% %time%] VBS launcher avviato con successo >> "%LOG_FILE%"
     )
 ) else (
-    echo [%date% %time%] VBS launcher non trovato, creazione e uso PowerShell diretto >> "$logFile"
-    cd /D "$myPathEscaped"
+    echo [%date% %time%] VBS launcher non trovato, uso PowerShell diretto >> "%LOG_FILE%"
+    cd /D "%TARGET_PATH%"
     start "" powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "CommAgentService.ps1"
 )
-echo [%date% %time%] Attesa avvio processo (2 secondi)... >> "$logFile"
+echo [%date% %time%] Attesa avvio processo (2 secondi)... >> "%LOG_FILE%"
 timeout /t 2 /nobreak >nul
-echo [%date% %time%] Aggiornamento completato >> "$logFile"
+echo [%date% %time%] Aggiornamento completato >> "%LOG_FILE%"
 timeout /t 1 /nobreak >nul
 del "%~f0"
 "@
