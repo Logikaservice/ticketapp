@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.0"
+$SCRIPT_VERSION = "1.2.1"
 $HEARTBEAT_INTERVAL_SECONDS = 15
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -418,10 +418,19 @@ del "%~f0"
                     return $false
                 }
                 
-                # Avvia il BAT script
-                Write-Log "Avvio BAT script: $updaterBat" "INFO"
-                $proc = Start-Process -FilePath $updaterBat -WindowStyle Hidden -PassThru -ErrorAction Stop
-                Write-Log "Processo BAT avviato: PID $($proc.Id)" "INFO"
+                # Avvia il BAT script con privilegi amministratore (necessario per scrivere in ProgramData)
+                Write-Log "Avvio BAT script con privilegi amministratore: $updaterBat" "INFO"
+                try {
+                    $proc = Start-Process -FilePath $updaterBat -Verb RunAs -WindowStyle Hidden -PassThru -ErrorAction Stop
+                    Write-Log "Processo BAT avviato con privilegi elevati: PID $($proc.Id)" "INFO"
+                }
+                catch {
+                    Write-Log "ERRORE: Impossibile avviare BAT con privilegi elevati: $_" "ERROR"
+                    Write-Log "Tentativo senza privilegi elevati..." "WARN"
+                    # Fallback: prova senza privilegi elevati (potrebbe fallire su ProgramData)
+                    $proc = Start-Process -FilePath $updaterBat -WindowStyle Hidden -PassThru -ErrorAction Stop
+                    Write-Log "Processo BAT avviato senza privilegi elevati: PID $($proc.Id)" "INFO"
+                }
                 
                 # Attendi che il BAT inizi l'esecuzione
                 Start-Sleep -Seconds 3
