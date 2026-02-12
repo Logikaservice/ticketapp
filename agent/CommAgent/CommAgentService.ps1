@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.9"
+$SCRIPT_VERSION = "1.2.10"
 $HEARTBEAT_INTERVAL_SECONDS = 15
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -415,41 +415,34 @@ if %errorlevel% equ 0 (
     echo [%date% %time%] Processo %AGENT_PID% già terminato. >> "%LOG_FILE%"
 )
 
-:: Kill wscript.exe too, just in case
+:: Kill wscript.exe
 taskkill /F /IM wscript.exe >> "%LOG_FILE%" 2>&1
 
-echo [%date% %time%] Copia file da %EXTRACT_PATH% a %TARGET_PATH% >> "%LOG_FILE%"
-:: Usa robocopy con retry, escludi log
+echo [%date% %time%] Avvio copia Robocopy... >> "%LOG_FILE%"
 robocopy "%EXTRACT_PATH%" "%TARGET_PATH%" /E /IS /IT /R:3 /W:2 /NP /NDL /NFL /XF *.log >> "%LOG_FILE%" 2>&1
 set "ROBOCOPY_EXIT=%errorlevel%"
+echo [%date% %time%] Robocopy terminato con codice %ROBOCOPY_EXIT% >> "%LOG_FILE%"
 
-:: Se output code >= 8 (FAILED), verifica se almeno il servizio c'è
-if %ROBOCOPY_EXIT% geq 8 (
-    echo [%date% %time%] WARNING: Robocopy ha segnalato errori (codice %ROBOCOPY_EXIT%). Verifica file essenziali... >> "%LOG_FILE%"
-) else (
-    echo [%date% %time%] File copiati con successo (codice %ROBOCOPY_EXIT%) >> "%LOG_FILE%"
-)
-
-echo [%date% %time%] Verifica file dopo copia... >> "%LOG_FILE%"
-if exist "%TARGET_PATH%\CommAgentService.ps1" (
-    echo [%date% %time%] CommAgentService.ps1 trovato. Procedo. >> "%LOG_FILE%"
-) else (
-    echo [%date% %time%] ERRORE CRITICO: CommAgentService.ps1 non trovato dopo copia >> "%LOG_FILE%"
+:: Verifica esistenza file servizio (critico)
+if not exist "%TARGET_PATH%\CommAgentService.ps1" (
+    echo [%date% %time%] ERRORE CRITICO: CommAgentService.ps1 MANCANTE. Impossibile avviare. >> "%LOG_FILE%"
     exit /b 1
 )
 
-echo [%date% %time%] Riavvio agent... >> "%LOG_FILE%"
-if exist "%VBS_LAUNCHER%" (
-    echo [%date% %time%] Avvio VBS launcher: %VBS_LAUNCHER% >> "%LOG_FILE%"
-    cd /D "%TARGET_PATH%"
+echo [%date% %time%] File servizio presente. Procedo con avvio. >> "%LOG_FILE%"
+
+:: Riavvio
+cd /D "%TARGET_PATH%"
+if exist "Start-CommAgent-Hidden.vbs" (
+    echo [%date% %time%] Avvio tramite VBS... >> "%LOG_FILE%"
     start "" wscript.exe "Start-CommAgent-Hidden.vbs"
 ) else (
-    echo [%date% %time%] VBS launcher non trovato, uso PowerShell diretto >> "%LOG_FILE%"
-    cd /D "%TARGET_PATH%"
+    echo [%date% %time%] VBS mancante, avvio diretto PowerShell... >> "%LOG_FILE%"
     start "" powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "CommAgentService.ps1"
 )
 
-echo [%date% %time%] Operazione completata. Uscita script updater. >> "%LOG_FILE%"
+echo [%date% %time%] Comando di avvio inviato. >> "%LOG_FILE%"
+echo [%date% %time%] Script completato. >> "%LOG_FILE%"
 timeout /t 2 /nobreak >nul
 del "%~f0"
 "@
