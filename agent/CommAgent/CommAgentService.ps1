@@ -382,8 +382,8 @@ if not "%~1"=="" (
         set /p "TARGET_PATH=" < "%~1"
         set /p "VBS_LAUNCHER=" < "%~1"
         set /p "LOG_FILE=" < "%~1"
+        echo [%date% %time%] Parametri letti da file temporaneo: EXTRACT_PATH=%EXTRACT_PATH%, TARGET_PATH=%TARGET_PATH% > "%LOG_FILE%"
         del "%~1"
-        echo [%date% %time%] Parametri letti da file temporaneo >> "%LOG_FILE%"
     )
 )
 
