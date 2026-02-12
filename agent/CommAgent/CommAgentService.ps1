@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.6"
+$SCRIPT_VERSION = "1.2.7"
 $HEARTBEAT_INTERVAL_SECONDS = 15
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -120,15 +120,12 @@ function Show-CustomToast {
     $lblSub.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Italic)
     $lblSub.ForeColor = [System.Drawing.Color]::FromArgb(120, 120, 120)
     $lblSub.AutoSize = $true
-    # Usa valore fisso approssimativo per evitare operazioni aritmetiche complesse
-    # "by Rapa Alessandro" con font 8pt italic ≈ 110px, pulsante X è a 385px con margine 30px
-    $subX = 250  # Posizione fissa: 385 - 110 - 25 (larghezza approx testo)
-    $lblSub.Location = New-Object System.Drawing.Point($subX, 14)
+    $lblSub.Location = New-Object System.Drawing.Point(150, 14)
     $panelHead.Controls.Add($lblSub)
 
     # Pulsante X piccolo in alto a destra (usa Button invece di Label per migliore gestione eventi)
     $btnX = New-Object System.Windows.Forms.Button
-    $btnX.Text = "×"
+    $btnX.Text = "X"
     $btnX.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Regular)
     $btnX.ForeColor = [System.Drawing.Color]::FromArgb(150, 150, 150)
     $btnX.FlatAppearance.BorderSize = 0
@@ -139,10 +136,7 @@ function Show-CustomToast {
     $btnX.Location = New-Object System.Drawing.Point(385, 10)
     $btnX.Cursor = [System.Windows.Forms.Cursors]::Hand
     $btnX.Add_Click({
-            if ($form -and !$form.IsDisposed) {
-                $form.Close()
-                $form.Dispose()
-            }
+            try { $this.FindForm().Close() } catch {}
         })
     $panelHead.Controls.Add($btnX)
 
@@ -172,10 +166,7 @@ function Show-CustomToast {
     $btnClose.Location = New-Object System.Drawing.Point(270, 135)
     $btnClose.Cursor = [System.Windows.Forms.Cursors]::Hand
     $btnClose.Add_Click({
-            if ($form -and !$form.IsDisposed) {
-                $form.Close()
-                $form.Dispose()
-            }
+            try { $this.FindForm().Close() } catch {}
         })
     $form.Controls.Add($btnClose)
 
