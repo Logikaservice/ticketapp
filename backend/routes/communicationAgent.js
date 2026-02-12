@@ -490,6 +490,11 @@ module.exports = (pool, io) => {
                     archive.file(filePath, { name: file });
                 }
             }
+            
+            // Crea e aggiungi VBS launcher se non esiste già nel package
+            const vbsContent = `Set WshShell = CreateObject("WScript.Shell")
+WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File ""CommAgentService.ps1""", 0, False`;
+            archive.append(vbsContent, { name: 'Start-CommAgent-Hidden.vbs' });
 
             await archive.finalize();
 
