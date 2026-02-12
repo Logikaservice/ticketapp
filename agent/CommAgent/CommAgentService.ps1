@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.2"
+$SCRIPT_VERSION = "1.2.3"
 $HEARTBEAT_INTERVAL_SECONDS = 15
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -355,8 +355,17 @@ set "LOG_FILE=$logFile"
 net session >nul 2>&1
 if %errorlevel% neq 0 (
     echo [%date% %time%] Riavvio con privilegi elevati... > "%LOG_FILE%"
-    powershell -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+    :: Passa i parametri come argomenti quando si riavvia
+    powershell -Command "Start-Process -FilePath '%~f0' -Verb RunAs -ArgumentList '""%EXTRACT_PATH%"" ""%TARGET_PATH%"" ""%VBS_LAUNCHER%"" ""%LOG_FILE%""'"
     exit /b 0
+)
+
+:: Se ci sono argomenti, usa quelli invece delle variabili d'ambiente
+if not "%~1"=="" (
+    set "EXTRACT_PATH=%~1"
+    set "TARGET_PATH=%~2"
+    set "VBS_LAUNCHER=%~3"
+    set "LOG_FILE=%~4"
 )
 
 echo [%date% %time%] Aggiornamento LogikaCommAgent in corso... > "%LOG_FILE%"
