@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.1.7"
+$SCRIPT_VERSION = "1.1.8"
 $HEARTBEAT_INTERVAL_SECONDS = 15
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -277,20 +277,31 @@ function Check-Update {
             
             # Usa Invoke-WebRequest per download file binario
             $headers = @{ "X-Comm-API-Key" = $config.api_key }
+            Write-Log "API Key usata per download: $($config.api_key.Substring(0, [Math]::Min(8, $config.api_key.Length)))..." "INFO"
             try {
-                Invoke-WebRequest -Uri $dlUrl -Headers $headers -OutFile $zipPath -ErrorAction Stop
-                Write-Log "Download completato: $zipPath" "INFO"
+                $response = Invoke-WebRequest -Uri $dlUrl -Headers $headers -OutFile $zipPath -ErrorAction Stop
+                Write-Log "Download completato: $zipPath, Status: $($response.StatusCode)" "INFO"
+                
+                # Verifica dimensione file
+                if (Test-Path $zipPath) {
+                    $fileSize = (Get-Item $zipPath).Length
+                    Write-Log "Dimensione file ZIP: $fileSize bytes" "INFO"
+                    if ($fileSize -lt 1000) {
+                        Write-Log "ERRORE: File ZIP troppo piccolo, possibile errore download" "ERROR"
+                        return $false
+                    }
+                }
             }
             catch {
                 Write-Log "ERRORE download: $_" "ERROR"
-                # Non mostrare toast durante aggiornamento per evitare errori
+                Write-Log "Dettagli errore: $($_.Exception.Message)" "ERROR"
+                if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
                 return $false
             }
             
             # Verifica che il file sia stato scaricato
             if (-not (Test-Path $zipPath)) {
                 Write-Log "ERRORE: File ZIP non trovato dopo download" "ERROR"
-                # Non mostrare toast durante aggiornamento per evitare errori
                 return $false
             }
             
@@ -376,16 +387,43 @@ del "%~f0"
             }
             
             try {
+                # Verifica che i file da copiare esistano
+                $serviceFile = Join-Path $extractPath "CommAgentService.ps1"
+                if (-not (Test-Path $serviceFile)) {
+                    Write-Log "ERRORE: CommAgentService.ps1 non trovato in $extractPath" "ERROR"
+                    Write-Log "File presenti in extractPath:" "ERROR"
+                    Get-ChildItem $extractPath | ForEach-Object { Write-Log "  - $($_.Name)" "ERROR" }
+                    return $false
+                }
+                
                 # Avvia il BAT script
+                Write-Log "Avvio BAT script: $updaterBat" "INFO"
                 $proc = Start-Process -FilePath $updaterBat -WindowStyle Hidden -PassThru -ErrorAction Stop
                 Write-Log "Processo BAT avviato: PID $($proc.Id)" "INFO"
                 
-                # Attendi un attimo per assicurarsi che il processo sia partito
-                Start-Sleep -Seconds 2
+                # Attendi che il BAT inizi l'esecuzione
+                Start-Sleep -Seconds 3
+                
+                # Verifica che il processo BAT sia ancora in esecuzione
+                if ($proc.HasExited) {
+                    Write-Log "ERRORE: Processo BAT terminato prematuramente con codice $($proc.ExitCode)" "ERROR"
+                    # Leggi il log del BAT se esiste
+                    $batLog = Join-Path $env:TEMP "LogikaUpdate.log"
+                    if (Test-Path $batLog) {
+                        Write-Log "Contenuto LogikaUpdate.log:" "ERROR"
+                        Get-Content $batLog | ForEach-Object { Write-Log "  $_" "ERROR" }
+                    }
+                    return $false
+                }
                 
                 # Chiudi l'applicazione
                 Write-Log "Chiusura agent per permettere aggiornamento..." "INFO"
-                $script:trayIcon.Visible = $false
+                if ($script:trayIcon) {
+                    $script:trayIcon.Visible = $false
+                    $script:trayIcon.Dispose()
+                }
+                
+                # Chiudi tutti i form aperti
                 [System.Windows.Forms.Application]::Exit()
                 
                 # Forza exit se Application.Exit non funziona
@@ -394,7 +432,7 @@ del "%~f0"
             }
             catch {
                 Write-Log "ERRORE avvio script aggiornamento: $_" "ERROR"
-                # Non mostrare toast durante aggiornamento per evitare errori
+                Write-Log "Stack: $($_.ScriptStackTrace)" "ERROR"
                 return $false
             }
         }
