@@ -43,7 +43,23 @@ Write-Host " Logika Service - Agent Installer v$version" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Configurazione
+# Controlla se esiste install_config.json precompilato (scarica dal portale)
+$preConfigPath = Join-Path $SCRIPT_DIR "install_config.json"
+if (Test-Path $preConfigPath) {
+    Write-Host "Trovato file di configurazione precompilato..." -ForegroundColor Green
+    try {
+        $preConfig = Get-Content $preConfigPath -Raw | ConvertFrom-Json
+        if ($preConfig.server_url) { $ServerUrl = $preConfig.server_url }
+        if ($preConfig.email) { $Email = $preConfig.email }
+        if ($preConfig.password) { $Password = $preConfig.password }
+        Write-Host "Configurazione caricata: Email = $Email" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Errore lettura install_config.json: $_" -ForegroundColor Yellow
+    }
+}
+
+# Configurazione (richiedi solo se non presente in install_config.json)
 if (-not $ServerUrl) {
     $ServerUrl = Read-Host "URL Server (es: https://ticket.logikaservice.it)"
 }
@@ -67,6 +83,12 @@ if (-not (Test-Path $INSTALL_DIR)) {
 Write-Host "Copia file..."
 Copy-Item -Path (Join-Path $SCRIPT_DIR "CommAgentService.ps1") -Destination (Join-Path $INSTALL_DIR "CommAgentService.ps1") -Force
 Copy-Item -Path (Join-Path $SCRIPT_DIR "CommAgentNotifier.ps1") -Destination (Join-Path $INSTALL_DIR "CommAgentNotifier.ps1") -Force
+
+# Copia install_config.json se presente (precompilato dal download)
+if (Test-Path $preConfigPath) {
+    Copy-Item -Path $preConfigPath -Destination (Join-Path $INSTALL_DIR "install_config.json") -Force
+    Write-Host "File di configurazione precompilato copiato." -ForegroundColor Green
+}
 
 # Crea VBS launcher
 $vbsContent = @"

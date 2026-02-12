@@ -444,10 +444,25 @@ module.exports = (pool, io) => {
                 return res.status(401).json({ error: 'Autenticazione richiesta (Token o API Key)' });
             }
 
+            let userEmail = null;
+            let userPassword = null;
+            
             if (token) {
                 const jwt = require('jsonwebtoken');
                 try {
-                    jwt.verify(token, process.env.JWT_SECRET || 'logika-secret-key');
+                    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'logika-secret-key');
+                    // Se il token è valido, estrai email e password dell'utente per precompilare install_config.json
+                    if (decoded.email) {
+                        await ensureTables();
+                        const userResult = await pool.query(
+                            'SELECT email, password FROM users WHERE id = $1',
+                            [decoded.id]
+                        );
+                        if (userResult.rows.length > 0) {
+                            userEmail = userResult.rows[0].email;
+                            userPassword = userResult.rows[0].password; // Password in chiaro nel sistema attuale
+                        }
+                    }
                 } catch (err) {
                     return res.status(401).json({ error: 'Token non valido' });
                 }
@@ -495,6 +510,18 @@ module.exports = (pool, io) => {
             const vbsContent = `Set WshShell = CreateObject("WScript.Shell")
 WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File ""CommAgentService.ps1""", 0, False`;
             archive.append(vbsContent, { name: 'Start-CommAgent-Hidden.vbs' });
+            
+            // Se abbiamo email e password dal token, crea install_config.json precompilato
+            if (userEmail && userPassword) {
+                const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
+                const installConfig = {
+                    server_url: baseUrl,
+                    email: userEmail,
+                    password: userPassword
+                };
+                archive.append(JSON.stringify(installConfig, null, 2), { name: 'install_config.json' });
+                console.log(`✅ Package agent con credenziali precompilate per: ${userEmail}`);
+            }
 
             await archive.finalize();
 
