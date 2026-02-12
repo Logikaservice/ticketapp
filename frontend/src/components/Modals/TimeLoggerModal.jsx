@@ -46,7 +46,19 @@ const TimeLoggerModal = ({
   };
   
   // Verifica se una sezione è espansa
-  const isSectionExpanded = (logId, section) => {
+  const isSectionExpanded = (logId, section, log) => {
+    // In modalità visualizzazione (readOnly), se ci sono dati, mostrare sempre
+    if (readOnly && log) {
+      if (section === 'manodopera') {
+        const hours = parseFloat(log.oreIntervento) || 0;
+        const costPerHour = parseFloat(log.costoUnitario) || 0;
+        const discount = parseFloat(log.sconto) || 0;
+        if (hours > 0 || costPerHour > 0 || discount > 0) return true;
+      }
+      if (section === 'materiali') {
+        if (log.materials && log.materials.length > 0) return true;
+      }
+    }
     const key = `${logId}-${section}`;
     return expandedSections[key] || false;
   };
@@ -506,7 +518,7 @@ const TimeLoggerModal = ({
                 />
 
                 <div className="mt-5 border-t pt-4">
-                  {isSectionExpanded(log.id, 'manodopera') ? (
+                  {isSectionExpanded(log.id, 'manodopera', normalizedLog) ? (
                     <>
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="text-sm font-bold">Costo Manodopera</h4>
@@ -581,12 +593,17 @@ const TimeLoggerModal = ({
                           Aggiungi Costo Manodopera
                         </button>
                       )}
+                      {readOnly && hasSectionData(normalizedLog, 'manodopera') && (
+                        <div className="text-sm text-gray-500 italic py-2">
+                          Costo manodopera presente ma non visualizzabile (errore di visualizzazione)
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
 
                 <div className="mt-5 border-t pt-4">
-                  {isSectionExpanded(normalizedLog.id, 'materiali') ? (
+                  {isSectionExpanded(normalizedLog.id, 'materiali', normalizedLog) ? (
                     <>
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="text-sm font-bold flex items-center gap-2">
@@ -678,21 +695,28 @@ const TimeLoggerModal = ({
                   </div>
                     </>
                   ) : (
-                    !fieldsDisabled && (
-                      <button
-                        onClick={() => {
-                          toggleSection(normalizedLog.id, 'materiali');
-                          // Se non ci sono materiali, aggiungine uno automaticamente
-                          if (!normalizedLog.materials || normalizedLog.materials.length === 0) {
-                            handleAddMaterial(normalizedLog.id);
-                          }
-                        }}
-                        className="w-full text-blue-500 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-blue-300 rounded-lg hover:bg-blue-50"
-                      >
-                        <Plus size={16} />
-                        Aggiungi Materiale
-                      </button>
-                    )
+                    <>
+                      {!fieldsDisabled && (
+                        <button
+                          onClick={() => {
+                            toggleSection(normalizedLog.id, 'materiali');
+                            // Se non ci sono materiali, aggiungine uno automaticamente
+                            if (!normalizedLog.materials || normalizedLog.materials.length === 0) {
+                              handleAddMaterial(normalizedLog.id);
+                            }
+                          }}
+                          className="w-full text-blue-500 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-blue-300 rounded-lg hover:bg-blue-50"
+                        >
+                          <Plus size={16} />
+                          Aggiungi Materiale
+                        </button>
+                      )}
+                      {readOnly && hasSectionData(normalizedLog, 'materiali') && (
+                        <div className="text-sm text-gray-500 italic py-2">
+                          Materiali presenti ma non visualizzabili (errore di visualizzazione)
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
