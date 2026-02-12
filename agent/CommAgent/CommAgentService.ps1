@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.1.3"
+$SCRIPT_VERSION = "1.1.4"
 $HEARTBEAT_INTERVAL_SECONDS = 15
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -120,8 +120,15 @@ function Show-CustomToast {
     $lblSub.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Italic)
     $lblSub.ForeColor = [System.Drawing.Color]::FromArgb(120, 120, 120)
     $lblSub.AutoSize = $true
-    # Posiziona a destra, prima del pulsante X (che è largo 25px e ha margine destro)
-    $lblSub.Location = New-Object System.Drawing.Point(385 - $lblSub.PreferredWidth - 30, 14)
+    # Calcola larghezza testo usando Graphics.MeasureString
+    $tempGraphics = $form.CreateGraphics()
+    $textSize = $tempGraphics.MeasureString($lblSub.Text, $lblSub.Font)
+    $tempGraphics.Dispose()
+    $subTextWidth = [int]$textSize.Width
+    # Posiziona a destra, prima del pulsante X (che è largo 25px e ha margine destro di 5px)
+    $subX = 385 - $subTextWidth - 30
+    if ($subX -lt 12) { $subX = 12 } # Evita sovrapposizione con il titolo
+    $lblSub.Location = New-Object System.Drawing.Point($subX, 14)
     $panelHead.Controls.Add($lblSub)
 
     # Pulsante X piccolo in alto a destra (usa Button invece di Label per migliore gestione eventi)
