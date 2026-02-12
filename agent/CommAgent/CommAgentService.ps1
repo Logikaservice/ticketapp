@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.1.8"
+$SCRIPT_VERSION = "1.1.9"
 $HEARTBEAT_INTERVAL_SECONDS = 15
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -347,7 +347,8 @@ Set WshShell = Nothing
             $batContent = @"
 @echo off
 echo [%date% %time%] Aggiornamento LogikaCommAgent in corso... > "$logFile"
-timeout /t 3 /nobreak >nul
+echo [%date% %time%] Attesa chiusura processo agent (7 secondi)... >> "$logFile"
+timeout /t 7 /nobreak >nul
 echo [%date% %time%] Copia file da $extractPathEscaped a $myPathEscaped >> "$logFile"
 xcopy /Y /E /I "$extractPathEscaped\*" "$myPathEscaped\" >> "$logFile" 2>&1
 if errorlevel 1 (
@@ -418,6 +419,25 @@ del "%~f0"
                 
                 # Chiudi l'applicazione
                 Write-Log "Chiusura agent per permettere aggiornamento..." "INFO"
+                
+                # Ferma tutti i timer prima di chiudere
+                if ($script:heartbeatTimer) {
+                    $script:heartbeatTimer.Stop()
+                    $script:heartbeatTimer.Dispose()
+                    Write-Log "Timer heartbeat fermato" "INFO"
+                }
+                if ($script:updateTimer) {
+                    $script:updateTimer.Stop()
+                    $script:updateTimer.Dispose()
+                    Write-Log "Timer aggiornamenti fermato" "INFO"
+                }
+                if ($script:startupTimer) {
+                    $script:startupTimer.Stop()
+                    $script:startupTimer.Dispose()
+                    Write-Log "Timer startup fermato" "INFO"
+                }
+                
+                # Chiudi tray icon
                 if ($script:trayIcon) {
                     $script:trayIcon.Visible = $false
                     $script:trayIcon.Dispose()
@@ -426,8 +446,12 @@ del "%~f0"
                 # Chiudi tutti i form aperti
                 [System.Windows.Forms.Application]::Exit()
                 
-                # Forza exit se Application.Exit non funziona
-                Start-Sleep -Seconds 1
+                # Forza terminazione processo dopo breve delay per permettere cleanup
+                Start-Sleep -Seconds 2
+                
+                # Termina forzatamente questo processo PowerShell
+                Write-Log "Terminazione forzata processo..." "INFO"
+                Stop-Process -Id $PID -Force
                 exit 0
             }
             catch {
@@ -468,18 +492,18 @@ $cfg = Load-Config
 if ($cfg) {
     Initialize-TrayIcon
     
-    # Timer heartbeat (ogni 15 secondi)
-    $heartbeatTimer = New-Object System.Windows.Forms.Timer
-    $heartbeatTimer.Interval = 15000 # 15 sec
-    $heartbeatTimer.Add_Tick({ 
+    # Timer heartbeat (ogni 15 secondi) - variabile script per accesso globale
+    $script:heartbeatTimer = New-Object System.Windows.Forms.Timer
+    $script:heartbeatTimer.Interval = 15000 # 15 sec
+    $script:heartbeatTimer.Add_Tick({ 
             Send-Heartbeat -Config $cfg 
         })
-    $heartbeatTimer.Start()
+    $script:heartbeatTimer.Start()
     
-    # Timer controllo aggiornamenti (ogni 5 minuti)
-    $updateTimer = New-Object System.Windows.Forms.Timer
-    $updateTimer.Interval = $UPDATE_CHECK_INTERVAL_SECONDS * 1000 # 300 secondi = 5 minuti
-    $updateTimer.Add_Tick({ 
+    # Timer controllo aggiornamenti (ogni 5 minuti) - variabile script per accesso globale
+    $script:updateTimer = New-Object System.Windows.Forms.Timer
+    $script:updateTimer.Interval = $UPDATE_CHECK_INTERVAL_SECONDS * 1000 # 300 secondi = 5 minuti
+    $script:updateTimer.Add_Tick({ 
             $now = Get-Date
             $elapsed = ($now - $script:lastUpdateCheck).TotalSeconds
             if ($elapsed -ge $UPDATE_CHECK_INTERVAL_SECONDS) {
@@ -488,18 +512,18 @@ if ($cfg) {
                 Check-Update
             }
         })
-    $updateTimer.Start()
+    $script:updateTimer.Start()
     
-    # Controllo aggiornamenti all'avvio (dopo 10 secondi)
-    $startupTimer = New-Object System.Windows.Forms.Timer
-    $startupTimer.Interval = 10000 # 10 secondi
-    $startupTimer.Add_Tick({
+    # Controllo aggiornamenti all'avvio (dopo 10 secondi) - variabile script per accesso globale
+    $script:startupTimer = New-Object System.Windows.Forms.Timer
+    $script:startupTimer.Interval = 10000 # 10 secondi
+    $script:startupTimer.Add_Tick({
             Write-Log "Controllo aggiornamenti all'avvio..." "INFO"
             Check-Update
-            $startupTimer.Stop()
-            $startupTimer.Dispose()
+            $script:startupTimer.Stop()
+            $script:startupTimer.Dispose()
         })
-    $startupTimer.Start()
+    $script:startupTimer.Start()
     
     [System.Windows.Forms.Application]::Run()
 }
