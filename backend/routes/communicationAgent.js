@@ -195,11 +195,24 @@ module.exports = (pool, io) => {
             const agentId = req.commAgent.id;
             const { version } = req.body;
 
+            // Log versione ricevuta per debug
+            if (version) {
+                console.log(`📦 CommAgent heartbeat ${agentId}: versione ricevuta = ${version}`);
+            } else {
+                console.log(`⚠️ CommAgent heartbeat ${agentId}: versione NON presente nel payload`);
+            }
+
             // Aggiorna status e last_heartbeat
-            await pool.query(
-                `UPDATE comm_agents SET status = 'online', last_heartbeat = NOW(), version = COALESCE($1, version) WHERE id = $2`,
-                [version, agentId]
+            const updateResult = await pool.query(
+                `UPDATE comm_agents SET status = 'online', last_heartbeat = NOW(), version = COALESCE($1, version) WHERE id = $2 RETURNING version`,
+                [version || null, agentId]
             );
+
+            // Log versione salvata per debug
+            const savedVersion = updateResult.rows[0]?.version;
+            if (version && savedVersion) {
+                console.log(`💾 CommAgent heartbeat ${agentId}: versione salvata nel DB = ${savedVersion}`);
+            }
 
             // Recupera messaggi pendenti per questo agent
             const pendingMessages = await pool.query(
@@ -518,7 +531,27 @@ module.exports = (pool, io) => {
     // VERSIONE AGENT (per auto-update)
     // ============================================
     router.get('/agent-version', (req, res) => {
-        res.json({ version: '1.0.0' });
+        try {
+            // Leggi versione reale dallo script CommAgentService.ps1
+            const agentDir = path.join(__dirname, '..', '..', 'agent', 'CommAgent');
+            let version = '1.0.0'; // Fallback
+            try {
+                const serviceFile = path.join(agentDir, 'CommAgentService.ps1');
+                if (fs.existsSync(serviceFile)) {
+                    const serviceContent = fs.readFileSync(serviceFile, 'utf8');
+                    const match = serviceContent.match(/\$SCRIPT_VERSION\s*=\s*"([^"]+)"/);
+                    if (match && match[1]) {
+                        version = match[1].trim();
+                    }
+                }
+            } catch (e) {
+                console.error('⚠️ Errore lettura versione CommAgent:', e.message);
+            }
+            res.json({ version });
+        } catch (err) {
+            console.error('❌ Errore endpoint agent-version:', err);
+            res.json({ version: '1.0.0' }); // Fallback
+        }
     });
 
     return router;
