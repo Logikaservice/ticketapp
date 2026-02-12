@@ -929,6 +929,13 @@ module.exports = (pool, io) => {
     try {
       const agentId = req.agent.id;
       const { version, system_uptime, network_issue_detected, network_issue_duration, unifi_last_ok, unifi_last_check_at } = req.body;
+      
+      // Log versione ricevuta dall'agent per debug
+      if (version) {
+        console.log(`📦 Heartbeat agent ${agentId}: versione ricevuta = ${version}`);
+      } else {
+        console.log(`⚠️ Heartbeat agent ${agentId}: versione NON presente nel payload`);
+      }
 
       // Verifica se l'agent è eliminato o disabilitato
       const agentCheck = await pool.query(
@@ -993,12 +1000,21 @@ module.exports = (pool, io) => {
       const isNowOnline = true; // Se riceviamo heartbeat, è online
 
       // Agent abilitato e non eliminato -> aggiorna heartbeat normalmente
-      await pool.query(
+      // Se version è presente, aggiorna sempre (non solo se diversa)
+      const versionToSave = version || null;
+      const updateResult = await pool.query(
         `UPDATE network_agents 
          SET last_heartbeat = NOW(), status = 'online', version = COALESCE($1, version)
-         WHERE id = $2`,
-        [version, agentId]
+         WHERE id = $2
+         RETURNING version`,
+        [versionToSave, agentId]
       );
+      
+      // Log versione salvata per debug
+      const savedVersion = updateResult.rows[0]?.version;
+      if (versionToSave && savedVersion) {
+        console.log(`💾 Heartbeat agent ${agentId}: versione salvata nel DB = ${savedVersion}`);
+      }
 
       // Stato Unifi (l'agent invia unifi_last_ok / unifi_last_check_at dopo ogni scan con Unifi)
       if (typeof unifi_last_ok === 'boolean' && unifi_last_check_at) {
