@@ -79,7 +79,7 @@ function Show-CustomToast {
     # FORM PRINCIPALE
     $form = New-Object System.Windows.Forms.Form
     $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
-    $form.Size = New-Object System.Drawing.Size(420, 180) # Dimensione Grande
+    $form.Size = New-Object System.Drawing.Size(420, 180)
     $form.BackColor = [System.Drawing.Color]::White
     $form.TopMost = $true
     $form.ShowInTaskbar = $false
@@ -93,70 +93,77 @@ function Show-CustomToast {
 
     # BORDO SINISTRO COLORATO
     $panelLeft = New-Object System.Windows.Forms.Panel
-    $panelLeft.Size = New-Object System.Drawing.Size(10, $form.Height)
+    $panelLeft.Size = New-Object System.Drawing.Size(8, $form.Height)
     $panelLeft.Dock = [System.Windows.Forms.DockStyle]::Left
     $panelLeft.BackColor = $accentColor
     $form.Controls.Add($panelLeft)
 
-    # HEADER PANEL
+    # HEADER PANEL (occupa tutta la larghezza disponibile)
     $panelHead = New-Object System.Windows.Forms.Panel
-    $panelHead.Size = New-Object System.Drawing.Size($form.Width - 10, 40)
-    $panelHead.Location = New-Object System.Drawing.Point(10, 0)
+    $panelHead.Size = New-Object System.Drawing.Size(412, 45)
+    $panelHead.Location = New-Object System.Drawing.Point(8, 0)
     $panelHead.BackColor = [System.Drawing.Color]::FromArgb(245, 245, 245)
     $form.Controls.Add($panelHead)
 
     # LABEL: Logika Service
     $lblTitle = New-Object System.Windows.Forms.Label
     $lblTitle.Text = "LOGIKA SERVICE"
-    $lblTitle.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+    $lblTitle.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
     $lblTitle.ForeColor = $accentColor
     $lblTitle.AutoSize = $true
-    $lblTitle.Location = New-Object System.Drawing.Point(10, 10)
+    $lblTitle.Location = New-Object System.Drawing.Point(12, 12)
     $panelHead.Controls.Add($lblTitle)
 
-    # LABEL: by Rapa Alessandro
+    # LABEL: by Rapa Alessandro (posizionato dopo il titolo con spazio)
     $lblSub = New-Object System.Windows.Forms.Label
     $lblSub.Text = "by Rapa Alessandro"
     $lblSub.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Italic)
-    $lblSub.ForeColor = [System.Drawing.Color]::Gray
+    $lblSub.ForeColor = [System.Drawing.Color]::FromArgb(120, 120, 120)
     $lblSub.AutoSize = $true
-    $lblSub.Location = New-Object System.Drawing.Point(130, 12)
+    # Posiziona dopo "LOGIKA SERVICE" con margine
+    $titleWidth = $lblTitle.PreferredWidth
+    $lblSub.Location = New-Object System.Drawing.Point($titleWidth + 18, 14)
     $panelHead.Controls.Add($lblSub)
 
-    # BODY TEXT
-    $lblMsg = New-Object System.Windows.Forms.Label
-    $lblMsg.Text = $Message
-    $lblMsg.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Regular)
-    $lblMsg.ForeColor = [System.Drawing.Color]::FromArgb(64, 64, 64)
-    $lblMsg.Location = New-Object System.Drawing.Point(25, 50)
-    $lblMsg.Size = New-Object System.Drawing.Size(380, 80)
-    $lblMsg.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-    $form.Controls.Add($lblMsg)
-
-    # BOTTONE CHIUDI (HO CAPITO)
-    $btnClose = New-Object System.Windows.Forms.Button
-    $btnClose.Text = "HO CAPITO"
-    $btnClose.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
-    $btnClose.FlatApperance.BorderSize = 0
-    $btnClose.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnClose.BackColor = $accentColor
-    $btnClose.ForeColor = [System.Drawing.Color]::White
-    $btnClose.Size = New-Object System.Drawing.Size(120, 30)
-    $btnClose.Location = New-Object System.Drawing.Point(280, 135)
-    $btnClose.Cursor = [System.Windows.Forms.Cursors]::Hand
-    $btnClose.Add_Click({ $form.Close() })
-    $form.Controls.Add($btnClose)
-
-    # Pulsante X piccolo in alto a destra
+    # Pulsante X piccolo in alto a destra (prima del testo per non sovrapporsi)
     $btnX = New-Object System.Windows.Forms.Label
-    $btnX.Text = "X"
-    $btnX.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-    $btnX.ForeColor = [System.Drawing.Color]::Gray
-    $btnX.Location = New-Object System.Drawing.Point(380, 10)
-    $btnX.AutoSize = $true
+    $btnX.Text = "✕"
+    $btnX.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Regular)
+    $btnX.ForeColor = [System.Drawing.Color]::FromArgb(150, 150, 150)
+    $btnX.Size = New-Object System.Drawing.Size(25, 25)
+    $btnX.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $btnX.Location = New-Object System.Drawing.Point(385, 10)
     $btnX.Cursor = [System.Windows.Forms.Cursors]::Hand
     $btnX.Add_Click({ $form.Close() })
     $panelHead.Controls.Add($btnX)
+
+    # BODY TEXT (usa tutta la larghezza disponibile con word wrap)
+    $lblMsg = New-Object System.Windows.Forms.Label
+    $lblMsg.Text = $Message
+    $lblMsg.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Regular)
+    $lblMsg.ForeColor = [System.Drawing.Color]::FromArgb(64, 64, 64)
+    $lblMsg.Location = New-Object System.Drawing.Point(20, 55)
+    $lblMsg.Size = New-Object System.Drawing.Size(380, 70)
+    $lblMsg.TextAlign = [System.Drawing.ContentAlignment]::TopLeft
+    $lblMsg.AutoSize = $false
+    $lblMsg.AutoEllipsis = $false
+    # Abilita word wrap per testo lungo
+    $lblMsg.MaximumSize = New-Object System.Drawing.Size(380, 0)
+    $form.Controls.Add($lblMsg)
+
+    # BOTTONE CHIUDI (HO CAPITO) - centrato o allineato a destra
+    $btnClose = New-Object System.Windows.Forms.Button
+    $btnClose.Text = "HO CAPITO"
+    $btnClose.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $btnClose.FlatAppearance.BorderSize = 0
+    $btnClose.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $btnClose.BackColor = $accentColor
+    $btnClose.ForeColor = [System.Drawing.Color]::White
+    $btnClose.Size = New-Object System.Drawing.Size(130, 32)
+    $btnClose.Location = New-Object System.Drawing.Point(270, 135)
+    $btnClose.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $btnClose.Add_Click({ $form.Close() })
+    $form.Controls.Add($btnClose)
 
     # Salva riferimento per gestire chiusura
     $script:activeNotificationForm = $form
