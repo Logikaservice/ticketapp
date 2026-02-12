@@ -365,12 +365,38 @@ $cfg = Load-Config
 if ($cfg) {
     Initialize-TrayIcon
     
-    $timer = New-Object System.Windows.Forms.Timer
-    $timer.Interval = 15000 # 15 sec
-    $timer.Add_Tick({ 
+    # Timer heartbeat (ogni 15 secondi)
+    $heartbeatTimer = New-Object System.Windows.Forms.Timer
+    $heartbeatTimer.Interval = 15000 # 15 sec
+    $heartbeatTimer.Add_Tick({ 
             Send-Heartbeat -Config $cfg 
         })
-    $timer.Start()
+    $heartbeatTimer.Start()
+    
+    # Timer controllo aggiornamenti (ogni 5 minuti)
+    $updateTimer = New-Object System.Windows.Forms.Timer
+    $updateTimer.Interval = $UPDATE_CHECK_INTERVAL_SECONDS * 1000 # 300 secondi = 5 minuti
+    $updateTimer.Add_Tick({ 
+            $now = Get-Date
+            $elapsed = ($now - $script:lastUpdateCheck).TotalSeconds
+            if ($elapsed -ge $UPDATE_CHECK_INTERVAL_SECONDS) {
+                $script:lastUpdateCheck = $now
+                Write-Log "Controllo aggiornamenti automatico..." "INFO"
+                Check-Update
+            }
+        })
+    $updateTimer.Start()
+    
+    # Controllo aggiornamenti all'avvio (dopo 10 secondi)
+    $startupTimer = New-Object System.Windows.Forms.Timer
+    $startupTimer.Interval = 10000 # 10 secondi
+    $startupTimer.Add_Tick({
+            Write-Log "Controllo aggiornamenti all'avvio..." "INFO"
+            Check-Update
+            $startupTimer.Stop()
+            $startupTimer.Dispose()
+        })
+    $startupTimer.Start()
     
     [System.Windows.Forms.Application]::Run()
 }
