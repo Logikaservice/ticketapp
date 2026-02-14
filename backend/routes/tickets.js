@@ -1462,6 +1462,37 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
     }
   });
 
+  // ENDPOINT: Modifica fornitura temporanea
+  router.put('/forniture/:fornituraId', async (req, res) => {
+    const { fornituraId } = req.params;
+    const { materiale, quantita, nota } = req.body;
+
+    if (!materiale || !quantita) {
+      return res.status(400).json({ error: 'Materiale e quantità sono obbligatori' });
+    }
+
+    try {
+      const client = await pool.connect();
+      const result = await client.query(
+        `UPDATE forniture_temporanee 
+         SET materiale = $1, quantita = $2, nota = COALESCE($3, '') 
+         WHERE id = $4 RETURNING *`,
+        [materiale, parseInt(quantita), nota || '', fornituraId]
+      );
+      client.release();
+
+      if (result.rowCount > 0) {
+        console.log(`✅ Fornitura ${fornituraId} modificata`);
+        res.json(result.rows[0]);
+      } else {
+        res.status(404).json({ error: 'Fornitura non trovata' });
+      }
+    } catch (err) {
+      console.error('Errore nella modifica della fornitura:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // ENDPOINT: Elimina fornitura temporanea (restituita)
   router.delete('/forniture/:fornituraId', async (req, res) => {
     const { fornituraId } = req.params;

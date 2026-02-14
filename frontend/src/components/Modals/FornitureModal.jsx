@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Package, Plus, Trash2 } from 'lucide-react';
+import { X, Package, Plus, Trash2, Pencil, Check } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
 
 const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, getAuthHeader }) => {
@@ -8,6 +8,10 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
   const [nuovaQuantita, setNuovaQuantita] = useState(1);
   const [nuovaNota, setNuovaNota] = useState('');
   const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState(null);
+  const [editMateriale, setEditMateriale] = useState('');
+  const [editQuantita, setEditQuantita] = useState(1);
+  const [editNota, setEditNota] = useState('');
 
   console.log('🔍 DEBUG FORNITURE: FornitureModal renderizzato per ticket:', ticket?.id, ticket?.numero);
 
@@ -107,6 +111,41 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
     }
   };
 
+  const handleModifica = (f) => {
+    setEditingId(f.id);
+    setEditMateriale(f.materiale || '');
+    setEditQuantita(f.quantita || 1);
+    setEditNota(f.nota || '');
+  };
+
+  const handleAnnullaModifica = () => {
+    setEditingId(null);
+    setEditMateriale('');
+    setEditQuantita(1);
+    setEditNota('');
+  };
+
+  const handleSalvaModifica = async () => {
+    if (!editMateriale.trim()) return;
+    if (!editingId) return;
+
+    try {
+      const response = await fetch(buildApiUrl(`/api/tickets/forniture/${editingId}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({ materiale: editMateriale, quantita: editQuantita, nota: editNota })
+      });
+
+      if (response.ok) {
+        const updated = await response.json();
+        setForniture(prev => prev.map(f => f.id === editingId ? updated : f));
+        handleAnnullaModifica();
+      }
+    } catch (err) {
+      console.error('Errore nella modifica:', err);
+    }
+  };
+
   const isTecnico = currentUser?.ruolo === 'tecnico';
 
   return (
@@ -179,26 +218,82 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
             </div>
           ) : (
             forniture.map(f => (
-              <div key={f.id} className="flex items-center justify-between p-3 border rounded-lg bg-white hover:bg-gray-50">
-                <div className="flex-1">
-                  <div className="font-semibold">{f.materiale}</div>
-                  <div className="text-sm text-gray-500">
-                    Quantità: {f.quantita} - Prestito: {new Date(f.data_prestito).toLocaleDateString('it-IT')}
-                  </div>
-                  {f.nota && (
-                    <div className="text-sm text-blue-600 mt-1">
-                      Note: {f.nota}
+              <div key={f.id} className="flex items-start justify-between p-3 border rounded-lg bg-white hover:bg-gray-50 gap-3">
+                {editingId === f.id ? (
+                  /* Form modifica inline */
+                  <div className="flex-1 space-y-2">
+                    <input
+                      type="text"
+                      value={editMateriale}
+                      onChange={(e) => setEditMateriale(e.target.value)}
+                      placeholder="Nome materiale"
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        value={editQuantita}
+                        onChange={(e) => setEditQuantita(parseInt(e.target.value) || 1)}
+                        className="w-24 px-3 py-2 border rounded-lg text-sm"
+                      />
+                      <input
+                        type="text"
+                        value={editNota}
+                        onChange={(e) => setEditNota(e.target.value)}
+                        placeholder="Note (opzionale)"
+                        className="flex-1 px-3 py-2 border rounded-lg text-sm"
+                      />
                     </div>
-                  )}
-                </div>
-                {isTecnico && (
-                  <button
-                    onClick={() => handleRestituisci(f.id)}
-                    className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-1 text-sm"
-                  >
-                    <Trash2 size={16} />
-                    Restituito
-                  </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSalvaModifica}
+                        className="px-3 py-1.5 bg-blue-600 text-white rounded-lg flex items-center gap-1 text-sm hover:bg-blue-700"
+                      >
+                        <Check size={14} />
+                        Salva
+                      </button>
+                      <button
+                        onClick={handleAnnullaModifica}
+                        className="px-3 py-1.5 border rounded-lg text-sm hover:bg-gray-100"
+                      >
+                        Annulla
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold">{f.materiale}</div>
+                      <div className="text-sm text-gray-500">
+                        Quantità: {f.quantita} - Prestito: {new Date(f.data_prestito).toLocaleDateString('it-IT')}
+                      </div>
+                      {f.nota && (
+                        <div className="text-sm text-blue-600 mt-1">
+                          Note: {f.nota}
+                        </div>
+                      )}
+                    </div>
+                    {isTecnico && (
+                      <div className="flex flex-col gap-1 shrink-0">
+                        <button
+                          onClick={() => handleModifica(f)}
+                          className="px-3 py-1 text-blue-600 hover:bg-blue-50 rounded-lg flex items-center gap-1 text-sm"
+                        >
+                          <Pencil size={16} />
+                          Modifica
+                        </button>
+                        <button
+                          onClick={() => handleRestituisci(f.id)}
+                          className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-1 text-sm"
+                        >
+                          <Trash2 size={16} />
+                          Restituito
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ))
