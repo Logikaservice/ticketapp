@@ -606,15 +606,19 @@ export default function TicketApp() {
 
       // Verifica se c'è un dominio richiesto (orari/turni)
       const savedDomain = localStorage.getItem('requestedDomain');
+      const hashView = (window.location.hash || '').replace(/^#/, '').trim();
       const urlView = getViewFromUrl();
 
       if (savedDomain === 'orari' || savedDomain === 'turni') {
         // Se c'è un dominio richiesto, mostra la gestione orari
         setShowDashboard(false);
         setShowOrariTurni(true);
+      } else if (hashView && ['office', 'email', 'mappatura', 'antivirus', 'network-monitoring'].includes(hashView)) {
+        // Dopo F5: ripristina la vista dall'hash (#office, #email, ecc.) invece di tornare alla dashboard
+        applyHashToState(window.location.hash);
       } else if (urlView && urlView !== 'dashboard') {
-        // Dopo F5: ripristina la vista dall'URL invece di tornare alla dashboard
-        setShowDashboard(true); // base
+        // Dopo F5: ripristina la vista dal param ?view= invece di tornare alla dashboard
+        setShowDashboard(true);
         applyViewFromUrl(urlView);
       } else {
         // Altrimenti mostra la dashboard

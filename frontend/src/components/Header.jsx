@@ -139,10 +139,18 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       onClick: () => handleQuickActionClick('email')
     },
     {
+      id: 'antivirus',
+      label: 'Anti-Virus',
+      icon: Shield,
+      color: 'violet',
+      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico',
+      onClick: () => handleQuickActionClick('antivirus')
+    },
+    {
       id: 'networkMonitoring',
       label: 'Monitoraggio Rete',
       icon: Wifi,
-      color: 'cyan',
+      color: 'teal',
       visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && openNetworkMonitoring,
       hasSubActions: true,
       subActions: [
@@ -180,24 +188,16 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
     },
     // === Voci solo tecnico ===
     {
-      id: 'antivirus',
-      label: 'Anti-Virus',
-      icon: Shield,
-      color: 'indigo',
-      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico',
-      onClick: () => handleQuickActionClick('antivirus')
-    },
-    {
       id: 'progetti',
       label: 'Progetti',
       icon: FolderOpen,
-      color: 'indigo',
+      color: 'amber',
       visible: !isOrariDomain && currentUser?.ruolo === 'tecnico',
       hasSubActions: true,
       subActions: [
-        { label: 'Orari e Turni', icon: Calendar, color: 'indigo', onClick: openOrariTurni },
-        { label: 'Vivaldi', icon: Volume2, color: 'indigo', onClick: openVivaldi || (() => window.location.href = '/?domain=vivaldi') },
-        { label: 'PackVision', icon: Monitor, color: 'indigo', onClick: openPackVision }
+        { label: 'Orari e Turni', icon: Calendar, color: 'amber', onClick: openOrariTurni },
+        { label: 'Vivaldi', icon: Volume2, color: 'orange', onClick: openVivaldi || (() => window.location.href = '/?domain=vivaldi') },
+        { label: 'PackVision', icon: Monitor, color: 'amber', onClick: openPackVision }
       ]
     }
   ].filter(action => action.visible);
