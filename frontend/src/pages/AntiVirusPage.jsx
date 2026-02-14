@@ -388,7 +388,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false }) => {
                         value={selectedCompanyId}
                         onChange={(e) => setSelectedCompanyId(e.target.value)}
                     >
-                        <option value="">Seleziona Cliente...</option>
+                        <option value="">{readOnly ? 'Seleziona Azienda...' : 'Seleziona Cliente...'}</option>
                         {companies.map(c => (
                             <option key={c.id} value={c.id}>{c.azienda || c.nome + ' ' + c.cognome}</option>
                         ))}
@@ -398,85 +398,80 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false }) => {
 
             {/* Content */}
             <div className="flex-1 flex overflow-hidden">
-                {/* Left Sidebar - Device List */}
-                <div style={{ width: sidebarWidth }} className="bg-white border-r flex flex-col flex-shrink-0 relative">
-                    <div className="p-4 border-b space-y-3">
-                        {!readOnly && (
-                            <button
-                                onClick={handleAddManualDevice}
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors"
-                            >
-                                <Plus size={16} />
-                                Aggiungi Dispositivo
-                            </button>
-                        )}
-
-
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                            <input
-                                type="text"
-                                placeholder="Cerca IP o Hostname..."
-                                className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
+                {/* Left Sidebar - Solo per tecnico: lista dispositivi da cui aggiungere alla tabella */}
+                {!readOnly && (
+                    <>
+                        <div style={{ width: sidebarWidth }} className="bg-white border-r flex flex-col flex-shrink-0 relative">
+                            <div className="p-4 border-b space-y-3">
+                                <button
+                                    onClick={handleAddManualDevice}
+                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors"
+                                >
+                                    <Plus size={16} />
+                                    Aggiungi Dispositivo
+                                </button>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                                    <input
+                                        type="text"
+                                        placeholder="Cerca IP o Hostname..."
+                                        className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex-1 overflow-y-auto">
+                                {!selectedCompanyId ? (
+                                    <div className="p-8 text-center text-gray-500">Seleziona un cliente per visualizzare i dispositivi</div>
+                                ) : loading ? (
+                                    <div className="p-8 text-center text-gray-500 flex flex-col items-center">
+                                        <span className="animate-spin text-2xl mb-2">⌛</span>
+                                        Caricamento...
+                                    </div>
+                                ) : filteredDevices.length === 0 ? (
+                                    <div className="p-8 text-center text-gray-500">Nessun dispositivo trovato</div>
+                                ) : (
+                                    <div className="divide-y">
+                                        {filteredDevices.map(dev => {
+                                            const isAdded = selectedDeviceIds.includes(dev.device_id);
+                                            const showIp = !dev.ip_address.startsWith('no-ip-');
+                                            return (
+                                                <div
+                                                    key={dev.device_id}
+                                                    onClick={() => handleSelectDevice(dev)}
+                                                    className={`py-2 px-3 cursor-pointer hover:bg-gray-50 transition-colors flex items-center gap-2 ${isAdded ? 'bg-indigo-50 border-l-4 border-indigo-600' : 'border-l-4 border-transparent'}`}
+                                                >
+                                                    <div className="flex items-center gap-2 overflow-hidden w-full text-sm">
+                                                        {showIp && (
+                                                            <>
+                                                                <span className="font-mono font-medium text-gray-800 whitespace-nowrap">{dev.ip_address}</span>
+                                                                <span className="text-gray-300">-</span>
+                                                            </>
+                                                        )}
+                                                        <span className="font-medium text-gray-700 truncate" title={dev.hostname}>{dev.hostname || 'N/A'}</span>
+                                                        {dev.keepass_path && (
+                                                            <>
+                                                                <span className="text-gray-300">-</span>
+                                                                <span className="text-gray-500 truncate italic" title={dev.keepass_path}>{dev.keepass_path}</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                        <div
+                            className="w-1 cursor-col-resize hover:bg-indigo-300 bg-gray-100 transition-colors z-10"
+                            onMouseDown={startResizing}
+                        />
+                    </>
+                )}
 
-                    <div className="flex-1 overflow-y-auto">
-                        {!selectedCompanyId ? (
-                            <div className="p-8 text-center text-gray-500">Seleziona un cliente per visualizzare i dispositivi</div>
-                        ) : loading ? (
-                            <div className="p-8 text-center text-gray-500 flex flex-col items-center">
-                                <span className="animate-spin text-2xl mb-2">⌛</span>
-                                Caricamento...
-                            </div>
-                        ) : filteredDevices.length === 0 ? (
-                            <div className="p-8 text-center text-gray-500">Nessun dispositivo trovato</div>
-                        ) : (
-                            <div className="divide-y">
-                                {filteredDevices.map(dev => {
-                                    const isAdded = selectedDeviceIds.includes(dev.device_id);
-                                    // Hide IP if it is a manual placeholder "no-ip-"
-                                    const showIp = !dev.ip_address.startsWith('no-ip-');
-
-                                    return (
-                                        <div
-                                            key={dev.device_id}
-                                            onClick={() => !readOnly && handleSelectDevice(dev)}
-                                            className={`py-2 px-3 flex items-center gap-2 ${!readOnly ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'} transition-colors ${isAdded ? 'bg-indigo-50 border-l-4 border-indigo-600' : 'border-l-4 border-transparent'}`}
-                                        >
-                                            <div className="flex items-center gap-2 overflow-hidden w-full text-sm">
-                                                {showIp && (
-                                                    <>
-                                                        <span className="font-mono font-medium text-gray-800 whitespace-nowrap">{dev.ip_address}</span>
-                                                        <span className="text-gray-300">-</span>
-                                                    </>
-                                                )}
-                                                <span className="font-medium text-gray-700 truncate" title={dev.hostname}>{dev.hostname || 'N/A'}</span>
-                                                {dev.keepass_path && (
-                                                    <>
-                                                        <span className="text-gray-300">-</span>
-                                                        <span className="text-gray-500 truncate italic" title={dev.keepass_path}>{dev.keepass_path}</span>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Resizer Handle */}
-                <div
-                    className="w-1 cursor-col-resize hover:bg-indigo-300 bg-gray-100 transition-colors z-10"
-                    onMouseDown={startResizing}
-                />
-
-                {/* Right Panel - Details */}
+                {/* Pannello destro: tabella compilata dal tecnico (le aziende vedono solo questa, in sola lettura) */}
                 <div className="flex-1 bg-gray-50 p-8 overflow-y-auto">
                     {selectedDeviceIds.length > 0 ? (
                         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
@@ -668,8 +663,12 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false }) => {
                             <div className="bg-gray-100 p-6 rounded-full mb-4">
                                 <Shield size={48} className="text-gray-300" />
                             </div>
-                            <p className="text-lg font-medium">Nessun dispositivo selezionato</p>
-                            <p className="text-sm">Seleziona i dispositivi dalla lista a sinistra per modificarli</p>
+                            <p className="text-lg font-medium">
+                                {readOnly ? 'Nessun dispositivo con Anti-Virus configurato' : 'Nessun dispositivo selezionato'}
+                            </p>
+                            <p className="text-sm">
+                                {readOnly ? 'Il tecnico non ha ancora configurato dispositivi per questa azienda.' : 'Seleziona i dispositivi dalla lista a sinistra per modificarli'}
+                            </p>
                         </div>
                     )}
                 </div>
