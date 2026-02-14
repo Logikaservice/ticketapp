@@ -554,21 +554,25 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
                                             flexShrink: 0
                                         }} />
 
-                                        {/* Info */}
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ fontSize: 14, fontWeight: 600, color: '#E2E8F0' }}>
+                                        {/* Info - tutto in linea */}
+                                        <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 12px', fontSize: 12, color: '#64748B' }}>
+                                            <span style={{ fontWeight: 600, color: '#E2E8F0', marginRight: 4 }}>
                                                 {agent.nome} {agent.cognome}
-                                            </div>
-                                            <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
-                                                <Mail size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                                            </span>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                <Mail size={11} />
                                                 {agent.email}
-                                                <span style={{ margin: '0 8px', color: '#334155' }}>|</span>
-                                                <Monitor size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                                            </span>
+                                            <span style={{ color: '#334155' }}>•</span>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                <Monitor size={11} />
                                                 {agent.machine_name || 'N/A'}
-                                                <span style={{ margin: '0 8px', color: '#334155' }}>|</span>
-                                                <Building2 size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                                            </span>
+                                            <span style={{ color: '#334155' }}>•</span>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                <Building2 size={11} />
                                                 {agent.azienda || 'N/A'}
-                                            </div>
+                                            </span>
                                         </div>
 
                                         {/* Version */}
