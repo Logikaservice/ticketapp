@@ -133,6 +133,28 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
 
     const onlineCount = agents.filter(a => a.status === 'online' || a.real_status === 'online').length;
 
+    // Precompila form da messaggio storico (Rinvio)
+    const handleRinvio = (msg) => {
+        setTitle(msg.title || '');
+        setBody(msg.body || '');
+        setPriority(msg.priority || 'normal');
+        setCategory(msg.category || 'info');
+        setTargetType(msg.target_type || 'broadcast');
+        if (msg.target_type === 'group' && msg.target_company) {
+            const companiesList = String(msg.target_company).split(/,\s*/).map(s => s.trim()).filter(Boolean);
+            setSelectedCompanies(companiesList.filter(c => companies.some(co => co.azienda === c)));
+        } else {
+            setSelectedCompanies([]);
+        }
+        if (msg.target_type === 'single') {
+            const agent = agents.find(a => a.email === msg.target_email || a.machine_name === msg.target_machine);
+            setSelectedAgent(agent || null);
+        } else {
+            setSelectedAgent(null);
+        }
+        setActiveTab('send');
+    };
+
     // Priority/Category configs
     const priorityOptions = [
         { value: 'low', label: 'Bassa', color: '#6B7280', icon: '📋' },
@@ -659,11 +681,27 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
                                                                 `💻 ${msg.target_email || msg.target_machine}`}
                                                     </span>
                                                 </div>
-                                                <div style={{ fontSize: 11, color: '#64748B' }}>
-                                                    {new Date(msg.created_at).toLocaleString('it-IT', {
-                                                        day: '2-digit', month: '2-digit', year: '2-digit',
-                                                        hour: '2-digit', minute: '2-digit'
-                                                    })}
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                                                    <div style={{ fontSize: 11, color: '#64748B' }}>
+                                                        {new Date(msg.created_at).toLocaleString('it-IT', {
+                                                            day: '2-digit', month: '2-digit', year: '2-digit',
+                                                            hour: '2-digit', minute: '2-digit'
+                                                        })}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleRinvio(msg)}
+                                                        style={{
+                                                            padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                                                            border: '1px solid #334155', background: '#1e293b', color: '#818CF8',
+                                                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                                                            transition: 'all 0.2s'
+                                                        }}
+                                                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(129,140,248,0.15)'; e.currentTarget.style.borderColor = '#818CF8'; }}
+                                                        onMouseLeave={e => { e.currentTarget.style.background = '#1e293b'; e.currentTarget.style.borderColor = '#334155'; }}
+                                                    >
+                                                        <RefreshCw size={12} />
+                                                        Rinvio
+                                                    </button>
                                                 </div>
                                             </div>
                                             <div style={{ fontSize: 13, color: '#94A3B8', marginBottom: 8 }}>{msg.body}</div>
