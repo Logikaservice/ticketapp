@@ -172,7 +172,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-7xl mx-auto w-full">
           {loadingCompanies && (
             <div className="flex justify-center items-center py-12">
               <Loader size={32} className="animate-spin text-blue-600 mr-3" />
@@ -195,7 +195,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                     <th className="text-left py-1.5 px-3 font-semibold text-gray-700">Nome Utente</th>
                     <th className="text-left py-1.5 px-3 font-semibold text-gray-700">URL</th>
                     <th className="text-left py-1.5 px-3 font-semibold text-gray-700">Scadenza</th>
-                    {showAssistenzaButton && <th className="text-left py-1.5 px-3 font-semibold text-gray-700 w-32">Assistenza</th>}
+                    {showAssistenzaButton && <th className="text-left py-1.5 px-3 font-semibold text-gray-700 min-w-[140px] w-40">Assistenza</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -269,7 +269,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                           ) : '—'}
                         </td>
                         {showAssistenzaButton && (
-                          <td className={cellPad}>
+                          <td className={`${cellPad} whitespace-nowrap min-w-[140px]`}>
                             <button
                               type="button"
                               onClick={() => onOpenTicket({
