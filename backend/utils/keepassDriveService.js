@@ -636,6 +636,93 @@ class KeepassDriveService {
   }
 
   /**
+   * Recupera la password di una singola entry Email da KeePass.
+   * Usato per visualizzazione su richiesta (solo admin).
+   * @param {string} password - Password del file Keepass
+   * @param {string} aziendaName - Nome azienda
+   * @param {object} params - { title, username, url, divider } per identificare l'entry
+   * @returns {string|null} Password in chiaro o null se non trovata
+   */
+  async getEmailEntryPassword(password, aziendaName, params = {}) {
+    try {
+      const { title = '', username = '', url = '', divider = '' } = params;
+      const fileData = await this.downloadKeepassFile(password);
+      const credentials = new Credentials(ProtectedValue.fromString(password));
+      const db = await Kdbx.load(fileData.buffer.buffer, credentials);
+
+      const findEmailGroup = (group, path = '') => {
+        const name = group.name || 'Root';
+        const currentPath = path ? `${path} > ${name}` : name;
+        const segments = currentPath.split('>').map(s => s.trim()).filter(Boolean);
+        if (aziendaName) {
+          const gestioneIdx = segments.findIndex(s => s.toLowerCase() === 'gestione');
+          if (gestioneIdx === -1) return null;
+          const aziendaIdx = gestioneIdx + 1;
+          if (aziendaIdx < segments.length) {
+            const segAzienda = segments[aziendaIdx].trim().toLowerCase();
+            const aziendaNorm = aziendaName.trim().toLowerCase();
+            if (segAzienda !== aziendaNorm) return null;
+          }
+        }
+        if (name.toLowerCase() === 'email' || name.toLowerCase() === 'e-mail') return group;
+        if (group.groups) {
+          for (const sub of group.groups) {
+            const found = findEmailGroup(sub, currentPath);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      let emailGroup = null;
+      for (const root of db.groups || []) {
+        emailGroup = findEmailGroup(root);
+        if (emailGroup) break;
+      }
+      if (!emailGroup) return null;
+
+      const normalize = (s) => (s || '').trim();
+      const titleN = normalize(title);
+      const usernameN = normalize(username);
+      const urlN = normalize(url);
+      const dividerN = normalize(divider);
+
+      const findEntry = (group, currentDivider) => {
+        if (group.entries) {
+          for (const entry of group.entries) {
+            const titleF = entry.fields && entry.fields['Title'];
+            const userF = entry.fields && entry.fields['UserName'];
+            const urlF = entry.fields && entry.fields['URL'];
+            const t = normalize(titleF ? (titleF instanceof ProtectedValue ? titleF.getText() : String(titleF)) : '');
+            const u = normalize(userF ? (userF instanceof ProtectedValue ? userF.getText() : String(userF)) : '');
+            const r = normalize(urlF ? (urlF instanceof ProtectedValue ? urlF.getText() : String(urlF)) : '');
+            const d = normalize(currentDivider);
+            if (t === titleN && u === usernameN && r === urlN && d === dividerN) {
+              const passF = entry.fields && entry.fields['Password'];
+              if (!passF) return null;
+              return passF instanceof ProtectedValue ? passF.getText() : String(passF || '');
+            }
+          }
+        }
+        const children = Array.isArray(group.groups) ? group.groups : [];
+        for (const sub of children) {
+          const subName = (sub.name || '').trim();
+          const found = findEntry(sub, subName);
+          if (found !== undefined && found !== null) return found;
+        }
+        return undefined;
+      };
+
+      let pw = findEntry(emailGroup, '');
+      if (pw !== undefined && pw !== null) return pw;
+      return null;
+    } catch (error) {
+      console.error('❌ Errore getEmailEntryPassword:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Email in scadenza per tutte le aziende: carica KeePass UNA sola volta e restituisce le entry con scadenza nel range [now, limit].
    * Evita N download (uno per azienda) che causano timeout 504.
    * @param {string} password - Password KeePass

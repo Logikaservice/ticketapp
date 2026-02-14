@@ -3,14 +3,17 @@
 // Scadenza letta da KeePass (entry.times.expiryTime); riga in rosso se scaduta
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Loader, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Loader, MessageCircle, Eye, EyeOff } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import EmailIntroCard from '../components/EmailIntroCard';
 
 const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser, onOpenTicket }) => {
   const isCliente = currentUser?.ruolo === 'cliente';
   const showAssistenzaButton = isCliente && typeof onOpenTicket === 'function';
+  const showPasswordColumn = currentUser?.ruolo === 'admin';
   const [loading, setLoading] = useState(false);
+  const [visiblePasswords, setVisiblePasswords] = useState({});
+  const [loadingPasswords, setLoadingPasswords] = useState({});
   const [error, setError] = useState(null);
   const [items, setItems] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -80,7 +83,41 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
       setHasSearched(false);
       setCompanyName('');
     }
+    setVisiblePasswords({});
+    setLoadingPasswords({});
   }, [selectedCompanyId, companies, loadingCompanies, selectedCompanyValid]);
+
+  const fetchPassword = async (item) => {
+    if (!showPasswordColumn || !companyName || !getAuthHeader) return;
+    const key = entryKey(item);
+    setLoadingPasswords(p => ({ ...p, [key]: true }));
+    try {
+      const params = new URLSearchParams({
+        aziendaName: companyName,
+        title: item.title || '',
+        username: item.username || '',
+        url: item.url || '',
+        divider: item.divider || ''
+      });
+      const res = await fetch(buildApiUrl(`/api/keepass/email-password?${params}`), { headers: getAuthHeader() });
+      if (!res.ok) throw new Error('Password non trovata');
+      const data = await res.json();
+      setVisiblePasswords(v => ({ ...v, [key]: data.password || '' }));
+    } catch (err) {
+      console.error('Errore recupero password:', err);
+    } finally {
+      setLoadingPasswords(p => ({ ...p, [key]: false }));
+    }
+  };
+
+  const hidePassword = (item) => {
+    const key = entryKey(item);
+    setVisiblePasswords(v => {
+      const next = { ...v };
+      delete next[key];
+      return next;
+    });
+  };
 
   const loadEmailData = async () => {
     if (!selectedCompanyId || !getAuthHeader) {
@@ -193,6 +230,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="text-left py-1.5 px-3 font-semibold text-gray-700">Titolo</th>
                     <th className="text-left py-1.5 px-3 font-semibold text-gray-700">Nome Utente</th>
+                    {showPasswordColumn && <th className="text-left py-1.5 px-3 font-semibold text-gray-700 min-w-[120px]">Password</th>}
                     <th className="text-left py-1.5 px-3 font-semibold text-gray-700">URL</th>
                     <th className="text-left py-1.5 px-3 font-semibold text-gray-700">Scadenza</th>
                     {showAssistenzaButton && <th className="text-left py-1.5 px-3 font-semibold text-gray-700 min-w-[140px] w-40">Assistenza</th>}
@@ -230,7 +268,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                           className={`bg-sky-100 border-y border-sky-200 ${isNested ? 'border-l-4 border-l-sky-400 bg-sky-50' : ''}`}
                         >
                           <td
-                            colSpan={showAssistenzaButton ? 5 : 4}
+                            colSpan={4 + (showPasswordColumn ? 1 : 0) + (showAssistenzaButton ? 1 : 0)}
                             className={`py-1 px-3 font-medium text-sky-800 ${isNested ? 'pl-10' : ''}`}
                           >
                             {isNested && <span className="text-sky-600 mr-2">└</span>}
@@ -253,6 +291,34 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                           {item.title || '—'}
                         </td>
                         <td className={`${cellPad} text-gray-600 font-mono`}>{item.username || '—'}</td>
+                        {showPasswordColumn && (
+                          <td className={`${cellPad} whitespace-nowrap`}>
+                            {visiblePasswords[key] !== undefined ? (
+                              <div className="flex items-center gap-1">
+                                <span className="font-mono text-gray-800 bg-gray-50 px-2 py-0.5 rounded text-xs">{visiblePasswords[key]}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => hidePassword(item)}
+                                  className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                                  title="Nascondi password"
+                                >
+                                  <EyeOff size={14} />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => fetchPassword(item)}
+                                disabled={loadingPasswords[key]}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100 transition-colors whitespace-nowrap disabled:opacity-50"
+                                title="Mostra password"
+                              >
+                                {loadingPasswords[key] ? <Loader size={12} className="animate-spin" /> : <Eye size={14} />}
+                                {loadingPasswords[key] ? '...' : 'Mostra'}
+                              </button>
+                            )}
+                          </td>
+                        )}
                         <td className={`${cellPad} text-gray-600 truncate max-w-[280px]`} title={item.url || ''}>
                           {item.url ? (
                             <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">

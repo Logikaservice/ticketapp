@@ -1899,6 +1899,42 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
+  // GET /api/keepass/email-password - Recupera password di una entry Email (solo admin, su richiesta)
+  router.get('/email-password', authenticateToken, requireRole(['admin']), async (req, res) => {
+    try {
+      const aziendaName = (req.query.aziendaName || '').split(':')[0].trim();
+      const title = req.query.title || '';
+      const username = req.query.username || '';
+      const url = req.query.url || '';
+      const divider = req.query.divider || '';
+
+      if (!aziendaName || (title === '' && username === '')) {
+        return res.status(400).json({ error: 'aziendaName e (title o username) richiesti' });
+      }
+
+      const keepassPassword = process.env.KEEPASS_PASSWORD;
+      if (!keepassPassword) {
+        return res.status(500).json({ error: 'Password KeePass non configurata' });
+      }
+
+      const password = await keepassDriveService.getEmailEntryPassword(keepassPassword, aziendaName, {
+        title,
+        username,
+        url,
+        divider
+      });
+
+      if (password === null) {
+        return res.status(404).json({ error: 'Entry non trovata' });
+      }
+
+      res.json({ password });
+    } catch (err) {
+      console.error('❌ Errore recupero password Email:', err);
+      res.status(500).json({ error: 'Errore durante il recupero della password' });
+    }
+  });
+
   // PUT /api/keepass/email-expiry - Salva scadenza per entry Email (come Anti-Virus)
   router.put('/email-expiry', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
     try {
