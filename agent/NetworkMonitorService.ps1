@@ -5,15 +5,15 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.6.15
-# Data ultima modifica: 2026-02-07
+# Versione: 2.6.16
+# Data ultima modifica: 2026-02-14
 
 param(
     [string]$ConfigPath = "config.json"
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.6.15"
+$SCRIPT_VERSION = "2.6.16"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -1018,7 +1018,8 @@ function Get-NetworkDevices {
                 
                 # Parallelizza scansione IP usando RunspacePool (molto pi├╣ veloce)
                 if ($ipListToScan.Count -gt 0) {
-                    $runspacePool = [runspacefactory]::CreateRunspacePool(1, 100)
+                    # Ridotto pool a 50 runspace per evitare saturazione risorse (era 100)
+                    $runspacePool = [runspacefactory]::CreateRunspacePool(1, 50)
                     $runspacePool.Open()
                     $jobs = New-Object System.Collections.ArrayList
                     
@@ -1155,9 +1156,9 @@ function Get-NetworkDevices {
                     }
                     
                     # Raccogli risultati con timeout per evitare blocchi
-                    # IMPORTANTE: Salva gli IP man mano che vengono trovati, cos├¼ appaiono in tempo reale nella tray icon
+                    # FIX: Timeout aumentato a 30s per dare tempo ai job, ma con watchdog anti-hang
                     $activeIPs = New-Object System.Collections.ArrayList
-                    $pingTimeout = 10  # Timeout 10 secondi per raccolta risultati ping
+                    $pingTimeout = 30  # Timeout 30 secondi per raccolta risultati ping (era 10)
                     $pingStartTime = Get-Date
                     
                     Write-Log "Raccolta risultati scansione ibrida (Ping+TCP) per $($jobs.Count) job..." "INFO"
@@ -1181,11 +1182,11 @@ function Get-NetworkDevices {
                                 break
                             }
                             
-                            # Attendi risultato con timeout (3 secondi per job - aumentato per ping multipli)
+                            # Attendi risultato con timeout ridotto per evitare hang
                             if ($jobInfo.AsyncResult) {
                                 $asyncWait = $jobInfo.AsyncResult.AsyncWaitHandle
-                                # Timeout aumentato a 3 secondi per gestire ping multipli (3 tentativi)
-                                if ($asyncWait -and $asyncWait.WaitOne(3000)) {
+                                # FIX: Ridotto a 1500ms per evitare che job bloccati congelino l'intero agent
+                                if ($asyncWait -and $asyncWait.WaitOne(1500)) {
                                     try {
                                         $result = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
                                         if ($result) {
@@ -1217,42 +1218,10 @@ function Get-NetworkDevices {
                                                 }
                                             }
                                             
-                                            # Salva SUBITO questo IP nella tray icon (aggiornamento in tempo reale)
-                                            try {
-                                                $currentIPs = @()
-                                                if (Test-Path $script:currentScanIPsFile) {
-                                                    $existingContent = Get-Content $script:currentScanIPsFile -Raw -ErrorAction SilentlyContinue
-                                                    if ($existingContent -and $existingContent.Trim() -ne '[]' -and $existingContent.Trim() -ne '') {
-                                                        try {
-                                                            $existingData = $existingContent | ConvertFrom-Json
-                                                            if ($existingData -is [System.Array]) {
-                                                                foreach ($existingItem in $existingData) {
-                                                                    if ($existingItem -is [PSCustomObject] -and $existingItem.ip) {
-                                                                        $currentIPs += @{ ip = $existingItem.ip.ToString(); mac = if ($existingItem.mac) { $existingItem.mac.ToString() } else { $null } }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                        catch { }
-                                                    }
-                                                }
-                                                
-                                                # Aggiungi il nuovo IP se non ├¿ gi├á presente
-                                                $ipExists = $false
-                                                foreach ($existingIP in $currentIPs) {
-                                                    if ($existingIP.ip -eq $resultIP) {
-                                                        $ipExists = $true
-                                                        break
-                                                    }
-                                                }
-                                                if (-not $ipExists) {
-                                                    $currentIPs += @{ ip = $resultIP; mac = $null }
-                                                    $currentIPs | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
-                                                }
-                                            }
-                                            catch {
-                                                # Ignora errori salvataggio in tempo reale
-                                            }
+                                            # FIX: Non salviamo pi├╣ su disco dentro il loop hot dei 253 job
+                                            # I/O su file dentro questo loop causava deadlock quando
+                                            # Synology Active Backup o AVG bloccavano i file
+                                            # Il salvataggio viene fatto in batch DOPO la raccolta
                                         }
                                     }
                                     catch {
@@ -1289,12 +1258,38 @@ function Get-NetworkDevices {
                     
                     Write-Log "Raccolta ping completata: $($activeIPs.Count) IP attivi trovati su $($jobs.Count) job processati" "INFO"
                     
+                    # FIX: Watchdog - forza chiusura di TUTTI i job rimasti aperti
+                    try {
+                        foreach ($jobInfo in $jobs) {
+                            try {
+                                if ($jobInfo.Job -and $jobInfo.AsyncResult -and (-not $jobInfo.AsyncResult.IsCompleted)) {
+                                    $jobInfo.Job.Stop()
+                                }
+                                if ($jobInfo.Job) { $jobInfo.Job.Dispose() }
+                            }
+                            catch { }
+                        }
+                    }
+                    catch { }
+                    
                     try {
                         $runspacePool.Close()
                         $runspacePool.Dispose()
                     }
                     catch {
                         Write-Log "Errore chiusura runspace pool ping: $_" "WARN"
+                    }
+                    
+                    # FIX: Salva IP trovati nella tray icon in un'unica operazione batch
+                    # (spostato fuori dal loop hot per evitare deadlock con I/O disco)
+                    try {
+                        if ($activeIPs.Count -gt 0 -and $script:currentScanIPsFile) {
+                            $ipsForTray = $activeIPs | ForEach-Object { @{ ip = $_.ToString(); mac = $null } }
+                            $ipsForTray | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
+                        }
+                    }
+                    catch {
+                        Write-Log "Errore salvataggio IP tray icon: $_" "WARN"
                     }
                     
                     

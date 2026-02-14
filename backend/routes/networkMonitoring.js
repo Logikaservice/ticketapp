@@ -929,7 +929,7 @@ module.exports = (pool, io) => {
     try {
       const agentId = req.agent.id;
       const { version, system_uptime, network_issue_detected, network_issue_duration, unifi_last_ok, unifi_last_check_at } = req.body;
-      
+
       // Log versione ricevuta dall'agent per debug
       if (version) {
         console.log(`📦 Heartbeat agent ${agentId}: versione ricevuta = ${version}`);
@@ -1009,7 +1009,7 @@ module.exports = (pool, io) => {
          RETURNING version`,
         [versionToSave, agentId]
       );
-      
+
       // Log versione salvata per debug
       const savedVersion = updateResult.rows[0]?.version;
       if (versionToSave && savedVersion) {
@@ -6864,13 +6864,13 @@ pause
   // scaricano da /download/agent/NetworkMonitorService.ps1 e si riavviano (auto-update).
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.6.15'; // Versione corrente agent
+      const CURRENT_AGENT_VERSION = '2.6.16'; // Versione corrente agent - FIX anti-hang scansione
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
         version: CURRENT_AGENT_VERSION,
         download_url: `${baseUrl}/agent-updates/NetworkMonitorService.ps1`,
-        release_date: '2026-02-07',
+        release_date: '2026-02-14',
         features: [
           'Tray - Fix countdown Prossima scansione (max intervallo, last_scan nel futuro)',
           'Parallelismo scansione WiFi (router multipli simultanei)',
