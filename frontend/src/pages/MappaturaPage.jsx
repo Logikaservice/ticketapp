@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    ArrowLeft, ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw,
+    ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw,
     Monitor, Printer, Wifi, Router, X, Trash2, Link2, Link2Off, Network,
     Smartphone, Tablet, Laptop, Camera, Tv, Watch, Phone, Database, Cloud, Globe, List,
     Layers, HardDrive, Shield, RadioTower, Speaker, Circle, Lock, Unlock, Key, CheckCircle, AlertTriangle, ChevronDown, ChevronUp, PhoneCall
@@ -9,6 +9,7 @@ import {
 import { buildApiUrl } from '../utils/apiConfig';
 import { AVAILABLE_ICONS, getDeviceIcon } from '../utils/deviceTypeIcons';
 import MonitoraggioIntroCard from '../components/MonitoraggioIntroCard';
+import SectionNavMenu from '../components/SectionNavMenu';
 import * as d3 from 'd3-force';
 
 const style = document.createElement('style');
@@ -216,7 +217,7 @@ const RefreshTimer = () => {
     return <span>{seconds < 10 ? `0${seconds}` : seconds}s</span>;
 };
 
-const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onNavigateToMonitoring = null, currentUser }) => {
+const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onNavigateToMonitoring = null, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateMappatura }) => {
     const isCliente = currentUser?.ruolo === 'cliente';
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId ? String(initialCompanyId) : '');
@@ -1696,9 +1697,16 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                 {/* Header */}
                 <div className="mappatura-header bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10 shrink-0">
                     <div className="flex items-center gap-4">
-                        <button onClick={() => { saveLayoutRef.current?.(); onClose(); }} className="p-2 hover:bg-gray-100 rounded-full" title="Chiudi Mappatura">
-                            <ArrowLeft size={24} className="text-gray-600" />
-                        </button>
+                        <SectionNavMenu
+                            currentPage="mappatura"
+                            onNavigateHome={() => { saveLayoutRef.current?.(); onClose(); }}
+                            onNavigateOffice={onNavigateOffice}
+                            onNavigateEmail={onNavigateEmail}
+                            onNavigateAntiVirus={onNavigateAntiVirus}
+                            onNavigateNetworkMonitoring={onNavigateToMonitoring ? () => onNavigateToMonitoring(selectedCompanyId ? parseInt(selectedCompanyId) : null) : null}
+                            onNavigateMappatura={null}
+                            currentUser={currentUser}
+                        />
                         <div>
                             <h1 className="text-xl font-bold text-gray-900">Mappatura</h1>
                             <p className="text-sm text-gray-600">Mappa manuale senza SNMP · IP individuati</p>

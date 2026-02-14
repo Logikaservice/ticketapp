@@ -3100,7 +3100,7 @@ export default function TicketApp() {
         ))}
       </div>
       <div className="app-zoom-wrapper">
-        {!showPackVision && !showNetworkMonitoring && !showEmail && !showOffice && !showAntiVirus && (
+        {!showPackVision && !showNetworkMonitoring && !showEmail && !showOffice && !showAntiVirus && !showMappatura && (
           <Header
             {...{
               currentUser,
@@ -3203,6 +3203,12 @@ export default function TicketApp() {
                 }}
                 initialCompanyId={selectedCompanyForNavigation}
                 readOnly={isReadOnly}
+                currentUser={currentUser}
+                onNavigateOffice={handleOpenOffice}
+                onNavigateEmail={handleOpenEmail}
+                onNavigateAntiVirus={handleOpenAntiVirus}
+                onNavigateNetworkMonitoring={null}
+                onNavigateMappatura={() => { setShowMappatura(true); setShowNetworkMonitoring(false); setShowDashboard(false); setSelectedCompanyForNavigation(selectedCompanyForNavigation); }}
               />
             ) : (
               // Messaggio di accesso negato
@@ -3253,6 +3259,10 @@ export default function TicketApp() {
               setShowNetworkMonitoring(true);
             }}
             currentUser={currentUser}
+            onNavigateOffice={handleOpenOffice}
+            onNavigateEmail={handleOpenEmail}
+            onNavigateAntiVirus={handleOpenAntiVirus}
+            onNavigateMappatura={null}
           />
         )}
 

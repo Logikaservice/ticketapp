@@ -19,8 +19,9 @@ import AgentNotifications from './AgentNotifications';
 import TelegramConfigSection from './TelegramConfigSection';
 import { EventBadge, SeverityIndicator } from './EventBadges';
 import MonitoraggioIntroCard from './MonitoraggioIntroCard';
+import SectionNavMenu from './SectionNavMenu';
 
-const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, initialCompanyId = null, readOnly = false }) => {
+const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
   const [devices, setDevices] = useState([]);
   const [changes, setChanges] = useState([]);
   const [recentChangesCount, setRecentChangesCount] = useState(0); // Conteggio cambiamenti ultime 24h dal backend
@@ -1318,9 +1319,16 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       {onClose && (
         <div className="bg-white border-b px-6 py-3 flex justify-between items-center sticky top-0 z-40 shadow-sm">
           <div className="flex items-center gap-4">
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-              <X size={24} className="text-gray-600" />
-            </button>
+            <SectionNavMenu
+              currentPage="network"
+              onNavigateHome={onClose}
+              onNavigateOffice={onNavigateOffice}
+              onNavigateEmail={onNavigateEmail}
+              onNavigateAntiVirus={onNavigateAntiVirus}
+              onNavigateNetworkMonitoring={null}
+              onNavigateMappatura={onNavigateMappatura}
+              currentUser={currentUser}
+            />
             <div className="h-6 w-px bg-gray-300"></div>
             <h1 className="font-bold text-xl text-gray-800">Monitoraggio Rete</h1>
             {/* Notifiche Agent - spostato a destra del titolo */}
