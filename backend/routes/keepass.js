@@ -1899,9 +1899,17 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
-  // GET /api/keepass/email-password - Recupera password di una entry Email (solo admin, su richiesta)
-  router.get('/email-password', authenticateToken, requireRole(['admin']), async (req, res) => {
+  // GET /api/keepass/email-password - Recupera password di una entry Email (tecnico, admin, amministratori aziendali)
+  router.get('/email-password', authenticateToken, async (req, res) => {
     try {
+      const userRole = req.user?.ruolo || (req.headers['x-user-role'] || '').toString();
+      const adminCompanies = req.user?.admin_companies || [];
+      const isTecnicoOrAdmin = userRole === 'tecnico' || userRole === 'admin';
+      const isAdminAziendale = userRole === 'cliente' && adminCompanies && adminCompanies.length > 0;
+      if (!isTecnicoOrAdmin && !isAdminAziendale) {
+        return res.status(403).json({ error: 'Accesso negato' });
+      }
+
       const aziendaName = (req.query.aziendaName || '').split(':')[0].trim();
       const title = req.query.title || '';
       const username = req.query.username || '';
@@ -1910,6 +1918,20 @@ module.exports = function createKeepassRouter(pool) {
 
       if (!aziendaName || (title === '' && username === '')) {
         return res.status(400).json({ error: 'aziendaName e (title o username) richiesti' });
+      }
+
+      if (isAdminAziendale) {
+        let accessibleCompanies = [...adminCompanies];
+        const userAzienda = req.user?.azienda || '';
+        if (userAzienda === 'Paradiso Group' || adminCompanies.includes('Paradiso Group')) {
+          ['Conad Mercurio', 'Conad La Torre', 'Conad Albatros'].forEach(c => {
+            if (!accessibleCompanies.includes(c)) accessibleCompanies.push(c);
+          });
+        }
+        const hasAccess = accessibleCompanies.some(ac => (ac || '').trim().toLowerCase() === aziendaName.trim().toLowerCase());
+        if (!hasAccess) {
+          return res.status(403).json({ error: 'Accesso negato per questa azienda' });
+        }
       }
 
       const keepassPassword = process.env.KEEPASS_PASSWORD;

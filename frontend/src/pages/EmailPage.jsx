@@ -10,7 +10,7 @@ import EmailIntroCard from '../components/EmailIntroCard';
 const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser, onOpenTicket }) => {
   const isCliente = currentUser?.ruolo === 'cliente';
   const showAssistenzaButton = isCliente && typeof onOpenTicket === 'function';
-  const showPasswordColumn = currentUser?.ruolo === 'admin';
+  const showPasswordColumn = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin' || (currentUser?.ruolo === 'cliente' && currentUser?.admin_companies && currentUser.admin_companies.length > 0);
   const [loading, setLoading] = useState(false);
   const [visiblePasswords, setVisiblePasswords] = useState({});
   const [loadingPasswords, setLoadingPasswords] = useState({});
