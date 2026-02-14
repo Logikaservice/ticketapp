@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Search, X, Check, Calendar, Monitor, Server, Layers, GripVertical, Plus, Laptop, Smartphone, Tablet, MessageCircle } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import AntiVirusIntroCard from '../components/AntiVirusIntroCard';
+import SectionNavMenu from '../components/SectionNavMenu';
 
-const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, onOpenTicket }) => {
+const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, onOpenTicket, onNavigateOffice, onNavigateEmail, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
     const showAssistenzaButton = readOnly && typeof onOpenTicket === 'function';
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState('');
@@ -384,6 +385,15 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                         <h1 className="text-xl font-bold text-gray-800">Gestione Anti-Virus</h1>
                         {readOnly && <p className="text-sm text-gray-500 mt-0.5">Sola consultazione</p>}
                     </div>
+                    <SectionNavMenu
+                        currentPage="antivirus"
+                        onNavigateOffice={onNavigateOffice}
+                        onNavigateEmail={onNavigateEmail}
+                        onNavigateAntiVirus={null}
+                        onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
+                        onNavigateMappatura={onNavigateMappatura}
+                        currentUser={currentUser}
+                    />
                 </div>
 
                 <div className="flex items-center gap-4">

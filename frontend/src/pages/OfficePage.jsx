@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ArrowLeft, Loader, Calendar, X, StickyNote } from 'lucide-react';
+import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 import OfficeIntroCard from '../components/OfficeIntroCard';
 
-const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser }) => {
+const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser, onNavigateEmail, onNavigateAntiVirus, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
   const isCliente = currentUser?.ruolo === 'cliente';
   const isTecnico = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
   const [loading, setLoading] = useState(false);
@@ -219,6 +220,15 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
             <h1 className="text-xl font-bold text-gray-900">Office</h1>
             <p className="text-sm text-gray-600">{companyName || 'Seleziona un\'azienda'}</p>
           </div>
+          <SectionNavMenu
+            currentPage="office"
+            onNavigateOffice={null}
+            onNavigateEmail={onNavigateEmail}
+            onNavigateAntiVirus={onNavigateAntiVirus}
+            onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
+            onNavigateMappatura={onNavigateMappatura}
+            currentUser={currentUser}
+          />
         </div>
         <div className="flex items-center gap-4">
           {!loadingCompanies && (isCliente ? !!selectedCompanyId : true) && (

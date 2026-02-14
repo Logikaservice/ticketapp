@@ -3262,6 +3262,10 @@ export default function TicketApp() {
             getAuthHeader={getAuthHeader}
             selectedCompanyId={selectedCompanyForNavigation || (currentUser?.ruolo === 'cliente' ? currentUser?.azienda_id : null) || (currentUser?.admin_companies && currentUser.admin_companies.length > 0 ? currentUser.admin_companies[0] : null)}
             currentUser={currentUser}
+            onNavigateEmail={handleOpenEmail}
+            onNavigateAntiVirus={handleOpenAntiVirus}
+            onNavigateNetworkMonitoring={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setNetworkMonitoringInitialView(null); }}
+            onNavigateMappatura={() => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowOffice(false); setShowEmail(false); }}
           />
         )}
 
@@ -3272,6 +3276,10 @@ export default function TicketApp() {
             readOnly={currentUser?.ruolo === 'cliente' && !!(currentUser?.admin_companies && currentUser.admin_companies.length > 0)}
             currentUser={currentUser}
             onOpenTicket={openNewTicketWithData}
+            onNavigateOffice={handleOpenOffice}
+            onNavigateEmail={handleOpenEmail}
+            onNavigateNetworkMonitoring={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setNetworkMonitoringInitialView(null); }}
+            onNavigateMappatura={() => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowOffice(false); setShowEmail(false); }}
           />
         )}
 
@@ -3282,6 +3290,10 @@ export default function TicketApp() {
             selectedCompanyId={selectedCompanyForNavigation || (currentUser?.ruolo === 'cliente' ? currentUser?.azienda_id : null) || (currentUser?.admin_companies && currentUser.admin_companies.length > 0 ? currentUser.admin_companies[0] : null)}
             currentUser={currentUser}
             onOpenTicket={openNewTicketWithData}
+            onNavigateOffice={handleOpenOffice}
+            onNavigateAntiVirus={handleOpenAntiVirus}
+            onNavigateNetworkMonitoring={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setNetworkMonitoringInitialView(null); }}
+            onNavigateMappatura={() => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowOffice(false); setShowEmail(false); }}
           />
         )}
 

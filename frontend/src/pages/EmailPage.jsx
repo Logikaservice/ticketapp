@@ -6,8 +6,9 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Loader, MessageCircle, Eye, EyeOff } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import EmailIntroCard from '../components/EmailIntroCard';
+import SectionNavMenu from '../components/SectionNavMenu';
 
-const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser, onOpenTicket }) => {
+const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser, onOpenTicket, onNavigateOffice, onNavigateAntiVirus, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
   const isCliente = currentUser?.ruolo === 'cliente';
   const showAssistenzaButton = isCliente && typeof onOpenTicket === 'function';
   const showPasswordColumn = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin' || (currentUser?.ruolo === 'cliente' && currentUser?.admin_companies && currentUser.admin_companies.length > 0);
@@ -179,6 +180,15 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
             <h1 className="text-xl font-bold text-gray-900">Email</h1>
             <p className="text-sm text-gray-600">{companyName || 'Seleziona un\'azienda'}</p>
           </div>
+          <SectionNavMenu
+            currentPage="email"
+            onNavigateOffice={onNavigateOffice}
+            onNavigateEmail={null}
+            onNavigateAntiVirus={onNavigateAntiVirus}
+            onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
+            onNavigateMappatura={onNavigateMappatura}
+            currentUser={currentUser}
+          />
         </div>
         <div className="flex items-center gap-4">
           {!loadingCompanies && (isCliente ? !!selectedCompanyId : true) && (
