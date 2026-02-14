@@ -375,18 +375,9 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
             {/* Header */}
             <div className="bg-white border-b px-6 py-4 flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-3">
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 mr-2" title="Chiudi">
-                        <X size={24} />
-                    </button>
-                    <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
-                        <Shield size={24} />
-                    </div>
-                    <div>
-                        <h1 className="text-xl font-bold text-gray-800">Gestione Anti-Virus</h1>
-                        {readOnly && <p className="text-sm text-gray-500 mt-0.5">Sola consultazione</p>}
-                    </div>
                     <SectionNavMenu
                         currentPage="antivirus"
+                        onNavigateHome={onClose}
                         onNavigateOffice={onNavigateOffice}
                         onNavigateEmail={onNavigateEmail}
                         onNavigateAntiVirus={null}
@@ -394,6 +385,13 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                         onNavigateMappatura={onNavigateMappatura}
                         currentUser={currentUser}
                     />
+                    <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
+                        <Shield size={24} />
+                    </div>
+                    <div>
+                        <h1 className="text-xl font-bold text-gray-800">Gestione Anti-Virus</h1>
+                        {readOnly && <p className="text-sm text-gray-500 mt-0.5">Sola consultazione</p>}
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-4">

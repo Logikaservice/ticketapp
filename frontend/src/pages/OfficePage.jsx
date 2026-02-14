@@ -1,7 +1,7 @@
 // frontend/src/pages/OfficePage.jsx
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ArrowLeft, Loader, Calendar, X, StickyNote } from 'lucide-react';
+import { Loader, Calendar, X, StickyNote } from 'lucide-react';
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 import OfficeIntroCard from '../components/OfficeIntroCard';
@@ -209,19 +209,9 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
         <div className="flex items-center gap-4">
-          <button 
-            onClick={onClose} 
-            className="p-2 hover:bg-gray-100 rounded-full" 
-            title="Chiudi Office"
-          >
-            <ArrowLeft size={24} className="text-gray-600" />
-          </button>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Office</h1>
-            <p className="text-sm text-gray-600">{companyName || 'Seleziona un\'azienda'}</p>
-          </div>
           <SectionNavMenu
             currentPage="office"
+            onNavigateHome={onClose}
             onNavigateOffice={null}
             onNavigateEmail={onNavigateEmail}
             onNavigateAntiVirus={onNavigateAntiVirus}
@@ -229,6 +219,10 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
             onNavigateMappatura={onNavigateMappatura}
             currentUser={currentUser}
           />
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Office</h1>
+            <p className="text-sm text-gray-600">{companyName || 'Seleziona un\'azienda'}</p>
+          </div>
         </div>
         <div className="flex items-center gap-4">
           {!loadingCompanies && (isCliente ? !!selectedCompanyId : true) && (

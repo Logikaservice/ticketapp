@@ -3,7 +3,7 @@
 // Scadenza letta da KeePass (entry.times.expiryTime); riga in rosso se scaduta
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Loader, MessageCircle, Eye, EyeOff } from 'lucide-react';
+import { Loader, MessageCircle, Eye, EyeOff } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import EmailIntroCard from '../components/EmailIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
@@ -169,19 +169,9 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
     <div className="fixed inset-0 bg-gray-50 z-[100] flex flex-col font-sans w-full h-full overflow-hidden">
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
         <div className="flex items-center gap-4">
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full"
-            title="Chiudi Email"
-          >
-            <ArrowLeft size={24} className="text-gray-600" />
-          </button>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Email</h1>
-            <p className="text-sm text-gray-600">{companyName || 'Seleziona un\'azienda'}</p>
-          </div>
           <SectionNavMenu
             currentPage="email"
+            onNavigateHome={onClose}
             onNavigateOffice={onNavigateOffice}
             onNavigateEmail={null}
             onNavigateAntiVirus={onNavigateAntiVirus}
@@ -189,6 +179,10 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
             onNavigateMappatura={onNavigateMappatura}
             currentUser={currentUser}
           />
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Email</h1>
+            <p className="text-sm text-gray-600">{companyName || 'Seleziona un\'azienda'}</p>
+          </div>
         </div>
         <div className="flex items-center gap-4">
           {!loadingCompanies && (isCliente ? !!selectedCompanyId : true) && (

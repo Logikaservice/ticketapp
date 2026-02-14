@@ -2,10 +2,11 @@
 // Esclude sempre "Nuove funzionalità" e "Impostazioni"
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Menu, Building2, Mail, Shield, Wifi, MapPin } from 'lucide-react';
+import { Menu, Building2, Mail, Shield, Wifi, MapPin, Home } from 'lucide-react';
 
 const SectionNavMenu = ({
   currentPage,
+  onNavigateHome,
   onNavigateOffice,
   onNavigateEmail,
   onNavigateAntiVirus,
@@ -33,13 +34,15 @@ const SectionNavMenu = ({
 
   if (!hasAccess) return null;
 
-  const items = [
+  const homeItem = onNavigateHome ? [{ id: 'home', label: 'Home', icon: Home, onClick: onNavigateHome }] : [];
+  const sectionItems = [
     { id: 'office', label: 'Office', icon: Building2, onClick: onNavigateOffice, visible: !!onNavigateOffice },
     { id: 'email', label: 'Email', icon: Mail, onClick: onNavigateEmail, visible: !!onNavigateEmail },
     { id: 'antivirus', label: 'Anti-Virus', icon: Shield, onClick: onNavigateAntiVirus, visible: !!onNavigateAntiVirus },
     { id: 'network', label: 'Monitoraggio Rete', icon: Wifi, onClick: onNavigateNetworkMonitoring, visible: !!onNavigateNetworkMonitoring },
     { id: 'mappatura', label: 'Mappatura', icon: MapPin, onClick: onNavigateMappatura, visible: !!onNavigateMappatura }
   ].filter(item => item.visible && item.id !== currentPage);
+  const items = [...homeItem, ...sectionItems];
 
   if (items.length === 0) return null;
 
