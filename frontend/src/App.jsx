@@ -3270,6 +3270,8 @@ export default function TicketApp() {
             onClose={() => { setShowAntiVirus(false); setShowDashboard(true); }}
             getAuthHeader={getAuthHeader}
             readOnly={currentUser?.ruolo === 'cliente' && !!(currentUser?.admin_companies && currentUser.admin_companies.length > 0)}
+            currentUser={currentUser}
+            onOpenTicket={openNewTicketWithData}
           />
         )}
 

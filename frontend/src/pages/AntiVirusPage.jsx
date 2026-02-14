@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Search, X, Check, Calendar, Monitor, Server, Layers, GripVertical, Plus, Laptop, Smartphone, Tablet } from 'lucide-react';
+import { Shield, Search, X, Check, Calendar, Monitor, Server, Layers, GripVertical, Plus, Laptop, Smartphone, Tablet, MessageCircle } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import AntiVirusIntroCard from '../components/AntiVirusIntroCard';
 
-const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false }) => {
+const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, onOpenTicket }) => {
+    const showAssistenzaButton = readOnly && typeof onOpenTicket === 'function';
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState('');
     const [devices, setDevices] = useState([]);
@@ -13,6 +14,8 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false }) => {
     const [loading, setLoading] = useState(false);
     const [activeDropdown, setActiveDropdown] = useState(null); // ID of the row with open icon dropdown
     const [sidebarWidth, setSidebarWidth] = useState(450); // Default width in px
+
+    const companyName = (companies.find(c => String(c.id) === String(selectedCompanyId))?.azienda || companies.find(c => String(c.id) === String(selectedCompanyId))?.nome) || '—';
 
     const startResizing = (mouseDownEvent) => {
         mouseDownEvent.preventDefault();
@@ -497,6 +500,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false }) => {
                                         <th className="px-4 py-3 font-medium text-gray-600">Dispositivo</th>
                                         <th className="px-4 py-3 font-medium text-gray-600">Prodotto</th>
                                         <th className="px-4 py-3 font-medium text-gray-600">Scadenza</th>
+                                        {showAssistenzaButton && <th className="px-4 py-3 font-medium text-gray-600 w-32">Assistenza</th>}
                                         <th className="px-4 py-3 font-medium text-gray-600 text-right"></th>
                                     </tr>
                                 </thead>
@@ -654,6 +658,22 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false }) => {
                                                         />
                                                     )}
                                                 </td>
+                                                {showAssistenzaButton && (
+                                                    <td className="px-4 py-3">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onOpenTicket({
+                                                                titolo: `Assistenza Anti-Virus - ${(draft.hostname || device?.hostname || draft.ip_address || device?.ip_address || 'Dispositivo').toString().trim()}`,
+                                                                descrizione: `Richiesta assistenza relativa al dispositivo Anti-Virus:\n\nDispositivo: ${draft.hostname || device?.hostname || '—'}\nIP: ${draft.ip_address || device?.ip_address || '—'}\nProdotto: ${draft.product_name || '—'}\nScadenza: ${draft.expiration_date ? new Date(draft.expiration_date).toLocaleDateString('it-IT') : '—'}\nAzienda: ${companyName}`
+                                                            })}
+                                                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors whitespace-nowrap"
+                                                            title="Apri un ticket di assistenza"
+                                                        >
+                                                            <MessageCircle size={14} />
+                                                            Apri ticket
+                                                        </button>
+                                                    </td>
+                                                )}
                                                 <td className="px-4 py-3 text-right">
                                                     {!readOnly && (
                                                         <button
