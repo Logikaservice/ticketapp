@@ -212,6 +212,51 @@ export default function TicketApp() {
   // Controlla se siamo nella pagina standalone ping terminal
   const isPingTerminalPage = window.location.pathname === '/tools/ping-terminal';
 
+  // Persistenza vista nell'URL: F5 aggiorna solo la pagina corrente senza tornare alla dashboard
+  const updateUrlView = (view) => {
+    const url = new URL(window.location.href);
+    if (view && view !== 'dashboard') {
+      url.searchParams.set('view', view);
+    } else {
+      url.searchParams.delete('view');
+    }
+    window.history.replaceState({}, '', url.toString());
+  };
+
+  const getViewFromUrl = () => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('view');
+  };
+
+  // Ripristina la vista dall'URL (es. dopo F5)
+  const applyViewFromUrl = (viewName) => {
+    if (!viewName || viewName === 'dashboard') return;
+    const allFalse = () => {
+      setShowDashboard(false);
+      setShowOrariTurni(false);
+      setShowVivaldi(false);
+      setShowNetworkMonitoring(false);
+      setShowMappatura(false);
+      setShowOffice(false);
+      setShowAntiVirus(false);
+      setShowEmail(false);
+    };
+    switch (viewName) {
+      case 'office':
+        allFalse(); setShowOffice(true); break;
+      case 'email':
+        allFalse(); setShowEmail(true); break;
+      case 'mappatura':
+        allFalse(); setShowMappatura(true); break;
+      case 'antivirus':
+        allFalse(); setShowAntiVirus(true); break;
+      case 'network-monitoring':
+        allFalse(); setShowNetworkMonitoring(true); break;
+      default:
+        break;
+    }
+  };
+
   // Aggiorna lo stato quando cambia il dominio richiesto
   useEffect(() => {
     if (requestedDomain === 'orari' || requestedDomain === 'turni') {
@@ -229,6 +274,46 @@ export default function TicketApp() {
       setShowVivaldi(false);
     }
   }, [requestedDomain]);
+
+  // Persistenza vista nell'URL: F5 ricarica la pagina corrente invece di tornare alla dashboard
+  const applyHashToState = (hash) => {
+    const view = (hash || '').replace(/^#/, '').toLowerCase();
+    if (view === 'mappatura') {
+      setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false);
+    } else if (view === 'network-monitoring') {
+      setShowNetworkMonitoring(true); setShowDashboard(false); setShowMappatura(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false);
+    } else if (view === 'antivirus') {
+      setShowAntiVirus(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowEmail(false); setShowOffice(false);
+    } else if (view === 'email') {
+      setShowEmail(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowOffice(false);
+    } else if (view === 'office') {
+      setShowOffice(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false);
+    } else {
+      setShowDashboard(true); setShowMappatura(false); setShowNetworkMonitoring(false);
+      setShowAntiVirus(false); setShowEmail(false); setShowOffice(false);
+    }
+  };
+
+  useEffect(() => {
+    applyHashToState(window.location.hash);
+    const onHashChange = () => applyHashToState(window.location.hash);
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  useEffect(() => {
+    const base = window.location.pathname + window.location.search;
+    const h = showOffice ? 'office' : showMappatura ? 'mappatura' : showNetworkMonitoring ? 'network-monitoring' : showAntiVirus ? 'antivirus' : showEmail ? 'email' : '';
+    const newHash = h ? '#' + h : '';
+    if (window.location.hash !== newHash) {
+      window.history.replaceState(null, '', base + newHash);
+    }
+  }, [showOffice, showMappatura, showNetworkMonitoring, showAntiVirus, showEmail]);
 
   useEffect(() => {
     // Gestione Mappa Rete rimossa su richiesta
@@ -521,10 +606,16 @@ export default function TicketApp() {
 
       // Verifica se c'è un dominio richiesto (orari/turni)
       const savedDomain = localStorage.getItem('requestedDomain');
+      const urlView = getViewFromUrl();
+
       if (savedDomain === 'orari' || savedDomain === 'turni') {
         // Se c'è un dominio richiesto, mostra la gestione orari
         setShowDashboard(false);
         setShowOrariTurni(true);
+      } else if (urlView && urlView !== 'dashboard') {
+        // Dopo F5: ripristina la vista dall'URL invece di tornare alla dashboard
+        setShowDashboard(true); // base
+        applyViewFromUrl(urlView);
       } else {
         // Altrimenti mostra la dashboard
         setShowDashboard(true);
