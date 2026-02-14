@@ -470,7 +470,14 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                       <p className="text-xs text-gray-600 truncate min-w-0 flex-1">Hai un dubbio o un problema tecnico? Apri una richiesta di supporto</p>
                       <button
                         type="button"
-                        onClick={() => onOpenTicket()}
+                        onClick={() => onOpenTicket({
+                          titolo: `Supporto Office - ${file.title || 'Licenza Office'}`,
+                          descrizione: [
+                            `Richiesta di supporto relativa a: ${file.title || 'Licenza Office'}.`,
+                            file.username ? `\nAccount: ${file.username}` : '',
+                            '\n\nDescrivi qui il problema o la richiesta:'
+                          ].join('')
+                        })}
                         className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
                       >
                         Apri ticket
