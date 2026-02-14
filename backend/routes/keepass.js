@@ -1762,6 +1762,57 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
+  // GET /api/keepass/office-password - Recupera password di una entry Office (tecnico, admin, amministratori aziendali)
+  router.get('/office-password', authenticateToken, async (req, res) => {
+    try {
+      const userRole = req.user?.ruolo || (req.headers['x-user-role'] || '').toString();
+      const adminCompanies = req.user?.admin_companies || [];
+      const isTecnicoOrAdmin = userRole === 'tecnico' || userRole === 'admin';
+      const isAdminAziendale = userRole === 'cliente' && adminCompanies && adminCompanies.length > 0;
+      if (!isTecnicoOrAdmin && !isAdminAziendale) {
+        return res.status(403).json({ error: 'Accesso negato' });
+      }
+
+      const aziendaName = (req.query.aziendaName || '').split(':')[0].trim();
+      const title = req.query.title || '';
+      const username = req.query.username || '';
+
+      if (!aziendaName || (title === '' && username === '')) {
+        return res.status(400).json({ error: 'aziendaName e (title o username) richiesti' });
+      }
+
+      if (isAdminAziendale) {
+        let accessibleCompanies = [...adminCompanies];
+        const userAzienda = req.user?.azienda || '';
+        if (userAzienda === 'Paradiso Group' || adminCompanies.includes('Paradiso Group')) {
+          ['Conad Mercurio', 'Conad La Torre', 'Conad Albatros'].forEach(c => {
+            if (!accessibleCompanies.includes(c)) accessibleCompanies.push(c);
+          });
+        }
+        const hasAccess = accessibleCompanies.some(ac => (ac || '').trim().toLowerCase() === aziendaName.trim().toLowerCase());
+        if (!hasAccess) {
+          return res.status(403).json({ error: 'Accesso negato per questa azienda' });
+        }
+      }
+
+      const keepassPassword = process.env.KEEPASS_PASSWORD;
+      if (!keepassPassword) {
+        return res.status(500).json({ error: 'Password KeePass non configurata' });
+      }
+
+      const password = await keepassDriveService.getOfficeEntryPassword(keepassPassword, aziendaName, { title, username });
+
+      if (password === null) {
+        return res.status(404).json({ error: 'Entry non trovata' });
+      }
+
+      res.json({ password });
+    } catch (err) {
+      console.error('❌ Errore recupero password Office:', err);
+      res.status(500).json({ error: 'Errore durante il recupero della password' });
+    }
+  });
+
   // === Tabella office_card_status: scaduta (sì/no) e nota per ogni scheda Office ===
   const ensureOfficeCardStatusTable = async () => {
     await pool.query(`

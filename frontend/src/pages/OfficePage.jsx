@@ -1,7 +1,7 @@
 // frontend/src/pages/OfficePage.jsx
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader, Calendar, X, StickyNote } from 'lucide-react';
+import { Loader, Calendar, X, StickyNote, Eye, EyeOff } from 'lucide-react';
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 import OfficeIntroCard from '../components/OfficeIntroCard';
@@ -9,6 +9,7 @@ import OfficeIntroCard from '../components/OfficeIntroCard';
 const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser, onNavigateEmail, onNavigateAntiVirus, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
   const isCliente = currentUser?.ruolo === 'cliente';
   const isTecnico = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
+  const showPasswordColumn = isTecnico || (currentUser?.ruolo === 'cliente' && currentUser?.admin_companies && currentUser.admin_companies.length > 0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [officeData, setOfficeData] = useState(null);
@@ -17,6 +18,8 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
   const [cardStatuses, setCardStatuses] = useState({});  // chiave = "title||username" → { note }
+  const [visiblePasswords, setVisiblePasswords] = useState({});
+  const [loadingPasswords, setLoadingPasswords] = useState({});
 
   // Se l'azienda selezionata non è nella lista, considera come "nessuna selezione" (stesso fix di EmailPage per cliente)
   const selectedCompanyValid = companies.length > 0 && selectedCompanyId &&
@@ -73,7 +76,33 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
       setError(null);
       setCompanyName('');
     }
+    setVisiblePasswords({});
+    setLoadingPasswords({});
   }, [selectedCompanyId, companies, loadingCompanies, selectedCompanyValid]);
+
+  const officeEntryKey = (file) => `${file.title || ''}|${file.username || ''}`;
+
+  const fetchPassword = async (file) => {
+    if (!showPasswordColumn || !companyName || !getAuthHeader) return;
+    const key = officeEntryKey(file);
+    setLoadingPasswords(p => ({ ...p, [key]: true }));
+    try {
+      const params = new URLSearchParams({ aziendaName: companyName, title: file.title || '', username: file.username || '' });
+      const res = await fetch(buildApiUrl(`/api/keepass/office-password?${params}`), { headers: getAuthHeader() });
+      if (!res.ok) throw new Error('Password non trovata');
+      const data = await res.json();
+      setVisiblePasswords(v => ({ ...v, [key]: data.password || '' }));
+    } catch (err) {
+      console.error('Errore recupero password Office:', err);
+    } finally {
+      setLoadingPasswords(p => ({ ...p, [key]: false }));
+    }
+  };
+
+  const hidePassword = (file) => {
+    const key = officeEntryKey(file);
+    setVisiblePasswords(v => { const n = { ...v }; delete n[key]; return n; });
+  };
 
   const loadOfficeData = async (companyIdOverride = null) => {
     const companyIdToUse = companyIdOverride || selectedCompanyId;
@@ -314,17 +343,46 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                 const isExpired = keepassExpired;
                 return (
                 <div key={index} className={`bg-white rounded-lg shadow-sm border-2 px-4 py-3 transition-colors ${isExpired ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
-                  {/* Titolo e username del file */}
+                  {/* Titolo */}
                   <div className="mb-2 pb-2 border-b border-gray-200">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-base font-bold text-gray-900 truncate">{file.title || `File ${index + 1}`}</h3>
-                      {file.username && file.username.trim() !== '' && (
-                        <div className="text-right shrink-0">
-                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Nome utente</p>
-                          <p className="text-xs text-gray-900 font-mono">{file.username}</p>
-                        </div>
-                      )}
-                    </div>
+                    <h3 className="text-base font-bold text-gray-900 truncate">{file.title || `File ${index + 1}`}</h3>
+                    {/* Nome utente sotto il titolo */}
+                    {file.username && file.username.trim() !== '' && (
+                      <div className="mt-2">
+                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Nome utente</p>
+                        <p className="text-xs text-gray-900 font-mono">{file.username}</p>
+                      </div>
+                    )}
+                    {/* Password con Mostra/Nascondi */}
+                    {showPasswordColumn && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide shrink-0">Password</p>
+                        {visiblePasswords[officeEntryKey(file)] !== undefined ? (
+                          <div className="flex items-center gap-1">
+                            <span className="font-mono text-gray-800 bg-gray-50 px-2 py-0.5 rounded text-xs">{visiblePasswords[officeEntryKey(file)]}</span>
+                            <button
+                              type="button"
+                              onClick={() => hidePassword(file)}
+                              className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                              title="Nascondi password"
+                            >
+                              <EyeOff size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => fetchPassword(file)}
+                            disabled={loadingPasswords[officeEntryKey(file)]}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100 transition-colors whitespace-nowrap disabled:opacity-50"
+                            title="Mostra password"
+                          >
+                            {loadingPasswords[officeEntryKey(file)] ? <Loader size={12} className="animate-spin" /> : <Eye size={14} />}
+                            {loadingPasswords[officeEntryKey(file)] ? '...' : 'Mostra'}
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Campi personalizzati del file */}

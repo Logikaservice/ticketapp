@@ -1072,6 +1072,77 @@ class KeepassDriveService {
   }
 
   /**
+   * Recupera la password di una singola entry Office da KeePass.
+   * @param {string} password - Password del file Keepass
+   * @param {string} aziendaName - Nome azienda
+   * @param {object} params - { title, username } per identificare l'entry
+   * @returns {string|null} Password in chiaro o null se non trovata
+   */
+  async getOfficeEntryPassword(password, aziendaName, params = {}) {
+    try {
+      const { title = '', username = '' } = params;
+      const fileData = await this.downloadKeepassFile(password);
+      const credentials = new Credentials(ProtectedValue.fromString(password));
+      const db = await Kdbx.load(fileData.buffer.buffer, credentials);
+
+      const normalize = (s) => (s || '').trim();
+      const titleN = normalize(title);
+      const usernameN = normalize(username);
+
+      const findEntry = (group, groupPath = '', isInOfficeGroup = false) => {
+        const groupName = group.name || 'Root';
+        const currentPath = groupPath ? `${groupPath} > ${groupName}` : groupName;
+
+        let shouldInclude = true;
+        if (aziendaName) {
+          const pathSegments = currentPath.split('>').map(seg => seg.trim()).filter(Boolean);
+          const gestioneIdx = pathSegments.findIndex(seg => seg.toLowerCase() === 'gestione');
+          if (gestioneIdx === -1) return null;
+          const aziendaIdx = gestioneIdx + 1;
+          if (aziendaIdx < pathSegments.length) {
+            const seg = pathSegments[aziendaIdx].trim().toLowerCase();
+            if (seg !== aziendaName.trim().toLowerCase()) return null;
+          }
+        }
+
+        const isOfficeGroup = groupName.toLowerCase() === 'office';
+        const currentIsInOffice = isInOfficeGroup || isOfficeGroup;
+
+        if (group.entries && currentIsInOffice) {
+          for (const entry of group.entries) {
+            const tF = entry.fields && entry.fields['Title'];
+            const uF = entry.fields && entry.fields['UserName'];
+            const t = normalize(tF ? (tF instanceof ProtectedValue ? tF.getText() : String(tF)) : '');
+            const u = normalize(uF ? (uF instanceof ProtectedValue ? uF.getText() : String(uF)) : '');
+            if (t === titleN && u === usernameN) {
+              const passF = entry.fields && entry.fields['Password'];
+              if (!passF) return null;
+              return passF instanceof ProtectedValue ? passF.getText() : String(passF || '');
+            }
+          }
+        }
+
+        if (group.groups) {
+          for (const sub of group.groups) {
+            const found = findEntry(sub, currentPath, currentIsInOffice);
+            if (found !== undefined && found !== null) return found;
+          }
+        }
+        return null;
+      };
+
+      for (const root of db.groups || []) {
+        const pw = findEntry(root);
+        if (pw !== undefined && pw !== null) return pw;
+      }
+      return null;
+    } catch (error) {
+      console.error('❌ Errore getOfficeEntryPassword:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Verifica se il file KeePass è stato modificato su Google Drive
    */
   async checkFileModified(password) {
