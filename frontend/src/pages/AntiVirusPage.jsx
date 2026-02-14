@@ -401,11 +401,13 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false }) => {
             <div className="flex-1 flex overflow-hidden">
                 {!selectedCompanyId ? (
                     <div className="flex-1 overflow-auto p-6">
-                        <AntiVirusIntroCard
-                            companies={companies}
-                            value={selectedCompanyId}
-                            onChange={(id) => setSelectedCompanyId(id || '')}
-                        />
+                        <div className="max-w-4xl mx-auto w-full">
+                            <AntiVirusIntroCard
+                                companies={companies}
+                                value={selectedCompanyId}
+                                onChange={(id) => setSelectedCompanyId(id || '')}
+                            />
+                        </div>
                     </div>
                 ) : (
                 <>
