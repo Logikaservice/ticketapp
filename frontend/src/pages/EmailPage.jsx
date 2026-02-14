@@ -19,6 +19,11 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
 
+  // Se l'azienda selezionata non è nella lista (es. cliente con azienda_id/admin_companies non allineati ad all-clients), considera come "nessuna selezione"
+  const selectedCompanyValid = companies.length > 0 && selectedCompanyId &&
+    companies.some(c => String(c.id) === String(selectedCompanyId));
+  const showIntro = !loadingCompanies && (!selectedCompanyId || !selectedCompanyValid);
+
   const entryKey = (item) => `${item.title || ''}|${item.username || ''}|${item.url || ''}|${item.divider || ''}`;
 
   const formatExpiry = (expires) => {
@@ -30,6 +35,13 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
       return '—';
     }
   };
+
+  // Reset selezione se l'azienda non è nella lista (es. cliente con default non allineato)
+  useEffect(() => {
+    if (!loadingCompanies && companies.length > 0 && selectedCompanyId && !selectedCompanyValid) {
+      setSelectedCompanyId('');
+    }
+  }, [loadingCompanies, companies, selectedCompanyId, selectedCompanyValid]);
 
   useEffect(() => {
     const fetchCompanies = async () => {
@@ -60,15 +72,15 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
   }, [getAuthHeader]);
 
   useEffect(() => {
-    if (selectedCompanyId && companies.length > 0 && !loadingCompanies) {
+    if (selectedCompanyValid) {
       loadEmailData();
-    } else if (!selectedCompanyId) {
+    } else {
       setItems([]);
       setError(null);
       setHasSearched(false);
       setCompanyName('');
     }
-  }, [selectedCompanyId, companies, loadingCompanies]);
+  }, [selectedCompanyId, companies, loadingCompanies, selectedCompanyValid]);
 
   const loadEmailData = async () => {
     if (!selectedCompanyId || !getAuthHeader) {
@@ -168,7 +180,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
             </div>
           )}
 
-          {!loadingCompanies && error && (
+          {!loadingCompanies && error && !showIntro && (
             <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
               {error}
             </div>
@@ -280,11 +292,11 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
             </div>
           )}
 
-          {!loadingCompanies && !selectedCompanyId && (
+          {showIntro && (
             <div className="w-full">
               <EmailIntroCard
                 companies={companies}
-                value={selectedCompanyId || ''}
+                value={selectedCompanyValid ? selectedCompanyId : ''}
                 onChange={(companyId) => {
                   const newCompanyId = companyId || null;
                   setSelectedCompanyId(newCompanyId);
