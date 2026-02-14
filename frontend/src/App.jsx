@@ -3271,6 +3271,7 @@ export default function TicketApp() {
             onClose={() => { setShowOffice(false); setShowDashboard(true); }}
             getAuthHeader={getAuthHeader}
             selectedCompanyId={selectedCompanyForNavigation || (currentUser?.ruolo === 'cliente' ? currentUser?.azienda_id : null) || (currentUser?.admin_companies && currentUser.admin_companies.length > 0 ? currentUser.admin_companies[0] : null)}
+            onOpenTicket={openNewTicketWithData}
             currentUser={currentUser}
             onNavigateEmail={handleOpenEmail}
             onNavigateAntiVirus={handleOpenAntiVirus}

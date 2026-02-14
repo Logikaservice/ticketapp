@@ -6,7 +6,7 @@ import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 import OfficeIntroCard from '../components/OfficeIntroCard';
 
-const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser, onNavigateEmail, onNavigateAntiVirus, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
+const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser, onOpenTicket, onNavigateEmail, onNavigateAntiVirus, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
   const isCliente = currentUser?.ruolo === 'cliente';
   const isTecnico = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
   const showPasswordColumn = isTecnico || (currentUser?.ruolo === 'cliente' && currentUser?.admin_companies && currentUser.admin_companies.length > 0);
@@ -347,10 +347,10 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                   <div className="mb-2 pb-2 border-b border-gray-200">
                     <h3 className="text-base font-bold text-gray-900 truncate">{file.title || `File ${index + 1}`}</h3>
                     {/* Nome utente e Password sulla stessa riga */}
-                    <div className="mt-2 flex flex-wrap items-start gap-x-6 gap-y-2">
+                    <div className="mt-2 flex flex-wrap items-center gap-x-12 gap-y-2">
                       {file.username && file.username.trim() !== '' && (
-                        <div>
-                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Nome utente</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide shrink-0">Nome utente</p>
                           <p className="text-xs text-gray-900 font-mono">{file.username}</p>
                         </div>
                       )}
@@ -461,6 +461,20 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                           )}
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Apri ticket */}
+                  {typeof onOpenTicket === 'function' && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between gap-3 flex-nowrap">
+                      <p className="text-xs text-gray-600 truncate min-w-0 flex-1">Hai un dubbio o un problema tecnico? Apri una richiesta di supporto</p>
+                      <button
+                        type="button"
+                        onClick={() => onOpenTicket()}
+                        className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+                      >
+                        Apri ticket
+                      </button>
                     </div>
                   )}
                 </div>
