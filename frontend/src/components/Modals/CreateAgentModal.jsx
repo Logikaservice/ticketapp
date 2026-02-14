@@ -140,7 +140,8 @@ const CreateAgentModal = ({ isOpen, onClose, getAuthHeader, onAgentCreated, setS
 
   const loadCompanies = async () => {
     try {
-      const response = await fetch(buildApiUrl('/api/network-monitoring/companies'), {
+      // all=true: tutte le aziende (per poter creare agent anche per aziende senza agent esistenti)
+      const response = await fetch(buildApiUrl('/api/network-monitoring/companies?all=true'), {
         headers: getAuthHeader()
       });
 

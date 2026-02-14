@@ -4220,13 +4220,46 @@ module.exports = (pool, io) => {
   });
 
   // GET /api/network-monitoring/companies
-  // Ottieni lista aziende uniche che hanno agents attivi
-  // Accessibile a tecnici/admin e admin aziendali (con filtri appropriati)
+  // all=true: tutte le aziende (users) - per creazione nuovo agent
+  // all=false/omesso: solo aziende con agent attivi
   router.get('/companies', authenticateToken, async (req, res) => {
     try {
       const userRole = req.user?.ruolo;
+      const allCompanies = req.query.all === 'true' || req.query.all === '1';
 
-      // Query base per recuperare le aziende con agent attivi
+      if (allCompanies) {
+        // Per "Crea Nuovo Agent": tutte le aziende dalla tabella users
+        let query = `
+          SELECT u.id, u.azienda,
+            (SELECT COUNT(*) FROM network_agents na WHERE na.azienda_id = u.id AND na.deleted_at IS NULL) as agent_count
+          FROM users u
+          WHERE u.azienda IS NOT NULL AND u.azienda != '' AND u.azienda != 'Senza azienda'
+        `;
+
+        if (userRole === 'cliente' && req.user?.admin_companies && Array.isArray(req.user.admin_companies) && req.user.admin_companies.length > 0) {
+          let accessibleCompanies = [...req.user.admin_companies];
+          const userAzienda = req.user.azienda || '';
+          if (userAzienda === 'Paradiso Group' || req.user.admin_companies.includes('Paradiso Group')) {
+            ['Conad Mercurio', 'Conad La Torre', 'Conad Albatros'].forEach(c => {
+              if (!accessibleCompanies.includes(c)) accessibleCompanies.push(c);
+            });
+          }
+          const adminCompanies = accessibleCompanies.map(c => `'${c.replace(/'/g, "''")}'`).join(',');
+          query += ` AND u.azienda IN (${adminCompanies})`;
+        }
+
+        query += ` ORDER BY u.azienda ASC`;
+
+        const result = await pool.query(query);
+        const companiesResponse = result.rows.map(row => ({
+          id: row.id,
+          azienda: row.azienda,
+          agent_count: parseInt(row.agent_count || '0')
+        }));
+        return res.json(companiesResponse);
+      }
+
+      // Comportamento originale: solo aziende con agent attivi
       let query = `
         SELECT DISTINCT 
           u.azienda,
