@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ArrowLeft, Loader, Calendar, X, StickyNote } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
+import OfficeIntroCard from '../components/OfficeIntroCard';
 
 const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser }) => {
   const isCliente = currentUser?.ruolo === 'cliente';
@@ -15,6 +16,11 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
   const [cardStatuses, setCardStatuses] = useState({});  // chiave = "title||username" → { note }
+
+  // Se l'azienda selezionata non è nella lista, considera come "nessuna selezione" (stesso fix di EmailPage per cliente)
+  const selectedCompanyValid = companies.length > 0 && selectedCompanyId &&
+    companies.some(c => String(c.id) === String(selectedCompanyId));
+  const showIntro = !loadingCompanies && (!selectedCompanyId || !selectedCompanyValid);
   const saveTimers = useRef({});
 
   // Carica le aziende al mount
@@ -51,10 +57,22 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
     fetchCompanies();
   }, []);
 
+  // Reset selezione se l'azienda non è nella lista (es. cliente con default non allineato)
   useEffect(() => {
-    // Non caricare automaticamente i dati - l'utente deve selezionare manualmente l'azienda
-    // I dati verranno caricati solo quando l'utente seleziona un'azienda dal dropdown
-  }, [selectedCompanyId]);
+    if (!loadingCompanies && companies.length > 0 && selectedCompanyId && !selectedCompanyValid) {
+      setSelectedCompanyId('');
+    }
+  }, [loadingCompanies, companies, selectedCompanyId, selectedCompanyValid]);
+
+  useEffect(() => {
+    if (selectedCompanyValid) {
+      loadOfficeData();
+    } else if (!selectedCompanyId) {
+      setOfficeData(null);
+      setError(null);
+      setCompanyName('');
+    }
+  }, [selectedCompanyId, companies, loadingCompanies, selectedCompanyValid]);
 
   const loadOfficeData = async (companyIdOverride = null) => {
     const companyIdToUse = companyIdOverride || selectedCompanyId;
@@ -240,35 +258,23 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
           </div>
         )}
 
-        {!loadingCompanies && !selectedCompanyId && (
-          <div className="flex flex-col items-center justify-center flex-1 min-h-0 py-8">
-            <div className={`bg-blue-50 border border-blue-200 rounded-xl p-6 flex flex-col items-center gap-4 max-w-md w-full ${isCliente ? 'shadow-md' : ''}`}>
-              <h3 className="font-semibold text-blue-800 text-lg">Seleziona un'azienda</h3>
-              {isCliente ? (
-                <>
-                  <p className="text-blue-700 text-sm text-center">Scegli l'azienda per visualizzare i dati Office da Keepass.</p>
-                  <select
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                    value={selectedCompanyId || ''}
-                    onChange={async (e) => {
-                      const newCompanyId = e.target.value;
-                      setSelectedCompanyId(newCompanyId);
-                      setError(null);
-                      setOfficeData(null);
-                      setCompanyName('');
-                      if (newCompanyId) await loadOfficeData(newCompanyId);
-                    }}
-                  >
-                    <option value="">Seleziona Azienda...</option>
-                    {companies.map(c => (
-                      <option key={c.id} value={String(c.id)}>{c.azienda}</option>
-                    ))}
-                  </select>
-                </>
-              ) : (
-                <p className="text-blue-700 text-sm text-center">Seleziona un'azienda dal menu in alto per visualizzare i dati Office da Keepass.</p>
-              )}
-            </div>
+        {showIntro && (
+          <div className="max-w-4xl mx-auto w-full">
+            <OfficeIntroCard
+              companies={companies}
+              value={selectedCompanyValid ? selectedCompanyId : ''}
+              onChange={(companyId) => {
+                const newCompanyId = companyId || null;
+                setSelectedCompanyId(newCompanyId);
+                setError(null);
+                setOfficeData(null);
+                setCompanyName('');
+                if (newCompanyId) {
+                  const company = companies.find(c => String(c.id) === String(newCompanyId));
+                  if (company) setCompanyName((company.azienda || '').split(':')[0].trim());
+                }
+              }}
+            />
           </div>
         )}
 
@@ -281,7 +287,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
           </div>
         )}
 
-        {!loading && !loadingCompanies && error && selectedCompanyId && (
+        {!loading && !loadingCompanies && error && !showIntro && selectedCompanyId && (
           <div className="max-w-2xl mx-auto mt-8">
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
               <X size={20} className="text-red-600 shrink-0 mt-0.5" />
