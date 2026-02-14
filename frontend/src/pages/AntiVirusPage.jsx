@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Search, X, Check, Calendar, Monitor, Server, Layers, GripVertical, Plus, Laptop, Smartphone, Tablet } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
-const AntiVirusPage = ({ onClose, getAuthHeader }) => {
+const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false }) => {
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState('');
     const [devices, setDevices] = useState([]);
@@ -121,6 +121,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
     }, [selectedCompanyId, getAuthHeader]);
 
     const handleSelectDevice = (device) => {
+        if (readOnly) return;
         if (selectedDeviceIds.includes(device.device_id)) return;
 
         setSelectedDeviceIds(prev => [...prev, device.device_id]);
@@ -150,6 +151,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
     };
 
     const handleRemoveDevice = (deviceId) => {
+        if (readOnly) return;
         const device = devices.find(d => d.device_id === deviceId);
         if (window.confirm(`Rimuovere ${device?.ip_address} dalla lista?`)) {
             setSelectedDeviceIds(prev => prev.filter(id => id !== deviceId));
@@ -193,6 +195,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
     );
 
     const handleSaveRow = async (deviceId, explicitDraft = null) => {
+        if (readOnly) return;
         const draft = explicitDraft || drafts[deviceId];
         if (!draft) return;
 
@@ -287,6 +290,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
     };
 
     const handleAddManualDevice = () => {
+        if (readOnly) return;
         if (!selectedCompanyId) {
             alert("Seleziona prima un cliente");
             return;
@@ -339,6 +343,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
 
     const handleDrop = async (e, index) => {
         e.preventDefault();
+        if (readOnly) return;
         const draggedIndex = Number(e.dataTransfer.getData("text/plain"));
         if (draggedIndex === index) return;
 
@@ -371,7 +376,10 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                     <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
                         <Shield size={24} />
                     </div>
-                    <h1 className="text-xl font-bold text-gray-800">Gestione Anti-Virus</h1>
+                    <div>
+                        <h1 className="text-xl font-bold text-gray-800">Gestione Anti-Virus</h1>
+                        {readOnly && <p className="text-sm text-gray-500 mt-0.5">Sola consultazione</p>}
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-4">
@@ -393,13 +401,15 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                 {/* Left Sidebar - Device List */}
                 <div style={{ width: sidebarWidth }} className="bg-white border-r flex flex-col flex-shrink-0 relative">
                     <div className="p-4 border-b space-y-3">
-                        <button
-                            onClick={handleAddManualDevice}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors"
-                        >
-                            <Plus size={16} />
-                            Aggiungi Dispositivo
-                        </button>
+                        {!readOnly && (
+                            <button
+                                onClick={handleAddManualDevice}
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors"
+                            >
+                                <Plus size={16} />
+                                Aggiungi Dispositivo
+                            </button>
+                        )}
 
 
                         <div className="relative">
@@ -434,8 +444,8 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                                     return (
                                         <div
                                             key={dev.device_id}
-                                            onClick={() => handleSelectDevice(dev)}
-                                            className={`py-2 px-3 cursor-pointer hover:bg-gray-50 transition-colors flex items-center gap-2 ${isAdded ? 'bg-indigo-50 border-l-4 border-indigo-600' : 'border-l-4 border-transparent'}`}
+                                            onClick={() => !readOnly && handleSelectDevice(dev)}
+                                            className={`py-2 px-3 flex items-center gap-2 ${!readOnly ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'} transition-colors ${isAdded ? 'bg-indigo-50 border-l-4 border-indigo-600' : 'border-l-4 border-transparent'}`}
                                         >
                                             <div className="flex items-center gap-2 overflow-hidden w-full text-sm">
                                                 {showIp && (
@@ -494,19 +504,21 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                                             <tr
                                                 key={id}
                                                 className={`group ${isExpired ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
-                                                draggable
-                                                onDragStart={(e) => handleDragStart(e, index)}
-                                                onDragOver={(e) => handleDragOver(e, index)}
+                                                draggable={!readOnly}
+                                                onDragStart={(e) => !readOnly && handleDragStart(e, index)}
+                                                onDragOver={(e) => !readOnly && handleDragOver(e, index)}
                                                 onDrop={(e) => handleDrop(e, index)}
                                             >
-                                                <td className="px-2 py-3 w-8 text-gray-400 cursor-grab active:cursor-grabbing">
-                                                    <GripVertical size={16} />
+                                                <td className="px-2 py-3 w-8 text-gray-400">
+                                                    {readOnly ? <span className="w-4 block" /> : <GripVertical size={16} className="cursor-grab active:cursor-grabbing" />}
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <input
                                                         type="checkbox"
                                                         className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                                                         checked={draft.is_active || false}
+                                                        readOnly={readOnly}
+                                                        disabled={readOnly}
                                                         onChange={(e) => {
                                                             const val = e.target.checked;
                                                             updateDraft(id, 'is_active', val);
@@ -515,55 +527,66 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                                                     />
                                                 </td>
                                                 <td className="px-4 py-3 relative">
-                                                    <button
-                                                        onClick={() => setActiveDropdown(activeDropdown === id ? null : id)}
-                                                        className="p-1.5 rounded bg-white border hover:bg-gray-50 flex items-center gap-1 text-gray-600 shadow-sm"
-                                                        title="Cambia Tipo"
-                                                    >
-                                                        {(() => {
-                                                            const types = {
-                                                                pc: Monitor,
-                                                                server: Server,
-                                                                virtual: Layers,
-                                                                laptop: Laptop,
-                                                                smartphone: Smartphone,
-                                                                tablet: Tablet
-                                                            };
-                                                            const Icon = types[draft.device_type] || Monitor;
-                                                            return <Icon size={16} />;
-                                                        })()}
-                                                    </button>
-
-                                                    {activeDropdown === id && (
+                                                    {readOnly ? (
+                                                        <div className="p-1.5 rounded bg-gray-50 flex items-center gap-1 text-gray-600">
+                                                            {(() => {
+                                                                const types = { pc: Monitor, server: Server, virtual: Layers, laptop: Laptop, smartphone: Smartphone, tablet: Tablet };
+                                                                const Icon = types[draft.device_type] || Monitor;
+                                                                return <Icon size={16} />;
+                                                            })()}
+                                                        </div>
+                                                    ) : (
                                                         <>
-                                                            <div
-                                                                className="fixed inset-0 z-10"
-                                                                onClick={() => setActiveDropdown(null)}
-                                                            />
-                                                            <div className="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-xl z-20 w-48 p-2 grid grid-cols-3 gap-2">
-                                                                {[
-                                                                    { type: 'pc', icon: Monitor, label: 'PC' },
-                                                                    { type: 'server', icon: Server, label: 'Server' },
-                                                                    { type: 'virtual', icon: Layers, label: 'Virtual' },
-                                                                    { type: 'laptop', icon: Laptop, label: 'Portatile' },
-                                                                    { type: 'smartphone', icon: Smartphone, label: 'Cellulare' },
-                                                                    { type: 'tablet', icon: Tablet, label: 'Tablet' }
-                                                                ].map(t => (
-                                                                    <button
-                                                                        key={t.type}
-                                                                        onClick={() => {
-                                                                            updateDraft(id, 'device_type', t.type);
-                                                                            handleSaveRow(id, { ...draft, device_type: t.type });
-                                                                            setActiveDropdown(null);
-                                                                        }}
-                                                                        className={`p-2 rounded flex flex-col items-center gap-1 text-xs ${draft.device_type === t.type ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50'}`}
-                                                                        title={t.label}
-                                                                    >
-                                                                        <t.icon size={20} />
-                                                                        <span>{t.label}</span>
-                                                                    </button>
-                                                                ))}
-                                                            </div>
+                                                            <button
+                                                                onClick={() => setActiveDropdown(activeDropdown === id ? null : id)}
+                                                                className="p-1.5 rounded bg-white border hover:bg-gray-50 flex items-center gap-1 text-gray-600 shadow-sm"
+                                                                title="Cambia Tipo"
+                                                            >
+                                                                {(() => {
+                                                                    const types = {
+                                                                        pc: Monitor,
+                                                                        server: Server,
+                                                                        virtual: Layers,
+                                                                        laptop: Laptop,
+                                                                        smartphone: Smartphone,
+                                                                        tablet: Tablet
+                                                                    };
+                                                                    const Icon = types[draft.device_type] || Monitor;
+                                                                    return <Icon size={16} />;
+                                                                })()}
+                                                            </button>
+                                                            {activeDropdown === id && (
+                                                                <>
+                                                                    <div
+                                                                        className="fixed inset-0 z-10"
+                                                                        onClick={() => setActiveDropdown(null)}
+                                                                    />
+                                                                    <div className="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-xl z-20 w-48 p-2 grid grid-cols-3 gap-2">
+                                                                        {[
+                                                                            { type: 'pc', icon: Monitor, label: 'PC' },
+                                                                            { type: 'server', icon: Server, label: 'Server' },
+                                                                            { type: 'virtual', icon: Layers, label: 'Virtual' },
+                                                                            { type: 'laptop', icon: Laptop, label: 'Portatile' },
+                                                                            { type: 'smartphone', icon: Smartphone, label: 'Cellulare' },
+                                                                            { type: 'tablet', icon: Tablet, label: 'Tablet' }
+                                                                        ].map(t => (
+                                                                            <button
+                                                                                key={t.type}
+                                                                                onClick={() => {
+                                                                                    updateDraft(id, 'device_type', t.type);
+                                                                                    handleSaveRow(id, { ...draft, device_type: t.type });
+                                                                                    setActiveDropdown(null);
+                                                                                }}
+                                                                                className={`p-2 rounded flex flex-col items-center gap-1 text-xs ${draft.device_type === t.type ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50'}`}
+                                                                                title={t.label}
+                                                                            >
+                                                                                <t.icon size={20} />
+                                                                                <span>{t.label}</span>
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
+                                                                </>
+                                                            )}
                                                         </>
                                                     )}
                                                 </td>
@@ -597,32 +620,42 @@ const AntiVirusPage = ({ onClose, getAuthHeader }) => {
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <input
-                                                        type="text"
-                                                        className="w-full border rounded px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
-                                                        placeholder="Nome prodotto"
-                                                        value={draft.product_name || ''}
-                                                        onChange={(e) => updateDraft(id, 'product_name', e.target.value)}
-                                                        onBlur={() => handleBlurSave(id)}
-                                                    />
+                                                    {readOnly ? (
+                                                        <span className="text-gray-900">{draft.product_name || '-'}</span>
+                                                    ) : (
+                                                        <input
+                                                            type="text"
+                                                            className="w-full border rounded px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                            placeholder="Nome prodotto"
+                                                            value={draft.product_name || ''}
+                                                            onChange={(e) => updateDraft(id, 'product_name', e.target.value)}
+                                                            onBlur={() => handleBlurSave(id)}
+                                                        />
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <input
-                                                        type="date"
-                                                        className="w-full border rounded px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
-                                                        value={draft.expiration_date || ''}
-                                                        onChange={(e) => updateDraft(id, 'expiration_date', e.target.value)}
-                                                        onBlur={() => handleBlurSave(id)}
-                                                    />
+                                                    {readOnly ? (
+                                                        <span className="text-gray-900">{draft.expiration_date ? new Date(draft.expiration_date).toLocaleDateString('it-IT') : '-'}</span>
+                                                    ) : (
+                                                        <input
+                                                            type="date"
+                                                            className="w-full border rounded px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                            value={draft.expiration_date || ''}
+                                                            onChange={(e) => updateDraft(id, 'expiration_date', e.target.value)}
+                                                            onBlur={() => handleBlurSave(id)}
+                                                        />
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-3 text-right">
-                                                    <button
-                                                        onClick={() => handleRemoveDevice(id)}
-                                                        className="p-1.5 text-red-600 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        title="Rimuovi dalla lista"
-                                                    >
-                                                        <X size={18} />
-                                                    </button>
+                                                    {!readOnly && (
+                                                        <button
+                                                            onClick={() => handleRemoveDevice(id)}
+                                                            className="p-1.5 text-red-600 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            title="Rimuovi dalla lista"
+                                                        >
+                                                            <X size={18} />
+                                                        </button>
+                                                    )}
                                                 </td>
                                             </tr>
                                         );

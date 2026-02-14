@@ -7586,7 +7586,8 @@ pause
   // --- ANTI-VIRUS ROUTES ---
 
   // GET /api/network-monitoring/clients/:aziendaId/antivirus-devices
-  router.get('/clients/:aziendaId/antivirus-devices', authenticateToken, requireRole('tecnico'), async (req, res) => {
+  // Tecnici: lettura/scrittura. Admin aziendali (cliente): sola consultazione.
+  router.get('/clients/:aziendaId/antivirus-devices', authenticateToken, checkCompanyAccess, async (req, res) => {
     try {
       const { aziendaId } = req.params;
       const parsedAziendaId = parseInt(aziendaId, 10);

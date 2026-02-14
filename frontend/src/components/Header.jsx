@@ -143,7 +143,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       label: 'Anti-Virus',
       icon: Shield,
       color: 'violet',
-      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico',
+      visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && openAntiVirus,
       onClick: () => handleQuickActionClick('antivirus')
     },
     {
