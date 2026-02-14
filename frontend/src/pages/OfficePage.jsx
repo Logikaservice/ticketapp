@@ -346,43 +346,44 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                   {/* Titolo */}
                   <div className="mb-2 pb-2 border-b border-gray-200">
                     <h3 className="text-base font-bold text-gray-900 truncate">{file.title || `File ${index + 1}`}</h3>
-                    {/* Nome utente sotto il titolo */}
-                    {file.username && file.username.trim() !== '' && (
-                      <div className="mt-2">
-                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Nome utente</p>
-                        <p className="text-xs text-gray-900 font-mono">{file.username}</p>
-                      </div>
-                    )}
-                    {/* Password con Mostra/Nascondi */}
-                    {showPasswordColumn && (
-                      <div className="mt-2 flex items-center gap-2">
-                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide shrink-0">Password</p>
-                        {visiblePasswords[officeEntryKey(file)] !== undefined ? (
-                          <div className="flex items-center gap-1">
-                            <span className="font-mono text-gray-800 bg-gray-50 px-2 py-0.5 rounded text-xs">{visiblePasswords[officeEntryKey(file)]}</span>
+                    {/* Nome utente e Password sulla stessa riga */}
+                    <div className="mt-2 flex flex-wrap items-start gap-x-6 gap-y-2">
+                      {file.username && file.username.trim() !== '' && (
+                        <div>
+                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Nome utente</p>
+                          <p className="text-xs text-gray-900 font-mono">{file.username}</p>
+                        </div>
+                      )}
+                      {showPasswordColumn && (
+                        <div className="flex items-center gap-2">
+                          <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide shrink-0">Password</p>
+                          {visiblePasswords[officeEntryKey(file)] !== undefined ? (
+                            <div className="flex items-center gap-1">
+                              <span className="font-mono text-gray-800 bg-gray-50 px-2 py-0.5 rounded text-xs">{visiblePasswords[officeEntryKey(file)]}</span>
+                              <button
+                                type="button"
+                                onClick={() => hidePassword(file)}
+                                className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                                title="Nascondi password"
+                              >
+                                <EyeOff size={14} />
+                              </button>
+                            </div>
+                          ) : (
                             <button
                               type="button"
-                              onClick={() => hidePassword(file)}
-                              className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
-                              title="Nascondi password"
+                              onClick={() => fetchPassword(file)}
+                              disabled={loadingPasswords[officeEntryKey(file)]}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100 transition-colors whitespace-nowrap disabled:opacity-50"
+                              title="Mostra password"
                             >
-                              <EyeOff size={14} />
+                              {loadingPasswords[officeEntryKey(file)] ? <Loader size={12} className="animate-spin" /> : <Eye size={14} />}
+                              {loadingPasswords[officeEntryKey(file)] ? '...' : 'Mostra'}
                             </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => fetchPassword(file)}
-                            disabled={loadingPasswords[officeEntryKey(file)]}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100 transition-colors whitespace-nowrap disabled:opacity-50"
-                            title="Mostra password"
-                          >
-                            {loadingPasswords[officeEntryKey(file)] ? <Loader size={12} className="animate-spin" /> : <Eye size={14} />}
-                            {loadingPasswords[officeEntryKey(file)] ? '...' : 'Mostra'}
-                          </button>
-                        )}
-                      </div>
-                    )}
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Campi personalizzati del file */}
