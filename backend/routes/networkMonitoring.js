@@ -4228,9 +4228,9 @@ module.exports = (pool, io) => {
       const allCompanies = req.query.all === 'true' || req.query.all === '1';
 
       if (allCompanies) {
-        // Per "Crea Nuovo Agent": tutte le aziende dalla tabella users
+        // Per "Crea Nuovo Agent": tutte le aziende dalla tabella users (UNICHE per nome azienda)
         let query = `
-          SELECT u.id, u.azienda,
+          SELECT DISTINCT ON (u.azienda) u.id, u.azienda,
             (SELECT COUNT(*) FROM network_agents na WHERE na.azienda_id = u.id AND na.deleted_at IS NULL) as agent_count
           FROM users u
           WHERE u.azienda IS NOT NULL AND u.azienda != '' AND u.azienda != 'Senza azienda'
@@ -4248,7 +4248,7 @@ module.exports = (pool, io) => {
           query += ` AND u.azienda IN (${adminCompanies})`;
         }
 
-        query += ` ORDER BY u.azienda ASC`;
+        query += ` ORDER BY u.azienda ASC, u.id ASC`;
 
         const result = await pool.query(query);
         const companiesResponse = result.rows.map(row => ({
