@@ -18,6 +18,11 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
 
     const companyName = (companies.find(c => String(c.id) === String(selectedCompanyId))?.azienda || companies.find(c => String(c.id) === String(selectedCompanyId))?.nome) || '—';
 
+    const normalizeDeviceType = (v) => {
+        const s = (v && typeof v === 'string' ? v.trim() : String(v || 'pc')).toLowerCase();
+        return ['pc', 'server', 'virtual', 'laptop', 'smartphone', 'tablet'].includes(s) ? s : 'pc';
+    };
+
     const startResizing = (mouseDownEvent) => {
         mouseDownEvent.preventDefault();
         const startX = mouseDownEvent.clientX;
@@ -81,11 +86,6 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                 if (res.ok) {
                     const data = await res.json();
                     setDevices(data);
-
-                    const normalizeDeviceType = (v) => {
-                        const dt = (v && typeof v === 'string') ? v.trim().toLowerCase() : 'pc';
-                        return ['pc', 'server', 'virtual', 'laptop', 'smartphone', 'tablet'].includes(dt) ? dt : 'pc';
-                    };
 
                     // Initialize selected devices ONLY on initial load (not silent update)
                     if (!silent) {
@@ -155,7 +155,9 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
         setSelectedDeviceIds(prev => [...prev, device.device_id]);
 
         // When adding new, put it at end of list order
+        // device_type: usa quello dal DB (antivirus_info o network_devices) così l'icona salvata si rispetta
         const maxOrder = Math.max(...devices.map(d => d.sort_order || 0), 0);
+        const dt = normalizeDeviceType(device.device_type);
 
         setDrafts(prev => ({
             ...prev,
@@ -163,7 +165,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                 is_active: true, // Default to true when adding
                 product_name: device.product_name || '',
                 expiration_date: device.expiration_date ? device.expiration_date.split('T')[0] : '',
-                device_type: device.device_type || 'pc',
+                device_type: dt,
                 sort_order: maxOrder + 1
             }
         }));
@@ -173,7 +175,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
             is_active: true,
             product_name: device.product_name || '',
             expiration_date: device.expiration_date ? device.expiration_date.split('T')[0] : '',
-            device_type: device.device_type || 'pc',
+            device_type: dt,
             sort_order: maxOrder + 1
         });
     };
@@ -189,14 +191,13 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                 return newDrafts;
             });
 
-            // Update backend to clear status (optional, depends on if user wants to delete data or just hide)
-            // For now we just remove from view, but to persist "removal" we might need to set is_active=false or wipe data
-            // Let's set is_active = false and product_name = '' to "clear" it effectively from auto-load
+            // Update backend: is_active=false e svuota prodotto, ma PRESERVA device_type così se riaggiungi mantiene l'icona
+            const currentType = drafts[deviceId]?.device_type || device?.device_type || 'pc';
             handleSaveRow(deviceId, {
                 is_active: false,
                 product_name: '',
                 expiration_date: null,
-                device_type: 'pc',
+                device_type: currentType,
                 sort_order: 0
             });
         }
