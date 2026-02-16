@@ -7610,8 +7610,8 @@ pause
           COALESCE(avi.product_name, '') as product_name,
           avi.expiration_date,
           COALESCE(avi.device_type,
-            CASE WHEN LOWER(TRIM(COALESCE(nd.device_type, ''))) IN ('server') THEN 'server'
-                 WHEN LOWER(TRIM(COALESCE(nd.device_type, ''))) IN ('virtual', 'virtualization', 'vm', 'vmware', 'hyperv') THEN 'virtual'
+            CASE WHEN LOWER(TRIM(COALESCE(nd.device_type, ''))) IN ('server', 'domain', 'dc', 'domain controller', 'nvr', 'nas', 'storage') THEN 'server'
+                 WHEN LOWER(TRIM(COALESCE(nd.device_type, ''))) IN ('virtual', 'virtualization', 'vm', 'vmware', 'hyperv', 'esxi', 'esx', 'exsi') THEN 'virtual'
                  WHEN LOWER(TRIM(COALESCE(nd.device_type, ''))) IN ('laptop', 'notebook', 'portatile') THEN 'laptop'
                  WHEN LOWER(TRIM(COALESCE(nd.device_type, ''))) IN ('smartphone', 'phone', 'cellulare') THEN 'smartphone'
                  WHEN LOWER(TRIM(COALESCE(nd.device_type, ''))) IN ('tablet') THEN 'tablet'
@@ -7652,7 +7652,11 @@ pause
       const { deviceId } = req.params;
       const { is_active, product_name, expiration_date, device_type, sort_order } = req.body;
 
-      // Upsert
+      const dt = (device_type && typeof device_type === 'string') ? device_type.trim().toLowerCase() : 'pc';
+      const validTypes = ['pc', 'server', 'virtual', 'laptop', 'smartphone', 'tablet'];
+      const finalType = validTypes.includes(dt) ? dt : 'pc';
+
+      // Upsert antivirus_info
       await pool.query(`
         INSERT INTO antivirus_info (device_id, is_active, product_name, expiration_date, device_type, sort_order, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6, NOW())
@@ -7663,7 +7667,13 @@ pause
             device_type = EXCLUDED.device_type,
             sort_order = EXCLUDED.sort_order,
             updated_at = NOW()
-      `, [deviceId, is_active === true, product_name || '', expiration_date || null, device_type || 'pc', sort_order || 0]);
+      `, [deviceId, is_active === true, product_name || '', expiration_date || null, finalType, sort_order || 0]);
+
+      // Aggiorna anche network_devices.device_type così l'icona è uguale in Monitoraggio/Mappatura/Anti-Virus
+      await pool.query(
+        `UPDATE network_devices SET device_type = $1, is_manual_type = true WHERE id = $2`,
+        [finalType, deviceId]
+      );
 
       res.json({ success: true });
     } catch (err) {
