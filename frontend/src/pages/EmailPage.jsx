@@ -76,9 +76,12 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
   };
 
   const getActivityStatus = (lastEmailDate) => {
-    if (!lastEmailDate) return { status: 'unknown', label: 'Mai usato?', color: 'bg-gray-100 text-gray-500' };
+    // Se non c'è data (mai usata o vuota) -> Forse Inattivo
+    if (!lastEmailDate) return { status: 'inactive', label: 'Forse Inattivo', color: 'bg-amber-100 text-amber-700' };
 
     const d = new Date(lastEmailDate);
+    if (isNaN(d.getTime())) return { status: 'inactive', label: 'Forse Inattivo', color: 'bg-amber-100 text-amber-700' };
+
     const now = new Date();
     const diffMonth = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
 
