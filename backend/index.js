@@ -826,6 +826,9 @@ const packvisionRoutes = poolPackVision ? require('./routes/packvision')(poolPac
 // Route per Network Monitoring
 const networkMonitoringRoutes = require('./routes/networkMonitoring')(pool, io);
 
+// Route per Email Quota (monitoraggio spazio caselle email)
+const emailQuotaRoutes = require('./routes/emailQuota')(pool, authenticateToken, requireRole);
+
 
 // ✅ FIX: Monta le route solo se packvisionRoutes non è null per evitare crash
 if (packvisionRoutes) {
@@ -1286,6 +1289,7 @@ app.use('/api/users', authenticateToken, usersRoutes);
 app.use('/api/tickets', authenticateToken, ticketsRoutes);
 app.use('/api/alerts', authenticateToken, alertsRoutes);
 app.use('/api/keepass', authenticateToken, keepassRoutes);
+app.use('/api/email-quota', emailQuotaRoutes);
 // Route Google Calendar e Auth con autenticazione
 // Middleware di autenticazione per route /api/*
 app.use('/api', authenticateToken);
