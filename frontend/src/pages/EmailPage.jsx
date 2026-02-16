@@ -4,7 +4,7 @@
 // Barra spazio occupato sotto ogni riga email (dati da IMAP QUOTA)
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Loader, MessageCircle, Eye, EyeOff, HardDrive, RefreshCw, AlertTriangle, Clock } from 'lucide-react';
+import { Loader, MessageCircle, Eye, EyeOff, HardDrive, RefreshCw, AlertTriangle, Clock, Activity, HelpCircle } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import EmailIntroCard from '../components/EmailIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
@@ -73,6 +73,17 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
     if (diffMin < 60) return `${diffMin} min fa`;
     if (diffHours < 24) return `${diffHours}h fa`;
     return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const getActivityStatus = (lastEmailDate) => {
+    if (!lastEmailDate) return { status: 'unknown', label: 'Mai usato?', color: 'bg-gray-100 text-gray-500' };
+
+    const d = new Date(lastEmailDate);
+    const now = new Date();
+    const diffMonth = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
+
+    if (diffMonth < 6) return { status: 'active', label: 'Attivo', color: 'bg-green-100 text-green-700' };
+    return { status: 'inactive', label: 'Forse Inattivo', color: 'bg-amber-100 text-amber-700' };
   };
 
   // ============ FETCH QUOTA RESULTS ============
@@ -267,36 +278,56 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
     const percent = parseFloat(q.usage_percent) || 0;
     const colors = getBarColor(percent);
     const colCount = 4 + (showPasswordColumn ? 1 : 0) + (showAssistenzaButton ? 1 : 0);
+    const activity = getActivityStatus(q.last_email_date);
 
     return (
-      <tr className="border-b border-gray-50">
-        <td colSpan={colCount} className="px-3 py-1">
-          <div className="flex items-center gap-2 ml-0">
-            <HardDrive size={11} className="text-gray-300 flex-shrink-0" />
-            <span
-              className="text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
-              style={{ backgroundColor: colors.bg, color: colors.text }}
-            >
-              {formatBytes(q.usage_bytes)}
-            </span>
-            <div className="flex-1 max-w-[200px]">
-              <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+      <tr className="border-b border-gray-50 bg-gray-50/30">
+        <td colSpan={colCount} className="px-3 py-1.5 align-middle">
+          <div className="flex items-center gap-4 ml-8">
+            {/* Usage Badge */}
+            <div className="flex items-center gap-2 min-w-[80px]">
+              <HardDrive size={13} className="text-gray-400" />
+              <span className="text-[11px] font-bold text-gray-700">
+                {formatBytes(q.usage_bytes)}
+              </span>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="flex flex-1 items-center gap-2 max-w-md">
+              <div className="h-2 flex-1 rounded-full bg-gray-200 overflow-hidden relative" title={`${percent.toFixed(1)}% occupato`}>
                 <div
                   className="h-full rounded-full transition-all duration-700"
                   style={{
                     width: `${Math.min(percent, 100)}%`,
                     backgroundColor: colors.bar,
-                    minWidth: percent > 0 ? '3px' : '0'
                   }}
                 />
               </div>
+              <span className="text-[10px] text-gray-500 w-12 text-right">
+                {percent.toFixed(0)}%
+              </span>
+              {percent >= 70 && (
+                <AlertTriangle size={12} className={percent >= 90 ? 'text-red-500' : 'text-amber-500'} />
+              )}
             </div>
-            <span className="text-[10px] text-gray-400 flex-shrink-0 min-w-[60px]">
-              {percent.toFixed(0)}% di {formatBytes(q.limit_bytes)}
-            </span>
-            {percent >= 70 && (
-              <AlertTriangle size={10} className={percent >= 90 ? 'text-red-500' : 'text-amber-500'} />
-            )}
+
+            {/* Activity Badge */}
+            <div className="flex items-center gap-2" title={q.last_email_date ? `Ultima email ricevuta: ${new Date(q.last_email_date).toLocaleDateString()}` : 'Nessuna email trovata'}>
+              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium border ${activity.color.replace('text-', 'border-').replace('100', '200')} ${activity.color}`}>
+                <Activity size={10} />
+                {activity.label}
+              </span>
+              {activity.status === 'inactive' && (
+                <span className="text-[10px] text-gray-400 italic">
+                  (Ultima email {q.last_email_date ? new Date(q.last_email_date).toLocaleDateString() : 'mai'})
+                </span>
+              )}
+            </div>
+
+            {/* Limit Info */}
+            <div className="text-[10px] text-gray-400 ml-auto flex items-center gap-1">
+              Max: {formatBytes(q.limit_bytes)}
+            </div>
           </div>
         </td>
       </tr>

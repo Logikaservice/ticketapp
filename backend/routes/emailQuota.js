@@ -29,9 +29,25 @@ module.exports = function (pool, authenticateToken, requireRole) {
         status VARCHAR(50) DEFAULT 'ok',
         error_message TEXT,
         last_scan TIMESTAMPTZ DEFAULT NOW(),
+        last_email_date TIMESTAMPTZ,
         UNIQUE(azienda_name, email)
       )
     `);
+        // Migrazione: aggiungi last_email_date se manca
+        try {
+            await pool.query(`
+        DO $$ 
+        BEGIN 
+          BEGIN
+            ALTER TABLE email_quota_results ADD COLUMN last_email_date TIMESTAMPTZ;
+          EXCEPTION
+            WHEN duplicate_column THEN RAISE NOTICE 'column last_email_date already exists in email_quota_results.';
+          END;
+        END $$;
+      `);
+        } catch (mErr) {
+            console.warn('⚠️ Migrazione last_email_date fallita (potrebbe esistere già):', mErr.message);
+        }
     };
     ensureQuotaTable().catch(err => console.warn('⚠️ Errore creazione tabella email_quota_results:', err.message));
 
@@ -113,6 +129,20 @@ module.exports = function (pool, authenticateToken, requireRole) {
                 }
             }
 
+            // Recupera data ultimo messaggio (se ci sono messaggi)
+            let lastEmailDate = null;
+            if (messageCount > 0) {
+                try {
+                    // Prendi l'ultimo messaggio (sequenza *)
+                    const message = await client.fetchOne('*', { envelope: true });
+                    if (message && message.envelope && message.envelope.date) {
+                        lastEmailDate = message.envelope.date;
+                    }
+                } catch (fetchErr) {
+                    console.warn(`⚠️ [EmailQuota] Errore fetch data ultima email per ${email}:`, fetchErr.message);
+                }
+            }
+
             // Calcola percentuale
             const usagePercent = limitBytes > 0 ? (usageBytes / limitBytes * 100) : 0;
 
@@ -124,6 +154,7 @@ module.exports = function (pool, authenticateToken, requireRole) {
                 limit_bytes: limitBytes,
                 usage_percent: Math.round(usagePercent * 100) / 100,
                 message_count: messageCount,
+                last_email_date: lastEmailDate,
                 status: usagePercent > 90 ? 'critical' : usagePercent > 70 ? 'warning' : 'ok'
             };
         } catch (err) {
@@ -134,6 +165,7 @@ module.exports = function (pool, authenticateToken, requireRole) {
                 limit_bytes: 0,
                 usage_percent: 0,
                 message_count: 0,
+                last_email_date: null,
                 status: 'error',
                 error_message: err.message
             };
@@ -219,14 +251,15 @@ module.exports = function (pool, authenticateToken, requireRole) {
         for (const result of results) {
             try {
                 await pool.query(`
-          INSERT INTO email_quota_results (azienda_name, email, imap_server, usage_bytes, limit_bytes, usage_percent, message_count, status, error_message, last_scan)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+          INSERT INTO email_quota_results (azienda_name, email, imap_server, usage_bytes, limit_bytes, usage_percent, message_count, last_email_date, status, error_message, last_scan)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
           ON CONFLICT (azienda_name, email) DO UPDATE SET
             imap_server = EXCLUDED.imap_server,
             usage_bytes = EXCLUDED.usage_bytes,
             limit_bytes = EXCLUDED.limit_bytes,
             usage_percent = EXCLUDED.usage_percent,
             message_count = EXCLUDED.message_count,
+            last_email_date = EXCLUDED.last_email_date,
             status = EXCLUDED.status,
             error_message = EXCLUDED.error_message,
             last_scan = NOW()
@@ -238,6 +271,7 @@ module.exports = function (pool, authenticateToken, requireRole) {
                     result.limit_bytes || 0,
                     result.usage_percent || 0,
                     result.message_count || 0,
+                    result.last_email_date || null,
                     result.status || 'error',
                     result.error_message || null
                 ]);
@@ -266,7 +300,7 @@ module.exports = function (pool, authenticateToken, requireRole) {
 
             await ensureQuotaTable();
             const result = await pool.query(
-                `SELECT email, imap_server, usage_bytes, limit_bytes, usage_percent, message_count, status, error_message, last_scan
+                `SELECT email, imap_server, usage_bytes, limit_bytes, usage_percent, message_count, last_email_date, status, error_message, last_scan
          FROM email_quota_results 
          WHERE azienda_name = $1
          ORDER BY usage_percent DESC`,
