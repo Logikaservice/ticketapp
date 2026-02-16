@@ -2947,161 +2947,191 @@ module.exports = (pool, io) => {
           }
         }
         if (keepassIpResult.rows.length > 0) {
-          Ciao
-          // Cerca MAC nella mappa KeePass (già caricata) - per TUTTI i dispositivi (online e offline)
-          // Titolo, Utente e Percorso vengono SEMPRE aggiornati da KeePass.
-          // Solo device_type viene protetto se is_manual_type = true.
-          if (row.mac_address && keepassMap) {
-            try {
-              // Normalizza il MAC: solo caratteri esadecimali, 12 caratteri, uppercase (come chiavi in keepassMap)
-              const macHex = (row.mac_address || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
-              const normalizedMac = macHex.length === 12 ? macHex : row.mac_address.replace(/[:-]/g, '').toUpperCase();
-              const keepassEntries = keepassMap.get(normalizedMac);
-              const keepassResult = Array.isArray(keepassEntries)
-                ? keepassDriveService.pickEntryForAzienda(keepassEntries, aziendaName)
-                : keepassEntries;
+          console.log(`✅ Mappa KeePass IP caricata: ${keepassIpResult.rows.length} entry (MAC->IP) per azienda ${aziendaId}`);
+        }
+      } catch (keepassIpErr) {
+        // Non bloccare se la tabella/colonna IP non esiste o se c'è un altro errore
+        console.warn('⚠️ Errore caricamento mappa KeePass IP (MAC->IP):', keepassIpErr.message);
+      }
 
-              if (keepassResult) {
-                // Titolo (in UI = hostname): da KeePass Title — SEMPRE aggiornato
-                row.hostname = (keepassResult.title && keepassResult.title.trim()) ? keepassResult.title.trim() : (row.hostname || null);
-                // Percorso: ultimo segmento del path KeePass — SEMPRE aggiornato
-                const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
-                row.device_path = (lastPathElement && lastPathElement.trim()) ? lastPathElement.trim() : null;
-                // Utente: da KeePass UserName — SEMPRE aggiornato
-                row.device_username = (keepassResult.username && keepassResult.username.trim()) ? keepassResult.username.trim() : null;
+      // Processa i dispositivi in modo sincrono (veloce, senza chiamate async per ogni dispositivo)
+      const processedRows = result.rows.map((row) => {
+        // Post-processa hostname se necessario
+        if (row.hostname && typeof row.hostname === 'string' && row.hostname.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(row.hostname);
+            row.hostname = parsed._ !== undefined ? String(parsed._ || '') : row.hostname;
+          } catch {
+            // Mantieni originale se non è JSON valido
+          }
+        }
 
-                // MAPPING ICONE KEEPASS -> TIPO DISPOSITIVO (solo se NON manuale)
-                if (!row.is_manual_type) {
-                  let deviceType = keepassResult.title;
-                  const iconId = keepassResult.iconId;
-
-                  if (iconId !== undefined) {
-                    switch (Number(iconId)) {
-                      case 3: deviceType = 'server'; break;         // Server
-                      case 4: deviceType = 'pc'; break;             // Screen/Monitor
-                      case 18: deviceType = 'printer'; break;       // Scanner/Printer
-                      case 19: deviceType = 'nas'; break;           // Archive
-                      case 22: deviceType = 'nas'; break;           // Drive
-                      case 27: deviceType = 'laptop'; break;        // Laptop
-                      case 28: deviceType = 'smartphone'; break;    // Mobile Phone
-                      case 29: deviceType = 'firewall'; break;      // Key/Lock -> Firewall?
-                      case 34: deviceType = 'wifi'; break;          // Network/Wifi
-                      case 61: deviceType = 'switch'; break;        // Networking
-                    }
-                  }
-
-                  row.device_type = deviceType;
-                }
-              }
-              // Se non trovato, mantieni i valori esistenti dal database
-            } catch (keepassErr) {
-              // Non bloccare il processo se c'è un errore
-              console.error(`❌ Errore ricerca MAC ${row.mac_address} in mappa KeePass:`, keepassErr.message);
+        // Confronto IP con KeePass: se per questo MAC esiste un IP diverso in KeePass, segnala mismatch
+        if (row.mac_address && keepassIpMap && keepassIpMap.size > 0) {
+          const normalizedMacLower = row.mac_address.replace(/[:-]/g, '').toLowerCase();
+          const keepassIp = keepassIpMap.get(normalizedMacLower);
+          if (keepassIp) {
+            row.keepass_ip = keepassIp;
+            if (row.ip_address && row.ip_address.toLowerCase() !== keepassIp) {
+              row.keepass_ip_mismatch = true;
             }
           }
+        }
 
-          return row;
-        });
+        // Cerca MAC nella mappa KeePass (già caricata) - per TUTTI i dispositivi (online e offline)
+        // Titolo, Utente e Percorso vengono SEMPRE aggiornati da KeePass.
+        // Solo device_type viene protetto se is_manual_type = true.
+        if (row.mac_address && keepassMap) {
+          try {
+            // Normalizza il MAC: solo caratteri esadecimali, 12 caratteri, uppercase (come chiavi in keepassMap)
+            const macHex = (row.mac_address || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+            const normalizedMac = macHex.length === 12 ? macHex : row.mac_address.replace(/[:-]/g, '').toUpperCase();
+            const keepassEntries = keepassMap.get(normalizedMac);
+            const keepassResult = Array.isArray(keepassEntries)
+              ? keepassDriveService.pickEntryForAzienda(keepassEntries, aziendaName)
+              : keepassEntries;
 
-  res.json(processedRows);
-} catch (err) {
-  console.error('❌ Errore recupero dispositivi:', err);
-  res.status(500).json({ error: 'Errore interno del server' });
-}
+            if (keepassResult) {
+              // Titolo (in UI = hostname): da KeePass Title — SEMPRE aggiornato
+              row.hostname = (keepassResult.title && keepassResult.title.trim()) ? keepassResult.title.trim() : (row.hostname || null);
+              // Percorso: ultimo segmento del path KeePass — SEMPRE aggiornato
+              const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
+              row.device_path = (lastPathElement && lastPathElement.trim()) ? lastPathElement.trim() : null;
+              // Utente: da KeePass UserName — SEMPRE aggiornato
+              row.device_username = (keepassResult.username && keepassResult.username.trim()) ? keepassResult.username.trim() : null;
+
+              // MAPPING ICONE KEEPASS -> TIPO DISPOSITIVO (solo se NON manuale)
+              if (!row.is_manual_type) {
+                let deviceType = keepassResult.title;
+                const iconId = keepassResult.iconId;
+
+                if (iconId !== undefined) {
+                  switch (Number(iconId)) {
+                    case 3: deviceType = 'server'; break;         // Server
+                    case 4: deviceType = 'pc'; break;             // Screen/Monitor
+                    case 18: deviceType = 'printer'; break;       // Scanner/Printer
+                    case 19: deviceType = 'nas'; break;           // Archive
+                    case 22: deviceType = 'nas'; break;           // Drive
+                    case 27: deviceType = 'laptop'; break;        // Laptop
+                    case 28: deviceType = 'smartphone'; break;    // Mobile Phone
+                    case 29: deviceType = 'firewall'; break;      // Key/Lock -> Firewall?
+                    case 34: deviceType = 'wifi'; break;          // Network/Wifi
+                    case 61: deviceType = 'switch'; break;        // Networking
+                  }
+                }
+
+                row.device_type = deviceType;
+              }
+            }
+            // Se non trovato, mantieni i valori esistenti dal database
+          } catch (keepassErr) {
+            // Non bloccare il processo se c'è un errore
+            console.error(`❌ Errore ricerca MAC ${row.mac_address} in mappa KeePass:`, keepassErr.message);
+          }
+        }
+
+        return row;
+      });
+
+      res.json(processedRows);
+    } catch (err) {
+      console.error('❌ Errore recupero dispositivi:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
   });
 
-// PUT /api/network-monitoring/clients/:aziendaId/set-gateway/:deviceId
-// Imposta un dispositivo come Gateway Principale (e rimuovi flag dagli altri)
-router.put('/clients/:aziendaId/set-gateway/:deviceId', authenticateToken, async (req, res) => {
-  const client = await pool.connect();
-  try {
-    const { aziendaId, deviceId } = req.params;
+  // PUT /api/network-monitoring/clients/:aziendaId/set-gateway/:deviceId
+  // Imposta un dispositivo come Gateway Principale (e rimuovi flag dagli altri)
+  router.put('/clients/:aziendaId/set-gateway/:deviceId', authenticateToken, async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const { aziendaId, deviceId } = req.params;
 
-    // Trova l'agent ID dal dispositivo
-    const deviceCheck = await client.query('SELECT agent_id FROM network_devices WHERE id = $1', [deviceId]);
-    if (deviceCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Dispositivo non trovato' });
+      // Trova l'agent ID dal dispositivo
+      const deviceCheck = await client.query('SELECT agent_id FROM network_devices WHERE id = $1', [deviceId]);
+      if (deviceCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato' });
+      }
+      const agentId = deviceCheck.rows[0].agent_id;
+
+      await client.query('BEGIN');
+
+      // 1. Rimuovi is_gateway da tutti i dispositivi dell'agent
+      await client.query('UPDATE network_devices SET is_gateway = false WHERE agent_id = $1', [agentId]);
+
+      // 2. Imposta il nuovo gateway
+      await client.query('UPDATE network_devices SET is_gateway = true WHERE id = $1', [deviceId]);
+
+      await client.query('COMMIT');
+
+      res.json({ success: true, message: 'Gateway impostato con successo' });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('❌ Errore impostazione Gateway:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    } finally {
+      client.release();
     }
-    const agentId = deviceCheck.rows[0].agent_id;
+  });
 
-    await client.query('BEGIN');
+  // PUT /api/network-monitoring/clients/:aziendaId/set-parent/:childId
+  // Imposta un dispositivo genitore per un altro dispositivo (Topologia manuale)
+  router.put('/clients/:aziendaId/set-parent/:childId', authenticateToken, async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const { aziendaId, childId } = req.params;
+      let parentIp = (req.body.parentIp || '').trim(); // IP del genitore desiderato
 
-    // 1. Rimuovi is_gateway da tutti i dispositivi dell'agent
-    await client.query('UPDATE network_devices SET is_gateway = false WHERE agent_id = $1', [agentId]);
+      // 1. Trova il device figlio e il suo agent_id
+      const childResult = await client.query('SELECT id, agent_id FROM network_devices WHERE id = $1', [childId]);
+      if (childResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo figlio non trovato' });
+      }
+      const childDevice = childResult.rows[0];
+      const agentId = childDevice.agent_id;
 
-    // 2. Imposta il nuovo gateway
-    await client.query('UPDATE network_devices SET is_gateway = true WHERE id = $1', [deviceId]);
+      let newParentId = null;
 
-    await client.query('COMMIT');
-
-    res.json({ success: true, message: 'Gateway impostato con successo' });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('❌ Errore impostazione Gateway:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  } finally {
-    client.release();
-  }
-});
-
-// PUT /api/network-monitoring/clients/:aziendaId/set-parent/:childId
-// Imposta un dispositivo genitore per un altro dispositivo (Topologia manuale)
-router.put('/clients/:aziendaId/set-parent/:childId', authenticateToken, async (req, res) => {
-  const client = await pool.connect();
-  try {
-    const { aziendaId, childId } = req.params;
-    let parentIp = (req.body.parentIp || '').trim(); // IP del genitore desiderato
-
-    // 1. Trova il device figlio e il suo agent_id
-    const childResult = await client.query('SELECT id, agent_id FROM network_devices WHERE id = $1', [childId]);
-    if (childResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Dispositivo figlio non trovato' });
-    }
-    const childDevice = childResult.rows[0];
-    const agentId = childDevice.agent_id;
-
-    let newParentId = null;
-
-    if (parentIp) {
-      // 2. Trova il device genitore tramite IP nello stesso agent
-      // Gestiamo casi con {} o " nei vecchi dati se necessario, ma assumiamo IP puliti
-      const parentResult = await client.query(
-        `SELECT id FROM network_devices 
+      if (parentIp) {
+        // 2. Trova il device genitore tramite IP nello stesso agent
+        // Gestiamo casi con {} o " nei vecchi dati se necessario, ma assumiamo IP puliti
+        const parentResult = await client.query(
+          `SELECT id FROM network_devices 
               WHERE agent_id = $1 
               AND REGEXP_REPLACE(ip_address, '[{}"]', '', 'g') = $2`,
-        [agentId, parentIp]
-      );
+          [agentId, parentIp]
+        );
 
-      if (parentResult.rows.length === 0) {
-        return res.status(404).json({ error: `Nessun dispositivo trovato con IP ${parentIp}` });
+        if (parentResult.rows.length === 0) {
+          return res.status(404).json({ error: `Nessun dispositivo trovato con IP ${parentIp}` });
+        }
+
+        if (parentResult.rows[0].id === parseInt(childId)) {
+          return res.status(400).json({ error: 'Un dispositivo non può essere genitore di se stesso' });
+        }
+
+        newParentId = parentResult.rows[0].id;
       }
 
-      if (parentResult.rows[0].id === parseInt(childId)) {
-        return res.status(400).json({ error: 'Un dispositivo non può essere genitore di se stesso' });
-      }
+      await client.query('BEGIN');
+      await client.query('UPDATE network_devices SET parent_device_id = $1, is_manual_parent = true WHERE id = $2', [newParentId, childId]);
+      await client.query('COMMIT');
 
-      newParentId = parentResult.rows[0].id;
+      res.json({ success: true, message: 'Relazione parentela aggiornata', parent_id: newParentId });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('❌ Errore impostazione Parent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    } finally {
+      client.release();
     }
+  });
 
-    await client.query('BEGIN');
-    await client.query('UPDATE network_devices SET parent_device_id = $1, is_manual_parent = true WHERE id = $2', [newParentId, childId]);
-    await client.query('COMMIT');
-
-    res.json({ success: true, message: 'Relazione parentela aggiornata', parent_id: newParentId });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('❌ Errore impostazione Parent:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  } finally {
-    client.release();
-  }
-});
-
-// --- Mappatura: nodi sulla mappa (persistenza) ---
-const ensureMappaturaNodesTable = async () => {
-  try {
-    // Prima verifica se la tabella esiste
-    const tableExists = await pool.query(`
+  // --- Mappatura: nodi sulla mappa (persistenza) ---
+  const ensureMappaturaNodesTable = async () => {
+    try {
+      // Prima verifica se la tabella esiste
+      const tableExists = await pool.query(`
         SELECT EXISTS (
           SELECT FROM information_schema.tables 
           WHERE table_schema = 'public' 
@@ -3109,11 +3139,11 @@ const ensureMappaturaNodesTable = async () => {
         );
       `);
 
-    const exists = tableExists.rows[0]?.exists;
+      const exists = tableExists.rows[0]?.exists;
 
-    if (!exists) {
-      // Crea tabella nuova con mac_address come chiave
-      await pool.query(`
+      if (!exists) {
+        // Crea tabella nuova con mac_address come chiave
+        await pool.query(`
           CREATE TABLE mappatura_nodes (
             azienda_id INTEGER NOT NULL,
             mac_address VARCHAR(17) NOT NULL,
@@ -3123,11 +3153,11 @@ const ensureMappaturaNodesTable = async () => {
             PRIMARY KEY (azienda_id, mac_address)
           );
         `);
-    } else {
-      // Tabella esiste: migra da device_id a mac_address se necessario
-      try {
-        // Verifica se esiste colonna mac_address
-        const macColumnExists = await pool.query(`
+      } else {
+        // Tabella esiste: migra da device_id a mac_address se necessario
+        try {
+          // Verifica se esiste colonna mac_address
+          const macColumnExists = await pool.query(`
             SELECT EXISTS (
               SELECT FROM information_schema.columns 
               WHERE table_schema = 'public' 
@@ -3136,14 +3166,14 @@ const ensureMappaturaNodesTable = async () => {
             );
           `);
 
-        if (!macColumnExists.rows[0]?.exists) {
-          console.log('🔄 Migrazione mappatura_nodes: aggiungo colonna mac_address...');
+          if (!macColumnExists.rows[0]?.exists) {
+            console.log('🔄 Migrazione mappatura_nodes: aggiungo colonna mac_address...');
 
-          // Aggiungi colonna mac_address
-          await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN mac_address VARCHAR(17)`);
+            // Aggiungi colonna mac_address
+            await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN mac_address VARCHAR(17)`);
 
-          // Migra i dati: popola mac_address dai device_id esistenti
-          await pool.query(`
+            // Migra i dati: popola mac_address dai device_id esistenti
+            await pool.query(`
               UPDATE mappatura_nodes mn
               SET mac_address = COALESCE(nd.mac_address, '')
               FROM network_devices nd
@@ -3151,79 +3181,79 @@ const ensureMappaturaNodesTable = async () => {
                 AND mn.mac_address IS NULL
             `);
 
-          // Rimuovi righe senza MAC (non possono essere identificate)
-          await pool.query(`
+            // Rimuovi righe senza MAC (non possono essere identificate)
+            await pool.query(`
               DELETE FROM mappatura_nodes 
               WHERE mac_address IS NULL OR mac_address = ''
             `);
 
-          // Imposta NOT NULL dopo aver popolato i dati
-          await pool.query(`ALTER TABLE mappatura_nodes ALTER COLUMN mac_address SET NOT NULL`);
+            // Imposta NOT NULL dopo aver popolato i dati
+            await pool.query(`ALTER TABLE mappatura_nodes ALTER COLUMN mac_address SET NOT NULL`);
 
-          // Rimuovi vecchia PRIMARY KEY se esiste
-          try {
-            await pool.query(`ALTER TABLE mappatura_nodes DROP CONSTRAINT IF EXISTS mappatura_nodes_pkey`);
-          } catch (e) {
-            // Ignora se non esiste
-          }
+            // Rimuovi vecchia PRIMARY KEY se esiste
+            try {
+              await pool.query(`ALTER TABLE mappatura_nodes DROP CONSTRAINT IF EXISTS mappatura_nodes_pkey`);
+            } catch (e) {
+              // Ignora se non esiste
+            }
 
-          // Crea nuova PRIMARY KEY con mac_address
-          await pool.query(`
+            // Crea nuova PRIMARY KEY con mac_address
+            await pool.query(`
               ALTER TABLE mappatura_nodes 
               ADD PRIMARY KEY (azienda_id, mac_address)
             `);
 
-          // Rimuovi colonna device_id (non più necessaria)
-          try {
-            await pool.query(`ALTER TABLE mappatura_nodes DROP COLUMN IF EXISTS device_id`);
-          } catch (e) {
-            console.warn('⚠️ Impossibile rimuovere colonna device_id:', e.message);
-          }
+            // Rimuovi colonna device_id (non più necessaria)
+            try {
+              await pool.query(`ALTER TABLE mappatura_nodes DROP COLUMN IF EXISTS device_id`);
+            } catch (e) {
+              console.warn('⚠️ Impossibile rimuovere colonna device_id:', e.message);
+            }
 
-          console.log('✅ Migrazione mappatura_nodes completata: ora usa mac_address come chiave');
+            console.log('✅ Migrazione mappatura_nodes completata: ora usa mac_address come chiave');
+          }
+        } catch (migrateErr) {
+          console.warn('⚠️ Errore migrazione mappatura_nodes:', migrateErr.message);
         }
-      } catch (migrateErr) {
-        console.warn('⚠️ Errore migrazione mappatura_nodes:', migrateErr.message);
+      }
+
+      // Self-healing: ensure columns exist
+      try {
+        await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS azienda_id INTEGER`);
+        await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS mac_address VARCHAR(17)`);
+        await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS x DOUBLE PRECISION`);
+        await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS y DOUBLE PRECISION`);
+        await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false`);
+      } catch (alterErr) {
+        console.warn('⚠️ ensureMappaturaNodesTable (alter):', alterErr.message);
+      }
+
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_azienda ON mappatura_nodes(azienda_id);`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_mac ON mappatura_nodes(mac_address);`);
+    } catch (e) {
+      if (!e.message?.includes('already exists') && !e.message?.includes('duplicate')) {
+        console.warn('⚠️ ensureMappaturaNodesTable:', e.message, 'code:', e.code);
       }
     }
+  };
 
-    // Self-healing: ensure columns exist
+  // GET /api/network-monitoring/clients/:aziendaId/mappatura-nodes
+  router.get('/clients/:aziendaId/mappatura-nodes', authenticateToken, checkCompanyAccess, async (req, res) => {
     try {
-      await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS azienda_id INTEGER`);
-      await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS mac_address VARCHAR(17)`);
-      await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS x DOUBLE PRECISION`);
-      await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS y DOUBLE PRECISION`);
-      await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false`);
-    } catch (alterErr) {
-      console.warn('⚠️ ensureMappaturaNodesTable (alter):', alterErr.message);
-    }
+      await ensureTables();
+      await ensureMappaturaNodesTable();
+      const aziendaId = parseInt(req.params.aziendaId, 10);
+      if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
 
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_azienda ON mappatura_nodes(azienda_id);`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_mac ON mappatura_nodes(mac_address);`);
-  } catch (e) {
-    if (!e.message?.includes('already exists') && !e.message?.includes('duplicate')) {
-      console.warn('⚠️ ensureMappaturaNodesTable:', e.message, 'code:', e.code);
-    }
-  }
-};
+      // Normalizza MAC per il matching (rimuovi separatori)
+      const normalizeMacForQuery = (mac) => {
+        if (!mac) return null;
+        return mac.replace(/[:-]/g, '').toUpperCase();
+      };
 
-// GET /api/network-monitoring/clients/:aziendaId/mappatura-nodes
-router.get('/clients/:aziendaId/mappatura-nodes', authenticateToken, checkCompanyAccess, async (req, res) => {
-  try {
-    await ensureTables();
-    await ensureMappaturaNodesTable();
-    const aziendaId = parseInt(req.params.aziendaId, 10);
-    if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
-
-    // Normalizza MAC per il matching (rimuovi separatori)
-    const normalizeMacForQuery = (mac) => {
-      if (!mac) return null;
-      return mac.replace(/[:-]/g, '').toUpperCase();
-    };
-
-    // Prima pulisci i nodi orfani (record in mappatura_nodes che non corrispondono a dispositivi attuali)
-    await pool.query(
-      `DELETE FROM mappatura_nodes mn
+      // Prima pulisci i nodi orfani (record in mappatura_nodes che non corrispondono a dispositivi attuali)
+      await pool.query(
+        `DELETE FROM mappatura_nodes mn
          WHERE mn.azienda_id = $1
            AND NOT EXISTS (
              SELECT 1 FROM network_devices nd
@@ -3233,317 +3263,317 @@ router.get('/clients/:aziendaId/mappatura-nodes', authenticateToken, checkCompan
                AND nd.mac_address IS NOT NULL
                AND nd.mac_address != ''
            )`,
-      [aziendaId]
-    );
+        [aziendaId]
+      );
 
-    // Poi carica solo i nodi che corrispondono a dispositivi attuali
-    const r = await pool.query(
-      `SELECT mn.mac_address, mn.x, mn.y, mn.is_locked
+      // Poi carica solo i nodi che corrispondono a dispositivi attuali
+      const r = await pool.query(
+        `SELECT mn.mac_address, mn.x, mn.y, mn.is_locked
          FROM mappatura_nodes mn
          INNER JOIN network_devices nd ON REPLACE(REPLACE(REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', ''), '.', ''), ' ', '') = REPLACE(REPLACE(REPLACE(REPLACE(UPPER(mn.mac_address), ':', ''), '-', ''), '.', ''), ' ', '')
          INNER JOIN network_agents na ON na.id = nd.agent_id AND na.azienda_id = $1
          WHERE mn.azienda_id = $1
            AND nd.mac_address IS NOT NULL
            AND nd.mac_address != ''`,
-      [aziendaId]
-    );
-    res.json(r.rows);
-  } catch (err) {
-    console.error('❌ Errore GET mappatura-nodes:', err.message, 'code:', err.code, 'detail:', err.detail);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// POST /api/network-monitoring/clients/:aziendaId/mappatura-nodes
-router.post('/clients/:aziendaId/mappatura-nodes', authenticateToken, async (req, res) => {
-  try {
-    await ensureTables();
-    await ensureMappaturaNodesTable();
-    const aziendaId = parseInt(req.params.aziendaId, 10);
-    if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
-
-    // Normalizza MAC per il matching
-    const normalizeMac = (mac) => {
-      if (!mac) return null;
-      return mac.replace(/[:-]/g, '').toUpperCase();
-    };
-
-    // Normalizza input: array 'nodes' o singolo oggetto body
-    let nodes = [];
-    if (req.body.nodes && Array.isArray(req.body.nodes)) {
-      nodes = req.body.nodes;
-    } else if (req.body.mac_address || req.body.device_id) {
-      nodes.push(req.body);
-    } else {
-      return res.status(400).json({ error: 'Parametri non validi (nodi richiesti)' });
+        [aziendaId]
+      );
+      res.json(r.rows);
+    } catch (err) {
+      console.error('❌ Errore GET mappatura-nodes:', err.message, 'code:', err.code, 'detail:', err.detail);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
+
+  // POST /api/network-monitoring/clients/:aziendaId/mappatura-nodes
+  router.post('/clients/:aziendaId/mappatura-nodes', authenticateToken, async (req, res) => {
+    try {
+      await ensureTables();
+      await ensureMappaturaNodesTable();
+      const aziendaId = parseInt(req.params.aziendaId, 10);
+      if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
+
+      // Normalizza MAC per il matching
+      const normalizeMac = (mac) => {
+        if (!mac) return null;
+        return mac.replace(/[:-]/g, '').toUpperCase();
+      };
+
+      // Normalizza input: array 'nodes' o singolo oggetto body
+      let nodes = [];
+      if (req.body.nodes && Array.isArray(req.body.nodes)) {
+        nodes = req.body.nodes;
+      } else if (req.body.mac_address || req.body.device_id) {
+        nodes.push(req.body);
+      } else {
+        return res.status(400).json({ error: 'Parametri non validi (nodi richiesti)' });
+      }
 
 
 
-    for (const node of nodes) {
+      for (const node of nodes) {
 
-      // Cerca MAC address: può essere passato direttamente o recuperato da device_id
-      let macAddress = node.mac_address;
+        // Cerca MAC address: può essere passato direttamente o recuperato da device_id
+        let macAddress = node.mac_address;
 
-      if (!macAddress && (node.id || node.device_id)) {
-        // Se non c'è MAC ma c'è device_id, recuperalo dal database
-        const deviceId = parseInt(node.id || node.device_id, 10);
-        if (!isNaN(deviceId)) {
-          const deviceResult = await pool.query(
-            `SELECT mac_address FROM network_devices 
+        if (!macAddress && (node.id || node.device_id)) {
+          // Se non c'è MAC ma c'è device_id, recuperalo dal database
+          const deviceId = parseInt(node.id || node.device_id, 10);
+          if (!isNaN(deviceId)) {
+            const deviceResult = await pool.query(
+              `SELECT mac_address FROM network_devices 
                WHERE id = $1 AND mac_address IS NOT NULL AND mac_address != ''`,
-            [deviceId]
-          );
-          if (deviceResult.rows.length > 0) {
-            macAddress = deviceResult.rows[0].mac_address;
+              [deviceId]
+            );
+            if (deviceResult.rows.length > 0) {
+              macAddress = deviceResult.rows[0].mac_address;
+            }
           }
         }
-      }
 
-      if (!macAddress) {
-        console.warn('⚠️ POST mappatura-nodes: MAC address non trovato per nodo', node);
-        continue;
-      }
+        if (!macAddress) {
+          console.warn('⚠️ POST mappatura-nodes: MAC address non trovato per nodo', node);
+          continue;
+        }
 
-      // Normalizza MAC
-      const normalizedMac = normalizeMac(macAddress);
-      if (!normalizedMac) continue;
+        // Normalizza MAC
+        const normalizedMac = normalizeMac(macAddress);
+        if (!normalizedMac) continue;
 
-      // Se undefined, passiamo null per usare COALESCE nel DB e mantenere valore attuale
-      const x = node.x !== undefined ? parseFloat(node.x) : null;
-      const y = node.y !== undefined ? parseFloat(node.y) : null;
-      // Mappa 'locked' (frontend) a 'is_locked' (db)
-      const isLocked = node.locked !== undefined ? !!node.locked : (node.is_locked !== undefined ? !!node.is_locked : null);
+        // Se undefined, passiamo null per usare COALESCE nel DB e mantenere valore attuale
+        const x = node.x !== undefined ? parseFloat(node.x) : null;
+        const y = node.y !== undefined ? parseFloat(node.y) : null;
+        // Mappa 'locked' (frontend) a 'is_locked' (db)
+        const isLocked = node.locked !== undefined ? !!node.locked : (node.is_locked !== undefined ? !!node.is_locked : null);
 
-      // Upsert intelligente: mantiene i valori esistenti se i nuovi sono null (grazie a COALESCE)
-      // Usa mac_address normalizzato come chiave
-      // IMPORTANTE: Se x e y sono null (non specificati), mantiene i valori esistenti
-      // Se x e y sono specificati (anche 0), aggiorna i valori
-      // Per is_locked: se NULL viene passato, usa false come default (non locked)
-      const finalIsLocked = isLocked !== null ? isLocked : false;
+        // Upsert intelligente: mantiene i valori esistenti se i nuovi sono null (grazie a COALESCE)
+        // Usa mac_address normalizzato come chiave
+        // IMPORTANTE: Se x e y sono null (non specificati), mantiene i valori esistenti
+        // Se x e y sono specificati (anche 0), aggiorna i valori
+        // Per is_locked: se NULL viene passato, usa false come default (non locked)
+        const finalIsLocked = isLocked !== null ? isLocked : false;
 
-      await pool.query(
-        `INSERT INTO mappatura_nodes (azienda_id, mac_address, x, y, is_locked)
+        await pool.query(
+          `INSERT INTO mappatura_nodes (azienda_id, mac_address, x, y, is_locked)
            VALUES ($1, $2, $3, $4, $5)
            ON CONFLICT (azienda_id, mac_address) 
            DO UPDATE SET 
              x = CASE WHEN EXCLUDED.x IS NOT NULL THEN EXCLUDED.x ELSE mappatura_nodes.x END,
              y = CASE WHEN EXCLUDED.y IS NOT NULL THEN EXCLUDED.y ELSE mappatura_nodes.y END,
              is_locked = EXCLUDED.is_locked`,
-        [aziendaId, normalizedMac, x, y, finalIsLocked]
-      );
+          [aziendaId, normalizedMac, x, y, finalIsLocked]
+        );
+      }
+
+      res.status(201).json({ success: true, processed: nodes.length });
+    } catch (err) {
+      console.error('❌ Errore POST mappatura-nodes:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    res.status(201).json({ success: true, processed: nodes.length });
-  } catch (err) {
-    console.error('❌ Errore POST mappatura-nodes:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+  // DELETE /api/network-monitoring/clients/:aziendaId/mappatura-nodes/:macAddress
+  router.delete('/clients/:aziendaId/mappatura-nodes/:macAddress', authenticateToken, async (req, res) => {
+    try {
+      await ensureTables();
+      await ensureMappaturaNodesTable();
+      const aziendaId = parseInt(req.params.aziendaId, 10);
+      let macAddress = req.params.macAddress;
+      if (isNaN(aziendaId) || !macAddress) return res.status(400).json({ error: 'Parametri non validi' });
 
-// DELETE /api/network-monitoring/clients/:aziendaId/mappatura-nodes/:macAddress
-router.delete('/clients/:aziendaId/mappatura-nodes/:macAddress', authenticateToken, async (req, res) => {
-  try {
-    await ensureTables();
-    await ensureMappaturaNodesTable();
-    const aziendaId = parseInt(req.params.aziendaId, 10);
-    let macAddress = req.params.macAddress;
-    if (isNaN(aziendaId) || !macAddress) return res.status(400).json({ error: 'Parametri non validi' });
+      // Decodifica il MAC dall'URL (potrebbe essere stato codificato con encodeURIComponent)
+      macAddress = decodeURIComponent(macAddress);
 
-    // Decodifica il MAC dall'URL (potrebbe essere stato codificato con encodeURIComponent)
-    macAddress = decodeURIComponent(macAddress);
+      // Normalizza MAC (rimuovi separatori e converti in maiuscolo)
+      const normalizedMac = macAddress.replace(/[:-]/g, '').toUpperCase();
 
-    // Normalizza MAC (rimuovi separatori e converti in maiuscolo)
-    const normalizedMac = macAddress.replace(/[:-]/g, '').toUpperCase();
+      console.log(`🗑️ DELETE mappatura-nodes: aziendaId=${aziendaId}, macAddress=${macAddress}, normalizedMac=${normalizedMac}`);
 
-    console.log(`🗑️ DELETE mappatura-nodes: aziendaId=${aziendaId}, macAddress=${macAddress}, normalizedMac=${normalizedMac}`);
-
-    // Elimina usando normalizzazione flessibile per gestire qualsiasi formato di MAC nel database
-    // Questo gestisce sia MAC salvati con separatori che senza
-    const r = await pool.query(
-      `DELETE FROM mappatura_nodes 
+      // Elimina usando normalizzazione flessibile per gestire qualsiasi formato di MAC nel database
+      // Questo gestisce sia MAC salvati con separatori che senza
+      const r = await pool.query(
+        `DELETE FROM mappatura_nodes 
          WHERE azienda_id = $1 
          AND REPLACE(REPLACE(REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', ''), '.', ''), ' ', '') = $2 
          RETURNING mac_address`,
-      [aziendaId, normalizedMac]
-    );
-
-    if (r.rows.length === 0) {
-      console.warn(`⚠️ DELETE mappatura-nodes: nodo non trovato per aziendaId=${aziendaId}, macAddress=${normalizedMac}`);
-      // Prova anche con il MAC esatto (per sicurezza)
-      const r2 = await pool.query(
-        'DELETE FROM mappatura_nodes WHERE azienda_id = $1 AND mac_address = $2 RETURNING mac_address',
         [aziendaId, normalizedMac]
       );
-      if (r2.rows.length === 0) {
-        return res.status(404).json({ error: 'Nodo mappatura non trovato' });
+
+      if (r.rows.length === 0) {
+        console.warn(`⚠️ DELETE mappatura-nodes: nodo non trovato per aziendaId=${aziendaId}, macAddress=${normalizedMac}`);
+        // Prova anche con il MAC esatto (per sicurezza)
+        const r2 = await pool.query(
+          'DELETE FROM mappatura_nodes WHERE azienda_id = $1 AND mac_address = $2 RETURNING mac_address',
+          [aziendaId, normalizedMac]
+        );
+        if (r2.rows.length === 0) {
+          return res.status(404).json({ error: 'Nodo mappatura non trovato' });
+        }
+        console.log(`✅ DELETE mappatura-nodes: nodo eliminato con successo (trovato con match esatto), macAddress=${r2.rows[0].mac_address}`);
+        return res.json({ success: true });
       }
-      console.log(`✅ DELETE mappatura-nodes: nodo eliminato con successo (trovato con match esatto), macAddress=${r2.rows[0].mac_address}`);
-      return res.json({ success: true });
+
+      console.log(`✅ DELETE mappatura-nodes: nodo eliminato con successo, macAddress=${r.rows[0].mac_address}`);
+      res.json({ success: true });
+    } catch (err) {
+      console.error('❌ Errore DELETE mappatura-nodes:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    console.log(`✅ DELETE mappatura-nodes: nodo eliminato con successo, macAddress=${r.rows[0].mac_address}`);
-    res.json({ success: true });
-  } catch (err) {
-    console.error('❌ Errore DELETE mappatura-nodes:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+  // PUT /api/network-monitoring/clients/:aziendaId/mappatura-nodes/layout
+  router.put('/clients/:aziendaId/mappatura-nodes/layout', authenticateToken, async (req, res) => {
+    try {
+      await ensureTables();
+      await ensureMappaturaNodesTable();
+      const aziendaId = parseInt(req.params.aziendaId, 10);
+      if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
 
-// PUT /api/network-monitoring/clients/:aziendaId/mappatura-nodes/layout
-router.put('/clients/:aziendaId/mappatura-nodes/layout', authenticateToken, async (req, res) => {
-  try {
-    await ensureTables();
-    await ensureMappaturaNodesTable();
-    const aziendaId = parseInt(req.params.aziendaId, 10);
-    if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
+      // Normalizza MAC
+      const normalizeMac = (mac) => {
+        if (!mac) return null;
+        return mac.replace(/[:-]/g, '').toUpperCase();
+      };
 
-    // Normalizza MAC
-    const normalizeMac = (mac) => {
-      if (!mac) return null;
-      return mac.replace(/[:-]/g, '').toUpperCase();
-    };
+      const nodes = Array.isArray(req.body.nodes) ? req.body.nodes : [];
+      for (const n of nodes) {
+        // Cerca MAC: può essere passato direttamente o recuperato da device_id/id
+        let macAddress = n.mac_address;
 
-    const nodes = Array.isArray(req.body.nodes) ? req.body.nodes : [];
-    for (const n of nodes) {
-      // Cerca MAC: può essere passato direttamente o recuperato da device_id/id
-      let macAddress = n.mac_address;
-
-      if (!macAddress && (n.id || n.device_id)) {
-        // Se non c'è MAC ma c'è device_id, recuperalo dal database
-        const deviceId = parseInt(n.id || n.device_id, 10);
-        if (!isNaN(deviceId)) {
-          const deviceResult = await pool.query(
-            `SELECT mac_address FROM network_devices 
+        if (!macAddress && (n.id || n.device_id)) {
+          // Se non c'è MAC ma c'è device_id, recuperalo dal database
+          const deviceId = parseInt(n.id || n.device_id, 10);
+          if (!isNaN(deviceId)) {
+            const deviceResult = await pool.query(
+              `SELECT mac_address FROM network_devices 
                WHERE id = $1 AND mac_address IS NOT NULL AND mac_address != ''`,
-            [deviceId]
-          );
-          if (deviceResult.rows.length > 0) {
-            macAddress = deviceResult.rows[0].mac_address;
+              [deviceId]
+            );
+            if (deviceResult.rows.length > 0) {
+              macAddress = deviceResult.rows[0].mac_address;
+            }
           }
         }
+
+        if (!macAddress) continue;
+
+        const normalizedMac = normalizeMac(macAddress);
+        if (!normalizedMac) continue;
+
+        const x = n.x != null ? parseFloat(n.x) : null;
+        const y = n.y != null ? parseFloat(n.y) : null;
+        await pool.query(
+          `UPDATE mappatura_nodes SET x = $1, y = $2 WHERE azienda_id = $3 AND mac_address = $4`,
+          [x, y, aziendaId, normalizedMac]
+        );
       }
+      res.json({ success: true });
+    } catch (err) {
+      console.error('❌ Errore PUT mappatura-nodes layout:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
 
-      if (!macAddress) continue;
-
-      const normalizedMac = normalizeMac(macAddress);
-      if (!normalizedMac) continue;
-
-      const x = n.x != null ? parseFloat(n.x) : null;
-      const y = n.y != null ? parseFloat(n.y) : null;
-      await pool.query(
-        `UPDATE mappatura_nodes SET x = $1, y = $2 WHERE azienda_id = $3 AND mac_address = $4`,
-        [x, y, aziendaId, normalizedMac]
+  // --- Dispositivi gestiti (Switch SNMP) per topologia ---
+  // GET /api/network-monitoring/clients/:aziendaId/managed-switches
+  router.get('/clients/:aziendaId/managed-switches', authenticateToken, checkCompanyAccess, async (req, res) => {
+    try {
+      await ensureTables();
+      const aziendaId = parseInt(req.params.aziendaId, 10);
+      if (isNaN(aziendaId) || aziendaId <= 0) {
+        return res.status(400).json({ error: 'ID azienda non valido' });
+      }
+      const r = await pool.query(
+        'SELECT id, ip, snmp_community, snmp_version, name, created_at FROM managed_switches WHERE azienda_id = $1 ORDER BY name, ip',
+        [aziendaId]
       );
+      res.json(r.rows);
+    } catch (err) {
+      console.error('❌ Errore list managed-switches:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
-    res.json({ success: true });
-  } catch (err) {
-    console.error('❌ Errore PUT mappatura-nodes layout:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+  });
 
-// --- Dispositivi gestiti (Switch SNMP) per topologia ---
-// GET /api/network-monitoring/clients/:aziendaId/managed-switches
-router.get('/clients/:aziendaId/managed-switches', authenticateToken, checkCompanyAccess, async (req, res) => {
-  try {
-    await ensureTables();
-    const aziendaId = parseInt(req.params.aziendaId, 10);
-    if (isNaN(aziendaId) || aziendaId <= 0) {
-      return res.status(400).json({ error: 'ID azienda non valido' });
-    }
-    const r = await pool.query(
-      'SELECT id, ip, snmp_community, snmp_version, name, created_at FROM managed_switches WHERE azienda_id = $1 ORDER BY name, ip',
-      [aziendaId]
-    );
-    res.json(r.rows);
-  } catch (err) {
-    console.error('❌ Errore list managed-switches:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// POST /api/network-monitoring/clients/:aziendaId/managed-switches
-router.post('/clients/:aziendaId/managed-switches', authenticateToken, async (req, res) => {
-  try {
-    await ensureTables();
-    const aziendaId = parseInt(req.params.aziendaId, 10);
-    if (isNaN(aziendaId) || aziendaId <= 0) {
-      return res.status(400).json({ error: 'ID azienda non valido' });
-    }
-    const ip = String(req.body.ip || '').trim();
-    if (!ip) return res.status(400).json({ error: 'IP obbligatorio' });
-    const snmp_community = String(req.body.snmp_community || 'public').trim() || 'public';
-    const snmp_version = String(req.body.snmp_version || '2c').trim() || '2c';
-    const name = req.body.name ? String(req.body.name).trim() : null;
-    // UPSERT: se l'IP esiste già per questa azienda, aggiorna community/name invece di dare errore
-    const r = await pool.query(
-      `INSERT INTO managed_switches (azienda_id, ip, snmp_community, snmp_version, name)
+  // POST /api/network-monitoring/clients/:aziendaId/managed-switches
+  router.post('/clients/:aziendaId/managed-switches', authenticateToken, async (req, res) => {
+    try {
+      await ensureTables();
+      const aziendaId = parseInt(req.params.aziendaId, 10);
+      if (isNaN(aziendaId) || aziendaId <= 0) {
+        return res.status(400).json({ error: 'ID azienda non valido' });
+      }
+      const ip = String(req.body.ip || '').trim();
+      if (!ip) return res.status(400).json({ error: 'IP obbligatorio' });
+      const snmp_community = String(req.body.snmp_community || 'public').trim() || 'public';
+      const snmp_version = String(req.body.snmp_version || '2c').trim() || '2c';
+      const name = req.body.name ? String(req.body.name).trim() : null;
+      // UPSERT: se l'IP esiste già per questa azienda, aggiorna community/name invece di dare errore
+      const r = await pool.query(
+        `INSERT INTO managed_switches (azienda_id, ip, snmp_community, snmp_version, name)
          VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (azienda_id, ip) 
          DO UPDATE SET snmp_community = EXCLUDED.snmp_community, 
                         snmp_version = EXCLUDED.snmp_version,
                         name = EXCLUDED.name
          RETURNING id, ip, snmp_community, snmp_version, name, created_at`,
-      [aziendaId, ip, snmp_community, snmp_version, name || null]
-    );
-    res.status(201).json(r.rows[0]);
-  } catch (err) {
-    console.error('❌ Errore add managed-switches:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+        [aziendaId, ip, snmp_community, snmp_version, name || null]
+      );
+      res.status(201).json(r.rows[0]);
+    } catch (err) {
+      console.error('❌ Errore add managed-switches:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
 
-// DELETE /api/network-monitoring/clients/:aziendaId/managed-switches/:id
-router.delete('/clients/:aziendaId/managed-switches/:id', authenticateToken, async (req, res) => {
-  try {
-    await ensureTables();
-    const aziendaId = parseInt(req.params.aziendaId, 10);
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(aziendaId) || isNaN(id)) return res.status(400).json({ error: 'Parametri non validi' });
-    const r = await pool.query('DELETE FROM managed_switches WHERE id = $1 AND azienda_id = $2 RETURNING id', [id, aziendaId]);
-    if (r.rows.length === 0) return res.status(404).json({ error: 'Dispositivo gestito non trovato' });
-    res.json({ success: true });
-  } catch (err) {
-    console.error('❌ Errore delete managed-switches:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+  // DELETE /api/network-monitoring/clients/:aziendaId/managed-switches/:id
+  router.delete('/clients/:aziendaId/managed-switches/:id', authenticateToken, async (req, res) => {
+    try {
+      await ensureTables();
+      const aziendaId = parseInt(req.params.aziendaId, 10);
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(aziendaId) || isNaN(id)) return res.status(400).json({ error: 'Parametri non validi' });
+      const r = await pool.query('DELETE FROM managed_switches WHERE id = $1 AND azienda_id = $2 RETURNING id', [id, aziendaId]);
+      if (r.rows.length === 0) return res.status(404).json({ error: 'Dispositivo gestito non trovato' });
+      res.json({ success: true });
+    } catch (err) {
+      console.error('❌ Errore delete managed-switches:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
 
-// POST /api/network-monitoring/clients/:aziendaId/managed-switches/:id/sync
-// La sincronizzazione SNMP è eseguita dall'agent in locale (stessa LAN dello switch); il backend non può
-// raggiungere IP privati (es. 192.168.x) dal VPS. L'agent legge dot1dTpFdbPort e invia a
-// POST /agent/switch-address-table. Qui si restituisce solo un messaggio informativo.
-router.post('/clients/:aziendaId/managed-switches/:id/sync', authenticateToken, async (req, res) => {
-  try {
-    await ensureTables();
-    const aziendaId = parseInt(req.params.aziendaId, 10);
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(aziendaId) || isNaN(id)) return res.status(400).json({ error: 'Parametri non validi' });
-    const sw = await pool.query('SELECT id FROM managed_switches WHERE id = $1 AND azienda_id = $2', [id, aziendaId]);
-    if (sw.rows.length === 0) return res.status(404).json({ error: 'Dispositivo gestito non trovato' });
+  // POST /api/network-monitoring/clients/:aziendaId/managed-switches/:id/sync
+  // La sincronizzazione SNMP è eseguita dall'agent in locale (stessa LAN dello switch); il backend non può
+  // raggiungere IP privati (es. 192.168.x) dal VPS. L'agent legge dot1dTpFdbPort e invia a
+  // POST /agent/switch-address-table. Qui si restituisce solo un messaggio informativo.
+  router.post('/clients/:aziendaId/managed-switches/:id/sync', authenticateToken, async (req, res) => {
+    try {
+      await ensureTables();
+      const aziendaId = parseInt(req.params.aziendaId, 10);
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(aziendaId) || isNaN(id)) return res.status(400).json({ error: 'Parametri non validi' });
+      const sw = await pool.query('SELECT id FROM managed_switches WHERE id = $1 AND azienda_id = $2', [id, aziendaId]);
+      if (sw.rows.length === 0) return res.status(404).json({ error: 'Dispositivo gestito non trovato' });
 
-    res.json({
-      success: true,
-      message: "La sincronizzazione SNMP viene eseguita dall'agent sulla rete locale. I dati saranno aggiornati al prossimo ciclo (di solito entro pochi minuti). Ricaricare la mappa."
-    });
-  } catch (err) {
-    console.error('❌ Errore sync managed-switch:', err);
-    res.status(500).json({ error: err.message || 'Errore durante la sincronizzazione' });
-  }
-});
+      res.json({
+        success: true,
+        message: "La sincronizzazione SNMP viene eseguita dall'agent sulla rete locale. I dati saranno aggiornati al prossimo ciclo (di solito entro pochi minuti). Ricaricare la mappa."
+      });
+    } catch (err) {
+      console.error('❌ Errore sync managed-switch:', err);
+      res.status(500).json({ error: err.message || 'Errore durante la sincronizzazione' });
+    }
+  });
 
-// GET /api/network-monitoring/clients/:aziendaId/changes
-// Ottieni storico cambiamenti per un'azienda (per frontend)
-router.get('/clients/:aziendaId/changes', authenticateToken, checkCompanyAccess, async (req, res) => {
-  try {
-    await ensureTables();
+  // GET /api/network-monitoring/clients/:aziendaId/changes
+  // Ottieni storico cambiamenti per un'azienda (per frontend)
+  router.get('/clients/:aziendaId/changes', authenticateToken, checkCompanyAccess, async (req, res) => {
+    try {
+      await ensureTables();
 
-    const { aziendaId } = req.params;
-    const limit = parseInt(req.query.limit) || 100;
+      const { aziendaId } = req.params;
+      const limit = parseInt(req.query.limit) || 100;
 
-    const result = await pool.query(
-      `SELECT 
+      const result = await pool.query(
+        `SELECT 
           nc.id, nc.change_type, nc.old_value, nc.new_value, nc.detected_at, nc.notified,
           nd.ip_address, nd.mac_address, 
           CASE 
@@ -3565,102 +3595,102 @@ router.get('/clients/:aziendaId/changes', authenticateToken, checkCompanyAccess,
          WHERE na.azienda_id = $1
          ORDER BY nc.detected_at DESC
          LIMIT $2`,
-      [aziendaId, limit]
-    );
+        [aziendaId, limit]
+      );
 
-    res.json(result.rows);
-  } catch (err) {
-    console.error('❌ Errore recupero cambiamenti:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      res.json(result.rows);
+    } catch (err) {
+      console.error('❌ Errore recupero cambiamenti:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
 
-// GET /api/network-monitoring/clients/:aziendaId/status
-// Ottieni status agent per un'azienda (per frontend)
-router.get('/clients/:aziendaId/status', authenticateToken, checkCompanyAccess, async (req, res) => {
-  try {
-    await ensureTables();
+  // GET /api/network-monitoring/clients/:aziendaId/status
+  // Ottieni status agent per un'azienda (per frontend)
+  router.get('/clients/:aziendaId/status', authenticateToken, checkCompanyAccess, async (req, res) => {
+    try {
+      await ensureTables();
 
-    const { aziendaId } = req.params;
+      const { aziendaId } = req.params;
 
-    const result = await pool.query(
-      `SELECT 
+      const result = await pool.query(
+        `SELECT 
           id, agent_name, status, last_heartbeat, version, 
           network_ranges, scan_interval_minutes, enabled, created_at
          FROM network_agents
          WHERE azienda_id = $1 AND deleted_at IS NULL
          ORDER BY created_at DESC`,
-      [aziendaId]
-    );
+        [aziendaId]
+      );
 
-    res.json(result.rows);
-  } catch (err) {
-    console.error('❌ Errore recupero status agent:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      res.json(result.rows);
+    } catch (err) {
+      console.error('❌ Errore recupero status agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
 
-// GET /api/network-monitoring/all/devices
-// Ottieni tutti i dispositivi di tutte le aziende (per dashboard principale)
-router.get('/all/devices', async (req, res) => {
-  try {
-    await ensureTables();
-
-    // Assicurati che le colonne device_path, is_static, previous_ip, previous_mac esistano (migrazione)
+  // GET /api/network-monitoring/all/devices
+  // Ottieni tutti i dispositivi di tutte le aziende (per dashboard principale)
+  router.get('/all/devices', async (req, res) => {
     try {
-      await pool.query(`
+      await ensureTables();
+
+      // Assicurati che le colonne device_path, is_static, previous_ip, previous_mac esistano (migrazione)
+      try {
+        await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS device_path TEXT;
         `);
-      await pool.query(`
+        await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;
         `);
-      await pool.query(`
+        await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS previous_ip VARCHAR(45);
         `);
-      await pool.query(`
+        await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS previous_mac VARCHAR(17);
         `);
-      await pool.query(`
+        await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS has_ping_failures BOOLEAN DEFAULT false;
         `);
-      await pool.query(`
+        await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS device_username TEXT;
         `);
-      await pool.query(`
+        await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS accepted_ip VARCHAR(45);
         `);
-      await pool.query(`
+        await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS accepted_mac VARCHAR(17);
         `);
-      await pool.query(`
+        await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS is_gateway BOOLEAN DEFAULT false;
         `);
-      await pool.query(`
+        await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS port INTEGER;
         `);
-      await pool.query(`
+        await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS router_model VARCHAR(100);
         `);
-    } catch (migrationErr) {
-      // Ignora errore se colonna esiste già
-      if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
-        console.warn('⚠️ Avviso aggiunta colonne in all/devices:', migrationErr.message);
+      } catch (migrationErr) {
+        // Ignora errore se colonna esiste già
+        if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonne in all/devices:', migrationErr.message);
+        }
       }
-    }
 
-    const result = await pool.query(
-      `SELECT 
+      const result = await pool.query(
+        `SELECT 
           nd.id, nd.ip_address, nd.mac_address, 
           CASE 
             WHEN nd.hostname IS NULL OR nd.hostname = '' THEN NULL
@@ -3683,112 +3713,112 @@ router.get('/all/devices', async (req, res) => {
          LEFT JOIN users u ON na.azienda_id = u.id
          ORDER BY nd.last_seen DESC
          LIMIT 500`
-    );
+      );
 
-    // Ottimizzazione: carica la mappa KeePass UNA SOLA VOLTA invece di per ogni dispositivo
-    const keepassPassword = process.env.KEEPASS_PASSWORD;
-    let keepassMap = null;
-    if (keepassPassword) {
-      try {
-        console.log('📥 Caricamento mappa KeePass (una volta per tutti i dispositivi)...');
-        keepassMap = await keepassDriveService.getMacToTitleMap(keepassPassword);
-        console.log(`✅ Mappa KeePass caricata: ${keepassMap.size} MAC address disponibili`);
-      } catch (keepassErr) {
-        console.warn('⚠️ Errore caricamento mappa KeePass:', keepassErr.message);
-      }
-    }
-
-    // Processa i dispositivi in modo sincrono (veloce, senza chiamate async per ogni dispositivo)
-    const processedRows = result.rows.map((row) => {
-      // Post-processa hostname se necessario
-      if (row.hostname && typeof row.hostname === 'string' && row.hostname.trim().startsWith('{')) {
+      // Ottimizzazione: carica la mappa KeePass UNA SOLA VOLTA invece di per ogni dispositivo
+      const keepassPassword = process.env.KEEPASS_PASSWORD;
+      let keepassMap = null;
+      if (keepassPassword) {
         try {
-          const parsed = JSON.parse(row.hostname);
-          row.hostname = parsed._ !== undefined ? String(parsed._ || '') : row.hostname;
-        } catch {
-          // Mantieni originale se non è JSON valido
-        }
-      }
-
-      // Cerca MAC nella mappa KeePass (già caricata)
-      // Titolo, Utente e Percorso vengono SEMPRE aggiornati da KeePass.
-      // Solo device_type viene protetto se is_manual_type = true.
-      if (row.mac_address && keepassMap) {
-        try {
-          // Normalizza il MAC: solo caratteri esadecimali, 12 caratteri, uppercase (come chiavi in keepassMap)
-          const macHex = (row.mac_address || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
-          const normalizedMac = macHex.length === 12 ? macHex : row.mac_address.replace(/[:-]/g, '').toUpperCase();
-          const keepassEntries = keepassMap.get(normalizedMac);
-          const keepassResult = Array.isArray(keepassEntries)
-            ? keepassDriveService.pickEntryForAzienda(keepassEntries, row.azienda)
-            : keepassEntries;
-
-          if (keepassResult) {
-            // Titolo, Percorso, Utente — SEMPRE aggiornati
-            row.hostname = (keepassResult.title && keepassResult.title.trim()) ? keepassResult.title.trim() : (row.hostname || null);
-            const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
-            row.device_path = (lastPathElement && lastPathElement.trim()) ? lastPathElement.trim() : null;
-            row.device_username = (keepassResult.username && keepassResult.username.trim()) ? keepassResult.username.trim() : null;
-
-            // device_type — solo se NON manuale
-            if (!row.is_manual_type) {
-              row.device_type = keepassResult.title;
-            }
-          }
-          // Se non trovato, mantieni i valori esistenti dal database
+          console.log('📥 Caricamento mappa KeePass (una volta per tutti i dispositivi)...');
+          keepassMap = await keepassDriveService.getMacToTitleMap(keepassPassword);
+          console.log(`✅ Mappa KeePass caricata: ${keepassMap.size} MAC address disponibili`);
         } catch (keepassErr) {
-          // Non bloccare il processo se c'è un errore
-          console.error(`❌ Errore ricerca MAC ${row.mac_address} in mappa KeePass:`, keepassErr.message);
+          console.warn('⚠️ Errore caricamento mappa KeePass:', keepassErr.message);
         }
       }
 
-      return row;
-    });
+      // Processa i dispositivi in modo sincrono (veloce, senza chiamate async per ogni dispositivo)
+      const processedRows = result.rows.map((row) => {
+        // Post-processa hostname se necessario
+        if (row.hostname && typeof row.hostname === 'string' && row.hostname.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(row.hostname);
+            row.hostname = parsed._ !== undefined ? String(parsed._ || '') : row.hostname;
+          } catch {
+            // Mantieni originale se non è JSON valido
+          }
+        }
 
-    res.json(processedRows);
-  } catch (err) {
-    console.error('❌ Errore recupero tutti dispositivi:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+        // Cerca MAC nella mappa KeePass (già caricata)
+        // Titolo, Utente e Percorso vengono SEMPRE aggiornati da KeePass.
+        // Solo device_type viene protetto se is_manual_type = true.
+        if (row.mac_address && keepassMap) {
+          try {
+            // Normalizza il MAC: solo caratteri esadecimali, 12 caratteri, uppercase (come chiavi in keepassMap)
+            const macHex = (row.mac_address || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+            const normalizedMac = macHex.length === 12 ? macHex : row.mac_address.replace(/[:-]/g, '').toUpperCase();
+            const keepassEntries = keepassMap.get(normalizedMac);
+            const keepassResult = Array.isArray(keepassEntries)
+              ? keepassDriveService.pickEntryForAzienda(keepassEntries, row.azienda)
+              : keepassEntries;
 
-// GET /api/network-monitoring/all/changes
-// Ottieni tutti i cambiamenti recenti (per dashboard principale)
-router.get('/all/changes', async (req, res) => {
-  try {
-    await ensureTables();
+            if (keepassResult) {
+              // Titolo, Percorso, Utente — SEMPRE aggiornati
+              row.hostname = (keepassResult.title && keepassResult.title.trim()) ? keepassResult.title.trim() : (row.hostname || null);
+              const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
+              row.device_path = (lastPathElement && lastPathElement.trim()) ? lastPathElement.trim() : null;
+              row.device_username = (keepassResult.username && keepassResult.username.trim()) ? keepassResult.username.trim() : null;
 
-    const limit = parseInt(req.query.limit) || 200;
-    const searchTerm = req.query.search ? req.query.search.trim() : '';
-    const aziendaId = req.query.azienda_id ? parseInt(req.query.azienda_id) : null;
+              // device_type — solo se NON manuale
+              if (!row.is_manual_type) {
+                row.device_type = keepassResult.title;
+              }
+            }
+            // Se non trovato, mantieni i valori esistenti dal database
+          } catch (keepassErr) {
+            // Non bloccare il processo se c'è un errore
+            console.error(`❌ Errore ricerca MAC ${row.mac_address} in mappa KeePass:`, keepassErr.message);
+          }
+        }
 
-    // Assicurati che la colonna is_static esista (migrazione)
+        return row;
+      });
+
+      res.json(processedRows);
+    } catch (err) {
+      console.error('❌ Errore recupero tutti dispositivi:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/all/changes
+  // Ottieni tutti i cambiamenti recenti (per dashboard principale)
+  router.get('/all/changes', async (req, res) => {
     try {
-      await pool.query(`
+      await ensureTables();
+
+      const limit = parseInt(req.query.limit) || 200;
+      const searchTerm = req.query.search ? req.query.search.trim() : '';
+      const aziendaId = req.query.azienda_id ? parseInt(req.query.azienda_id) : null;
+
+      // Assicurati che la colonna is_static esista (migrazione)
+      try {
+        await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;
         `);
-    } catch (migrationErr) {
-      // Ignora errore se colonna esiste già
-      if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
-        console.warn('⚠️ Avviso aggiunta colonna is_static in all/changes:', migrationErr.message);
+      } catch (migrationErr) {
+        // Ignora errore se colonna esiste già
+        if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna is_static in all/changes:', migrationErr.message);
+        }
       }
-    }
 
-    // Costruisci condizioni di ricerca
-    let searchConditions = '';
-    let queryParams = [];
-    let paramIndex = 1;
+      // Costruisci condizioni di ricerca
+      let searchConditions = '';
+      let queryParams = [];
+      let paramIndex = 1;
 
-    if (searchTerm) {
-      const searchPattern = `%${searchTerm}%`;
-      // Normalizza il MAC per la ricerca (rimuove separatori)
-      const normalizedMacSearch = searchTerm.replace(/[:-]/g, '').toUpperCase();
-      const macSearchPattern = normalizedMacSearch.length >= 6 ? `%${normalizedMacSearch}%` : null;
+      if (searchTerm) {
+        const searchPattern = `%${searchTerm}%`;
+        // Normalizza il MAC per la ricerca (rimuove separatori)
+        const normalizedMacSearch = searchTerm.replace(/[:-]/g, '').toUpperCase();
+        const macSearchPattern = normalizedMacSearch.length >= 6 ? `%${normalizedMacSearch}%` : null;
 
-      // Se il termine di ricerca sembra un MAC (almeno 6 caratteri esadecimali), cerca anche nel MAC normalizzato
-      if (macSearchPattern) {
-        searchConditions = `WHERE (
+        // Se il termine di ricerca sembra un MAC (almeno 6 caratteri esadecimali), cerca anche nel MAC normalizzato
+        if (macSearchPattern) {
+          searchConditions = `WHERE (
             nd.ip_address::text ILIKE $1 OR
             nd.mac_address ILIKE $1 OR
             REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', '') ILIKE $2 OR
@@ -3800,9 +3830,9 @@ router.get('/all/changes', async (req, res) => {
             COALESCE(u.azienda, '') ILIKE $1 OR
             nd.device_type ILIKE $1
           )`;
-        queryParams.push(searchPattern, macSearchPattern);
-      } else {
-        searchConditions = `WHERE (
+          queryParams.push(searchPattern, macSearchPattern);
+        } else {
+          searchConditions = `WHERE (
             nd.ip_address::text ILIKE $1 OR
             nd.mac_address ILIKE $1 OR
             nd.hostname ILIKE $1 OR
@@ -3813,53 +3843,53 @@ router.get('/all/changes', async (req, res) => {
             COALESCE(u.azienda, '') ILIKE $1 OR
             nd.device_type ILIKE $1
           )`;
-        queryParams.push(searchPattern);
-      }
-    }
-
-    // Aggiungi filtro per azienda se specificato
-    if (aziendaId) {
-      if (searchConditions) {
-        // Se c'è già una condizione WHERE, aggiungi AND per l'azienda
-        searchConditions += ` AND na.azienda_id = $${queryParams.length + 1}`;
-        queryParams.push(aziendaId);
-      } else {
-        // Altrimenti crea una nuova condizione WHERE per l'azienda
-        searchConditions = `WHERE na.azienda_id = $1`;
-        queryParams.push(aziendaId);
-      }
-    }
-
-    // Se richiesto, conta i cambiamenti delle ultime 24 ore
-    // IMPORTANTE: Esegui questa query PRIMA della query principale per evitare timeout
-    let count24h = null;
-    if (req.query.count24h === 'true') {
-      try {
-        // Costruisci la condizione per le ultime 24 ore (non da mezzanotte!)
-        // Usa NOW() - INTERVAL '24 hours' per calcolare esattamente le ultime 24 ore
-        // Riutilizza searchConditions che già include il filtro azienda se presente
-        let count24hCondition = '';
-        let countParams = [];
-
-        if (searchConditions) {
-          // Se c'è già una condizione WHERE (con ricerca e/o filtro azienda), aggiungi AND per le ultime 24 ore
-          count24hCondition = searchConditions + ` AND nc.detected_at >= NOW() - INTERVAL '24 hours'`;
-          countParams = [...queryParams];
-        } else {
-          // Altrimenti crea una nuova condizione WHERE per le ultime 24 ore
-          // Se c'è un filtro azienda, aggiungilo anche qui
-          const conditions = [];
-          if (aziendaId) {
-            conditions.push(`na.azienda_id = $1`);
-            countParams.push(aziendaId);
-          }
-          conditions.push(`nc.detected_at >= NOW() - INTERVAL '24 hours'`);
-          count24hCondition = `WHERE ${conditions.join(' AND ')}`;
+          queryParams.push(searchPattern);
         }
+      }
 
-        // Query semplificata e veloce con COUNT DISTINCT per evitare duplicati
-        // Conta solo cambiamenti unici basati su id, device_id, change_type e detected_at
-        const countQuery = `
+      // Aggiungi filtro per azienda se specificato
+      if (aziendaId) {
+        if (searchConditions) {
+          // Se c'è già una condizione WHERE, aggiungi AND per l'azienda
+          searchConditions += ` AND na.azienda_id = $${queryParams.length + 1}`;
+          queryParams.push(aziendaId);
+        } else {
+          // Altrimenti crea una nuova condizione WHERE per l'azienda
+          searchConditions = `WHERE na.azienda_id = $1`;
+          queryParams.push(aziendaId);
+        }
+      }
+
+      // Se richiesto, conta i cambiamenti delle ultime 24 ore
+      // IMPORTANTE: Esegui questa query PRIMA della query principale per evitare timeout
+      let count24h = null;
+      if (req.query.count24h === 'true') {
+        try {
+          // Costruisci la condizione per le ultime 24 ore (non da mezzanotte!)
+          // Usa NOW() - INTERVAL '24 hours' per calcolare esattamente le ultime 24 ore
+          // Riutilizza searchConditions che già include il filtro azienda se presente
+          let count24hCondition = '';
+          let countParams = [];
+
+          if (searchConditions) {
+            // Se c'è già una condizione WHERE (con ricerca e/o filtro azienda), aggiungi AND per le ultime 24 ore
+            count24hCondition = searchConditions + ` AND nc.detected_at >= NOW() - INTERVAL '24 hours'`;
+            countParams = [...queryParams];
+          } else {
+            // Altrimenti crea una nuova condizione WHERE per le ultime 24 ore
+            // Se c'è un filtro azienda, aggiungilo anche qui
+            const conditions = [];
+            if (aziendaId) {
+              conditions.push(`na.azienda_id = $1`);
+              countParams.push(aziendaId);
+            }
+            conditions.push(`nc.detected_at >= NOW() - INTERVAL '24 hours'`);
+            count24hCondition = `WHERE ${conditions.join(' AND ')}`;
+          }
+
+          // Query semplificata e veloce con COUNT DISTINCT per evitare duplicati
+          // Conta solo cambiamenti unici basati su id, device_id, change_type e detected_at
+          const countQuery = `
           SELECT COUNT(DISTINCT nc.id) as count
           FROM network_changes nc
           INNER JOIN network_devices nd ON nc.device_id = nd.id
@@ -3868,25 +3898,25 @@ router.get('/all/changes', async (req, res) => {
           ${count24hCondition}
         `;
 
-        // Timeout di 5 secondi per evitare 502
-        const countPromise = pool.query(countQuery, countParams);
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Query timeout dopo 5 secondi')), 5000)
-        );
+          // Timeout di 5 secondi per evitare 502
+          const countPromise = pool.query(countQuery, countParams);
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Query timeout dopo 5 secondi')), 5000)
+          );
 
-        const countResult = await Promise.race([countPromise, timeoutPromise]);
-        count24h = parseInt(countResult.rows[0].count, 10);
+          const countResult = await Promise.race([countPromise, timeoutPromise]);
+          count24h = parseInt(countResult.rows[0].count, 10);
 
-        console.log(`📊 Conteggio cambiamenti ultime 24h: ${count24h} (query eseguita alle ${new Date().toISOString()})`);
-      } catch (countErr) {
-        console.warn('⚠️ Errore conteggio 24h (non critico):', countErr.message);
-        // Non bloccare la risposta principale se il conteggio fallisce
-        count24h = null;
+          console.log(`📊 Conteggio cambiamenti ultime 24h: ${count24h} (query eseguita alle ${new Date().toISOString()})`);
+        } catch (countErr) {
+          console.warn('⚠️ Errore conteggio 24h (non critico):', countErr.message);
+          // Non bloccare la risposta principale se il conteggio fallisce
+          count24h = null;
+        }
       }
-    }
 
-    const result = await pool.query(
-      `SELECT 
+      const result = await pool.query(
+        `SELECT 
           nc.id, nc.change_type, nc.old_value, nc.new_value, nc.detected_at, nc.notified,
           nd.ip_address, nd.mac_address, 
           CASE 
@@ -3913,37 +3943,37 @@ router.get('/all/changes', async (req, res) => {
          ${searchConditions}
          ORDER BY nc.detected_at DESC
          LIMIT $${queryParams.length + 1}`,
-      [...queryParams, limit]
-    );
+        [...queryParams, limit]
+      );
 
 
-    // Restituisci anche il conteggio se richiesto
-    if (count24h !== null) {
-      res.json({ changes: result.rows, count24h });
-    } else {
-      res.json(result.rows);
+      // Restituisci anche il conteggio se richiesto
+      if (count24h !== null) {
+        res.json({ changes: result.rows, count24h });
+      } else {
+        res.json(result.rows);
+      }
+    } catch (err) {
+      console.error('❌ Errore recupero tutti cambiamenti:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
-  } catch (err) {
-    console.error('❌ Errore recupero tutti cambiamenti:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+  });
 
-// GET /api/network-monitoring/all/events
-// Ottieni tutti gli eventi unificati (dispositivi + agent) con filtri avanzati
-router.get('/all/events', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
+  // GET /api/network-monitoring/all/events
+  // Ottieni tutti gli eventi unificati (dispositivi + agent) con filtri avanzati
+  router.get('/all/events', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
 
-    const limit = parseInt(req.query.limit) || 200;
-    const searchTerm = req.query.search ? req.query.search.trim() : '';
-    const aziendaId = req.query.azienda_id ? parseInt(req.query.azienda_id) : null;
-    const networkParam = req.query.network ? req.query.network.trim() : '';
-    const eventType = req.query.event_type || ''; // all, device, agent
-    const count24h = req.query.count24h === 'true';
+      const limit = parseInt(req.query.limit) || 200;
+      const searchTerm = req.query.search ? req.query.search.trim() : '';
+      const aziendaId = req.query.azienda_id ? parseInt(req.query.azienda_id) : null;
+      const networkParam = req.query.network ? req.query.network.trim() : '';
+      const eventType = req.query.event_type || ''; // all, device, agent
+      const count24h = req.query.count24h === 'true';
 
-    // Query per eventi dispositivi (network_changes)
-    const deviceEventsQuery = `
+      // Query per eventi dispositivi (network_changes)
+      const deviceEventsQuery = `
         SELECT 
           'device' as event_category,
           nc.id,
@@ -3993,8 +4023,8 @@ router.get('/all/events', authenticateToken, requireRole('tecnico'), async (req,
         WHERE 1=1
       `;
 
-    // Query per eventi agent (network_agent_events)
-    const agentEventsQuery = `
+      // Query per eventi agent (network_agent_events)
+      const agentEventsQuery = `
         SELECT 
           'agent' as event_category,
           nae.id,
@@ -4030,36 +4060,36 @@ router.get('/all/events', authenticateToken, requireRole('tecnico'), async (req,
         WHERE na.deleted_at IS NULL
       `;
 
-    // Costruisci filtri
-    let deviceFilters = '';
-    let agentFilters = '';
-    const params = [];
-    let paramIndex = 1;
+      // Costruisci filtri
+      let deviceFilters = '';
+      let agentFilters = '';
+      const params = [];
+      let paramIndex = 1;
 
-    // Filtro azienda
-    if (aziendaId) {
-      deviceFilters += ` AND na.azienda_id = $${paramIndex}`;
-      agentFilters += ` AND na.azienda_id = $${paramIndex}`;
-      params.push(aziendaId);
-      paramIndex++;
-    }
+      // Filtro azienda
+      if (aziendaId) {
+        deviceFilters += ` AND na.azienda_id = $${paramIndex}`;
+        agentFilters += ` AND na.azienda_id = $${paramIndex}`;
+        params.push(aziendaId);
+        paramIndex++;
+      }
 
-    // Filtro rete (network range)
-    if (networkParam) {
-      // Per i dispositivi, controlla se l'IP è nel range
-      deviceFilters += ` AND nd.ip_address::inet <<= $${paramIndex}::inet`;
+      // Filtro rete (network range)
+      if (networkParam) {
+        // Per i dispositivi, controlla se l'IP è nel range
+        deviceFilters += ` AND nd.ip_address::inet <<= $${paramIndex}::inet`;
 
-      // Per gli agent, controlla se l'agent monitora quella rete
-      agentFilters += ` AND $${paramIndex} = ANY(na.network_ranges)`;
+        // Per gli agent, controlla se l'agent monitora quella rete
+        agentFilters += ` AND $${paramIndex} = ANY(na.network_ranges)`;
 
-      params.push(networkParam);
-      paramIndex++;
-    }
+        params.push(networkParam);
+        paramIndex++;
+      }
 
-    // Filtro ricerca
-    if (searchTerm) {
-      const searchPattern = `%${searchTerm}%`;
-      deviceFilters += ` AND (
+      // Filtro ricerca
+      if (searchTerm) {
+        const searchPattern = `%${searchTerm}%`;
+        deviceFilters += ` AND (
           nd.ip_address::text ILIKE $${paramIndex} OR
           nd.mac_address ILIKE $${paramIndex} OR
           nd.hostname ILIKE $${paramIndex} OR
@@ -4067,170 +4097,170 @@ router.get('/all/events', authenticateToken, requireRole('tecnico'), async (req,
           na.agent_name ILIKE $${paramIndex} OR
           COALESCE(u.azienda, '') ILIKE $${paramIndex}
         )`;
-      agentFilters += ` AND (
+        agentFilters += ` AND (
           nae.event_type::text ILIKE $${paramIndex} OR
           na.agent_name ILIKE $${paramIndex} OR
           COALESCE(u.azienda, '') ILIKE $${paramIndex}
         )`;
-      params.push(searchPattern);
-      paramIndex++;
-    }
+        params.push(searchPattern);
+        paramIndex++;
+      }
 
-    // Query unificata
-    let unifiedQuery = '';
+      // Query unificata
+      let unifiedQuery = '';
 
-    if (eventType === 'device') {
-      unifiedQuery = deviceEventsQuery + deviceFilters;
-    } else if (eventType === 'agent') {
-      unifiedQuery = agentEventsQuery + agentFilters;
-    } else {
-      // Unisci entrambi
-      unifiedQuery = `
+      if (eventType === 'device') {
+        unifiedQuery = deviceEventsQuery + deviceFilters;
+      } else if (eventType === 'agent') {
+        unifiedQuery = agentEventsQuery + agentFilters;
+      } else {
+        // Unisci entrambi
+        unifiedQuery = `
           (${deviceEventsQuery}${deviceFilters})
           UNION ALL
           (${agentEventsQuery}${agentFilters})
         `;
-    }
+      }
 
-    // Ordina e limita
-    unifiedQuery = `
+      // Ordina e limita
+      unifiedQuery = `
         SELECT * FROM (${unifiedQuery}) as all_events
         ORDER BY detected_at DESC
         LIMIT $${paramIndex}
       `;
-    params.push(limit);
+      params.push(limit);
 
-    // DEBUG: Log query generata
-    console.log('🔍 DEBUG Query unificata:', unifiedQuery);
-    console.log('🔍 DEBUG Params:', params);
+      // DEBUG: Log query generata
+      console.log('🔍 DEBUG Query unificata:', unifiedQuery);
+      console.log('🔍 DEBUG Params:', params);
 
-    // Esegui query
-    const result = await pool.query(unifiedQuery, params);
+      // Esegui query
+      const result = await pool.query(unifiedQuery, params);
 
-    // Conta eventi ultime 24h se richiesto
-    let count24hResult = null;
-    if (count24h) {
-      try {
-        const count24hQuery = `
+      // Conta eventi ultime 24h se richiesto
+      let count24hResult = null;
+      if (count24h) {
+        try {
+          const count24hQuery = `
             SELECT COUNT(*) as count FROM (
               (${deviceEventsQuery}${deviceFilters} AND nc.detected_at >= NOW() - INTERVAL '24 hours')
               UNION ALL
               (${agentEventsQuery}${agentFilters} AND nae.detected_at >= NOW() - INTERVAL '24 hours')
             ) as recent_events
           `;
-        const countResult = await pool.query(count24hQuery, params.slice(0, -1)); // Rimuovi limit
-        count24hResult = parseInt(countResult.rows[0].count, 10);
-      } catch (countErr) {
-        console.warn('⚠️ Errore conteggio 24h eventi unificati:', countErr.message);
+          const countResult = await pool.query(count24hQuery, params.slice(0, -1)); // Rimuovi limit
+          count24hResult = parseInt(countResult.rows[0].count, 10);
+        } catch (countErr) {
+          console.warn('⚠️ Errore conteggio 24h eventi unificati:', countErr.message);
+        }
       }
-    }
 
-    // Restituisci risultati
-    if (count24hResult !== null) {
-      res.json({ events: result.rows, count24h: count24hResult });
-    } else {
-      res.json(result.rows);
+      // Restituisci risultati
+      if (count24hResult !== null) {
+        res.json({ events: result.rows, count24h: count24hResult });
+      } else {
+        res.json(result.rows);
+      }
+    } catch (err) {
+      console.error('❌ Errore recupero eventi unificati:', err);
+      res.status(500).json({ error: 'Errore interno del server', details: err.message });
     }
-  } catch (err) {
-    console.error('❌ Errore recupero eventi unificati:', err);
-    res.status(500).json({ error: 'Errore interno del server', details: err.message });
-  }
-});
+  });
 
 
-// GET /api/network-monitoring/debug/keepass-lookup?mac=44:8A:5B:4B:68:8D
-// Verifica cosa KeePass restituisce per un MAC (Titolo, Utente, Percorso). Solo tecnici/admin. Utile su VPS.
-router.get('/debug/keepass-lookup', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
-  try {
-    const mac = (req.query.mac || '').trim();
-    if (!mac) {
-      return res.status(400).json({ error: 'Parametro mac obbligatorio (es. ?mac=44:8A:5B:4B:68:8D)' });
-    }
-    const password = process.env.KEEPASS_PASSWORD;
-    if (!password) {
-      return res.status(500).json({ error: 'KEEPASS_PASSWORD non configurato' });
-    }
-    keepassDriveService.invalidateCache();
-    const keepassMap = await keepassDriveService.getMacToTitleMap(password);
-    const normalizedUpper = mac.replace(/[:-]/g, '').toUpperCase();
-    const normalizedLower = mac.replace(/[:-]/g, '').toLowerCase();
-    const raw = keepassMap.get(normalizedUpper) || keepassMap.get(normalizedLower);
-    const aziendaQuery = (req.query.azienda || '').trim();
-    const result = Array.isArray(raw) && raw.length > 0
-      ? keepassDriveService.pickEntryForAzienda(raw, aziendaQuery || null)
-      : raw;
-    if (result && typeof result === 'object') {
-      const percorsoUltimo = result.path ? result.path.split(' > ').pop() : null;
+  // GET /api/network-monitoring/debug/keepass-lookup?mac=44:8A:5B:4B:68:8D
+  // Verifica cosa KeePass restituisce per un MAC (Titolo, Utente, Percorso). Solo tecnici/admin. Utile su VPS.
+  router.get('/debug/keepass-lookup', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
+    try {
+      const mac = (req.query.mac || '').trim();
+      if (!mac) {
+        return res.status(400).json({ error: 'Parametro mac obbligatorio (es. ?mac=44:8A:5B:4B:68:8D)' });
+      }
+      const password = process.env.KEEPASS_PASSWORD;
+      if (!password) {
+        return res.status(500).json({ error: 'KEEPASS_PASSWORD non configurato' });
+      }
+      keepassDriveService.invalidateCache();
+      const keepassMap = await keepassDriveService.getMacToTitleMap(password);
+      const normalizedUpper = mac.replace(/[:-]/g, '').toUpperCase();
+      const normalizedLower = mac.replace(/[:-]/g, '').toLowerCase();
+      const raw = keepassMap.get(normalizedUpper) || keepassMap.get(normalizedLower);
+      const aziendaQuery = (req.query.azienda || '').trim();
+      const result = Array.isArray(raw) && raw.length > 0
+        ? keepassDriveService.pickEntryForAzienda(raw, aziendaQuery || null)
+        : raw;
+      if (result && typeof result === 'object') {
+        const percorsoUltimo = result.path ? result.path.split(' > ').pop() : null;
+        return res.json({
+          found: true,
+          mac: mac,
+          macNormalized: normalizedUpper,
+          titolo: result.title || '',
+          utente: result.username || '',
+          percorso: result.path || '',
+          percorsoUltimo: percorsoUltimo || ''
+        });
+      }
+      const sampleMacs = Array.from(keepassMap.keys()).slice(0, 8).map(k => {
+        const e = keepassMap.get(k);
+        const entry = Array.isArray(e) && e.length > 0 ? e[0] : e;
+        return { mac: k, titolo: (entry && entry.title) || '' };
+      });
       return res.json({
-        found: true,
+        found: false,
         mac: mac,
         macNormalized: normalizedUpper,
-        titolo: result.title || '',
-        utente: result.username || '',
-        percorso: result.path || '',
-        percorsoUltimo: percorsoUltimo || ''
+        message: 'MAC non trovato nella mappa KeePass (file su Google Drive).',
+        sampleMacs
       });
+    } catch (err) {
+      console.error('Errore keepass-lookup:', err);
+      return res.status(500).json({ error: err.message || 'Errore lookup KeePass' });
     }
-    const sampleMacs = Array.from(keepassMap.keys()).slice(0, 8).map(k => {
-      const e = keepassMap.get(k);
-      const entry = Array.isArray(e) && e.length > 0 ? e[0] : e;
-      return { mac: k, titolo: (entry && entry.title) || '' };
-    });
-    return res.json({
-      found: false,
-      mac: mac,
-      macNormalized: normalizedUpper,
-      message: 'MAC non trovato nella mappa KeePass (file su Google Drive).',
-      sampleMacs
-    });
-  } catch (err) {
-    console.error('Errore keepass-lookup:', err);
-    return res.status(500).json({ error: err.message || 'Errore lookup KeePass' });
-  }
-});
+  });
 
-// GET /api/network-monitoring/companies
-// all=true: tutte le aziende (users) - per creazione nuovo agent
-// all=false/omesso: solo aziende con agent attivi
-router.get('/companies', authenticateToken, async (req, res) => {
-  try {
-    const userRole = req.user?.ruolo;
-    const allCompanies = req.query.all === 'true' || req.query.all === '1';
+  // GET /api/network-monitoring/companies
+  // all=true: tutte le aziende (users) - per creazione nuovo agent
+  // all=false/omesso: solo aziende con agent attivi
+  router.get('/companies', authenticateToken, async (req, res) => {
+    try {
+      const userRole = req.user?.ruolo;
+      const allCompanies = req.query.all === 'true' || req.query.all === '1';
 
-    if (allCompanies) {
-      // Per "Crea Nuovo Agent": tutte le aziende dalla tabella users (UNICHE per nome azienda)
-      let query = `
+      if (allCompanies) {
+        // Per "Crea Nuovo Agent": tutte le aziende dalla tabella users (UNICHE per nome azienda)
+        let query = `
           SELECT DISTINCT ON (u.azienda) u.id, u.azienda,
             (SELECT COUNT(*) FROM network_agents na WHERE na.azienda_id = u.id AND na.deleted_at IS NULL) as agent_count
           FROM users u
           WHERE u.azienda IS NOT NULL AND u.azienda != '' AND u.azienda != 'Senza azienda'
         `;
 
-      if (userRole === 'cliente' && req.user?.admin_companies && Array.isArray(req.user.admin_companies) && req.user.admin_companies.length > 0) {
-        let accessibleCompanies = [...req.user.admin_companies];
-        const userAzienda = req.user.azienda || '';
-        if (userAzienda === 'Paradiso Group' || req.user.admin_companies.includes('Paradiso Group')) {
-          ['Conad Mercurio', 'Conad La Torre', 'Conad Albatros'].forEach(c => {
-            if (!accessibleCompanies.includes(c)) accessibleCompanies.push(c);
-          });
+        if (userRole === 'cliente' && req.user?.admin_companies && Array.isArray(req.user.admin_companies) && req.user.admin_companies.length > 0) {
+          let accessibleCompanies = [...req.user.admin_companies];
+          const userAzienda = req.user.azienda || '';
+          if (userAzienda === 'Paradiso Group' || req.user.admin_companies.includes('Paradiso Group')) {
+            ['Conad Mercurio', 'Conad La Torre', 'Conad Albatros'].forEach(c => {
+              if (!accessibleCompanies.includes(c)) accessibleCompanies.push(c);
+            });
+          }
+          const adminCompanies = accessibleCompanies.map(c => `'${c.replace(/'/g, "''")}'`).join(',');
+          query += ` AND u.azienda IN (${adminCompanies})`;
         }
-        const adminCompanies = accessibleCompanies.map(c => `'${c.replace(/'/g, "''")}'`).join(',');
-        query += ` AND u.azienda IN (${adminCompanies})`;
+
+        query += ` ORDER BY u.azienda ASC, u.id ASC`;
+
+        const result = await pool.query(query);
+        const companiesResponse = result.rows.map(row => ({
+          id: row.id,
+          azienda: row.azienda,
+          agent_count: parseInt(row.agent_count || '0')
+        }));
+        return res.json(companiesResponse);
       }
 
-      query += ` ORDER BY u.azienda ASC, u.id ASC`;
-
-      const result = await pool.query(query);
-      const companiesResponse = result.rows.map(row => ({
-        id: row.id,
-        azienda: row.azienda,
-        agent_count: parseInt(row.agent_count || '0')
-      }));
-      return res.json(companiesResponse);
-    }
-
-    // Comportamento originale: solo aziende con agent attivi
-    let query = `
+      // Comportamento originale: solo aziende con agent attivi
+      let query = `
         SELECT DISTINCT 
           u.azienda,
           u.id,
@@ -4241,64 +4271,64 @@ router.get('/companies', authenticateToken, async (req, res) => {
          AND na.deleted_at IS NULL
       `;
 
-    // Se è admin aziendale, mostra solo le sue aziende
-    if (userRole === 'cliente' && req.user?.admin_companies && Array.isArray(req.user.admin_companies) && req.user.admin_companies.length > 0) {
-      // Aziende accessibili per questo utente
-      let accessibleCompanies = [...req.user.admin_companies];
+      // Se è admin aziendale, mostra solo le sue aziende
+      if (userRole === 'cliente' && req.user?.admin_companies && Array.isArray(req.user.admin_companies) && req.user.admin_companies.length > 0) {
+        // Aziende accessibili per questo utente
+        let accessibleCompanies = [...req.user.admin_companies];
 
-      // Caso speciale: Paradiso Group può vedere anche Conad Mercurio, Conad La Torre e Conad Albatros
-      const userAzienda = req.user.azienda || '';
-      if (userAzienda === 'Paradiso Group' || req.user.admin_companies.includes('Paradiso Group')) {
-        const paradisoAccessibleCompanies = [
-          'Conad Mercurio',
-          'Conad La Torre',
-          'Conad Albatros'
-        ];
-        // Aggiungi le aziende Conad se non sono già presenti
-        paradisoAccessibleCompanies.forEach(company => {
-          if (!accessibleCompanies.includes(company)) {
-            accessibleCompanies.push(company);
-          }
-        });
+        // Caso speciale: Paradiso Group può vedere anche Conad Mercurio, Conad La Torre e Conad Albatros
+        const userAzienda = req.user.azienda || '';
+        if (userAzienda === 'Paradiso Group' || req.user.admin_companies.includes('Paradiso Group')) {
+          const paradisoAccessibleCompanies = [
+            'Conad Mercurio',
+            'Conad La Torre',
+            'Conad Albatros'
+          ];
+          // Aggiungi le aziende Conad se non sono già presenti
+          paradisoAccessibleCompanies.forEach(company => {
+            if (!accessibleCompanies.includes(company)) {
+              accessibleCompanies.push(company);
+            }
+          });
+        }
+
+        const adminCompanies = accessibleCompanies.map(c => `'${c.replace(/'/g, "''")}'`).join(',');
+        query += ` AND u.azienda IN (${adminCompanies})`;
       }
 
-      const adminCompanies = accessibleCompanies.map(c => `'${c.replace(/'/g, "''")}'`).join(',');
-      query += ` AND u.azienda IN (${adminCompanies})`;
-    }
-
-    query += `
+      query += `
          GROUP BY u.azienda, u.id
          ORDER BY u.azienda ASC
       `;
 
-    const companiesResult = await pool.query(query);
+      const companiesResult = await pool.query(query);
 
-    // Formatta la risposta
-    const companiesResponse = companiesResult.rows.map(row => ({
-      id: row.id,
-      azienda: row.azienda,
-      agent_count: parseInt(row.agent_count || '0')
-    }));
+      // Formatta la risposta
+      const companiesResponse = companiesResult.rows.map(row => ({
+        id: row.id,
+        azienda: row.azienda,
+        agent_count: parseInt(row.agent_count || '0')
+      }));
 
-    res.json(companiesResponse);
-  } catch (err) {
-    console.error('Errore recupero aziende:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      res.json(companiesResponse);
+    } catch (err) {
+      console.error('Errore recupero aziende:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
 
 
-// GET /api/network-monitoring/agents
-// Ottieni lista agent registrati (solo tecnici/admin)
-router.get('/agents', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
-
-    let result;
+  // GET /api/network-monitoring/agents
+  // Ottieni lista agent registrati (solo tecnici/admin)
+  router.get('/agents', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
-      // Prova prima con network_ranges_config
-      result = await pool.query(
-        `SELECT
+      await ensureTables();
+
+      let result;
+      try {
+        // Prova prima con network_ranges_config
+        result = await pool.query(
+          `SELECT
   na.id, na.agent_name,
     COALESCE(na.status,
       CASE WHEN na.last_heartbeat IS NOT NULL AND na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online' ELSE 'offline' END
@@ -4312,13 +4342,13 @@ router.get('/agents', authenticateToken, requireRole('tecnico'), async (req, res
            LEFT JOIN users u ON na.azienda_id = u.id
            WHERE na.deleted_at IS NULL
            ORDER BY na.created_at DESC`
-      );
-    } catch (queryErr) {
-      // Se la colonna network_ranges_config non esiste, usa solo network_ranges
-      if (queryErr.message && queryErr.message.includes('network_ranges_config')) {
-        console.warn('⚠️ Colonna network_ranges_config non trovata, uso solo network_ranges');
-        result = await pool.query(
-          `SELECT
+        );
+      } catch (queryErr) {
+        // Se la colonna network_ranges_config non esiste, usa solo network_ranges
+        if (queryErr.message && queryErr.message.includes('network_ranges_config')) {
+          console.warn('⚠️ Colonna network_ranges_config non trovata, uso solo network_ranges');
+          result = await pool.query(
+            `SELECT
   na.id, na.agent_name,
     COALESCE(na.status,
       CASE WHEN na.last_heartbeat IS NOT NULL AND na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online' ELSE 'offline' END
@@ -4332,61 +4362,61 @@ router.get('/agents', authenticateToken, requireRole('tecnico'), async (req, res
              LEFT JOIN users u ON na.azienda_id = u.id
              WHERE na.deleted_at IS NULL
              ORDER BY na.created_at DESC`
-        );
-      } else {
-        throw queryErr;
+          );
+        } else {
+          throw queryErr;
+        }
       }
+
+      res.json(result.rows);
+    } catch (err) {
+      console.error('❌ Errore recupero agent:', err);
+      console.error('❌ Stack trace:', err.stack);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    res.json(result.rows);
-  } catch (err) {
-    console.error('❌ Errore recupero agent:', err);
-    console.error('❌ Stack trace:', err.stack);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+  // PUT /api/network-monitoring/agent/:id
+  // Aggiorna un agent esistente (solo tecnici/admin)
+  router.put('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
 
-// PUT /api/network-monitoring/agent/:id
-// Aggiorna un agent esistente (solo tecnici/admin)
-router.put('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
+      const agentId = parseInt(req.params.id);
+      const { agent_name, network_ranges_config, scan_interval_minutes, unifi_config } = req.body;
 
-    const agentId = parseInt(req.params.id);
-    const { agent_name, network_ranges_config, scan_interval_minutes, unifi_config } = req.body;
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
 
-    if (!agentId) {
-      return res.status(400).json({ error: 'ID agent richiesto' });
-    }
+      // Verifica che l'agent esista
+      const checkResult = await pool.query(
+        'SELECT id FROM network_agents WHERE id = $1 AND deleted_at IS NULL',
+        [agentId]
+      );
 
-    // Verifica che l'agent esista
-    const checkResult = await pool.query(
-      'SELECT id FROM network_agents WHERE id = $1 AND deleted_at IS NULL',
-      [agentId]
-    );
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato' });
+      }
 
-    if (checkResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Agent non trovato' });
-    }
+      // Prepara i dati per l'aggiornamento
+      let rangesConfig = null;
+      let rangesArray = [];
 
-    // Prepara i dati per l'aggiornamento
-    let rangesConfig = null;
-    let rangesArray = [];
+      if (network_ranges_config && Array.isArray(network_ranges_config)) {
+        // Nuovo formato: array di oggetti {range: "192.168.1.0/24", name: "LAN Principale"}
+        rangesConfig = network_ranges_config;
+        rangesArray = network_ranges_config.map(r => r.range);
+      }
 
-    if (network_ranges_config && Array.isArray(network_ranges_config)) {
-      // Nuovo formato: array di oggetti {range: "192.168.1.0/24", name: "LAN Principale"}
-      rangesConfig = network_ranges_config;
-      rangesArray = network_ranges_config.map(r => r.range);
-    }
+      // unifi_config: null se disabilitato, altrimenti oggetto { url, username, password } in JSONB
+      const unifiPayload = (unifi_config === null || unifi_config === undefined)
+        ? null
+        : (typeof unifi_config === 'object' ? unifi_config : null);
 
-    // unifi_config: null se disabilitato, altrimenti oggetto { url, username, password } in JSONB
-    const unifiPayload = (unifi_config === null || unifi_config === undefined)
-      ? null
-      : (typeof unifi_config === 'object' ? unifi_config : null);
-
-    // Aggiorna l'agent
-    const result = await pool.query(
-      `UPDATE network_agents 
+      // Aggiorna l'agent
+      const result = await pool.query(
+        `UPDATE network_agents 
          SET agent_name = $1,
     network_ranges = $2,
     network_ranges_config = $3,
@@ -4395,39 +4425,39 @@ router.put('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, 
     updated_at = NOW()
          WHERE id = $6
          RETURNING id, agent_name, network_ranges, network_ranges_config, scan_interval_minutes, unifi_config, unifi_last_ok, unifi_last_check_at, updated_at`,
-      [
-        agent_name || null,
-        rangesArray,
-        rangesConfig ? JSON.stringify(rangesConfig) : null,
-        scan_interval_minutes || 15,
-        unifiPayload,
-        agentId
-      ]
-    );
+        [
+          agent_name || null,
+          rangesArray,
+          rangesConfig ? JSON.stringify(rangesConfig) : null,
+          scan_interval_minutes || 15,
+          unifiPayload,
+          agentId
+        ]
+      );
 
-    console.log(`✅ Agent aggiornato: ID = ${agentId} `);
-    res.json({ success: true, agent: result.rows[0] });
-  } catch (err) {
-    console.error('❌ Errore aggiornamento agent:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// GET /api/network-monitoring/company/:aziendaId/networks
-// Ottieni tutte le reti configurate per un'azienda (solo tecnici/admin)
-router.get('/company/:aziendaId/networks', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
-
-    const aziendaId = parseInt(req.params.aziendaId);
-
-    if (!aziendaId) {
-      return res.status(400).json({ error: 'ID azienda richiesto' });
+      console.log(`✅ Agent aggiornato: ID = ${agentId} `);
+      res.json({ success: true, agent: result.rows[0] });
+    } catch (err) {
+      console.error('❌ Errore aggiornamento agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    // Ottieni tutti gli agent dell'azienda con le loro reti
-    const result = await pool.query(
-      `SELECT
+  // GET /api/network-monitoring/company/:aziendaId/networks
+  // Ottieni tutte le reti configurate per un'azienda (solo tecnici/admin)
+  router.get('/company/:aziendaId/networks', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+
+      const aziendaId = parseInt(req.params.aziendaId);
+
+      if (!aziendaId) {
+        return res.status(400).json({ error: 'ID azienda richiesto' });
+      }
+
+      // Ottieni tutti gli agent dell'azienda con le loro reti
+      const result = await pool.query(
+        `SELECT
   na.id as agent_id,
     na.agent_name,
     na.network_ranges_config
@@ -4435,282 +4465,282 @@ router.get('/company/:aziendaId/networks', authenticateToken, requireRole('tecni
          INNER JOIN users u ON na.azienda_id = u.id
          WHERE u.id = $1 AND na.deleted_at IS NULL
          ORDER BY na.agent_name`,
-      [aziendaId]
-    );
+        [aziendaId]
+      );
 
-    // Estrai tutte le reti uniche da tutti gli agent
-    const networksMap = new Map();
+      // Estrai tutte le reti uniche da tutti gli agent
+      const networksMap = new Map();
 
-    result.rows.forEach(agent => {
-      if (agent.network_ranges_config && Array.isArray(agent.network_ranges_config)) {
-        agent.network_ranges_config.forEach(netConfig => {
-          const key = netConfig.range;
-          if (!networksMap.has(key)) {
-            networksMap.set(key, {
-              range: netConfig.range,
-              name: netConfig.name || null,
-              agent_name: agent.agent_name
-            });
-          }
-        });
-      }
-    });
+      result.rows.forEach(agent => {
+        if (agent.network_ranges_config && Array.isArray(agent.network_ranges_config)) {
+          agent.network_ranges_config.forEach(netConfig => {
+            const key = netConfig.range;
+            if (!networksMap.has(key)) {
+              networksMap.set(key, {
+                range: netConfig.range,
+                name: netConfig.name || null,
+                agent_name: agent.agent_name
+              });
+            }
+          });
+        }
+      });
 
-    // Converti la Map in array
-    const networks = Array.from(networksMap.values());
+      // Converti la Map in array
+      const networks = Array.from(networksMap.values());
 
-    res.json(networks);
-  } catch (err) {
-    console.error('❌ Errore recupero reti azienda:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// GET /api/network-monitoring/agent/:id/config
-// Ottieni configurazione completa agent per download (solo tecnici/admin)
-router.get('/agent/:id/config', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const agentId = parseInt(req.params.id);
-
-    if (!agentId) {
-      return res.status(400).json({ error: 'ID agent richiesto' });
+      res.json(networks);
+    } catch (err) {
+      console.error('❌ Errore recupero reti azienda:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    await ensureTables();
+  // GET /api/network-monitoring/agent/:id/config
+  // Ottieni configurazione completa agent per download (solo tecnici/admin)
+  router.get('/agent/:id/config', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
 
-    const result = await pool.query(
-      `SELECT
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
+
+      await ensureTables();
+
+      const result = await pool.query(
+        `SELECT
   na.id, na.agent_name, na.api_key, na.network_ranges,
     na.scan_interval_minutes, na.created_at
          FROM network_agents na
          WHERE na.id = $1`,
-      [agentId]
-    );
+        [agentId]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Agent non trovato' });
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato' });
+      }
+
+      const agent = result.rows[0];
+
+      // Restituisci configurazione per download
+      res.json({
+        agent_id: agent.id,
+        api_key: agent.api_key,
+        agent_name: agent.agent_name,
+        network_ranges: agent.network_ranges || [],
+        scan_interval_minutes: agent.scan_interval_minutes || 15,
+        created_at: agent.created_at
+      });
+    } catch (err) {
+      console.error('❌ Errore recupero configurazione agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    const agent = result.rows[0];
+  // GET /api/network-monitoring/agent/:id/download
+  // Scarica pacchetto completo (ZIP con config.json + script .ps1)
+  router.get('/agent/:id/download', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
 
-    // Restituisci configurazione per download
-    res.json({
-      agent_id: agent.id,
-      api_key: agent.api_key,
-      agent_name: agent.agent_name,
-      network_ranges: agent.network_ranges || [],
-      scan_interval_minutes: agent.scan_interval_minutes || 15,
-      created_at: agent.created_at
-    });
-  } catch (err) {
-    console.error('❌ Errore recupero configurazione agent:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
 
-// GET /api/network-monitoring/agent/:id/download
-// Scarica pacchetto completo (ZIP con config.json + script .ps1)
-router.get('/agent/:id/download', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const agentId = parseInt(req.params.id);
+      await ensureTables();
 
-    if (!agentId) {
-      return res.status(400).json({ error: 'ID agent richiesto' });
-    }
-
-    await ensureTables();
-
-    const result = await pool.query(
-      `SELECT
+      const result = await pool.query(
+        `SELECT
   na.id, na.agent_name, na.api_key, na.network_ranges,
     na.scan_interval_minutes
          FROM network_agents na
          WHERE na.id = $1`,
-      [agentId]
-    );
+        [agentId]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Agent non trovato' });
-    }
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato' });
+      }
 
-    const agent = result.rows[0];
+      const agent = result.rows[0];
 
-    // Path dei file agent (relativo alla root del progetto)
-    // __dirname è backend/routes, quindi risaliamo di 2 livelli per arrivare alla root
-    const projectRoot = path.resolve(__dirname, '..', '..');
-    const agentDir = path.join(projectRoot, 'agent');
-    const networkMonitorPath = path.join(agentDir, 'NetworkMonitor.ps1');
-    const installerPath = path.join(agentDir, 'InstallerCompleto.ps1');
-    const servicePath = path.join(agentDir, 'NetworkMonitorService.ps1');
-    const trayIconPath = path.join(agentDir, 'NetworkMonitorTrayIcon.ps1');
-    const installServicePath = path.join(agentDir, 'Installa-Servizio.ps1');
-    const removeServicePath = path.join(agentDir, 'Rimuovi-Servizio.ps1');
-    const installAutoPath = path.join(agentDir, 'Installa-Automatico.ps1');
-    const installBatPath = path.join(agentDir, 'Installa.bat');
-    const installServizioBatPath = path.join(agentDir, 'Installa-Servizio.bat');
-    const installServizioBatchBatPath = path.join(agentDir, 'Installa-Servizio-Batch.bat');
-    const readmeServicePath = path.join(agentDir, 'README_SERVICE.md');
-    const guidaInstallazionePath = path.join(agentDir, 'GUIDA_INSTALLAZIONE_SERVIZIO.md');
-    const diagnosticaPath = path.join(agentDir, 'Diagnostica-Agent.ps1');
-    const diagnosticaServizioPath = path.join(agentDir, 'Diagnostica-Servizio.ps1');
-    const riparaServizioPath = path.join(agentDir, 'Ripara-Servizio.ps1');
-    const verificaServizioPath = path.join(agentDir, 'Verifica-Servizio.ps1');
-    const disinstallaTuttoBatPath = path.join(agentDir, 'Disinstalla-Tutto.bat');
-    const generaReportPath = path.join(agentDir, 'Genera-Report-Diagnostico.ps1');
-    const diagnosticaRapidaPath = path.join(agentDir, 'Diagnostica-Rapida.ps1');
-    const avviaTrayIconBatPath = path.join(agentDir, 'Avvia-TrayIcon.bat');
+      // Path dei file agent (relativo alla root del progetto)
+      // __dirname è backend/routes, quindi risaliamo di 2 livelli per arrivare alla root
+      const projectRoot = path.resolve(__dirname, '..', '..');
+      const agentDir = path.join(projectRoot, 'agent');
+      const networkMonitorPath = path.join(agentDir, 'NetworkMonitor.ps1');
+      const installerPath = path.join(agentDir, 'InstallerCompleto.ps1');
+      const servicePath = path.join(agentDir, 'NetworkMonitorService.ps1');
+      const trayIconPath = path.join(agentDir, 'NetworkMonitorTrayIcon.ps1');
+      const installServicePath = path.join(agentDir, 'Installa-Servizio.ps1');
+      const removeServicePath = path.join(agentDir, 'Rimuovi-Servizio.ps1');
+      const installAutoPath = path.join(agentDir, 'Installa-Automatico.ps1');
+      const installBatPath = path.join(agentDir, 'Installa.bat');
+      const installServizioBatPath = path.join(agentDir, 'Installa-Servizio.bat');
+      const installServizioBatchBatPath = path.join(agentDir, 'Installa-Servizio-Batch.bat');
+      const readmeServicePath = path.join(agentDir, 'README_SERVICE.md');
+      const guidaInstallazionePath = path.join(agentDir, 'GUIDA_INSTALLAZIONE_SERVIZIO.md');
+      const diagnosticaPath = path.join(agentDir, 'Diagnostica-Agent.ps1');
+      const diagnosticaServizioPath = path.join(agentDir, 'Diagnostica-Servizio.ps1');
+      const riparaServizioPath = path.join(agentDir, 'Ripara-Servizio.ps1');
+      const verificaServizioPath = path.join(agentDir, 'Verifica-Servizio.ps1');
+      const disinstallaTuttoBatPath = path.join(agentDir, 'Disinstalla-Tutto.bat');
+      const generaReportPath = path.join(agentDir, 'Genera-Report-Diagnostico.ps1');
+      const diagnosticaRapidaPath = path.join(agentDir, 'Diagnostica-Rapida.ps1');
+      const avviaTrayIconBatPath = path.join(agentDir, 'Avvia-TrayIcon.bat');
 
-    console.log('📦 Download pacchetto agent - Path ricerca file:');
-    console.log('  __dirname:', __dirname);
-    console.log('  process.cwd():', process.cwd());
-    console.log('  Project root:', projectRoot);
-    console.log('  Agent dir:', agentDir);
-    console.log('  NetworkMonitor.ps1:', networkMonitorPath);
-    console.log('    exists:', fs.existsSync(networkMonitorPath));
-    console.log('  InstallerCompleto.ps1:', installerPath);
-    console.log('    exists:', fs.existsSync(installerPath));
+      console.log('📦 Download pacchetto agent - Path ricerca file:');
+      console.log('  __dirname:', __dirname);
+      console.log('  process.cwd():', process.cwd());
+      console.log('  Project root:', projectRoot);
+      console.log('  Agent dir:', agentDir);
+      console.log('  NetworkMonitor.ps1:', networkMonitorPath);
+      console.log('    exists:', fs.existsSync(networkMonitorPath));
+      console.log('  InstallerCompleto.ps1:', installerPath);
+      console.log('    exists:', fs.existsSync(installerPath));
 
-    // Prova multiple path per trovare i file (fallback robusto)
-    const possiblePaths = [
-      { network: networkMonitorPath, installer: installerPath, label: 'path __dirname (default)' },
-      { network: path.join(process.cwd(), 'agent', 'NetworkMonitor.ps1'), installer: path.join(process.cwd(), 'agent', 'InstallerCompleto.ps1'), label: 'path process.cwd()' },
-      { network: path.join(projectRoot, 'agent', 'NetworkMonitor.ps1'), installer: path.join(projectRoot, 'agent', 'InstallerCompleto.ps1'), label: 'path projectRoot' }
-    ];
+      // Prova multiple path per trovare i file (fallback robusto)
+      const possiblePaths = [
+        { network: networkMonitorPath, installer: installerPath, label: 'path __dirname (default)' },
+        { network: path.join(process.cwd(), 'agent', 'NetworkMonitor.ps1'), installer: path.join(process.cwd(), 'agent', 'InstallerCompleto.ps1'), label: 'path process.cwd()' },
+        { network: path.join(projectRoot, 'agent', 'NetworkMonitor.ps1'), installer: path.join(projectRoot, 'agent', 'InstallerCompleto.ps1'), label: 'path projectRoot' }
+      ];
 
-    let networkMonitorContent, installerContent;
-    let filesFound = false;
-    let usedPath = null;
+      let networkMonitorContent, installerContent;
+      let filesFound = false;
+      let usedPath = null;
 
-    for (const pathSet of possiblePaths) {
-      console.log(`🔍 Tentativo path: ${pathSet.label} `);
-      console.log(`   NetworkMonitor: ${pathSet.network} (exists: ${fs.existsSync(pathSet.network)
-        })`);
-      console.log(`   InstallerCompleto: ${pathSet.installer} (exists: ${fs.existsSync(pathSet.installer)})`);
+      for (const pathSet of possiblePaths) {
+        console.log(`🔍 Tentativo path: ${pathSet.label} `);
+        console.log(`   NetworkMonitor: ${pathSet.network} (exists: ${fs.existsSync(pathSet.network)
+          })`);
+        console.log(`   InstallerCompleto: ${pathSet.installer} (exists: ${fs.existsSync(pathSet.installer)})`);
 
-      if (fs.existsSync(pathSet.network) && fs.existsSync(pathSet.installer)) {
-        try {
-          console.log(`✅ File trovati usando: ${pathSet.label} `);
-          networkMonitorContent = fs.readFileSync(pathSet.network, 'utf8');
-          installerContent = fs.readFileSync(pathSet.installer, 'utf8');
-          filesFound = true;
-          usedPath = pathSet.label;
-          console.log(`✅ File letti con successo: NetworkMonitor.ps1(${networkMonitorContent.length} caratteri), InstallerCompleto.ps1(${installerContent.length} caratteri)`);
-          break;
-        } catch (readErr) {
-          console.error(`❌ Errore lettura file da ${pathSet.label}: `, readErr.message);
-          continue;
+        if (fs.existsSync(pathSet.network) && fs.existsSync(pathSet.installer)) {
+          try {
+            console.log(`✅ File trovati usando: ${pathSet.label} `);
+            networkMonitorContent = fs.readFileSync(pathSet.network, 'utf8');
+            installerContent = fs.readFileSync(pathSet.installer, 'utf8');
+            filesFound = true;
+            usedPath = pathSet.label;
+            console.log(`✅ File letti con successo: NetworkMonitor.ps1(${networkMonitorContent.length} caratteri), InstallerCompleto.ps1(${installerContent.length} caratteri)`);
+            break;
+          } catch (readErr) {
+            console.error(`❌ Errore lettura file da ${pathSet.label}: `, readErr.message);
+            continue;
+          }
         }
       }
-    }
 
-    if (!filesFound) {
-      const errorMsg = `File agent non trovati in nessuno dei path provati.Verifica che i file NetworkMonitor.ps1 e InstallerCompleto.ps1 siano presenti nella cartella agent / del progetto.`;
-      console.error('❌', errorMsg);
-      console.error('  Path provati:');
-      possiblePaths.forEach(p => {
-        console.error(`    - ${p.label}: NetworkMonitor = ${fs.existsSync(p.network)}, Installer = ${fs.existsSync(p.installer)} `);
-      });
-      return res.status(500).json({ error: errorMsg });
-    }
-
-    // Versione agent per ZIP e config.json incluso (allineata a NetworkMonitorService.ps1 $SCRIPT_VERSION)
-    const CURRENT_AGENT_VERSION = '2.6.14';
-    const agentVersion = CURRENT_AGENT_VERSION;
-    console.log(`ℹ️ Versione agent per ZIP: ${agentVersion} `);
-
-    /* LOGICA LETTURA FILE DISABILITATA TEMPORANEAMENTE PER RISOLVERE PROBLEMA VERSIONE
-    if (fs.existsSync(servicePath)) {
-      // ... (codice rimosso per garantire l'update) ...
-    } 
-    */
-
-    // Crea config.json
-    const configJson = {
-      server_url: req.protocol + '://' + req.get('host'),
-      api_key: agent.api_key,
-      agent_name: agent.agent_name,
-      version: agentVersion,
-      network_ranges: agent.network_ranges || [],
-      scan_interval_minutes: agent.scan_interval_minutes || 15
-    };
-
-    // Nome file ZIP con versione
-    const zipFileName = `NetworkMonitor - Agent - ${agent.agent_name.replace(/\s+/g, '-')} -v${agentVersion}.zip`;
-
-    console.log('📦 Creazione ZIP:', zipFileName);
-
-    // Configura headers per download ZIP
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename = "${zipFileName}"`);
-
-    // Crea ZIP
-    const archive = archiver('zip', {
-      zlib: { level: 9 } // Massima compressione
-    });
-
-    console.log('✅ Archivio creato, aggiungo file...');
-
-    // Gestisci errori
-    archive.on('error', (err) => {
-      console.error('❌ Errore creazione ZIP:', err);
-      if (!res.headersSent) {
-        res.status(500).json({ error: `Errore creazione pacchetto: ${err.message} ` });
+      if (!filesFound) {
+        const errorMsg = `File agent non trovati in nessuno dei path provati.Verifica che i file NetworkMonitor.ps1 e InstallerCompleto.ps1 siano presenti nella cartella agent / del progetto.`;
+        console.error('❌', errorMsg);
+        console.error('  Path provati:');
+        possiblePaths.forEach(p => {
+          console.error(`    - ${p.label}: NetworkMonitor = ${fs.existsSync(p.network)}, Installer = ${fs.existsSync(p.installer)} `);
+        });
+        return res.status(500).json({ error: errorMsg });
       }
-    });
 
-    // Gestisci errori di risposta
-    res.on('error', (err) => {
-      console.error('❌ Errore invio risposta:', err);
-      archive.abort();
-    });
+      // Versione agent per ZIP e config.json incluso (allineata a NetworkMonitorService.ps1 $SCRIPT_VERSION)
+      const CURRENT_AGENT_VERSION = '2.6.14';
+      const agentVersion = CURRENT_AGENT_VERSION;
+      console.log(`ℹ️ Versione agent per ZIP: ${agentVersion} `);
 
-    // Pipe ZIP alla risposta
-    archive.pipe(res);
-
-    // Aggiungi file al ZIP - SOLO 4 FILE ESSENZIALI (tray, riparazione, ecc. si possono aggiungere dopo)
-    try {
-      // 1. config.json (generato)
-      archive.append(JSON.stringify(configJson, null, 2), { name: 'config.json' });
-      console.log('✅ Aggiunto config.json');
-
-      // 2. NetworkMonitorService.ps1 (script principale servizio)
+      /* LOGICA LETTURA FILE DISABILITATA TEMPORANEAMENTE PER RISOLVERE PROBLEMA VERSIONE
       if (fs.existsSync(servicePath)) {
-        let serviceContent = fs.readFileSync(servicePath, 'utf8');
-        if (serviceContent.charCodeAt(0) === 0xFEFF) { serviceContent = serviceContent.slice(1); }
-        const openBraces = (serviceContent.match(/{/g) || []).length;
-        const closeBraces = (serviceContent.match(/}/g) || []).length;
-        if (openBraces !== closeBraces) {
-          console.error(`❌ Parentesi graffe sbilanciate in NetworkMonitorService.ps1(${openBraces} / ${closeBraces})`);
+        // ... (codice rimosso per garantire l'update) ...
+      } 
+      */
+
+      // Crea config.json
+      const configJson = {
+        server_url: req.protocol + '://' + req.get('host'),
+        api_key: agent.api_key,
+        agent_name: agent.agent_name,
+        version: agentVersion,
+        network_ranges: agent.network_ranges || [],
+        scan_interval_minutes: agent.scan_interval_minutes || 15
+      };
+
+      // Nome file ZIP con versione
+      const zipFileName = `NetworkMonitor - Agent - ${agent.agent_name.replace(/\s+/g, '-')} -v${agentVersion}.zip`;
+
+      console.log('📦 Creazione ZIP:', zipFileName);
+
+      // Configura headers per download ZIP
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename = "${zipFileName}"`);
+
+      // Crea ZIP
+      const archive = archiver('zip', {
+        zlib: { level: 9 } // Massima compressione
+      });
+
+      console.log('✅ Archivio creato, aggiungo file...');
+
+      // Gestisci errori
+      archive.on('error', (err) => {
+        console.error('❌ Errore creazione ZIP:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: `Errore creazione pacchetto: ${err.message} ` });
         }
-        archive.append(serviceContent, { name: 'NetworkMonitorService.ps1' });
-        console.log('✅ Aggiunto NetworkMonitorService.ps1');
+      });
+
+      // Gestisci errori di risposta
+      res.on('error', (err) => {
+        console.error('❌ Errore invio risposta:', err);
+        archive.abort();
+      });
+
+      // Pipe ZIP alla risposta
+      archive.pipe(res);
+
+      // Aggiungi file al ZIP - SOLO 4 FILE ESSENZIALI (tray, riparazione, ecc. si possono aggiungere dopo)
+      try {
+        // 1. config.json (generato)
+        archive.append(JSON.stringify(configJson, null, 2), { name: 'config.json' });
+        console.log('✅ Aggiunto config.json');
+
+        // 2. NetworkMonitorService.ps1 (script principale servizio)
+        if (fs.existsSync(servicePath)) {
+          let serviceContent = fs.readFileSync(servicePath, 'utf8');
+          if (serviceContent.charCodeAt(0) === 0xFEFF) { serviceContent = serviceContent.slice(1); }
+          const openBraces = (serviceContent.match(/{/g) || []).length;
+          const closeBraces = (serviceContent.match(/}/g) || []).length;
+          if (openBraces !== closeBraces) {
+            console.error(`❌ Parentesi graffe sbilanciate in NetworkMonitorService.ps1(${openBraces} / ${closeBraces})`);
+          }
+          archive.append(serviceContent, { name: 'NetworkMonitorService.ps1' });
+          console.log('✅ Aggiunto NetworkMonitorService.ps1');
+        }
+
+        // 3. Installa-Agent.bat (entry point: doppio clic per installare)
+        const installAgentBatPath = path.join(agentDir, 'Installa-Agent.bat');
+        if (fs.existsSync(installAgentBatPath)) {
+          archive.append(fs.readFileSync(installAgentBatPath, 'utf8'), { name: 'Installa-Agent.bat' });
+          console.log('✅ Aggiunto Installa-Agent.bat');
+        }
+
+        // 4. nssm.exe (necessario per il servizio Windows)
+        const nssmPath = path.join(agentDir, 'nssm.exe');
+        if (fs.existsSync(nssmPath)) {
+          archive.append(fs.readFileSync(nssmPath), { name: 'nssm.exe' });
+          console.log('✅ Aggiunto nssm.exe');
+        } else {
+          console.warn('⚠️  nssm.exe non trovato! Installazione servizio potrebbe fallire.');
+        }
+
+      } catch (appendErr) {
+        console.error('❌ Errore aggiunta file allo ZIP:', appendErr);
+        if (!res.headersSent) {
+          return res.status(500).json({ error: `Errore creazione ZIP: ${appendErr.message} ` });
+        }
       }
 
-      // 3. Installa-Agent.bat (entry point: doppio clic per installare)
-      const installAgentBatPath = path.join(agentDir, 'Installa-Agent.bat');
-      if (fs.existsSync(installAgentBatPath)) {
-        archive.append(fs.readFileSync(installAgentBatPath, 'utf8'), { name: 'Installa-Agent.bat' });
-        console.log('✅ Aggiunto Installa-Agent.bat');
-      }
-
-      // 4. nssm.exe (necessario per il servizio Windows)
-      const nssmPath = path.join(agentDir, 'nssm.exe');
-      if (fs.existsSync(nssmPath)) {
-        archive.append(fs.readFileSync(nssmPath), { name: 'nssm.exe' });
-        console.log('✅ Aggiunto nssm.exe');
-      } else {
-        console.warn('⚠️  nssm.exe non trovato! Installazione servizio potrebbe fallire.');
-      }
-
-    } catch (appendErr) {
-      console.error('❌ Errore aggiunta file allo ZIP:', appendErr);
-      if (!res.headersSent) {
-        return res.status(500).json({ error: `Errore creazione ZIP: ${appendErr.message} ` });
-      }
-    }
-
-    // Aggiungi README
-    const readmeContent = `# Network Monitor Agent - Installazione
+      // Aggiungi README
+      const readmeContent = `# Network Monitor Agent - Installazione
 
 ## ⚠️ IMPORTANTE: Directory Installazione
 
@@ -4784,22 +4814,22 @@ Usa la funzione "Elimina" nella dashboard TicketApp, oppure:
 2. Esegui: Unregister - ScheduledTask - TaskName "NetworkMonitorAgent" - Confirm: $false
 3. Cancella la directory di installazione
 `;
-    archive.append(readmeContent, { name: 'README.txt' });
-    console.log('✅ Aggiunto README.txt');
+      archive.append(readmeContent, { name: 'README.txt' });
+      console.log('✅ Aggiunto README.txt');
 
-    // Crea installer batch con versione nel nome - SOLO COMANDI NATIVI, NO POWERSHELL
-    const installBatFileName = `Installa - Agent - v${agentVersion}.bat`;
+      // Crea installer batch con versione nel nome - SOLO COMANDI NATIVI, NO POWERSHELL
+      const installBatFileName = `Installa - Agent - v${agentVersion}.bat`;
 
-    // Leggi il contenuto di Installa-Agent.bat e sostituisci la versione
-    let installBatContent;
-    const installAgentBatPath = path.join(agentDir, 'Installa-Agent.bat');
-    if (fs.existsSync(installAgentBatPath)) {
-      installBatContent = fs.readFileSync(installAgentBatPath, 'utf8');
-      // Sostituisci la versione nel file
-      installBatContent = installBatContent.replace(/set "AGENT_VERSION=.*"/, `set "AGENT_VERSION=${agentVersion}"`);
-    } else {
-      // Fallback: crea un wrapper semplice che chiama Installa-Agent.bat
-      installBatContent = `@echo off
+      // Leggi il contenuto di Installa-Agent.bat e sostituisci la versione
+      let installBatContent;
+      const installAgentBatPath = path.join(agentDir, 'Installa-Agent.bat');
+      if (fs.existsSync(installAgentBatPath)) {
+        installBatContent = fs.readFileSync(installAgentBatPath, 'utf8');
+        // Sostituisci la versione nel file
+        installBatContent = installBatContent.replace(/set "AGENT_VERSION=.*"/, `set "AGENT_VERSION=${agentVersion}"`);
+      } else {
+        // Fallback: crea un wrapper semplice che chiama Installa-Agent.bat
+        installBatContent = `@echo off
 REM Installa - Agent - v${agentVersion}.bat
 REM Installer unico per Network Monitor Agent v${agentVersion}
 REM SOLO COMANDI NATIVI WINDOWS - NO POWERSHELL
@@ -4819,1032 +4849,1032 @@ call "%~dp0Installa-Agent.bat"
 
 pause
 `;
-    }
-    archive.append(installBatContent, { name: installBatFileName });
-    console.log(`✅ Aggiunto ${installBatFileName} `);
-
-    // File servizio Windows - SOLO FILE ESSENZIALI
-    try {
-      // NetworkMonitorService.ps1
-      if (fs.existsSync(servicePath)) {
-        const serviceContent = fs.readFileSync(servicePath, 'utf8');
-        archive.append(serviceContent, { name: 'NetworkMonitorService.ps1' });
-        console.log('✅ Aggiunto NetworkMonitorService.ps1');
-      } else {
-        console.warn('⚠️  NetworkMonitorService.ps1 non trovato!');
       }
+      archive.append(installBatContent, { name: installBatFileName });
+      console.log(`✅ Aggiunto ${installBatFileName} `);
 
-      // Rimuovi-Servizio.ps1 (utile per disinstallazione)
-      if (fs.existsSync(removeServicePath)) {
-        const removeServiceContent = fs.readFileSync(removeServicePath, 'utf8');
-        archive.append(removeServiceContent, { name: 'Rimuovi-Servizio.ps1' });
-        console.log('✅ Aggiunto Rimuovi-Servizio.ps1');
-      }
-
-      // Tray icon: necessari per riavviare l'icona dopo update o se non compare
-      if (fs.existsSync(trayIconPath)) {
-        archive.append(fs.readFileSync(trayIconPath, 'utf8'), { name: 'NetworkMonitorTrayIcon.ps1' });
-        console.log('✅ Aggiunto NetworkMonitorTrayIcon.ps1');
-      }
-      const vbsTrayPath = path.join(agentDir, 'Start-TrayIcon-Hidden.vbs');
-      if (fs.existsSync(vbsTrayPath)) {
-        archive.append(fs.readFileSync(vbsTrayPath, 'utf8'), { name: 'Start-TrayIcon-Hidden.vbs' });
-        console.log('✅ Aggiunto Start-TrayIcon-Hidden.vbs');
-      }
-      if (fs.existsSync(avviaTrayIconBatPath)) {
-        archive.append(fs.readFileSync(avviaTrayIconBatPath, 'utf8'), { name: 'Avvia-TrayIcon.bat' });
-        console.log('✅ Aggiunto Avvia-TrayIcon.bat');
-      }
-
-    } catch (serviceErr) {
-      console.error('❌ Errore aggiunta file servizio allo ZIP:', serviceErr);
-      // Non bloccare se i file servizio non sono disponibili (compatibilità)
-    }
-
-    // nssm.exe (CRITICO - AGGIUNTO FUORI DAL TRY-CATCH PER ESSERE SEMPRE ESEGUITO)
-    console.log('');
-    console.log('🔍 ===== AGGIUNTA NSSM.EXE =====');
-    const possibleNssmPaths = [
-      path.join(agentDir, 'nssm.exe'),
-      path.join(projectRoot, 'agent', 'nssm.exe'),
-      path.join(process.cwd(), 'agent', 'nssm.exe'),
-      path.join(__dirname, '..', 'agent', 'nssm.exe')
-    ];
-
-    let nssmPath = null;
-    let nssmAdded = false;
-
-    console.log('🔍 Verifica nssm.exe in multiple percorsi:');
-    for (const testPath of possibleNssmPaths) {
-      const exists = fs.existsSync(testPath);
-      console.log(`   ${exists ? '✅' : '❌'} ${testPath} (exists: ${exists})`);
-      if (exists && !nssmPath) {
-        nssmPath = testPath;
-      }
-    }
-
-    if (nssmPath && fs.existsSync(nssmPath)) {
+      // File servizio Windows - SOLO FILE ESSENZIALI
       try {
-        console.log(`📦 Leggo nssm.exe da: ${nssmPath} `);
-        const nssmContent = fs.readFileSync(nssmPath); // Legge come Buffer binario
-        const nssmSize = nssmContent.length;
-        console.log(`   Dimensione file: ${nssmSize} bytes`);
-        console.log(`   Tipo: ${Buffer.isBuffer(nssmContent) ? 'Buffer' : typeof nssmContent} `);
-
-        if (nssmSize === 0) {
-          throw new Error('File nssm.exe è vuoto!');
+        // NetworkMonitorService.ps1
+        if (fs.existsSync(servicePath)) {
+          const serviceContent = fs.readFileSync(servicePath, 'utf8');
+          archive.append(serviceContent, { name: 'NetworkMonitorService.ps1' });
+          console.log('✅ Aggiunto NetworkMonitorService.ps1');
+        } else {
+          console.warn('⚠️  NetworkMonitorService.ps1 non trovato!');
         }
 
-        if (!Buffer.isBuffer(nssmContent)) {
-          throw new Error('Contenuto nssm.exe non è un Buffer!');
+        // Rimuovi-Servizio.ps1 (utile per disinstallazione)
+        if (fs.existsSync(removeServicePath)) {
+          const removeServiceContent = fs.readFileSync(removeServicePath, 'utf8');
+          archive.append(removeServiceContent, { name: 'Rimuovi-Servizio.ps1' });
+          console.log('✅ Aggiunto Rimuovi-Servizio.ps1');
         }
 
-        // Aggiungi come Buffer (stesso metodo degli altri file)
-        archive.append(nssmContent, { name: 'nssm.exe' });
-        console.log('✅✅✅ AGGIUNTO nssm.exe al ZIP (dimensione: ' + nssmSize + ' bytes) ✅✅✅');
-        nssmAdded = true;
-      } catch (nssmErr) {
-        console.error('❌❌❌ ERRORE CRITICO aggiunta nssm.exe:', nssmErr);
-        console.error('   Messaggio:', nssmErr.message);
-        console.error('   Stack:', nssmErr.stack);
-        throw new Error(`IMPOSSIBILE AGGIUNGERE nssm.exe: ${nssmErr.message} `);
+        // Tray icon: necessari per riavviare l'icona dopo update o se non compare
+        if (fs.existsSync(trayIconPath)) {
+          archive.append(fs.readFileSync(trayIconPath, 'utf8'), { name: 'NetworkMonitorTrayIcon.ps1' });
+          console.log('✅ Aggiunto NetworkMonitorTrayIcon.ps1');
+        }
+        const vbsTrayPath = path.join(agentDir, 'Start-TrayIcon-Hidden.vbs');
+        if (fs.existsSync(vbsTrayPath)) {
+          archive.append(fs.readFileSync(vbsTrayPath, 'utf8'), { name: 'Start-TrayIcon-Hidden.vbs' });
+          console.log('✅ Aggiunto Start-TrayIcon-Hidden.vbs');
+        }
+        if (fs.existsSync(avviaTrayIconBatPath)) {
+          archive.append(fs.readFileSync(avviaTrayIconBatPath, 'utf8'), { name: 'Avvia-TrayIcon.bat' });
+          console.log('✅ Aggiunto Avvia-TrayIcon.bat');
+        }
+
+      } catch (serviceErr) {
+        console.error('❌ Errore aggiunta file servizio allo ZIP:', serviceErr);
+        // Non bloccare se i file servizio non sono disponibili (compatibilità)
       }
-    } else {
-      console.error('❌❌❌ ERRORE CRITICO: nssm.exe non trovato!');
-      console.error('   Percorso cercato:', nssmPath);
-      console.error('   Percorsi verificati:');
-      possibleNssmPaths.forEach(p => {
-        const exists = fs.existsSync(p);
-        console.error(`     - ${p} (exists: ${exists})`);
-      });
-      console.error('   Agent dir:', agentDir);
-      console.error('   Project root:', projectRoot);
-      console.error('   Process cwd:', process.cwd());
-      console.error('   __dirname:', __dirname);
-      throw new Error('nssm.exe NON TROVATO in nessun percorso! Il pacchetto ZIP non può essere generato senza questo file.');
+
+      // nssm.exe (CRITICO - AGGIUNTO FUORI DAL TRY-CATCH PER ESSERE SEMPRE ESEGUITO)
+      console.log('');
+      console.log('🔍 ===== AGGIUNTA NSSM.EXE =====');
+      const possibleNssmPaths = [
+        path.join(agentDir, 'nssm.exe'),
+        path.join(projectRoot, 'agent', 'nssm.exe'),
+        path.join(process.cwd(), 'agent', 'nssm.exe'),
+        path.join(__dirname, '..', 'agent', 'nssm.exe')
+      ];
+
+      let nssmPath = null;
+      let nssmAdded = false;
+
+      console.log('🔍 Verifica nssm.exe in multiple percorsi:');
+      for (const testPath of possibleNssmPaths) {
+        const exists = fs.existsSync(testPath);
+        console.log(`   ${exists ? '✅' : '❌'} ${testPath} (exists: ${exists})`);
+        if (exists && !nssmPath) {
+          nssmPath = testPath;
+        }
+      }
+
+      if (nssmPath && fs.existsSync(nssmPath)) {
+        try {
+          console.log(`📦 Leggo nssm.exe da: ${nssmPath} `);
+          const nssmContent = fs.readFileSync(nssmPath); // Legge come Buffer binario
+          const nssmSize = nssmContent.length;
+          console.log(`   Dimensione file: ${nssmSize} bytes`);
+          console.log(`   Tipo: ${Buffer.isBuffer(nssmContent) ? 'Buffer' : typeof nssmContent} `);
+
+          if (nssmSize === 0) {
+            throw new Error('File nssm.exe è vuoto!');
+          }
+
+          if (!Buffer.isBuffer(nssmContent)) {
+            throw new Error('Contenuto nssm.exe non è un Buffer!');
+          }
+
+          // Aggiungi come Buffer (stesso metodo degli altri file)
+          archive.append(nssmContent, { name: 'nssm.exe' });
+          console.log('✅✅✅ AGGIUNTO nssm.exe al ZIP (dimensione: ' + nssmSize + ' bytes) ✅✅✅');
+          nssmAdded = true;
+        } catch (nssmErr) {
+          console.error('❌❌❌ ERRORE CRITICO aggiunta nssm.exe:', nssmErr);
+          console.error('   Messaggio:', nssmErr.message);
+          console.error('   Stack:', nssmErr.stack);
+          throw new Error(`IMPOSSIBILE AGGIUNGERE nssm.exe: ${nssmErr.message} `);
+        }
+      } else {
+        console.error('❌❌❌ ERRORE CRITICO: nssm.exe non trovato!');
+        console.error('   Percorso cercato:', nssmPath);
+        console.error('   Percorsi verificati:');
+        possibleNssmPaths.forEach(p => {
+          const exists = fs.existsSync(p);
+          console.error(`     - ${p} (exists: ${exists})`);
+        });
+        console.error('   Agent dir:', agentDir);
+        console.error('   Project root:', projectRoot);
+        console.error('   Process cwd:', process.cwd());
+        console.error('   __dirname:', __dirname);
+        throw new Error('nssm.exe NON TROVATO in nessun percorso! Il pacchetto ZIP non può essere generato senza questo file.');
+      }
+
+      if (!nssmAdded) {
+        throw new Error('nssm.exe NON AGGIUNTO al ZIP!');
+      }
+
+      console.log('🔍 ===== FINE AGGIUNTA NSSM.EXE =====');
+      console.log('');
+
+      // Finalizza ZIP
+      await archive.finalize();
+
+    } catch (err) {
+      console.error('❌ Errore download pacchetto agent:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
     }
+  });
 
-    if (!nssmAdded) {
-      throw new Error('nssm.exe NON AGGIUNTO al ZIP!');
-    }
+  // GET /api/network-monitoring/agent/:id/diagnostics
+  // Endpoint di diagnostica per capire perché un agent risulta offline
+  router.get('/agent/:id/diagnostics', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      const agentId = parseInt(req.params.id);
 
-    console.log('🔍 ===== FINE AGGIUNTA NSSM.EXE =====');
-    console.log('');
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
 
-    // Finalizza ZIP
-    await archive.finalize();
-
-  } catch (err) {
-    console.error('❌ Errore download pacchetto agent:', err);
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Errore interno del server' });
-    }
-  }
-});
-
-// GET /api/network-monitoring/agent/:id/diagnostics
-// Endpoint di diagnostica per capire perché un agent risulta offline
-router.get('/agent/:id/diagnostics', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
-    const agentId = parseInt(req.params.id);
-
-    if (!agentId) {
-      return res.status(400).json({ error: 'ID agent richiesto' });
-    }
-
-    // Recupera info agent
-    const agentResult = await pool.query(
-      `SELECT id, agent_name, status, last_heartbeat, enabled, deleted_at,
+      // Recupera info agent
+      const agentResult = await pool.query(
+        `SELECT id, agent_name, status, last_heartbeat, enabled, deleted_at,
   version, network_ranges, scan_interval_minutes, created_at, updated_at
          FROM network_agents
          WHERE id = $1`,
-      [agentId]
-    );
+        [agentId]
+      );
 
-    if (agentResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Agent non trovato' });
-    }
+      if (agentResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato' });
+      }
 
-    const agent = agentResult.rows[0];
+      const agent = agentResult.rows[0];
 
-    // Calcola minuti dall'ultimo heartbeat
-    const minutesSinceLastHeartbeat = agent.last_heartbeat
-      ? Math.floor((Date.now() - new Date(agent.last_heartbeat).getTime()) / 60000)
-      : null;
+      // Calcola minuti dall'ultimo heartbeat
+      const minutesSinceLastHeartbeat = agent.last_heartbeat
+        ? Math.floor((Date.now() - new Date(agent.last_heartbeat).getTime()) / 60000)
+        : null;
 
-    // Verifica se ci sono eventi offline non risolti
-    let offlineEvents = [];
-    try {
-      const eventsResult = await pool.query(
-        `SELECT id, event_type, detected_at, resolved_at, event_data
+      // Verifica se ci sono eventi offline non risolti
+      let offlineEvents = [];
+      try {
+        const eventsResult = await pool.query(
+          `SELECT id, event_type, detected_at, resolved_at, event_data
            FROM network_agent_events
            WHERE agent_id = $1 AND event_type = 'offline' AND resolved_at IS NULL
            ORDER BY detected_at DESC
            LIMIT 5`,
-        [agentId]
+          [agentId]
+        );
+        offlineEvents = eventsResult.rows;
+      } catch (eventsErr) {
+        // Se la tabella non esiste, ignora
+        if (eventsErr.code !== '42P01') {
+          console.error('Errore query eventi offline:', eventsErr);
+        }
+      }
+
+      // Verifica se l'agent dovrebbe essere offline secondo la logica di checkOfflineAgents
+      const shouldBeOffline = agent.enabled && !agent.deleted_at && (
+        (agent.status === 'online' && (agent.last_heartbeat === null || minutesSinceLastHeartbeat > 8)) ||
+        (agent.status === 'offline' && offlineEvents.length === 0)
       );
-      offlineEvents = eventsResult.rows;
-    } catch (eventsErr) {
-      // Se la tabella non esiste, ignora
-      if (eventsErr.code !== '42P01') {
-        console.error('Errore query eventi offline:', eventsErr);
-      }
+
+      const diagnostics = {
+        agent: {
+          id: agent.id,
+          name: agent.agent_name,
+          status: agent.status,
+          enabled: agent.enabled,
+          deleted: agent.deleted_at !== null,
+          version: agent.version,
+          network_ranges: agent.network_ranges,
+          scan_interval_minutes: agent.scan_interval_minutes,
+          created_at: agent.created_at,
+          updated_at: agent.updated_at
+        },
+        heartbeat: {
+          last_heartbeat: agent.last_heartbeat,
+          minutes_ago: minutesSinceLastHeartbeat,
+          is_stale: minutesSinceLastHeartbeat === null || minutesSinceLastHeartbeat > 8,
+          expected_interval_minutes: 5 // Agent invia ogni 5 minuti
+        },
+        events: {
+          unresolved_offline_count: offlineEvents.length,
+          unresolved_offline_events: offlineEvents.map(e => ({
+            id: e.id,
+            detected_at: e.detected_at,
+            event_data: e.event_data
+          }))
+        },
+        analysis: {
+          should_be_offline: shouldBeOffline,
+          reason: shouldBeOffline
+            ? (agent.status === 'online' && minutesSinceLastHeartbeat > 8
+              ? `Agent online ma senza heartbeat da ${minutesSinceLastHeartbeat} minuti(soglia: 8 min)`
+              : `Agent offline ma senza evento offline non risolto`)
+            : 'Agent dovrebbe essere online (heartbeat recente o evento offline risolto)',
+          recommendation: minutesSinceLastHeartbeat === null || minutesSinceLastHeartbeat > 8
+            ? `L'agent non sta inviando heartbeat. Verifica: 1) Il servizio è in esecuzione? 2) La connessione internet funziona? 3) L'API key è corretta ? 4) Il server URL è raggiungibile ? `
+            : 'L\'agent sta inviando heartbeat regolarmente. Se risulta offline, potrebbe essere un problema di sincronizzazione del database.'
+        }
+      };
+
+      res.json(diagnostics);
+    } catch (err) {
+      console.error('❌ Errore diagnostica agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    // Verifica se l'agent dovrebbe essere offline secondo la logica di checkOfflineAgents
-    const shouldBeOffline = agent.enabled && !agent.deleted_at && (
-      (agent.status === 'online' && (agent.last_heartbeat === null || minutesSinceLastHeartbeat > 8)) ||
-      (agent.status === 'offline' && offlineEvents.length === 0)
-    );
+  // PUT /api/network-monitoring/agent/:id/disable
+  // Disabilita un agent (blocca ricezione dati, ma NON disinstalla l'agent dal client)
+  router.put('/agent/:id/disable', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
 
-    const diagnostics = {
-      agent: {
-        id: agent.id,
-        name: agent.agent_name,
-        status: agent.status,
-        enabled: agent.enabled,
-        deleted: agent.deleted_at !== null,
-        version: agent.version,
-        network_ranges: agent.network_ranges,
-        scan_interval_minutes: agent.scan_interval_minutes,
-        created_at: agent.created_at,
-        updated_at: agent.updated_at
-      },
-      heartbeat: {
-        last_heartbeat: agent.last_heartbeat,
-        minutes_ago: minutesSinceLastHeartbeat,
-        is_stale: minutesSinceLastHeartbeat === null || minutesSinceLastHeartbeat > 8,
-        expected_interval_minutes: 5 // Agent invia ogni 5 minuti
-      },
-      events: {
-        unresolved_offline_count: offlineEvents.length,
-        unresolved_offline_events: offlineEvents.map(e => ({
-          id: e.id,
-          detected_at: e.detected_at,
-          event_data: e.event_data
-        }))
-      },
-      analysis: {
-        should_be_offline: shouldBeOffline,
-        reason: shouldBeOffline
-          ? (agent.status === 'online' && minutesSinceLastHeartbeat > 8
-            ? `Agent online ma senza heartbeat da ${minutesSinceLastHeartbeat} minuti(soglia: 8 min)`
-            : `Agent offline ma senza evento offline non risolto`)
-          : 'Agent dovrebbe essere online (heartbeat recente o evento offline risolto)',
-        recommendation: minutesSinceLastHeartbeat === null || minutesSinceLastHeartbeat > 8
-          ? `L'agent non sta inviando heartbeat. Verifica: 1) Il servizio è in esecuzione? 2) La connessione internet funziona? 3) L'API key è corretta ? 4) Il server URL è raggiungibile ? `
-          : 'L\'agent sta inviando heartbeat regolarmente. Se risulta offline, potrebbe essere un problema di sincronizzazione del database.'
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
       }
-    };
 
-    res.json(diagnostics);
-  } catch (err) {
-    console.error('❌ Errore diagnostica agent:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      await ensureTables();
 
-// PUT /api/network-monitoring/agent/:id/disable
-// Disabilita un agent (blocca ricezione dati, ma NON disinstalla l'agent dal client)
-router.put('/agent/:id/disable', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const agentId = parseInt(req.params.id);
-
-    if (!agentId) {
-      return res.status(400).json({ error: 'ID agent richiesto' });
-    }
-
-    await ensureTables();
-
-    const result = await pool.query(
-      `UPDATE network_agents 
+      const result = await pool.query(
+        `UPDATE network_agents 
          SET enabled = false, status = 'offline', updated_at = NOW()
          WHERE id = $1 AND deleted_at IS NULL
          RETURNING id, agent_name, enabled`,
-      [agentId]
-    );
+        [agentId]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Agent non trovato o già eliminato' });
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato o già eliminato' });
+      }
+
+      console.log(`🔴 Agent ${agentId} disabilitato(ricezione dati bloccata, agent rimane installato)`);
+      res.json({ success: true, agent: result.rows[0], message: 'Agent disabilitato. I dati non verranno più accettati, ma l\'agent rimane installato sul client.' });
+    } catch (err) {
+      console.error('❌ Errore disabilitazione agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    console.log(`🔴 Agent ${agentId} disabilitato(ricezione dati bloccata, agent rimane installato)`);
-    res.json({ success: true, agent: result.rows[0], message: 'Agent disabilitato. I dati non verranno più accettati, ma l\'agent rimane installato sul client.' });
-  } catch (err) {
-    console.error('❌ Errore disabilitazione agent:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+  // PUT /api/network-monitoring/agent/:id/enable
+  // Riabilita un agent (riprende ricezione dati)
+  router.put('/agent/:id/enable', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
 
-// PUT /api/network-monitoring/agent/:id/enable
-// Riabilita un agent (riprende ricezione dati)
-router.put('/agent/:id/enable', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const agentId = parseInt(req.params.id);
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
 
-    if (!agentId) {
-      return res.status(400).json({ error: 'ID agent richiesto' });
-    }
+      await ensureTables();
 
-    await ensureTables();
-
-    const result = await pool.query(
-      `UPDATE network_agents 
+      const result = await pool.query(
+        `UPDATE network_agents 
          SET enabled = true, updated_at = NOW()
          WHERE id = $1 AND deleted_at IS NULL
          RETURNING id, agent_name, enabled`,
-      [agentId]
-    );
+        [agentId]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Agent non trovato o eliminato' });
-    }
-
-    console.log(`✅ Agent ${agentId} riabilitato`);
-    res.json({ success: true, agent: result.rows[0], message: 'Agent riabilitato. I dati verranno nuovamente accettati.' });
-  } catch (err) {
-    console.error('❌ Errore riabilitazione agent:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// PUT /api/network-monitoring/agent/:id
-// Aggiorna configurazione agent (nome, reti, intervallo scansione)
-router.put('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const agentId = parseInt(req.params.id);
-
-    if (!agentId) {
-      return res.status(400).json({ error: 'ID agent richiesto' });
-    }
-
-    await ensureTables();
-
-    const { agent_name, network_ranges, scan_interval_minutes } = req.body;
-
-    // Costruisci query dinamica per aggiornare solo i campi forniti
-    const updateFields = [];
-    const updateValues = [];
-    let paramIndex = 1;
-
-    if (agent_name !== undefined) {
-      updateFields.push(`agent_name = $${paramIndex++} `);
-      updateValues.push(agent_name);
-    }
-
-    if (network_ranges !== undefined) {
-      // Assicurati che network_ranges sia un array
-      const rangesArray = Array.isArray(network_ranges) ? network_ranges : [];
-      updateFields.push(`network_ranges = $${paramIndex++} `);
-      updateValues.push(rangesArray);
-    }
-
-    if (scan_interval_minutes !== undefined) {
-      const interval = parseInt(scan_interval_minutes);
-      if (isNaN(interval) || interval < 1) {
-        return res.status(400).json({ error: 'Intervallo scansione deve essere un numero positivo' });
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato o eliminato' });
       }
-      updateFields.push(`scan_interval_minutes = $${paramIndex++} `);
-      updateValues.push(interval);
+
+      console.log(`✅ Agent ${agentId} riabilitato`);
+      res.json({ success: true, agent: result.rows[0], message: 'Agent riabilitato. I dati verranno nuovamente accettati.' });
+    } catch (err) {
+      console.error('❌ Errore riabilitazione agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    if (updateFields.length === 0) {
-      return res.status(400).json({ error: 'Nessun campo da aggiornare fornito' });
-    }
+  // PUT /api/network-monitoring/agent/:id
+  // Aggiorna configurazione agent (nome, reti, intervallo scansione)
+  router.put('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
 
-    // Incrementa automaticamente la versione quando viene modificato un agent
-    // La versione è nel formato "MAJOR.MINOR.PATCH" (es: "1.1.1")
-    // Incrementiamo il PATCH (ultimo numero)
-    const currentVersionResult = await pool.query(
-      'SELECT version FROM network_agents WHERE id = $1',
-      [agentId]
-    );
-
-    let newVersion = '1.0.1'; // Default se non esiste versione
-    if (currentVersionResult.rows.length > 0 && currentVersionResult.rows[0].version) {
-      const currentVersion = currentVersionResult.rows[0].version;
-      const versionParts = currentVersion.split('.');
-      if (versionParts.length === 3) {
-        const patch = parseInt(versionParts[2]) || 0;
-        newVersion = `${versionParts[0]}.${versionParts[1]}.${patch + 1} `;
-      } else {
-        // Se formato non valido, incrementa come se fosse 1.0.0
-        newVersion = '1.0.1';
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
       }
-    }
 
-    updateFields.push(`version = $${paramIndex++} `);
-    updateValues.push(newVersion);
+      await ensureTables();
 
-    // Aggiungi updated_at
-    updateFields.push(`updated_at = NOW()`);
-    updateValues.push(agentId);
+      const { agent_name, network_ranges, scan_interval_minutes } = req.body;
 
-    const query = `
+      // Costruisci query dinamica per aggiornare solo i campi forniti
+      const updateFields = [];
+      const updateValues = [];
+      let paramIndex = 1;
+
+      if (agent_name !== undefined) {
+        updateFields.push(`agent_name = $${paramIndex++} `);
+        updateValues.push(agent_name);
+      }
+
+      if (network_ranges !== undefined) {
+        // Assicurati che network_ranges sia un array
+        const rangesArray = Array.isArray(network_ranges) ? network_ranges : [];
+        updateFields.push(`network_ranges = $${paramIndex++} `);
+        updateValues.push(rangesArray);
+      }
+
+      if (scan_interval_minutes !== undefined) {
+        const interval = parseInt(scan_interval_minutes);
+        if (isNaN(interval) || interval < 1) {
+          return res.status(400).json({ error: 'Intervallo scansione deve essere un numero positivo' });
+        }
+        updateFields.push(`scan_interval_minutes = $${paramIndex++} `);
+        updateValues.push(interval);
+      }
+
+      if (updateFields.length === 0) {
+        return res.status(400).json({ error: 'Nessun campo da aggiornare fornito' });
+      }
+
+      // Incrementa automaticamente la versione quando viene modificato un agent
+      // La versione è nel formato "MAJOR.MINOR.PATCH" (es: "1.1.1")
+      // Incrementiamo il PATCH (ultimo numero)
+      const currentVersionResult = await pool.query(
+        'SELECT version FROM network_agents WHERE id = $1',
+        [agentId]
+      );
+
+      let newVersion = '1.0.1'; // Default se non esiste versione
+      if (currentVersionResult.rows.length > 0 && currentVersionResult.rows[0].version) {
+        const currentVersion = currentVersionResult.rows[0].version;
+        const versionParts = currentVersion.split('.');
+        if (versionParts.length === 3) {
+          const patch = parseInt(versionParts[2]) || 0;
+          newVersion = `${versionParts[0]}.${versionParts[1]}.${patch + 1} `;
+        } else {
+          // Se formato non valido, incrementa come se fosse 1.0.0
+          newVersion = '1.0.1';
+        }
+      }
+
+      updateFields.push(`version = $${paramIndex++} `);
+      updateValues.push(newVersion);
+
+      // Aggiungi updated_at
+      updateFields.push(`updated_at = NOW()`);
+      updateValues.push(agentId);
+
+      const query = `
         UPDATE network_agents 
         SET ${updateFields.join(', ')}
         WHERE id = $${paramIndex} AND deleted_at IS NULL
         RETURNING id, agent_name, network_ranges, scan_interval_minutes, enabled, status, version, updated_at
   `;
 
-    const result = await pool.query(query, updateValues);
+      const result = await pool.query(query, updateValues);
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Agent non trovato o eliminato' });
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato o eliminato' });
+      }
+
+      console.log(`✅ Agent ${agentId} aggiornato: ${updateFields.join(', ')} (versione: ${newVersion})`);
+      res.json({
+        success: true,
+        agent: result.rows[0],
+        message: `Configurazione agent aggiornata(versione: ${newVersion}).Le modifiche saranno applicate al prossimo heartbeat dell'agent.`
+      });
+    } catch (err) {
+      console.error('❌ Errore aggiornamento agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    console.log(`✅ Agent ${agentId} aggiornato: ${updateFields.join(', ')} (versione: ${newVersion})`);
-    res.json({
-      success: true,
-      agent: result.rows[0],
-      message: `Configurazione agent aggiornata(versione: ${newVersion}).Le modifiche saranno applicate al prossimo heartbeat dell'agent.`
-    });
-  } catch (err) {
-    console.error('❌ Errore aggiornamento agent:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+  // DELETE /api/network-monitoring/agent/:id
+  // Elimina un agent (soft delete - marca come eliminato, mantiene dati, invia comando disinstallazione)
+  router.delete('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
 
-// DELETE /api/network-monitoring/agent/:id
-// Elimina un agent (soft delete - marca come eliminato, mantiene dati, invia comando disinstallazione)
-router.delete('/agent/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const agentId = parseInt(req.params.id);
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
 
-    if (!agentId) {
-      return res.status(400).json({ error: 'ID agent richiesto' });
-    }
+      await ensureTables();
 
-    await ensureTables();
+      // Verifica che l'agent esista e non sia già eliminato
+      const checkResult = await pool.query(
+        'SELECT id, agent_name, deleted_at FROM network_agents WHERE id = $1',
+        [agentId]
+      );
 
-    // Verifica che l'agent esista e non sia già eliminato
-    const checkResult = await pool.query(
-      'SELECT id, agent_name, deleted_at FROM network_agents WHERE id = $1',
-      [agentId]
-    );
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato' });
+      }
 
-    if (checkResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Agent non trovato' });
-    }
+      if (checkResult.rows[0].deleted_at) {
+        return res.status(400).json({ error: 'Agent già eliminato' });
+      }
 
-    if (checkResult.rows[0].deleted_at) {
-      return res.status(400).json({ error: 'Agent già eliminato' });
-    }
-
-    // Soft delete: marca come eliminato (mantiene tutti i dati per i ticket)
-    await pool.query(
-      `UPDATE network_agents 
+      // Soft delete: marca come eliminato (mantiene tutti i dati per i ticket)
+      await pool.query(
+        `UPDATE network_agents 
          SET deleted_at = NOW(), enabled = false, status = 'offline', updated_at = NOW()
          WHERE id = $1`,
-      [agentId]
-    );
+        [agentId]
+      );
 
-    console.log(`🗑️ Agent ${agentId} eliminato (soft delete - dati mantenuti, comando disinstallazione al prossimo heartbeat)`);
-    res.json({ success: true, message: 'Agent eliminato. I dati sono stati mantenuti. L\'agent si disinstallerà automaticamente dal client al prossimo heartbeat.' });
-  } catch (err) {
-    console.error('❌ Errore eliminazione agent:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      console.log(`🗑️ Agent ${agentId} eliminato (soft delete - dati mantenuti, comando disinstallazione al prossimo heartbeat)`);
+      res.json({ success: true, message: 'Agent eliminato. I dati sono stati mantenuti. L\'agent si disinstallerà automaticamente dal client al prossimo heartbeat.' });
+    } catch (err) {
+      console.error('❌ Errore eliminazione agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
 
 
-// PATCH /api/network-monitoring/devices/:id/static
-// Aggiorna stato statico per un dispositivo specifico
-router.patch('/devices/:id/static', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
-
-    // Assicurati che le colonne is_static e notify_telegram esistano (migrazione)
+  // PATCH /api/network-monitoring/devices/:id/static
+  // Aggiorna stato statico per un dispositivo specifico
+  router.patch('/devices/:id/static', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
-      await pool.query(`
+      await ensureTables();
+
+      // Assicurati che le colonne is_static e notify_telegram esistano (migrazione)
+      try {
+        await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;
         `);
-      await pool.query(`
+        await pool.query(`
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS notify_telegram BOOLEAN DEFAULT false;
         `);
-    } catch (migrationErr) {
-      // Ignora errore se colonna esiste già
-      if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
-        console.warn('⚠️ Avviso aggiunta colonne in PATCH static:', migrationErr.message);
+      } catch (migrationErr) {
+        // Ignora errore se colonna esiste già
+        if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonne in PATCH static:', migrationErr.message);
+        }
       }
+
+      const { id } = req.params;
+      const { is_static, notify_telegram, monitoring_schedule } = req.body;
+
+      // Verifica che il dispositivo esista
+      const deviceCheck = await pool.query(
+        'SELECT id FROM network_devices WHERE id = $1',
+        [id]
+      );
+
+      if (deviceCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato' });
+      }
+
+      // Costruisci query dinamica basata sui campi forniti
+      const updates = [];
+      const values = [];
+      let paramIndex = 1;
+
+      if (is_static !== undefined) {
+        updates.push(`is_static = $${paramIndex++}`);
+        values.push(is_static === true || is_static === 'true');
+      }
+
+      if (notify_telegram !== undefined) {
+        updates.push(`notify_telegram = $${paramIndex++}`);
+        values.push(notify_telegram === true || notify_telegram === 'true');
+      }
+
+      if (monitoring_schedule !== undefined) {
+        updates.push(`monitoring_schedule = $${paramIndex++}`);
+        values.push(monitoring_schedule ? JSON.stringify(monitoring_schedule) : null);
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({ error: 'Nessun campo da aggiornare' });
+      }
+
+      values.push(id); // WHERE id = $N
+      const result = await pool.query(
+        `UPDATE network_devices SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING id, ip_address, is_static, notify_telegram, monitoring_schedule`,
+        values
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error('❌ Errore aggiornamento stato statico:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    const { id } = req.params;
-    const { is_static, notify_telegram, monitoring_schedule } = req.body;
+  // PATCH /api/network-monitoring/devices/:id/reset-warnings
+  // Resetta i warning per un dispositivo (salva IP/MAC attuale come accettato e pulisce previous_ip e previous_mac)
+  router.patch('/devices/:id/reset-warnings', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
 
-    // Verifica che il dispositivo esista
-    const deviceCheck = await pool.query(
-      'SELECT id FROM network_devices WHERE id = $1',
-      [id]
-    );
+      const { id } = req.params;
 
-    if (deviceCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Dispositivo non trovato' });
-    }
+      // Verifica che il dispositivo esista e ottieni IP/MAC attuali
+      const deviceCheck = await pool.query(
+        'SELECT id, ip_address, mac_address, previous_ip, previous_mac FROM network_devices WHERE id = $1',
+        [id]
+      );
 
-    // Costruisci query dinamica basata sui campi forniti
-    const updates = [];
-    const values = [];
-    let paramIndex = 1;
+      if (deviceCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato' });
+      }
 
-    if (is_static !== undefined) {
-      updates.push(`is_static = $${paramIndex++}`);
-      values.push(is_static === true || is_static === 'true');
-    }
+      const device = deviceCheck.rows[0];
 
-    if (notify_telegram !== undefined) {
-      updates.push(`notify_telegram = $${paramIndex++}`);
-      values.push(notify_telegram === true || notify_telegram === 'true');
-    }
+      // Salva l'IP/MAC attuale come accettato (così non verrà più mostrato il warning per questo valore)
+      // Se c'era un previous_ip, accetta l'IP attuale; se c'era un previous_mac, accetta il MAC attuale
+      const acceptedIp = device.previous_ip ? device.ip_address : device.accepted_ip || null;
+      const acceptedMac = device.previous_mac ? device.mac_address : device.accepted_mac || null;
 
-    if (monitoring_schedule !== undefined) {
-      updates.push(`monitoring_schedule = $${paramIndex++}`);
-      values.push(monitoring_schedule ? JSON.stringify(monitoring_schedule) : null);
-    }
-
-    if (updates.length === 0) {
-      return res.status(400).json({ error: 'Nessun campo da aggiornare' });
-    }
-
-    values.push(id); // WHERE id = $N
-    const result = await pool.query(
-      `UPDATE network_devices SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING id, ip_address, is_static, notify_telegram, monitoring_schedule`,
-      values
-    );
-
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('❌ Errore aggiornamento stato statico:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// PATCH /api/network-monitoring/devices/:id/reset-warnings
-// Resetta i warning per un dispositivo (salva IP/MAC attuale come accettato e pulisce previous_ip e previous_mac)
-router.patch('/devices/:id/reset-warnings', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
-
-    const { id } = req.params;
-
-    // Verifica che il dispositivo esista e ottieni IP/MAC attuali
-    const deviceCheck = await pool.query(
-      'SELECT id, ip_address, mac_address, previous_ip, previous_mac FROM network_devices WHERE id = $1',
-      [id]
-    );
-
-    if (deviceCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Dispositivo non trovato' });
-    }
-
-    const device = deviceCheck.rows[0];
-
-    // Salva l'IP/MAC attuale come accettato (così non verrà più mostrato il warning per questo valore)
-    // Se c'era un previous_ip, accetta l'IP attuale; se c'era un previous_mac, accetta il MAC attuale
-    const acceptedIp = device.previous_ip ? device.ip_address : device.accepted_ip || null;
-    const acceptedMac = device.previous_mac ? device.mac_address : device.accepted_mac || null;
-
-    // Reset dei warning (pulisce previous_ip e previous_mac) e salva IP/MAC accettati
-    const result = await pool.query(
-      `UPDATE network_devices 
+      // Reset dei warning (pulisce previous_ip e previous_mac) e salva IP/MAC accettati
+      const result = await pool.query(
+        `UPDATE network_devices 
          SET previous_ip = NULL, previous_mac = NULL, 
              accepted_ip = COALESCE($1, accepted_ip), 
              accepted_mac = COALESCE($2, accepted_mac)
          WHERE id = $3 
          RETURNING id, ip_address, mac_address, previous_ip, previous_mac, accepted_ip, accepted_mac`,
-      [acceptedIp, acceptedMac, id]
-    );
+        [acceptedIp, acceptedMac, id]
+      );
 
-    console.log(`✅ Warning reset per dispositivo ${id} - IP accettato: ${acceptedIp || 'N/A'}, MAC accettato: ${acceptedMac || 'N/A'}`);
+      console.log(`✅ Warning reset per dispositivo ${id} - IP accettato: ${acceptedIp || 'N/A'}, MAC accettato: ${acceptedMac || 'N/A'}`);
 
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('❌ Errore reset warning:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// PATCH /api/network-monitoring/devices/:id/type
-// Aggiorna tipo dispositivo per un dispositivo specifico
-router.patch('/devices/:id/type', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
-    const { id } = req.params;
-    const { device_type } = req.body;
-
-    // Verifica che il dispositivo esista
-    const deviceCheck = await pool.query(
-      'SELECT id FROM network_devices WHERE id = $1',
-      [id]
-    );
-
-    if (deviceCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Dispositivo non trovato' });
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error('❌ Errore reset warning:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
+  // PATCH /api/network-monitoring/devices/:id/type
+  // Aggiorna tipo dispositivo per un dispositivo specifico
+  router.patch('/devices/:id/type', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      const { id } = req.params;
+      const { device_type } = req.body;
 
-    // Aggiorna il dispositivo e imposta flag manuale
-    const result = await pool.query(
-      'UPDATE network_devices SET device_type = $1, is_manual_type = true WHERE id = $2 RETURNING id, ip_address, device_type, is_manual_type',
-      [device_type?.trim() || null, id]
-    );
+      // Verifica che il dispositivo esista
+      const deviceCheck = await pool.query(
+        'SELECT id FROM network_devices WHERE id = $1',
+        [id]
+      );
 
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('❌ Errore aggiornamento tipo dispositivo:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// DELETE /api/network-monitoring/devices/:id
-// Elimina un dispositivo (pensato per switch virtuali/unmanaged)
-router.delete('/devices/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
-    const { id } = req.params;
-
-    // Verifica che sia uno switch virtuale/unmanaged o comunque eliminabile
-    const dev = await pool.query('SELECT device_type, mac_address, ip_address FROM network_devices WHERE id = $1', [id]);
-    if (dev.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato' });
-
-    const row = dev.rows[0];
-    const isUnmanagedSwitch = row.device_type === 'unmanaged_switch';
-    const isVirtualByIp = row.ip_address && String(row.ip_address).trim().toLowerCase().startsWith('virtual-');
-    if (!isUnmanagedSwitch && !isVirtualByIp) {
-      return res.status(400).json({ error: 'Solo gli switch virtuali/unmanaged possono essere eliminati manualmente.' });
-    }
-
-    const macAddress = row.mac_address;
-
-    // Elimina i dispositivi collegati (che hanno questo switch come parent)
-    await pool.query('DELETE FROM network_devices WHERE parent_device_id = $1', [id]);
-    console.log(`🗑️ Eliminati dispositivi collegati allo switch virtuale ${id}`);
-
-    // Elimina dalla mappatura_nodes se presente (usando MAC address)
-    if (macAddress) {
-      try {
-        const macNorm = macAddress.replace(/[:-]/g, '').toUpperCase();
-        await pool.query('DELETE FROM mappatura_nodes WHERE mac_address = $1', [macNorm]);
-        console.log(`🗑️ Eliminato nodo mappatura per MAC ${macNorm}`);
-      } catch (e) {
-        console.warn('⚠️ Errore eliminazione mappatura_nodes (potrebbe non esistere):', e.message);
+      if (deviceCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato' });
       }
+
+
+      // Aggiorna il dispositivo e imposta flag manuale
+      const result = await pool.query(
+        'UPDATE network_devices SET device_type = $1, is_manual_type = true WHERE id = $2 RETURNING id, ip_address, device_type, is_manual_type',
+        [device_type?.trim() || null, id]
+      );
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error('❌ Errore aggiornamento tipo dispositivo:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    // Elimina lo switch virtuale stesso
-    await pool.query('DELETE FROM network_devices WHERE id = $1', [id]);
-    console.log(`🗑️ Switch virtuale ${id} eliminato definitivamente dal database`);
+  // DELETE /api/network-monitoring/devices/:id
+  // Elimina un dispositivo (pensato per switch virtuali/unmanaged)
+  router.delete('/devices/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      const { id } = req.params;
 
-    res.json({ success: true, message: 'Switch virtuale e dispositivi collegati eliminati' });
-  } catch (err) {
-    console.error('❌ Errore eliminazione dispositivo:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      // Verifica che sia uno switch virtuale/unmanaged o comunque eliminabile
+      const dev = await pool.query('SELECT device_type, mac_address, ip_address FROM network_devices WHERE id = $1', [id]);
+      if (dev.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato' });
 
-// PATCH /api/network-monitoring/devices/:id/port
-// Imposta Port (mostrato come IP #port in topologia)
-router.patch('/devices/:id/port', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
-    const { id } = req.params;
-    let { port } = req.body;
-    if (port === '' || port === undefined) port = null;
-    else {
-      port = parseInt(port, 10);
-      if (isNaN(port) || port < 1 || port > 65535) port = null;
+      const row = dev.rows[0];
+      const isUnmanagedSwitch = row.device_type === 'unmanaged_switch';
+      const isVirtualByIp = row.ip_address && String(row.ip_address).trim().toLowerCase().startsWith('virtual-');
+      if (!isUnmanagedSwitch && !isVirtualByIp) {
+        return res.status(400).json({ error: 'Solo gli switch virtuali/unmanaged possono essere eliminati manualmente.' });
+      }
+
+      const macAddress = row.mac_address;
+
+      // Elimina i dispositivi collegati (che hanno questo switch come parent)
+      await pool.query('DELETE FROM network_devices WHERE parent_device_id = $1', [id]);
+      console.log(`🗑️ Eliminati dispositivi collegati allo switch virtuale ${id}`);
+
+      // Elimina dalla mappatura_nodes se presente (usando MAC address)
+      if (macAddress) {
+        try {
+          const macNorm = macAddress.replace(/[:-]/g, '').toUpperCase();
+          await pool.query('DELETE FROM mappatura_nodes WHERE mac_address = $1', [macNorm]);
+          console.log(`🗑️ Eliminato nodo mappatura per MAC ${macNorm}`);
+        } catch (e) {
+          console.warn('⚠️ Errore eliminazione mappatura_nodes (potrebbe non esistere):', e.message);
+        }
+      }
+
+      // Elimina lo switch virtuale stesso
+      await pool.query('DELETE FROM network_devices WHERE id = $1', [id]);
+      console.log(`🗑️ Switch virtuale ${id} eliminato definitivamente dal database`);
+
+      res.json({ success: true, message: 'Switch virtuale e dispositivi collegati eliminati' });
+    } catch (err) {
+      console.error('❌ Errore eliminazione dispositivo:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
-    const deviceCheck = await pool.query('SELECT id FROM network_devices WHERE id = $1', [id]);
-    if (deviceCheck.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato' });
-    const result = await pool.query('UPDATE network_devices SET port = $1 WHERE id = $2 RETURNING id, ip_address, port', [port, id]);
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('❌ Errore aggiornamento port:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+  });
 
-
-
-// PATCH /api/network-monitoring/devices/:id/notes
-// Aggiorna le note di un dispositivo
-router.patch('/devices/:id/notes', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { notes } = req.body; // Può essere stringa o null
-
-    await pool.query(
-      'UPDATE network_devices SET notes = $1 WHERE id = $2',
-      [notes, id]
-    );
-
-    res.json({ success: true, notes: notes });
-  } catch (err) {
-    console.error('❌ Errore aggiornamento note:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// PATCH /api/network-monitoring/devices/:id/router-model
-// Imposta il modello router (es. AGCOMBO, Fritz!Box) per dispositivi tipo router/gateway
-// PATCH /api/network-monitoring/devices/:id/router-model
-// Imposta il modello router (es. AGCOMBO, Fritz!Box) per dispositivi tipo router/gateway e Switch
-router.patch('/devices/:id/router-model', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { router_model } = req.body;
-
-    const val = router_model?.trim() || null;
-
-    // Lista modelli che sono Switch Gestiti
-    const MANAGED_SWITCH_MODELS = ['Netgear_GS724TPv3', 'Zyxel_GS1900_24', 'Netgear_GS308EP'];
-    const isSwitch = MANAGED_SWITCH_MODELS.includes(val);
-
-    let query = 'UPDATE network_devices SET router_model = $1';
-    const params = [val, id];
-
-    if (isSwitch) {
-      query += ', is_managed_switch = true';
-      // Se necessario, potremmo settare snmp_community = 'public' se nullo, ma l'agent ha già fallback
+  // PATCH /api/network-monitoring/devices/:id/port
+  // Imposta Port (mostrato come IP #port in topologia)
+  router.patch('/devices/:id/port', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      const { id } = req.params;
+      let { port } = req.body;
+      if (port === '' || port === undefined) port = null;
+      else {
+        port = parseInt(port, 10);
+        if (isNaN(port) || port < 1 || port > 65535) port = null;
+      }
+      const deviceCheck = await pool.query('SELECT id FROM network_devices WHERE id = $1', [id]);
+      if (deviceCheck.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato' });
+      const result = await pool.query('UPDATE network_devices SET port = $1 WHERE id = $2 RETURNING id, ip_address, port', [port, id]);
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error('❌ Errore aggiornamento port:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    query += ' WHERE id = $2 RETURNING id, router_model, is_managed_switch';
 
-    const result = await pool.query(query, params);
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Dispositivo non trovato' });
+  // PATCH /api/network-monitoring/devices/:id/notes
+  // Aggiorna le note di un dispositivo
+  router.patch('/devices/:id/notes', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { notes } = req.body; // Può essere stringa o null
+
+      await pool.query(
+        'UPDATE network_devices SET notes = $1 WHERE id = $2',
+        [notes, id]
+      );
+
+      res.json({ success: true, notes: notes });
+    } catch (err) {
+      console.error('❌ Errore aggiornamento note:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    res.json({
-      success: true,
-      router_model: result.rows[0].router_model,
-      is_managed_switch: result.rows[0].is_managed_switch
-    });
-  } catch (err) {
-    console.error('❌ Errore aggiornamento router_model:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+  // PATCH /api/network-monitoring/devices/:id/router-model
+  // Imposta il modello router (es. AGCOMBO, Fritz!Box) per dispositivi tipo router/gateway
+  // PATCH /api/network-monitoring/devices/:id/router-model
+  // Imposta il modello router (es. AGCOMBO, Fritz!Box) per dispositivi tipo router/gateway e Switch
+  router.patch('/devices/:id/router-model', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { router_model } = req.body;
 
-// GET /api/network-monitoring/switch-profiles
-// Lista profili switch disponibili
-router.get('/switch-profiles', authenticateToken, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM network_switch_profiles ORDER BY name ASC');
-    res.json(result.rows);
-  } catch (err) {
-    console.error('❌ Errore fetching switch profiles:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      const val = router_model?.trim() || null;
 
-// PATCH /api/network-monitoring/devices/:id/switch-config
-// Configura un dispositivo come switch gestito
-router.patch('/devices/:id/switch-config', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { switch_profile_id, snmp_community, is_managed_switch } = req.body;
+      // Lista modelli che sono Switch Gestiti
+      const MANAGED_SWITCH_MODELS = ['Netgear_GS724TPv3', 'Zyxel_GS1900_24', 'Netgear_GS308EP'];
+      const isSwitch = MANAGED_SWITCH_MODELS.includes(val);
 
-    // Normalizza
-    const profileId = switch_profile_id ? parseInt(switch_profile_id) : null;
-    const community = snmp_community ? String(snmp_community).trim() : null;
-    const managed = is_managed_switch === true;
+      let query = 'UPDATE network_devices SET router_model = $1';
+      const params = [val, id];
 
-    const result = await pool.query(
-      `UPDATE network_devices 
+      if (isSwitch) {
+        query += ', is_managed_switch = true';
+        // Se necessario, potremmo settare snmp_community = 'public' se nullo, ma l'agent ha già fallback
+      }
+
+      query += ' WHERE id = $2 RETURNING id, router_model, is_managed_switch';
+
+      const result = await pool.query(query, params);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato' });
+      }
+
+      res.json({
+        success: true,
+        router_model: result.rows[0].router_model,
+        is_managed_switch: result.rows[0].is_managed_switch
+      });
+    } catch (err) {
+      console.error('❌ Errore aggiornamento router_model:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/switch-profiles
+  // Lista profili switch disponibili
+  router.get('/switch-profiles', authenticateToken, async (req, res) => {
+    try {
+      const result = await pool.query('SELECT * FROM network_switch_profiles ORDER BY name ASC');
+      res.json(result.rows);
+    } catch (err) {
+      console.error('❌ Errore fetching switch profiles:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // PATCH /api/network-monitoring/devices/:id/switch-config
+  // Configura un dispositivo come switch gestito
+  router.patch('/devices/:id/switch-config', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { switch_profile_id, snmp_community, is_managed_switch } = req.body;
+
+      // Normalizza
+      const profileId = switch_profile_id ? parseInt(switch_profile_id) : null;
+      const community = snmp_community ? String(snmp_community).trim() : null;
+      const managed = is_managed_switch === true;
+
+      const result = await pool.query(
+        `UPDATE network_devices 
          SET switch_profile_id = $1, 
              snmp_community = $2, 
              is_managed_switch = $3
          WHERE id = $4 
          RETURNING id, switch_profile_id, snmp_community, is_managed_switch`,
-      [profileId, community, managed, id]
-    );
+        [profileId, community, managed, id]
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Dispositivo non trovato' });
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato' });
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error('❌ Errore configurazione switch:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('❌ Errore configurazione switch:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+  // POST /api/network-monitoring/clients/:aziendaId/manual-device
+  // Crea un dispositivo manuale (es. Switch Virtuale)
+  router.post('/clients/:aziendaId/manual-device', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { aziendaId } = req.params;
+      const { ip_address, name, device_type, parent_id, port, x, y } = req.body;
 
-// POST /api/network-monitoring/clients/:aziendaId/manual-device
-// Crea un dispositivo manuale (es. Switch Virtuale)
-router.post('/clients/:aziendaId/manual-device', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const { aziendaId } = req.params;
-    const { ip_address, name, device_type, parent_id, port, x, y } = req.body;
+      // Trova un agent attivo per questa azienda
+      const agentResult = await pool.query(
+        'SELECT id FROM network_agents WHERE azienda_id = $1 AND deleted_at IS NULL ORDER BY last_heartbeat DESC LIMIT 1',
+        [aziendaId]
+      );
 
-    // Trova un agent attivo per questa azienda
-    const agentResult = await pool.query(
-      'SELECT id FROM network_agents WHERE azienda_id = $1 AND deleted_at IS NULL ORDER BY last_heartbeat DESC LIMIT 1',
-      [aziendaId]
-    );
+      if (agentResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Nessun agent attivo trovato per questa azienda' });
+      }
+      const agentId = agentResult.rows[0].id;
 
-    if (agentResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Nessun agent attivo trovato per questa azienda' });
-    }
-    const agentId = agentResult.rows[0].id;
+      let finalIp = ip_address;
+      if (!finalIp) {
+        // Genera IP virtuale univoco
+        finalIp = `virtual-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      }
 
-    let finalIp = ip_address;
-    if (!finalIp) {
-      // Genera IP virtuale univoco
-      finalIp = `virtual-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    }
+      // Genera MAC virtuale per dispositivi manuali (necessario per la mappatura che usa il MAC come chiave)
+      // Usa prefisso locale 02:00:00 per evitare conflitti con hardware reale
+      const randomHex = () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0');
+      const virtualMac = `02:00:00:${randomHex()}:${randomHex()}:${randomHex()}`.toUpperCase();
 
-    // Genera MAC virtuale per dispositivi manuali (necessario per la mappatura che usa il MAC come chiave)
-    // Usa prefisso locale 02:00:00 per evitare conflitti con hardware reale
-    const randomHex = () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0');
-    const virtualMac = `02:00:00:${randomHex()}:${randomHex()}:${randomHex()}`.toUpperCase();
-
-    // Inserisci il dispositivo con MAC virtuale
-    const result = await pool.query(
-      `INSERT INTO network_devices (
+      // Inserisci il dispositivo con MAC virtuale
+      const result = await pool.query(
+        `INSERT INTO network_devices (
           agent_id, ip_address, hostname, device_type, status, is_static, parent_device_id, port, notes, mac_address
         ) VALUES ($1, $2, $3, $4, 'online', true, $5, $6, $7, $8)
         RETURNING id, ip_address, hostname, device_type, status, is_static, parent_device_id, port, notes, mac_address`,
-      [agentId, finalIp, name || 'Virtual Device', device_type || 'unmanaged_switch', parent_id || null, port || null, name ? name : 'Switch Virtuale', virtualMac]
-    );
+        [agentId, finalIp, name || 'Virtual Device', device_type || 'unmanaged_switch', parent_id || null, port || null, name ? name : 'Switch Virtuale', virtualMac]
+      );
 
-    res.json({ success: true, device: result.rows[0] });
-  } catch (err) {
-    console.error('❌ Errore creazione dispositivo manuale:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      res.json({ success: true, device: result.rows[0] });
+    } catch (err) {
+      console.error('❌ Errore creazione dispositivo manuale:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
 
-// POST /api/network-monitoring/invalidate-keepass-cache - Forza invalidazione cache KeePass
-router.post('/invalidate-keepass-cache', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    keepassDriveService.invalidateCache();
-    res.json({
-      success: true,
-      message: 'Cache KeePass invalidata con successo. Il prossimo caricamento ricaricherà i dati da Google Drive.'
-    });
-  } catch (err) {
-    console.error('❌ Errore invalidazione cache KeePass:', err);
-    res.status(500).json({ error: 'Errore interno del server', details: err.message });
-  }
-});
-
-// POST /api/network-monitoring/refresh-keepass-data - Aggiorna tutti i dispositivi da KeePass
-router.post('/refresh-keepass-data', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
-
-    const keepassPassword = process.env.KEEPASS_PASSWORD;
-    if (!keepassPassword) {
-      return res.status(400).json({
-        error: 'KEEPASS_PASSWORD non configurato',
-        updated: 0
+  // POST /api/network-monitoring/invalidate-keepass-cache - Forza invalidazione cache KeePass
+  router.post('/invalidate-keepass-cache', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      keepassDriveService.invalidateCache();
+      res.json({
+        success: true,
+        message: 'Cache KeePass invalidata con successo. Il prossimo caricamento ricaricherà i dati da Google Drive.'
       });
+    } catch (err) {
+      console.error('❌ Errore invalidazione cache KeePass:', err);
+      res.status(500).json({ error: 'Errore interno del server', details: err.message });
     }
+  });
 
-    console.log('🔄 Inizio aggiornamento dispositivi da KeePass...');
+  // POST /api/network-monitoring/refresh-keepass-data - Aggiorna tutti i dispositivi da KeePass
+  router.post('/refresh-keepass-data', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
 
-    // Invalida la cache per forzare il ricaricamento
-    console.log('🗑️ Invalidazione cache KeePass...');
-    keepassDriveService.invalidateCache();
-
-    // Carica la mappa KeePass (forza il ricaricamento)
-    console.log('📥 Caricamento mappa KeePass da Google Drive...');
-    const keepassMap = await keepassDriveService.getMacToTitleMap(keepassPassword);
-    console.log(`✅ Mappa KeePass caricata: ${keepassMap.size} MAC address disponibili`);
-
-    // Verifica se il MAC specifico è presente (per debug)
-    const testMac = '101331CDFF6C';
-    if (keepassMap.has(testMac)) {
-      const testResult = keepassMap.get(testMac);
-      console.log(`✅ MAC ${testMac} trovato in mappa Keepass: Titolo="${testResult.title}", Path="${testResult.path}", Username="${testResult.username}"`);
-    } else {
-      console.log(`⚠️ MAC ${testMac} NON trovato in mappa Keepass`);
-      // Mostra MAC simili per debug
-      const similarMacs = Array.from(keepassMap.keys()).filter(mac => mac.includes('101331') || mac.includes('CDFF6C'));
-      if (similarMacs.length > 0) {
-        console.log(`   MAC simili trovati: ${similarMacs.join(', ')}`);
+      const keepassPassword = process.env.KEEPASS_PASSWORD;
+      if (!keepassPassword) {
+        return res.status(400).json({
+          error: 'KEEPASS_PASSWORD non configurato',
+          updated: 0
+        });
       }
-    }
 
-    // Ottieni tutti i dispositivi con MAC address (incluso hostname = Titolo da Keepass)
-    // Includi anche il nome dell'azienda per filtrare le entry di KeePass
-    const devicesResult = await pool.query(
-      `SELECT nd.id, nd.mac_address, nd.hostname, nd.device_type, nd.device_path, nd.device_username, nd.is_manual_type, nd.agent_id,
+      console.log('🔄 Inizio aggiornamento dispositivi da KeePass...');
+
+      // Invalida la cache per forzare il ricaricamento
+      console.log('🗑️ Invalidazione cache KeePass...');
+      keepassDriveService.invalidateCache();
+
+      // Carica la mappa KeePass (forza il ricaricamento)
+      console.log('📥 Caricamento mappa KeePass da Google Drive...');
+      const keepassMap = await keepassDriveService.getMacToTitleMap(keepassPassword);
+      console.log(`✅ Mappa KeePass caricata: ${keepassMap.size} MAC address disponibili`);
+
+      // Verifica se il MAC specifico è presente (per debug)
+      const testMac = '101331CDFF6C';
+      if (keepassMap.has(testMac)) {
+        const testResult = keepassMap.get(testMac);
+        console.log(`✅ MAC ${testMac} trovato in mappa Keepass: Titolo="${testResult.title}", Path="${testResult.path}", Username="${testResult.username}"`);
+      } else {
+        console.log(`⚠️ MAC ${testMac} NON trovato in mappa Keepass`);
+        // Mostra MAC simili per debug
+        const similarMacs = Array.from(keepassMap.keys()).filter(mac => mac.includes('101331') || mac.includes('CDFF6C'));
+        if (similarMacs.length > 0) {
+          console.log(`   MAC simili trovati: ${similarMacs.join(', ')}`);
+        }
+      }
+
+      // Ottieni tutti i dispositivi con MAC address (incluso hostname = Titolo da Keepass)
+      // Includi anche il nome dell'azienda per filtrare le entry di KeePass
+      const devicesResult = await pool.query(
+        `SELECT nd.id, nd.mac_address, nd.hostname, nd.device_type, nd.device_path, nd.device_username, nd.is_manual_type, nd.agent_id,
                 u.azienda as azienda_name
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
          LEFT JOIN users u ON na.azienda_id = u.id
          WHERE nd.mac_address IS NOT NULL AND nd.mac_address != ''`
-    );
+      );
 
-    console.log(`📊 Trovati ${devicesResult.rows.length} dispositivi con MAC address da verificare`);
+      console.log(`📊 Trovati ${devicesResult.rows.length} dispositivi con MAC address da verificare`);
 
-    // Debug: mostra alcuni MAC dalla mappa Keepass per verifica
-    if (keepassMap.size > 0) {
-      const sampleMacs = Array.from(keepassMap.keys()).slice(0, 5);
-      console.log(`📋 Esempi MAC nella mappa Keepass (primi 5): ${sampleMacs.join(', ')}`);
-    }
+      // Debug: mostra alcuni MAC dalla mappa Keepass per verifica
+      if (keepassMap.size > 0) {
+        const sampleMacs = Array.from(keepassMap.keys()).slice(0, 5);
+        console.log(`📋 Esempi MAC nella mappa Keepass (primi 5): ${sampleMacs.join(', ')}`);
+      }
 
-    let updatedCount = 0;
-    let notFoundCount = 0;
-    let unchangedCount = 0;
+      let updatedCount = 0;
+      let notFoundCount = 0;
+      let unchangedCount = 0;
 
-    // Per ogni dispositivo, controlla se il MAC è in KeePass e aggiorna se necessario
-    for (const device of devicesResult.rows) {
-      try {
-        // Normalizza il MAC per la ricerca
-        const normalizedMac = device.mac_address.replace(/[:-]/g, '').toUpperCase();
+      // Per ogni dispositivo, controlla se il MAC è in KeePass e aggiorna se necessario
+      for (const device of devicesResult.rows) {
+        try {
+          // Normalizza il MAC per la ricerca
+          const normalizedMac = device.mac_address.replace(/[:-]/g, '').toUpperCase();
 
-        // Debug per MAC specifici (Smil Service: CC:96:E5:0E:60:2F, altro: 101331CDFF6C)
-        const debugMacs = ['101331CDFF6C', 'CC96E50E602F'];
-        if (debugMacs.includes(normalizedMac) || device.mac_address.toLowerCase().replace(/[:-]/g, '').includes('cc96e50e602f')) {
-          console.log(`🔍 DEBUG MAC ${device.mac_address}:`);
-          console.log(`   - MAC originale nel DB: "${device.mac_address}"`);
-          console.log(`   - MAC normalizzato: "${normalizedMac}"`);
-          console.log(`   - Presente nella mappa Keepass: ${keepassMap.has(normalizedMac)}`);
-          console.log(`   - device_type attuale: "${device.device_type}"`);
-          console.log(`   - device_path attuale: "${device.device_path}"`);
-        }
+          // Debug per MAC specifici (Smil Service: CC:96:E5:0E:60:2F, altro: 101331CDFF6C)
+          const debugMacs = ['101331CDFF6C', 'CC96E50E602F'];
+          if (debugMacs.includes(normalizedMac) || device.mac_address.toLowerCase().replace(/[:-]/g, '').includes('cc96e50e602f')) {
+            console.log(`🔍 DEBUG MAC ${device.mac_address}:`);
+            console.log(`   - MAC originale nel DB: "${device.mac_address}"`);
+            console.log(`   - MAC normalizzato: "${normalizedMac}"`);
+            console.log(`   - Presente nella mappa Keepass: ${keepassMap.has(normalizedMac)}`);
+            console.log(`   - device_type attuale: "${device.device_type}"`);
+            console.log(`   - device_path attuale: "${device.device_path}"`);
+          }
 
-        // Cerca nella mappa KeePass
-        const keepassResult = keepassMap.get(normalizedMac);
+          // Cerca nella mappa KeePass
+          const keepassResult = keepassMap.get(normalizedMac);
 
-        if (keepassResult) {
-          // Estrai solo l'ultimo elemento del percorso
-          const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
-          // Titolo Keepass = hostname nel DB (colonna mostrata come "Titolo" in UI)
-          const hostnameFromKeepass = keepassResult.title && keepassResult.title.trim() !== '' ? keepassResult.title.trim() : null;
+          if (keepassResult) {
+            // Estrai solo l'ultimo elemento del percorso
+            const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
+            // Titolo Keepass = hostname nel DB (colonna mostrata come "Titolo" in UI)
+            const hostnameFromKeepass = keepassResult.title && keepassResult.title.trim() !== '' ? keepassResult.title.trim() : null;
 
-          // MAPPING ICONE KEEPASS -> TIPO DISPOSITIVO
-          let deviceType = keepassResult.title;
-          const iconId = keepassResult.iconId;
+            // MAPPING ICONE KEEPASS -> TIPO DISPOSITIVO
+            let deviceType = keepassResult.title;
+            const iconId = keepassResult.iconId;
 
-          if (iconId !== undefined) {
-            // Mappa Icon ID KeePass (standard set) ai nostri tipi
-            switch (Number(iconId)) {
-              case 3: deviceType = 'server'; break;
-              case 4: deviceType = 'pc'; break;
-              case 18: deviceType = 'printer'; break;
-              case 19: deviceType = 'nas'; break;
-              case 22: deviceType = 'nas'; break;
-              case 27: deviceType = 'laptop'; break;
-              case 28: deviceType = 'smartphone'; break;
-              case 29: deviceType = 'firewall'; break;
-              case 34: deviceType = 'wifi'; break;
-              case 61: deviceType = 'switch'; break;
+            if (iconId !== undefined) {
+              // Mappa Icon ID KeePass (standard set) ai nostri tipi
+              switch (Number(iconId)) {
+                case 3: deviceType = 'server'; break;
+                case 4: deviceType = 'pc'; break;
+                case 18: deviceType = 'printer'; break;
+                case 19: deviceType = 'nas'; break;
+                case 22: deviceType = 'nas'; break;
+                case 27: deviceType = 'laptop'; break;
+                case 28: deviceType = 'smartphone'; break;
+                case 29: deviceType = 'firewall'; break;
+                case 34: deviceType = 'wifi'; break;
+                case 61: deviceType = 'switch'; break;
+              }
             }
-          }
 
-          // Debug per MAC specifico (CC:96:E5:0E:60:2F, 10:13:31:cd:ff:6c)
-          if (normalizedMac === '101331CDFF6C' || normalizedMac === 'CC96E50E602F') {
-            console.log(`  🔍 MAC ${device.mac_address} trovato in Keepass:`);
-            console.log(`     - Titolo da Keepass: "${keepassResult.title}"`);
-            console.log(`     - Username da Keepass: "${keepassResult.username}"`);
-            console.log(`     - IconId da Keepass: ${iconId} -> Map: "${deviceType}"`);
-            console.log(`     - Path da Keepass: "${keepassResult.path}"`);
-            console.log(`     - LastPathElement: "${lastPathElement}"`);
-            console.log(`     - device_type attuale: "${device.device_type}"`);
-            console.log(`     - device_path attuale: "${device.device_path}"`);
-            console.log(`     - device_username attuale: "${device.device_username}"`);
-          }
+            // Debug per MAC specifico (CC:96:E5:0E:60:2F, 10:13:31:cd:ff:6c)
+            if (normalizedMac === '101331CDFF6C' || normalizedMac === 'CC96E50E602F') {
+              console.log(`  🔍 MAC ${device.mac_address} trovato in Keepass:`);
+              console.log(`     - Titolo da Keepass: "${keepassResult.title}"`);
+              console.log(`     - Username da Keepass: "${keepassResult.username}"`);
+              console.log(`     - IconId da Keepass: ${iconId} -> Map: "${deviceType}"`);
+              console.log(`     - Path da Keepass: "${keepassResult.path}"`);
+              console.log(`     - LastPathElement: "${lastPathElement}"`);
+              console.log(`     - device_type attuale: "${device.device_type}"`);
+              console.log(`     - device_path attuale: "${device.device_path}"`);
+              console.log(`     - device_username attuale: "${device.device_username}"`);
+            }
 
-          // Verifica se i valori sono diversi da quelli attuali (incluso hostname = Titolo)
-          // IMPORTANTE: considera anche il caso in cui i valori attuali sono NULL
-          // Inoltre: NON aggiornare se il tipo è stato impostato manualmente dall'utente
-          const needsUpdate = !device.is_manual_type && (
-            (device.hostname !== hostnameFromKeepass) ||
-            (device.device_type !== deviceType) ||
-            (device.device_path !== lastPathElement) ||
-            (device.device_username !== (keepassResult.username || null)) ||
-            (device.hostname === null && hostnameFromKeepass !== null) ||
-            (device.device_type === null && deviceType !== null) ||
-            (device.device_path === null && lastPathElement !== null) ||
-            (device.device_username === null && keepassResult.username !== null && keepassResult.username !== '')
-          );
+            // Verifica se i valori sono diversi da quelli attuali (incluso hostname = Titolo)
+            // IMPORTANTE: considera anche il caso in cui i valori attuali sono NULL
+            // Inoltre: NON aggiornare se il tipo è stato impostato manualmente dall'utente
+            const needsUpdate = !device.is_manual_type && (
+              (device.hostname !== hostnameFromKeepass) ||
+              (device.device_type !== deviceType) ||
+              (device.device_path !== lastPathElement) ||
+              (device.device_username !== (keepassResult.username || null)) ||
+              (device.hostname === null && hostnameFromKeepass !== null) ||
+              (device.device_type === null && deviceType !== null) ||
+              (device.device_path === null && lastPathElement !== null) ||
+              (device.device_username === null && keepassResult.username !== null && keepassResult.username !== '')
+            );
 
-          if (needsUpdate) {
-            // Aggiorna il dispositivo nel database (incluso hostname = Titolo da Keepass)
-            await pool.query(
-              `UPDATE network_devices 
+            if (needsUpdate) {
+              // Aggiorna il dispositivo nel database (incluso hostname = Titolo da Keepass)
+              await pool.query(
+                `UPDATE network_devices 
                  SET hostname = $1, device_type = $2, device_path = $3, device_username = $4 
                  WHERE id = $5`,
-              [hostnameFromKeepass, deviceType, lastPathElement, keepassResult.username || null, device.id]
-            );
+                [hostnameFromKeepass, deviceType, lastPathElement, keepassResult.username || null, device.id]
+              );
 
-            if (normalizedMac === '101331CDFF6C' || normalizedMac === 'CC96E50E602F') {
-              console.log(`  ✅✅✅ MAC ${device.mac_address} AGGIORNATO: hostname="${hostnameFromKeepass}", device_type="${deviceType}", device_path="${lastPathElement}", device_username="${keepassResult.username || ''}"`);
+              if (normalizedMac === '101331CDFF6C' || normalizedMac === 'CC96E50E602F') {
+                console.log(`  ✅✅✅ MAC ${device.mac_address} AGGIORNATO: hostname="${hostnameFromKeepass}", device_type="${deviceType}", device_path="${lastPathElement}", device_username="${keepassResult.username || ''}"`);
+              } else {
+                console.log(`  ✅ Dispositivo ID ${device.id} (MAC: ${device.mac_address}) aggiornato: hostname="${hostnameFromKeepass}", device_type="${deviceType}", device_path="${lastPathElement}", device_username="${keepassResult.username || ''}"`);
+              }
+              updatedCount++;
             } else {
-              console.log(`  ✅ Dispositivo ID ${device.id} (MAC: ${device.mac_address}) aggiornato: hostname="${hostnameFromKeepass}", device_type="${deviceType}", device_path="${lastPathElement}", device_username="${keepassResult.username || ''}"`);
+              if (normalizedMac === '101331CDFF6C' || normalizedMac === 'CC96E50E602F') {
+                console.log(`  ℹ️ MAC ${device.mac_address} già aggiornato, nessuna modifica necessaria`);
+              }
+              unchangedCount++;
             }
-            updatedCount++;
           } else {
-            if (normalizedMac === '101331CDFF6C' || normalizedMac === 'CC96E50E602F') {
-              console.log(`  ℹ️ MAC ${device.mac_address} già aggiornato, nessuna modifica necessaria`);
-            }
-            unchangedCount++;
-          }
-        } else {
-          // MAC non trovato in KeePass: resetta i valori se erano presenti (incluso hostname/Titolo)
-          // SOLO se non è manuale
-          const hasAnyKeepassData = device.hostname !== null || device.device_type !== null || device.device_path !== null || device.device_username !== null;
-          if (!device.is_manual_type && hasAnyKeepassData) {
-            console.log(`  🔍 MAC ${device.mac_address} (normalizzato: ${normalizedMac}) NON trovato in KeePass`);
-            console.log(`     Valori attuali: hostname="${device.hostname}", device_type="${device.device_type}", device_path="${device.device_path}", device_username="${device.device_username}"`);
-            console.log(`     Reset in corso...`);
+            // MAC non trovato in KeePass: resetta i valori se erano presenti (incluso hostname/Titolo)
+            // SOLO se non è manuale
+            const hasAnyKeepassData = device.hostname !== null || device.device_type !== null || device.device_path !== null || device.device_username !== null;
+            if (!device.is_manual_type && hasAnyKeepassData) {
+              console.log(`  🔍 MAC ${device.mac_address} (normalizzato: ${normalizedMac}) NON trovato in KeePass`);
+              console.log(`     Valori attuali: hostname="${device.hostname}", device_type="${device.device_type}", device_path="${device.device_path}", device_username="${device.device_username}"`);
+              console.log(`     Reset in corso...`);
 
-            await pool.query(
-              `UPDATE network_devices 
+              await pool.query(
+                `UPDATE network_devices 
                  SET hostname = NULL, device_type = NULL, device_path = NULL, device_username = NULL 
                  WHERE id = $1`,
-              [device.id]
-            );
+                [device.id]
+              );
 
-            console.log(`  ✅ Dispositivo ID ${device.id} (MAC: ${device.mac_address}) - MAC non trovato in KeePass, valori resettati`);
-            updatedCount++;
-          } else {
-            console.log(`  ℹ️ MAC ${device.mac_address} (normalizzato: ${normalizedMac}) non trovato in KeePass, ma valori già NULL`);
+              console.log(`  ✅ Dispositivo ID ${device.id} (MAC: ${device.mac_address}) - MAC non trovato in KeePass, valori resettati`);
+              updatedCount++;
+            } else {
+              console.log(`  ℹ️ MAC ${device.mac_address} (normalizzato: ${normalizedMac}) non trovato in KeePass, ma valori già NULL`);
+            }
+            notFoundCount++;
           }
-          notFoundCount++;
+        } catch (deviceErr) {
+          console.error(`  ⚠️ Errore aggiornamento dispositivo ID ${device.id}:`, deviceErr.message);
         }
-      } catch (deviceErr) {
-        console.error(`  ⚠️ Errore aggiornamento dispositivo ID ${device.id}:`, deviceErr.message);
       }
+
+      console.log(`✅ Aggiornamento completato: ${updatedCount} aggiornati, ${unchangedCount} invariati, ${notFoundCount} non trovati in KeePass`);
+
+      res.json({
+        success: true,
+        message: `Aggiornamento completato: ${updatedCount} dispositivi aggiornati da KeePass`,
+        updated: updatedCount,
+        unchanged: unchangedCount,
+        notFound: notFoundCount,
+        total: devicesResult.rows.length
+      });
+    } catch (err) {
+      console.error('❌ Errore aggiornamento dispositivi da KeePass:', err);
+      res.status(500).json({
+        error: 'Errore interno del server',
+        details: err.message,
+        updated: 0
+      });
     }
+  });
 
-    console.log(`✅ Aggiornamento completato: ${updatedCount} aggiornati, ${unchangedCount} invariati, ${notFoundCount} non trovati in KeePass`);
+  // GET /api/network-monitoring/agent-events - Ottieni eventi agent (offline, online, riavvio, problemi rete)
+  router.get('/agent-events', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables(); // Assicura che le tabelle esistano
+      const { limit = 50, unread_only = false } = req.query;
+      const userId = req.user.id;
 
-    res.json({
-      success: true,
-      message: `Aggiornamento completato: ${updatedCount} dispositivi aggiornati da KeePass`,
-      updated: updatedCount,
-      unchanged: unchangedCount,
-      notFound: notFoundCount,
-      total: devicesResult.rows.length
-    });
-  } catch (err) {
-    console.error('❌ Errore aggiornamento dispositivi da KeePass:', err);
-    res.status(500).json({
-      error: 'Errore interno del server',
-      details: err.message,
-      updated: 0
-    });
-  }
-});
-
-// GET /api/network-monitoring/agent-events - Ottieni eventi agent (offline, online, riavvio, problemi rete)
-router.get('/agent-events', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables(); // Assicura che le tabelle esistano
-    const { limit = 50, unread_only = false } = req.query;
-    const userId = req.user.id;
-
-    let query = `
+      let query = `
         SELECT 
           nae.id,
           nae.agent_id,
@@ -5861,90 +5891,90 @@ router.get('/agent-events', authenticateToken, requireRole('tecnico'), async (re
         LEFT JOIN users u ON na.azienda_id = u.id
         WHERE na.deleted_at IS NULL
       `;
-    const params = [userId];
-    let paramIndex = 2;
+      const params = [userId];
+      let paramIndex = 2;
 
-    if (unread_only === 'true') {
-      query += ` AND ($1 = ANY(nae.read_by) IS FALSE OR nae.read_by IS NULL)`;
+      if (unread_only === 'true') {
+        query += ` AND ($1 = ANY(nae.read_by) IS FALSE OR nae.read_by IS NULL)`;
+      }
+
+      query += ` ORDER BY nae.detected_at DESC LIMIT $${paramIndex}`;
+      params.push(parseInt(limit) || 50);
+
+      const result = await pool.query(query, params);
+
+      res.json(result.rows);
+    } catch (err) {
+      // Se la tabella non esiste, restituisci array vuoto invece di errore
+      if (err.message && (err.message.includes('does not exist') || err.message.includes('relation') && err.message.includes('network_agent_events'))) {
+        console.log('ℹ️ Tabella network_agent_events non ancora creata, restituisco array vuoto');
+        res.json([]);
+      } else {
+        console.error('❌ Errore recupero eventi agent:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
     }
+  });
 
-    query += ` ORDER BY nae.detected_at DESC LIMIT $${paramIndex}`;
-    params.push(parseInt(limit) || 50);
+  // POST /api/network-monitoring/agent-events/:id/read - Marca evento come letto
+  router.post('/agent-events/:id/read', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const eventId = parseInt(req.params.id);
+      const userId = req.user.id;
 
-    const result = await pool.query(query, params);
-
-    res.json(result.rows);
-  } catch (err) {
-    // Se la tabella non esiste, restituisci array vuoto invece di errore
-    if (err.message && (err.message.includes('does not exist') || err.message.includes('relation') && err.message.includes('network_agent_events'))) {
-      console.log('ℹ️ Tabella network_agent_events non ancora creata, restituisco array vuoto');
-      res.json([]);
-    } else {
-      console.error('❌ Errore recupero eventi agent:', err);
-      res.status(500).json({ error: 'Errore interno del server' });
-    }
-  }
-});
-
-// POST /api/network-monitoring/agent-events/:id/read - Marca evento come letto
-router.post('/agent-events/:id/read', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const eventId = parseInt(req.params.id);
-    const userId = req.user.id;
-
-    await pool.query(
-      `UPDATE network_agent_events 
+      await pool.query(
+        `UPDATE network_agent_events 
          SET read_by = array_append(COALESCE(read_by, ARRAY[]::INTEGER[]), $1)
          WHERE id = $2 AND ($1 = ANY(read_by) IS FALSE OR read_by IS NULL)`,
-      [userId, eventId]
-    );
+        [userId, eventId]
+      );
 
-    res.json({ success: true });
-  } catch (err) {
-    console.error('❌ Errore marcatura evento come letto:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+      res.json({ success: true });
+    } catch (err) {
+      console.error('❌ Errore marcatura evento come letto:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
 
-// GET /api/network-monitoring/agent-events/unread-count - Conta eventi non letti
-router.get('/agent-events/unread-count', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables(); // Assicura che le tabelle esistano
-    const userId = req.user.id;
+  // GET /api/network-monitoring/agent-events/unread-count - Conta eventi non letti
+  router.get('/agent-events/unread-count', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables(); // Assicura che le tabelle esistano
+      const userId = req.user.id;
 
-    const result = await pool.query(
-      `SELECT COUNT(*) as count
+      const result = await pool.query(
+        `SELECT COUNT(*) as count
          FROM network_agent_events nae
          INNER JOIN network_agents na ON nae.agent_id = na.id
          WHERE na.deleted_at IS NULL
            AND ($1 = ANY(nae.read_by) IS FALSE OR nae.read_by IS NULL)`,
-      [userId]
-    );
+        [userId]
+      );
 
-    res.json({ count: parseInt(result.rows[0].count, 10) });
-  } catch (err) {
-    // Se la tabella non esiste, restituisci 0 invece di errore
-    if (err.message && (err.message.includes('does not exist') || err.message.includes('relation') && err.message.includes('network_agent_events'))) {
-      console.log('ℹ️ Tabella network_agent_events non ancora creata, restituisco 0');
-      res.json({ count: 0 });
-    } else {
-      console.error('❌ Errore conteggio eventi non letti:', err);
-      res.status(500).json({ error: 'Errore interno del server' });
+      res.json({ count: parseInt(result.rows[0].count, 10) });
+    } catch (err) {
+      // Se la tabella non esiste, restituisci 0 invece di errore
+      if (err.message && (err.message.includes('does not exist') || err.message.includes('relation') && err.message.includes('network_agent_events'))) {
+        console.log('ℹ️ Tabella network_agent_events non ancora creata, restituisco 0');
+        res.json({ count: 0 });
+      } else {
+        console.error('❌ Errore conteggio eventi non letti:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
     }
-  }
-});
+  });
 
-// DELETE /api/network-monitoring/agent-events/clear
-// "Pulisci" nel triangolo notifiche: NON cancella lo storico.
-// Segna invece tutti gli eventi come letti per l'utente corrente (così in menu restano visibili).
-router.delete('/agent-events/clear', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables(); // Assicura che le tabelle esistano
-    const userId = req.user.id;
+  // DELETE /api/network-monitoring/agent-events/clear
+  // "Pulisci" nel triangolo notifiche: NON cancella lo storico.
+  // Segna invece tutti gli eventi come letti per l'utente corrente (così in menu restano visibili).
+  router.delete('/agent-events/clear', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables(); // Assicura che le tabelle esistano
+      const userId = req.user.id;
 
-    // Marca come letto tutto ciò che è "non letto" per questo utente
-    const result = await pool.query(
-      `UPDATE network_agent_events nae
+      // Marca come letto tutto ciò che è "non letto" per questo utente
+      const result = await pool.query(
+        `UPDATE network_agent_events nae
          SET read_by = CASE
            WHEN nae.read_by IS NULL THEN ARRAY[$1]::INTEGER[]
            WHEN NOT ($1 = ANY(nae.read_by)) THEN array_append(nae.read_by, $1)
@@ -5954,34 +5984,34 @@ router.delete('/agent-events/clear', authenticateToken, requireRole('tecnico'), 
          WHERE nae.agent_id = na.id
            AND na.deleted_at IS NULL
            AND (nae.read_by IS NULL OR NOT ($1 = ANY(nae.read_by)))`,
-      [userId]
-    );
+        [userId]
+      );
 
-    res.json({ success: true, marked_read: result.rowCount });
-  } catch (err) {
-    // Se la tabella non esiste, restituisci successo comunque
-    if (err.message && (err.message.includes('does not exist') || err.message.includes('relation') && err.message.includes('network_agent_events'))) {
-      console.log('ℹ️ Tabella network_agent_events non ancora creata, restituisco successo');
-      res.json({ success: true, marked_read: 0 });
-    } else {
-      console.error('❌ Errore cancellazione notifiche:', err);
-      res.status(500).json({ error: 'Errore interno del server' });
+      res.json({ success: true, marked_read: result.rowCount });
+    } catch (err) {
+      // Se la tabella non esiste, restituisci successo comunque
+      if (err.message && (err.message.includes('does not exist') || err.message.includes('relation') && err.message.includes('network_agent_events'))) {
+        console.log('ℹ️ Tabella network_agent_events non ancora creata, restituisco successo');
+        res.json({ success: true, marked_read: 0 });
+      } else {
+        console.error('❌ Errore cancellazione notifiche:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+      }
     }
-  }
-});
+  });
 
-// Funzione per rilevare agent offline (chiamata periodicamente)
-const checkOfflineAgents = async () => {
-  try {
-    // Verifica che pool sia disponibile
-    if (!pool) {
-      console.log('⚠️ checkOfflineAgents: pool non disponibile');
-      return;
-    }
-
-    // Verifica se la tabella network_agent_events esiste, se non esiste la crea
+  // Funzione per rilevare agent offline (chiamata periodicamente)
+  const checkOfflineAgents = async () => {
     try {
-      const tableCheck = await pool.query(`
+      // Verifica che pool sia disponibile
+      if (!pool) {
+        console.log('⚠️ checkOfflineAgents: pool non disponibile');
+        return;
+      }
+
+      // Verifica se la tabella network_agent_events esiste, se non esiste la crea
+      try {
+        const tableCheck = await pool.query(`
           SELECT EXISTS (
             SELECT FROM information_schema.tables 
             WHERE table_schema = 'public' 
@@ -5989,48 +6019,48 @@ const checkOfflineAgents = async () => {
           );
         `);
 
-      if (!tableCheck || !tableCheck.rows || !tableCheck.rows[0] || !tableCheck.rows[0].exists) {
-        // Tabella non esiste, creala chiamando initTables
-        console.log('⚠️ checkOfflineAgents: tabella network_agent_events non esiste, creazione...');
-        await initTables();
-        console.log('✅ checkOfflineAgents: tabella network_agent_events creata');
+        if (!tableCheck || !tableCheck.rows || !tableCheck.rows[0] || !tableCheck.rows[0].exists) {
+          // Tabella non esiste, creala chiamando initTables
+          console.log('⚠️ checkOfflineAgents: tabella network_agent_events non esiste, creazione...');
+          await initTables();
+          console.log('✅ checkOfflineAgents: tabella network_agent_events creata');
+        }
+      } catch (tableCheckErr) {
+        // Se la verifica della tabella fallisce, prova a crearla comunque
+        console.log('⚠️ checkOfflineAgents: errore verifica tabella, tentativo creazione:', tableCheckErr.message);
+        try {
+          await initTables();
+        } catch (initErr) {
+          console.log('❌ checkOfflineAgents: errore creazione tabella:', initErr.message);
+          return;
+        }
       }
-    } catch (tableCheckErr) {
-      // Se la verifica della tabella fallisce, prova a crearla comunque
-      console.log('⚠️ checkOfflineAgents: errore verifica tabella, tentativo creazione:', tableCheckErr.message);
-      try {
-        await initTables();
-      } catch (initErr) {
-        console.log('❌ checkOfflineAgents: errore creazione tabella:', initErr.message);
-        return;
-      }
-    }
 
-    // Prima, vediamo tutti gli agent per capire perché non vengono trovati
-    const allAgents = await pool.query(
-      `SELECT id, agent_name, last_heartbeat, status, enabled, deleted_at
+      // Prima, vediamo tutti gli agent per capire perché non vengono trovati
+      const allAgents = await pool.query(
+        `SELECT id, agent_name, last_heartbeat, status, enabled, deleted_at
          FROM network_agents
          WHERE deleted_at IS NULL`
-    );
+      );
 
-    console.log(`🔍 checkOfflineAgents: totale agent nel database: ${allAgents.rows.length}`);
-    allAgents.rows.forEach(agent => {
-      const lastHeartbeatStr = agent.last_heartbeat ? new Date(agent.last_heartbeat).toISOString() : 'NULL';
-      const minutesAgo = agent.last_heartbeat
-        ? Math.floor((Date.now() - new Date(agent.last_heartbeat).getTime()) / 60000)
-        : 'N/A';
-      console.log(`  - Agent ${agent.id} (${agent.agent_name}): status=${agent.status}, enabled=${agent.enabled}, last_heartbeat=${lastHeartbeatStr} (${minutesAgo} min fa)`);
-    });
+      console.log(`🔍 checkOfflineAgents: totale agent nel database: ${allAgents.rows.length}`);
+      allAgents.rows.forEach(agent => {
+        const lastHeartbeatStr = agent.last_heartbeat ? new Date(agent.last_heartbeat).toISOString() : 'NULL';
+        const minutesAgo = agent.last_heartbeat
+          ? Math.floor((Date.now() - new Date(agent.last_heartbeat).getTime()) / 60000)
+          : 'N/A';
+        console.log(`  - Agent ${agent.id} (${agent.agent_name}): status=${agent.status}, enabled=${agent.enabled}, last_heartbeat=${lastHeartbeatStr} (${minutesAgo} min fa)`);
+      });
 
-    // Trova agent che:
-    // 1. Sono online ma non hanno inviato heartbeat da più di 2 minuti (devono essere marcati offline)
-    // 2. Sono già offline ma non hanno ancora un evento offline non risolto (devono creare evento)
-    // NOTA: Controlliamo solo agent enabled=TRUE per evitare di creare eventi per agent disattivati manualmente
-    console.log('🔍 checkOfflineAgents: controllo agent offline...');
-    let offlineAgents;
-    try {
-      offlineAgents = await pool.query(
-        `SELECT na.id, na.agent_name, na.last_heartbeat, na.status, na.enabled
+      // Trova agent che:
+      // 1. Sono online ma non hanno inviato heartbeat da più di 2 minuti (devono essere marcati offline)
+      // 2. Sono già offline ma non hanno ancora un evento offline non risolto (devono creare evento)
+      // NOTA: Controlliamo solo agent enabled=TRUE per evitare di creare eventi per agent disattivati manualmente
+      console.log('🔍 checkOfflineAgents: controllo agent offline...');
+      let offlineAgents;
+      try {
+        offlineAgents = await pool.query(
+          `SELECT na.id, na.agent_name, na.last_heartbeat, na.status, na.enabled
            FROM network_agents na
            WHERE na.deleted_at IS NULL
              AND na.enabled = TRUE
@@ -6046,36 +6076,36 @@ const checkOfflineAgents = async () => {
                    AND nae.resolved_at IS NULL
                ))
              )`
-      );
-    } catch (queryErr) {
-      // Se la tabella network_agent_events non esiste, usa una query semplificata
-      if (queryErr.code === '42P01') {
-        console.log('ℹ️ checkOfflineAgents: tabella network_agent_events non disponibile, uso query semplificata');
-        offlineAgents = await pool.query(
-          `SELECT na.id, na.agent_name, na.last_heartbeat, na.status, na.enabled
+        );
+      } catch (queryErr) {
+        // Se la tabella network_agent_events non esiste, usa una query semplificata
+        if (queryErr.code === '42P01') {
+          console.log('ℹ️ checkOfflineAgents: tabella network_agent_events non disponibile, uso query semplificata');
+          offlineAgents = await pool.query(
+            `SELECT na.id, na.agent_name, na.last_heartbeat, na.status, na.enabled
              FROM network_agents na
              WHERE na.deleted_at IS NULL
                AND na.enabled = TRUE
                AND na.status = 'online'
                AND (na.last_heartbeat IS NULL OR na.last_heartbeat < NOW() - INTERVAL '8 minutes')`
-        );
-      } else {
-        // Rilancia altri errori
-        throw queryErr;
+          );
+        } else {
+          // Rilancia altri errori
+          throw queryErr;
+        }
       }
-    }
 
-    console.log(`🔍 checkOfflineAgents: trovati ${offlineAgents.rows.length} agent offline`);
-    if (offlineAgents.rows.length > 0) {
-      offlineAgents.rows.forEach(agent => {
-        console.log(`  - Agent ${agent.id} (${agent.agent_name}): last_heartbeat = ${agent.last_heartbeat}, status = ${agent.status}`);
-      });
-    } else {
-      console.log('⚠️ checkOfflineAgents: nessun agent trovato offline. Verifica i filtri della query.');
-      // Debug: verifica se ci sono agent offline con eventi esistenti
-      try {
-        const offlineAgentsWithEvents = await pool.query(
-          `SELECT na.id, na.agent_name, na.status, na.enabled,
+      console.log(`🔍 checkOfflineAgents: trovati ${offlineAgents.rows.length} agent offline`);
+      if (offlineAgents.rows.length > 0) {
+        offlineAgents.rows.forEach(agent => {
+          console.log(`  - Agent ${agent.id} (${agent.agent_name}): last_heartbeat = ${agent.last_heartbeat}, status = ${agent.status}`);
+        });
+      } else {
+        console.log('⚠️ checkOfflineAgents: nessun agent trovato offline. Verifica i filtri della query.');
+        // Debug: verifica se ci sono agent offline con eventi esistenti
+        try {
+          const offlineAgentsWithEvents = await pool.query(
+            `SELECT na.id, na.agent_name, na.status, na.enabled,
                     (SELECT COUNT(*) FROM network_agent_events nae 
                      WHERE nae.agent_id = na.id 
                        AND nae.event_type = 'offline' 
@@ -6084,117 +6114,117 @@ const checkOfflineAgents = async () => {
              WHERE na.deleted_at IS NULL
                AND na.enabled = TRUE
                AND na.status = 'offline'`
-        );
-        if (offlineAgentsWithEvents.rows.length > 0) {
-          console.log(`🔍 checkOfflineAgents: trovati ${offlineAgentsWithEvents.rows.length} agent offline con enabled=TRUE:`);
-          offlineAgentsWithEvents.rows.forEach(agent => {
-            console.log(`  - Agent ${agent.id} (${agent.agent_name}): status=${agent.status}, eventi offline non risolti=${agent.event_count}`);
-          });
-        }
-      } catch (debugErr) {
-        // Se la tabella non esiste ancora, ignora l'errore di debug
-        if (debugErr.code === '42P01') {
-          console.log('ℹ️ checkOfflineAgents: tabella network_agent_events non ancora disponibile per debug');
-        } else {
-          console.log(`⚠️ checkOfflineAgents: errore query debug: ${debugErr.message}`);
+          );
+          if (offlineAgentsWithEvents.rows.length > 0) {
+            console.log(`🔍 checkOfflineAgents: trovati ${offlineAgentsWithEvents.rows.length} agent offline con enabled=TRUE:`);
+            offlineAgentsWithEvents.rows.forEach(agent => {
+              console.log(`  - Agent ${agent.id} (${agent.agent_name}): status=${agent.status}, eventi offline non risolti=${agent.event_count}`);
+            });
+          }
+        } catch (debugErr) {
+          // Se la tabella non esiste ancora, ignora l'errore di debug
+          if (debugErr.code === '42P01') {
+            console.log('ℹ️ checkOfflineAgents: tabella network_agent_events non ancora disponibile per debug');
+          } else {
+            console.log(`⚠️ checkOfflineAgents: errore query debug: ${debugErr.message}`);
+          }
         }
       }
-    }
 
-    for (const agent of offlineAgents.rows) {
-      console.log(`🔄 checkOfflineAgents: aggiornamento agent ${agent.id} (${agent.agent_name}) a offline...`);
+      for (const agent of offlineAgents.rows) {
+        console.log(`🔄 checkOfflineAgents: aggiornamento agent ${agent.id} (${agent.agent_name}) a offline...`);
 
-      // Aggiorna status a offline
-      await pool.query(
-        `UPDATE network_agents SET status = 'offline' WHERE id = $1`,
-        [agent.id]
-      );
-
-      console.log(`✅ checkOfflineAgents: agent ${agent.id} aggiornato a offline nel database`);
-
-      // Invia notifica Telegram
-      try {
-        const agentInfo = await pool.query(
-          'SELECT na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
+        // Aggiorna status a offline
+        await pool.query(
+          `UPDATE network_agents SET status = 'offline' WHERE id = $1`,
           [agent.id]
         );
 
-        if (agentInfo.rows.length > 0) {
-          await sendTelegramNotification(
-            agent.id,
-            agentInfo.rows[0].azienda_id,
-            'agent_offline',
-            {
-              agentName: agent.agent_name,
-              lastHeartbeat: agent.last_heartbeat,
-              aziendaName: agentInfo.rows[0].azienda_name
-            }
+        console.log(`✅ checkOfflineAgents: agent ${agent.id} aggiornato a offline nel database`);
+
+        // Invia notifica Telegram
+        try {
+          const agentInfo = await pool.query(
+            'SELECT na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
+            [agent.id]
           );
+
+          if (agentInfo.rows.length > 0) {
+            await sendTelegramNotification(
+              agent.id,
+              agentInfo.rows[0].azienda_id,
+              'agent_offline',
+              {
+                agentName: agent.agent_name,
+                lastHeartbeat: agent.last_heartbeat,
+                aziendaName: agentInfo.rows[0].azienda_name
+              }
+            );
+          }
+        } catch (telegramErr) {
+          console.error('❌ Errore invio notifica Telegram per agent offline:', telegramErr);
         }
-      } catch (telegramErr) {
-        console.error('❌ Errore invio notifica Telegram per agent offline:', telegramErr);
-      }
 
-      // Emetti evento WebSocket per aggiornare la lista agenti in tempo reale
-      if (io) {
-        console.log(`📡 checkOfflineAgents: emissione evento WebSocket per agent ${agent.id}`);
-        io.to(`role:tecnico`).to(`role:admin`).emit('network-monitoring-update', {
-          type: 'agent-status-changed',
-          agentId: agent.id,
-          status: 'offline'
-        });
-      } else {
-        console.log('⚠️ checkOfflineAgents: io (WebSocket) non disponibile');
-      }
+        // Emetti evento WebSocket per aggiornare la lista agenti in tempo reale
+        if (io) {
+          console.log(`📡 checkOfflineAgents: emissione evento WebSocket per agent ${agent.id}`);
+          io.to(`role:tecnico`).to(`role:admin`).emit('network-monitoring-update', {
+            type: 'agent-status-changed',
+            agentId: agent.id,
+            status: 'offline'
+          });
+        } else {
+          console.log('⚠️ checkOfflineAgents: io (WebSocket) non disponibile');
+        }
 
-      // Verifica se esiste già un evento offline non risolto (proteggiamo con try-catch)
-      try {
-        // Assicurati che la tabella esista prima di usarla
-        await ensureTables();
+        // Verifica se esiste già un evento offline non risolto (proteggiamo con try-catch)
+        try {
+          // Assicurati che la tabella esista prima di usarla
+          await ensureTables();
 
-        const existingEvent = await pool.query(
-          `SELECT id FROM network_agent_events 
+          const existingEvent = await pool.query(
+            `SELECT id FROM network_agent_events 
              WHERE agent_id = $1 
                AND event_type = 'offline' 
                AND resolved_at IS NULL
              ORDER BY detected_at DESC LIMIT 1`,
-          [agent.id]
-        );
-
-        if (existingEvent.rows.length === 0) {
-          // Crea nuovo evento offline
-          const offlineDuration = agent.last_heartbeat
-            ? Math.floor((Date.now() - new Date(agent.last_heartbeat).getTime()) / 60000)
-            : null;
-
-          await pool.query(
-            `INSERT INTO network_agent_events (agent_id, event_type, event_data, detected_at, notified)
-               VALUES ($1, 'offline', $2, NOW(), FALSE)`,
-            [agent.id, JSON.stringify({
-              last_heartbeat: agent.last_heartbeat,
-              offline_duration_minutes: offlineDuration,
-              detected_at: new Date().toISOString()
-            })]
+            [agent.id]
           );
 
-          // Emetti evento WebSocket
-          if (io) {
-            io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
-              agentId: agent.id,
-              eventType: 'offline',
-              message: `Agent ${agent.agent_name || agent.id} offline`,
-              detectedAt: new Date().toISOString()
-            });
-          }
+          if (existingEvent.rows.length === 0) {
+            // Crea nuovo evento offline
+            const offlineDuration = agent.last_heartbeat
+              ? Math.floor((Date.now() - new Date(agent.last_heartbeat).getTime()) / 60000)
+              : null;
 
-          console.log(`🔴 Agent ${agent.id} (${agent.agent_name}) rilevato offline`);
-        }
-      } catch (eventErr) {
-        // Se la tabella non esiste, prova a crearla direttamente
-        if (eventErr.code === '42P01') {
-          console.log(`⚠️ checkOfflineAgents: tabella network_agent_events non disponibile, tentativo creazione...`);
-          try {
-            await pool.query(`
+            await pool.query(
+              `INSERT INTO network_agent_events (agent_id, event_type, event_data, detected_at, notified)
+               VALUES ($1, 'offline', $2, NOW(), FALSE)`,
+              [agent.id, JSON.stringify({
+                last_heartbeat: agent.last_heartbeat,
+                offline_duration_minutes: offlineDuration,
+                detected_at: new Date().toISOString()
+              })]
+            );
+
+            // Emetti evento WebSocket
+            if (io) {
+              io.to(`role:tecnico`).to(`role:admin`).emit('agent-event', {
+                agentId: agent.id,
+                eventType: 'offline',
+                message: `Agent ${agent.agent_name || agent.id} offline`,
+                detectedAt: new Date().toISOString()
+              });
+            }
+
+            console.log(`🔴 Agent ${agent.id} (${agent.agent_name}) rilevato offline`);
+          }
+        } catch (eventErr) {
+          // Se la tabella non esiste, prova a crearla direttamente
+          if (eventErr.code === '42P01') {
+            console.log(`⚠️ checkOfflineAgents: tabella network_agent_events non disponibile, tentativo creazione...`);
+            try {
+              await pool.query(`
                 CREATE TABLE IF NOT EXISTS network_agent_events (
                   id SERIAL PRIMARY KEY,
                   agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
@@ -6207,183 +6237,183 @@ const checkOfflineAgents = async () => {
                   created_at TIMESTAMP DEFAULT NOW()
                 );
               `);
-            console.log(`✅ checkOfflineAgents: tabella network_agent_events creata con successo`);
-            // Resetta il flag per forzare la ricreazione al prossimo controllo
-            tablesCheckDone = false;
-          } catch (createErr) {
-            console.error(`❌ checkOfflineAgents: errore creazione tabella network_agent_events:`, createErr.message);
+              console.log(`✅ checkOfflineAgents: tabella network_agent_events creata con successo`);
+              // Resetta il flag per forzare la ricreazione al prossimo controllo
+              tablesCheckDone = false;
+            } catch (createErr) {
+              console.error(`❌ checkOfflineAgents: errore creazione tabella network_agent_events:`, createErr.message);
+            }
+          } else {
+            console.error(`❌ checkOfflineAgents: errore creazione evento offline per agent ${agent.id}:`, eventErr.message);
           }
-        } else {
-          console.error(`❌ checkOfflineAgents: errore creazione evento offline per agent ${agent.id}:`, eventErr.message);
         }
       }
+    } catch (err) {
+      // Non loggare come errore se è solo la tabella network_agent_events mancante (già gestito nei catch interni)
+      if (err.code !== '42P01' || !err.message.includes('network_agent_events')) {
+        console.error('❌ Errore controllo agent offline:', err);
+      }
     }
-  } catch (err) {
-    // Non loggare come errore se è solo la tabella network_agent_events mancante (già gestito nei catch interni)
-    if (err.code !== '42P01' || !err.message.includes('network_agent_events')) {
-      console.error('❌ Errore controllo agent offline:', err);
-    }
-  }
-};
+  };
 
-// Avvia job periodico per controllare agent offline (ogni minuto)
-// Wrappato in try-catch per evitare crash se pool non è ancora disponibile
-try {
-  // Esegui subito un controllo (con delay per assicurarsi che tutto sia inizializzato)
-  setTimeout(() => {
-    checkOfflineAgents().catch(err => {
-      console.error('❌ Errore controllo iniziale agent offline:', err);
-    });
-  }, 5000); // Aspetta 5 secondi dopo l'avvio del server
-
-  // Avvia job periodico
-  console.log('⏰ checkOfflineAgents: avvio job periodico (ogni 60 secondi)');
-  setInterval(() => {
-    console.log('⏰ checkOfflineAgents: esecuzione job periodico...');
-    checkOfflineAgents().catch(err => {
-      console.error('❌ Errore controllo periodico agent offline:', err);
-    });
-  }, 60 * 1000);
-} catch (err) {
-  console.error('❌ Errore inizializzazione job controllo agent offline:', err);
-}
-
-// GET /api/network-monitoring/test-keepass - Test connessione e lettura KeePass da Google Drive
-router.get('/test-keepass', authenticateToken, requireRole('tecnico'), async (req, res) => {
+  // Avvia job periodico per controllare agent offline (ogni minuto)
+  // Wrappato in try-catch per evitare crash se pool non è ancora disponibile
   try {
-    const { mac, password } = req.query;
-
-    if (!password) {
-      return res.status(400).json({
-        error: 'Password richiesta',
-        message: 'Fornisci la password del file KeePass come parametro ?password=...'
+    // Esegui subito un controllo (con delay per assicurarsi che tutto sia inizializzato)
+    setTimeout(() => {
+      checkOfflineAgents().catch(err => {
+        console.error('❌ Errore controllo iniziale agent offline:', err);
       });
-    }
+    }, 5000); // Aspetta 5 secondi dopo l'avvio del server
 
-    console.log('🧪 Test connessione KeePass da Google Drive...');
+    // Avvia job periodico
+    console.log('⏰ checkOfflineAgents: avvio job periodico (ogni 60 secondi)');
+    setInterval(() => {
+      console.log('⏰ checkOfflineAgents: esecuzione job periodico...');
+      checkOfflineAgents().catch(err => {
+        console.error('❌ Errore controllo periodico agent offline:', err);
+      });
+    }, 60 * 1000);
+  } catch (err) {
+    console.error('❌ Errore inizializzazione job controllo agent offline:', err);
+  }
 
-    // Test 1: Verifica credenziali Google
-    let googleAuthOk = false;
+  // GET /api/network-monitoring/test-keepass - Test connessione e lettura KeePass da Google Drive
+  router.get('/test-keepass', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
-      await keepassDriveService.getDriveAuth();
-      googleAuthOk = true;
-      console.log('✅ Credenziali Google OK');
-    } catch (err) {
-      console.error('❌ Errore credenziali Google:', err.message);
-      return res.status(500).json({
-        error: 'Credenziali Google non configurate',
-        details: err.message,
-        step: 'google_auth'
-      });
-    }
+      const { mac, password } = req.query;
 
-    // Test 2: Download file da Google Drive
-    let fileDownloaded = false;
-    let fileSize = 0;
-    try {
-      const fileBuffer = await keepassDriveService.downloadKeepassFile(password);
-      fileDownloaded = true;
-      fileSize = fileBuffer.length;
-      console.log(`✅ File scaricato: ${(fileSize / 1024).toFixed(2)} KB`);
-    } catch (err) {
-      console.error('❌ Errore download file:', err.message);
-      return res.status(500).json({
-        error: 'Errore download file da Google Drive',
-        details: err.message,
-        step: 'file_download',
-        googleAuthOk
-      });
-    }
+      if (!password) {
+        return res.status(400).json({
+          error: 'Password richiesta',
+          message: 'Fornisci la password del file KeePass come parametro ?password=...'
+        });
+      }
 
-    // Test 3: Caricamento e parsing KDBX
-    let kdbxLoaded = false;
-    let macCount = 0;
-    try {
-      const macMap = await keepassDriveService.loadMacToTitleMap(password);
-      kdbxLoaded = true;
-      macCount = macMap.size;
-      console.log(`✅ File KDBX caricato: ${macCount} MAC address trovati`);
-    } catch (err) {
-      console.error('❌ Errore caricamento KDBX:', err.message);
-      return res.status(500).json({
-        error: 'Errore caricamento file KDBX',
-        details: err.message,
-        step: 'kdbx_load',
-        googleAuthOk,
-        fileDownloaded,
-        fileSize
-      });
-    }
+      console.log('🧪 Test connessione KeePass da Google Drive...');
 
-    // Test 4: Ricerca MAC specifico (se fornito)
-    let macFound = null;
-    let macTitle = null;
-    if (mac) {
+      // Test 1: Verifica credenziali Google
+      let googleAuthOk = false;
       try {
-        macTitle = await keepassDriveService.findMacTitle(mac, password);
-        macFound = macTitle !== null;
-        if (macFound) {
-          console.log(`✅ MAC ${mac} trovato -> Titolo: "${macTitle}"`);
-        } else {
-          console.log(`ℹ️ MAC ${mac} non trovato nel file`);
-        }
+        await keepassDriveService.getDriveAuth();
+        googleAuthOk = true;
+        console.log('✅ Credenziali Google OK');
       } catch (err) {
-        console.error(`❌ Errore ricerca MAC ${mac}:`, err.message);
+        console.error('❌ Errore credenziali Google:', err.message);
+        return res.status(500).json({
+          error: 'Credenziali Google non configurate',
+          details: err.message,
+          step: 'google_auth'
+        });
       }
+
+      // Test 2: Download file da Google Drive
+      let fileDownloaded = false;
+      let fileSize = 0;
+      try {
+        const fileBuffer = await keepassDriveService.downloadKeepassFile(password);
+        fileDownloaded = true;
+        fileSize = fileBuffer.length;
+        console.log(`✅ File scaricato: ${(fileSize / 1024).toFixed(2)} KB`);
+      } catch (err) {
+        console.error('❌ Errore download file:', err.message);
+        return res.status(500).json({
+          error: 'Errore download file da Google Drive',
+          details: err.message,
+          step: 'file_download',
+          googleAuthOk
+        });
+      }
+
+      // Test 3: Caricamento e parsing KDBX
+      let kdbxLoaded = false;
+      let macCount = 0;
+      try {
+        const macMap = await keepassDriveService.loadMacToTitleMap(password);
+        kdbxLoaded = true;
+        macCount = macMap.size;
+        console.log(`✅ File KDBX caricato: ${macCount} MAC address trovati`);
+      } catch (err) {
+        console.error('❌ Errore caricamento KDBX:', err.message);
+        return res.status(500).json({
+          error: 'Errore caricamento file KDBX',
+          details: err.message,
+          step: 'kdbx_load',
+          googleAuthOk,
+          fileDownloaded,
+          fileSize
+        });
+      }
+
+      // Test 4: Ricerca MAC specifico (se fornito)
+      let macFound = null;
+      let macTitle = null;
+      if (mac) {
+        try {
+          macTitle = await keepassDriveService.findMacTitle(mac, password);
+          macFound = macTitle !== null;
+          if (macFound) {
+            console.log(`✅ MAC ${mac} trovato -> Titolo: "${macTitle}"`);
+          } else {
+            console.log(`ℹ️ MAC ${mac} non trovato nel file`);
+          }
+        } catch (err) {
+          console.error(`❌ Errore ricerca MAC ${mac}:`, err.message);
+        }
+      }
+
+      // Risultato completo
+      res.json({
+        success: true,
+        tests: {
+          googleAuth: googleAuthOk,
+          fileDownload: fileDownloaded,
+          fileSize: fileSize,
+          kdbxLoad: kdbxLoaded,
+          macCount: macCount
+        },
+        macSearch: mac ? {
+          mac: mac,
+          found: macFound,
+          title: macTitle
+        } : null,
+        message: 'Tutti i test completati con successo!'
+      });
+
+    } catch (err) {
+      console.error('❌ Errore test KeePass:', err);
+      res.status(500).json({
+        error: 'Errore durante il test',
+        details: err.message
+      });
     }
+  });
 
-    // Risultato completo
-    res.json({
-      success: true,
-      tests: {
-        googleAuth: googleAuthOk,
-        fileDownload: fileDownloaded,
-        fileSize: fileSize,
-        kdbxLoad: kdbxLoaded,
-        macCount: macCount
-      },
-      macSearch: mac ? {
-        mac: mac,
-        found: macFound,
-        title: macTitle
-      } : null,
-      message: 'Tutti i test completati con successo!'
-    });
-
-  } catch (err) {
-    console.error('❌ Errore test KeePass:', err);
-    res.status(500).json({
-      error: 'Errore durante il test',
-      details: err.message
-    });
-  }
-});
-
-// POST /api/network-monitoring/telegram/config
-// Configura notifiche Telegram per un'azienda o agent
-router.post('/telegram/config', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
-
-    const { azienda_id, agent_id, bot_token, chat_id, enabled,
-      notify_agent_offline, notify_ip_changes,
-      notify_mac_changes, notify_status_changes } = req.body;
-
-    if (!bot_token || !chat_id) {
-      return res.status(400).json({ error: 'bot_token e chat_id sono obbligatori' });
-    }
-
-    // Normalizza valori NULL
-    const normalizedAziendaId = azienda_id && azienda_id !== '' ? parseInt(azienda_id) : null;
-    const normalizedAgentId = agent_id && agent_id !== '' ? parseInt(agent_id) : null;
-
-    // Verifica che la tabella esista (se non esiste, creala)
+  // POST /api/network-monitoring/telegram/config
+  // Configura notifiche Telegram per un'azienda o agent
+  router.post('/telegram/config', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
-      await pool.query('SELECT 1 FROM network_telegram_config LIMIT 1');
-    } catch (tableErr) {
-      // Tabella non esiste, creala
-      console.log('⚠️ Tabella network_telegram_config non esiste, creazione...');
-      await pool.query(`
+      await ensureTables();
+
+      const { azienda_id, agent_id, bot_token, chat_id, enabled,
+        notify_agent_offline, notify_ip_changes,
+        notify_mac_changes, notify_status_changes } = req.body;
+
+      if (!bot_token || !chat_id) {
+        return res.status(400).json({ error: 'bot_token e chat_id sono obbligatori' });
+      }
+
+      // Normalizza valori NULL
+      const normalizedAziendaId = azienda_id && azienda_id !== '' ? parseInt(azienda_id) : null;
+      const normalizedAgentId = agent_id && agent_id !== '' ? parseInt(agent_id) : null;
+
+      // Verifica che la tabella esista (se non esiste, creala)
+      try {
+        await pool.query('SELECT 1 FROM network_telegram_config LIMIT 1');
+      } catch (tableErr) {
+        // Tabella non esiste, creala
+        console.log('⚠️ Tabella network_telegram_config non esiste, creazione...');
+        await pool.query(`
           CREATE TABLE IF NOT EXISTS network_telegram_config (
             id SERIAL PRIMARY KEY,
             azienda_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -6399,30 +6429,30 @@ router.post('/telegram/config', authenticateToken, requireRole('tecnico'), async
             updated_at TIMESTAMP DEFAULT NOW()
           );
         `);
-      await pool.query(`
+        await pool.query(`
           CREATE INDEX IF NOT EXISTS idx_network_telegram_config_azienda 
           ON network_telegram_config(azienda_id);
         `);
-      await pool.query(`
+        await pool.query(`
           CREATE INDEX IF NOT EXISTS idx_network_telegram_config_agent 
           ON network_telegram_config(agent_id);
         `);
-      console.log('✅ Tabella network_telegram_config creata');
-    }
+        console.log('✅ Tabella network_telegram_config creata');
+      }
 
-    // Verifica se esiste già una configurazione con gli stessi valori
-    const existingCheck = await pool.query(
-      `SELECT id FROM network_telegram_config 
+      // Verifica se esiste già una configurazione con gli stessi valori
+      const existingCheck = await pool.query(
+        `SELECT id FROM network_telegram_config 
          WHERE (azienda_id = $1 OR (azienda_id IS NULL AND $1 IS NULL))
            AND (agent_id = $2 OR (agent_id IS NULL AND $2 IS NULL))`,
-      [normalizedAziendaId, normalizedAgentId]
-    );
+        [normalizedAziendaId, normalizedAgentId]
+      );
 
-    let result;
-    if (existingCheck.rows.length > 0) {
-      // Update esistente
-      result = await pool.query(
-        `UPDATE network_telegram_config 
+      let result;
+      if (existingCheck.rows.length > 0) {
+        // Update esistente
+        result = await pool.query(
+          `UPDATE network_telegram_config 
            SET bot_token = $1,
                chat_id = $2,
                enabled = $3,
@@ -6436,21 +6466,21 @@ router.post('/telegram/config', authenticateToken, requireRole('tecnico'), async
                      notify_agent_offline, notify_ip_changes, 
                      notify_mac_changes, notify_status_changes, 
                      created_at, updated_at`,
-        [
-          bot_token,
-          chat_id,
-          enabled !== false,
-          notify_agent_offline !== false,
-          notify_ip_changes !== false,
-          notify_mac_changes !== false,
-          notify_status_changes !== false,
-          existingCheck.rows[0].id
-        ]
-      );
-    } else {
-      // Insert nuovo
-      result = await pool.query(
-        `INSERT INTO network_telegram_config 
+          [
+            bot_token,
+            chat_id,
+            enabled !== false,
+            notify_agent_offline !== false,
+            notify_ip_changes !== false,
+            notify_mac_changes !== false,
+            notify_status_changes !== false,
+            existingCheck.rows[0].id
+          ]
+        );
+      } else {
+        // Insert nuovo
+        result = await pool.query(
+          `INSERT INTO network_telegram_config 
            (azienda_id, agent_id, bot_token, chat_id, enabled,
             notify_agent_offline, notify_ip_changes, notify_mac_changes, notify_status_changes)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -6458,1116 +6488,1116 @@ router.post('/telegram/config', authenticateToken, requireRole('tecnico'), async
                      notify_agent_offline, notify_ip_changes, 
                      notify_mac_changes, notify_status_changes, 
                      created_at, updated_at`,
-        [
-          normalizedAziendaId,
-          normalizedAgentId,
-          bot_token,
-          chat_id,
-          enabled !== false,
-          notify_agent_offline !== false,
-          notify_ip_changes !== false,
-          notify_mac_changes !== false,
-          notify_status_changes !== false
-        ]
-      );
+          [
+            normalizedAziendaId,
+            normalizedAgentId,
+            bot_token,
+            chat_id,
+            enabled !== false,
+            notify_agent_offline !== false,
+            notify_ip_changes !== false,
+            notify_mac_changes !== false,
+            notify_status_changes !== false
+          ]
+        );
+      }
+
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error('❌ Errore configurazione Telegram:', err);
+      console.error('❌ Stack trace:', err.stack);
+      res.status(500).json({
+        error: 'Errore interno del server',
+        details: err.message
+      });
     }
+  });
 
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('❌ Errore configurazione Telegram:', err);
-    console.error('❌ Stack trace:', err.stack);
-    res.status(500).json({
-      error: 'Errore interno del server',
-      details: err.message
-    });
-  }
-});
+  // GET /api/network-monitoring/telegram/config
+  // Ottieni configurazione Telegram
+  router.get('/telegram/config', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
 
-// GET /api/network-monitoring/telegram/config
-// Ottieni configurazione Telegram
-router.get('/telegram/config', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
+      const { azienda_id, agent_id } = req.query;
 
-    const { azienda_id, agent_id } = req.query;
-
-    let query = `SELECT id, azienda_id, agent_id, bot_token, chat_id, enabled, 
+      let query = `SELECT id, azienda_id, agent_id, bot_token, chat_id, enabled, 
                           notify_agent_offline, notify_ip_changes, 
                           notify_mac_changes, notify_status_changes, 
                           created_at, updated_at
                    FROM network_telegram_config WHERE 1=1`;
-    const params = [];
-    let paramIndex = 1;
+      const params = [];
+      let paramIndex = 1;
 
-    if (azienda_id) {
-      query += ` AND azienda_id = $${paramIndex++}`;
-      params.push(azienda_id);
-    }
-
-    if (agent_id) {
-      query += ` AND agent_id = $${paramIndex++}`;
-      params.push(agent_id);
-    }
-
-    const result = await pool.query(query, params);
-    res.json(result.rows);
-  } catch (err) {
-    console.error('❌ Errore recupero configurazione Telegram:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// POST /api/network-monitoring/telegram/config/:id/test
-// Testa invio notifica Telegram
-router.post('/telegram/config/:id/test', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    // Verifica che telegramService sia disponibile
-    if (!telegramService) {
-      console.error('❌ Test notifica: telegramService non disponibile');
-      return res.status(500).json({
-        error: 'Servizio Telegram non disponibile',
-        details: 'Il modulo telegramService non è stato caricato correttamente. Verifica che node-telegram-bot-api sia installato.'
-      });
-    }
-
-    await ensureTables();
-
-    const { id } = req.params;
-    const { notification_type } = req.body; // 'agent_offline', 'ip_changed', 'mac_changed', 'status_changed_online', 'status_changed_offline'
-
-    if (!notification_type) {
-      return res.status(400).json({ error: 'notification_type è obbligatorio' });
-    }
-
-    // Ottieni configurazione
-    const configResult = await pool.query(
-      'SELECT * FROM network_telegram_config WHERE id = $1',
-      [id]
-    );
-
-    if (configResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Configurazione non trovata' });
-    }
-
-    const config = configResult.rows[0];
-
-    if (!config.enabled) {
-      return res.status(400).json({ error: 'Configurazione non abilitata' });
-    }
-
-    if (!config.bot_token || !config.chat_id) {
-      return res.status(400).json({ error: 'Bot Token o Chat ID mancanti nella configurazione' });
-    }
-
-    // Inizializza bot
-    console.log(`🔧 Test notifica: Inizializzazione bot per config ID ${id}, tipo: ${notification_type}`);
-    const initialized = telegramService.initialize(config.bot_token, config.chat_id);
-    if (!initialized) {
-      console.error(`❌ Test notifica: Errore inizializzazione bot per config ID ${id}`);
-      return res.status(500).json({
-        error: 'Errore inizializzazione bot Telegram',
-        details: 'Verifica che il bot token e chat ID siano corretti. Controlla i log del backend per dettagli.'
-      });
-    }
-    console.log(`✅ Test notifica: Bot inizializzato correttamente per config ID ${id}`);
-
-    // Crea dati di test in base al tipo
-    let testData = {};
-    let message = '';
-
-    switch (notification_type) {
-      case 'agent_offline':
-        if (!config.notify_agent_offline) {
-          return res.status(400).json({ error: 'Notifica agent offline non abilitata' });
-        }
-        testData = {
-          agentName: 'Agent di Test',
-          lastHeartbeat: new Date(Date.now() - 10 * 60 * 1000).toISOString() // 10 minuti fa
-        };
-        message = telegramService.formatAgentOfflineMessage(testData.agentName, testData.lastHeartbeat);
-        break;
-
-      case 'ip_changed':
-        if (!config.notify_ip_changes) {
-          return res.status(400).json({ error: 'Notifica cambio IP non abilitata' });
-        }
-        testData = {
-          hostname: 'Dispositivo di Test',
-          mac: 'AA-BB-CC-DD-EE-FF',
-          oldIP: '192.168.1.100',
-          newIP: '192.168.1.200',
-          agentName: 'Agent di Test'
-        };
-        message = telegramService.formatIPChangedMessage(testData);
-        break;
-
-      case 'mac_changed':
-        if (!config.notify_mac_changes) {
-          return res.status(400).json({ error: 'Notifica cambio MAC non abilitata' });
-        }
-        testData = {
-          hostname: 'Dispositivo di Test',
-          ip: '192.168.1.100',
-          oldMAC: 'AA-BB-CC-DD-EE-FF',
-          newMAC: '11-22-33-44-55-66',
-          agentName: 'Agent di Test'
-        };
-        message = telegramService.formatMACChangedMessage(testData);
-        break;
-
-      case 'status_changed_online':
-        if (!config.notify_status_changes) {
-          return res.status(400).json({ error: 'Notifica cambio status non abilitata' });
-        }
-        testData = {
-          hostname: 'Dispositivo di Test',
-          ip: '192.168.1.100',
-          mac: 'AA-BB-CC-DD-EE-FF',
-          oldStatus: 'offline',
-          status: 'online',
-          agentName: 'Agent di Test'
-        };
-        message = telegramService.formatDeviceStatusMessage(testData);
-        break;
-
-      case 'status_changed_offline':
-        if (!config.notify_status_changes) {
-          return res.status(400).json({ error: 'Notifica cambio status non abilitata' });
-        }
-        testData = {
-          hostname: 'Dispositivo di Test',
-          ip: '192.168.1.100',
-          mac: 'AA-BB-CC-DD-EE-FF',
-          oldStatus: 'online',
-          status: 'offline',
-          agentName: 'Agent di Test'
-        };
-        message = telegramService.formatDeviceStatusMessage(testData);
-        break;
-
-      default:
-        return res.status(400).json({ error: 'Tipo di notifica non valido' });
-    }
-
-    // Invia messaggio di test
-    console.log(`📤 Test notifica: Invio messaggio per config ID ${id}, tipo: ${notification_type}`);
-    const result = await telegramService.sendMessage(message);
-
-    if (result && result.success) {
-      console.log(`✅ Test notifica: Messaggio inviato con successo per config ID ${id}`);
-      res.json({
-        success: true,
-        message: 'Notifica di test inviata con successo! Controlla Telegram.',
-        notification_type,
-        test_data: testData
-      });
-    } else {
-      console.error(`❌ Test notifica: Errore invio messaggio per config ID ${id}`);
-      const errorMsg = result && result.error
-        ? result.error
-        : 'Errore invio notifica di test';
-      const errorDetails = result && result.details
-        ? result.details
-        : 'Verifica che il bot token e chat ID siano corretti e che il bot possa inviare messaggi al chat ID specificato.';
-
-      res.status(500).json({
-        error: errorMsg,
-        details: errorDetails
-      });
-    }
-  } catch (err) {
-    console.error('❌ Errore test notifica Telegram:', err);
-    console.error('❌ Stack trace completo:', err.stack);
-
-    // Fornisci dettagli più specifici sull'errore
-    let errorDetails = err.message || 'Errore sconosciuto';
-    if (err.message && err.message.includes('Cannot find module')) {
-      errorDetails = 'Il modulo node-telegram-bot-api non è stato trovato. Esegui "npm install node-telegram-bot-api" e riavvia il backend.';
-    } else if (err.message && err.message.includes('telegramService')) {
-      errorDetails = 'Il servizio Telegram non è disponibile. Verifica che backend/services/TelegramService.js esista e sia accessibile.';
-    }
-
-    res.status(500).json({
-      error: 'Errore interno del server',
-      details: errorDetails,
-      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
-    });
-  }
-});
-
-// DELETE /api/network-monitoring/telegram/config/:id
-// Rimuovi configurazione Telegram
-router.delete('/telegram/config/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    await ensureTables();
-
-    const { id } = req.params;
-
-    const result = await pool.query(
-      'DELETE FROM network_telegram_config WHERE id = $1 RETURNING id',
-      [id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Configurazione non trovata' });
-    }
-
-    res.json({ message: 'Configurazione rimossa', id: result.rows[0].id });
-  } catch (err) {
-    console.error('❌ Errore rimozione configurazione Telegram:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// POST /api/network-monitoring/telegram/simulate-event
-// Simula un evento reale per testare le notifiche Telegram
-router.post('/telegram/simulate-event', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const { event_type, agent_id, azienda_id } = req.body;
-
-    if (!event_type) {
-      return res.status(400).json({ error: 'event_type richiesto' });
-    }
-
-    // Ottieni agent_id e azienda_id se non forniti
-    let finalAgentId = agent_id;
-    let finalAziendaId = azienda_id;
-
-    if (!finalAgentId || !finalAziendaId) {
-      // Prendi il primo agent disponibile
-      const agentResult = await pool.query(
-        'SELECT id, azienda_id, agent_name FROM network_agents WHERE deleted_at IS NULL AND enabled = true LIMIT 1'
-      );
-
-      if (agentResult.rows.length === 0) {
-        return res.status(404).json({ error: 'Nessun agent disponibile per il test' });
+      if (azienda_id) {
+        query += ` AND azienda_id = $${paramIndex++}`;
+        params.push(azienda_id);
       }
 
-      finalAgentId = finalAgentId || agentResult.rows[0].id;
-      finalAziendaId = finalAziendaId || agentResult.rows[0].azienda_id;
+      if (agent_id) {
+        query += ` AND agent_id = $${paramIndex++}`;
+        params.push(agent_id);
+      }
+
+      const result = await pool.query(query, params);
+      res.json(result.rows);
+    } catch (err) {
+      console.error('❌ Errore recupero configurazione Telegram:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    console.log(`🧪 Simulazione evento ${event_type} per agent ${finalAgentId}, azienda ${finalAziendaId}`);
+  // POST /api/network-monitoring/telegram/config/:id/test
+  // Testa invio notifica Telegram
+  router.post('/telegram/config/:id/test', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      // Verifica che telegramService sia disponibile
+      if (!telegramService) {
+        console.error('❌ Test notifica: telegramService non disponibile');
+        return res.status(500).json({
+          error: 'Servizio Telegram non disponibile',
+          details: 'Il modulo telegramService non è stato caricato correttamente. Verifica che node-telegram-bot-api sia installato.'
+        });
+      }
 
-    // Prepara dati di test in base al tipo di evento
-    let testData = {};
+      await ensureTables();
 
-    switch (event_type) {
-      case 'agent_offline':
-        const agentInfo = await pool.query(
-          'SELECT agent_name, last_heartbeat FROM network_agents WHERE id = $1',
-          [finalAgentId]
-        );
-        testData = {
-          agentName: agentInfo.rows[0]?.agent_name || 'Test Agent',
-          lastHeartbeat: agentInfo.rows[0]?.last_heartbeat || new Date()
-        };
-        break;
+      const { id } = req.params;
+      const { notification_type } = req.body; // 'agent_offline', 'ip_changed', 'mac_changed', 'status_changed_online', 'status_changed_offline'
 
-      case 'ip_changed':
-        testData = {
-          hostname: 'Test Device',
-          mac: 'AA:BB:CC:DD:EE:FF',
-          oldIP: '192.168.1.100',
-          newIP: '192.168.1.101',
-          agentName: 'Test Agent'
-        };
-        break;
+      if (!notification_type) {
+        return res.status(400).json({ error: 'notification_type è obbligatorio' });
+      }
 
-      case 'mac_changed':
-        testData = {
-          hostname: 'Test Device',
-          ip: '192.168.1.100',
-          oldMAC: 'AA:BB:CC:DD:EE:FF',
-          newMAC: '11:22:33:44:55:66',
-          agentName: 'Test Agent'
-        };
-        break;
+      // Ottieni configurazione
+      const configResult = await pool.query(
+        'SELECT * FROM network_telegram_config WHERE id = $1',
+        [id]
+      );
 
-      case 'status_changed':
-        testData = {
-          hostname: 'Test Device',
-          ip: '192.168.1.100',
-          mac: 'AA:BB:CC:DD:EE:FF',
-          oldStatus: 'offline',
-          status: 'online',
-          agentName: 'Test Agent'
-        };
-        break;
+      if (configResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Configurazione non trovata' });
+      }
 
-      default:
-        return res.status(400).json({ error: `Tipo evento non valido: ${event_type}` });
-    }
+      const config = configResult.rows[0];
 
-    // Chiama la funzione di notifica come se fosse un evento reale
-    const result = await sendTelegramNotification(finalAgentId, finalAziendaId, event_type, testData);
+      if (!config.enabled) {
+        return res.status(400).json({ error: 'Configurazione non abilitata' });
+      }
 
-    if (result) {
-      res.json({
-        success: true,
-        message: `Evento ${event_type} simulato e notifica inviata`,
-        event_type,
-        agent_id: finalAgentId,
-        azienda_id: finalAziendaId
-      });
-    } else {
+      if (!config.bot_token || !config.chat_id) {
+        return res.status(400).json({ error: 'Bot Token o Chat ID mancanti nella configurazione' });
+      }
+
+      // Inizializza bot
+      console.log(`🔧 Test notifica: Inizializzazione bot per config ID ${id}, tipo: ${notification_type}`);
+      const initialized = telegramService.initialize(config.bot_token, config.chat_id);
+      if (!initialized) {
+        console.error(`❌ Test notifica: Errore inizializzazione bot per config ID ${id}`);
+        return res.status(500).json({
+          error: 'Errore inizializzazione bot Telegram',
+          details: 'Verifica che il bot token e chat ID siano corretti. Controlla i log del backend per dettagli.'
+        });
+      }
+      console.log(`✅ Test notifica: Bot inizializzato correttamente per config ID ${id}`);
+
+      // Crea dati di test in base al tipo
+      let testData = {};
+      let message = '';
+
+      switch (notification_type) {
+        case 'agent_offline':
+          if (!config.notify_agent_offline) {
+            return res.status(400).json({ error: 'Notifica agent offline non abilitata' });
+          }
+          testData = {
+            agentName: 'Agent di Test',
+            lastHeartbeat: new Date(Date.now() - 10 * 60 * 1000).toISOString() // 10 minuti fa
+          };
+          message = telegramService.formatAgentOfflineMessage(testData.agentName, testData.lastHeartbeat);
+          break;
+
+        case 'ip_changed':
+          if (!config.notify_ip_changes) {
+            return res.status(400).json({ error: 'Notifica cambio IP non abilitata' });
+          }
+          testData = {
+            hostname: 'Dispositivo di Test',
+            mac: 'AA-BB-CC-DD-EE-FF',
+            oldIP: '192.168.1.100',
+            newIP: '192.168.1.200',
+            agentName: 'Agent di Test'
+          };
+          message = telegramService.formatIPChangedMessage(testData);
+          break;
+
+        case 'mac_changed':
+          if (!config.notify_mac_changes) {
+            return res.status(400).json({ error: 'Notifica cambio MAC non abilitata' });
+          }
+          testData = {
+            hostname: 'Dispositivo di Test',
+            ip: '192.168.1.100',
+            oldMAC: 'AA-BB-CC-DD-EE-FF',
+            newMAC: '11-22-33-44-55-66',
+            agentName: 'Agent di Test'
+          };
+          message = telegramService.formatMACChangedMessage(testData);
+          break;
+
+        case 'status_changed_online':
+          if (!config.notify_status_changes) {
+            return res.status(400).json({ error: 'Notifica cambio status non abilitata' });
+          }
+          testData = {
+            hostname: 'Dispositivo di Test',
+            ip: '192.168.1.100',
+            mac: 'AA-BB-CC-DD-EE-FF',
+            oldStatus: 'offline',
+            status: 'online',
+            agentName: 'Agent di Test'
+          };
+          message = telegramService.formatDeviceStatusMessage(testData);
+          break;
+
+        case 'status_changed_offline':
+          if (!config.notify_status_changes) {
+            return res.status(400).json({ error: 'Notifica cambio status non abilitata' });
+          }
+          testData = {
+            hostname: 'Dispositivo di Test',
+            ip: '192.168.1.100',
+            mac: 'AA-BB-CC-DD-EE-FF',
+            oldStatus: 'online',
+            status: 'offline',
+            agentName: 'Agent di Test'
+          };
+          message = telegramService.formatDeviceStatusMessage(testData);
+          break;
+
+        default:
+          return res.status(400).json({ error: 'Tipo di notifica non valido' });
+      }
+
+      // Invia messaggio di test
+      console.log(`📤 Test notifica: Invio messaggio per config ID ${id}, tipo: ${notification_type}`);
+      const result = await telegramService.sendMessage(message);
+
+      if (result && result.success) {
+        console.log(`✅ Test notifica: Messaggio inviato con successo per config ID ${id}`);
+        res.json({
+          success: true,
+          message: 'Notifica di test inviata con successo! Controlla Telegram.',
+          notification_type,
+          test_data: testData
+        });
+      } else {
+        console.error(`❌ Test notifica: Errore invio messaggio per config ID ${id}`);
+        const errorMsg = result && result.error
+          ? result.error
+          : 'Errore invio notifica di test';
+        const errorDetails = result && result.details
+          ? result.details
+          : 'Verifica che il bot token e chat ID siano corretti e che il bot possa inviare messaggi al chat ID specificato.';
+
+        res.status(500).json({
+          error: errorMsg,
+          details: errorDetails
+        });
+      }
+    } catch (err) {
+      console.error('❌ Errore test notifica Telegram:', err);
+      console.error('❌ Stack trace completo:', err.stack);
+
+      // Fornisci dettagli più specifici sull'errore
+      let errorDetails = err.message || 'Errore sconosciuto';
+      if (err.message && err.message.includes('Cannot find module')) {
+        errorDetails = 'Il modulo node-telegram-bot-api non è stato trovato. Esegui "npm install node-telegram-bot-api" e riavvia il backend.';
+      } else if (err.message && err.message.includes('telegramService')) {
+        errorDetails = 'Il servizio Telegram non è disponibile. Verifica che backend/services/TelegramService.js esista e sia accessibile.';
+      }
+
       res.status(500).json({
-        success: false,
-        error: 'Notifica non inviata. Verifica la configurazione Telegram e i log del backend.',
-        event_type,
-        agent_id: finalAgentId,
-        azienda_id: finalAziendaId
+        error: 'Errore interno del server',
+        details: errorDetails,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
       });
     }
-  } catch (err) {
-    console.error('❌ Errore simulazione evento Telegram:', err);
-    res.status(500).json({
-      error: 'Errore interno del server',
-      details: err.message
-    });
-  }
-});
+  });
 
-// GET /api/network-monitoring/agent-version
-// Restituisce la versione corrente dell'agent disponibile per download.
-// Gli agent chiamano quest'endpoint, confrontano con la loro versione, e se diversa
-// scaricano da /download/agent/NetworkMonitorService.ps1 e si riavviano (auto-update).
-router.get('/agent-version', async (req, res) => {
-  try {
-    const CURRENT_AGENT_VERSION = '2.6.16'; // Versione corrente agent - FIX anti-hang scansione
-    const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
-
-    res.json({
-      version: CURRENT_AGENT_VERSION,
-      download_url: `${baseUrl}/agent-updates/NetworkMonitorService.ps1`,
-      release_date: '2026-02-14',
-      features: [
-        'Tray - Fix countdown Prossima scansione (max intervallo, last_scan nel futuro)',
-        'Parallelismo scansione WiFi (router multipli simultanei)',
-        'Carica AP associati - Cloud Key/Controller Unifi (credenziali da KeePass, API stat/device, fix SSL, log avanzati)',
-        'Router WiFi - Carica dispositivi da router AGCOMBO/TIM e sync automatica sulla mappa',
-        'MAC Address Normalization - Formato standard con due punti (AA:BB:CC:DD:EE:FF)',
-        'Switch gestiti - Sync SNMP dot1d + dot1q (fallback), parsing OID simbolici, C:\\usr, MIB',
-        'Switch gestiti - dot1dTpFdbPort e dot1qTpFdbPort (Q-BRIDGE) da snmpwalk in locale',
-        'Auto-Update System - Aggiornamento automatico trasparente',
-        'Unifi - Rilevamento aggiornamenti firmware da Cloud Key/Controller (credenziali da server, mai su disco)',
-        'Hybrid Discovery - Ping + TCP Scan per rilevare dispositivi firewalled',
-        'Trust ARP - Rilevamento immediato da cache ARP',
-        'System Tray Icon - Monitorstato locale',
-        'Security - Rimozione emoji per compatibilità Windows Server'
-      ]
-    });
-  } catch (err) {
-    console.error('❌ Errore endpoint agent-version:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// GET /api/network-monitoring/download/agent/NetworkMonitor.ps1
-// Serve il file NetworkMonitor.ps1 per download
-router.get('/download/agent/NetworkMonitor.ps1', async (req, res) => {
-  try {
-    const path = require('path');
-    const fs = require('fs').promises;
-
-    // Percorso al file agent (nella stessa repo, directory agent)
-    const agentFilePath = path.join(__dirname, '../../agent/NetworkMonitor.ps1');
-
-    // Verifica che il file esista
+  // DELETE /api/network-monitoring/telegram/config/:id
+  // Rimuovi configurazione Telegram
+  router.delete('/telegram/config/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
-      await fs.access(agentFilePath);
+      await ensureTables();
+
+      const { id } = req.params;
+
+      const result = await pool.query(
+        'DELETE FROM network_telegram_config WHERE id = $1 RETURNING id',
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Configurazione non trovata' });
+      }
+
+      res.json({ message: 'Configurazione rimossa', id: result.rows[0].id });
     } catch (err) {
-      console.error('❌ File agent non trovato:', agentFilePath);
-      return res.status(404).json({ error: 'File agent non trovato' });
+      console.error('❌ Errore rimozione configurazione Telegram:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    // Log download
-    const clientIp = req.ip || req.connection.remoteAddress;
-    console.log(`📥 Download agent richiesto da: ${clientIp}`);
-
-    // Imposta headers per download
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', 'attachment; filename="NetworkMonitor.ps1"');
-
-    // Invia file
-    res.sendFile(agentFilePath);
-  } catch (err) {
-    console.error('❌ Errore download agent:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// GET /api/network-monitoring/download/agent/NetworkMonitorService.ps1
-// Serve il file NetworkMonitorService.ps1 per download
-router.get('/download/agent/NetworkMonitorService.ps1', async (req, res) => {
-  try {
-    const path = require('path');
-    const fs = require('fs').promises;
-
-    // Percorso al file agent (nella stessa repo, directory agent)
-    const agentFilePath = path.join(__dirname, '../../agent/NetworkMonitorService.ps1');
-
-    // Verifica che il file esista
+  // POST /api/network-monitoring/telegram/simulate-event
+  // Simula un evento reale per testare le notifiche Telegram
+  router.post('/telegram/simulate-event', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
-      await fs.access(agentFilePath);
+      const { event_type, agent_id, azienda_id } = req.body;
+
+      if (!event_type) {
+        return res.status(400).json({ error: 'event_type richiesto' });
+      }
+
+      // Ottieni agent_id e azienda_id se non forniti
+      let finalAgentId = agent_id;
+      let finalAziendaId = azienda_id;
+
+      if (!finalAgentId || !finalAziendaId) {
+        // Prendi il primo agent disponibile
+        const agentResult = await pool.query(
+          'SELECT id, azienda_id, agent_name FROM network_agents WHERE deleted_at IS NULL AND enabled = true LIMIT 1'
+        );
+
+        if (agentResult.rows.length === 0) {
+          return res.status(404).json({ error: 'Nessun agent disponibile per il test' });
+        }
+
+        finalAgentId = finalAgentId || agentResult.rows[0].id;
+        finalAziendaId = finalAziendaId || agentResult.rows[0].azienda_id;
+      }
+
+      console.log(`🧪 Simulazione evento ${event_type} per agent ${finalAgentId}, azienda ${finalAziendaId}`);
+
+      // Prepara dati di test in base al tipo di evento
+      let testData = {};
+
+      switch (event_type) {
+        case 'agent_offline':
+          const agentInfo = await pool.query(
+            'SELECT agent_name, last_heartbeat FROM network_agents WHERE id = $1',
+            [finalAgentId]
+          );
+          testData = {
+            agentName: agentInfo.rows[0]?.agent_name || 'Test Agent',
+            lastHeartbeat: agentInfo.rows[0]?.last_heartbeat || new Date()
+          };
+          break;
+
+        case 'ip_changed':
+          testData = {
+            hostname: 'Test Device',
+            mac: 'AA:BB:CC:DD:EE:FF',
+            oldIP: '192.168.1.100',
+            newIP: '192.168.1.101',
+            agentName: 'Test Agent'
+          };
+          break;
+
+        case 'mac_changed':
+          testData = {
+            hostname: 'Test Device',
+            ip: '192.168.1.100',
+            oldMAC: 'AA:BB:CC:DD:EE:FF',
+            newMAC: '11:22:33:44:55:66',
+            agentName: 'Test Agent'
+          };
+          break;
+
+        case 'status_changed':
+          testData = {
+            hostname: 'Test Device',
+            ip: '192.168.1.100',
+            mac: 'AA:BB:CC:DD:EE:FF',
+            oldStatus: 'offline',
+            status: 'online',
+            agentName: 'Test Agent'
+          };
+          break;
+
+        default:
+          return res.status(400).json({ error: `Tipo evento non valido: ${event_type}` });
+      }
+
+      // Chiama la funzione di notifica come se fosse un evento reale
+      const result = await sendTelegramNotification(finalAgentId, finalAziendaId, event_type, testData);
+
+      if (result) {
+        res.json({
+          success: true,
+          message: `Evento ${event_type} simulato e notifica inviata`,
+          event_type,
+          agent_id: finalAgentId,
+          azienda_id: finalAziendaId
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Notifica non inviata. Verifica la configurazione Telegram e i log del backend.',
+          event_type,
+          agent_id: finalAgentId,
+          azienda_id: finalAziendaId
+        });
+      }
     } catch (err) {
-      console.error('❌ File NetworkMonitorService.ps1 non trovato:', agentFilePath);
-      return res.status(404).json({ error: 'File NetworkMonitorService.ps1 non trovato' });
+      console.error('❌ Errore simulazione evento Telegram:', err);
+      res.status(500).json({
+        error: 'Errore interno del server',
+        details: err.message
+      });
+    }
+  });
+
+  // GET /api/network-monitoring/agent-version
+  // Restituisce la versione corrente dell'agent disponibile per download.
+  // Gli agent chiamano quest'endpoint, confrontano con la loro versione, e se diversa
+  // scaricano da /download/agent/NetworkMonitorService.ps1 e si riavviano (auto-update).
+  router.get('/agent-version', async (req, res) => {
+    try {
+      const CURRENT_AGENT_VERSION = '2.6.16'; // Versione corrente agent - FIX anti-hang scansione
+      const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
+
+      res.json({
+        version: CURRENT_AGENT_VERSION,
+        download_url: `${baseUrl}/agent-updates/NetworkMonitorService.ps1`,
+        release_date: '2026-02-14',
+        features: [
+          'Tray - Fix countdown Prossima scansione (max intervallo, last_scan nel futuro)',
+          'Parallelismo scansione WiFi (router multipli simultanei)',
+          'Carica AP associati - Cloud Key/Controller Unifi (credenziali da KeePass, API stat/device, fix SSL, log avanzati)',
+          'Router WiFi - Carica dispositivi da router AGCOMBO/TIM e sync automatica sulla mappa',
+          'MAC Address Normalization - Formato standard con due punti (AA:BB:CC:DD:EE:FF)',
+          'Switch gestiti - Sync SNMP dot1d + dot1q (fallback), parsing OID simbolici, C:\\usr, MIB',
+          'Switch gestiti - dot1dTpFdbPort e dot1qTpFdbPort (Q-BRIDGE) da snmpwalk in locale',
+          'Auto-Update System - Aggiornamento automatico trasparente',
+          'Unifi - Rilevamento aggiornamenti firmware da Cloud Key/Controller (credenziali da server, mai su disco)',
+          'Hybrid Discovery - Ping + TCP Scan per rilevare dispositivi firewalled',
+          'Trust ARP - Rilevamento immediato da cache ARP',
+          'System Tray Icon - Monitorstato locale',
+          'Security - Rimozione emoji per compatibilità Windows Server'
+        ]
+      });
+    } catch (err) {
+      console.error('❌ Errore endpoint agent-version:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/download/agent/NetworkMonitor.ps1
+  // Serve il file NetworkMonitor.ps1 per download
+  router.get('/download/agent/NetworkMonitor.ps1', async (req, res) => {
+    try {
+      const path = require('path');
+      const fs = require('fs').promises;
+
+      // Percorso al file agent (nella stessa repo, directory agent)
+      const agentFilePath = path.join(__dirname, '../../agent/NetworkMonitor.ps1');
+
+      // Verifica che il file esista
+      try {
+        await fs.access(agentFilePath);
+      } catch (err) {
+        console.error('❌ File agent non trovato:', agentFilePath);
+        return res.status(404).json({ error: 'File agent non trovato' });
+      }
+
+      // Log download
+      const clientIp = req.ip || req.connection.remoteAddress;
+      console.log(`📥 Download agent richiesto da: ${clientIp}`);
+
+      // Imposta headers per download
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="NetworkMonitor.ps1"');
+
+      // Invia file
+      res.sendFile(agentFilePath);
+    } catch (err) {
+      console.error('❌ Errore download agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/download/agent/NetworkMonitorService.ps1
+  // Serve il file NetworkMonitorService.ps1 per download
+  router.get('/download/agent/NetworkMonitorService.ps1', async (req, res) => {
+    try {
+      const path = require('path');
+      const fs = require('fs').promises;
+
+      // Percorso al file agent (nella stessa repo, directory agent)
+      const agentFilePath = path.join(__dirname, '../../agent/NetworkMonitorService.ps1');
+
+      // Verifica che il file esista
+      try {
+        await fs.access(agentFilePath);
+      } catch (err) {
+        console.error('❌ File NetworkMonitorService.ps1 non trovato:', agentFilePath);
+        return res.status(404).json({ error: 'File NetworkMonitorService.ps1 non trovato' });
+      }
+
+      // Log download
+      const clientIp = req.ip || req.connection.remoteAddress;
+      console.log(`📥 Download NetworkMonitorService.ps1 richiesto da: ${clientIp}`);
+
+      // Imposta headers per download
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="NetworkMonitorService.ps1"');
+
+      // Invia file
+      res.sendFile(agentFilePath);
+    } catch (err) {
+      console.error('❌ Errore download NetworkMonitorService.ps1:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/download/agent/Avvia-Agent-Manuale.ps1
+  router.get('/download/agent/Avvia-Agent-Manuale.ps1', async (req, res) => {
+    try {
+      const path = require('path');
+      const agentFilePath = path.join(__dirname, '../../agent/Avvia-Agent-Manuale.ps1');
+      try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="Avvia-Agent-Manuale.ps1"');
+      res.sendFile(agentFilePath);
+    } catch (err) { console.error('❌ Errore download Avvia-Agent-Manuale.ps1:', err); res.status(500).json({ error: 'Errore interno del server' }); }
+  });
+
+  // GET /api/network-monitoring/download/agent/Reinstalla-Servizio-Quick.ps1
+  router.get('/download/agent/Reinstalla-Servizio-Quick.ps1', async (req, res) => {
+    try {
+      const path = require('path');
+      const agentFilePath = path.join(__dirname, '../../agent/Reinstalla-Servizio-Quick.ps1');
+      try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="Reinstalla-Servizio-Quick.ps1"');
+      res.sendFile(agentFilePath);
+    } catch (err) { console.error('❌ Errore download Reinstalla-Servizio-Quick.ps1:', err); res.status(500).json({ error: 'Errore interno del server' }); }
+  });
+
+  // GET /api/network-monitoring/download/agent/Avvia-TrayIcon.bat
+  router.get('/download/agent/Avvia-TrayIcon.bat', async (req, res) => {
+    try {
+      const path = require('path');
+      const agentFilePath = path.join(__dirname, '../../agent/Avvia-TrayIcon.bat');
+      try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="Avvia-TrayIcon.bat"');
+      res.sendFile(agentFilePath);
+    } catch (err) { console.error('❌ Errore download Avvia-TrayIcon.bat:', err); res.status(500).json({ error: 'Errore interno del server' }); }
+  });
+
+  // GET /api/network-monitoring/download/agent/NetworkMonitorTrayIcon.ps1
+  router.get('/download/agent/NetworkMonitorTrayIcon.ps1', async (req, res) => {
+    try {
+      const path = require('path');
+      const agentFilePath = path.join(__dirname, '../../agent/NetworkMonitorTrayIcon.ps1');
+      try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="NetworkMonitorTrayIcon.ps1"');
+      res.sendFile(agentFilePath);
+    } catch (err) { console.error('❌ Errore download NetworkMonitorTrayIcon.ps1:', err); res.status(500).json({ error: 'Errore interno del server' }); }
+  });
+
+  // GET /api/network-monitoring/download/agent/Start-TrayIcon-Hidden.vbs
+  router.get('/download/agent/Start-TrayIcon-Hidden.vbs', async (req, res) => {
+    try {
+      const path = require('path');
+      const agentFilePath = path.join(__dirname, '../../agent/Start-TrayIcon-Hidden.vbs');
+      try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="Start-TrayIcon-Hidden.vbs"');
+      res.sendFile(agentFilePath);
+    } catch (err) { console.error('❌ Errore download Start-TrayIcon-Hidden.vbs:', err); res.status(500).json({ error: 'Errore interno del server' }); }
+  });
+
+  // GET /api/network-monitoring/download/agent/Test-RouterWifi.ps1
+  router.get('/download/agent/Test-RouterWifi.ps1', async (req, res) => {
+    try {
+      const path = require('path');
+      const agentFilePath = path.join(__dirname, '../../agent/Test-RouterWifi.ps1');
+      try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename="Test-RouterWifi.ps1"');
+      res.sendFile(agentFilePath);
+    } catch (err) { console.error('❌ Errore download Test-RouterWifi.ps1:', err); res.status(500).json({ error: 'Errore interno del server' }); }
+  });
+
+  // Prova connessione Unifi (url/username/password dal body, per test da form prima di salvare)
+  // Se l'URL è su rete locale (192.168.x, 10.x, 172.16–31.x) la VPS non può raggiungerlo:
+  // il test viene delegato all'agent (riceve il comando al prossimo heartbeat e invia l'esito).
+  router.post('/test-unifi', authenticateToken, async (req, res) => {
+    const { agent_id, url, username, password } = req.body || {};
+    if (!url || !username || !password) {
+      return res.status(400).json({ error: 'Inserisci URL, username e password del controller Unifi' });
+    }
+    const baseUrl = String(url).trim().replace(/\/$/, '');
+    if (!/^https?:\/\//i.test(baseUrl)) {
+      return res.status(400).json({ error: 'L\'URL deve iniziare con http:// o https://' });
     }
 
-    // Log download
-    const clientIp = req.ip || req.connection.remoteAddress;
-    console.log(`📥 Download NetworkMonitorService.ps1 richiesto da: ${clientIp}`);
+    // Rileva se l'URL è su rete privata/locale (la VPS non può raggiungerlo)
+    const isPrivate = /^(https?:\/\/)?(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/i.test(baseUrl) ||
+      /^(https?:\/\/)?(localhost|127\.|\[?::1\]?)/i.test(baseUrl);
 
-    // Imposta headers per download
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', 'attachment; filename="NetworkMonitorService.ps1"');
-
-    // Invia file
-    res.sendFile(agentFilePath);
-  } catch (err) {
-    console.error('❌ Errore download NetworkMonitorService.ps1:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// GET /api/network-monitoring/download/agent/Avvia-Agent-Manuale.ps1
-router.get('/download/agent/Avvia-Agent-Manuale.ps1', async (req, res) => {
-  try {
-    const path = require('path');
-    const agentFilePath = path.join(__dirname, '../../agent/Avvia-Agent-Manuale.ps1');
-    try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', 'attachment; filename="Avvia-Agent-Manuale.ps1"');
-    res.sendFile(agentFilePath);
-  } catch (err) { console.error('❌ Errore download Avvia-Agent-Manuale.ps1:', err); res.status(500).json({ error: 'Errore interno del server' }); }
-});
-
-// GET /api/network-monitoring/download/agent/Reinstalla-Servizio-Quick.ps1
-router.get('/download/agent/Reinstalla-Servizio-Quick.ps1', async (req, res) => {
-  try {
-    const path = require('path');
-    const agentFilePath = path.join(__dirname, '../../agent/Reinstalla-Servizio-Quick.ps1');
-    try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', 'attachment; filename="Reinstalla-Servizio-Quick.ps1"');
-    res.sendFile(agentFilePath);
-  } catch (err) { console.error('❌ Errore download Reinstalla-Servizio-Quick.ps1:', err); res.status(500).json({ error: 'Errore interno del server' }); }
-});
-
-// GET /api/network-monitoring/download/agent/Avvia-TrayIcon.bat
-router.get('/download/agent/Avvia-TrayIcon.bat', async (req, res) => {
-  try {
-    const path = require('path');
-    const agentFilePath = path.join(__dirname, '../../agent/Avvia-TrayIcon.bat');
-    try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', 'attachment; filename="Avvia-TrayIcon.bat"');
-    res.sendFile(agentFilePath);
-  } catch (err) { console.error('❌ Errore download Avvia-TrayIcon.bat:', err); res.status(500).json({ error: 'Errore interno del server' }); }
-});
-
-// GET /api/network-monitoring/download/agent/NetworkMonitorTrayIcon.ps1
-router.get('/download/agent/NetworkMonitorTrayIcon.ps1', async (req, res) => {
-  try {
-    const path = require('path');
-    const agentFilePath = path.join(__dirname, '../../agent/NetworkMonitorTrayIcon.ps1');
-    try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', 'attachment; filename="NetworkMonitorTrayIcon.ps1"');
-    res.sendFile(agentFilePath);
-  } catch (err) { console.error('❌ Errore download NetworkMonitorTrayIcon.ps1:', err); res.status(500).json({ error: 'Errore interno del server' }); }
-});
-
-// GET /api/network-monitoring/download/agent/Start-TrayIcon-Hidden.vbs
-router.get('/download/agent/Start-TrayIcon-Hidden.vbs', async (req, res) => {
-  try {
-    const path = require('path');
-    const agentFilePath = path.join(__dirname, '../../agent/Start-TrayIcon-Hidden.vbs');
-    try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', 'attachment; filename="Start-TrayIcon-Hidden.vbs"');
-    res.sendFile(agentFilePath);
-  } catch (err) { console.error('❌ Errore download Start-TrayIcon-Hidden.vbs:', err); res.status(500).json({ error: 'Errore interno del server' }); }
-});
-
-// GET /api/network-monitoring/download/agent/Test-RouterWifi.ps1
-router.get('/download/agent/Test-RouterWifi.ps1', async (req, res) => {
-  try {
-    const path = require('path');
-    const agentFilePath = path.join(__dirname, '../../agent/Test-RouterWifi.ps1');
-    try { await require('fs').promises.access(agentFilePath); } catch (e) { return res.status(404).json({ error: 'File non trovato' }); }
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', 'attachment; filename="Test-RouterWifi.ps1"');
-    res.sendFile(agentFilePath);
-  } catch (err) { console.error('❌ Errore download Test-RouterWifi.ps1:', err); res.status(500).json({ error: 'Errore interno del server' }); }
-});
-
-// Prova connessione Unifi (url/username/password dal body, per test da form prima di salvare)
-// Se l'URL è su rete locale (192.168.x, 10.x, 172.16–31.x) la VPS non può raggiungerlo:
-// il test viene delegato all'agent (riceve il comando al prossimo heartbeat e invia l'esito).
-router.post('/test-unifi', authenticateToken, async (req, res) => {
-  const { agent_id, url, username, password } = req.body || {};
-  if (!url || !username || !password) {
-    return res.status(400).json({ error: 'Inserisci URL, username e password del controller Unifi' });
-  }
-  const baseUrl = String(url).trim().replace(/\/$/, '');
-  if (!/^https?:\/\//i.test(baseUrl)) {
-    return res.status(400).json({ error: 'L\'URL deve iniziare con http:// o https://' });
-  }
-
-  // Rileva se l'URL è su rete privata/locale (la VPS non può raggiungerlo)
-  const isPrivate = /^(https?:\/\/)?(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/i.test(baseUrl) ||
-    /^(https?:\/\/)?(localhost|127\.|\[?::1\]?)/i.test(baseUrl);
-
-  if (isPrivate) {
-    if (!agent_id) {
-      return res.status(400).json({ error: 'Per un controller su rete locale (es. 192.168.x) il test viene eseguito dall\'agent. Seleziona l\'agent e riprova.' });
+    if (isPrivate) {
+      if (!agent_id) {
+        return res.status(400).json({ error: 'Per un controller su rete locale (es. 192.168.x) il test viene eseguito dall\'agent. Seleziona l\'agent e riprova.' });
+      }
+      const testId = 'ut-' + Date.now() + '-' + crypto.randomBytes(4).toString('hex');
+      pendingUnifiTests.set(Number(agent_id), { test_id: testId, url: baseUrl, username: String(username).trim(), password: String(password), created_at: Date.now() });
+      return res.json({ test_id: testId, deferred: true, message: 'L\'agent eseguirà il test sulla rete locale. Attendi fino a 5 minuti (prossimo heartbeat).' });
     }
-    const testId = 'ut-' + Date.now() + '-' + crypto.randomBytes(4).toString('hex');
-    pendingUnifiTests.set(Number(agent_id), { test_id: testId, url: baseUrl, username: String(username).trim(), password: String(password), created_at: Date.now() });
-    return res.json({ test_id: testId, deferred: true, message: 'L\'agent eseguirà il test sulla rete locale. Attendi fino a 5 minuti (prossimo heartbeat).' });
-  }
 
-  // URL pubblico: la VPS può connettersi direttamente
-  try {
-    const agent = new https.Agent({ rejectUnauthorized: false });
-    let loginRes = await fetch(`${baseUrl}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: String(username).trim(), password: String(password) }),
-      agent
-    });
-    if (loginRes.status === 404) {
-      loginRes = await fetch(`${baseUrl}/api/login`, {
+    // URL pubblico: la VPS può connettersi direttamente
+    try {
+      const agent = new https.Agent({ rejectUnauthorized: false });
+      let loginRes = await fetch(`${baseUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: String(username).trim(), password: String(password) }),
         agent
       });
-    }
-    if (!loginRes.ok) throw new Error(`Login fallito (${loginRes.status}): credenziali errate o controller non raggiungibile`);
-    const cookies = loginRes.headers.get('set-cookie');
-    if (!cookies) throw new Error('Il controller non ha restituito i cookie di sessione');
-    let devicesRes = await fetch(`${baseUrl}/api/s/default/stat/device`, { headers: { 'Cookie': cookies }, agent });
-    if (devicesRes.status === 404) {
-      devicesRes = await fetch(`${baseUrl}/proxy/network/api/s/default/stat/device`, { headers: { 'Cookie': cookies }, agent });
-    }
-    if (!devicesRes.ok) throw new Error('Impossibile accedere alle API del controller (stat/device)');
-    res.json({ success: true, message: 'Connessione OK' });
-  } catch (err) {
-    console.error('❌ Test Unifi (VPS):', err);
-    res.status(500).json({ error: err.message || 'Errore di connessione al controller Unifi' });
-  }
-});
-
-// L'agent invia l'esito del test Unifi (dopo aver ricevuto pending_unifi_test nel heartbeat)
-router.post('/agent/unifi-test-result', authenticateAgent, async (req, res) => {
-  const { test_id, success, message } = req.body || {};
-  if (!test_id) return res.status(400).json({ error: 'test_id richiesto' });
-  unifiTestResults.set(test_id, { success: !!success, message: String(message || ''), at: Date.now() });
-  res.json({ ok: true });
-});
-
-// Il frontend interroga l'esito del test (per test delegati all'agent)
-router.get('/unifi-test-result/:test_id', authenticateToken, async (req, res) => {
-  const r = unifiTestResults.get(req.params.test_id);
-  if (!r) return res.json({ status: 'pending' });
-  if (Date.now() - r.at > 10 * 60 * 1000) {
-    unifiTestResults.delete(req.params.test_id);
-    return res.json({ status: 'pending' });
-  }
-  res.json({ status: r.success ? 'ok' : 'error', message: r.message });
-});
-
-// POST /api/network-monitoring/router-wifi-devices/request
-// Richiede all'agent di leggere solo i dispositivi WiFi dal router (AGCOMBO, Fritz, access point, cloud key).
-// Se username/password non inviati, le credenziali vengono recuperate da KeePass tramite MAC del dispositivo.
-router.post('/router-wifi-devices/request', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const { device_id, agent_id, router_ip, username: bodyUsername, password: bodyPassword } = req.body;
-    if (!device_id || !agent_id) {
-      return res.status(400).json({ error: 'Richiesti: device_id, agent_id' });
-    }
-    const dev = await pool.query(
-      `SELECT nd.id, nd.ip_address, nd.mac_address, nd.agent_id, nd.router_model, na.azienda_id, na.unifi_config
-         FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id WHERE nd.id = $1`,
-      [device_id]
-    );
-    if (dev.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato' });
-    const ip = (router_ip || dev.rows[0].ip_address || '').trim();
-    if (!ip) return res.status(400).json({ error: 'IP router non disponibile (specifica router_ip)' });
-    const isPrivate = /^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(ip);
-    if (!isPrivate) return res.status(400).json({ error: 'Solo router su rete locale (192.168.x, 10.x, 172.16-31.x) supportati. L\'agent deve essere sulla stessa rete.' });
-
-    let username = bodyUsername != null ? String(bodyUsername).trim() : '';
-    let password = bodyPassword != null ? String(bodyPassword) : '';
-    const mac = dev.rows[0].mac_address;
-    const routerModel = dev.rows[0].router_model || 'AGCOMBO';
-    const unifiConfig = dev.rows[0].unifi_config;
-    console.log(`📡 Router WiFi request: device_id=${device_id}, mac=${mac}, ip=${ip}, router_model=${routerModel}`);
-
-    // Per Cloud Key/UniFi: usa unifi_config dell'agent (come per controllo firmware) se disponibile
-    let controllerUrl = null; // URL completo con porta (es. https://192.168.1.156:8443) per l'agent
-    const isUnifi = /^Unifi|^Ubiquiti|^UCK/i.test(routerModel);
-    if ((!username || !password) && isUnifi && unifiConfig && unifiConfig.url && unifiConfig.username && unifiConfig.password) {
-      const uUrl = String(unifiConfig.url).trim().replace(/\/$/, '');
-      // Estrai host: "https://192.168.1.156" -> "192.168.1.156", "https://192.168.1.156:8443" -> "192.168.1.156"
-      const uHost = uUrl.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
-      const ipHost = String(ip).split(':')[0].trim();
-      const match = uHost === ipHost || uHost === ip;
-      console.log(`📡 UniFi: unifi_config host="${uHost}", device ip="${ipHost}", match=${match}`);
-      if (match) {
-        username = String(unifiConfig.username).trim();
-        password = String(unifiConfig.password);
-        controllerUrl = uUrl; // l'agent userà questo URL (con porta 8443) invece di solo IP
-        console.log(`✅ Credenziali da unifi_config agent (come firmware): host=${uHost}, username=${username}, controller_url=${controllerUrl}`);
+      if (loginRes.status === 404) {
+        loginRes = await fetch(`${baseUrl}/api/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: String(username).trim(), password: String(password) }),
+          agent
+        });
       }
-    }
-    // Se UniFi e abbiamo URL da unifi_config (stesso host), passalo all'agent per usare la porta 8443
-    if (isUnifi && !controllerUrl && unifiConfig && unifiConfig.url) {
-      const uUrl = String(unifiConfig.url).trim().replace(/\/$/, '');
-      const uHost = uUrl.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
-      const ipHost = String(ip).split(':')[0].trim();
-      if (uHost === ipHost || uHost === ip) controllerUrl = uUrl;
-    }
-
-    if (!username || !password) {
-      if (!mac) return res.status(400).json({ error: 'Dispositivo senza MAC: impossibile recuperare credenziali. Configura UniFi nell\'agent (come per firmware) o inserisci manualmente.' });
-      const keepassPassword = process.env.KEEPASS_PASSWORD;
-      if (!keepassPassword) return res.status(400).json({ error: 'KEEPASS_PASSWORD non configurata. Configura UniFi nell\'agent (modifica agent > Controller UniFi) o invia credenziali nel body.' });
-      console.log(`🔑 KeePass: ricerca credenziali per MAC ${mac}...`);
-      const creds = await keepassDriveService.getCredentialsByMac(mac, keepassPassword);
-      if (!creds || (!creds.username && !creds.password)) {
-        console.log(`❌ KeePass: credenziali NON trovate per MAC ${mac}`);
-        return res.status(400).json({ error: 'Credenziali non trovate. Configura UniFi nell\'agent (modifica agent > Controller UniFi) come per il controllo firmware, o aggiungi entry in KeePass.' });
+      if (!loginRes.ok) throw new Error(`Login fallito (${loginRes.status}): credenziali errate o controller non raggiungibile`);
+      const cookies = loginRes.headers.get('set-cookie');
+      if (!cookies) throw new Error('Il controller non ha restituito i cookie di sessione');
+      let devicesRes = await fetch(`${baseUrl}/api/s/default/stat/device`, { headers: { 'Cookie': cookies }, agent });
+      if (devicesRes.status === 404) {
+        devicesRes = await fetch(`${baseUrl}/proxy/network/api/s/default/stat/device`, { headers: { 'Cookie': cookies }, agent });
       }
-      console.log(`✅ KeePass: credenziali trovate per MAC ${mac} -> username="${creds.username}", password=${creds.password ? '***' : '(vuota)'}`);
-      username = creds.username || '';
-      password = creds.password || '';
+      if (!devicesRes.ok) throw new Error('Impossibile accedere alle API del controller (stat/device)');
+      res.json({ success: true, message: 'Connessione OK' });
+    } catch (err) {
+      console.error('❌ Test Unifi (VPS):', err);
+      res.status(500).json({ error: err.message || 'Errore di connessione al controller Unifi' });
     }
+  });
 
-    const agentId = Number(agent_id);
-    const taskId = 'rw-' + Date.now() + '-' + require('crypto').randomBytes(4).toString('hex');
-    pendingRouterWifiTasks.set(agentId, {
-      task_id: taskId,
-      router_ip: ip,
-      controller_url: controllerUrl || undefined,
-      username,
-      password,
-      router_model: routerModel,
-      device_id: device_id,
-      created_at: Date.now()
-    });
-    console.log(`📡 Router WiFi: task ${taskId} creato per agent_id=${agentId}, router ${ip}, controller_url=${controllerUrl || '(nessuno)'}, model=${routerModel}, username=${username}`);
-    res.json({ task_id: taskId, deferred: true, message: 'L\'agent recupererà i dispositivi al prossimo heartbeat (entro ~5 min).' });
-  } catch (err) {
-    console.error('❌ Errore router-wifi-devices/request:', err);
-    res.status(500).json({ error: err.message || 'Errore interno' });
-  }
-});
+  // L'agent invia l'esito del test Unifi (dopo aver ricevuto pending_unifi_test nel heartbeat)
+  router.post('/agent/unifi-test-result', authenticateAgent, async (req, res) => {
+    const { test_id, success, message } = req.body || {};
+    if (!test_id) return res.status(400).json({ error: 'test_id richiesto' });
+    unifiTestResults.set(test_id, { success: !!success, message: String(message || ''), at: Date.now() });
+    res.json({ ok: true });
+  });
 
-// L'agent invia i dispositivi WiFi letti dal router
-router.post('/agent/router-wifi-result', authenticateAgent, async (req, res) => {
-  const { task_id, success, devices, error, device_id: routerDeviceId } = req.body || {};
-  console.log(`📡 Router WiFi result ricevuto: task_id=${task_id}, success=${success}, devices=${devices?.length || 0}, error=${error || 'nessuno'}`);
-  if (!task_id) return res.status(400).json({ error: 'task_id richiesto' });
-  let createdCount = 0;
-  if (success && Array.isArray(devices) && devices.length > 0 && routerDeviceId) {
+  // Il frontend interroga l'esito del test (per test delegati all'agent)
+  router.get('/unifi-test-result/:test_id', authenticateToken, async (req, res) => {
+    const r = unifiTestResults.get(req.params.test_id);
+    if (!r) return res.json({ status: 'pending' });
+    if (Date.now() - r.at > 10 * 60 * 1000) {
+      unifiTestResults.delete(req.params.test_id);
+      return res.json({ status: 'pending' });
+    }
+    res.json({ status: r.success ? 'ok' : 'error', message: r.message });
+  });
+
+  // POST /api/network-monitoring/router-wifi-devices/request
+  // Richiede all'agent di leggere solo i dispositivi WiFi dal router (AGCOMBO, Fritz, access point, cloud key).
+  // Se username/password non inviati, le credenziali vengono recuperate da KeePass tramite MAC del dispositivo.
+  router.post('/router-wifi-devices/request', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
-      await ensureTables();
-      await ensureMappaturaNodesTable();
-      const routerRes = await pool.query(
-        'SELECT nd.id, nd.agent_id, nd.mac_address, na.azienda_id FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id WHERE nd.id = $1',
-        [routerDeviceId]
+      const { device_id, agent_id, router_ip, username: bodyUsername, password: bodyPassword } = req.body;
+      if (!device_id || !agent_id) {
+        return res.status(400).json({ error: 'Richiesti: device_id, agent_id' });
+      }
+      const dev = await pool.query(
+        `SELECT nd.id, nd.ip_address, nd.mac_address, nd.agent_id, nd.router_model, na.azienda_id, na.unifi_config
+         FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id WHERE nd.id = $1`,
+        [device_id]
       );
-      if (routerRes.rows.length === 0) return res.status(404).json({ error: 'Router non trovato' });
-      const { id: routerId, agent_id: agentId, mac_address: routerMac, azienda_id: aziendaId } = routerRes.rows[0];
-      const normalizeMac = (mac) => mac ? String(mac).replace(/[:-]/g, '').toUpperCase() : '';
-      const routerMacNorm = normalizeMac(routerMac);
-      let routerX = 200; let routerY = 200;
-      const posRes = await pool.query(
-        `SELECT x, y FROM mappatura_nodes mn
+      if (dev.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato' });
+      const ip = (router_ip || dev.rows[0].ip_address || '').trim();
+      if (!ip) return res.status(400).json({ error: 'IP router non disponibile (specifica router_ip)' });
+      const isPrivate = /^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(ip);
+      if (!isPrivate) return res.status(400).json({ error: 'Solo router su rete locale (192.168.x, 10.x, 172.16-31.x) supportati. L\'agent deve essere sulla stessa rete.' });
+
+      let username = bodyUsername != null ? String(bodyUsername).trim() : '';
+      let password = bodyPassword != null ? String(bodyPassword) : '';
+      const mac = dev.rows[0].mac_address;
+      const routerModel = dev.rows[0].router_model || 'AGCOMBO';
+      const unifiConfig = dev.rows[0].unifi_config;
+      console.log(`📡 Router WiFi request: device_id=${device_id}, mac=${mac}, ip=${ip}, router_model=${routerModel}`);
+
+      // Per Cloud Key/UniFi: usa unifi_config dell'agent (come per controllo firmware) se disponibile
+      let controllerUrl = null; // URL completo con porta (es. https://192.168.1.156:8443) per l'agent
+      const isUnifi = /^Unifi|^Ubiquiti|^UCK/i.test(routerModel);
+      if ((!username || !password) && isUnifi && unifiConfig && unifiConfig.url && unifiConfig.username && unifiConfig.password) {
+        const uUrl = String(unifiConfig.url).trim().replace(/\/$/, '');
+        // Estrai host: "https://192.168.1.156" -> "192.168.1.156", "https://192.168.1.156:8443" -> "192.168.1.156"
+        const uHost = uUrl.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
+        const ipHost = String(ip).split(':')[0].trim();
+        const match = uHost === ipHost || uHost === ip;
+        console.log(`📡 UniFi: unifi_config host="${uHost}", device ip="${ipHost}", match=${match}`);
+        if (match) {
+          username = String(unifiConfig.username).trim();
+          password = String(unifiConfig.password);
+          controllerUrl = uUrl; // l'agent userà questo URL (con porta 8443) invece di solo IP
+          console.log(`✅ Credenziali da unifi_config agent (come firmware): host=${uHost}, username=${username}, controller_url=${controllerUrl}`);
+        }
+      }
+      // Se UniFi e abbiamo URL da unifi_config (stesso host), passalo all'agent per usare la porta 8443
+      if (isUnifi && !controllerUrl && unifiConfig && unifiConfig.url) {
+        const uUrl = String(unifiConfig.url).trim().replace(/\/$/, '');
+        const uHost = uUrl.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
+        const ipHost = String(ip).split(':')[0].trim();
+        if (uHost === ipHost || uHost === ip) controllerUrl = uUrl;
+      }
+
+      if (!username || !password) {
+        if (!mac) return res.status(400).json({ error: 'Dispositivo senza MAC: impossibile recuperare credenziali. Configura UniFi nell\'agent (come per firmware) o inserisci manualmente.' });
+        const keepassPassword = process.env.KEEPASS_PASSWORD;
+        if (!keepassPassword) return res.status(400).json({ error: 'KEEPASS_PASSWORD non configurata. Configura UniFi nell\'agent (modifica agent > Controller UniFi) o invia credenziali nel body.' });
+        console.log(`🔑 KeePass: ricerca credenziali per MAC ${mac}...`);
+        const creds = await keepassDriveService.getCredentialsByMac(mac, keepassPassword);
+        if (!creds || (!creds.username && !creds.password)) {
+          console.log(`❌ KeePass: credenziali NON trovate per MAC ${mac}`);
+          return res.status(400).json({ error: 'Credenziali non trovate. Configura UniFi nell\'agent (modifica agent > Controller UniFi) come per il controllo firmware, o aggiungi entry in KeePass.' });
+        }
+        console.log(`✅ KeePass: credenziali trovate per MAC ${mac} -> username="${creds.username}", password=${creds.password ? '***' : '(vuota)'}`);
+        username = creds.username || '';
+        password = creds.password || '';
+      }
+
+      const agentId = Number(agent_id);
+      const taskId = 'rw-' + Date.now() + '-' + require('crypto').randomBytes(4).toString('hex');
+      pendingRouterWifiTasks.set(agentId, {
+        task_id: taskId,
+        router_ip: ip,
+        controller_url: controllerUrl || undefined,
+        username,
+        password,
+        router_model: routerModel,
+        device_id: device_id,
+        created_at: Date.now()
+      });
+      console.log(`📡 Router WiFi: task ${taskId} creato per agent_id=${agentId}, router ${ip}, controller_url=${controllerUrl || '(nessuno)'}, model=${routerModel}, username=${username}`);
+      res.json({ task_id: taskId, deferred: true, message: 'L\'agent recupererà i dispositivi al prossimo heartbeat (entro ~5 min).' });
+    } catch (err) {
+      console.error('❌ Errore router-wifi-devices/request:', err);
+      res.status(500).json({ error: err.message || 'Errore interno' });
+    }
+  });
+
+  // L'agent invia i dispositivi WiFi letti dal router
+  router.post('/agent/router-wifi-result', authenticateAgent, async (req, res) => {
+    const { task_id, success, devices, error, device_id: routerDeviceId } = req.body || {};
+    console.log(`📡 Router WiFi result ricevuto: task_id=${task_id}, success=${success}, devices=${devices?.length || 0}, error=${error || 'nessuno'}`);
+    if (!task_id) return res.status(400).json({ error: 'task_id richiesto' });
+    let createdCount = 0;
+    if (success && Array.isArray(devices) && devices.length > 0 && routerDeviceId) {
+      try {
+        await ensureTables();
+        await ensureMappaturaNodesTable();
+        const routerRes = await pool.query(
+          'SELECT nd.id, nd.agent_id, nd.mac_address, na.azienda_id FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id WHERE nd.id = $1',
+          [routerDeviceId]
+        );
+        if (routerRes.rows.length === 0) return res.status(404).json({ error: 'Router non trovato' });
+        const { id: routerId, agent_id: agentId, mac_address: routerMac, azienda_id: aziendaId } = routerRes.rows[0];
+        const normalizeMac = (mac) => mac ? String(mac).replace(/[:-]/g, '').toUpperCase() : '';
+        const routerMacNorm = normalizeMac(routerMac);
+        let routerX = 200; let routerY = 200;
+        const posRes = await pool.query(
+          `SELECT x, y FROM mappatura_nodes mn
             INNER JOIN network_devices nd ON REPLACE(REPLACE(REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', ''), '.', ''), ' ', '') = REPLACE(REPLACE(REPLACE(REPLACE(UPPER(mn.mac_address), ':', ''), '-', ''), '.', ''), ' ', '')
             WHERE mn.azienda_id = $1 AND nd.id = $2`,
-        [aziendaId, routerId]
-      );
-      if (posRes.rows.length > 0) {
-        routerX = parseFloat(posRes.rows[0].x) || 200;
-        routerY = parseFloat(posRes.rows[0].y) || 200;
-      }
-      // Prima passata: processa solo gli AP, crea mappa MAC AP -> ID AP
-      const apMacToIdMap = new Map();
-      const apDevices = devices.filter(d => (d.type || 'ap') === 'ap');
-      const clientDevices = devices.filter(d => d.type === 'client');
+          [aziendaId, routerId]
+        );
+        if (posRes.rows.length > 0) {
+          routerX = parseFloat(posRes.rows[0].x) || 200;
+          routerY = parseFloat(posRes.rows[0].y) || 200;
+        }
+        // Prima passata: processa solo gli AP, crea mappa MAC AP -> ID AP
+        const apMacToIdMap = new Map();
+        const apDevices = devices.filter(d => (d.type || 'ap') === 'ap');
+        const clientDevices = devices.filter(d => d.type === 'client');
 
-      for (let i = 0; i < apDevices.length; i++) {
-        const d = apDevices[i];
-        const mac = (d.mac || '').trim().replace(/-/g, ':');
-        const ip = (d.ip || '').trim();
-        if (!mac || mac.length < 12) continue;
-        const macNorm = normalizeMac(mac);
-        const exists = await pool.query(
-          `SELECT nd.id FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id
+        for (let i = 0; i < apDevices.length; i++) {
+          const d = apDevices[i];
+          const mac = (d.mac || '').trim().replace(/-/g, ':');
+          const ip = (d.ip || '').trim();
+          if (!mac || mac.length < 12) continue;
+          const macNorm = normalizeMac(mac);
+          const exists = await pool.query(
+            `SELECT nd.id FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id
               WHERE na.azienda_id = $1 AND (REPLACE(REPLACE(REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', ''), '.', ''), ' ', '') = $2
               OR (nd.ip_address = $3 AND nd.agent_id = $4))`,
-          [aziendaId, macNorm, ip, agentId]
-        );
+            [aziendaId, macNorm, ip, agentId]
+          );
 
-        let deviceIdForMap = null;
+          let deviceIdForMap = null;
 
-        if (exists.rows.length > 0) {
-          const existingId = exists.rows[0].id;
-          deviceIdForMap = existingId;
-          await pool.query(
-            `UPDATE network_devices 
+          if (exists.rows.length > 0) {
+            const existingId = exists.rows[0].id;
+            deviceIdForMap = existingId;
+            await pool.query(
+              `UPDATE network_devices 
                SET parent_device_id = $1, 
                    device_type = CASE WHEN device_type IS NULL OR device_type = '' THEN 'wifi' ELSE device_type END
                WHERE id = $2 AND (is_manual_parent IS FALSE OR is_manual_parent IS NULL)`,
-            [routerId, existingId]
-          );
-        } else {
-          const ins = await pool.query(
-            `INSERT INTO network_devices (agent_id, ip_address, mac_address, parent_device_id, status, device_type) VALUES ($1, $2, $3, $4, 'online', 'wifi') RETURNING id`,
-            [agentId, ip || null, mac, routerId]
-          );
-          if (ins.rows.length > 0) {
-            createdCount++;
-            deviceIdForMap = ins.rows[0].id;
+              [routerId, existingId]
+            );
+          } else {
+            const ins = await pool.query(
+              `INSERT INTO network_devices (agent_id, ip_address, mac_address, parent_device_id, status, device_type) VALUES ($1, $2, $3, $4, 'online', 'wifi') RETURNING id`,
+              [agentId, ip || null, mac, routerId]
+            );
+            if (ins.rows.length > 0) {
+              createdCount++;
+              deviceIdForMap = ins.rows[0].id;
+            }
+          }
+
+          if (deviceIdForMap) {
+            apMacToIdMap.set(macNorm, deviceIdForMap);
+            const offsetX = 60 * Math.cos((i * 2 * Math.PI) / Math.max(apDevices.length, 1));
+            const offsetY = 60 * Math.sin((i * 2 * Math.PI) / Math.max(apDevices.length, 1));
+            const x = routerX + offsetX;
+            const y = routerY + offsetY;
+
+            await pool.query(
+              `INSERT INTO mappatura_nodes (azienda_id, mac_address, x, y, is_locked) VALUES ($1, $2, $3, $4, false)
+               ON CONFLICT (azienda_id, mac_address) DO UPDATE SET x = EXCLUDED.x, y = EXCLUDED.y WHERE mappatura_nodes.is_locked = false`,
+              [aziendaId, macNorm, x, y]
+            );
           }
         }
 
-        if (deviceIdForMap) {
-          apMacToIdMap.set(macNorm, deviceIdForMap);
-          const offsetX = 60 * Math.cos((i * 2 * Math.PI) / Math.max(apDevices.length, 1));
-          const offsetY = 60 * Math.sin((i * 2 * Math.PI) / Math.max(apDevices.length, 1));
-          const x = routerX + offsetX;
-          const y = routerY + offsetY;
+        // Seconda passata: processa i client, collegali agli AP tramite ap_mac
+        for (let i = 0; i < clientDevices.length; i++) {
+          const d = clientDevices[i];
+          const mac = (d.mac || '').trim().replace(/-/g, ':');
+          const ip = (d.ip || '').trim();
+          const apMac = (d.ap_mac || '').trim().replace(/-/g, ':');
+          if (!mac || mac.length < 12) continue;
+          const macNorm = normalizeMac(mac);
+          const apMacNorm = apMac ? normalizeMac(apMac) : null;
 
-          await pool.query(
-            `INSERT INTO mappatura_nodes (azienda_id, mac_address, x, y, is_locked) VALUES ($1, $2, $3, $4, false)
-               ON CONFLICT (azienda_id, mac_address) DO UPDATE SET x = EXCLUDED.x, y = EXCLUDED.y WHERE mappatura_nodes.is_locked = false`,
-            [aziendaId, macNorm, x, y]
-          );
-        }
-      }
+          // Trova l'ID dell'AP a cui è collegato il client
+          const apId = apMacNorm && apMacToIdMap.has(apMacNorm) ? apMacToIdMap.get(apMacNorm) : null;
+          const parentId = apId || routerId; // Se non trova l'AP, collega al Cloud Key come fallback
 
-      // Seconda passata: processa i client, collegali agli AP tramite ap_mac
-      for (let i = 0; i < clientDevices.length; i++) {
-        const d = clientDevices[i];
-        const mac = (d.mac || '').trim().replace(/-/g, ':');
-        const ip = (d.ip || '').trim();
-        const apMac = (d.ap_mac || '').trim().replace(/-/g, ':');
-        if (!mac || mac.length < 12) continue;
-        const macNorm = normalizeMac(mac);
-        const apMacNorm = apMac ? normalizeMac(apMac) : null;
-
-        // Trova l'ID dell'AP a cui è collegato il client
-        const apId = apMacNorm && apMacToIdMap.has(apMacNorm) ? apMacToIdMap.get(apMacNorm) : null;
-        const parentId = apId || routerId; // Se non trova l'AP, collega al Cloud Key come fallback
-
-        const exists = await pool.query(
-          `SELECT nd.id FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id
+          const exists = await pool.query(
+            `SELECT nd.id FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id
               WHERE na.azienda_id = $1 AND (REPLACE(REPLACE(REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', ''), '.', ''), ' ', '') = $2
               OR (nd.ip_address = $3 AND nd.agent_id = $4))`,
-          [aziendaId, macNorm, ip, agentId]
-        );
+            [aziendaId, macNorm, ip, agentId]
+          );
 
-        let deviceIdForMap = null;
+          let deviceIdForMap = null;
 
-        if (exists.rows.length > 0) {
-          const existingId = exists.rows[0].id;
-          deviceIdForMap = existingId;
-          // Aggiorna parent_device_id SOLO se il dispositivo non aveva già un parent "non-AP"
-          // (evita di sovrascrivere associazioni manuali es. 192.168.1.99 -> 192.168.1.1 router)
-          const currentParent = await pool.query(
-            `SELECT nd.parent_device_id, p.device_type as parent_device_type, p.router_model as parent_router_model
+          if (exists.rows.length > 0) {
+            const existingId = exists.rows[0].id;
+            deviceIdForMap = existingId;
+            // Aggiorna parent_device_id SOLO se il dispositivo non aveva già un parent "non-AP"
+            // (evita di sovrascrivere associazioni manuali es. 192.168.1.99 -> 192.168.1.1 router)
+            const currentParent = await pool.query(
+              `SELECT nd.parent_device_id, p.device_type as parent_device_type, p.router_model as parent_router_model
                FROM network_devices nd
                LEFT JOIN network_devices p ON p.id = nd.parent_device_id
                WHERE nd.id = $1`,
-            [existingId]
-          );
-          const parent = currentParent.rows[0];
-          const currentParentId = parent?.parent_device_id;
-          const parentIsAp = parent?.parent_device_type === 'wifi' || (parent?.parent_router_model && /Unifi|Ubiquiti|UCK/i.test(parent.parent_router_model || ''));
-          const shouldOverwrite = currentParentId == null || parentIsAp;
-          if (shouldOverwrite) {
-            await pool.query(
-              `UPDATE network_devices 
+              [existingId]
+            );
+            const parent = currentParent.rows[0];
+            const currentParentId = parent?.parent_device_id;
+            const parentIsAp = parent?.parent_device_type === 'wifi' || (parent?.parent_router_model && /Unifi|Ubiquiti|UCK/i.test(parent.parent_router_model || ''));
+            const shouldOverwrite = currentParentId == null || parentIsAp;
+            if (shouldOverwrite) {
+              await pool.query(
+                `UPDATE network_devices 
                  SET parent_device_id = $1
                  WHERE id = $2 AND (is_manual_parent IS FALSE OR is_manual_parent IS NULL)`,
-              [parentId, existingId]
+                [parentId, existingId]
+              );
+            }
+          } else {
+            // Crea client collegato all'AP (o Cloud Key se AP non trovato)
+            const ins = await pool.query(
+              `INSERT INTO network_devices (agent_id, ip_address, mac_address, parent_device_id, status) VALUES ($1, $2, $3, $4, 'online') RETURNING id`,
+              [agentId, ip || null, mac, parentId]
+            );
+            if (ins.rows.length > 0) {
+              createdCount++;
+              deviceIdForMap = ins.rows[0].id;
+            }
+          }
+
+          if (deviceIdForMap && apId) {
+            // Posiziona il client vicino all'AP (non al Cloud Key)
+            const apPos = await pool.query(
+              `SELECT x, y FROM mappatura_nodes WHERE azienda_id = $1 AND mac_address = $2`,
+              [aziendaId, apMacNorm]
+            );
+            let x = routerX;
+            let y = routerY;
+            if (apPos.rows.length > 0) {
+              x = parseFloat(apPos.rows[0].x) || routerX;
+              y = parseFloat(apPos.rows[0].y) || routerY;
+            }
+            // Offset più piccolo per client (più vicini all'AP)
+            const offsetX = 30 * Math.cos((i * 2 * Math.PI) / Math.max(clientDevices.length, 1));
+            const offsetY = 30 * Math.sin((i * 2 * Math.PI) / Math.max(clientDevices.length, 1));
+            x += offsetX;
+            y += offsetY;
+
+            await pool.query(
+              `INSERT INTO mappatura_nodes (azienda_id, mac_address, x, y, is_locked) VALUES ($1, $2, $3, $4, false)
+               ON CONFLICT (azienda_id, mac_address) DO UPDATE SET x = EXCLUDED.x, y = EXCLUDED.y WHERE mappatura_nodes.is_locked = false`,
+              [aziendaId, macNorm, x, y]
             );
           }
-        } else {
-          // Crea client collegato all'AP (o Cloud Key se AP non trovato)
-          const ins = await pool.query(
-            `INSERT INTO network_devices (agent_id, ip_address, mac_address, parent_device_id, status) VALUES ($1, $2, $3, $4, 'online') RETURNING id`,
-            [agentId, ip || null, mac, parentId]
-          );
-          if (ins.rows.length > 0) {
-            createdCount++;
-            deviceIdForMap = ins.rows[0].id;
-          }
         }
 
-        if (deviceIdForMap && apId) {
-          // Posiziona il client vicino all'AP (non al Cloud Key)
-          const apPos = await pool.query(
-            `SELECT x, y FROM mappatura_nodes WHERE azienda_id = $1 AND mac_address = $2`,
-            [aziendaId, apMacNorm]
-          );
-          let x = routerX;
-          let y = routerY;
-          if (apPos.rows.length > 0) {
-            x = parseFloat(apPos.rows[0].x) || routerX;
-            y = parseFloat(apPos.rows[0].y) || routerY;
-          }
-          // Offset più piccolo per client (più vicini all'AP)
-          const offsetX = 30 * Math.cos((i * 2 * Math.PI) / Math.max(clientDevices.length, 1));
-          const offsetY = 30 * Math.sin((i * 2 * Math.PI) / Math.max(clientDevices.length, 1));
-          x += offsetX;
-          y += offsetY;
+        // Marca come offline i client WiFi che non compaiono più nella risposta UniFi
+        // (client che erano collegati agli AP di questo Cloud Key ma ora non sono più connessi)
+        try {
+          const apIdsList = Array.from(apMacToIdMap.values());
+          if (apIdsList.length > 0) {
+            const receivedClientMacs = new Set(clientDevices.map(d => normalizeMac((d.mac || '').trim().replace(/-/g, ':'))));
 
-          await pool.query(
-            `INSERT INTO mappatura_nodes (azienda_id, mac_address, x, y, is_locked) VALUES ($1, $2, $3, $4, false)
-               ON CONFLICT (azienda_id, mac_address) DO UPDATE SET x = EXCLUDED.x, y = EXCLUDED.y WHERE mappatura_nodes.is_locked = false`,
-            [aziendaId, macNorm, x, y]
-          );
-        }
-      }
-
-      // Marca come offline i client WiFi che non compaiono più nella risposta UniFi
-      // (client che erano collegati agli AP di questo Cloud Key ma ora non sono più connessi)
-      try {
-        const apIdsList = Array.from(apMacToIdMap.values());
-        if (apIdsList.length > 0) {
-          const receivedClientMacs = new Set(clientDevices.map(d => normalizeMac((d.mac || '').trim().replace(/-/g, ':'))));
-
-          // Trova tutti i client collegati agli AP di questo Cloud Key
-          const allClients = await pool.query(
-            `SELECT nd.id, nd.mac_address 
+            // Trova tutti i client collegati agli AP di questo Cloud Key
+            const allClients = await pool.query(
+              `SELECT nd.id, nd.mac_address 
                FROM network_devices nd
                WHERE nd.parent_device_id = ANY($1::integer[])
                  AND nd.status = 'online'
                  AND nd.mac_address IS NOT NULL`,
-            [apIdsList]
-          );
+              [apIdsList]
+            );
 
-          // Marca offline quelli che non sono nella lista ricevuta
-          for (const client of allClients.rows) {
-            const clientMacNorm = normalizeMac(client.mac_address);
-            if (!receivedClientMacs.has(clientMacNorm)) {
-              await pool.query('UPDATE network_devices SET status = $1 WHERE id = $2', ['offline', client.id]);
-              console.log(`📴 Client WiFi disconnesso: MAC ${client.mac_address} (ID ${client.id})`);
+            // Marca offline quelli che non sono nella lista ricevuta
+            for (const client of allClients.rows) {
+              const clientMacNorm = normalizeMac(client.mac_address);
+              if (!receivedClientMacs.has(clientMacNorm)) {
+                await pool.query('UPDATE network_devices SET status = $1 WHERE id = $2', ['offline', client.id]);
+                console.log(`📴 Client WiFi disconnesso: MAC ${client.mac_address} (ID ${client.id})`);
+              }
             }
           }
+        } catch (offlineErr) {
+          console.error('❌ Errore marcatura offline client WiFi:', offlineErr);
         }
-      } catch (offlineErr) {
-        console.error('❌ Errore marcatura offline client WiFi:', offlineErr);
-      }
 
-      console.log(`✅ Router WiFi sync: ${createdCount} nuovi dispositivi aggiunti alla mappa (router ${routerId})`);
+        console.log(`✅ Router WiFi sync: ${createdCount} nuovi dispositivi aggiunti alla mappa (router ${routerId})`);
 
-      // Aggiorna stato sync OK
-      await pool.query(
-        `UPDATE network_devices 
+        // Aggiorna stato sync OK
+        await pool.query(
+          `UPDATE network_devices 
              SET wifi_sync_status = 'ok', wifi_sync_msg = $1, wifi_sync_last_at = NOW() 
              WHERE id = $2`,
-        [`Sincronizzazione completata: ${devices.length} dispositivi rilevati (${createdCount} nuovi)`, routerId]
-      );
+          [`Sincronizzazione completata: ${devices.length} dispositivi rilevati (${createdCount} nuovi)`, routerId]
+        );
 
-    } catch (syncErr) {
-      console.error('❌ Errore sync router WiFi devices:', syncErr);
+      } catch (syncErr) {
+        console.error('❌ Errore sync router WiFi devices:', syncErr);
+        await pool.query(
+          `UPDATE network_devices 
+             SET wifi_sync_status = 'error', wifi_sync_msg = $1, wifi_sync_last_at = NOW() 
+             WHERE id = $2`,
+          [String(syncErr.message), routerDeviceId]
+        );
+      }
+    } else if (routerDeviceId) {
+      // Caso di errore riportato dall'agent o dati invalidi
+      const msg = error || (devices && devices.length === 0 ? 'Nessun dispositivo trovato' : 'Errore sconosciuto');
       await pool.query(
         `UPDATE network_devices 
              SET wifi_sync_status = 'error', wifi_sync_msg = $1, wifi_sync_last_at = NOW() 
              WHERE id = $2`,
-        [String(syncErr.message), routerDeviceId]
+        [msg, routerDeviceId]
       );
     }
-  } else if (routerDeviceId) {
-    // Caso di errore riportato dall'agent o dati invalidi
-    const msg = error || (devices && devices.length === 0 ? 'Nessun dispositivo trovato' : 'Errore sconosciuto');
-    await pool.query(
-      `UPDATE network_devices 
-             SET wifi_sync_status = 'error', wifi_sync_msg = $1, wifi_sync_last_at = NOW() 
-             WHERE id = $2`,
-      [msg, routerDeviceId]
-    );
-  }
-  res.json({ success: true }); // Ack all'agent comunquer
-  routerWifiResults.set(task_id, {
-    success: !!success,
-    devices: Array.isArray(devices) ? devices : [],
-    error: String(error || ''),
-    created_count: createdCount,
-    at: Date.now()
-  });
-  console.log(`📡 Router WiFi: risultato task ${task_id} - success=${!!success}, devices=${Array.isArray(devices) ? devices.length : 0}, created=${createdCount}`);
-  res.json({ ok: true });
-});
-
-// Il frontend interroga l'esito della lettura dispositivi WiFi
-router.get('/router-wifi-result/:task_id', authenticateToken, async (req, res) => {
-  const r = routerWifiResults.get(req.params.task_id);
-  if (!r) return res.json({ status: 'pending' });
-  if (Date.now() - r.at > 15 * 60 * 1000) {
-    routerWifiResults.delete(req.params.task_id);
-    return res.json({ status: 'pending' });
-  }
-  res.json({
-    status: r.success ? 'ok' : 'error',
-    devices: r.devices || [],
-    error: r.error || '',
-    created_count: r.created_count ?? 0
-  });
-});
-
-// Endpoint per sincronizzare manualmente Unifi
-router.post('/agent/:id/sync-unifi', authenticateToken, async (req, res) => {
-  const agentId = req.params.id;
-  try {
-    // 1. Recupera configurazione Unifi
-    const agentResult = await pool.query(
-      'SELECT unifi_config FROM network_agents WHERE id = $1',
-      [agentId]
-    );
-
-    if (agentResult.rows.length === 0) return res.status(404).json({ error: 'Agent non trovato' });
-
-    const config = agentResult.rows[0].unifi_config;
-    if (!config || !config.url || !config.username || !config.password) {
-      return res.status(400).json({ error: 'Configurazione Unifi mancante' });
-    }
-
-    // 2. Tenta la connessione (ignora certificati self-signed per IP locali)
-    const agent = new https.Agent({ rejectUnauthorized: false });
-    const baseUrl = config.url.replace(/\/$/, '');
-
-    // Login
-    const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: config.username, password: config.password }),
-      agent
+    res.json({ success: true }); // Ack all'agent comunquer
+    routerWifiResults.set(task_id, {
+      success: !!success,
+      devices: Array.isArray(devices) ? devices : [],
+      error: String(error || ''),
+      created_count: createdCount,
+      at: Date.now()
     });
+    console.log(`📡 Router WiFi: risultato task ${task_id} - success=${!!success}, devices=${Array.isArray(devices) ? devices.length : 0}, created=${createdCount}`);
+    res.json({ ok: true });
+  });
 
-    // Supporto per vecchi controller (senza /auth/)
-    let finalLoginRes = loginRes;
-    if (loginRes.status === 404) {
-      finalLoginRes = await fetch(`${baseUrl}/api/login`, {
+  // Il frontend interroga l'esito della lettura dispositivi WiFi
+  router.get('/router-wifi-result/:task_id', authenticateToken, async (req, res) => {
+    const r = routerWifiResults.get(req.params.task_id);
+    if (!r) return res.json({ status: 'pending' });
+    if (Date.now() - r.at > 15 * 60 * 1000) {
+      routerWifiResults.delete(req.params.task_id);
+      return res.json({ status: 'pending' });
+    }
+    res.json({
+      status: r.success ? 'ok' : 'error',
+      devices: r.devices || [],
+      error: r.error || '',
+      created_count: r.created_count ?? 0
+    });
+  });
+
+  // Endpoint per sincronizzare manualmente Unifi
+  router.post('/agent/:id/sync-unifi', authenticateToken, async (req, res) => {
+    const agentId = req.params.id;
+    try {
+      // 1. Recupera configurazione Unifi
+      const agentResult = await pool.query(
+        'SELECT unifi_config FROM network_agents WHERE id = $1',
+        [agentId]
+      );
+
+      if (agentResult.rows.length === 0) return res.status(404).json({ error: 'Agent non trovato' });
+
+      const config = agentResult.rows[0].unifi_config;
+      if (!config || !config.url || !config.username || !config.password) {
+        return res.status(400).json({ error: 'Configurazione Unifi mancante' });
+      }
+
+      // 2. Tenta la connessione (ignora certificati self-signed per IP locali)
+      const agent = new https.Agent({ rejectUnauthorized: false });
+      const baseUrl = config.url.replace(/\/$/, '');
+
+      // Login
+      const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: config.username, password: config.password }),
         agent
       });
-    }
 
-    if (!finalLoginRes.ok) {
-      throw new Error(`Login Unifi fallito: ${finalLoginRes.statusText}`);
-    }
+      // Supporto per vecchi controller (senza /auth/)
+      let finalLoginRes = loginRes;
+      if (loginRes.status === 404) {
+        finalLoginRes = await fetch(`${baseUrl}/api/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: config.username, password: config.password }),
+          agent
+        });
+      }
 
-    // Estrai cookie
-    const cookies = finalLoginRes.headers.get('set-cookie');
+      if (!finalLoginRes.ok) {
+        throw new Error(`Login Unifi fallito: ${finalLoginRes.statusText}`);
+      }
 
-    // 3. Recupera devices (site default)
-    // Controller classico: /api/s/default/stat/device
-    // UDM Pro / UCG Max: /proxy/network/api/s/default/stat/device
-    let devicesRes = await fetch(`${baseUrl}/api/s/default/stat/device`, {
-      headers: { 'Cookie': cookies },
-      agent
-    });
-    if (devicesRes.status === 404) {
-      devicesRes = await fetch(`${baseUrl}/proxy/network/api/s/default/stat/device`, {
+      // Estrai cookie
+      const cookies = finalLoginRes.headers.get('set-cookie');
+
+      // 3. Recupera devices (site default)
+      // Controller classico: /api/s/default/stat/device
+      // UDM Pro / UCG Max: /proxy/network/api/s/default/stat/device
+      let devicesRes = await fetch(`${baseUrl}/api/s/default/stat/device`, {
         headers: { 'Cookie': cookies },
         agent
       });
-    }
-    if (!devicesRes.ok) throw new Error('Impossibile recuperare lista devices');
+      if (devicesRes.status === 404) {
+        devicesRes = await fetch(`${baseUrl}/proxy/network/api/s/default/stat/device`, {
+          headers: { 'Cookie': cookies },
+          agent
+        });
+      }
+      if (!devicesRes.ok) throw new Error('Impossibile recuperare lista devices');
 
-    const { data } = await devicesRes.json();
+      const { data } = await devicesRes.json();
 
-    // 4. Aggiorna DB (match MAC normalizzato: senza separatori, maiuscolo)
-    const norm = (v) => String(v || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
-    let updatedCount = 0;
-    for (const uDevice of data || []) {
-      if (!uDevice.mac) continue;
-      const upgradable = uDevice.upgradable === true || uDevice.need_upgrade === true;
-      const macNorm = norm(uDevice.mac);
-      if (!macNorm) continue;
-      const result = await pool.query(
-        `UPDATE network_devices 
+      // 4. Aggiorna DB (match MAC normalizzato: senza separatori, maiuscolo)
+      const norm = (v) => String(v || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+      let updatedCount = 0;
+      for (const uDevice of data || []) {
+        if (!uDevice.mac) continue;
+        const upgradable = uDevice.upgradable === true || uDevice.need_upgrade === true;
+        const macNorm = norm(uDevice.mac);
+        if (!macNorm) continue;
+        const result = await pool.query(
+          `UPDATE network_devices 
             SET upgrade_available = $1 
             WHERE agent_id = $2 AND REPLACE(REPLACE(REPLACE(UPPER(COALESCE(mac_address,'')), ':', ''), '-', ''), ' ', '') = $3`,
-        [upgradable, agentId, macNorm]
-      );
-      if (result.rowCount > 0) updatedCount++;
+          [upgradable, agentId, macNorm]
+        );
+        if (result.rowCount > 0) updatedCount++;
+      }
+
+      res.json({ success: true, message: `Sincronizzazione completata. ${updatedCount} dispositivi aggiornati.` });
+
+    } catch (err) {
+      console.error('❌ Errore Sync Unifi:', err);
+      res.status(500).json({ error: err.message });
     }
-
-    res.json({ success: true, message: `Sincronizzazione completata. ${updatedCount} dispositivi aggiornati.` });
-
-  } catch (err) {
-    console.error('❌ Errore Sync Unifi:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/network-monitoring/tools/ping
-// Streaming ping output via fetch/chunked encoding
-router.get('/tools/ping', authenticateToken, (req, res) => {
-  const { target } = req.query;
-  if (!target) return res.status(400).end('Target required');
-  // Simple validation (IP or hostname)
-  if (!/^[\w.-]+$/.test(target)) return res.status(400).end('Invalid target');
-
-  // Headers for streaming
-  res.writeHead(200, {
-    'Content-Type': 'text/plain; charset=utf-8',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive'
   });
 
-  const isWindows = process.platform === 'win32';
-  // Windows requires -t to run indefinitely. Linux runs indefinitely by default.
-  const args = isWindows ? ['-t', target] : [target];
+  // GET /api/network-monitoring/tools/ping
+  // Streaming ping output via fetch/chunked encoding
+  router.get('/tools/ping', authenticateToken, (req, res) => {
+    const { target } = req.query;
+    if (!target) return res.status(400).end('Target required');
+    // Simple validation (IP or hostname)
+    if (!/^[\w.-]+$/.test(target)) return res.status(400).end('Invalid target');
 
-  const child = spawn('ping', args);
+    // Headers for streaming
+    res.writeHead(200, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    });
 
-  child.stdout.on('data', (data) => {
-    res.write(data);
+    const isWindows = process.platform === 'win32';
+    // Windows requires -t to run indefinitely. Linux runs indefinitely by default.
+    const args = isWindows ? ['-t', target] : [target];
+
+    const child = spawn('ping', args);
+
+    child.stdout.on('data', (data) => {
+      res.write(data);
+    });
+
+    child.stderr.on('data', (data) => {
+      res.write(`Error: ${data}`);
+    });
+
+    child.on('close', (code) => {
+      res.write(`\n[Process exited with code ${code}]`);
+      res.end();
+    });
+
+    // Handle client disconnect
+    req.on('close', () => {
+      child.kill();
+    });
   });
 
-  child.stderr.on('data', (data) => {
-    res.write(`Error: ${data}`);
-  });
+  // --- ANTI-VIRUS ROUTES ---
 
-  child.on('close', (code) => {
-    res.write(`\n[Process exited with code ${code}]`);
-    res.end();
-  });
+  // GET /api/network-monitoring/clients/:aziendaId/antivirus-devices
+  // Tecnici: lettura/scrittura. Admin aziendali (cliente): sola consultazione.
+  router.get('/clients/:aziendaId/antivirus-devices', authenticateToken, checkCompanyAccess, async (req, res) => {
+    try {
+      const { aziendaId } = req.params;
+      const parsedAziendaId = parseInt(aziendaId, 10);
+      if (isNaN(parsedAziendaId)) {
+        return res.status(400).json({ error: 'ID azienda non valido' });
+      }
 
-  // Handle client disconnect
-  req.on('close', () => {
-    child.kill();
-  });
-});
+      await ensureTables();
 
-// --- ANTI-VIRUS ROUTES ---
-
-// GET /api/network-monitoring/clients/:aziendaId/antivirus-devices
-// Tecnici: lettura/scrittura. Admin aziendali (cliente): sola consultazione.
-router.get('/clients/:aziendaId/antivirus-devices', authenticateToken, checkCompanyAccess, async (req, res) => {
-  try {
-    const { aziendaId } = req.params;
-    const parsedAziendaId = parseInt(aziendaId, 10);
-    if (isNaN(parsedAziendaId)) {
-      return res.status(400).json({ error: 'ID azienda non valido' });
-    }
-
-    await ensureTables();
-
-    const devices = await pool.query(`
+      const devices = await pool.query(`
         SELECT 
           nd.id as device_id,
           nd.ip_address,
@@ -7597,37 +7627,37 @@ router.get('/clients/:aziendaId/antivirus-devices', authenticateToken, checkComp
         AND nd.ip_address NOT LIKE 'virtual-%'
       `, [parsedAziendaId]);
 
-    // Ordinamento IP
-    const sortedDevices = devices.rows.sort((a, b) => {
-      const ipA = (a.ip_address || '').split('.').map(Number);
-      const ipB = (b.ip_address || '').split('.').map(Number);
-      if (ipA.length < 4) return -1;
-      if (ipB.length < 4) return 1;
-      for (let i = 0; i < 4; i++) {
-        if (ipA[i] < ipB[i]) return -1;
-        if (ipA[i] > ipB[i]) return 1;
-      }
-      return 0;
-    });
+      // Ordinamento IP
+      const sortedDevices = devices.rows.sort((a, b) => {
+        const ipA = (a.ip_address || '').split('.').map(Number);
+        const ipB = (b.ip_address || '').split('.').map(Number);
+        if (ipA.length < 4) return -1;
+        if (ipB.length < 4) return 1;
+        for (let i = 0; i < 4; i++) {
+          if (ipA[i] < ipB[i]) return -1;
+          if (ipA[i] > ipB[i]) return 1;
+        }
+        return 0;
+      });
 
-    res.json(sortedDevices);
-  } catch (err) {
-    console.error('❌ Errore GET antivirus-devices:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
+      res.json(sortedDevices);
+    } catch (err) {
+      console.error('❌ Errore GET antivirus-devices:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
 
-// PUT /api/network-monitoring/antivirus/:deviceId
-router.put('/antivirus/:deviceId', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const { deviceId } = req.params;
-    const { is_active, product_name, expiration_date, device_type, sort_order } = req.body;
+  // PUT /api/network-monitoring/antivirus/:deviceId
+  router.put('/antivirus/:deviceId', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { deviceId } = req.params;
+      const { is_active, product_name, expiration_date, device_type, sort_order } = req.body;
 
-    const dt = (device_type && typeof device_type === 'string') ? device_type.trim().toLowerCase() : 'pc';
-    const validTypes = ['pc', 'server', 'virtual', 'laptop', 'smartphone', 'tablet'];
-    const finalType = validTypes.includes(dt) ? dt : 'pc';
+      const dt = (device_type && typeof device_type === 'string') ? device_type.trim().toLowerCase() : 'pc';
+      const validTypes = ['pc', 'server', 'virtual', 'laptop', 'smartphone', 'tablet'];
+      const finalType = validTypes.includes(dt) ? dt : 'pc';
 
-    await pool.query(`
+      await pool.query(`
         INSERT INTO antivirus_info (device_id, is_active, product_name, expiration_date, device_type, sort_order, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6, NOW())
         ON CONFLICT (device_id) DO UPDATE 
@@ -7639,90 +7669,90 @@ router.put('/antivirus/:deviceId', authenticateToken, requireRole('tecnico'), as
             updated_at = NOW()
       `, [deviceId, is_active === true, product_name || '', expiration_date || null, finalType, sort_order || 0]);
 
-    // NON aggiorniamo automaticamente network_devices.device_type
-    // per evitare di sovrascrivere il tipo originale impostato in Monitoraggio/Mappatura
+      // NON aggiorniamo automaticamente network_devices.device_type
+      // per evitare di sovrascrivere il tipo originale impostato in Monitoraggio/Mappatura
 
-    res.json({ success: true });
-  } catch (err) {
-    console.error('❌ Errore PUT antivirus info:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// POST /api/network-monitoring/clients/:aziendaId/manual-device
-router.post('/clients/:aziendaId/manual-device', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const { aziendaId } = req.params;
-    const { ip_address, hostname, device_type } = req.body;
-
-    // Allow empty IP for manual devices - generate a placeholder
-    const finalIp = ip_address || `no-ip-${crypto.randomBytes(3).toString('hex')}`;
-
-    // Find an agent for this company
-    const agentRes = await pool.query('SELECT id FROM network_agents WHERE azienda_id = $1 LIMIT 1', [aziendaId]);
-    if (agentRes.rows.length === 0) {
-      return res.status(404).json({ error: 'Nessun agente trovato per questa azienda' });
+      res.json({ success: true });
+    } catch (err) {
+      console.error('❌ Errore PUT antivirus info:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
-    const agentId = agentRes.rows[0].id;
+  });
 
-    // Insert new device
-    // We use a dummy MAC if needed, or NULL if allowed. To avoid constraint issues with NULLs in index, 
-    // check if we have a restriction. The constraint is UNIQUE(agent_id, ip_address, mac_address).
-    // If mac is null, uniqueness might be loose. Let's try to generate a pseudo-mac for manual devices to be safe and tracked.
-    // 'MANUAL-<random_hex>'
-    const pseudoMac = 'MN-' + crypto.randomBytes(4).toString('hex').toUpperCase().match(/.{1,2}/g).join(':');
+  // POST /api/network-monitoring/clients/:aziendaId/manual-device
+  router.post('/clients/:aziendaId/manual-device', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { aziendaId } = req.params;
+      const { ip_address, hostname, device_type } = req.body;
 
-    const result = await pool.query(`
+      // Allow empty IP for manual devices - generate a placeholder
+      const finalIp = ip_address || `no-ip-${crypto.randomBytes(3).toString('hex')}`;
+
+      // Find an agent for this company
+      const agentRes = await pool.query('SELECT id FROM network_agents WHERE azienda_id = $1 LIMIT 1', [aziendaId]);
+      if (agentRes.rows.length === 0) {
+        return res.status(404).json({ error: 'Nessun agente trovato per questa azienda' });
+      }
+      const agentId = agentRes.rows[0].id;
+
+      // Insert new device
+      // We use a dummy MAC if needed, or NULL if allowed. To avoid constraint issues with NULLs in index, 
+      // check if we have a restriction. The constraint is UNIQUE(agent_id, ip_address, mac_address).
+      // If mac is null, uniqueness might be loose. Let's try to generate a pseudo-mac for manual devices to be safe and tracked.
+      // 'MANUAL-<random_hex>'
+      const pseudoMac = 'MN-' + crypto.randomBytes(4).toString('hex').toUpperCase().match(/.{1,2}/g).join(':');
+
+      const result = await pool.query(`
         INSERT INTO network_devices (agent_id, ip_address, mac_address, hostname, device_type, status, is_manual_type, first_seen, last_seen)
         VALUES ($1, $2, $3, $4, $5, 'online', true, NOW(), NOW())
         RETURNING id
       `, [agentId, finalIp, pseudoMac, hostname || 'Nuovo Dispositivo', device_type]);
 
-    res.json({ success: true, device_id: result.rows[0].id, mac_address: pseudoMac });
+      res.json({ success: true, device_id: result.rows[0].id, mac_address: pseudoMac });
 
-  } catch (err) {
-    console.error('❌ Errore POST manual-device:', err);
-    // Handle duplicates
-    if (err.code === '23505') {
-      return res.status(409).json({ error: 'Dispositivo già esistente' });
+    } catch (err) {
+      console.error('❌ Errore POST manual-device:', err);
+      // Handle duplicates
+      if (err.code === '23505') {
+        return res.status(409).json({ error: 'Dispositivo già esistente' });
+      }
+      res.status(500).json({ error: 'Errore interno del server' });
     }
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
+  });
 
-// DELETE /api/network-monitoring/devices/:id
-// Elimina definitivamente un dispositivo dal database
-router.delete('/devices/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
-  try {
-    const { id } = req.params;
+  // DELETE /api/network-monitoring/devices/:id
+  // Elimina definitivamente un dispositivo dal database
+  router.delete('/devices/:id', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    // Verifica esistenza
-    const check = await pool.query('SELECT id, mac_address FROM network_devices WHERE id = $1', [id]);
-    if (check.rows.length === 0) {
-      return res.status(404).json({ error: 'Dispositivo non trovato' });
+      // Verifica esistenza
+      const check = await pool.query('SELECT id, mac_address FROM network_devices WHERE id = $1', [id]);
+      if (check.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato' });
+      }
+
+      await pool.query('DELETE FROM network_devices WHERE id = $1', [id]);
+      console.log(`🗑️ Dispositivo ${id} eliminato definitivamente dal DB da utente ${req.user.id}`);
+
+      // Opzionale: pulizia mappatura_nodes se necessario, ma solitamente puliamo per MAC se correlato
+      const mac = check.rows[0].mac_address;
+      if (mac) {
+        try {
+          // Normalizza MAC
+          const macNorm = mac.replace(/[:-]/g, '').toUpperCase();
+          // Se la tabella mappatura_nodes usa mac_address come FK o riferimento
+          // await pool.query('DELETE FROM mappatura_nodes WHERE mac_address = $1', [mac]);
+          // O se usiamo l'API esistente di mappatura
+        } catch (e) { }
+      }
+
+      res.json({ success: true, message: 'Dispositivo eliminato definitivamente' });
+    } catch (err) {
+      console.error('❌ Errore DELETE device:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
 
-    await pool.query('DELETE FROM network_devices WHERE id = $1', [id]);
-    console.log(`🗑️ Dispositivo ${id} eliminato definitivamente dal DB da utente ${req.user.id}`);
-
-    // Opzionale: pulizia mappatura_nodes se necessario, ma solitamente puliamo per MAC se correlato
-    const mac = check.rows[0].mac_address;
-    if (mac) {
-      try {
-        // Normalizza MAC
-        const macNorm = mac.replace(/[:-]/g, '').toUpperCase();
-        // Se la tabella mappatura_nodes usa mac_address come FK o riferimento
-        // await pool.query('DELETE FROM mappatura_nodes WHERE mac_address = $1', [mac]);
-        // O se usiamo l'API esistente di mappatura
-      } catch (e) { }
-    }
-
-    res.json({ success: true, message: 'Dispositivo eliminato definitivamente' });
-  } catch (err) {
-    console.error('❌ Errore DELETE device:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-return router;
+  return router;
 };
