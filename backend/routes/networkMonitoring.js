@@ -7609,7 +7609,15 @@ pause
           COALESCE(avi.is_active, false) as is_active,
           COALESCE(avi.product_name, '') as product_name,
           avi.expiration_date,
-          COALESCE(avi.device_type, 'pc') as device_type,
+          COALESCE(avi.device_type,
+            CASE WHEN LOWER(TRIM(COALESCE(nd.device_type, ''))) IN ('server') THEN 'server'
+                 WHEN LOWER(TRIM(COALESCE(nd.device_type, ''))) IN ('virtual', 'virtualization', 'vm', 'vmware', 'hyperv') THEN 'virtual'
+                 WHEN LOWER(TRIM(COALESCE(nd.device_type, ''))) IN ('laptop', 'notebook', 'portatile') THEN 'laptop'
+                 WHEN LOWER(TRIM(COALESCE(nd.device_type, ''))) IN ('smartphone', 'phone', 'cellulare') THEN 'smartphone'
+                 WHEN LOWER(TRIM(COALESCE(nd.device_type, ''))) IN ('tablet') THEN 'tablet'
+                 ELSE 'pc'
+            END
+          ) as device_type,
           COALESCE(avi.sort_order, 0) as sort_order
         FROM network_devices nd
         JOIN network_agents na ON nd.agent_id = na.id
