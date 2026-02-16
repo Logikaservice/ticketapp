@@ -24,6 +24,59 @@ module.exports = (pool, io) => {
   const pendingRouterWifiTasks = new Map(); // agentId -> { task_id, router_ip, username, password, router_model, device_id, created_at }
   const routerWifiResults = new Map();      // task_id -> { success, devices: [], error, at }
 
+  // Funzione helper per inviare notifiche Telegram
+  const sendTelegramNotification = async (agentId, aziendaId, eventType, data) => {
+    try {
+      // Recupera configurazione
+      // Priorità: config specifica per agent_id, poi default per azienda_id (agent_id IS NULL)
+      // Ma la tabella ha vincolo UNIQUE(azienda_id, agent_id), quindi cerchiamo match esatto o fallback
+      // In realtà la logica di config è per (azienda, agent).
+
+      let configResult = await pool.query(
+        `SELECT * FROM network_telegram_config 
+         WHERE (agent_id = $1) OR (azienda_id = $2 AND agent_id IS NULL)
+         ORDER BY agent_id NULLS LAST LIMIT 1`,
+        [agentId, aziendaId]
+      );
+
+      if (configResult.rows.length === 0) return; // Nessuna config
+      const config = configResult.rows[0];
+
+      if (!config.enabled) return;
+      if (!config.bot_token || !config.chat_id) return;
+
+      // Verifica filtri evento
+      if (eventType === 'agent_offline' && !config.notify_agent_offline) return;
+      if (eventType === 'status_changed' && !config.notify_status_changes) return;
+      // Altri tipi...
+
+      // Inizializza servizio
+      if (telegramService.initialize(config.bot_token, config.chat_id)) {
+        let message = '';
+
+        if (eventType === 'agent_offline') {
+          message = telegramService.formatAgentOfflineMessage(data.agentName, data.lastHeartbeat, data.aziendaName);
+        } else if (eventType === 'status_changed') {
+          // Se è l'agent stesso
+          if (data.deviceType === 'Agent') {
+            const emoji = data.status === 'online' ? '🟢' : '🔴';
+            message = `${emoji} <b>Agent ${data.status === 'online' ? 'Online' : 'Offline'}</b>\n\n<b>Azienda:</b> ${data.aziendaName}\n<b>Agent:</b> ${data.agentName}\n<b>Timestamp:</b> ${new Date().toLocaleString('it-IT')}`;
+          } else {
+            // Dispositivo generico
+            message = telegramService.formatDeviceStatusMessage(data);
+          }
+        }
+
+        if (message) {
+          await telegramService.sendMessage(message);
+        }
+      }
+
+    } catch (err) {
+      console.error('❌ Errore sendTelegramNotification:', err.message);
+    }
+  };
+
   // Funzione helper per inizializzare le tabelle se non esistono
   const initTables = async () => {
     try {
@@ -1897,6 +1950,14 @@ module.exports = (pool, io) => {
   router.post('/agent/scan-results', authenticateAgent, async (req, res) => {
     try {
       const agentId = req.agent.id;
+      // Recupera nome azienda per notifiche
+      let aziendaName = 'N/A';
+      const agentName = req.agent.agent_name || 'Unknown Agent';
+      try {
+        const azRes = await pool.query('SELECT azienda FROM users WHERE id = $1', [req.agent.azienda_id]);
+        if (azRes.rows.length > 0) aziendaName = azRes.rows[0].azienda;
+      } catch (e) { }
+
       console.log(`🚀 ENTERING SCAN-RESULTS ROUTE. AgentID=${agentId}. Time=${new Date().toISOString()}`);
 
       const { devices, changes } = req.body; // devices: array, changes: array (opzionale)
@@ -2128,6 +2189,21 @@ module.exports = (pool, io) => {
         // 5. Upsert
         if (existingDevice) {
           // UPDATE
+
+          // Notifica se torna ONLINE (era offline, ora è online)
+          if (existingDevice.status === 'offline' && (status || 'online') === 'online') {
+            sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
+              hostname: effectiveHostname || existingDevice.hostname,
+              deviceType: deviceTypeFromKeepass || existingDevice.device_type,
+              ip: ip_address,
+              mac: normalizedMac || existingDevice.mac_address,
+              status: 'online',
+              oldStatus: 'offline',
+              agentName,
+              aziendaName
+            }).catch(e => console.error('Telegram notification error (Device Online):', e));
+          }
+
           await pool.query(`UPDATE network_devices SET
                  ip_address = $1,
                  mac_address = COALESCE($2, mac_address),
@@ -2171,16 +2247,53 @@ module.exports = (pool, io) => {
       if (receivedList.length > 0) {
         try {
           // Use '!= ALL' which is more robust than 'NOT IN' with arrays in Postgres
-          await pool.query(`UPDATE network_devices SET status = 'offline'
-                WHERE agent_id = $1 AND status = 'online' AND ip_address != ALL($2::text[])`,
+          // RETURNING per notifiche offline
+          const offlineRes = await pool.query(`UPDATE network_devices SET status = 'offline'
+                WHERE agent_id = $1 AND status = 'online' AND ip_address != ALL($2::text[])
+                RETURNING id, hostname, ip_address, mac_address, device_type`,
             [agentId, receivedList]
           );
+
+          if (offlineRes.rows.length > 0) {
+            console.log(`⚠️ Marcati offline ${offlineRes.rows.length} dispositivi per Agent ${agentId} che non sono stati visti in questa scan.`);
+            for (const dev of offlineRes.rows) {
+              sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
+                hostname: dev.hostname,
+                deviceType: dev.device_type,
+                ip: dev.ip_address,
+                mac: dev.mac_address,
+                status: 'offline',
+                oldStatus: 'online',
+                agentName,
+                aziendaName
+              }).catch(e => console.error('Telegram notification error (Device Offline):', e));
+            }
+          }
+
         } catch (offlineErr) {
           console.error('❌ Error marking offline devices:', offlineErr);
         }
       } else {
         try {
-          await pool.query(`UPDATE network_devices SET status = 'offline' WHERE agent_id = $1 AND status = 'online'`, [agentId]);
+          const offlineAllRes = await pool.query(`UPDATE network_devices SET status = 'offline' 
+                WHERE agent_id = $1 AND status = 'online'
+                RETURNING id, hostname, ip_address, mac_address, device_type`, [agentId]);
+
+          if (offlineAllRes.rows.length > 0) {
+            console.log(`⚠️ Marcati offline TUTTI i ${offlineAllRes.rows.length} dispositivi per Agent ${agentId} (nessun dispositivo rilevato).`);
+            for (const dev of offlineAllRes.rows) {
+              sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
+                hostname: dev.hostname,
+                deviceType: dev.device_type,
+                ip: dev.ip_address,
+                mac: dev.mac_address,
+                status: 'offline',
+                oldStatus: 'online',
+                agentName,
+                aziendaName
+              }).catch(e => console.error('Telegram notification error (All Devices Offline):', e));
+            }
+          }
         } catch (offlineAllErr) {
           console.error('❌ Error marking all offline:', offlineAllErr);
         }
