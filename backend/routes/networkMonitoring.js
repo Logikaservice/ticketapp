@@ -7647,7 +7647,6 @@ pause
   });
 
   // PUT /api/network-monitoring/antivirus/:deviceId
-  // Aggiorna SOLO antivirus_info. NON tocca network_devices (l'icona in Monitoraggio/Mappatura resta quella del DB).
   router.put('/antivirus/:deviceId', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       const { deviceId } = req.params;
@@ -7668,6 +7667,12 @@ pause
             sort_order = EXCLUDED.sort_order,
             updated_at = NOW()
       `, [deviceId, is_active === true, product_name || '', expiration_date || null, finalType, sort_order || 0]);
+
+      // Se l'utente ha impostato/changed device_type, aggiorna network_devices così l'icona è uguale in Monitoraggio/Mappatura
+      await pool.query(
+        `UPDATE network_devices SET device_type = $1, is_manual_type = true WHERE id = $2`,
+        [finalType, deviceId]
+      );
 
       res.json({ success: true });
     } catch (err) {
