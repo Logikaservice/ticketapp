@@ -1695,7 +1695,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             `}</style>
             <div className="fixed inset-0 bg-gray-50 z-[100] flex flex-col font-sans w-full h-full overflow-hidden">
                 {/* Header */}
-                <div className="mappatura-header bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10 shrink-0">
+                <div className="mappatura-header bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-[100] shrink-0">
                     <div className="flex items-center gap-4">
                         <SectionNavMenu
                             currentPage="mappatura"

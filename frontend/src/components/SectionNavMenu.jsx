@@ -56,7 +56,7 @@ const SectionNavMenu = ({
         <Menu size={20} />
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-1 w-52 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-[9999]">
+        <div className="absolute left-0 top-full mt-1 w-52 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-[10000]">
           {items.map(({ id, label, icon: Icon, onClick }) => (
             <button
               key={id}
