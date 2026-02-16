@@ -94,8 +94,8 @@ module.exports = function (pool, authenticateToken, requireRole) {
             secure: true,
             auth: { user: email, pass: password },
             logger: false,
-            greetingTimeout: 10000,
-            socketTimeout: 15000,
+            greetingTimeout: 5000,
+            socketTimeout: 8000, // Timeout ridotti per evitare blocchi lunghi
         });
 
         try {
@@ -133,13 +133,14 @@ module.exports = function (pool, authenticateToken, requireRole) {
             let lastEmailDate = null;
             if (messageCount > 0) {
                 try {
-                    // Prendi l'ultimo messaggio (sequenza *)
+                    // Fetch solo envelope dell'ultimo messaggio per UID (più veloce)
+                    // fetchOne('*') è già ottimizzato da imapflow per usare l'ultimo seq/uid
                     const message = await client.fetchOne('*', { envelope: true });
                     if (message && message.envelope && message.envelope.date) {
                         lastEmailDate = message.envelope.date;
                     }
                 } catch (fetchErr) {
-                    console.warn(`⚠️ [EmailQuota] Errore fetch data ultima email per ${email}:`, fetchErr.message);
+                    // Ignora
                 }
             }
 
@@ -206,7 +207,7 @@ module.exports = function (pool, authenticateToken, requireRole) {
 
         // 3. Per ogni casella, recupera la password e controlla la quota
         const results = [];
-        const BATCH_SIZE = 5; // 5 connessioni parallele alla volta
+        const BATCH_SIZE = 10; // Aumento parolellismo per velocizzare (tanto node è async)
 
         for (let i = 0; i < emailEntries.length; i += BATCH_SIZE) {
             const batch = emailEntries.slice(i, i + BATCH_SIZE);
