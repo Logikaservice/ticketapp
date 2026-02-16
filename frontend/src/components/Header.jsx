@@ -108,6 +108,19 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
             { label: 'Lista Contratti', icon: Table, color: 'sky', onClick: openContractsList }
           ]
         },
+        {
+          label: 'Agent',
+          icon: ServerIcon,
+          color: 'cyan',
+          hasSubActions: true,
+          subActions: [
+            { label: 'Agent Esistenti', icon: ServerIcon, color: 'cyan', onClick: () => { if (openNetworkMonitoringAgents) { openNetworkMonitoringAgents(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
+            { label: 'Notifiche Agent', icon: AlertTriangle, color: 'yellow', onClick: () => { if (openNetworkMonitoringNotifications) { openNetworkMonitoringNotifications(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
+            { label: 'Crea Agent', icon: Plus, color: 'cyan', onClick: () => { if (openNetworkMonitoringCreateAgent) { openNetworkMonitoringCreateAgent(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
+            { label: 'Comunicazioni Agent', icon: Bell, color: 'violet', onClick: () => { if (openCommAgent) { openCommAgent(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } }
+          ]
+        },
+        { label: 'Notifiche Telegram', icon: AlertCircle, color: 'blue', onClick: () => { if (openNetworkMonitoringTelegram) { openNetworkMonitoringTelegram(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
         { label: 'Analytics', icon: BarChart3, color: 'purple', onClick: () => { if (openAnalytics) { openAnalytics(); } setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } },
         { label: 'Log accessi', icon: Activity, color: 'orange', onClick: () => { if (openAccessLogs) { openAccessLogs(); } setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } }
       ]
@@ -146,7 +159,15 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && openAntiVirus,
       onClick: () => handleQuickActionClick('antivirus')
     },
-    // Per Aziende: Monitoraggio Rete e Mappatura come voci principali (senza sub-menu)
+    {
+      id: 'mappatura',
+      label: 'Mappatura',
+      icon: MapPin,
+      color: 'emerald',
+      visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && !!openMappatura,
+      onClick: () => { if (openMappatura) { openMappatura(); setShowQuickActions(false); setExpandedAction(null); } }
+    },
+    // Per Aziende: Monitoraggio Rete come voce principale (senza sub-menu)
     ...(isCompanyAdmin && currentUser?.ruolo !== 'tecnico' ? [
       {
         id: 'networkMonitoring',
@@ -155,14 +176,6 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
         color: 'teal',
         visible: !isOrariDomain && openNetworkMonitoring,
         onClick: () => { if (openNetworkMonitoring) { openNetworkMonitoring(); setShowQuickActions(false); setExpandedAction(null); } }
-      },
-      {
-        id: 'mappatura',
-        label: 'Mappatura',
-        icon: MapPin,
-        color: 'emerald',
-        visible: !isOrariDomain && !!openMappatura,
-        onClick: () => { if (openMappatura) { openMappatura(); setShowQuickActions(false); setExpandedAction(null); } }
       }
     ] : [
       {
@@ -171,26 +184,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
         icon: Wifi,
         color: 'teal',
         visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && openNetworkMonitoring,
-        hasSubActions: true,
-        subActions: [
-          { label: 'Dashboard Monitoraggio', icon: Wifi, color: 'cyan', onClick: () => { if (openNetworkMonitoring) { openNetworkMonitoring(); setShowQuickActions(false); setExpandedAction(null); } } },
-          { label: 'Mappatura', icon: MapPin, color: 'emerald', onClick: () => { if (openMappatura) { openMappatura(); setShowQuickActions(false); setExpandedAction(null); } } },
-          ...(currentUser?.ruolo === 'tecnico' ? [
-            {
-              label: 'Agent',
-              icon: ServerIcon,
-              color: 'cyan',
-              hasSubActions: true,
-              subActions: [
-                { label: 'Agent Esistenti', icon: ServerIcon, color: 'cyan', onClick: () => { if (openNetworkMonitoringAgents) { openNetworkMonitoringAgents(); setShowQuickActions(false); setExpandedAction(null); } } },
-                { label: 'Notifiche Agent', icon: AlertTriangle, color: 'yellow', onClick: () => { if (openNetworkMonitoringNotifications) { openNetworkMonitoringNotifications(); setShowQuickActions(false); setExpandedAction(null); } } },
-                { label: 'Crea Agent', icon: Plus, color: 'cyan', onClick: () => { if (openNetworkMonitoringCreateAgent) { openNetworkMonitoringCreateAgent(); setShowQuickActions(false); setExpandedAction(null); } } }
-              ]
-            },
-            { label: 'Notifiche Telegram', icon: AlertCircle, color: 'blue', onClick: () => { if (openNetworkMonitoringTelegram) { openNetworkMonitoringTelegram(); setShowQuickActions(false); setExpandedAction(null); } } },
-            { label: 'Comunicazioni Agent', icon: Bell, color: 'violet', onClick: () => { if (openCommAgent) { openCommAgent(); setShowQuickActions(false); setExpandedAction(null); } } }
-          ] : [])
-        ]
+        onClick: () => { if (openNetworkMonitoring) { openNetworkMonitoring(); setShowQuickActions(false); setExpandedAction(null); } }
       }
     ]),
     // === IMPOSTAZIONI (gruppo per cliente) ===
