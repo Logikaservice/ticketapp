@@ -498,7 +498,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                 {/* Pannello destro: tabella compilata dal tecnico (le aziende vedono solo questa, in sola lettura) */}
                 <div className="flex-1 bg-gray-50 p-8 overflow-y-auto">
                     {selectedDeviceIds.length > 0 ? (
-                        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                        <div className="bg-white rounded-xl shadow-sm border overflow-visible relative">
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-gray-50 border-b">
                                     <tr>
@@ -578,10 +578,10 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                                                             {activeDropdown === id && (
                                                                 <>
                                                                     <div
-                                                                        className="fixed inset-0 z-10"
+                                                                        className="fixed inset-0 z-[100]"
                                                                         onClick={() => setActiveDropdown(null)}
                                                                     />
-                                                                    <div className="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-xl z-20 w-48 p-2 grid grid-cols-3 gap-2">
+                                                                    <div className="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-xl z-[110] w-48 p-2 grid grid-cols-3 gap-2">
                                                                         {[
                                                                             { type: 'pc', icon: Monitor, label: 'PC' },
                                                                             { type: 'server', icon: Server, label: 'Server' },
