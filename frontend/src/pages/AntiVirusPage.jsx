@@ -82,6 +82,11 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                     const data = await res.json();
                     setDevices(data);
 
+                    const normalizeDeviceType = (v) => {
+                        const dt = (v && typeof v === 'string') ? v.trim().toLowerCase() : 'pc';
+                        return ['pc', 'server', 'virtual', 'laptop', 'smartphone', 'tablet'].includes(dt) ? dt : 'pc';
+                    };
+
                     // Initialize selected devices ONLY on initial load (not silent update)
                     if (!silent) {
                         const existingConfigured = data
@@ -90,19 +95,37 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
 
                         if (existingConfigured.length > 0) {
                             setSelectedDeviceIds(existingConfigured.map(d => d.device_id));
-                            // Initialize drafts
+                            // Initialize drafts (device_type from API così l'icona salvata nel DB viene rispettata)
                             const initialDrafts = {};
                             existingConfigured.forEach(d => {
                                 initialDrafts[d.device_id] = {
                                     is_active: d.is_active || false,
                                     product_name: d.product_name || '',
                                     expiration_date: d.expiration_date ? d.expiration_date.split('T')[0] : '',
-                                    device_type: d.device_type || 'pc',
+                                    device_type: normalizeDeviceType(d.device_type),
                                     sort_order: d.sort_order || 0
                                 };
                             });
                             setDrafts(initialDrafts);
                         }
+                    } else {
+                        // Silent refresh: aggiorna i draft con device_type dall'API così l'icona salvata si vede
+                        setDrafts(prev => {
+                            const next = { ...prev };
+                            data.forEach(d => {
+                                if (prev[d.device_id]) {
+                                    next[d.device_id] = {
+                                        ...prev[d.device_id],
+                                        device_type: normalizeDeviceType(d.device_type),
+                                        is_active: d.is_active ?? prev[d.device_id].is_active,
+                                        product_name: d.product_name ?? prev[d.device_id].product_name,
+                                        expiration_date: d.expiration_date ? d.expiration_date.split('T')[0] : prev[d.device_id].expiration_date,
+                                        sort_order: d.sort_order ?? prev[d.device_id].sort_order
+                                    };
+                                }
+                            });
+                            return next;
+                        });
                     }
                 } else {
                     const errText = await res.text();
@@ -551,7 +574,8 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                                                         <div className="p-1.5 rounded bg-gray-50 flex items-center gap-1 text-gray-600">
                                                             {(() => {
                                                                 const types = { pc: Monitor, server: Server, virtual: Layers, laptop: Laptop, smartphone: Smartphone, tablet: Tablet };
-                                                                const Icon = types[draft.device_type] || Monitor;
+                                                                const displayType = (draft.device_type || device?.device_type || 'pc').toString().toLowerCase();
+                                                                const Icon = types[displayType] || Monitor;
                                                                 return <Icon size={16} />;
                                                             })()}
                                                         </div>
@@ -571,7 +595,8 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                                                                         smartphone: Smartphone,
                                                                         tablet: Tablet
                                                                     };
-                                                                    const Icon = types[draft.device_type] || Monitor;
+                                                                    const displayType = (draft.device_type || device?.device_type || 'pc').toString().toLowerCase();
+                                                                    const Icon = types[displayType] || Monitor;
                                                                     return <Icon size={16} />;
                                                                 })()}
                                                             </button>
