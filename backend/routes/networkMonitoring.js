@@ -1876,19 +1876,21 @@ module.exports = (pool, io) => {
       // Inizializza bot se non già fatto o aggiorna se token/chat cambiati
       const initResult = telegramService.initialize(config.bot_token, config.chat_id);
       if (!initResult) {
-        console.error('❌ Errore inizializzazione TelegramService per agent', agentId, 'azienda', aziendaId);
+        console.error(`❌ [sendTelegramNotification] Errore inizializzazione TelegramService per agent ${agentId}, azienda ${aziendaId}`);
         return false;
       }
 
       // Invia messaggio
-      console.log(`📤 Invio notifica Telegram (${messageType}) per agent ${agentId}, azienda ${aziendaId}`);
+      console.log(`📤 [sendTelegramNotification] Invio notifica Telegram (${messageType}) per agent ${agentId}, azienda ${aziendaId}`);
+      console.log(`📝 [sendTelegramNotification] Messaggio completo (primi 200 caratteri): ${message.substring(0, 200)}...`);
       const result = await telegramService.sendMessage(message);
 
       if (result && result.success) {
-        console.log(`✅ Notifica Telegram inviata con successo (${messageType})`);
+        console.log(`✅ [sendTelegramNotification] Notifica Telegram inviata con successo (${messageType})`);
         return true;
       } else {
-        console.error(`❌ Errore invio notifica Telegram (${messageType}):`, result?.error || 'Errore sconosciuto');
+        console.error(`❌ [sendTelegramNotification] Errore invio notifica Telegram (${messageType}):`, result?.error || 'Errore sconosciuto');
+        console.error(`❌ [sendTelegramNotification] Dettagli errore:`, JSON.stringify(result, null, 2));
         return false;
       }
     } catch (error) {
@@ -2220,7 +2222,7 @@ module.exports = (pool, io) => {
             for (const dev of offlineRes.rows) {
               // Invia notifica SOLO se notify_telegram è true
               if (dev.notify_telegram === true) {
-                console.log(`📤 [OFFLINE] Tentativo invio notifica Telegram per dispositivo offline: MAC=${dev.mac_address}, IP=${dev.ip_address}, Hostname=${dev.hostname}`);
+                console.log(`📤 [OFFLINE] Tentativo invio notifica Telegram per dispositivo offline: MAC=${dev.mac_address}, IP=${dev.ip_address}, Hostname=${dev.hostname}, AgentID=${agentId}, AziendaID=${req.agent.azienda_id}`);
                 sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
                   hostname: dev.hostname,
                   deviceType: dev.device_type,
@@ -2236,7 +2238,10 @@ module.exports = (pool, io) => {
                   } else {
                     console.log(`⚠️ [OFFLINE] Notifica Telegram NON inviata (ritornato false) per MAC=${dev.mac_address} - verifica config.notify_status_changes`);
                   }
-                }).catch(e => console.error('❌ [OFFLINE] Telegram notification error (Device Offline):', e));
+                }).catch(e => {
+                  console.error('❌ [OFFLINE] Telegram notification error (Device Offline):', e);
+                  console.error('❌ [OFFLINE] Stack trace:', e.stack);
+                });
               } else {
                 console.log(`⏭️ [OFFLINE] Notifica Telegram saltata: notify_telegram=false per MAC=${dev.mac_address}`);
               }
@@ -2257,7 +2262,7 @@ module.exports = (pool, io) => {
             for (const dev of offlineAllRes.rows) {
               // Invia notifica SOLO se notify_telegram è true
               if (dev.notify_telegram === true) {
-                console.log(`📤 [OFFLINE-ALL] Tentativo invio notifica Telegram per dispositivo offline: MAC=${dev.mac_address}, IP=${dev.ip_address}, Hostname=${dev.hostname}`);
+                console.log(`📤 [OFFLINE-ALL] Tentativo invio notifica Telegram per dispositivo offline: MAC=${dev.mac_address}, IP=${dev.ip_address}, Hostname=${dev.hostname}, AgentID=${agentId}, AziendaID=${req.agent.azienda_id}`);
                 sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
                   hostname: dev.hostname,
                   deviceType: dev.device_type,
@@ -2273,7 +2278,10 @@ module.exports = (pool, io) => {
                   } else {
                     console.log(`⚠️ [OFFLINE-ALL] Notifica Telegram NON inviata (ritornato false) per MAC=${dev.mac_address} - verifica config.notify_status_changes`);
                   }
-                }).catch(e => console.error('❌ [OFFLINE-ALL] Telegram notification error (All Devices Offline):', e));
+                }).catch(e => {
+                  console.error('❌ [OFFLINE-ALL] Telegram notification error (All Devices Offline):', e);
+                  console.error('❌ [OFFLINE-ALL] Stack trace:', e.stack);
+                });
               } else {
                 console.log(`⏭️ [OFFLINE-ALL] Notifica Telegram saltata: notify_telegram=false per MAC=${dev.mac_address}`);
               }
