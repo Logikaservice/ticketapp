@@ -94,8 +94,8 @@ module.exports = function (pool, authenticateToken, requireRole) {
             secure: true,
             auth: { user: email, pass: password },
             logger: false,
-            greetingTimeout: 5000,
-            socketTimeout: 8000, // Timeout ridotti per evitare blocchi lunghi
+            greetingTimeout: 3000,
+            socketTimeout: 5000, // Timeout ridotti per velocizzare scansione
         });
 
         try {
@@ -129,18 +129,42 @@ module.exports = function (pool, authenticateToken, requireRole) {
                 }
             }
 
-            // Recupera data ultimo messaggio (se ci sono messaggi)
+            // Recupera data ultimo messaggio (MIGLIORATO: sempre, non solo se messageCount > 0)
             let lastEmailDate = null;
-            if (messageCount > 0) {
-                try {
-                    // Fetch solo envelope dell'ultimo messaggio per UID (più veloce)
-                    // fetchOne('*') è già ottimizzato da imapflow per usare l'ultimo seq/uid
+            try {
+                // Metodo più affidabile: usa search per trovare l'ultimo messaggio ricevuto
+                // Cerca messaggi ricevuti negli ultimi 2 anni (limite ragionevole)
+                const twoYearsAgo = new Date();
+                twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+                const searchResult = await client.search({ since: twoYearsAgo }, { uid: true });
+                
+                if (searchResult && searchResult.length > 0) {
+                    // Prendi l'ultimo UID dalla lista (più recente)
+                    const lastUid = searchResult[searchResult.length - 1];
+                    // Fetch envelope dell'ultimo messaggio
+                    const message = await client.fetchOne(lastUid, { envelope: true });
+                    if (message && message.envelope && message.envelope.date) {
+                        lastEmailDate = message.envelope.date;
+                    }
+                } else if (messageCount > 0) {
+                    // Se search non trova risultati ma ci sono messaggi, usa fetchOne come fallback
                     const message = await client.fetchOne('*', { envelope: true });
                     if (message && message.envelope && message.envelope.date) {
                         lastEmailDate = message.envelope.date;
                     }
-                } catch (fetchErr) {
-                    // Ignora
+                }
+            } catch (fetchErr) {
+                // Fallback: prova con fetchOne('*') se search fallisce o non supportato
+                try {
+                    if (messageCount > 0) {
+                        const message = await client.fetchOne('*', { envelope: true });
+                        if (message && message.envelope && message.envelope.date) {
+                            lastEmailDate = message.envelope.date;
+                        }
+                    }
+                } catch (fallbackErr) {
+                    // Ignora se anche il fallback fallisce (casella vuota o errore)
+                    console.warn(`⚠️ [EmailQuota] Impossibile recuperare last_email_date per ${email}:`, fallbackErr.message);
                 }
             }
 
@@ -206,13 +230,10 @@ module.exports = function (pool, authenticateToken, requireRole) {
         console.log(`📋 [EmailQuota] Trovate ${emailEntries.length} caselle email per "${aziendaName}"`);
 
         // 3. Per ogni casella, recupera la password e controlla la quota
-        const results = [];
-        const BATCH_SIZE = 10; // Aumento parolellismo per velocizzare (tanto node è async)
-
-        for (let i = 0; i < emailEntries.length; i += BATCH_SIZE) {
-            const batch = emailEntries.slice(i, i + BATCH_SIZE);
-
-            const batchPromises = batch.map(async (entry) => {
+        // OTTIMIZZAZIONE: Processa tutte le email in parallelo (non più batch)
+        // Node.js gestisce bene il parallelismo async, e IMAP è I/O bound
+        const results = await Promise.all(emailEntries.map(async (entry) => {
+            try {
                 const email = entry.username.trim();
                 const imapServer = getImapServer(email);
 
@@ -241,11 +262,17 @@ module.exports = function (pool, authenticateToken, requireRole) {
                 console.log(`   🔍 Controllo ${email} su ${imapServer}...`);
                 const result = await checkSingleQuota(email, password, imapServer);
                 return { email, imap_server: imapServer, ...result };
-            });
-
-            const batchResults = await Promise.all(batchPromises);
-            results.push(...batchResults);
-        }
+            } catch (err) {
+                // Gestione errore per singola email
+                console.error(`   ❌ Errore controllo ${entry.username}:`, err.message);
+                return { 
+                    email: entry.username?.trim() || 'unknown', 
+                    imap_server: getImapServer(entry.username?.trim() || '') || '', 
+                    status: 'error', 
+                    error_message: err.message 
+                };
+            }
+        }));
 
         // 4. Salva i risultati nel DB
         await ensureQuotaTable();
