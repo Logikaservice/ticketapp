@@ -77,16 +77,31 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
 
   const getActivityStatus = (lastEmailDate) => {
     // Se non c'è data (mai usata o vuota) -> Forse Inattivo
-    if (!lastEmailDate) return { status: 'inactive', label: 'Forse Inattivo', color: 'bg-amber-100 text-amber-700' };
+    if (!lastEmailDate) {
+      console.log('[EmailPage] getActivityStatus: lastEmailDate è null/undefined');
+      return { status: 'inactive', label: 'Forse Inattivo', color: 'bg-amber-100 text-amber-700' };
+    }
 
     const d = new Date(lastEmailDate);
-    if (isNaN(d.getTime())) return { status: 'inactive', label: 'Forse Inattivo', color: 'bg-amber-100 text-amber-700' };
+    if (isNaN(d.getTime())) {
+      console.log('[EmailPage] getActivityStatus: lastEmailDate non valida:', lastEmailDate);
+      return { status: 'inactive', label: 'Forse Inattivo', color: 'bg-amber-100 text-amber-700' };
+    }
 
     const now = new Date();
-    const diffMonth = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
+    // Calcolo più preciso: differenza in giorni, poi converti in mesi
+    const diffMs = now.getTime() - d.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    const diffMonths = diffDays / 30; // Approssimazione: 30 giorni = 1 mese
 
-    if (diffMonth < 6) return { status: 'active', label: 'Attivo', color: 'bg-green-100 text-green-700' };
-    return { status: 'inactive', label: 'Forse Inattivo', color: 'bg-amber-100 text-amber-700' };
+    // Debug per capire il problema
+    if (diffMonths < 6) {
+      console.log(`[EmailPage] getActivityStatus: ATTIVO - lastEmailDate: ${d.toISOString()}, diff: ${diffMonths.toFixed(1)} mesi`);
+      return { status: 'active', label: 'Attivo', color: 'bg-green-100 text-green-700' };
+    } else {
+      console.log(`[EmailPage] getActivityStatus: INATTIVO - lastEmailDate: ${d.toISOString()}, diff: ${diffMonths.toFixed(1)} mesi`);
+      return { status: 'inactive', label: 'Forse Inattivo', color: 'bg-amber-100 text-amber-700' };
+    }
   };
 
   // ============ FETCH QUOTA RESULTS ============

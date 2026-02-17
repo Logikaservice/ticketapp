@@ -129,43 +129,43 @@ module.exports = function (pool, authenticateToken, requireRole) {
                 }
             }
 
-            // Recupera data ultimo messaggio (MIGLIORATO: sempre, non solo se messageCount > 0)
+            // Recupera data ultimo messaggio (MIGLIORATO: metodo più affidabile)
             let lastEmailDate = null;
-            try {
-                // Metodo più affidabile: usa search per trovare l'ultimo messaggio ricevuto
-                // Cerca messaggi ricevuti negli ultimi 2 anni (limite ragionevole)
-                const twoYearsAgo = new Date();
-                twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-                const searchResult = await client.search({ since: twoYearsAgo }, { uid: true });
-                
-                if (searchResult && searchResult.length > 0) {
-                    // Prendi l'ultimo UID dalla lista (più recente)
-                    const lastUid = searchResult[searchResult.length - 1];
-                    // Fetch envelope dell'ultimo messaggio
-                    const message = await client.fetchOne(lastUid, { envelope: true });
-                    if (message && message.envelope && message.envelope.date) {
-                        lastEmailDate = message.envelope.date;
-                    }
-                } else if (messageCount > 0) {
-                    // Se search non trova risultati ma ci sono messaggi, usa fetchOne come fallback
+            
+            // Metodo principale: fetchOne('*') restituisce sempre l'ultimo messaggio per sequenza
+            // Questo è il metodo più affidabile per Aruba IMAP
+            if (messageCount > 0) {
+                try {
                     const message = await client.fetchOne('*', { envelope: true });
                     if (message && message.envelope && message.envelope.date) {
                         lastEmailDate = message.envelope.date;
+                        console.log(`   ✅ [EmailQuota] last_email_date recuperato per ${email}: ${lastEmailDate}`);
                     }
-                }
-            } catch (fetchErr) {
-                // Fallback: prova con fetchOne('*') se search fallisce o non supportato
-                try {
-                    if (messageCount > 0) {
-                        const message = await client.fetchOne('*', { envelope: true });
-                        if (message && message.envelope && message.envelope.date) {
-                            lastEmailDate = message.envelope.date;
+                } catch (fetchErr) {
+                    console.warn(`   ⚠️ [EmailQuota] Errore fetchOne('*') per ${email}:`, fetchErr.message);
+                    
+                    // Fallback: prova con search se fetchOne fallisce
+                    try {
+                        const twoYearsAgo = new Date();
+                        twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+                        const searchResult = await client.search({ since: twoYearsAgo }, { uid: true });
+                        
+                        if (searchResult && searchResult.length > 0) {
+                            // Prendi l'ultimo UID dalla lista (più recente)
+                            const lastUid = searchResult[searchResult.length - 1];
+                            const message = await client.fetchOne(lastUid, { envelope: true });
+                            if (message && message.envelope && message.envelope.date) {
+                                lastEmailDate = message.envelope.date;
+                                console.log(`   ✅ [EmailQuota] last_email_date recuperato via search per ${email}: ${lastEmailDate}`);
+                            }
                         }
+                    } catch (searchErr) {
+                        console.warn(`   ⚠️ [EmailQuota] Fallback search fallito per ${email}:`, searchErr.message);
                     }
-                } catch (fallbackErr) {
-                    // Ignora se anche il fallback fallisce (casella vuota o errore)
-                    console.warn(`⚠️ [EmailQuota] Impossibile recuperare last_email_date per ${email}:`, fallbackErr.message);
                 }
+            } else {
+                // Nessun messaggio nella casella
+                console.log(`   ℹ️ [EmailQuota] Nessun messaggio per ${email}, last_email_date = null`);
             }
 
             // Calcola percentuale
