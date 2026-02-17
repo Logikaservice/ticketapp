@@ -2137,8 +2137,8 @@ module.exports = (pool, io) => {
         if (existingDevice) {
           // UPDATE
 
-          // Notifica se torna ONLINE (era offline, ora è online)
-          if (existingDevice.status === 'offline' && (status || 'online') === 'online') {
+          // Notifica se torna ONLINE (era offline, ora è online) - SOLO se notify_telegram è true
+          if (existingDevice.status === 'offline' && (status || 'online') === 'online' && existingDevice.notify_telegram === true) {
             sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
               hostname: effectiveHostname || existingDevice.hostname,
               deviceType: deviceTypeFromKeepass || existingDevice.device_type,
@@ -2194,26 +2194,29 @@ module.exports = (pool, io) => {
       if (receivedList.length > 0) {
         try {
           // Use '!= ALL' which is more robust than 'NOT IN' with arrays in Postgres
-          // RETURNING per notifiche offline
+          // RETURNING per notifiche offline (include notify_telegram per filtrare)
           const offlineRes = await pool.query(`UPDATE network_devices SET status = 'offline'
                 WHERE agent_id = $1 AND status = 'online' AND ip_address != ALL($2::text[])
-                RETURNING id, hostname, ip_address, mac_address, device_type`,
+                RETURNING id, hostname, ip_address, mac_address, device_type, notify_telegram`,
             [agentId, receivedList]
           );
 
           if (offlineRes.rows.length > 0) {
             console.log(`⚠️ Marcati offline ${offlineRes.rows.length} dispositivi per Agent ${agentId} che non sono stati visti in questa scan.`);
             for (const dev of offlineRes.rows) {
-              sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
-                hostname: dev.hostname,
-                deviceType: dev.device_type,
-                ip: dev.ip_address,
-                mac: dev.mac_address,
-                status: 'offline',
-                oldStatus: 'online',
-                agentName,
-                aziendaName
-              }).catch(e => console.error('Telegram notification error (Device Offline):', e));
+              // Invia notifica SOLO se notify_telegram è true
+              if (dev.notify_telegram === true) {
+                sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
+                  hostname: dev.hostname,
+                  deviceType: dev.device_type,
+                  ip: dev.ip_address,
+                  mac: dev.mac_address,
+                  status: 'offline',
+                  oldStatus: 'online',
+                  agentName,
+                  aziendaName
+                }).catch(e => console.error('Telegram notification error (Device Offline):', e));
+              }
             }
           }
 
@@ -2224,21 +2227,24 @@ module.exports = (pool, io) => {
         try {
           const offlineAllRes = await pool.query(`UPDATE network_devices SET status = 'offline' 
                 WHERE agent_id = $1 AND status = 'online'
-                RETURNING id, hostname, ip_address, mac_address, device_type`, [agentId]);
+                RETURNING id, hostname, ip_address, mac_address, device_type, notify_telegram`, [agentId]);
 
           if (offlineAllRes.rows.length > 0) {
             console.log(`⚠️ Marcati offline TUTTI i ${offlineAllRes.rows.length} dispositivi per Agent ${agentId} (nessun dispositivo rilevato).`);
             for (const dev of offlineAllRes.rows) {
-              sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
-                hostname: dev.hostname,
-                deviceType: dev.device_type,
-                ip: dev.ip_address,
-                mac: dev.mac_address,
-                status: 'offline',
-                oldStatus: 'online',
-                agentName,
-                aziendaName
-              }).catch(e => console.error('Telegram notification error (All Devices Offline):', e));
+              // Invia notifica SOLO se notify_telegram è true
+              if (dev.notify_telegram === true) {
+                sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
+                  hostname: dev.hostname,
+                  deviceType: dev.device_type,
+                  ip: dev.ip_address,
+                  mac: dev.mac_address,
+                  status: 'offline',
+                  oldStatus: 'online',
+                  agentName,
+                  aziendaName
+                }).catch(e => console.error('Telegram notification error (All Devices Offline):', e));
+              }
             }
           }
         } catch (offlineAllErr) {
