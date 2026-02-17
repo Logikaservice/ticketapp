@@ -1,7 +1,7 @@
 /**
  * Email Quota Routes - Monitoraggio spazio caselle email via IMAP QUOTA
  * 
- * Scansione automatica ogni 12 ore (mezzanotte) + scansione manuale on-demand.
+ * Scansione automatica ogni 24 ore a mezzanotte (00:00) + scansione manuale on-demand.
  * Per ora limitata a Logika Service come test.
  */
 
@@ -391,7 +391,7 @@ module.exports = function (pool, authenticateToken, requireRole) {
     });
 
     // ============================================================
-    // SCHEDULER: Scansione automatica ogni 12 ore verso mezzanotte
+    // SCHEDULER: Scansione automatica ogni 24 ore a mezzanotte
     // ============================================================
     const scheduleAutoScan = () => {
         const SCAN_COMPANIES = ['Logika Service']; // Per ora solo Logika Service
@@ -417,15 +417,18 @@ module.exports = function (pool, authenticateToken, requireRole) {
             return midnight.getTime() - now.getTime();
         };
 
-        // Prima esecuzione: alla prossima mezzanotte
-        const firstDelay = msUntilMidnight();
-        console.log(`⏰ [EmailQuota] Prossima scansione schedulata tra ${Math.round(firstDelay / 1000 / 60)} minuti (mezzanotte)`);
+        // Funzione per schedulare la prossima scansione a mezzanotte
+        const scheduleNextScan = () => {
+            const delay = msUntilMidnight();
+            console.log(`⏰ [EmailQuota] Prossima scansione schedulata tra ${Math.round(delay / 1000 / 60)} minuti (mezzanotte)`);
+            setTimeout(() => {
+                runScheduledScan();
+                scheduleNextScan(); // Schedula la prossima scansione dopo questa
+            }, delay);
+        };
 
-        setTimeout(() => {
-            runScheduledScan();
-            // Poi ogni 12 ore
-            setInterval(runScheduledScan, 12 * 60 * 60 * 1000);
-        }, firstDelay);
+        // Prima esecuzione: alla prossima mezzanotte
+        scheduleNextScan();
     };
 
     // Avvia lo scheduler
