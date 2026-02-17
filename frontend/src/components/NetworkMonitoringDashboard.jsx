@@ -8,7 +8,7 @@ import {
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
   Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit, Menu,
-  CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle, Terminal, Network, History, Key
+  CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle, Terminal, Network, History, Key, MonitorSmartphone
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import { getDeviceIcon, AVAILABLE_ICONS } from '../utils/deviceTypeIcons';
@@ -1150,6 +1150,59 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     window.open(`http://${ip}`, '_blank');
   };
 
+  // Apre desktop remoto (RDP) con credenziali da Keepass
+  const handleRemoteDesktop = async (ip) => {
+    closeIpContextMenu();
+    
+    try {
+      const response = await fetch(buildApiUrl(`/api/network-monitoring/tools/rdp-credentials?ip=${encodeURIComponent(ip)}`), {
+        headers: getAuthHeader()
+      });
+
+      let username = '';
+      let password = '';
+      let found = false;
+
+      if (response.ok) {
+        const data = await response.json();
+        username = data.username || '';
+        password = data.password || '';
+        found = data.found || false;
+      }
+
+      let batContent = '@echo off\r\nchcp 65001 >nul\r\ntitle Connessione Desktop Remoto a ' + ip + '\r\n\r\n';
+      
+      if (found && username && password) {
+        batContent += 'echo Salvataggio credenziali per ' + ip + '...\r\n';
+        batContent += 'cmdkey /generic:TERMSRV/' + ip + ' /user:' + username + ' /pass:' + password + '\r\n\r\n';
+        batContent += 'echo Apertura connessione Desktop Remoto...\r\n';
+        batContent += 'mstsc /v:' + ip + '\r\n\r\n';
+        batContent += 'echo.\r\necho Premere un tasto per rimuovere le credenziali salvate...\r\n';
+        batContent += 'pause >nul\r\n';
+        batContent += 'cmdkey /delete:TERMSRV/' + ip + '\r\n';
+        batContent += 'echo Credenziali rimosse.\r\n';
+      } else {
+        batContent += 'echo Nessuna credenziale trovata in Keepass per questo IP.\r\n';
+        batContent += 'echo Apertura connessione Desktop Remoto...\r\n';
+        batContent += 'mstsc /v:' + ip + '\r\n';
+      }
+
+      const blob = new Blob([batContent], { type: 'application/x-msdos-program' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'rdp_' + ip.replace(/\./g, '_') + '.bat';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 50);
+    } catch (error) {
+      console.error('Errore apertura desktop remoto:', error);
+    }
+  };
+
   // Filtra e ordina dispositivi
   const filteredDevices = devices
     .filter(device => {
@@ -2283,6 +2336,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               >
                 <Monitor size={16} />
                 Web
+              </button>
+              <button
+                onClick={() => handleRemoteDesktop(ipContextMenu.ip)}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 flex items-center gap-2 transition-colors"
+              >
+                <MonitorSmartphone size={16} />
+                Desktop Remoto
               </button>
             </div>
           </>

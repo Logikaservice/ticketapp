@@ -7729,6 +7729,55 @@ pause
     });
   });
 
+  // GET /api/network-monitoring/tools/rdp-credentials
+  // Recupera credenziali RDP da Keepass per un IP
+  router.get('/tools/rdp-credentials', authenticateToken, async (req, res) => {
+    try {
+      const { ip } = req.query;
+      if (!ip) {
+        return res.status(400).json({ error: 'IP richiesto' });
+      }
+
+      const deviceResult = await pool.query(
+        `SELECT nd.mac_address, na.azienda_id 
+         FROM network_devices nd
+         INNER JOIN network_agents na ON nd.agent_id = na.id
+         WHERE nd.ip_address = $1
+         ORDER BY nd.last_seen DESC
+         LIMIT 1`,
+        [ip]
+      );
+
+      if (deviceResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato per questo IP' });
+      }
+
+      const macAddress = deviceResult.rows[0].mac_address;
+
+      if (!macAddress || !process.env.KEEPASS_PASSWORD) {
+        return res.json({ username: '', password: '', found: false });
+      }
+
+      try {
+        const creds = await keepassDriveService.getCredentialsByMac(macAddress, process.env.KEEPASS_PASSWORD);
+        if (creds && (creds.username || creds.password)) {
+          return res.json({ 
+            username: creds.username || '', 
+            password: creds.password || '', 
+            found: true 
+          });
+        }
+      } catch (kpErr) {
+        console.error('Errore recupero credenziali Keepass:', kpErr);
+      }
+
+      res.json({ username: '', password: '', found: false });
+    } catch (err) {
+      console.error('Errore recupero credenziali RDP:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // --- ANTI-VIRUS ROUTES ---
 
   // GET /api/network-monitoring/clients/:aziendaId/antivirus-devices
