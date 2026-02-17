@@ -1151,6 +1151,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   };
 
   // Apre desktop remoto (RDP) con credenziali da Keepass
+  // Il file .bat si auto-elimina e rimuove le credenziali automaticamente
   const handleRemoteDesktop = async (ip) => {
     closeIpContextMenu();
     
@@ -1170,22 +1171,26 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         found = data.found || false;
       }
 
-      let batContent = '@echo off\r\nchcp 65001 >nul\r\ntitle Connessione Desktop Remoto a ' + ip + '\r\n\r\n';
-      
+      // Il .bat si auto-lancia minimizzato, salva credenziali temporanee,
+      // avvia mstsc, dopo 5 sec rimuove credenziali e si auto-elimina dal disco
+      let batContent = '@echo off\r\n';
+      batContent += 'if not "%1"=="AUTO" (\r\n';
+      batContent += '  start /min "" cmd /c "%~f0" AUTO\r\n';
+      batContent += '  exit\r\n';
+      batContent += ')\r\n';
+      batContent += 'chcp 65001 >nul\r\n';
+
       if (found && username && password) {
-        batContent += 'echo Salvataggio credenziali per ' + ip + '...\r\n';
-        batContent += 'cmdkey /generic:TERMSRV/' + ip + ' /user:' + username + ' /pass:' + password + '\r\n\r\n';
-        batContent += 'echo Apertura connessione Desktop Remoto...\r\n';
-        batContent += 'mstsc /v:' + ip + '\r\n\r\n';
-        batContent += 'echo.\r\necho Premere un tasto per rimuovere le credenziali salvate...\r\n';
-        batContent += 'pause >nul\r\n';
-        batContent += 'cmdkey /delete:TERMSRV/' + ip + '\r\n';
-        batContent += 'echo Credenziali rimosse.\r\n';
+        batContent += 'cmdkey /generic:TERMSRV/' + ip + ' /user:' + username + ' /pass:' + password + ' >nul 2>&1\r\n';
+        batContent += 'start mstsc /v:' + ip + '\r\n';
+        batContent += 'ping -n 6 127.0.0.1 >nul\r\n';
+        batContent += 'cmdkey /delete:TERMSRV/' + ip + ' >nul 2>&1\r\n';
       } else {
-        batContent += 'echo Nessuna credenziale trovata in Keepass per questo IP.\r\n';
-        batContent += 'echo Apertura connessione Desktop Remoto...\r\n';
-        batContent += 'mstsc /v:' + ip + '\r\n';
+        batContent += 'start mstsc /v:' + ip + '\r\n';
       }
+
+      // Auto-elimina il file .bat dal disco
+      batContent += '(goto) 2>nul & del "%~f0"\r\n';
 
       const blob = new Blob([batContent], { type: 'application/x-msdos-program' });
       const url = URL.createObjectURL(blob);
