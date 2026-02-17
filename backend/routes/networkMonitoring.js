@@ -3053,6 +3053,26 @@ module.exports = (pool, io) => {
             const macHex = (row.mac_address || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
             const normalizedMac = macHex.length === 12 ? macHex : row.mac_address.replace(/[:-]/g, '').toUpperCase();
             const keepassEntries = keepassMap.get(normalizedMac);
+            
+            // Conta quante entry appartengono all'azienda (per mostrare duplicati)
+            let duplicateCount = 0;
+            if (Array.isArray(keepassEntries) && keepassEntries.length > 0 && aziendaName) {
+              const an = (aziendaName || '').trim().toLowerCase();
+              duplicateCount = keepassEntries.filter(e => {
+                const path = (e.path || '').trim().toLowerCase();
+                return path.includes(an);
+              }).length;
+            } else if (Array.isArray(keepassEntries)) {
+              duplicateCount = keepassEntries.length;
+            }
+            
+            // Aggiungi conteggio duplicati al MAC se > 1
+            if (duplicateCount > 1) {
+              // Formatta MAC originale con conteggio tra parentesi
+              const originalMac = row.mac_address;
+              row.mac_address = `${originalMac} (${duplicateCount})`;
+            }
+            
             const keepassResult = Array.isArray(keepassEntries)
               ? keepassDriveService.pickEntryForAzienda(keepassEntries, aziendaName)
               : keepassEntries;
@@ -3815,6 +3835,26 @@ module.exports = (pool, io) => {
             const macHex = (row.mac_address || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
             const normalizedMac = macHex.length === 12 ? macHex : row.mac_address.replace(/[:-]/g, '').toUpperCase();
             const keepassEntries = keepassMap.get(normalizedMac);
+            
+            // Conta quante entry appartengono all'azienda (per mostrare duplicati)
+            let duplicateCount = 0;
+            if (Array.isArray(keepassEntries) && keepassEntries.length > 0 && row.azienda) {
+              const an = (row.azienda || '').trim().toLowerCase();
+              duplicateCount = keepassEntries.filter(e => {
+                const path = (e.path || '').trim().toLowerCase();
+                return path.includes(an);
+              }).length;
+            } else if (Array.isArray(keepassEntries)) {
+              duplicateCount = keepassEntries.length;
+            }
+            
+            // Aggiungi conteggio duplicati al MAC se > 1
+            if (duplicateCount > 1) {
+              // Formatta MAC originale con conteggio tra parentesi
+              const originalMac = row.mac_address;
+              row.mac_address = `${originalMac} (${duplicateCount})`;
+            }
+            
             const keepassResult = Array.isArray(keepassEntries)
               ? keepassDriveService.pickEntryForAzienda(keepassEntries, row.azienda)
               : keepassEntries;
