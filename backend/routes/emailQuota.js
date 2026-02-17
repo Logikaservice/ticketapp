@@ -129,23 +129,30 @@ module.exports = function (pool, authenticateToken, requireRole) {
                 }
             }
 
-            // Recupera data ultimo messaggio (MIGLIORATO: metodo più affidabile)
+            // Recupera data ultimo messaggio - SEMPRE se ci sono email (usageBytes > 0 O messageCount > 0)
             let lastEmailDate = null;
             
-            // Metodo principale: fetchOne('*') restituisce sempre l'ultimo messaggio per sequenza
-            // Questo è il metodo più affidabile per Aruba IMAP
-            if (messageCount > 0) {
+            // Se c'è spazio usato O ci sono messaggi, cerca l'ultima email
+            const hasEmails = usageBytes > 0 || messageCount > 0;
+            
+            if (hasEmails) {
+                console.log(`   🔍 [EmailQuota] Ricerca ultima email per ${email} (usage: ${usageBytes} bytes, messages: ${messageCount})`);
+                
+                // Metodo 1: Prova fetchOne('*') - restituisce sempre l'ultimo messaggio per sequenza
                 try {
                     const message = await client.fetchOne('*', { envelope: true });
                     if (message && message.envelope && message.envelope.date) {
                         lastEmailDate = message.envelope.date;
-                        console.log(`   ✅ [EmailQuota] last_email_date recuperato per ${email}: ${lastEmailDate}`);
+                        console.log(`   ✅ [EmailQuota] last_email_date recuperato via fetchOne('*') per ${email}: ${lastEmailDate.toISOString()}`);
+                    } else {
+                        console.warn(`   ⚠️ [EmailQuota] fetchOne('*') restituito senza date per ${email}`);
                     }
                 } catch (fetchErr) {
                     console.warn(`   ⚠️ [EmailQuota] Errore fetchOne('*') per ${email}:`, fetchErr.message);
                     
-                    // Fallback: prova con search se fetchOne fallisce
+                    // Metodo 2: Fallback con search
                     try {
+                        // Cerca messaggi negli ultimi 2 anni
                         const twoYearsAgo = new Date();
                         twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
                         const searchResult = await client.search({ since: twoYearsAgo }, { uid: true });
@@ -156,16 +163,23 @@ module.exports = function (pool, authenticateToken, requireRole) {
                             const message = await client.fetchOne(lastUid, { envelope: true });
                             if (message && message.envelope && message.envelope.date) {
                                 lastEmailDate = message.envelope.date;
-                                console.log(`   ✅ [EmailQuota] last_email_date recuperato via search per ${email}: ${lastEmailDate}`);
+                                console.log(`   ✅ [EmailQuota] last_email_date recuperato via search per ${email}: ${lastEmailDate.toISOString()}`);
                             }
+                        } else {
+                            console.warn(`   ⚠️ [EmailQuota] search non ha trovato messaggi per ${email} (anche se usage > 0)`);
                         }
                     } catch (searchErr) {
-                        console.warn(`   ⚠️ [EmailQuota] Fallback search fallito per ${email}:`, searchErr.message);
+                        console.error(`   ❌ [EmailQuota] Fallback search fallito per ${email}:`, searchErr.message);
                     }
                 }
             } else {
-                // Nessun messaggio nella casella
-                console.log(`   ℹ️ [EmailQuota] Nessun messaggio per ${email}, last_email_date = null`);
+                // Nessun spazio usato e nessun messaggio = casella vuota
+                console.log(`   ℹ️ [EmailQuota] Casella vuota per ${email} (usage: 0, messages: 0)`);
+            }
+            
+            // Se ancora non abbiamo lastEmailDate ma c'è spazio usato, c'è un problema
+            if (!lastEmailDate && usageBytes > 0) {
+                console.error(`   ❌ [EmailQuota] PROBLEMA: ${email} ha ${usageBytes} bytes usati ma last_email_date è null!`);
             }
 
             // Calcola percentuale
