@@ -1855,8 +1855,12 @@ module.exports = (pool, io) => {
 
         case 'status_changed':
           shouldNotify = config.notify_status_changes;
+          console.log(`🔍 [sendTelegramNotification] status_changed: notify_status_changes=${config.notify_status_changes}, shouldNotify=${shouldNotify}`);
           if (shouldNotify) {
             message = telegramService.formatDeviceStatusMessage(data);
+            console.log(`📝 [sendTelegramNotification] Messaggio formato per status_changed: ${message.substring(0, 100)}...`);
+          } else {
+            console.log(`⏭️ [sendTelegramNotification] Notifica status_changed saltata: notify_status_changes=false nella configurazione Telegram`);
           }
           break;
 
@@ -1865,6 +1869,7 @@ module.exports = (pool, io) => {
       }
 
       if (!shouldNotify || !message) {
+        console.log(`⏭️ [sendTelegramNotification] Notifica saltata: shouldNotify=${shouldNotify}, message=${message ? 'presente' : 'null'}`);
         return false;
       }
 
@@ -2139,6 +2144,7 @@ module.exports = (pool, io) => {
 
           // Notifica se torna ONLINE (era offline, ora è online) - SOLO se notify_telegram è true
           if (existingDevice.status === 'offline' && (status || 'online') === 'online' && existingDevice.notify_telegram === true) {
+            console.log(`📤 [ONLINE] Tentativo invio notifica Telegram per dispositivo online: MAC=${normalizedMac || existingDevice.mac_address}, IP=${ip_address}, Hostname=${effectiveHostname || existingDevice.hostname}, Stato Precedente=offline`);
             sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
               hostname: effectiveHostname || existingDevice.hostname,
               deviceType: deviceTypeFromKeepass || existingDevice.device_type,
@@ -2148,7 +2154,15 @@ module.exports = (pool, io) => {
               oldStatus: 'offline',
               agentName,
               aziendaName
-            }).catch(e => console.error('Telegram notification error (Device Online):', e));
+            }).then(result => {
+              if (result) {
+                console.log(`✅ [ONLINE] Notifica Telegram inviata con successo per MAC=${normalizedMac || existingDevice.mac_address}`);
+              } else {
+                console.log(`⚠️ [ONLINE] Notifica Telegram NON inviata (ritornato false) per MAC=${normalizedMac || existingDevice.mac_address} - verifica config.notify_status_changes`);
+              }
+            }).catch(e => console.error('❌ [ONLINE] Telegram notification error (Device Online):', e));
+          } else if (existingDevice.status === 'offline' && (status || 'online') === 'online') {
+            console.log(`⏭️ [ONLINE] Notifica Telegram saltata: notify_telegram=${existingDevice.notify_telegram} per MAC=${normalizedMac || existingDevice.mac_address}`);
           }
 
           await pool.query(`UPDATE network_devices SET
@@ -2206,6 +2220,7 @@ module.exports = (pool, io) => {
             for (const dev of offlineRes.rows) {
               // Invia notifica SOLO se notify_telegram è true
               if (dev.notify_telegram === true) {
+                console.log(`📤 [OFFLINE] Tentativo invio notifica Telegram per dispositivo offline: MAC=${dev.mac_address}, IP=${dev.ip_address}, Hostname=${dev.hostname}`);
                 sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
                   hostname: dev.hostname,
                   deviceType: dev.device_type,
@@ -2215,7 +2230,15 @@ module.exports = (pool, io) => {
                   oldStatus: 'online',
                   agentName,
                   aziendaName
-                }).catch(e => console.error('Telegram notification error (Device Offline):', e));
+                }).then(result => {
+                  if (result) {
+                    console.log(`✅ [OFFLINE] Notifica Telegram inviata con successo per MAC=${dev.mac_address}`);
+                  } else {
+                    console.log(`⚠️ [OFFLINE] Notifica Telegram NON inviata (ritornato false) per MAC=${dev.mac_address} - verifica config.notify_status_changes`);
+                  }
+                }).catch(e => console.error('❌ [OFFLINE] Telegram notification error (Device Offline):', e));
+              } else {
+                console.log(`⏭️ [OFFLINE] Notifica Telegram saltata: notify_telegram=false per MAC=${dev.mac_address}`);
               }
             }
           }
@@ -2234,6 +2257,7 @@ module.exports = (pool, io) => {
             for (const dev of offlineAllRes.rows) {
               // Invia notifica SOLO se notify_telegram è true
               if (dev.notify_telegram === true) {
+                console.log(`📤 [OFFLINE-ALL] Tentativo invio notifica Telegram per dispositivo offline: MAC=${dev.mac_address}, IP=${dev.ip_address}, Hostname=${dev.hostname}`);
                 sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
                   hostname: dev.hostname,
                   deviceType: dev.device_type,
@@ -2243,7 +2267,15 @@ module.exports = (pool, io) => {
                   oldStatus: 'online',
                   agentName,
                   aziendaName
-                }).catch(e => console.error('Telegram notification error (All Devices Offline):', e));
+                }).then(result => {
+                  if (result) {
+                    console.log(`✅ [OFFLINE-ALL] Notifica Telegram inviata con successo per MAC=${dev.mac_address}`);
+                  } else {
+                    console.log(`⚠️ [OFFLINE-ALL] Notifica Telegram NON inviata (ritornato false) per MAC=${dev.mac_address} - verifica config.notify_status_changes`);
+                  }
+                }).catch(e => console.error('❌ [OFFLINE-ALL] Telegram notification error (All Devices Offline):', e));
+              } else {
+                console.log(`⏭️ [OFFLINE-ALL] Notifica Telegram saltata: notify_telegram=false per MAC=${dev.mac_address}`);
               }
             }
           }
