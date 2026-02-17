@@ -159,15 +159,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && openAntiVirus,
       onClick: () => handleQuickActionClick('antivirus')
     },
-    {
-      id: 'mappatura',
-      label: 'Mappatura',
-      icon: MapPin,
-      color: 'emerald',
-      visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && !!openMappatura,
-      onClick: () => { if (openMappatura) { openMappatura(); setShowQuickActions(false); setExpandedAction(null); } }
-    },
-    // Per Aziende: Monitoraggio Rete come voce principale (senza sub-menu)
+    // Monitoraggio Rete (sopra Mappatura)
     ...(isCompanyAdmin && currentUser?.ruolo !== 'tecnico' ? [
       {
         id: 'networkMonitoring',
@@ -187,6 +179,14 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
         onClick: () => { if (openNetworkMonitoring) { openNetworkMonitoring(); setShowQuickActions(false); setExpandedAction(null); } }
       }
     ]),
+    {
+      id: 'mappatura',
+      label: 'Mappatura',
+      icon: MapPin,
+      color: 'emerald',
+      visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && !!openMappatura,
+      onClick: () => { if (openMappatura) { openMappatura(); setShowQuickActions(false); setExpandedAction(null); } }
+    },
     // === IMPOSTAZIONI (gruppo per cliente) ===
     {
       id: 'impostazioniCliente',
