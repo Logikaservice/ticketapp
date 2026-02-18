@@ -5888,8 +5888,20 @@ pause
             console.log(`   - device_path attuale: "${device.device_path}"`);
           }
 
-          // Cerca nella mappa KeePass
-          const keepassResult = keepassMap.get(normalizedMac);
+          // Cerca nella mappa KeePass (keepassMap restituisce sempre un array di entry)
+          const keepassEntries = keepassMap.get(normalizedMac);
+
+          // Scegli la entry giusta: preferisci quella il cui path contiene il nome dell'azienda
+          let keepassResult = null;
+          if (Array.isArray(keepassEntries) && keepassEntries.length > 0) {
+            const aziendaNorm = (device.azienda_name || '').trim().toLowerCase();
+            if (aziendaNorm) {
+              keepassResult = keepassEntries.find(e => e.path && e.path.toLowerCase().includes(aziendaNorm))
+                || keepassEntries[keepassEntries.length - 1];
+            } else {
+              keepassResult = keepassEntries[keepassEntries.length - 1];
+            }
+          }
 
           if (keepassResult) {
             // Estrai solo l'ultimo elemento del percorso
