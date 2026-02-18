@@ -673,7 +673,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                                                                     {!device.ip_address?.startsWith('no-ip-') && (
                                                                         <div className="font-medium text-gray-900">{device.ip_address}</div>
                                                                     )}
-                                                                    <div className="text-xs text-gray-500">{device.device_username || device.hostname || device.keepass_path || '-'}</div>
+                                                                    <div className="text-xs text-gray-500">{device.device_username || '-'}</div>
                                                                 </>
                                                             )}
                                                         </td>
