@@ -515,6 +515,17 @@ class KeepassDriveService {
 
       const result = [];
 
+      // Recupera i gruppi figli compatibile con tutte le versioni di kdbxweb
+      const getChildGroups = (g) => {
+        if (!g) return [];
+        const arr = g.groups || g.children || g.subGroups;
+        if (!arr) return [];
+        if (Array.isArray(arr)) return arr;
+        // kdbxweb alcune versioni usa Map o iterabile
+        if (typeof arr[Symbol.iterator] === 'function') return [...arr];
+        return [];
+      };
+
       const findEmailGroup = (group, path = '') => {
         const name = group.name || 'Root';
         const currentPath = path ? `${path} > ${name}` : name;
@@ -536,11 +547,9 @@ class KeepassDriveService {
         if (name.toLowerCase() === 'email' || name.toLowerCase() === 'e-mail') {
           return group;
         }
-        if (group.groups) {
-          for (const sub of group.groups) {
-            const found = findEmailGroup(sub, currentPath);
-            if (found) return found;
-          }
+        for (const sub of getChildGroups(group)) {
+          const found = findEmailGroup(sub, currentPath);
+          if (found) return found;
         }
         return null;
       };
@@ -562,7 +571,6 @@ class KeepassDriveService {
         const title = titleF ? (titleF instanceof ProtectedValue ? titleF.getText() : String(titleF)) : '';
         const username = userF ? (userF instanceof ProtectedValue ? userF.getText() : String(userF)) : '';
         const url = urlF ? (urlF instanceof ProtectedValue ? urlF.getText() : String(urlF)) : '';
-        // Scadenza da KeePass: mostrare solo se l'utente ha attivato "Scadenza" (checkbox expires)
         let expires = null;
         const useExpiry = entry.times && (entry.times.expires === true || entry.times.Expires === true);
         if (useExpiry) {
@@ -595,28 +603,15 @@ class KeepassDriveService {
         };
       };
 
-      // Gerarchia come in KeePass: traversata ricorsiva con depth; supporta groups e children (kdbxweb)
-      const getChildGroups = (g) => {
-        if (!g) return [];
-        const arr = g.groups || g.children || g.subGroups;
-        return Array.isArray(arr) ? arr : [];
-      };
-
       const visitGroup = (group, depth) => {
         const groupName = (group.name || '').trim();
-        const childGroups = getChildGroups(group);
-        const entriesCount = (group.entries || []).length;
-        console.log(`[EmailStructure] ${'  '.repeat(depth)}Gruppo: "${groupName}" (depth=${depth}, entries=${entriesCount}, sottocartelle=${childGroups.length})`);
-        
         result.push({ type: 'divider', name: groupName, level: depth });
         if (group.entries) {
           for (const entry of group.entries) {
-            const item = extractEntry(entry, groupName);
-            result.push({ ...item, level: depth });
+            result.push({ ...extractEntry(entry, groupName), level: depth });
           }
         }
-        for (const child of childGroups) {
-          console.log(`[EmailStructure] ${'  '.repeat(depth)}  -> Sottocartella trovata: "${(child.name || '').trim()}"`);
+        for (const child of getChildGroups(group)) {
           visitGroup(child, depth + 1);
         }
       };
@@ -628,11 +623,8 @@ class KeepassDriveService {
         }
       }
 
-      // 2. Ogni sottocartella di Email (@dominio, poi pec.dominio annidato) con depth reale
-      const topLevelChildren = getChildGroups(emailGroup);
-      console.log(`[EmailStructure] Gruppo Email "${aziendaName}" - Entry dirette: ${(emailGroup.entries || []).length}, Sottocartelle: ${topLevelChildren.length}`);
-      for (const sub of topLevelChildren) {
-        console.log(`[EmailStructure] Sottocartella top-level: "${(sub.name || '').trim()}" (has groups: ${!!(sub.groups)}, has children: ${!!(sub.children)}, groups count: ${(sub.groups || []).length}, children count: ${(sub.children || []).length})`);
+      // 2. Ogni sottocartella di Email, ricorsivamente come in KeePass
+      for (const sub of getChildGroups(emailGroup)) {
         visitGroup(sub, 0);
       }
 
