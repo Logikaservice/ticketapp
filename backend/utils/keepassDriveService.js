@@ -604,6 +604,10 @@ class KeepassDriveService {
 
       const visitGroup = (group, depth) => {
         const groupName = (group.name || '').trim();
+        const childGroups = getChildGroups(group);
+        const entriesCount = (group.entries || []).length;
+        console.log(`[EmailStructure] ${'  '.repeat(depth)}Gruppo: "${groupName}" (depth=${depth}, entries=${entriesCount}, sottocartelle=${childGroups.length})`);
+        
         result.push({ type: 'divider', name: groupName, level: depth });
         if (group.entries) {
           for (const entry of group.entries) {
@@ -611,7 +615,8 @@ class KeepassDriveService {
             result.push({ ...item, level: depth });
           }
         }
-        for (const child of getChildGroups(group)) {
+        for (const child of childGroups) {
+          console.log(`[EmailStructure] ${'  '.repeat(depth)}  -> Sottocartella trovata: "${(child.name || '').trim()}"`);
           visitGroup(child, depth + 1);
         }
       };
@@ -624,7 +629,10 @@ class KeepassDriveService {
       }
 
       // 2. Ogni sottocartella di Email (@dominio, poi pec.dominio annidato) con depth reale
-      for (const sub of getChildGroups(emailGroup)) {
+      const topLevelChildren = getChildGroups(emailGroup);
+      console.log(`[EmailStructure] Gruppo Email "${aziendaName}" - Entry dirette: ${(emailGroup.entries || []).length}, Sottocartelle: ${topLevelChildren.length}`);
+      for (const sub of topLevelChildren) {
+        console.log(`[EmailStructure] Sottocartella top-level: "${(sub.name || '').trim()}" (has groups: ${!!(sub.groups)}, has children: ${!!(sub.children)}, groups count: ${(sub.groups || []).length}, children count: ${(sub.children || []).length})`);
         visitGroup(sub, 0);
       }
 
