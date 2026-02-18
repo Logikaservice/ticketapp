@@ -3118,6 +3118,9 @@ module.exports = (pool, io) => {
               : keepassEntries;
 
             if (keepassResult) {
+              // * a destra del MAC se i dati vengono da un percorso fuori dall'azienda
+              const an = (aziendaName || '').trim().toLowerCase();
+              row.keepass_outside_azienda = !!(an && (!keepassResult.path || !keepassResult.path.toLowerCase().includes(an)));
               // Titolo (in UI = hostname): da KeePass Title — SEMPRE aggiornato
               row.hostname = (keepassResult.title && keepassResult.title.trim()) ? keepassResult.title.trim() : (row.hostname || null);
               // Percorso: ultimo segmento del path KeePass — SEMPRE aggiornato
@@ -3900,6 +3903,8 @@ module.exports = (pool, io) => {
               : keepassEntries;
 
             if (keepassResult) {
+              const rowAzienda = (row.azienda || '').trim().toLowerCase();
+              row.keepass_outside_azienda = !!(rowAzienda && (!keepassResult.path || !keepassResult.path.toLowerCase().includes(rowAzienda)));
               // Titolo, Percorso, Utente — SEMPRE aggiornati
               row.hostname = (keepassResult.title && keepassResult.title.trim()) ? keepassResult.title.trim() : (row.hostname || null);
               const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
@@ -7869,6 +7874,7 @@ pause
               ? (entries.find(e => e.path && e.path.toLowerCase().includes(aziendaName)) || entries[entries.length - 1])
               : entries[entries.length - 1];
             if (entry) {
+              row.keepass_outside_azienda = !!(aziendaName && (!entry.path || !entry.path.toLowerCase().includes(aziendaName)));
               // Nome Utente KeePass (campo Utente come in Monitoraggio)
               if (entry.username && entry.username.trim()) {
                 row.device_username = entry.username.trim();

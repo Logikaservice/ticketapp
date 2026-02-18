@@ -193,12 +193,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       const rowClass = isOffline ? 'offline-row' : (isStatic ? 'static-row' : '');
       // Converti MAC da trattini a due punti
       const macFormatted = device.mac_address ? device.mac_address.replace(/-/g, ':') : '-';
+      const macWithAsterisk = macFormatted + (device.keepass_outside_azienda ? ' *' : '');
 
       return `
                 <tr class="${rowClass}">
                   <td style="text-align: center;">${isStatic ? '☑' : '☐'}</td>
                   <td>${device.ip_address || '-'}</td>
-                  <td>${macFormatted}</td>
+                  <td>${macWithAsterisk}</td>
                   <td>${device.device_path || '-'}</td>
                   <td>${device.hostname || '-'}</td>
                   <td>${device.device_username || '-'}</td>
@@ -2281,8 +2282,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   </div>
                                 )}
 
-                                <span className={newDevicesInList.has(device.id) ? "bg-yellow-100 px-1 rounded font-bold" : ""}>
+                                <span className={newDevicesInList.has(device.id) ? "bg-yellow-100 px-1 rounded font-bold" : ""} title={device.keepass_outside_azienda ? 'Dati da KeePass fuori dal percorso dell\'azienda' : undefined}>
                                   {device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}
+                                  {device.keepass_outside_azienda && <span className="text-amber-600 font-bold" title="Dati da KeePass fuori dal percorso dell'azienda"> *</span>}
                                 </span>
                               </div>
                             </td>
