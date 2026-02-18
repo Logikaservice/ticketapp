@@ -7847,6 +7847,46 @@ pause
         return 0;
       });
 
+      // Arricchimento da KeePass (come Monitoraggio Rete): così l'Utente è sempre popolato anche se non in DB
+      const keepassPassword = process.env.KEEPASS_PASSWORD;
+      if (keepassPassword && sortedDevices.length > 0) {
+        try {
+          let aziendaName = '';
+          const nameRes = await pool.query('SELECT azienda FROM users WHERE id = $1', [parsedAziendaId]);
+          if (nameRes.rows.length > 0 && nameRes.rows[0].azienda) {
+            aziendaName = (nameRes.rows[0].azienda || '').trim().toLowerCase();
+          }
+          const keepassMap = await keepassDriveService.getMacToTitleMap(keepassPassword);
+          for (const row of sortedDevices) {
+            const rawMac = (row.mac_address || '').trim();
+            if (!rawMac) continue;
+            // Rimuovi eventuale suffisso " (2)" dal MAC e normalizza a 12 caratteri esadecimali
+            const normalizedMac = rawMac.replace(/\s*\([0-9]+\)\s*$/i, '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase().slice(0, 12);
+            if (normalizedMac.length !== 12) continue;
+            const entries = keepassMap.get(normalizedMac);
+            if (!Array.isArray(entries) || entries.length === 0) continue;
+            const entry = aziendaName
+              ? (entries.find(e => e.path && e.path.toLowerCase().includes(aziendaName)) || entries[entries.length - 1])
+              : entries[entries.length - 1];
+            if (entry) {
+              // Nome Utente KeePass (campo Utente come in Monitoraggio)
+              if (entry.username && entry.username.trim()) {
+                row.device_username = entry.username.trim();
+              } else if (entry.title && entry.title.trim()) {
+                row.device_username = entry.title.trim();
+              }
+              if (entry.title && entry.title.trim()) row.hostname = entry.title.trim();
+              if (entry.path) {
+                const last = entry.path.split(' > ').pop();
+                if (last && last.trim()) row.keepass_path = last.trim();
+              }
+            }
+          }
+        } catch (kpErr) {
+          console.warn('⚠️ Anti-Virus arricchimento KeePass:', kpErr.message);
+        }
+      }
+
       res.json(sortedDevices);
     } catch (err) {
       console.error('❌ Errore GET antivirus-devices:', err);
