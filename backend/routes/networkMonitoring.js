@@ -2144,6 +2144,32 @@ module.exports = (pool, io) => {
         if (existingDevice) {
           // UPDATE
 
+          // Rilevamento cambio IP per dispositivo statico: imposta previous_ip, inserisce in network_changes, notifica Telegram
+          const oldIp = (existingDevice.ip_address || '').trim();
+          const newIp = (ip_address || '').trim();
+          const isStaticIPChange = existingDevice.is_static === true && oldIp !== '' && newIp !== '' && oldIp !== newIp;
+
+          if (isStaticIPChange) {
+            await pool.query(
+              `INSERT INTO network_changes (device_id, agent_id, change_type, old_value, new_value)
+               VALUES ($1, $2, 'ip_changed', $3, $4)`,
+              [existingDevice.id, agentId, oldIp, newIp]
+            );
+            sendTelegramNotification(agentId, req.agent.azienda_id, 'ip_changed', {
+              hostname: effectiveHostname || existingDevice.hostname,
+              deviceType: deviceTypeFromKeepass || existingDevice.device_type,
+              oldIP: oldIp,
+              newIP: newIp,
+              mac: normalizedMac || existingDevice.mac_address,
+              agentName,
+              aziendaName
+            }).then(result => {
+              if (result) {
+                console.log(`✅ [IP_CHANGED] Notifica Telegram inviata per dispositivo statico MAC=${normalizedMac || existingDevice.mac_address} ${oldIp} → ${newIp}`);
+              }
+            }).catch(e => console.error('❌ [IP_CHANGED] Telegram notification error:', e));
+          }
+
           // Notifica se torna ONLINE (era offline, ora è online) - SOLO se notify_telegram è true
           if (existingDevice.status === 'offline' && (status || 'online') === 'online' && existingDevice.notify_telegram === true) {
             console.log(`📤 [ONLINE] Tentativo invio notifica Telegram per dispositivo online: MAC=${normalizedMac || existingDevice.mac_address}, IP=${ip_address}, Hostname=${effectiveHostname || existingDevice.hostname}, Stato Precedente=offline`);
@@ -2179,9 +2205,10 @@ module.exports = (pool, io) => {
                  device_type = CASE WHEN is_manual_type THEN device_type ELSE COALESCE($8, device_type) END,
                  device_path = COALESCE($9, device_path),
                  additional_ips = $11,
+                 previous_ip = CASE WHEN $12 THEN $13 ELSE previous_ip END,
                  is_new_device = false
                  WHERE id = $10`,
-            [ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass, existingDevice.id, JSON.stringify(additional_ips || [])]
+            [ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass, existingDevice.id, JSON.stringify(additional_ips || []), isStaticIPChange, isStaticIPChange ? oldIp : null]
           );
           deviceResults.push({ action: 'updated', id: existingDevice.id, ip: ip_address });
 

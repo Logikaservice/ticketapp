@@ -2134,9 +2134,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   {device.previous_ip && (
                                     <div className="flex items-center gap-1">
                                       <div className="relative group">
-                                        <AlertTriangle className="w-4 h-4 text-orange-500" />
+                                        <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0" />
                                         <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                                          IP precedente: {device.previous_ip}
+                                          IP cambiato (statico): da {device.previous_ip} a {device.ip_address}
                                         </div>
                                       </div>
                                       <button
@@ -2164,8 +2164,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                             alert(`Errore: ${err.message}`);
                                           }
                                         }}
-                                        className="text-orange-500 hover:text-orange-700 transition-colors"
-                                        title="Rimuovi warning"
+                                        className="text-orange-500 hover:text-orange-700 transition-colors shrink-0"
+                                        title="Accetta nuovo IP"
                                       >
                                         <X className="w-3 h-3" />
                                       </button>
@@ -2202,6 +2202,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                     {device.ip_address}
                                   </span>
                                 </div>
+                                {device.previous_ip && (
+                                  <div className="text-xs text-orange-600 font-mono">
+                                    era {device.previous_ip}
+                                  </div>
+                                )}
                                 {/* IP aggiuntivi (multihoming/bridge) */}
                                 {(device.additional_ips ? (Array.isArray(device.additional_ips) ? device.additional_ips : JSON.parse(device.additional_ips || '[]')) : [])
                                   .filter(ip => ip !== device.ip_address) // Evita duplicati se presente anche qui
@@ -2513,7 +2518,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   border: 'border-red-300'
                                 },
                                 ip_changed: {
-                                  label: 'IP Cambiato',
+                                  label: 'IP Cambiato (Statico)',
                                   bg: 'bg-orange-100',
                                   text: 'text-orange-800',
                                   border: 'border-orange-300'
