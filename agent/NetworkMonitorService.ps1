@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.6.16
+# Versione: 2.6.17
 # Data ultima modifica: 2026-02-14
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.6.16"
+$SCRIPT_VERSION = "2.6.17"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -647,6 +647,75 @@ function Invoke-RouterWifiFetchAndReport {
     }
     catch {
         Write-Log "Invio risultato Router WiFi fallito: $_" "WARN"
+    }
+}
+
+# Esegue test ping + porte in locale (Analisi dispositivo - IP privati delegati all'agent) e invia risultato al server
+function Invoke-DeviceTestTask {
+    param(
+        [string]$TaskId,
+        [string]$TargetIp,
+        [int[]]$Ports,
+        [string]$Profile,
+        [string]$ProfileLabel,
+        [string]$DeviceType,
+        [string]$ServerUrl,
+        [string]$ApiKey
+    )
+    $pingResult = @{ ok = $false; packetLoss = 100; avgMs = $null; error = $null }
+    $portsMap = @{}
+    if (-not $Ports) { $Ports = @(80, 443, 22, 8080) }
+    foreach ($p in $Ports) { $portsMap["$p"] = $false }
+    $errMsg = $null
+    try {
+        Write-Log "Device test: ping e porte verso $TargetIp (task $TaskId)" "INFO"
+        $count = 10
+        $pings = Test-Connection -ComputerName $TargetIp -Count $count -ErrorAction SilentlyContinue
+        $received = @($pings).Count
+        $packetLoss = [math]::Round((($count - $received) / $count) * 100)
+        $avgMs = $null
+        if ($pings -and $pings.Count -gt 0) {
+            $pingResult.ok = $true
+            $pingResult.packetLoss = $packetLoss
+            $avgMs = ($pings | Measure-Object -Property ResponseTime -Average -ErrorAction SilentlyContinue).Average
+            if ($null -ne $avgMs) { $pingResult.avgMs = [int]$avgMs }
+        }
+        else {
+            $pingResult.error = "Ping fallito o nessuna risposta"
+        }
+        foreach ($port in $Ports) {
+            $open = $false
+            try {
+                $t = Test-NetConnection -ComputerName $TargetIp -Port $port -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+                if ($t -and $t.TcpTestSucceeded -eq $true) { $open = $true }
+            }
+            catch { }
+            $portsMap["$port"] = $open
+        }
+    }
+    catch {
+        $errMsg = $_.Exception.Message
+        Write-Log "Device test errore: $errMsg" "WARN"
+    }
+    $resultUrl = "$ServerUrl/api/network-monitoring/agent/device-test-result"
+    $bodyObj = @{
+        task_id = $TaskId
+        success = ($null -eq $errMsg)
+        ping = $pingResult
+        ports = $portsMap
+        profile = $Profile
+        profileLabel = $ProfileLabel
+        device_type = $DeviceType
+        error = $errMsg
+    }
+    $body = $bodyObj | ConvertTo-Json -Depth 4
+    $h = @{ "Content-Type" = "application/json"; "X-API-Key" = $ApiKey }
+    try {
+        Invoke-RestMethod -Uri $resultUrl -Method POST -Headers $h -Body $body -TimeoutSec 15 -ErrorAction Stop | Out-Null
+        Write-Log "Risultato device test inviato (task $TaskId)" "INFO"
+    }
+    catch {
+        Write-Log "Invio risultato device test fallito: $_" "WARN"
     }
 }
 
@@ -2508,7 +2577,7 @@ function Send-Heartbeat {
         # Sincronizza configurazione (include intervallo e range reti)
         $serverConfigResult = Sync-ConfigFromServer -ServerUrl $ServerUrl -ApiKey $ApiKey
         
-        return @{ success = $true; uninstall = $false; config = $serverConfigResult.config; pending_unifi_test = $pendingUnifi; pending_router_wifi_task = $response.pending_router_wifi_task }
+        return @{ success = $true; uninstall = $false; config = $serverConfigResult.config; pending_unifi_test = $pendingUnifi; pending_router_wifi_task = $response.pending_router_wifi_task; pending_device_test_task = $response.pending_device_test_task }
     }
     catch {
         Write-Log "Errore heartbeat: $_" "WARN"
@@ -2926,6 +2995,15 @@ while ($script:isRunning) {
                         }
                         catch {
                             Write-Log "Errore recupero dispositivi WiFi da router: $_" "WARN"
+                        }
+                    }
+                    if ($heartbeatResult.pending_device_test_task) {
+                        $pdt = $heartbeatResult.pending_device_test_task
+                        try {
+                            Invoke-DeviceTestTask -TaskId $pdt.task_id -TargetIp $pdt.ip -Ports $pdt.ports -Profile $pdt.profile -ProfileLabel $pdt.profileLabel -DeviceType $pdt.device_type -ServerUrl $config.server_url -ApiKey $config.api_key
+                        }
+                        catch {
+                            Write-Log "Errore test dispositivo (ping/porte): $_" "WARN"
                         }
                     }
                 }

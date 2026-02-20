@@ -61,6 +61,37 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
       });
       if (!res.ok) throw new Error('Test falliti');
       const json = await res.json();
+      if (json.deferred && json.task_id) {
+        const taskId = json.task_id;
+        const deadline = Date.now() + 120000;
+        const poll = async () => {
+          if (Date.now() > deadline) {
+            setTests({ error: "Timeout: l'agent non ha completato i test in tempo. Verifica che l'agent sia attivo sulla rete del cliente." });
+            setTestsLoading(false);
+            return;
+          }
+          try {
+            const r = await fetch(buildApiUrl(`/api/network-monitoring/device-test-result/${taskId}`), { headers: getAuthHeader() });
+            const data = await r.json();
+            if (data.status !== 'pending') {
+              setTests({
+                ping: data.ping ?? null,
+                ports: data.ports ?? null,
+                profile: data.profile ?? null,
+                profileLabel: data.profileLabel ?? null,
+                device_type: data.device_type ?? null,
+                error: data.error ?? null,
+                _deferred: true
+              });
+              setTestsLoading(false);
+              return;
+            }
+          } catch (_) { /* ignore */ }
+          setTimeout(poll, 2500);
+        };
+        setTimeout(poll, 2500);
+        return;
+      }
       setTests(json);
     } catch (e) {
       setTests({ error: e.message });
@@ -173,7 +204,7 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                   Test remoti
                 </h3>
                 <p className="text-xs text-gray-500 mb-3">
-                  Ping e verifica porte. I test si adattano al tipo dispositivo: <strong>antenna/switch/router</strong> → porte gestione (80, 443, 22, 8080); <strong>PC/server</strong> → 80, 443, 445, 3389, 22, 21. Eseguiti dal server: se l&apos;IP è privato e il server è in cloud, il ping può fallire.
+                  Ping e verifica porte. I test si adattano al tipo dispositivo: <strong>antenna/switch/router</strong> → porte gestione (80, 443, 22, 8080); <strong>PC/server</strong> → 80, 443, 445, 3389, 22, 21. Per <strong>IP privati</strong> (192.168.x, 10.x) i test vengono eseguiti dall&apos;<strong>agent in locale</strong> (rete del cliente), così funzionano anche con server in cloud.
                 </p>
                 <button
                   type="button"
@@ -186,6 +217,9 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                 </button>
                 {tests?.error && (
                   <div className="mt-3 text-sm text-red-600">{tests.error}</div>
+                )}
+                {tests && tests._deferred && (
+                  <div className="mt-2 text-xs text-green-600">Test eseguiti dall&apos;agent in locale (rete del cliente).</div>
                 )}
                 {tests && !tests.error && (
                   <>

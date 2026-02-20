@@ -23,6 +23,8 @@ module.exports = (pool, io) => {
   // Mappe per richiesta dispositivi WiFi da router (AGCOMBO etc.) - delegata all'agent
   const pendingRouterWifiTasks = new Map(); // agentId -> { task_id, router_ip, username, password, router_model, device_id, created_at }
   const routerWifiResults = new Map();      // task_id -> { success, devices: [], error, at }
+  const pendingDeviceTestTasks = new Map(); // agentId -> { task_id, device_id, ip, ports, profile, profileLabel, device_type }
+  const deviceTestResults = new Map();     // task_id -> { status: 'ok'|'error', ping, ports, profile, profileLabel, device_type, error?, at }
 
   // Funzione helper per inizializzare le tabelle se non esistono
   const initTables = async () => {
@@ -1241,6 +1243,10 @@ module.exports = (pool, io) => {
       if (pendingRouterWifiTasks.has(agentId)) {
         tasks.push(pendingRouterWifiTasks.get(agentId));
         pendingRouterWifiTasks.delete(agentId);
+      }
+      if (pendingDeviceTestTasks.has(agentId)) {
+        resp.pending_device_test_task = pendingDeviceTestTasks.get(agentId);
+        pendingDeviceTestTasks.delete(agentId);
       }
 
       // 2. AUTO-CREATION: Cerca altri device da aggiornare (fino a 5 per volta)
@@ -5704,12 +5710,14 @@ pause
   const PORTS_NETWORK = [80, 443, 22, 8080];   // Web UI, HTTPS, SSH, altra Web UI (Ubiquiti, switch, ecc.)
   const PORTS_PC = [80, 443, 445, 3389, 22, 21]; // Web, HTTPS, SMB, RDP, SSH, FTP
 
+  const isPrivateIp = (ipStr) => /^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test((ipStr || '').trim());
+
   router.post('/device-analysis/:deviceId/run-tests', authenticateToken, async (req, res) => {
     try {
       const deviceId = parseInt(req.params.deviceId, 10);
       if (isNaN(deviceId)) return res.status(400).json({ error: 'deviceId non valido' });
 
-      const dev = await pool.query('SELECT id, ip_address, device_type FROM network_devices WHERE id = $1', [deviceId]);
+      const dev = await pool.query('SELECT id, ip_address, device_type, agent_id FROM network_devices WHERE id = $1', [deviceId]);
       if (dev.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato' });
       const ip = (dev.rows[0].ip_address || '').trim();
       if (!ip) return res.status(400).json({ error: 'Dispositivo senza IP' });
@@ -5721,6 +5729,26 @@ pause
       const profileLabel = isNetworkDevice
         ? 'Dispositivo di rete (antenna/switch/router): porte gestione 80, 443, 22, 8080'
         : 'PC/server: porte 80, 443, 445, 3389, 22, 21';
+
+      const agentId = dev.rows[0].agent_id;
+      if (isPrivateIp(ip) && agentId) {
+        const taskId = 'dt-' + Date.now() + '-' + require('crypto').randomBytes(4).toString('hex');
+        pendingDeviceTestTasks.set(agentId, {
+          task_id: taskId,
+          device_id: deviceId,
+          ip,
+          ports: [...ports],
+          profile,
+          profileLabel,
+          device_type: dev.rows[0].device_type || null
+        });
+        console.log(`📡 Device test: task ${taskId} delegato all'agent ${agentId} per IP privato ${ip}`);
+        return res.json({
+          deferred: true,
+          task_id: taskId,
+          message: "L'agent eseguirà i test in locale (rete del cliente). Attendi qualche secondo e aggiorna."
+        });
+      }
 
       const { exec } = require('child_process');
       const net = require('net');
@@ -5765,6 +5793,21 @@ pause
       console.error('❌ Errore run-tests:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
+  });
+
+  router.get('/device-test-result/:taskId', authenticateToken, async (req, res) => {
+    const r = deviceTestResults.get(req.params.taskId);
+    if (!r) return res.json({ status: 'pending' });
+    res.json({ status: r.status, ping: r.ping, ports: r.ports, profile: r.profile, profileLabel: r.profileLabel, device_type: r.device_type, error: r.error });
+  });
+
+  router.post('/agent/device-test-result', authenticateAgent, async (req, res) => {
+    const { task_id, success, ping, ports, profile, profileLabel, device_type, error: errMsg } = req.body || {};
+    if (!task_id) return res.status(400).json({ error: 'task_id richiesto' });
+    const status = success ? 'ok' : 'error';
+    deviceTestResults.set(task_id, { status, ping: ping || null, ports: ports || null, profile: profile || null, profileLabel: profileLabel || null, device_type: device_type || null, error: errMsg || null, at: Date.now() });
+    console.log(`📡 Device test result: task ${task_id} -> ${status}`);
+    res.json({ success: true });
   });
 
   // PATCH /api/network-monitoring/devices/:id/type
