@@ -4202,13 +4202,14 @@ module.exports = (pool, io) => {
         WHERE 1=1
       `;
 
-      // Query per eventi agent (network_agent_events)
+      // Query per eventi agent (network_agent_events) - stesse colonne della query device (incluso device_id per UNION)
       const agentEventsQuery = `
         SELECT 
           'agent' as event_category,
           nae.id,
           nae.event_type,
           nae.detected_at,
+          NULL::integer as device_id,
           NULL as ip_address,
           NULL as mac_address,
           NULL as hostname,
