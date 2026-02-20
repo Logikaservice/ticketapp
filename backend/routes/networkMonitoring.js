@@ -5699,16 +5699,28 @@ pause
   });
 
   // POST /api/network-monitoring/device-analysis/:deviceId/run-tests
-  // Esegue test remoti: ping esteso e verifica porte comuni
+  // Esegue test remoti: ping + porte. Porte scelte in base al tipo dispositivo (rete vs PC/server).
+  const NETWORK_DEVICE_TYPES = ['wifi', 'router', 'switch', 'firewall', 'nas', 'access_point', 'antenna', 'unifi', 'ap'];
+  const PORTS_NETWORK = [80, 443, 22, 8080];   // Web UI, HTTPS, SSH, altra Web UI (Ubiquiti, switch, ecc.)
+  const PORTS_PC = [80, 443, 445, 3389, 22, 21]; // Web, HTTPS, SMB, RDP, SSH, FTP
+
   router.post('/device-analysis/:deviceId/run-tests', authenticateToken, async (req, res) => {
     try {
       const deviceId = parseInt(req.params.deviceId, 10);
       if (isNaN(deviceId)) return res.status(400).json({ error: 'deviceId non valido' });
 
-      const dev = await pool.query('SELECT id, ip_address FROM network_devices WHERE id = $1', [deviceId]);
+      const dev = await pool.query('SELECT id, ip_address, device_type FROM network_devices WHERE id = $1', [deviceId]);
       if (dev.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato' });
       const ip = (dev.rows[0].ip_address || '').trim();
       if (!ip) return res.status(400).json({ error: 'Dispositivo senza IP' });
+
+      const deviceType = (dev.rows[0].device_type || '').toLowerCase().trim();
+      const isNetworkDevice = NETWORK_DEVICE_TYPES.some(t => deviceType.includes(t));
+      const ports = isNetworkDevice ? PORTS_NETWORK : PORTS_PC;
+      const profile = isNetworkDevice ? 'network' : 'pc';
+      const profileLabel = isNetworkDevice
+        ? 'Dispositivo di rete (antenna/switch/router): porte gestione 80, 443, 22, 8080'
+        : 'PC/server: porte 80, 443, 445, 3389, 22, 21';
 
       const { exec } = require('child_process');
       const net = require('net');
@@ -5728,7 +5740,6 @@ pause
         });
       });
 
-      const ports = [80, 443, 445, 3389, 22, 21];
       const checkPort = (host, port) => new Promise((resolve) => {
         const s = net.createConnection({ host, port, timeout: 3000 }, () => { s.destroy(); resolve({ port, open: true }); });
         s.on('error', () => resolve({ port, open: false }));
@@ -5745,7 +5756,10 @@ pause
 
       res.json({
         ping: pingResult,
-        ports: portsMap
+        ports: portsMap,
+        profile,
+        profileLabel,
+        device_type: dev.rows[0].device_type || null
       });
     } catch (err) {
       console.error('❌ Errore run-tests:', err);

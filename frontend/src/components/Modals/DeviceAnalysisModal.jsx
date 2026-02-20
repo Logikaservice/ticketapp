@@ -173,7 +173,7 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                   Test remoti
                 </h3>
                 <p className="text-xs text-gray-500 mb-3">
-                  Ping e verifica porte comuni (80, 443, 445, 3389, 22, 21). Eseguiti dal server: se l&apos;IP è privato e il server è in cloud, il ping può fallire.
+                  Ping e verifica porte. I test si adattano al tipo dispositivo: <strong>antenna/switch/router</strong> → porte gestione (80, 443, 22, 8080); <strong>PC/server</strong> → 80, 443, 445, 3389, 22, 21. Eseguiti dal server: se l&apos;IP è privato e il server è in cloud, il ping può fallire.
                 </p>
                 <button
                   type="button"
@@ -188,9 +188,15 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                   <div className="mt-3 text-sm text-red-600">{tests.error}</div>
                 )}
                 {tests && !tests.error && (
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <div className="text-xs font-medium text-gray-500 mb-2">Ping</div>
+                  <>
+                    {tests.profileLabel && (
+                      <div className="mt-3 text-xs text-blue-700 bg-blue-50 rounded px-3 py-2">
+                        Profilo usato: {tests.profileLabel}
+                      </div>
+                    )}
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="text-xs font-medium text-gray-500 mb-2">Ping</div>
                       {tests.ping?.ok ? (
                         <div className="flex items-center gap-2 text-sm">
                           <CheckCircle className="w-4 h-4 text-green-600" />
@@ -204,20 +210,21 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                         </div>
                       )}
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <div className="text-xs font-medium text-gray-500 mb-2">Porte</div>
-                      <div className="flex flex-wrap gap-2">
-                        {tests.ports && Object.entries(tests.ports).map(([port, open]) => (
-                          <span
-                            key={port}
-                            className={`px-2 py-0.5 rounded text-xs ${open ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}
-                          >
-                            {port} {open ? '✓' : '✗'}
-                          </span>
-                        ))}
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="text-xs font-medium text-gray-500 mb-2">Porte</div>
+                        <div className="flex flex-wrap gap-2">
+                          {tests.ports && Object.entries(tests.ports).map(([port, open]) => (
+                            <span
+                              key={port}
+                              className={`px-2 py-0.5 rounded text-xs ${open ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}
+                            >
+                              {port} {open ? '✓' : '✗'}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </>
                 )}
               </section>
 
