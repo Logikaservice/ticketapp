@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw,
+    ZoomIn, ZoomOut, Maximize, Loader, Server, RotateCw, RefreshCw,
     Monitor, Printer, Wifi, Router, X, Trash2, Link2, Link2Off, Network,
     Smartphone, Tablet, Laptop, Camera, Tv, Watch, Phone, Database, Cloud, Globe, List,
     Layers, HardDrive, Shield, RadioTower, Speaker, Circle, Lock, Unlock, Key, CheckCircle, AlertTriangle, ChevronDown, ChevronUp, PhoneCall
@@ -2397,8 +2397,18 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 <option value="Altro">Altro</option>
                                             </select>
                                             {(display.details?.router_model) && (
-                                                <div className="flex flex-col gap-1">
-                                                    <div className="text-xs text-gray-500 mt-1 italic">Gestione AP/Cloud Key</div>
+                                                <div className="flex flex-col gap-2 mt-2">
+                                                    <div className="text-xs text-gray-500 italic">Come su switch Mercurio: leggi i dispositivi collegati dal controller.</div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => startRouterWifiAnalysis(display)}
+                                                        disabled={routerWifiLoading || !display.details?.agent_id}
+                                                        className="w-full py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 font-medium text-sm flex items-center justify-center gap-2"
+                                                    >
+                                                        {routerWifiLoading ? <Loader size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                                                        Carica AP collegati
+                                                    </button>
+                                                    <p className="text-xs text-gray-400">Serve: credenziali UniFi (agent o KeePass) e agent sulla stessa rete del Cloud Key.</p>
                                                 </div>
                                             )}
 
