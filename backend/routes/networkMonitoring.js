@@ -4157,6 +4157,7 @@ module.exports = (pool, io) => {
           nc.id,
           nc.change_type as event_type,
           nc.detected_at,
+          nd.id as device_id,
           nd.ip_address,
           nd.mac_address,
           nd.hostname,
@@ -5571,6 +5572,182 @@ pause
       res.json(result.rows[0]);
     } catch (err) {
       console.error('❌ Errore reset warning:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/device-analysis/:deviceId
+  // Analisi dispositivo: overview, timeline, pattern, confronto con dispositivi simili
+  router.get('/device-analysis/:deviceId', authenticateToken, async (req, res) => {
+    try {
+      await ensureTables();
+      const deviceId = parseInt(req.params.deviceId, 10);
+      if (isNaN(deviceId)) return res.status(400).json({ error: 'deviceId non valido' });
+
+      const days = Math.min(parseInt(req.query.days, 10) || 30, 90);
+
+      const deviceRow = await pool.query(
+        `SELECT nd.id, nd.ip_address, nd.mac_address, nd.hostname, nd.vendor, nd.device_type, nd.status,
+                nd.has_ping_failures, nd.ping_responsive, nd.agent_id, nd.last_seen,
+                na.agent_name, na.azienda_id, u.azienda as azienda_name
+         FROM network_devices nd
+         INNER JOIN network_agents na ON nd.agent_id = na.id
+         LEFT JOIN users u ON na.azienda_id = u.id
+         WHERE nd.id = $1`,
+        [deviceId]
+      );
+      if (deviceRow.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato' });
+      const device = deviceRow.rows[0];
+
+      const [eventsResult, patternResult, sameNetworkResult, similarResult] = await Promise.all([
+        pool.query(
+          `SELECT change_type, detected_at, old_value, new_value
+           FROM network_changes
+           WHERE device_id = $1 AND detected_at >= NOW() - INTERVAL '1 day' * $2
+           ORDER BY detected_at ASC`,
+          [deviceId, days]
+        ),
+        pool.query(
+          `SELECT date_trunc('hour', detected_at) AS hour, change_type, COUNT(*) AS cnt
+           FROM network_changes
+           WHERE device_id = $1 AND detected_at >= NOW() - INTERVAL '1 day' * $2
+           GROUP BY date_trunc('hour', detected_at), change_type
+           ORDER BY hour ASC`,
+          [deviceId, days]
+        ),
+        pool.query(
+          `SELECT nd.id, nd.ip_address, nd.hostname, nd.has_ping_failures,
+                  (SELECT COUNT(*) FROM network_changes nc WHERE nc.device_id = nd.id AND nc.change_type = 'device_offline' AND nc.detected_at >= NOW() - INTERVAL '1 day' * $2) AS offline_count
+           FROM network_devices nd
+           WHERE nd.agent_id = $1 AND nd.id != $3
+             AND ((SELECT COUNT(*) FROM network_changes nc WHERE nc.device_id = nd.id AND nc.change_type = 'device_offline' AND nc.detected_at >= NOW() - INTERVAL '1 day' * $2) > 0 OR nd.has_ping_failures = true)
+           ORDER BY offline_count DESC NULLS LAST
+           LIMIT 20`,
+          [device.agent_id, days, deviceId]
+        ),
+        pool.query(
+          `SELECT nd.device_type, COUNT(DISTINCT nd.id) AS device_count,
+                  SUM((SELECT COUNT(*) FROM network_changes nc WHERE nc.device_id = nd.id AND nc.change_type = 'device_offline' AND nc.detected_at >= NOW() - INTERVAL '1 day' * $2)) AS total_offlines
+           FROM network_devices nd
+           WHERE nd.agent_id = $1 AND nd.id != $4 AND nd.device_type IS NOT NULL AND nd.device_type = $3
+           GROUP BY nd.device_type`,
+          [device.agent_id, days, device.device_type || '', deviceId]
+        )
+      ]);
+
+      const offlineCount = eventsResult.rows.filter(r => r.change_type === 'device_offline').length;
+      const onlineCount = eventsResult.rows.filter(r => r.change_type === 'device_online' || r.change_type === 'new_device').length;
+      const totalEvents = eventsResult.rows.length;
+      const uptimePct = totalEvents === 0 ? 100 : Math.max(0, 100 - (offlineCount / Math.max(1, offlineCount + onlineCount)) * 100);
+      const healthScore = Math.round(Math.min(100, uptimePct - (device.has_ping_failures ? 15 : 0) - offlineCount * 2));
+
+      const byHour = {};
+      patternResult.rows.forEach(r => {
+        const h = r.hour ? new Date(r.hour).getHours() : 0;
+        if (!byHour[h]) byHour[h] = { offline: 0, online: 0 };
+        if (r.change_type === 'device_offline') byHour[h].offline += parseInt(r.cnt, 10);
+        else byHour[h].online += parseInt(r.cnt, 10);
+      });
+      const patternByHour = Array.from({ length: 24 }, (_, h) => ({ hour: h, offline: (byHour[h] && byHour[h].offline) || 0, online: (byHour[h] && byHour[h].online) || 0 }));
+
+      const similarAgg = similarResult.rows[0];
+      const avgOfflinesSimilar = similarAgg && similarAgg.device_count > 0
+        ? Math.round((similarAgg.total_offlines || 0) / similarAgg.device_count)
+        : 0;
+
+      res.json({
+        device: {
+          id: device.id,
+          ip_address: device.ip_address,
+          mac_address: device.mac_address,
+          hostname: device.hostname,
+          vendor: device.vendor,
+          device_type: device.device_type,
+          status: device.status,
+          has_ping_failures: device.has_ping_failures,
+          ping_responsive: device.ping_responsive,
+          agent_name: device.agent_name,
+          azienda_name: device.azienda_name,
+          last_seen: device.last_seen
+        },
+        period_days: days,
+        timeline: eventsResult.rows,
+        health: {
+          health_score: Math.max(0, healthScore),
+          uptime_pct: Math.round(uptimePct * 10) / 10,
+          offline_events: offlineCount,
+          online_events: onlineCount
+        },
+        pattern: { by_hour: patternByHour },
+        same_network_issues: sameNetworkResult.rows,
+        comparison: {
+          same_type_count: similarAgg ? similarAgg.device_count : 0,
+          same_type_avg_offlines: avgOfflinesSimilar,
+          this_device_offlines: offlineCount,
+          suggestion: offlineCount > avgOfflinesSimilar * 2 && avgOfflinesSimilar >= 0
+            ? 'Questo dispositivo ha molte più disconnessioni della media dei dispositivi simili sulla stessa rete. Verificare cablaggio, driver scheda di rete o alimentazione.'
+            : offlineCount > 0 && sameNetworkResult.rows.length > 2
+              ? 'Più dispositivi sulla stessa rete hanno problemi: possibile causa di rete (switch/DHCP/router).'
+              : null
+        }
+      });
+    } catch (err) {
+      console.error('❌ Errore device-analysis:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // POST /api/network-monitoring/device-analysis/:deviceId/run-tests
+  // Esegue test remoti: ping esteso e verifica porte comuni
+  router.post('/device-analysis/:deviceId/run-tests', authenticateToken, async (req, res) => {
+    try {
+      const deviceId = parseInt(req.params.deviceId, 10);
+      if (isNaN(deviceId)) return res.status(400).json({ error: 'deviceId non valido' });
+
+      const dev = await pool.query('SELECT id, ip_address FROM network_devices WHERE id = $1', [deviceId]);
+      if (dev.rows.length === 0) return res.status(404).json({ error: 'Dispositivo non trovato' });
+      const ip = (dev.rows[0].ip_address || '').trim();
+      if (!ip) return res.status(400).json({ error: 'Dispositivo senza IP' });
+
+      const { exec } = require('child_process');
+      const net = require('net');
+
+      const pingCount = process.platform === 'win32' ? 10 : 10;
+      const pingCmd = process.platform === 'win32' ? `ping -n ${pingCount} ${ip}` : `ping -c ${pingCount} ${ip}`;
+
+      const runPing = () => new Promise((resolve) => {
+        exec(pingCmd, { timeout: 15000 }, (err, stdout) => {
+          if (err) return resolve({ ok: false, error: err.message, packetLoss: 100, avgMs: null });
+          const out = (stdout || '').toString();
+          const lossMatch = out.match(/(\d+)%?\s*loss|Lost\s*=\s*\d+\s*\((\d+)%\)|packet loss[^\d]*(\d+)/i);
+          const rttMatch = out.match(/Average\s*=\s*(\d+)ms|avg[^\d]*(\d+)/i) || out.match(/(\d+)\s*ms\s*TTL/);
+          const packetLoss = lossMatch ? parseInt(lossMatch[1] || lossMatch[2] || lossMatch[3], 10) : 0;
+          const avgMs = rttMatch ? parseInt(rttMatch[1] || rttMatch[2], 10) : null;
+          resolve({ ok: true, packetLoss, avgMs });
+        });
+      });
+
+      const ports = [80, 443, 445, 3389, 22, 21];
+      const checkPort = (host, port) => new Promise((resolve) => {
+        const s = net.createConnection({ host, port, timeout: 3000 }, () => { s.destroy(); resolve({ port, open: true }); });
+        s.on('error', () => resolve({ port, open: false }));
+        s.setTimeout(3000, () => { s.destroy(); resolve({ port, open: false }); });
+      });
+
+      const [pingResult, ...portResults] = await Promise.all([
+        runPing(),
+        ...ports.map(p => checkPort(ip, p))
+      ]);
+
+      const portsMap = {};
+      portResults.forEach(r => { if (r && r.port !== undefined) portsMap[r.port] = r.open; });
+
+      res.json({
+        ping: pingResult,
+        ports: portsMap
+      });
+    } catch (err) {
+      console.error('❌ Errore run-tests:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });

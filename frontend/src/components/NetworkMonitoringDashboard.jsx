@@ -20,6 +20,7 @@ import TelegramConfigSection from './TelegramConfigSection';
 import { EventBadge, SeverityIndicator } from './EventBadges';
 import MonitoraggioIntroCard from './MonitoraggioIntroCard';
 import SectionNavMenu from './SectionNavMenu';
+import DeviceAnalysisModal from './Modals/DeviceAnalysisModal';
 
 const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
   const [devices, setDevices] = useState([]);
@@ -67,6 +68,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [selectedDeviceForSchedule, setSelectedDeviceForSchedule] = useState(null);
   const [showEditAgentModal, setShowEditAgentModal] = useState(false);
   const [selectedAgentForEdit, setSelectedAgentForEdit] = useState(null);
+  const [showDeviceAnalysisModal, setShowDeviceAnalysisModal] = useState(false);
+  const [deviceAnalysisDeviceId, setDeviceAnalysisDeviceId] = useState(null);
+  const [deviceAnalysisLabel, setDeviceAnalysisLabel] = useState('');
   // selectedStaticIPs non serve più, usiamo is_static dal database
   const seenMacAddressesRef = useRef(new Set());
   const [newDevicesInList, setNewDevicesInList] = useState(new Set());
@@ -1092,21 +1096,22 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     return title.slice(0, MAX_TITLE_LENGTH_VIRTUAL) + '…';
   };
 
-  // Gestisce il click sull'IP per mostrare il menu contestuale
-  const handleIpClick = (e, ip) => {
+  // Gestisce il click sull'IP per mostrare il menu contestuale (deviceOrChange = dispositivo dalla tabella o change da Cambiamenti, per avere id/device_id)
+  const handleIpClick = (e, ip, deviceOrChange) => {
     e.preventDefault();
     e.stopPropagation();
     setIpContextMenu({
       show: true,
       ip: ip,
       x: e.clientX,
-      y: e.clientY
+      y: e.clientY,
+      device: deviceOrChange || null
     });
   };
 
   // Chiude il menu contestuale
   const closeIpContextMenu = () => {
-    setIpContextMenu({ show: false, ip: '', x: 0, y: 0 });
+    setIpContextMenu({ show: false, ip: '', x: 0, y: 0, device: null });
   };
 
   // Apre PowerShell/CMD con comando ping direttamente
@@ -2195,7 +2200,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   )}
 
                                   <span
-                                    onClick={(e) => handleIpClick(e, device.ip_address)}
+                                    onClick={(e) => handleIpClick(e, device.ip_address, device)}
                                     className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
                                     title="Clicca per opzioni"
                                   >
@@ -2214,7 +2219,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                     <div key={ip} className="flex items-center gap-2 pl-0">
                                       <span className="text-gray-300 text-xs">↳</span>
                                       <span
-                                        onClick={(e) => handleIpClick(e, ip)}
+                                        onClick={(e) => handleIpClick(e, ip, device)}
                                         className="text-sm cursor-pointer text-gray-500 hover:text-blue-600 hover:underline transition-colors"
                                         title="IP Secondario (stesso MAC Address)"
                                       >
@@ -2356,8 +2361,34 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 <MonitorSmartphone size={16} />
                 Desktop Remoto
               </button>
+              {(ipContextMenu.device?.id || ipContextMenu.device?.device_id) && (
+                <button
+                  onClick={() => {
+                    const id = ipContextMenu.device?.id || ipContextMenu.device?.device_id;
+                    const label = ipContextMenu.device?.hostname || ipContextMenu.device?.ip_address || ipContextMenu.ip;
+                    setDeviceAnalysisDeviceId(id);
+                    setDeviceAnalysisLabel(label ? `${label} (${ipContextMenu.ip})` : ipContextMenu.ip);
+                    setShowDeviceAnalysisModal(true);
+                    closeIpContextMenu();
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors"
+                >
+                  <Activity size={16} />
+                  Analisi dispositivo
+                </button>
+              )}
             </div>
           </>
+        )}
+
+        {showDeviceAnalysisModal && (
+          <DeviceAnalysisModal
+            isOpen={showDeviceAnalysisModal}
+            onClose={() => setShowDeviceAnalysisModal(false)}
+            deviceId={deviceAnalysisDeviceId}
+            deviceLabel={deviceAnalysisLabel}
+            getAuthHeader={getAuthHeader}
+          />
         )}
 
         {/* Sezione eventi unificati (dispositivi + agent): nascosta se cliente senza agent */}
@@ -2598,7 +2629,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 {/* IP Address */}
                                 {change.ip_address ? (
                                   <span
-                                    onClick={(e) => handleIpClick(e, change.ip_address)}
+                                    onClick={(e) => handleIpClick(e, change.ip_address, change)}
                                     className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
                                     title="Clicca per opzioni"
                                   >
