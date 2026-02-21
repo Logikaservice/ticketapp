@@ -22,6 +22,7 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
   const [error, setError] = useState(null);
   const [tests, setTests] = useState(null);
   const [testsLoading, setTestsLoading] = useState(false);
+  const [testsWaitingAgent, setTestsWaitingAgent] = useState(false); // true quando in attesa dell'agent (IP privato)
   const [periodDays, setPeriodDays] = useState(30);
 
   const fetchAnalysis = useCallback(async () => {
@@ -53,6 +54,7 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
   const runTests = async () => {
     if (!deviceId) return;
     setTestsLoading(true);
+    setTestsWaitingAgent(false);
     setTests(null);
     try {
       const res = await fetch(buildApiUrl(`/api/network-monitoring/device-analysis/${deviceId}/run-tests`), {
@@ -63,10 +65,13 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
       const json = await res.json();
       if (json.deferred && json.task_id) {
         const taskId = json.task_id;
-        const deadline = Date.now() + 120000;
+        setTestsWaitingAgent(true);
+        // L'agent riceve il task al prossimo heartbeat (ogni ~5 min): aspettiamo fino a 7 minuti
+        const deadline = Date.now() + 7 * 60 * 1000;
         const poll = async () => {
           if (Date.now() > deadline) {
-            setTests({ error: "Timeout: l'agent non ha completato i test in tempo. Verifica che l'agent sia attivo sulla rete del cliente." });
+            setTestsWaitingAgent(false);
+            setTests({ error: "Timeout: l'agent non ha completato i test in tempo. Verifica che l'agent sia attivo sulla rete del cliente e riprova (l'agent riceve il task ogni ~5 min)." });
             setTestsLoading(false);
             return;
           }
@@ -74,6 +79,7 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
             const r = await fetch(buildApiUrl(`/api/network-monitoring/device-test-result/${taskId}`), { headers: getAuthHeader() });
             const data = await r.json();
             if (data.status !== 'pending') {
+              setTestsWaitingAgent(false);
               setTests({
                 ping: data.ping ?? null,
                 ports: data.ports ?? null,
@@ -215,6 +221,9 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                   {testsLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
                   Esegui test
                 </button>
+                {testsLoading && testsWaitingAgent && (
+                  <p className="text-xs text-amber-700 mt-2">In attesa dell&apos;agent (riceve il task ogni ~5 min). Attendi fino a 5 minuti…</p>
+                )}
                 {tests?.error && (
                   <div className="mt-3 text-sm text-red-600">{tests.error}</div>
                 )}
