@@ -170,18 +170,19 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
         )}
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {loading && (
+          {/* Durante i test non nascondere mai il contenuto con lo spinner, così i campi non scompaiono */}
+          {loading && !testsLoading && (
             <div className="flex items-center justify-center py-12">
               <Loader className="w-8 h-8 text-blue-500 animate-spin" />
             </div>
           )}
-          {error && (
+          {error && !testsLoading && (
             <div className="flex items-center gap-2 p-4 rounded-lg bg-red-50 text-red-800">
               <AlertTriangle className="w-5 h-5 shrink-0" />
               <span>{error}</span>
             </div>
           )}
-          {!loading && !error && data && (
+          {((!loading || testsLoading) && (data || testsLoading) && !(error && !testsLoading)) && (
             <>
               {/* Period selector */}
               <div className="flex items-center gap-2">
