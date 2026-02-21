@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.12"
+$SCRIPT_VERSION = "1.2.13"
 $HEARTBEAT_INTERVAL_SECONDS = 15
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -55,126 +55,211 @@ function Save-Config {
 }
 
 # ============================================
-# CUSTOM NOTIFICATION UI (TOAST)
+# CUSTOM NOTIFICATION UI (TOAST) - FUTURISTIC DARK THEME
 # ============================================
 function Show-CustomToast {
     param(
-        [string]$Title,
-        [string]$Message,
-        [string]$Type = "Info" # Info, Warning, Error
+        [string]$Title = "Notifica",
+        [string]$Message = "",
+        [string]$Type = "info"  # info, warning, maintenance, update, urgent, error
     )
 
-    # Chiudi eventuale notifica precedente per non sovrapporle
+    # Chiudi notifica precedente
     if ($script:activeNotificationForm -and !$script:activeNotificationForm.IsDisposed) {
-        $script:activeNotificationForm.Close()
+        try { $script:activeNotificationForm.Close() } catch {}
     }
 
-    # Definizione Colori
-    $accentColor = [System.Drawing.Color]::FromArgb(63, 81, 181) # Blu Logika Default
-    $fgColor = [System.Drawing.Color]::White
-    
-    if ($Type -eq "Warning") { $accentColor = [System.Drawing.Color]::FromArgb(255, 152, 0) } # Arancione
-    if ($Type -eq "Error") { $accentColor = [System.Drawing.Color]::FromArgb(244, 67, 54) }   # Rosso
+    # ---- PALETTE COLORI PER CATEGORIA ----
+    switch ($Type.ToLower()) {
+        "warning" { $aR = 245; $aG = 158; $aB = 11; $icon = "⚠" }
+        "maintenance" { $aR = 16; $aG = 185; $aB = 129; $icon = "🔧" }
+        "update" { $aR = 59; $aG = 130; $aB = 246; $icon = "⬆" }
+        "urgent" { $aR = 239; $aG = 68; $aB = 68; $icon = "🚨" }
+        "error" { $aR = 239; $aG = 68; $aB = 68; $icon = "✖" }
+        default { $aR = 99; $aG = 102; $aB = 241; $icon = "💬" }  # info = indigo
+    }
+    $colorAccent = [System.Drawing.Color]::FromArgb($aR, $aG, $aB)
+    $colorAccentDim = [System.Drawing.Color]::FromArgb(40, $aR, $aG, $aB)
+    $colorBg = [System.Drawing.Color]::FromArgb(13, 17, 23 )   # #0D1117
+    $colorBgHeader = [System.Drawing.Color]::FromArgb(22, 27, 34 )   # #16181E
+    $colorText = [System.Drawing.Color]::FromArgb(230, 237, 243)   # quasi bianco
+    $colorSub = [System.Drawing.Color]::FromArgb(110, 118, 129)   # grigio
 
-    # FORM PRINCIPALE
+    # ---- DIMENSIONI ----
+    $fW = 400
+    $fH = 175
+    $bdr = 5    # bordo sinistro
+    $hH = 38   # altezza header
+
+    # ---- FORM PRINCIPALE ----
     $form = New-Object System.Windows.Forms.Form
     $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
-    $form.Size = New-Object System.Drawing.Size(420, 180)
-    $form.BackColor = [System.Drawing.Color]::White
+    $form.Size = New-Object System.Drawing.Size($fW, $fH)
+    $form.BackColor = $colorBg
     $form.TopMost = $true
     $form.ShowInTaskbar = $false
+    $form.Opacity = 0
     $form.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
-    
-    # Posizionamento in basso a destra
+
     $screen = [System.Windows.Forms.Screen]::PrimaryScreen
-    $x = $screen.WorkingArea.Right - $form.Width - 20
-    $y = $screen.WorkingArea.Bottom - $form.Height - 20
-    $form.Location = New-Object System.Drawing.Point($x, $y)
+    $form.Location = New-Object System.Drawing.Point(
+        ($screen.WorkingArea.Right - $fW - 16),
+        ($screen.WorkingArea.Bottom - $fH - 16)
+    )
 
-    # BORDO SINISTRO COLORATO
-    $panelLeft = New-Object System.Windows.Forms.Panel
-    $panelLeft.Size = New-Object System.Drawing.Size(8, $form.Height)
-    $panelLeft.Dock = [System.Windows.Forms.DockStyle]::Left
-    $panelLeft.BackColor = $accentColor
-    $form.Controls.Add($panelLeft)
+    # ---- BORDO SINISTRO COLORATO ----
+    $panelBdr = New-Object System.Windows.Forms.Panel
+    $panelBdr.Location = New-Object System.Drawing.Point(0, 0)
+    $panelBdr.Size = New-Object System.Drawing.Size($bdr, $fH)
+    $panelBdr.BackColor = $colorAccent
+    $form.Controls.Add($panelBdr)
 
-    # HEADER PANEL (occupa tutta la larghezza disponibile)
-    $panelHead = New-Object System.Windows.Forms.Panel
-    $panelHead.Size = New-Object System.Drawing.Size(412, 45)
-    $panelHead.Location = New-Object System.Drawing.Point(8, 0)
-    $panelHead.BackColor = [System.Drawing.Color]::FromArgb(245, 245, 245)
-    $form.Controls.Add($panelHead)
+    # ---- HEADER ----
+    $panelHdr = New-Object System.Windows.Forms.Panel
+    $panelHdr.Location = New-Object System.Drawing.Point($bdr, 0)
+    $panelHdr.Size = New-Object System.Drawing.Size($fW - $bdr, $hH)
+    $panelHdr.BackColor = $colorBgHeader
+    $form.Controls.Add($panelHdr)
 
-    # LABEL: Logika Service
-    $lblTitle = New-Object System.Windows.Forms.Label
-    $lblTitle.Text = "LOGIKA SERVICE"
-    $lblTitle.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
-    $lblTitle.ForeColor = $accentColor
-    $lblTitle.AutoSize = $true
-    $lblTitle.Location = New-Object System.Drawing.Point(12, 12)
-    $panelHead.Controls.Add($lblTitle)
+    # Brand label
+    $lblBrand = New-Object System.Windows.Forms.Label
+    $lblBrand.Text = "LOGIKA SERVICE"
+    $lblBrand.Font = New-Object System.Drawing.Font("Segoe UI", 8.5, [System.Drawing.FontStyle]::Bold)
+    $lblBrand.ForeColor = $colorAccent
+    $lblBrand.AutoSize = $true
+    $lblBrand.Location = New-Object System.Drawing.Point(10, 11)
+    $panelHdr.Controls.Add($lblBrand)
 
-    # LABEL: by Rapa Alessandro (allineato a destra, prima del pulsante X)
-    $lblSub = New-Object System.Windows.Forms.Label
-    $lblSub.Text = "by Rapa Alessandro"
-    $lblSub.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Italic)
-    $lblSub.ForeColor = [System.Drawing.Color]::FromArgb(120, 120, 120)
-    $lblSub.AutoSize = $true
-    $lblSub.Location = New-Object System.Drawing.Point(150, 14)
-    $panelHead.Controls.Add($lblSub)
+    # Sub-brand label
+    $lblBy = New-Object System.Windows.Forms.Label
+    $lblBy.Text = "by Rapa Alessandro"
+    $lblBy.Font = New-Object System.Drawing.Font("Segoe UI", 7, [System.Drawing.FontStyle]::Italic)
+    $lblBy.ForeColor = $colorSub
+    $lblBy.AutoSize = $true
+    $lblBy.Location = New-Object System.Drawing.Point(122, 13)
+    $panelHdr.Controls.Add($lblBy)
 
-    # Pulsante X piccolo in alto a destra (usa Button invece di Label per migliore gestione eventi)
+    # Badge categoria (top-right)
+    $lblBadge = New-Object System.Windows.Forms.Label
+    $lblBadge.Text = $Type.ToUpper()
+    $lblBadge.Font = New-Object System.Drawing.Font("Segoe UI", 6.5, [System.Drawing.FontStyle]::Bold)
+    $lblBadge.ForeColor = $colorAccent
+    $lblBadge.BackColor = $colorAccentDim
+    $lblBadge.AutoSize = $false
+    $lblBadge.Size = New-Object System.Drawing.Size(62, 16)
+    $lblBadge.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $lblBadge.Location = New-Object System.Drawing.Point(($fW - $bdr - 94), 11)
+    $panelHdr.Controls.Add($lblBadge)
+
+    # Pulsante X
     $btnX = New-Object System.Windows.Forms.Button
-    $btnX.Text = "X"
-    $btnX.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Regular)
-    $btnX.ForeColor = [System.Drawing.Color]::FromArgb(150, 150, 150)
-    $btnX.FlatAppearance.BorderSize = 0
+    $btnX.Text = "✕"
+    $btnX.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $btnX.ForeColor = $colorSub
     $btnX.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $btnX.FlatAppearance.BorderSize = 0
+    $btnX.FlatAppearance.MouseOverBackColor = [System.Drawing.Color]::FromArgb(45, 50, 60)
     $btnX.BackColor = [System.Drawing.Color]::Transparent
-    $btnX.Size = New-Object System.Drawing.Size(25, 25)
-    $btnX.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-    $btnX.Location = New-Object System.Drawing.Point(385, 10)
+    $btnX.Size = New-Object System.Drawing.Size(26, 26)
+    $btnX.Location = New-Object System.Drawing.Point(($fW - $bdr - 28), 6)
     $btnX.Cursor = [System.Windows.Forms.Cursors]::Hand
-    $btnX.Add_Click({
-            try { $this.FindForm().Close() } catch {}
-        })
-    $panelHead.Controls.Add($btnX)
+    $btnX.Add_Click({ try { $this.FindForm().Close() } catch {} })
+    $panelHdr.Controls.Add($btnX)
 
-    # BODY TEXT (usa tutta la larghezza disponibile con word wrap)
+    # ---- SEPARATORE (linea accent) ----
+    $panelSep = New-Object System.Windows.Forms.Panel
+    $panelSep.Location = New-Object System.Drawing.Point($bdr, $hH)
+    $panelSep.Size = New-Object System.Drawing.Size($fW - $bdr, 1)
+    $panelSep.BackColor = $colorAccentDim
+    $form.Controls.Add($panelSep)
+
+    # ---- TITOLO NOTIFICA (il vero $Title dal messaggio) ----
+    $lblTitle = New-Object System.Windows.Forms.Label
+    $lblTitle.Text = $Title
+    $lblTitle.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
+    $lblTitle.ForeColor = $colorText
+    $lblTitle.Location = New-Object System.Drawing.Point(($bdr + 10), ($hH + 8))
+    $lblTitle.Size = New-Object System.Drawing.Size($fW - $bdr - 20, 22)
+    $lblTitle.AutoEllipsis = $true
+    $form.Controls.Add($lblTitle)
+
+    # ---- CORPO MESSAGGIO ----
     $lblMsg = New-Object System.Windows.Forms.Label
     $lblMsg.Text = $Message
-    $lblMsg.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Regular)
-    $lblMsg.ForeColor = [System.Drawing.Color]::FromArgb(64, 64, 64)
-    $lblMsg.Location = New-Object System.Drawing.Point(20, 55)
-    $lblMsg.Size = New-Object System.Drawing.Size(380, 70)
-    $lblMsg.TextAlign = [System.Drawing.ContentAlignment]::TopLeft
-    $lblMsg.AutoSize = $false
-    $lblMsg.AutoEllipsis = $false
-    # Abilita word wrap per testo lungo
-    $lblMsg.MaximumSize = New-Object System.Drawing.Size(380, 0)
+    $lblMsg.Font = New-Object System.Drawing.Font("Segoe UI", 9.5)
+    $lblMsg.ForeColor = $colorSub
+    $lblMsg.Location = New-Object System.Drawing.Point(($bdr + 10), ($hH + 34))
+    $lblMsg.Size = New-Object System.Drawing.Size($fW - $bdr - 20, 56)
+    $lblMsg.AutoEllipsis = $true
     $form.Controls.Add($lblMsg)
 
-    # BOTTONE CHIUDI (HO CAPITO) - centrato o allineato a destra
+    # ---- PULSANTE "HO CAPITO" ----
     $btnClose = New-Object System.Windows.Forms.Button
     $btnClose.Text = "HO CAPITO"
-    $btnClose.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
-    $btnClose.FlatAppearance.BorderSize = 0
+    $btnClose.Font = New-Object System.Drawing.Font("Segoe UI", 8.5, [System.Drawing.FontStyle]::Bold)
     $btnClose.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnClose.BackColor = $accentColor
+    $btnClose.FlatAppearance.BorderSize = 0
+    $btnClose.BackColor = $colorAccent
     $btnClose.ForeColor = [System.Drawing.Color]::White
-    $btnClose.Size = New-Object System.Drawing.Size(130, 32)
-    $btnClose.Location = New-Object System.Drawing.Point(270, 135)
+    $btnClose.Size = New-Object System.Drawing.Size(108, 26)
+    $btnClose.Location = New-Object System.Drawing.Point(($fW - 118), ($fH - 34))
     $btnClose.Cursor = [System.Windows.Forms.Cursors]::Hand
-    $btnClose.Add_Click({
-            try { $this.FindForm().Close() } catch {}
-        })
+    $btnClose.Add_Click({ try { $this.FindForm().Close() } catch {} })
     $form.Controls.Add($btnClose)
 
-    # Salva riferimento per gestire chiusura
-    $script:activeNotificationForm = $form
+    # ---- PROGRESS BAR AUTO-DISMISS (10s) ----
+    $pgBg = New-Object System.Windows.Forms.Panel
+    $pgBg.Location = New-Object System.Drawing.Point($bdr, ($fH - 4))
+    $pgBg.Size = New-Object System.Drawing.Size($fW - $bdr, 4)
+    $pgBg.BackColor = [System.Drawing.Color]::FromArgb(30, $aR, $aG, $aB)
+    $form.Controls.Add($pgBg)
 
-    # Mostra (NON BLOCANTE per il main loop, ma il loop deve gestire gli eventi)
+    $script:toastPgBar = New-Object System.Windows.Forms.Panel
+    $script:toastPgBar.Location = New-Object System.Drawing.Point(0, 0)
+    $script:toastPgBar.Size = New-Object System.Drawing.Size($fW - $bdr, 4)
+    $script:toastPgBar.BackColor = $colorAccent
+    $pgBg.Controls.Add($script:toastPgBar)
+
+    # ---- TIMER: fade-in + progress ----
+    $script:toastTick = 0
+    $script:toastTotal = 200   # 200 tick x 50ms = 10 secondi
+    $script:toastPgW = $fW - $bdr
+    $script:toastForm = $form
+
+    $script:toastTimer = New-Object System.Windows.Forms.Timer
+    $script:toastTimer.Interval = 50
+    $script:toastTimer.Add_Tick({
+            $f = $script:toastForm
+            if (-not $f -or $f.IsDisposed) { $script:toastTimer.Stop(); return }
+
+            # Fade-in nei primi 10 tick (500ms)
+            if ($f.Opacity -lt 1.0) {
+                $f.Opacity = [Math]::Min(1.0, $f.Opacity + 0.12)
+            }
+
+            # Aggiorna progress bar
+            $script:toastTick++
+            $ratio = [Math]::Max(0.0, 1.0 - ($script:toastTick / $script:toastTotal))
+            $pb = $script:toastPgBar
+            if ($pb -and !$pb.IsDisposed) {
+                $pb.Width = [int]($script:toastPgW * $ratio)
+            }
+
+            # Auto-chiusura
+            if ($script:toastTick -ge $script:toastTotal) {
+                $script:toastTimer.Stop()
+                try { $f.Close() } catch {}
+            }
+        })
+
+    $form.Add_FormClosed({
+            try { $script:toastTimer.Stop(); $script:toastTimer.Dispose() } catch {}
+            $script:activeNotificationForm = $null
+        })
+
+    $script:activeNotificationForm = $form
     $form.Show()
+    $script:toastTimer.Start()
 }
 
 # ============================================
@@ -228,8 +313,9 @@ function Send-Heartbeat {
         
         if ($resp.messages) {
             foreach ($m in $resp.messages) {
-                # USA LA NUOVA NOTIFICA PERSONALIZZATA
-                Show-CustomToast -Title $m.title -Message $m.body -Type "Info"
+                # Usa la categoria del messaggio per il colore giusto
+                $msgType = if ($m.category) { $m.category } else { "info" }
+                Show-CustomToast -Title $m.title -Message $m.body -Type $msgType
             }
         }
         return $true
