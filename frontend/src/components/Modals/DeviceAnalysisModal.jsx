@@ -212,22 +212,50 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                 <p className="text-xs text-gray-500 mb-3">
                   Ping e verifica porte. I test si adattano al tipo dispositivo: <strong>antenna/switch/router</strong> → porte gestione (80, 443, 22, 8080); <strong>PC/server</strong> → 80, 443, 445, 3389, 22, 21. Per <strong>IP privati</strong> (192.168.x, 10.x) i test vengono eseguiti dall&apos;<strong>agent in locale</strong> (rete del cliente), così funzionano anche con server in cloud.
                 </p>
-                <button
-                  type="button"
-                  onClick={runTests}
-                  disabled={testsLoading}
-                  className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-                >
-                  {testsLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
-                  Esegui test
-                </button>
-                {testsLoading && testsWaitingAgent && (
-                  <p className="text-xs text-amber-700 mt-2">In attesa dell&apos;agent (riceve il task ogni ~5 min). Attendi fino a 5 minuti…</p>
-                )}
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={runTests}
+                    disabled={testsLoading}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 shrink-0"
+                  >
+                    {testsLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
+                    Esegui test
+                  </button>
+                  {testsLoading && (
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-100 border border-amber-300 text-amber-800 text-sm font-medium shrink-0">
+                      <Loader className="w-4 h-4 animate-spin shrink-0" />
+                      {testsWaitingAgent ? 'In attesa dell\'agent…' : 'Esecuzione test in corso…'}
+                    </div>
+                  )}
+                  {testsLoading && testsWaitingAgent && (
+                    <span className="text-xs text-amber-700">L&apos;agent riceve il task ogni ~5 min. Attendi fino a 5 minuti.</span>
+                  )}
+                </div>
                 {tests?.error && (
-                  <div className="mt-3 text-sm text-red-600">{tests.error}</div>
+                  <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200">
+                    <div className="flex items-start gap-2 text-red-800">
+                      <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-medium text-sm">Test non completati</div>
+                        <p className="text-sm mt-1">{tests.error}</p>
+                        <p className="text-xs text-red-600 mt-2">Verifica che l&apos;agent sia attivo sulla rete del cliente e che il dispositivo sia raggiungibile dall&apos;agent.</p>
+                      </div>
+                    </div>
+                  </div>
                 )}
-                {tests && tests._deferred && (
+                {tests && !tests.error && tests.ping && !tests.ping.ok && (
+                  <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                    <div className="flex items-start gap-2 text-amber-800 text-sm">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium">Test completati con esiti negativi.</span>
+                        <span> Ping non raggiungibile{tests.ports && Object.values(tests.ports).every(v => !v) ? ', porte chiuse o non raggiungibili' : ''}. Possibili cause: dispositivo spento, firewall o non sulla stessa rete dell&apos;agent.</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {tests && !tests.error && tests._deferred && (
                   <div className="mt-2 text-xs text-green-600">Test eseguiti dall&apos;agent in locale (rete del cliente).</div>
                 )}
                 {tests && !tests.error && (
