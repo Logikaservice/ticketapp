@@ -1,5 +1,6 @@
 // Modal Analisi dispositivo: overview, test remoti, pattern, confronto con dispositivi simili
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import {
   X, Activity, BarChart3, Cpu, Users, Loader, AlertTriangle, CheckCircle, Wifi, WifiOff
 } from 'lucide-react';
@@ -56,12 +57,22 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
     if (isOpen && deviceId) fetchAnalysisRef.current?.();
   }, [isOpen, deviceId]);
 
-  const runTests = async () => {
+  const runTests = async (e) => {
+    e?.stopPropagation?.();
     if (!deviceId) return;
     setTests(null);
-    setTestsLoading(true);
-    setTestsWaitingAgent(false);
+    flushSync(() => {
+      setTestsLoading(true);
+      setTestsWaitingAgent(false);
+    });
     testSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const minBannerMs = 1500;
+    const bannerShownAt = Date.now();
+    const ensureMinBanner = () => new Promise(resolve => {
+      const elapsed = Date.now() - bannerShownAt;
+      if (elapsed >= minBannerMs) return resolve();
+      setTimeout(resolve, minBannerMs - elapsed);
+    });
     try {
       const res = await fetch(buildApiUrl(`/api/network-monitoring/device-analysis/${deviceId}/run-tests`), {
         method: 'POST',
@@ -85,6 +96,7 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
             const r = await fetch(buildApiUrl(`/api/network-monitoring/device-test-result/${taskId}`), { headers: getAuthHeader() });
             const data = await r.json();
             if (data.status !== 'pending') {
+              await ensureMinBanner();
               setTestsWaitingAgent(false);
               setTests({
                 ping: data.ping ?? null,
@@ -104,9 +116,11 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
         setTimeout(poll, 2500);
         return;
       }
+      await ensureMinBanner();
       setTests(json);
-    } catch (e) {
-      setTests({ error: e.message });
+    } catch (err) {
+      await ensureMinBanner();
+      setTests({ error: err.message });
     } finally {
       setTestsLoading(false);
     }
@@ -253,7 +267,7 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="button"
-                    onClick={runTests}
+                    onClick={(ev) => { ev.stopPropagation(); runTests(ev); }}
                     disabled={testsLoading}
                     className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 shrink-0 disabled:cursor-not-allowed"
                   >
