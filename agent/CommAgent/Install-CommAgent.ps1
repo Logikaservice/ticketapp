@@ -143,6 +143,7 @@ catch {
 
 Write-Host ""
 Write-Host "INSTALLAZIONE COMPLETATA." -ForegroundColor Green
-Write-Host "L'agent e' attivo. Controlla l'icona vicino all'orologio."
+Write-Host "L'agent e' attivo. Controlla l'icona vicino all'orologio (area notifiche)."
+Write-Host "Se l'icona non compare, controlla il log: $INSTALL_DIR\CommAgent.log" -ForegroundColor Yellow
 Write-Host ""
 pause

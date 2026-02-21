@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.14"
+$SCRIPT_VERSION = "1.2.15"
 $HEARTBEAT_INTERVAL_SECONDS = 15
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -219,25 +219,39 @@ function Show-CustomToast {
 # TRAY ICON & MENU
 # ============================================
 function Initialize-TrayIcon {
-    $script:trayIcon = New-Object System.Windows.Forms.NotifyIcon
-    $bmp = New-Object System.Drawing.Bitmap(32, 32)
-    $g = [System.Drawing.Graphics]::FromImage($bmp)
-    $g.Clear([System.Drawing.Color]::Transparent)
-    $g.FillEllipse([System.Drawing.Brushes]::BlueViolet, 1, 1, 30, 30)
-    $g.DrawString("L", (New-Object System.Drawing.Font("Segoe UI", 16, 1)), [System.Drawing.Brushes]::White, 6, -2)
-    $icon = [System.Drawing.Icon]::FromHandle($bmp.GetHicon())
-    $script:trayIcon.Icon = $icon
-    $script:trayIcon.Text = $APP_TOOLTIP
-    $script:trayIcon.Visible = $true
-    $menu = New-Object System.Windows.Forms.ContextMenuStrip
-    $itemInfo = $menu.Items.Add("Info Logika Agent")
-    $itemInfo.Add_Click({ Show-CustomToast "Info" "Logika Service Agent attivo." "Info" })
-    $menu.Items.Add("-")
-    $itemCheck = $menu.Items.Add("Controlla Aggiornamenti")
-    $itemCheck.Add_Click({ Check-Update -Force $true })
-    $itemExit = $menu.Items.Add("Esci")
-    $itemExit.Add_Click({ $script:trayIcon.Visible = $false; [System.Windows.Forms.Application]::Exit() })
-    $script:trayIcon.ContextMenuStrip = $menu
+    try {
+        $script:trayIcon = New-Object System.Windows.Forms.NotifyIcon
+        $icon = $null
+        try {
+            $bmp = New-Object System.Drawing.Bitmap(32, 32)
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.Clear([System.Drawing.Color]::Transparent)
+            $g.FillEllipse([System.Drawing.Brushes]::BlueViolet, 1, 1, 30, 30)
+            $g.DrawString("L", (New-Object System.Drawing.Font("Segoe UI", 16, 1)), [System.Drawing.Brushes]::White, 6, -2)
+            $icon = [System.Drawing.Icon]::FromHandle($bmp.GetHicon())
+        }
+        catch {
+            Write-Log "Icona personalizzata non disponibile, uso icona di sistema: $_" "WARN"
+            $icon = [System.Drawing.SystemIcons]::Information
+        }
+        $script:trayIcon.Icon = $icon
+        $script:trayIcon.Text = $APP_TOOLTIP
+        $menu = New-Object System.Windows.Forms.ContextMenuStrip
+        $itemInfo = $menu.Items.Add("Info Logika Agent")
+        $itemInfo.Add_Click({ Show-CustomToast "Info" "Logika Service Agent attivo." "Info" })
+        $menu.Items.Add("-")
+        $itemCheck = $menu.Items.Add("Controlla Aggiornamenti")
+        $itemCheck.Add_Click({ Check-Update -Force $true })
+        $itemExit = $menu.Items.Add("Esci")
+        $itemExit.Add_Click({ $script:trayIcon.Visible = $false; [System.Windows.Forms.Application]::Exit() })
+        $script:trayIcon.ContextMenuStrip = $menu
+        $script:trayIcon.Visible = $true
+        Write-Log "Tray icon creata e visibile." "INFO"
+    }
+    catch {
+        Write-Log "Errore creazione tray icon: $_" "ERROR"
+        throw
+    }
 }
 
 # ============================================
@@ -306,20 +320,62 @@ function Register-Agent {
 }
 
 # ============================================
+# PRIMA ESECUZIONE: registrazione da install_config.json
+# ============================================
+function Get-ConfigOrRegister {
+    $cfg = Load-Config
+    if ($cfg -and $cfg.api_key) { return $cfg }
+    $installConfigPath = Join-Path $script:scriptDir "install_config.json"
+    if (-not (Test-Path $installConfigPath)) {
+        Write-Log "Mancano config.json e install_config.json. Eseguire l'installer." "ERROR"
+        return $null
+    }
+    try {
+        $install = Get-Content $installConfigPath -Raw | ConvertFrom-Json
+        $serverUrl = $install.server_url
+        $email    = $install.email
+        $password = $install.password
+        if (-not $serverUrl) { $serverUrl = "https://ticket.logikaservice.it" }
+        if (-not $email -or -not $password) {
+            Write-Log "install_config.json senza email/password. Reinstallare." "ERROR"
+            return $null
+        }
+        Write-Log "Prima esecuzione: registrazione in corso..." "INFO"
+        $cfg = Register-Agent -ServerUrl $serverUrl -Email $email -Password $password
+        if ($cfg) {
+            Write-Log "Registrazione completata. Agent ID: $($cfg.agent_id)" "INFO"
+            return $cfg
+        }
+        Write-Log "Registrazione fallita. Verificare credenziali e URL." "ERROR"
+    }
+    catch {
+        Write-Log "Errore prima esecuzione / registrazione: $_" "ERROR"
+    }
+    return $null
+}
+
+# ============================================
 # MAIN
 # ============================================
-$cfg = Load-Config
+$cfg = Get-ConfigOrRegister
 if ($cfg) {
-    Initialize-TrayIcon
-    $script:heartbeatTimer = New-Object System.Windows.Forms.Timer
-    $script:heartbeatTimer.Interval = 15000
-    $script:heartbeatTimer.Add_Tick({ Send-Heartbeat -Config $cfg })
-    $script:heartbeatTimer.Start()
-    $script:updateTimer = New-Object System.Windows.Forms.Timer
-    $script:updateTimer.Interval = 300000
-    $script:updateTimer.Add_Tick({ Check-Update })
-    $script:updateTimer.Start()
-    [System.Windows.Forms.Application]::Run()
+    try {
+        Initialize-TrayIcon
+        $script:heartbeatTimer = New-Object System.Windows.Forms.Timer
+        $script:heartbeatTimer.Interval = 15000
+        $script:heartbeatTimer.Add_Tick({ Send-Heartbeat -Config $cfg })
+        $script:heartbeatTimer.Start()
+        $script:updateTimer = New-Object System.Windows.Forms.Timer
+        $script:updateTimer.Interval = 300000
+        $script:updateTimer.Add_Tick({ Check-Update })
+        $script:updateTimer.Start()
+        [System.Windows.Forms.Application]::Run()
+    }
+    catch {
+        Write-Log "Errore avvio tray / message loop: $_" "ERROR"
+        Write-Host "Errore avvio: $($_.Exception.Message). Controlla il log: $script:logFile"
+    }
 } else {
-    Write-Host "Configurazione mancante."
+    Write-Log "Configurazione mancante o registrazione fallita. Agent non avviato." "ERROR"
+    Write-Host "Configurazione mancante. Controlla il log: $script:logFile"
 }
