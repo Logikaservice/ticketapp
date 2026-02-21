@@ -25,6 +25,7 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
   const [testsWaitingAgent, setTestsWaitingAgent] = useState(false); // true quando in attesa dell'agent (IP privato)
   const [periodDays, setPeriodDays] = useState(30);
   const testSectionRef = useRef(null);
+  const fetchAnalysisRef = useRef(null);
 
   const fetchAnalysis = useCallback(async () => {
     if (!deviceId) return;
@@ -48,9 +49,12 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
     }
   }, [deviceId, periodDays, getAuthHeader]);
 
+  fetchAnalysisRef.current = fetchAnalysis;
+
+  // Esegui il fetch solo all'apertura del modal o al cambio dispositivo (non ad ogni re-render del parent, altrimenti loading copre test/banner)
   useEffect(() => {
-    if (isOpen && deviceId) fetchAnalysis();
-  }, [isOpen, deviceId, fetchAnalysis]);
+    if (isOpen && deviceId) fetchAnalysisRef.current?.();
+  }, [isOpen, deviceId]);
 
   const runTests = async () => {
     if (!deviceId) return;
