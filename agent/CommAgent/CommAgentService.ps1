@@ -1,5 +1,5 @@
-$SCRIPT_VERSION = "1.2.16"
-$HEARTBEAT_INTERVAL_SECONDS = 15
+$SCRIPT_VERSION = "1.2.17"
+$HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
 $APP_TOOLTIP = "Logika Service - Communication Agent v$SCRIPT_VERSION"
@@ -270,15 +270,27 @@ function Send-Heartbeat {
         $body = @{ version = $SCRIPT_VERSION; status = "online" } | ConvertTo-Json
         $headers = @{ "X-Comm-API-Key" = $Config.api_key; "Content-Type" = "application/json" }
         $resp = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $body -ErrorAction Stop
-        if ($resp.messages) {
-            foreach ($m in $resp.messages) {
-                $msgType = if ($m.category) { $m.category } else { "info" }
-                Show-CustomToast -Title $m.title -Message $m.body -Type $msgType
+        $msgList = @($resp.messages)
+        if ($msgList -and $msgList.Count -gt 0) {
+            Write-Log "Messaggi ricevuti: $($msgList.Count). Mostro avvisi." "INFO"
+            foreach ($m in $msgList) {
+                try {
+                    $msgType = if ($m.category) { $m.category } else { "info" }
+                    $tit = if ($m.title) { $m.title } else { "Notifica" }
+                    $bod = if ($m.body) { $m.body } else { "" }
+                    Show-CustomToast -Title $tit -Message $bod -Type $msgType
+                }
+                catch {
+                    Write-Log "Errore mostrando toast per messaggio: $_" "WARN"
+                }
             }
         }
         return $true
     }
-    catch { return $false }
+    catch {
+        Write-Log "Heartbeat fallito (messaggi non recuperati): $_" "WARN"
+        return $false
+    }
 }
 
 function Check-Update {
@@ -368,8 +380,9 @@ if ($cfg) {
     try {
         Initialize-TrayIcon
         $script:heartbeatTimer = New-Object System.Windows.Forms.Timer
-        $script:heartbeatTimer.Interval = 15000
+        $script:heartbeatTimer.Interval = [int]($HEARTBEAT_INTERVAL_SECONDS * 1000)
         $script:heartbeatTimer.Add_Tick({ Send-Heartbeat -Config $cfg })
+        Send-Heartbeat -Config $cfg
         $script:heartbeatTimer.Start()
         $script:updateTimer = New-Object System.Windows.Forms.Timer
         $script:updateTimer.Interval = 300000
