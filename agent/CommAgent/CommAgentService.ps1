@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.13"
+$SCRIPT_VERSION = "1.2.14"
 $HEARTBEAT_INTERVAL_SECONDS = 15
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -517,14 +517,17 @@ if not exist "%TARGET_PATH%\CommAgentService.ps1" (
 
 echo [%date% %time%] File servizio presente. Procedo con avvio. >> "%LOG_FILE%"
 
-:: Riavvio
+:: Riavvio nel contesto UTENTE (non admin) tramite explorer.exe
+:: Questo e' fondamentale per far apparire l'icona tray nella sessione utente
 cd /D "%TARGET_PATH%"
 if exist "Start-CommAgent-Hidden.vbs" (
-    echo [%date% %time%] Avvio tramite VBS... >> "%LOG_FILE%"
-    start "" wscript.exe "Start-CommAgent-Hidden.vbs"
+    echo [%date% %time%] Avvio VBS nel contesto utente tramite explorer.exe... >> "%LOG_FILE%"
+    :: explorer.exe lancia il file nel contesto dell'utente corrente, non come admin
+    explorer.exe "%TARGET_PATH%\Start-CommAgent-Hidden.vbs"
 ) else (
-    echo [%date% %time%] VBS mancante, avvio diretto PowerShell... >> "%LOG_FILE%"
-    start "" powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "CommAgentService.ps1"
+    echo [%date% %time%] VBS mancante, avvio PowerShell nel contesto utente... >> "%LOG_FILE%"
+    :: Usa runas /trustlevel per avviare come utente normale
+    powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command "Start-Process -FilePath 'powershell.exe' -ArgumentList '-WindowStyle Hidden -ExecutionPolicy Bypass -File \"%TARGET_PATH%\CommAgentService.ps1\"' -WindowStyle Hidden"
 )
 
 echo [%date% %time%] Comando di avvio inviato. >> "%LOG_FILE%"
