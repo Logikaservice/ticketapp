@@ -140,6 +140,23 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
           </button>
         </div>
 
+        {/* Banner "test in corso" sempre visibile in cima, fuori dal blocco loading/data così non scompare */}
+        {testsLoading && (
+          <div className="flex items-center gap-4 px-6 py-4 bg-amber-100 border-b-2 border-amber-400 shrink-0">
+            <Loader className="w-8 h-8 text-amber-600 animate-spin shrink-0" />
+            <div>
+              <div className="font-semibold text-amber-900">
+                {testsWaitingAgent ? 'In attesa dell\'agent' : 'Esecuzione test in corso'}
+              </div>
+              <div className="text-sm text-amber-800 mt-0.5">
+                {testsWaitingAgent
+                  ? 'Task inviato. L\'agent riceve i comandi ogni ~5 min: attendi fino a 5 minuti, i risultati appariranno sotto.'
+                  : 'Attendi qualche secondo…'}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {loading && (
             <div className="flex items-center justify-center py-12">
