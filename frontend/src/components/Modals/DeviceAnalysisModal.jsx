@@ -12,7 +12,7 @@ const formatDate = (d) => {
 };
 
 const changeTypeLabel = (t) => {
-  const map = { device_offline: 'Offline', device_online: 'Online', new_device: 'Nuovo', ip_changed: 'IP cambiato', mac_changed: 'MAC cambiato' };
+  const map = { device_offline: 'Offline', device_online: 'Online', new_device: 'Nuovo', ip_changed: 'IP cambiato', mac_changed: 'MAC cambiato', ip_conflict: 'Conflitto IP' };
   return map[t] || t;
 };
 
@@ -340,7 +340,31 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                 )}
               </section>
 
-              {/* 5. Timeline eventi */}
+              {/* Conflitti IP (se presenti nella timeline) */}
+              {(() => {
+                const ipConflicts = timeline.filter(ev => ev.change_type === 'ip_conflict');
+                if (ipConflicts.length === 0) return null;
+                return (
+                  <section className="rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+                    <h3 className="text-sm font-semibold text-amber-800 mb-2 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      Conflitti IP
+                    </h3>
+                    <p className="text-xs text-amber-700 mb-3">Questo dispositivo è stato coinvolto in conflitti IP (stesso IP usato da due MAC diversi).</p>
+                    <ul className="space-y-2">
+                      {ipConflicts.map((ev, i) => (
+                        <li key={i} className="text-sm flex flex-wrap items-center gap-2">
+                          <span className="text-amber-700 font-medium">{formatDate(ev.detected_at)}</span>
+                          <span className="text-gray-600">MAC 1: <span className="font-mono text-xs">{ev.old_value || '-'}</span></span>
+                          <span className="text-gray-600">MAC 2: <span className="font-mono text-xs">{ev.new_value || '-'}</span></span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                );
+              })()}
+
+              {/* Timeline eventi */}
               <section className="rounded-lg border border-gray-200 p-4">
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">Timeline eventi</h3>
                 {timeline.length === 0 ? (
@@ -349,13 +373,13 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                   <ul className="space-y-1 max-h-48 overflow-y-auto">
                     {timeline.map((ev, i) => (
                       <li key={i} className="flex items-center gap-2 text-sm">
-                        <span className={`shrink-0 w-20 ${ev.change_type === 'device_offline' ? 'text-red-600' : 'text-green-600'}`}>
+                        <span className={`shrink-0 w-20 ${ev.change_type === 'device_offline' ? 'text-red-600' : ev.change_type === 'ip_conflict' ? 'text-amber-600' : 'text-green-600'}`}>
                           {changeTypeLabel(ev.change_type)}
                         </span>
                         <span className="text-gray-500">{formatDate(ev.detected_at)}</span>
                         {(ev.old_value || ev.new_value) && (
                           <span className="text-gray-400 text-xs">
-                            {ev.old_value && `${ev.old_value} → `}{ev.new_value}
+                            {ev.change_type === 'ip_conflict' ? `MAC 1: ${ev.old_value || '-'} · MAC 2: ${ev.new_value || '-'}` : `${ev.old_value && `${ev.old_value} → `}${ev.new_value}`}
                           </span>
                         )}
                       </li>
