@@ -31,6 +31,7 @@ import VivaldiManager from './components/VivaldiManager';
 import PackVisionWithAuth from './components/PackVisionWithAuth';
 import PackVision from './components/PackVision';
 import NetworkMonitoringDashboard from './components/NetworkMonitoringDashboard';
+import DeviceAnalysisModal from './components/Modals/DeviceAnalysisModal';
 import CommAgentDashboard from './components/CommAgentDashboard';
 // import NetworkTopologyPage from './pages/NetworkTopologyPage'; // RIMOSSO SU RICHIESTA UTENTE
 import MappaturaPage from './pages/MappaturaPage';
@@ -163,6 +164,9 @@ export default function TicketApp() {
   const [networkMonitoringInitialView, setNetworkMonitoringInitialView] = useState(null); // 'agents' o 'create'
   const [selectedCompanyForNavigation, setSelectedCompanyForNavigation] = useState(null); // Azienda selezionata per navigazione tra monitoraggio e mappatura
   const [showCommAgent, setShowCommAgent] = useState(false); // Communication Agent Dashboard
+  const [showDeviceAnalysisStandalone, setShowDeviceAnalysisStandalone] = useState(false);
+  const [standaloneDeviceId, setStandaloneDeviceId] = useState(null);
+  const [standaloneDeviceLabel, setStandaloneDeviceLabel] = useState('');
 
   const [settingsData, setSettingsData] = useState({
     nome: '',
@@ -278,10 +282,19 @@ export default function TicketApp() {
   // Persistenza vista nell'URL: F5 ricarica la pagina corrente invece di tornare alla dashboard
   const applyHashToState = (hash) => {
     const view = (hash || '').replace(/^#/, '').toLowerCase();
-    if (view === 'mappatura') {
+    const search = new URLSearchParams(window.location.search);
+    if (view === 'device-analysis' && search.has('deviceId')) {
+      setShowDeviceAnalysisStandalone(true);
+      setStandaloneDeviceId(search.get('deviceId'));
+      setStandaloneDeviceLabel(search.get('deviceLabel') || '');
+      setShowDashboard(false); setShowNetworkMonitoring(false); setShowMappatura(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false);
+    } else if (view === 'mappatura') {
+      setShowDeviceAnalysisStandalone(false);
       setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false);
       setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false);
     } else if (view === 'network-monitoring') {
+      setShowDeviceAnalysisStandalone(false);
       setShowNetworkMonitoring(true); setShowDashboard(false); setShowMappatura(false);
       setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false);
     } else if (view === 'antivirus') {
@@ -293,7 +306,8 @@ export default function TicketApp() {
     } else if (view === 'office') {
       setShowOffice(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
       setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false);
-    } else {
+    } else if (view !== 'device-analysis') {
+      setShowDeviceAnalysisStandalone(false);
       setShowDashboard(true); setShowMappatura(false); setShowNetworkMonitoring(false);
       setShowAntiVirus(false); setShowEmail(false); setShowOffice(false);
     }
@@ -307,13 +321,14 @@ export default function TicketApp() {
   }, []);
 
   useEffect(() => {
+    if (showDeviceAnalysisStandalone) return;
     const base = window.location.pathname + window.location.search;
     const h = showOffice ? 'office' : showMappatura ? 'mappatura' : showNetworkMonitoring ? 'network-monitoring' : showAntiVirus ? 'antivirus' : showEmail ? 'email' : '';
     const newHash = h ? '#' + h : '';
     if (window.location.hash !== newHash) {
       window.history.replaceState(null, '', base + newHash);
     }
-  }, [showOffice, showMappatura, showNetworkMonitoring, showAntiVirus, showEmail]);
+  }, [showDeviceAnalysisStandalone, showOffice, showMappatura, showNetworkMonitoring, showAntiVirus, showEmail]);
 
   useEffect(() => {
     // Gestione Mappa Rete rimossa su richiesta
@@ -3092,6 +3107,24 @@ export default function TicketApp() {
     );
   }
 
+  if (showDeviceAnalysisStandalone && isLoggedIn && standaloneDeviceId) {
+    return (
+      <DeviceAnalysisModal
+        isOpen={true}
+        onClose={() => {
+          setShowDeviceAnalysisStandalone(false);
+          setStandaloneDeviceId(null);
+          setStandaloneDeviceLabel('');
+          try { if (window.opener) window.close(); } catch (_) { window.history.back(); }
+        }}
+        deviceId={standaloneDeviceId}
+        deviceLabel={standaloneDeviceLabel}
+        getAuthHeader={getAuthHeader}
+        fullPage={true}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="fixed bottom-5 right-5 z-[100] flex flex-col-reverse gap-2">
@@ -3188,9 +3221,6 @@ export default function TicketApp() {
               currentUser.admin_companies.length > 0;
             const hasAccess = isGlobalAdmin || isCompanyAdmin;
             const isReadOnly = isCompanyAdmin && !isGlobalAdmin; // Solo admin aziendali sono read-only
-            const urlParams = new URLSearchParams(window.location.search);
-            const initialDeviceAnalysisId = urlParams.get('deviceAnalysis') || null;
-            const initialDeviceAnalysisLabel = urlParams.get('deviceLabel') || '';
 
             return hasAccess ? (
               <NetworkMonitoringDashboard
@@ -3212,8 +3242,6 @@ export default function TicketApp() {
                 onNavigateAntiVirus={handleOpenAntiVirus}
                 onNavigateNetworkMonitoring={null}
                 onNavigateMappatura={() => { setShowMappatura(true); setShowNetworkMonitoring(false); setShowDashboard(false); setSelectedCompanyForNavigation(selectedCompanyForNavigation); }}
-                initialDeviceAnalysisId={initialDeviceAnalysisId}
-                initialDeviceAnalysisLabel={initialDeviceAnalysisLabel}
               />
             ) : (
               // Messaggio di accesso negato
@@ -3367,9 +3395,6 @@ export default function TicketApp() {
                 currentUser.admin_companies.length > 0;
               const hasAccess = isGlobalAdmin || isCompanyAdmin;
               const isReadOnly = isCompanyAdmin && !isGlobalAdmin; // Solo admin aziendali sono read-only
-              const urlParams = new URLSearchParams(window.location.search);
-              const initialDeviceAnalysisId = urlParams.get('deviceAnalysis') || null;
-              const initialDeviceAnalysisLabel = urlParams.get('deviceLabel') || '';
 
               return hasAccess ? (
                 <div className="animate-slideInRight">
@@ -3379,8 +3404,6 @@ export default function TicketApp() {
                     initialView={networkMonitoringInitialView}
                     onViewReset={() => setNetworkMonitoringInitialView(null)}
                     readOnly={isReadOnly}
-                    initialDeviceAnalysisId={initialDeviceAnalysisId}
-                    initialDeviceAnalysisLabel={initialDeviceAnalysisLabel}
                   />
                 </div>
               ) : (

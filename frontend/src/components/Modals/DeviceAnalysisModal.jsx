@@ -17,7 +17,7 @@ const changeTypeLabel = (t) => {
   return map[t] || t;
 };
 
-export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceLabel, getAuthHeader }) {
+export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceLabel, getAuthHeader, fullPage = false }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -54,10 +54,10 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
 
   fetchAnalysisRef.current = fetchAnalysis;
 
-  // Esegui il fetch solo all'apertura del modal o al cambio dispositivo. Non eseguire se i test sono in corso (evita che loading copra il banner).
+  // Esegui il fetch all'apertura (modal o pagina standalone). Non eseguire se i test sono in corso (evita che loading copra il banner).
   useEffect(() => {
-    if (isOpen && deviceId && !testsLoadingRef.current) fetchAnalysisRef.current?.();
-  }, [isOpen, deviceId]);
+    if ((isOpen || fullPage) && deviceId && !testsLoadingRef.current) fetchAnalysisRef.current?.();
+  }, [isOpen, fullPage, deviceId]);
 
   const runTests = async (e) => {
     e?.stopPropagation?.();
@@ -128,7 +128,7 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
     }
   };
 
-  if (!isOpen) return null;
+  if (!fullPage && !isOpen) return null;
 
   const dev = data?.device || {};
   const health = data?.health || {};
@@ -137,13 +137,9 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
   const sameNetwork = data?.same_network_issues || [];
   const timeline = data?.timeline || [];
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
-      <div
-        className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+  const inner = (
+    <>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50 shrink-0">
           <div className="flex items-center gap-3">
             <Activity className="w-6 h-6 text-blue-600" />
             <div>
@@ -481,6 +477,22 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
             </>
           )}
         </div>
+    </>
+  );
+  if (fullPage) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-white flex flex-col overflow-hidden">
+        {inner}
+      </div>
+    );
+  }
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div
+        className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        {inner}
       </div>
     </div>
   );

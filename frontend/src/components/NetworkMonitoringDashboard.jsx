@@ -22,7 +22,7 @@ import MonitoraggioIntroCard from './MonitoraggioIntroCard';
 import SectionNavMenu from './SectionNavMenu';
 import DeviceAnalysisModal from './Modals/DeviceAnalysisModal';
 
-const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateNetworkMonitoring, onNavigateMappatura, initialDeviceAnalysisId = null, initialDeviceAnalysisLabel = '' }) => {
+const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
   const [devices, setDevices] = useState([]);
   const [changes, setChanges] = useState([]);
   const [recentChangesCount, setRecentChangesCount] = useState(0); // Conteggio cambiamenti ultime 24h dal backend
@@ -71,18 +71,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [showDeviceAnalysisModal, setShowDeviceAnalysisModal] = useState(false);
   const [deviceAnalysisDeviceId, setDeviceAnalysisDeviceId] = useState(null);
   const [deviceAnalysisLabel, setDeviceAnalysisLabel] = useState('');
-  // Apri modal analisi se aperto da URL (nuova finestra)
-  useEffect(() => {
-    if (initialDeviceAnalysisId) {
-      setDeviceAnalysisDeviceId(initialDeviceAnalysisId);
-      setDeviceAnalysisLabel(initialDeviceAnalysisLabel || '');
-      setShowDeviceAnalysisModal(true);
-      const u = new URL(window.location.href);
-      u.searchParams.delete('deviceAnalysis');
-      u.searchParams.delete('deviceLabel');
-      window.history.replaceState(null, '', u.pathname + u.search + (u.hash || '#network-monitoring'));
-    }
-  }, [initialDeviceAnalysisId, initialDeviceAnalysisLabel]);
   // selectedStaticIPs non serve più, usiamo is_static dal database
   const seenMacAddressesRef = useRef(new Set());
   const [newDevicesInList, setNewDevicesInList] = useState(new Set());
@@ -2380,10 +2368,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                     const id = ipContextMenu.device?.id || ipContextMenu.device?.device_id;
                     const label = ipContextMenu.device?.hostname || ipContextMenu.device?.ip_address || ipContextMenu.ip;
                     const deviceLabel = label ? `${label} (${ipContextMenu.ip})` : ipContextMenu.ip;
-                    const params = new URLSearchParams(window.location.search);
-                    params.set('deviceAnalysis', String(id));
+                    const params = new URLSearchParams();
+                    params.set('deviceId', String(id));
                     params.set('deviceLabel', deviceLabel);
-                    const url = `${window.location.origin}${window.location.pathname}?${params.toString()}#network-monitoring`;
+                    const url = `${window.location.origin}${window.location.pathname}?${params.toString()}#device-analysis`;
                     window.open(url, '_blank', 'noopener,noreferrer');
                     closeIpContextMenu();
                   }}
