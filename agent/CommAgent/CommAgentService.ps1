@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.17"
+$SCRIPT_VERSION = "1.2.18"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -40,6 +40,7 @@ function Write-Log {
     $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     try { "[$ts] [$Level] $Message" | Out-File -FilePath $script:logFile -Append -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
 }
+try { Write-Log "Avvio script, versione $SCRIPT_VERSION" "INFO" } catch {}
 
 function Load-Config {
     if (Test-Path $script:configFile) { try { return Get-Content $script:configFile -Raw | ConvertFrom-Json } catch {} }
@@ -300,6 +301,7 @@ function Check-Update {
         $vUrl = "$($config.server_url)/api/comm-agent/agent-version"
         $vData = Invoke-RestMethod -Uri $vUrl -Method GET -ErrorAction Stop
         if ($vData.version -ne $SCRIPT_VERSION) {
+            Write-Log "Aggiornamento rilevato: $SCRIPT_VERSION -> $($vData.version). Download e riavvio..." "INFO"
             $zipPath = Join-Path $env:TEMP "LogikaCommAgent_Update.zip"
             $extractPath = Join-Path $env:TEMP "LogikaCommAgent_Update"
             $dlUrl = "$($config.server_url)/api/comm-agent/download-agent"
@@ -310,17 +312,19 @@ function Check-Update {
             $updaterBat = Join-Path $env:TEMP "LogikaUpdate.bat"
             $myPath = $script:scriptDir
             $vbsLauncher = Join-Path $myPath "Start-CommAgent-Hidden.vbs"
-            $vbsContent = "Set WshShell = CreateObject(`"WScript.Shell`")`r`nWshShell.Run `"powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File `"`"$myPath\CommAgentService.ps1`"`"`, 0`r`nSet WshShell = Nothing"
+            $vbsContent = "Set WshShell = CreateObject(""WScript.Shell"")" + "`r`n" + "WshShell.Run ""powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File """"$myPath\CommAgentService.ps1"""""", 0, False" + "`r`n" + "Set WshShell = Nothing"
             $vbsContent | Out-File -FilePath $vbsLauncher -Encoding ASCII -Force
-            
-            $batContent = "@echo off`r`ntimeout /t 2 /nobreak >nul`r`ntaskkill /F /IM powershell.exe /FI `"WINDOWTITLE eq $APP_NAME*`" >nul 2>&1`r`nrobocopy `"$extractPath`" `"$myPath`" /E /IS /IT /NP /XF *.log`r`nexplorer.exe `"$vbsLauncher`"`r`ndel `"%~f0`""
+
+            $batContent = "@echo off`r`ntimeout /t 2 /nobreak >nul`r`ntaskkill /F /PID $PID >nul 2>&1`r`ntimeout /t 1 /nobreak >nul`r`nrobocopy `"$extractPath`" `"$myPath`" /E /IS /IT /NP /XF *.log /XF Start-CommAgent-Hidden.vbs`r`nwscript.exe `"$vbsLauncher`"`r`ndel `"%~f0`""
             $batContent | Out-File -FilePath $updaterBat -Encoding ASCII -Force
             Start-Process -FilePath $updaterBat -WindowStyle Hidden
             [System.Windows.Forms.Application]::Exit()
             Stop-Process -Id $PID -Force
         }
     }
-    catch {}
+    catch {
+        Write-Log "Controllo aggiornamenti fallito: $_" "WARN"
+    }
 }
 
 function Register-Agent {
@@ -384,6 +388,7 @@ if ($cfg) {
         $script:heartbeatTimer.Add_Tick({ Send-Heartbeat -Config $cfg })
         Send-Heartbeat -Config $cfg
         $script:heartbeatTimer.Start()
+        Write-Log "Agent operativo, versione $SCRIPT_VERSION. Tray e heartbeat attivi." "INFO"
         $script:updateTimer = New-Object System.Windows.Forms.Timer
         $script:updateTimer.Interval = 120000
         $script:updateTimer.Add_Tick({ Check-Update })
