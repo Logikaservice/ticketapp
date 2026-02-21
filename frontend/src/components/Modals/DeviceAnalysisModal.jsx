@@ -1,5 +1,5 @@
 // Modal Analisi dispositivo: overview, test remoti, pattern, confronto con dispositivi simili
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   X, Activity, BarChart3, Cpu, Users, Loader, AlertTriangle, CheckCircle, Wifi, WifiOff
 } from 'lucide-react';
@@ -24,6 +24,7 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
   const [testsLoading, setTestsLoading] = useState(false);
   const [testsWaitingAgent, setTestsWaitingAgent] = useState(false); // true quando in attesa dell'agent (IP privato)
   const [periodDays, setPeriodDays] = useState(30);
+  const testSectionRef = useRef(null);
 
   const fetchAnalysis = useCallback(async () => {
     if (!deviceId) return;
@@ -53,9 +54,10 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
 
   const runTests = async () => {
     if (!deviceId) return;
+    setTests(null);
     setTestsLoading(true);
     setTestsWaitingAgent(false);
-    setTests(null);
+    testSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     try {
       const res = await fetch(buildApiUrl(`/api/network-monitoring/device-analysis/${deviceId}/run-tests`), {
         method: 'POST',
@@ -204,11 +206,26 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
               </section>
 
               {/* 2. Test remoti */}
-              <section className="rounded-lg border border-gray-200 p-4">
+              <section ref={testSectionRef} className="rounded-lg border border-gray-200 p-4">
                 <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                   <Cpu className="w-4 h-4" />
                   Test remoti
                 </h3>
+                {testsLoading && (
+                  <div className="mb-4 p-4 rounded-xl bg-amber-100 border-2 border-amber-400 flex items-center gap-4">
+                    <Loader className="w-8 h-8 text-amber-600 animate-spin shrink-0" />
+                    <div>
+                      <div className="font-semibold text-amber-900">
+                        {testsWaitingAgent ? 'In attesa dell\'agent' : 'Esecuzione test in corso'}
+                      </div>
+                      <div className="text-sm text-amber-800 mt-1">
+                        {testsWaitingAgent
+                          ? 'Il task è stato inviato. L\'agent riceve i comandi ogni ~5 minuti: attendi fino a 5 minuti, i risultati appariranno qui.'
+                          : 'Attendi qualche secondo…'}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <p className="text-xs text-gray-500 mb-3">
                   Ping e verifica porte. I test si adattano al tipo dispositivo: <strong>antenna/switch/router</strong> → porte gestione (80, 443, 22, 8080); <strong>PC/server</strong> → 80, 443, 445, 3389, 22, 21. Per <strong>IP privati</strong> (192.168.x, 10.x) i test vengono eseguiti dall&apos;<strong>agent in locale</strong> (rete del cliente), così funzionano anche con server in cloud.
                 </p>
@@ -217,10 +234,10 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                     type="button"
                     onClick={runTests}
                     disabled={testsLoading}
-                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 shrink-0"
+                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 shrink-0 disabled:cursor-not-allowed"
                   >
                     {testsLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
-                    Esegui test
+                    {testsLoading ? 'Test in corso…' : 'Esegui test'}
                   </button>
                   {testsLoading && (
                     <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-100 border border-amber-300 text-amber-800 text-sm font-medium shrink-0">
