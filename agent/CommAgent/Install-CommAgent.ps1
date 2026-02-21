@@ -83,6 +83,10 @@ if (-not (Test-Path $INSTALL_DIR)) {
 Write-Host "Copia file..."
 Copy-Item -Path (Join-Path $SCRIPT_DIR "CommAgentService.ps1") -Destination (Join-Path $INSTALL_DIR "CommAgentService.ps1") -Force
 Copy-Item -Path (Join-Path $SCRIPT_DIR "CommAgentNotifier.ps1") -Destination (Join-Path $INSTALL_DIR "CommAgentNotifier.ps1") -Force
+if (Test-Path (Join-Path $SCRIPT_DIR "Uninstall-CommAgent.ps1")) {
+    Copy-Item -Path (Join-Path $SCRIPT_DIR "Uninstall-CommAgent.ps1") -Destination (Join-Path $INSTALL_DIR "Uninstall-CommAgent.ps1") -Force
+    Write-Host "  Uninstall-CommAgent.ps1 copiato (per disinstallare: eseguire da $INSTALL_DIR)" -ForegroundColor Gray
+}
 
 # Copia install_config.json se presente (precompilato dal download)
 if (Test-Path $preConfigPath) {
@@ -145,6 +149,7 @@ Write-Host ""
 Write-Host "INSTALLAZIONE COMPLETATA." -ForegroundColor Green
 Write-Host "L'agent e' attivo. Controlla l'icona vicino all'orologio (area notifiche)."
 Write-Host "Se non la vedi: clicca la freccia ^ accanto all'orologio per le icone nascoste." -ForegroundColor Cyan
+Write-Host "Per disinstallare: esegui come amministratore $INSTALL_DIR\Uninstall-CommAgent.ps1" -ForegroundColor Gray
 Write-Host "Log: $INSTALL_DIR\CommAgent.log" -ForegroundColor Gray
 Write-Host ""
 pause
