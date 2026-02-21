@@ -525,39 +525,16 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                   )}
                 </div>
 
-                {/* Info attesa agent */}
-                {testsLoading && testsWaitingAgent && countdown != null && (
-                  <div className="mb-4 p-4 rounded-xl bg-blue-50 border border-blue-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Timer className="w-4 h-4 text-blue-600" />
-                        <span className="text-sm font-semibold text-blue-900">Task inviato all'agent</span>
-                      </div>
-                      <span className="text-2xl font-mono font-bold text-blue-700">
-                        {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, '0')}
-                      </span>
-                    </div>
-                    <div className="w-full bg-blue-100 rounded-full h-2 mb-2">
-                      <div
-                        className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
-                        style={{ width: `${(countdown / 360) * 100}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-blue-700">
-                      L'agent sulla rete del cliente eseguirà ping e scan porte verso <strong>{dev.ip_address}</strong>.
-                      Il task viene consegnato al prossimo heartbeat dell'agent (ogni ~5 min).
-                    </p>
-                  </div>
+                {/* Stato loading inline compatto */}
+                {testsLoading && testsWaitingAgent && (
+                  <p className="text-xs text-blue-600 mb-4">
+                    ⏳ Task inviato all'agent — attendi il prossimo heartbeat (~5 min). Il countdown è visibile in cima.
+                  </p>
                 )}
-
                 {testsLoading && !testsWaitingAgent && (
-                  <div className="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200">
-                    <div className="flex items-center gap-2">
-                      <Loader className="w-4 h-4 text-amber-600 animate-spin" />
-                      <span className="text-sm font-semibold text-amber-900">Il server cloud esegue ping e scan porte…</span>
-                    </div>
-                    <p className="text-xs text-amber-700 mt-1">Attendi alcuni secondi, i risultati appariranno automaticamente.</p>
-                  </div>
+                  <p className="text-xs text-amber-600 mb-4 flex items-center gap-1">
+                    <Loader className="w-3 h-3 animate-spin inline" /> Test in esecuzione dal server cloud…
+                  </p>
                 )}
 
                 {/* Risultati */}
