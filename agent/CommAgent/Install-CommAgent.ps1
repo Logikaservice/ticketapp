@@ -144,6 +144,7 @@ catch {
 Write-Host ""
 Write-Host "INSTALLAZIONE COMPLETATA." -ForegroundColor Green
 Write-Host "L'agent e' attivo. Controlla l'icona vicino all'orologio (area notifiche)."
-Write-Host "Se l'icona non compare, controlla il log: $INSTALL_DIR\CommAgent.log" -ForegroundColor Yellow
+Write-Host "Se non la vedi: clicca la freccia ^ accanto all'orologio per le icone nascoste." -ForegroundColor Cyan
+Write-Host "Log: $INSTALL_DIR\CommAgent.log" -ForegroundColor Gray
 Write-Host ""
 pause

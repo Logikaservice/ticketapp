@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.15"
+$SCRIPT_VERSION = "1.2.16"
 $HEARTBEAT_INTERVAL_SECONDS = 15
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -227,7 +227,9 @@ function Initialize-TrayIcon {
             $g = [System.Drawing.Graphics]::FromImage($bmp)
             $g.Clear([System.Drawing.Color]::Transparent)
             $g.FillEllipse([System.Drawing.Brushes]::BlueViolet, 1, 1, 30, 30)
-            $g.DrawString("L", (New-Object System.Drawing.Font("Segoe UI", 16, 1)), [System.Drawing.Brushes]::White, 6, -2)
+            $fontStyle = [System.Drawing.FontStyle]::Bold
+            $font = New-Object System.Drawing.Font("Segoe UI", 16, $fontStyle)
+            try { $g.DrawString("L", $font, [System.Drawing.Brushes]::White, 6, -2) } finally { if ($font) { $font.Dispose() } }
             $icon = [System.Drawing.Icon]::FromHandle($bmp.GetHicon())
         }
         catch {
@@ -246,6 +248,10 @@ function Initialize-TrayIcon {
         $itemExit.Add_Click({ $script:trayIcon.Visible = $false; [System.Windows.Forms.Application]::Exit() })
         $script:trayIcon.ContextMenuStrip = $menu
         $script:trayIcon.Visible = $true
+        $script:trayIcon.BalloonTipTitle = "Logika Service Agent"
+        $script:trayIcon.BalloonTipText = "Agent avviato. Clicca l'icona vicino all'orologio per il menu."
+        $script:trayIcon.ShowBalloonTip(5000)
+        [System.Windows.Forms.Application]::DoEvents()
         Write-Log "Tray icon creata e visibile." "INFO"
     }
     catch {
