@@ -385,9 +385,16 @@ if ($cfg) {
         Send-Heartbeat -Config $cfg
         $script:heartbeatTimer.Start()
         $script:updateTimer = New-Object System.Windows.Forms.Timer
-        $script:updateTimer.Interval = 300000
+        $script:updateTimer.Interval = 120000
         $script:updateTimer.Add_Tick({ Check-Update })
         $script:updateTimer.Start()
+        $script:updateCheckOnce = New-Object System.Windows.Forms.Timer
+        $script:updateCheckOnce.Interval = 30000
+        $script:updateCheckOnce.Add_Tick({
+            if ($script:updateCheckOnce) { $script:updateCheckOnce.Stop(); $script:updateCheckOnce.Dispose(); $script:updateCheckOnce = $null }
+            Check-Update
+        })
+        $script:updateCheckOnce.Start()
         [System.Windows.Forms.Application]::Run()
     }
     catch {
