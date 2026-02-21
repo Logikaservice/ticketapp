@@ -1044,6 +1044,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       'device_offline': { label: 'Offline', color: 'bg-red-100 text-red-800' },
       'device_online': { label: 'Online', color: 'bg-green-100 text-green-800' },
       'ip_changed': { label: 'IP Cambiato', color: 'bg-yellow-100 text-yellow-800' },
+      'ip_conflict': { label: 'Conflitto IP', color: 'bg-amber-100 text-amber-800' },
       'mac_changed': { label: 'MAC Cambiato', color: 'bg-orange-100 text-orange-800' },
       'hostname_changed': { label: 'Hostname Cambiato', color: 'bg-purple-100 text-purple-800' },
     };
@@ -2559,6 +2560,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   bg: 'bg-orange-100',
                                   text: 'text-orange-800',
                                   border: 'border-orange-300'
+                                },
+                                ip_conflict: {
+                                  label: 'Conflitto IP',
+                                  bg: 'bg-amber-100',
+                                  text: 'text-amber-800',
+                                  border: 'border-amber-300'
                                 },
                                 hostname_changed: {
                                   label: 'Hostname Cambiato',

@@ -478,6 +478,21 @@ module.exports = (pool, io) => {
         }
       }
 
+      // Migrazione: aggiungi change_type 'ip_conflict' alla tabella network_changes (per Eventi di Rete)
+      try {
+        await pool.query(`
+          ALTER TABLE network_changes DROP CONSTRAINT IF EXISTS network_changes_change_type_check;
+        `);
+        await pool.query(`
+          ALTER TABLE network_changes ADD CONSTRAINT network_changes_change_type_check
+          CHECK (change_type IN ('new_device', 'device_offline', 'device_online', 'ip_changed', 'mac_changed', 'hostname_changed', 'vendor_changed', 'ip_conflict'));
+        `);
+      } catch (migrErr) {
+        if (!migrErr.message.includes('already exists') && !migrErr.message.includes('duplicate')) {
+          console.warn('⚠️ Migrazione ip_conflict network_changes:', migrErr.message);
+        }
+      }
+
       // Crea funzione e trigger (solo se non esistono)
       // Prima verifica se la funzione esiste già
       try {
@@ -4182,7 +4197,7 @@ module.exports = (pool, io) => {
           u.azienda,
           CASE 
             WHEN nc.change_type = 'new_device' THEN 'info'
-            WHEN nc.change_type IN ('device_offline', 'mac_changed', 'ip_changed') THEN 'warning'
+            WHEN nc.change_type IN ('device_offline', 'mac_changed', 'ip_changed', 'ip_conflict') THEN 'warning'
             WHEN nc.change_type = 'device_online' THEN 'info'
             ELSE 'info'
           END as severity,

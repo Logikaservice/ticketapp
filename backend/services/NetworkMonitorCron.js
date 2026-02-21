@@ -83,6 +83,7 @@ class NetworkMonitorCron {
             // Cerca IP doppi nello stesso Agent (stesso IP, MAC diverso, entrambi online/recenti)
             const conflicts = await this.pool.query(`
         SELECT 
+            d1.id as device_id,
             d1.agent_id, 
             d1.ip_address, 
             d1.mac_address as mac1, 
@@ -96,7 +97,6 @@ class NetworkMonitorCron {
         WHERE d1.id < d2.id
           AND d1.mac_address != d2.mac_address
           AND d1.status = 'online' AND d2.status = 'online'
-          -- Evita falsi positivi da vecchi dati
           AND d1.last_seen > NOW() - INTERVAL '15 minutes'
           AND d2.last_seen > NOW() - INTERVAL '15 minutes'
       `);
@@ -116,6 +116,21 @@ class NetworkMonitorCron {
 Due dispositivi stanno usando lo stesso IP contemporaneamente!`;
 
                     await telegramService.sendMessage(message);
+
+                    // Inserisci in network_changes così compare in Eventi di Rete
+                    try {
+                        await this.pool.query(`
+                            INSERT INTO network_changes (device_id, agent_id, change_type, old_value, new_value)
+                            VALUES ($1, $2, 'ip_conflict', $3, $4)
+                        `, [
+                            conflict.device_id,
+                            conflict.agent_id,
+                            conflict.mac1 || '',
+                            conflict.mac2 || ''
+                        ]);
+                    } catch (insErr) {
+                        console.error('NetworkMonitorCron: Errore inserimento evento ip_conflict:', insErr.message);
+                    }
                 }
             }
 
