@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.20"
+$SCRIPT_VERSION = "1.2.21"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -151,18 +151,18 @@ function Show-CustomToast {
     $lblBadge.Location  = New-Object System.Drawing.Point($locX1, 11)
     $panelHdr.Controls.Add($lblBadge)
 
-    $btnX = New-Object System.Windows.Forms.Button
-    $btnX.Text      = "X"
-    $btnX.Font      = New-Object System.Drawing.Font("Segoe UI", 9)
-    $btnX.ForeColor = $colorSub
-    $btnX.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnX.FlatAppearance.BorderSize = 0
-    $btnX.BackColor = [System.Drawing.Color]::Transparent
-    $btnX.Size      = New-Object System.Drawing.Size(26, 26)
-    $btnX.Location  = New-Object System.Drawing.Point($locX2, 6)
-    $btnX.Cursor    = [System.Windows.Forms.Cursors]::Hand
-    $btnX.Add_Click({ try { $this.FindForm().Close() } catch {} })
-    $panelHdr.Controls.Add($btnX)
+    $btnCloseHeader = New-Object System.Windows.Forms.Button
+    $btnCloseHeader.Text      = "X"
+    $btnCloseHeader.Font      = New-Object System.Drawing.Font("Segoe UI", 9)
+    $btnCloseHeader.ForeColor = $colorSub
+    $btnCloseHeader.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $btnCloseHeader.FlatAppearance.BorderSize = 0
+    $btnCloseHeader.BackColor = [System.Drawing.Color]::Transparent
+    $btnCloseHeader.Size      = New-Object System.Drawing.Size(26, 26)
+    $btnCloseHeader.Location  = New-Object System.Drawing.Point($locX2, 6)
+    $btnCloseHeader.Cursor    = [System.Windows.Forms.Cursors]::Hand
+    $btnCloseHeader.Add_Click({ try { $this.FindForm().Close() } catch {} })
+    $panelHdr.Controls.Add($btnCloseHeader)
 
     $lblTitleCont = New-Object System.Windows.Forms.Label
     $lblTitleCont.Text      = $Title
