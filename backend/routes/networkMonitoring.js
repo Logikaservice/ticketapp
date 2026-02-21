@@ -870,7 +870,7 @@ module.exports = (pool, io) => {
 
       // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
       // Serve per far capire all'installer quale versione dovrebbe risultare installata.
-      const CURRENT_AGENT_VERSION = '2.6.14'; // Versione di fallback (allineata a $SCRIPT_VERSION)
+      const CURRENT_AGENT_VERSION = '2.6.17'; // Versione di fallback (allineata a $SCRIPT_VERSION)
       let agentPackageVersion = CURRENT_AGENT_VERSION;
       try {
         const projectRoot = path.resolve(__dirname, '..', '..');
@@ -3141,7 +3141,7 @@ module.exports = (pool, io) => {
             const macHex = (row.mac_address || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
             const normalizedMac = macHex.length === 12 ? macHex : row.mac_address.replace(/[:-]/g, '').toUpperCase();
             const keepassEntries = keepassMap.get(normalizedMac);
-            
+
             // Conta quante entry appartengono all'azienda (per mostrare duplicati)
             let duplicateCount = 0;
             if (Array.isArray(keepassEntries) && keepassEntries.length > 0 && aziendaName) {
@@ -3153,14 +3153,14 @@ module.exports = (pool, io) => {
             } else if (Array.isArray(keepassEntries)) {
               duplicateCount = keepassEntries.length;
             }
-            
+
             // Aggiungi conteggio duplicati al MAC se > 1
             if (duplicateCount > 1) {
               // Formatta MAC originale con conteggio tra parentesi
               const originalMac = row.mac_address;
               row.mac_address = `${originalMac} (${duplicateCount})`;
             }
-            
+
             const keepassResult = Array.isArray(keepassEntries)
               ? keepassDriveService.pickEntryForAzienda(keepassEntries, aziendaName)
               : keepassEntries;
@@ -3926,7 +3926,7 @@ module.exports = (pool, io) => {
             const macHex = (row.mac_address || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
             const normalizedMac = macHex.length === 12 ? macHex : row.mac_address.replace(/[:-]/g, '').toUpperCase();
             const keepassEntries = keepassMap.get(normalizedMac);
-            
+
             // Conta quante entry appartengono all'azienda (per mostrare duplicati)
             let duplicateCount = 0;
             if (Array.isArray(keepassEntries) && keepassEntries.length > 0 && row.azienda) {
@@ -3938,14 +3938,14 @@ module.exports = (pool, io) => {
             } else if (Array.isArray(keepassEntries)) {
               duplicateCount = keepassEntries.length;
             }
-            
+
             // Aggiungi conteggio duplicati al MAC se > 1
             if (duplicateCount > 1) {
               // Formatta MAC originale con conteggio tra parentesi
               const originalMac = row.mac_address;
               row.mac_address = `${originalMac} (${duplicateCount})`;
             }
-            
+
             const keepassResult = Array.isArray(keepassEntries)
               ? keepassDriveService.pickEntryForAzienda(keepassEntries, row.azienda)
               : keepassEntries;
@@ -4845,7 +4845,7 @@ module.exports = (pool, io) => {
       }
 
       // Versione agent per ZIP e config.json incluso (allineata a NetworkMonitorService.ps1 $SCRIPT_VERSION)
-      const CURRENT_AGENT_VERSION = '2.6.14';
+      const CURRENT_AGENT_VERSION = '2.6.17';
       const agentVersion = CURRENT_AGENT_VERSION;
       console.log(`ℹ️ Versione agent per ZIP: ${agentVersion} `);
 
@@ -7304,15 +7304,15 @@ pause
   // scaricano da /download/agent/NetworkMonitorService.ps1 e si riavviano (auto-update).
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.6.16'; // Versione corrente agent - FIX anti-hang scansione
+      const CURRENT_AGENT_VERSION = '2.6.17'; // Versione corrente agent - device test remoto via agent
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
         version: CURRENT_AGENT_VERSION,
-        download_url: `${baseUrl}/agent-updates/NetworkMonitorService.ps1`,
-        release_date: '2026-02-14',
+        download_url: `${baseUrl}/api/network-monitoring/download/agent/NetworkMonitorService.ps1`,
+        release_date: '2026-02-21',
         features: [
-          'Tray - Fix countdown Prossima scansione (max intervallo, last_scan nel futuro)',
+          'Device Test Remoto - Ping e scan porte eseguiti dall\'agent in locale (IP privati)',
           'Parallelismo scansione WiFi (router multipli simultanei)',
           'Carica AP associati - Cloud Key/Controller Unifi (credenziali da KeePass, API stat/device, fix SSL, log avanzati)',
           'Router WiFi - Carica dispositivi da router AGCOMBO/TIM e sync automatica sulla mappa',
@@ -8055,10 +8055,10 @@ pause
       try {
         const creds = await keepassDriveService.getCredentialsByMac(macAddress, process.env.KEEPASS_PASSWORD);
         if (creds && (creds.username || creds.password)) {
-          return res.json({ 
-            username: creds.username || '', 
-            password: creds.password || '', 
-            found: true 
+          return res.json({
+            username: creds.username || '',
+            password: creds.password || '',
+            found: true
           });
         }
       } catch (kpErr) {
