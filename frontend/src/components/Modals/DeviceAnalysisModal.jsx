@@ -5,7 +5,7 @@ import {
   X, Activity, BarChart3, Cpu, Users, Loader, AlertTriangle,
   CheckCircle, WifiOff, Clock, Wifi, Server, Monitor, Printer,
   Router, Shield, HardDrive, ArrowUpRight, ArrowDownRight,
-  Minus, ChevronDown, ChevronUp
+  Minus, ChevronDown, ChevronUp, Play, Timer
 } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
 
@@ -174,10 +174,29 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
   const [testsWaitingAgent, setTestsWaitingAgent] = useState(false);
   const [periodDays, setPeriodDays] = useState(30);
   const [timelineExpanded, setTimelineExpanded] = useState(false);
+  const [countdown, setCountdown] = useState(null); // secondi rimasti
+  const countdownRef = useRef(null);
   const testSectionRef = useRef(null);
   const fetchAnalysisRef = useRef(null);
   const testsLoadingRef = useRef(false);
   testsLoadingRef.current = testsLoading;
+
+  // Countdown timer per attesa agent
+  const startCountdown = (seconds) => {
+    setCountdown(seconds);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    countdownRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) { clearInterval(countdownRef.current); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+  const stopCountdown = () => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    setCountdown(null);
+  };
+  useEffect(() => () => stopCountdown(), []);
 
   const fetchAnalysis = useCallback(async () => {
     if (!deviceId || testsLoadingRef.current) return;
@@ -211,6 +230,7 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
     e?.stopPropagation?.();
     if (!deviceId) return;
     setTests(null);
+    stopCountdown();
     flushSync(() => {
       setTestsLoading(true);
       setTestsWaitingAgent(false);
@@ -228,16 +248,18 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
         method: 'POST',
         headers: { ...getAuthHeader(), 'Content-Type': 'application/json' }
       });
-      if (!res.ok) throw new Error('Test falliti');
+      if (!res.ok) throw new Error('Test falliti - risposta server non valida');
       const json = await res.json();
       if (json.deferred && json.task_id) {
         const taskId = json.task_id;
-        setTestsWaitingAgent(true);
+        flushSync(() => setTestsWaitingAgent(true));
+        startCountdown(360); // 6 minuti di attesa max
         const deadline = Date.now() + 7 * 60 * 1000;
         const poll = async () => {
           if (Date.now() > deadline) {
+            stopCountdown();
             setTestsWaitingAgent(false);
-            setTests({ error: "Timeout: l'agent non ha completato i test in tempo. Verifica che l'agent sia attivo e riprova." });
+            setTests({ error: "Timeout: l'agent non ha risposto in 7 minuti. Verifica che l'agent sia attivo, poi riprova (l'agent riceve il task al prossimo heartbeat, ogni 5 min)." });
             setTestsLoading(false);
             return;
           }
@@ -246,6 +268,7 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
             const data = await r.json();
             if (data.status !== 'pending') {
               await ensureMinBanner();
+              stopCountdown();
               setTestsWaitingAgent(false);
               setTests({
                 ping: data.ping ?? null, ports: data.ports ?? null,
@@ -262,12 +285,14 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
         return;
       }
       await ensureMinBanner();
+      stopCountdown();
       setTests(json);
     } catch (err) {
       await ensureMinBanner();
+      stopCountdown();
       setTests({ error: err.message });
     } finally {
-      setTestsLoading(false);
+      if (!testsWaitingAgent) setTestsLoading(false);
     }
   };
 
@@ -342,16 +367,39 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
 
       {/* ── Banner test in corso ── */}
       {testsLoading && (
-        <div className="flex items-center gap-3 px-6 py-3 bg-amber-50 border-b border-amber-200 shrink-0">
-          <Loader className="w-5 h-5 text-amber-600 animate-spin shrink-0" />
-          <div>
-            <div className="text-sm font-semibold text-amber-900">
-              {testsWaitingAgent ? 'In attesa dell\'agent (IP privato)…' : 'Esecuzione test in corso…'}
+        <div className={`shrink-0 border-b ${testsWaitingAgent ? 'bg-blue-50 border-blue-200' : 'bg-amber-50 border-amber-200'}`}>
+          <div className="flex items-center gap-3 px-6 py-3">
+            {testsWaitingAgent
+              ? <Timer className="w-5 h-5 text-blue-600 shrink-0" />
+              : <Loader className="w-5 h-5 text-amber-600 animate-spin shrink-0" />}
+            <div className="flex-1 min-w-0">
+              <div className={`text-sm font-semibold ${testsWaitingAgent ? 'text-blue-900' : 'text-amber-900'}`}>
+                {testsWaitingAgent
+                  ? `⏳ In attesa che l'agent esegua il test${countdown != null ? ` — ${Math.floor(countdown / 60)}:${String(countdown % 60).padStart(2, '0')} rimasti` : ''}`
+                  : '⚡ Esecuzione test dal server cloud…'}
+              </div>
+              {testsWaitingAgent && (
+                <div className="text-xs text-blue-700 mt-0.5">
+                  L'agent esegue test locali al prossimo heartbeat (~5 min). Attendi.
+                </div>
+              )}
             </div>
-            {testsWaitingAgent && (
-              <div className="text-xs text-amber-700 mt-0.5">L'agent riceve i comandi ogni ~5 min. Attendi fino a 5 minuti.</div>
+            {testsWaitingAgent && countdown != null && (
+              <div className="text-2xl font-mono font-bold text-blue-700 shrink-0">
+                {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, '0')}
+              </div>
             )}
           </div>
+          {testsWaitingAgent && countdown != null && (
+            <div className="h-1 bg-blue-100">
+              <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${(countdown / 360) * 100}%` }} />
+            </div>
+          )}
+          {!testsWaitingAgent && (
+            <div className="h-1 bg-amber-100">
+              <div className="h-full bg-amber-400 animate-pulse" style={{ width: '65%' }} />
+            </div>
+          )}
         </div>
       )}
 
@@ -455,20 +503,62 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                     type="button"
                     onClick={(ev) => { ev.stopPropagation(); runTests(ev); }}
                     disabled={testsLoading}
-                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 shadow-sm transition-colors"
+                    className={`px-4 py-2 text-white text-sm rounded-lg flex items-center gap-2 shadow-sm transition-colors ${testsLoading
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700'
+                      }`}
                   >
-                    {testsLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
-                    {testsLoading ? (testsWaitingAgent ? 'In attesa agent…' : 'Test in corso…') : 'Esegui test'}
+                    {testsLoading
+                      ? <Loader className="w-4 h-4 animate-spin" />
+                      : <Play className="w-4 h-4" />}
+                    {testsLoading
+                      ? (testsWaitingAgent ? 'In attesa agent…' : 'Test in corso…')
+                      : 'Esegui test'}
                   </button>
-                  {tests?.profileLabel && (
+                  {tests?.profileLabel && !testsLoading && (
                     <span className="text-[11px] bg-blue-50 text-blue-700 border border-blue-100 px-2.5 py-1 rounded-full">
                       {tests.profileLabel}
                     </span>
                   )}
-                  {tests?._deferred && (
+                  {tests?._deferred && !testsLoading && (
                     <span className="text-[11px] text-green-600 font-medium">✓ Eseguiti dall'agent in locale</span>
                   )}
                 </div>
+
+                {/* Info attesa agent */}
+                {testsLoading && testsWaitingAgent && countdown != null && (
+                  <div className="mb-4 p-4 rounded-xl bg-blue-50 border border-blue-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Timer className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm font-semibold text-blue-900">Task inviato all'agent</span>
+                      </div>
+                      <span className="text-2xl font-mono font-bold text-blue-700">
+                        {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, '0')}
+                      </span>
+                    </div>
+                    <div className="w-full bg-blue-100 rounded-full h-2 mb-2">
+                      <div
+                        className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
+                        style={{ width: `${(countdown / 360) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-blue-700">
+                      L'agent sulla rete del cliente eseguirà ping e scan porte verso <strong>{dev.ip_address}</strong>.
+                      Il task viene consegnato al prossimo heartbeat dell'agent (ogni ~5 min).
+                    </p>
+                  </div>
+                )}
+
+                {testsLoading && !testsWaitingAgent && (
+                  <div className="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                    <div className="flex items-center gap-2">
+                      <Loader className="w-4 h-4 text-amber-600 animate-spin" />
+                      <span className="text-sm font-semibold text-amber-900">Il server cloud esegue ping e scan porte…</span>
+                    </div>
+                    <p className="text-xs text-amber-700 mt-1">Attendi alcuni secondi, i risultati appariranno automaticamente.</p>
+                  </div>
+                )}
 
                 {/* Risultati */}
                 {tests?.error && (
