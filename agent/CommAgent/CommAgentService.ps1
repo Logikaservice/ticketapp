@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.11"
+$SCRIPT_VERSION = "1.2.12"
 $HEARTBEAT_INTERVAL_SECONDS = 15
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -576,19 +576,88 @@ del "%~f0"
 # ============================================
 # MAIN
 # ============================================
-Write-Log "Avvio Servizio..."
+Write-Log "Avvio Servizio v$SCRIPT_VERSION..."
 
-# Se install_config.json esiste, prova a registrare
-$preCfg = Join-Path $script:scriptDir "install_config.json"
-if (Test-Path $preCfg) {
+# Funzione di registrazione agent
+function Register-Agent {
+    param($ServerUrl, $Email, $Password)
     try {
-        $pc = Get-Content $preCfg -Raw | ConvertFrom-Json
-        # (Codice registrazione omesso per brevità in questa revisione UI, usare installer per setup)
+        $machineName = $env:COMPUTERNAME
+        $machineId = (Get-WmiObject Win32_ComputerSystemProduct -ErrorAction SilentlyContinue).UUID
+        if (-not $machineId) { $machineId = $env:COMPUTERNAME + "_" + $env:USERNAME }
+        $osInfo = "$([System.Environment]::OSVersion.VersionString) | User: $env:USERNAME"
+
+        $body = @{
+            email        = $Email
+            password     = $Password
+            machine_name = $machineName
+            machine_id   = $machineId
+            os_info      = $osInfo
+        } | ConvertTo-Json -Depth 3
+
+        $regUrl = "$ServerUrl/api/comm-agent/agent/register"
+        Write-Log "Registrazione agent su: $regUrl (macchina: $machineName)" "INFO"
+
+        $resp = Invoke-RestMethod -Uri $regUrl -Method POST -Body $body -ContentType "application/json" -ErrorAction Stop
+
+        if ($resp.api_key) {
+            $newCfg = @{
+                server_url    = $ServerUrl
+                api_key       = $resp.api_key
+                agent_id      = $resp.agent_id
+                email         = $Email
+                machine_name  = $machineName
+                machine_id    = $machineId
+                registered_at = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+            }
+            Save-Config $newCfg
+            Write-Log "Registrazione completata! Agent ID: $($resp.agent_id)" "INFO"
+            return $newCfg
+        }
+        else {
+            Write-Log "ERRORE: Risposta registrazione senza api_key" "ERROR"
+            return $null
+        }
     }
-    catch {}
+    catch {
+        Write-Log "ERRORE registrazione: $($_.Exception.Message)" "ERROR"
+        return $null
+    }
 }
 
+# Carica config esistente
 $cfg = Load-Config
+
+# Se non c'e' config.json ma c'e' install_config.json -> tenta registrazione
+if (-not $cfg) {
+    $preCfg = Join-Path $script:scriptDir "install_config.json"
+    if (Test-Path $preCfg) {
+        Write-Log "config.json non trovato. Leggo install_config.json per registrazione..." "INFO"
+        try {
+            $pc = Get-Content $preCfg -Raw | ConvertFrom-Json
+            if ($pc.server_url -and $pc.email -and $pc.password) {
+                Write-Log "Tentativo registrazione per: $($pc.email)" "INFO"
+                $cfg = Register-Agent -ServerUrl $pc.server_url.TrimEnd('/') -Email $pc.email -Password $pc.password
+                if ($cfg) {
+                    Write-Log "Agent registrato con successo. Avvio tray icon..." "INFO"
+                }
+                else {
+                    Write-Log "Registrazione fallita. Riprovo al prossimo avvio." "ERROR"
+                }
+            }
+            else {
+                Write-Log "install_config.json incompleto (mancano server_url, email o password)" "ERROR"
+            }
+        }
+        catch {
+            Write-Log "ERRORE lettura install_config.json: $($_.Exception.Message)" "ERROR"
+        }
+    }
+    else {
+        Write-Log "Nessun install_config.json trovato. Eseguire Install.bat per configurare l'agent." "WARN"
+    }
+}
+
 if ($cfg) {
     Initialize-TrayIcon
     
