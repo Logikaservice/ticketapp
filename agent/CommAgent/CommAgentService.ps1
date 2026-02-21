@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.19"
+$SCRIPT_VERSION = "1.2.20"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -59,30 +59,43 @@ function Show-CustomToast {
     param(
         [string]$Title = "Notifica",
         [string]$Message = "",
-        [string]$Type = "info" 
+        [string]$Type = "info"
     )
+    $Title = if ($Title -is [array]) { [string]($Title[0]) } else { [string]$Title }
+    $Message = if ($Message -is [array]) { [string]($Message[0]) } else { [string]$Message }
+    $Type = if ($Type -is [array]) { [string]($Type[0]) } else { [string]$Type }
+    if (-not $Type) { $Type = "info" }
 
     if ($script:activeNotificationForm -and !$script:activeNotificationForm.IsDisposed) {
         try { $script:activeNotificationForm.Close() } catch {}
     }
 
-    $aR=99; $aG=102; $aB=241;
-    switch ($Type.ToLower()) {
+    [int]$aR=99; [int]$aG=102; [int]$aB=241
+    switch ([string]$Type.ToLower()) {
         "warning"     { $aR=245;  $aG=158; $aB=11 }
         "maintenance" { $aR=16;   $aG=185; $aB=129 }
         "update"      { $aR=59;   $aG=130; $aB=246 }
         "urgent"      { $aR=239;  $aG=68;  $aB=68 }
         "error"       { $aR=239;  $aG=68;  $aB=68 }
-        default       { $aR=99;   $aG=102; $aB=241 } 
+        default       { $aR=99;   $aG=102; $aB=241 }
     }
-    $colorAccent   = [System.Drawing.Color]::FromArgb($aR, $aG, $aB)
-    $colorAccentDim= [System.Drawing.Color]::FromArgb(40, $aR, $aG, $aB)
+    $colorAccent   = [System.Drawing.Color]::FromArgb([int]$aR, [int]$aG, [int]$aB)
+    $colorAccentDim= [System.Drawing.Color]::FromArgb(40, [int]$aR, [int]$aG, [int]$aB)
     $colorBg       = [System.Drawing.Color]::FromArgb(13,  17,  23 )
     $colorBgHeader = [System.Drawing.Color]::FromArgb(22,  27,  34 )
     $colorText     = [System.Drawing.Color]::FromArgb(230, 237, 243)
     $colorSub      = [System.Drawing.Color]::FromArgb(110, 118, 129)
 
-    $fW=400; $fH=175; $bdr=5; $hH=38;
+    [int]$fW=400; [int]$fH=175; [int]$bdr=5; [int]$hH=38
+    [int]$fwMinBdr = $fW - $bdr
+    [int]$locX1 = $fW - $bdr - 94
+    [int]$locX2 = $fW - $bdr - 28
+    [int]$locY1 = $hH + 8
+    [int]$locY2 = $hH + 34
+    [int]$szW1 = $fwMinBdr - 20
+    [int]$btnX = $fW - 118
+    [int]$btnY = $fH - 34
+    [int]$pgY = $fH - 4
 
     $form = New-Object System.Windows.Forms.Form
     $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
@@ -107,7 +120,7 @@ function Show-CustomToast {
 
     $panelHdr = New-Object System.Windows.Forms.Panel
     $panelHdr.Location  = New-Object System.Drawing.Point($bdr, 0)
-    $panelHdr.Size      = New-Object System.Drawing.Size($fW - $bdr, $hH)
+    $panelHdr.Size      = New-Object System.Drawing.Size($fwMinBdr, $hH)
     $panelHdr.BackColor = $colorBgHeader
     $form.Controls.Add($panelHdr)
 
@@ -135,7 +148,7 @@ function Show-CustomToast {
     $lblBadge.AutoSize  = $false
     $lblBadge.Size      = New-Object System.Drawing.Size(62, 16)
     $lblBadge.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-    $lblBadge.Location  = New-Object System.Drawing.Point(($fW - $bdr - 94), 11)
+    $lblBadge.Location  = New-Object System.Drawing.Point($locX1, 11)
     $panelHdr.Controls.Add($lblBadge)
 
     $btnX = New-Object System.Windows.Forms.Button
@@ -146,7 +159,7 @@ function Show-CustomToast {
     $btnX.FlatAppearance.BorderSize = 0
     $btnX.BackColor = [System.Drawing.Color]::Transparent
     $btnX.Size      = New-Object System.Drawing.Size(26, 26)
-    $btnX.Location  = New-Object System.Drawing.Point(($fW - $bdr - 28), 6)
+    $btnX.Location  = New-Object System.Drawing.Point($locX2, 6)
     $btnX.Cursor    = [System.Windows.Forms.Cursors]::Hand
     $btnX.Add_Click({ try { $this.FindForm().Close() } catch {} })
     $panelHdr.Controls.Add($btnX)
@@ -155,16 +168,16 @@ function Show-CustomToast {
     $lblTitleCont.Text      = $Title
     $lblTitleCont.Font      = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
     $lblTitleCont.ForeColor = $colorText
-    $lblTitleCont.Location  = New-Object System.Drawing.Point(($bdr + 10), ($hH + 8))
-    $lblTitleCont.Size      = New-Object System.Drawing.Size($fW - $bdr - 20, 22)
+    $lblTitleCont.Location  = New-Object System.Drawing.Point(($bdr + 10), $locY1)
+    $lblTitleCont.Size      = New-Object System.Drawing.Size($szW1, 22)
     $form.Controls.Add($lblTitleCont)
 
     $lblMsg = New-Object System.Windows.Forms.Label
     $lblMsg.Text      = $Message
     $lblMsg.Font      = New-Object System.Drawing.Font("Segoe UI", 9.5)
     $lblMsg.ForeColor = $colorSub
-    $lblMsg.Location  = New-Object System.Drawing.Point(($bdr + 10), ($hH + 34))
-    $lblMsg.Size      = New-Object System.Drawing.Size($fW - $bdr - 20, 56)
+    $lblMsg.Location  = New-Object System.Drawing.Point(($bdr + 10), $locY2)
+    $lblMsg.Size      = New-Object System.Drawing.Size($szW1, 56)
     $form.Controls.Add($lblMsg)
 
     $btnClose = New-Object System.Windows.Forms.Button
@@ -175,26 +188,26 @@ function Show-CustomToast {
     $btnClose.BackColor = $colorAccent
     $btnClose.ForeColor = [System.Drawing.Color]::White
     $btnClose.Size      = New-Object System.Drawing.Size(108, 26)
-    $btnClose.Location  = New-Object System.Drawing.Point(($fW - 118), ($fH - 34))
+    $btnClose.Location  = New-Object System.Drawing.Point($btnX, $btnY)
     $btnClose.Cursor    = [System.Windows.Forms.Cursors]::Hand
     $btnClose.Add_Click({ try { $this.FindForm().Close() } catch {} })
     $form.Controls.Add($btnClose)
 
     $pgBg = New-Object System.Windows.Forms.Panel
-    $pgBg.Location  = New-Object System.Drawing.Point($bdr, ($fH - 4))
-    $pgBg.Size      = New-Object System.Drawing.Size($fW - $bdr, 4)
+    $pgBg.Location  = New-Object System.Drawing.Point($bdr, $pgY)
+    $pgBg.Size      = New-Object System.Drawing.Size($fwMinBdr, 4)
     $pgBg.BackColor = [System.Drawing.Color]::FromArgb(30, $aR, $aG, $aB)
     $form.Controls.Add($pgBg)
 
     $script:toastPgBar = New-Object System.Windows.Forms.Panel
     $script:toastPgBar.Location  = New-Object System.Drawing.Point(0, 0)
-    $script:toastPgBar.Size      = New-Object System.Drawing.Size($fW - $bdr, 4)
+    $script:toastPgBar.Size      = New-Object System.Drawing.Size($fwMinBdr, 4)
     $script:toastPgBar.BackColor = $colorAccent
     $pgBg.Controls.Add($script:toastPgBar)
 
     $script:toastTick  = [int]0
     $script:toastTotal = [int]200
-    $script:toastPgW   = [int]($fW - $bdr)
+    $script:toastPgW   = [int]$fwMinBdr
     $script:toastForm  = $form
 
     $script:toastTimer = New-Object System.Windows.Forms.Timer
