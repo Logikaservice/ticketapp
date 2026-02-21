@@ -3188,6 +3188,9 @@ export default function TicketApp() {
               currentUser.admin_companies.length > 0;
             const hasAccess = isGlobalAdmin || isCompanyAdmin;
             const isReadOnly = isCompanyAdmin && !isGlobalAdmin; // Solo admin aziendali sono read-only
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialDeviceAnalysisId = urlParams.get('deviceAnalysis') || null;
+            const initialDeviceAnalysisLabel = urlParams.get('deviceLabel') || '';
 
             return hasAccess ? (
               <NetworkMonitoringDashboard
@@ -3209,6 +3212,8 @@ export default function TicketApp() {
                 onNavigateAntiVirus={handleOpenAntiVirus}
                 onNavigateNetworkMonitoring={null}
                 onNavigateMappatura={() => { setShowMappatura(true); setShowNetworkMonitoring(false); setShowDashboard(false); setSelectedCompanyForNavigation(selectedCompanyForNavigation); }}
+                initialDeviceAnalysisId={initialDeviceAnalysisId}
+                initialDeviceAnalysisLabel={initialDeviceAnalysisLabel}
               />
             ) : (
               // Messaggio di accesso negato
@@ -3362,6 +3367,9 @@ export default function TicketApp() {
                 currentUser.admin_companies.length > 0;
               const hasAccess = isGlobalAdmin || isCompanyAdmin;
               const isReadOnly = isCompanyAdmin && !isGlobalAdmin; // Solo admin aziendali sono read-only
+              const urlParams = new URLSearchParams(window.location.search);
+              const initialDeviceAnalysisId = urlParams.get('deviceAnalysis') || null;
+              const initialDeviceAnalysisLabel = urlParams.get('deviceLabel') || '';
 
               return hasAccess ? (
                 <div className="animate-slideInRight">
@@ -3371,6 +3379,8 @@ export default function TicketApp() {
                     initialView={networkMonitoringInitialView}
                     onViewReset={() => setNetworkMonitoringInitialView(null)}
                     readOnly={isReadOnly}
+                    initialDeviceAnalysisId={initialDeviceAnalysisId}
+                    initialDeviceAnalysisLabel={initialDeviceAnalysisLabel}
                   />
                 </div>
               ) : (
