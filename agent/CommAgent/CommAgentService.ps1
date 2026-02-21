@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.18"
+$SCRIPT_VERSION = "1.2.19"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -94,7 +94,10 @@ function Show-CustomToast {
     $form.StartPosition   = [System.Windows.Forms.FormStartPosition]::Manual
 
     $screen = [System.Windows.Forms.Screen]::PrimaryScreen
-    $form.Location = New-Object System.Drawing.Point(($screen.WorkingArea.Right - $fW - 16), ($screen.WorkingArea.Bottom - $fH - 16))
+    $r = $screen.WorkingArea
+    $x = [int]$r.Right - [int]$fW - 16
+    $y = [int]$r.Bottom - [int]$fH - 16
+    $form.Location = New-Object System.Drawing.Point($x, $y)
 
     $panelBdr = New-Object System.Windows.Forms.Panel
     $panelBdr.Location  = New-Object System.Drawing.Point(0, 0)
@@ -189,21 +192,25 @@ function Show-CustomToast {
     $script:toastPgBar.BackColor = $colorAccent
     $pgBg.Controls.Add($script:toastPgBar)
 
-    $script:toastTick  = 0
-    $script:toastTotal = 200
-    $script:toastPgW   = $fW - $bdr
+    $script:toastTick  = [int]0
+    $script:toastTotal = [int]200
+    $script:toastPgW   = [int]($fW - $bdr)
     $script:toastForm  = $form
 
     $script:toastTimer = New-Object System.Windows.Forms.Timer
     $script:toastTimer.Interval = 50
     $script:toastTimer.Add_Tick({
-        $f = $script:toastForm
-        if (-not $f -or $f.IsDisposed) { $script:toastTimer.Stop(); return }
-        if ($f.Opacity -lt 1.0) { $f.Opacity = [Math]::Min(1.0, $f.Opacity + 0.12) }
-        $script:toastTick++
-        $ratio = [Math]::Max(0.0, 1.0 - ($script:toastTick / $script:toastTotal))
-        if ($script:toastPgBar -and !$script:toastPgBar.IsDisposed) { $script:toastPgBar.Width = [int]($script:toastPgW * $ratio) }
-        if ($script:toastTick -ge $script:toastTotal) { $script:toastTimer.Stop(); try { $f.Close() } catch {} }
+        try {
+            $f = $script:toastForm
+            if (-not $f -or $f.IsDisposed) { $script:toastTimer.Stop(); return }
+            if ($f.Opacity -lt 1.0) { $f.Opacity = [Math]::Min(1.0, [double]$f.Opacity + 0.12) }
+            $script:toastTick = [int]$script:toastTick + 1
+            $tot = [double]([int]$script:toastTotal)
+            $tick = [double]([int]$script:toastTick)
+            $ratio = [Math]::Max(0.0, 1.0 - ($tick / $tot))
+            if ($script:toastPgBar -and !$script:toastPgBar.IsDisposed) { $script:toastPgBar.Width = [int]([double]$script:toastPgW * $ratio) }
+            if ([int]$script:toastTick -ge [int]$script:toastTotal) { $script:toastTimer.Stop(); try { $f.Close() } catch {} }
+        } catch {}
     })
 
     $form.Add_FormClosed({
@@ -241,12 +248,12 @@ function Initialize-TrayIcon {
         $script:trayIcon.Text = $APP_TOOLTIP
         $menu = New-Object System.Windows.Forms.ContextMenuStrip
         $itemInfo = $menu.Items.Add("Info Logika Agent")
-        $itemInfo.Add_Click({ Show-CustomToast "Info" "Logika Service Agent attivo." "Info" })
+        $itemInfo.Add_Click({ try { Show-CustomToast "Info" "Logika Service Agent attivo." "Info" } catch { Write-Log "Errore toast Info: $_" "WARN" } })
         $menu.Items.Add("-")
         $itemCheck = $menu.Items.Add("Controlla Aggiornamenti")
-        $itemCheck.Add_Click({ Check-Update -Force $true })
+        $itemCheck.Add_Click({ try { Check-Update -Force $true } catch { Write-Log "Errore Controlla aggiornamenti: $_" "WARN" } })
         $itemExit = $menu.Items.Add("Esci")
-        $itemExit.Add_Click({ $script:trayIcon.Visible = $false; [System.Windows.Forms.Application]::Exit() })
+        $itemExit.Add_Click({ try { $script:trayIcon.Visible = $false; [System.Windows.Forms.Application]::Exit() } catch {} })
         $script:trayIcon.ContextMenuStrip = $menu
         $script:trayIcon.Visible = $true
         $script:trayIcon.BalloonTipTitle = "Logika Service Agent"
