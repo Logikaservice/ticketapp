@@ -3003,7 +3003,7 @@ module.exports = (pool, io) => {
         }
       }
 
-      console.log('🔍 Eseguendo query con aziendaId:', aziendaId, 'aziendaUserIds:', aziendaUserIds.length);
+      console.log('🔍 [clients/devices] aziendaId:', aziendaId, 'azienda:', aziendaNameForDevices, 'aziendaUserIds:', aziendaUserIds.length, aziendaUserIds);
 
       // MIGRATION (AUTO-FIX): Assicura che la colonna ip_history esista (per evitare crash su SELECT)
       try {
@@ -3051,7 +3051,7 @@ module.exports = (pool, io) => {
           nd.switch_profile_id, nd.snmp_community, nd.is_managed_switch,
           nd.agent_id, na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
-         INNER JOIN network_agents na ON nd.agent_id = na.id AND na.deleted_at IS NULL
+         INNER JOIN network_agents na ON nd.agent_id = na.id
          WHERE na.azienda_id = ANY($1::int[])
          ORDER BY 
            CASE WHEN nd.is_gateway = true THEN 0 ELSE 1 END,
@@ -3064,6 +3064,8 @@ module.exports = (pool, io) => {
            CASE WHEN nd.ip_address ~ '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' THEN CAST(split_part(nd.ip_address, '.', 4) AS INTEGER) ELSE 0 END ASC`,
         [aziendaUserIds]
       );
+
+      console.log('🔍 [clients/devices] dispositivi restituiti:', result.rows.length);
 
       // Ottimizzazione: carica la mappa KeePass UNA SOLA VOLTA invece di per ogni dispositivo
       const keepassPassword = process.env.KEEPASS_PASSWORD;
@@ -8140,7 +8142,7 @@ pause
           COALESCE(nd.device_type, '') as original_device_type,
           COALESCE(avi.sort_order, 0) as sort_order
         FROM network_devices nd
-        JOIN network_agents na ON nd.agent_id = na.id AND na.deleted_at IS NULL
+        JOIN network_agents na ON nd.agent_id = na.id
         LEFT JOIN antivirus_info avi ON nd.id = avi.device_id
         WHERE na.azienda_id = ANY($1::int[])
         AND nd.ip_address NOT LIKE 'virtual-%'
