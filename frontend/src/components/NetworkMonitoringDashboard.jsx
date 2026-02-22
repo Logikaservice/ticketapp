@@ -22,7 +22,7 @@ import MonitoraggioIntroCard from './MonitoraggioIntroCard';
 import SectionNavMenu from './SectionNavMenu';
 import DeviceAnalysisModal from './Modals/DeviceAnalysisModal';
 
-const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
+const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
   const [devices, setDevices] = useState([]);
   const [changes, setChanges] = useState([]);
   const [recentChangesCount, setRecentChangesCount] = useState(0); // Conteggio cambiamenti ultime 24h dal backend
@@ -1390,6 +1390,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               onNavigateOffice={onNavigateOffice}
               onNavigateEmail={onNavigateEmail}
               onNavigateAntiVirus={onNavigateAntiVirus}
+              onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
               onNavigateNetworkMonitoring={null}
               onNavigateMappatura={onNavigateMappatura}
               currentUser={currentUser}

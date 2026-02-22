@@ -217,7 +217,7 @@ const RefreshTimer = () => {
     return <span>{seconds < 10 ? `0${seconds}` : seconds}s</span>;
 };
 
-const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onNavigateToMonitoring = null, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateMappatura }) => {
+const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onNavigateToMonitoring = null, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateMappatura }) => {
     const isCliente = currentUser?.ruolo === 'cliente';
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId ? String(initialCompanyId) : '');
@@ -1703,6 +1703,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             onNavigateOffice={onNavigateOffice}
                             onNavigateEmail={onNavigateEmail}
                             onNavigateAntiVirus={onNavigateAntiVirus}
+                            onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
                             onNavigateNetworkMonitoring={onNavigateToMonitoring ? () => onNavigateToMonitoring(selectedCompanyId ? parseInt(selectedCompanyId) : null) : null}
                             onNavigateMappatura={null}
                             currentUser={currentUser}

@@ -4,7 +4,7 @@ import { buildApiUrl } from '../utils/apiConfig';
 import AntiVirusIntroCard from '../components/AntiVirusIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
 
-const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, onOpenTicket, onNavigateOffice, onNavigateEmail, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
+const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, onOpenTicket, onNavigateOffice, onNavigateEmail, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
     const showAssistenzaButton = readOnly && typeof onOpenTicket === 'function';
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState('');
@@ -417,6 +417,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                         onNavigateOffice={onNavigateOffice}
                         onNavigateEmail={onNavigateEmail}
                         onNavigateAntiVirus={null}
+                        onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
                         onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
                         onNavigateMappatura={onNavigateMappatura}
                         currentUser={currentUser}

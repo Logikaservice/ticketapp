@@ -2,7 +2,7 @@
 // Esclude sempre "Nuove funzionalità" e "Impostazioni"
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Menu, Building2, Mail, Shield, Wifi, MapPin, Home } from 'lucide-react';
+import { Menu, Building2, Mail, Shield, Wifi, MapPin, Home, Monitor } from 'lucide-react';
 
 const SectionNavMenu = ({
   currentPage,
@@ -12,6 +12,7 @@ const SectionNavMenu = ({
   onNavigateAntiVirus,
   onNavigateNetworkMonitoring,
   onNavigateMappatura,
+  onNavigateDispositiviAziendali,
   currentUser
 }) => {
   const [open, setOpen] = useState(false);
@@ -39,6 +40,7 @@ const SectionNavMenu = ({
     { id: 'office', label: 'Office', icon: Building2, onClick: onNavigateOffice, visible: !!onNavigateOffice },
     { id: 'email', label: 'Email', icon: Mail, onClick: onNavigateEmail, visible: !!onNavigateEmail },
     { id: 'antivirus', label: 'Anti-Virus', icon: Shield, onClick: onNavigateAntiVirus, visible: !!onNavigateAntiVirus },
+    { id: 'dispositivi-aziendali', label: 'Dispositivi aziendali', icon: Monitor, onClick: onNavigateDispositiviAziendali, visible: !!onNavigateDispositiviAziendali },
     { id: 'network', label: 'Monitoraggio Rete', icon: Wifi, onClick: onNavigateNetworkMonitoring, visible: !!onNavigateNetworkMonitoring },
     { id: 'mappatura', label: 'Mappatura', icon: MapPin, onClick: onNavigateMappatura, visible: !!onNavigateMappatura }
   ].filter(item => item.visible && item.id !== currentPage);

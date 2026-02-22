@@ -36,6 +36,7 @@ import CommAgentDashboard from './components/CommAgentDashboard';
 // import NetworkTopologyPage from './pages/NetworkTopologyPage'; // RIMOSSO SU RICHIESTA UTENTE
 import MappaturaPage from './pages/MappaturaPage';
 import AntiVirusPage from './pages/AntiVirusPage';
+import DispositiviAziendaliPage from './pages/DispositiviAziendaliPage';
 import PingTerminalPage from './pages/PingTerminalPage';
 import OfficePage from './pages/OfficePage';
 import EmailPage from './pages/EmailPage';
@@ -245,6 +246,7 @@ export default function TicketApp() {
       setShowOffice(false);
       setShowAntiVirus(false);
       setShowEmail(false);
+      setShowFlottaPC(false);
     };
     switch (viewName) {
       case 'office':
@@ -255,6 +257,8 @@ export default function TicketApp() {
         allFalse(); setShowMappatura(true); break;
       case 'antivirus':
         allFalse(); setShowAntiVirus(true); break;
+      case 'dispositivi-aziendali':
+        allFalse(); setShowFlottaPC(true); break;
       case 'network-monitoring':
         allFalse(); setShowNetworkMonitoring(true); break;
       default:
@@ -289,28 +293,31 @@ export default function TicketApp() {
       setStandaloneDeviceId(search.get('deviceId'));
       setStandaloneDeviceLabel(search.get('deviceLabel') || '');
       setShowDashboard(false); setShowNetworkMonitoring(false); setShowMappatura(false);
-      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false);
     } else if (view === 'mappatura') {
       setShowDeviceAnalysisStandalone(false);
       setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false);
-      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false);
     } else if (view === 'network-monitoring') {
       setShowDeviceAnalysisStandalone(false);
       setShowNetworkMonitoring(true); setShowDashboard(false); setShowMappatura(false);
-      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false);
     } else if (view === 'antivirus') {
       setShowAntiVirus(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
-      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowEmail(false); setShowOffice(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false);
+    } else if (view === 'dispositivi-aziendali') {
+      setShowFlottaPC(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false);
     } else if (view === 'email') {
       setShowEmail(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
-      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowOffice(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowOffice(false); setShowFlottaPC(false);
     } else if (view === 'office') {
       setShowOffice(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
-      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowFlottaPC(false);
     } else if (view !== 'device-analysis') {
       setShowDeviceAnalysisStandalone(false);
       setShowDashboard(true); setShowMappatura(false); setShowNetworkMonitoring(false);
-      setShowAntiVirus(false); setShowEmail(false); setShowOffice(false);
+      setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false);
     }
   };
 
@@ -324,12 +331,12 @@ export default function TicketApp() {
   useEffect(() => {
     if (showDeviceAnalysisStandalone) return;
     const base = window.location.pathname + window.location.search;
-    const h = showOffice ? 'office' : showMappatura ? 'mappatura' : showNetworkMonitoring ? 'network-monitoring' : showAntiVirus ? 'antivirus' : showEmail ? 'email' : '';
+    const h = showOffice ? 'office' : showMappatura ? 'mappatura' : showNetworkMonitoring ? 'network-monitoring' : showAntiVirus ? 'antivirus' : showFlottaPC ? 'dispositivi-aziendali' : showEmail ? 'email' : '';
     const newHash = h ? '#' + h : '';
     if (window.location.hash !== newHash) {
       window.history.replaceState(null, '', base + newHash);
     }
-  }, [showDeviceAnalysisStandalone, showOffice, showMappatura, showNetworkMonitoring, showAntiVirus, showEmail]);
+  }, [showDeviceAnalysisStandalone, showOffice, showMappatura, showNetworkMonitoring, showAntiVirus, showEmail, showFlottaPC]);
 
   useEffect(() => {
     // Gestione Mappa Rete rimossa su richiesta
@@ -370,6 +377,20 @@ export default function TicketApp() {
     setShowVivaldi(false);
     setShowPackVision(false);
     setShowEmail(false);
+    setShowFlottaPC(false);
+  };
+
+  const handleOpenDispositiviAziendali = () => {
+    setShowFlottaPC(true);
+    setShowDashboard(false);
+    setShowNetworkMonitoring(false);
+    setShowMappatura(false);
+    setShowOffice(false);
+    setShowOrariTurni(false);
+    setShowVivaldi(false);
+    setShowPackVision(false);
+    setShowEmail(false);
+    setShowAntiVirus(false);
   };
 
   const handleOpenEmail = () => {
@@ -629,7 +650,7 @@ export default function TicketApp() {
         // Se c'è un dominio richiesto, mostra la gestione orari
         setShowDashboard(false);
         setShowOrariTurni(true);
-      } else if (hashView && ['office', 'email', 'mappatura', 'antivirus', 'network-monitoring'].includes(hashView)) {
+      } else if (hashView && ['office', 'email', 'mappatura', 'antivirus', 'dispositivi-aziendali', 'network-monitoring'].includes(hashView)) {
         // Dopo F5: ripristina la vista dall'hash (#office, #email, ecc.) invece di tornare alla dashboard
         applyHashToState(window.location.hash);
       } else if (urlView && urlView !== 'dashboard') {
@@ -3161,7 +3182,7 @@ export default function TicketApp() {
               openAntiVirus: handleOpenAntiVirus,
               openEmail: handleOpenEmail,
               openCommAgent: () => setShowCommAgent(true),
-              openFlottaPC: () => setShowFlottaPC(true),
+              openFlottaPC: handleOpenDispositiviAziendali,
             }}
             openNetworkMonitoringNotifications={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('notifications'); }}
             openNetworkMonitoringTelegram={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('telegram'); }}
@@ -3192,10 +3213,10 @@ export default function TicketApp() {
           </div>
         )}
 
-        {!showDashboard && !showOrariTurni && !showVivaldi && !showPackVision && !showNetworkMonitoring && !showNetworkMap && !showMappatura && !showAntiVirus && !showEmail && (
+        {!showDashboard && !showOrariTurni && !showVivaldi && !showPackVision && !showNetworkMonitoring && !showNetworkMap && !showMappatura && !showAntiVirus && !showEmail && !showFlottaPC && (
           <div
             className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200"
-            onClick={() => { setShowDashboard(true); setShowNetworkMap(false); setShowMappatura(false); setShowAntiVirus(false); setShowEmail(false); }}
+            onClick={() => { setShowDashboard(true); setShowNetworkMap(false); setShowMappatura(false); setShowAntiVirus(false); setShowEmail(false); setShowFlottaPC(false); }}
           >
             Torna alla Dashboard
           </div>
@@ -3214,13 +3235,17 @@ export default function TicketApp() {
         )}
 
         {showFlottaPC && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
-            <div style={{ background: '#0f172a', borderRadius: 16, padding: 32, maxWidth: 420, textAlign: 'center', boxShadow: '0 25px 50px rgba(0,0,0,0.4)' }}>
-              <h2 style={{ fontSize: 20, fontWeight: 700, color: '#E2E8F0', marginBottom: 12 }}>Dispositivi aziendali</h2>
-              <p style={{ fontSize: 14, color: '#94A3B8', marginBottom: 24 }}>Sezione in arrivo. Qui gli agent potranno popolare in automatico le informazioni dei dispositivi.</p>
-              <button onClick={() => setShowFlottaPC(false)} style={{ padding: '10px 24px', borderRadius: 10, border: 'none', background: '#334155', color: '#E2E8F0', fontWeight: 600, cursor: 'pointer' }}>Chiudi</button>
-            </div>
-          </div>
+          <DispositiviAziendaliPage
+            onClose={() => { setShowFlottaPC(false); setShowDashboard(true); }}
+            getAuthHeader={getAuthHeader}
+            readOnly={currentUser?.ruolo === 'cliente' && !!(currentUser?.admin_companies && currentUser.admin_companies.length > 0)}
+            currentUser={currentUser}
+            onNavigateOffice={handleOpenOffice}
+            onNavigateEmail={handleOpenEmail}
+            onNavigateAntiVirus={handleOpenAntiVirus}
+            onNavigateNetworkMonitoring={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false); setNetworkMonitoringInitialView(null); }}
+            onNavigateMappatura={() => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowOffice(false); setShowEmail(false); setShowFlottaPC(false); }}
+          />
         )}
 
         {showNetworkMonitoring && !isOrariHostname && !isVivaldiHostname && !isPackVisionHostname && (
@@ -3252,6 +3277,7 @@ export default function TicketApp() {
                 onNavigateOffice={handleOpenOffice}
                 onNavigateEmail={handleOpenEmail}
                 onNavigateAntiVirus={handleOpenAntiVirus}
+                onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
                 onNavigateNetworkMonitoring={null}
                 onNavigateMappatura={() => { setShowMappatura(true); setShowNetworkMonitoring(false); setShowDashboard(false); setSelectedCompanyForNavigation(selectedCompanyForNavigation); }}
               />
@@ -3307,6 +3333,7 @@ export default function TicketApp() {
             onNavigateOffice={handleOpenOffice}
             onNavigateEmail={handleOpenEmail}
             onNavigateAntiVirus={handleOpenAntiVirus}
+            onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
             onNavigateMappatura={null}
           />
         )}
@@ -3320,8 +3347,9 @@ export default function TicketApp() {
             currentUser={currentUser}
             onNavigateEmail={handleOpenEmail}
             onNavigateAntiVirus={handleOpenAntiVirus}
-            onNavigateNetworkMonitoring={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setNetworkMonitoringInitialView(null); }}
-            onNavigateMappatura={() => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowOffice(false); setShowEmail(false); }}
+            onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
+            onNavigateNetworkMonitoring={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false); setNetworkMonitoringInitialView(null); }}
+            onNavigateMappatura={() => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowOffice(false); setShowEmail(false); setShowFlottaPC(false); }}
           />
         )}
 
@@ -3334,8 +3362,9 @@ export default function TicketApp() {
             onOpenTicket={openNewTicketWithData}
             onNavigateOffice={handleOpenOffice}
             onNavigateEmail={handleOpenEmail}
-            onNavigateNetworkMonitoring={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setNetworkMonitoringInitialView(null); }}
-            onNavigateMappatura={() => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowOffice(false); setShowEmail(false); }}
+            onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
+            onNavigateNetworkMonitoring={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false); setNetworkMonitoringInitialView(null); }}
+            onNavigateMappatura={() => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowOffice(false); setShowEmail(false); setShowFlottaPC(false); }}
           />
         )}
 
@@ -3348,8 +3377,9 @@ export default function TicketApp() {
             onOpenTicket={openNewTicketWithData}
             onNavigateOffice={handleOpenOffice}
             onNavigateAntiVirus={handleOpenAntiVirus}
-            onNavigateNetworkMonitoring={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setNetworkMonitoringInitialView(null); }}
-            onNavigateMappatura={() => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowOffice(false); setShowEmail(false); }}
+            onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
+            onNavigateNetworkMonitoring={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false); setNetworkMonitoringInitialView(null); }}
+            onNavigateMappatura={() => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowOffice(false); setShowEmail(false); setShowFlottaPC(false); }}
           />
         )}
 
