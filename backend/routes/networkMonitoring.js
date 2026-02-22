@@ -8098,7 +8098,7 @@ pause
       await ensureTables();
 
       const devices = await pool.query(`
-        SELECT 
+        SELECT DISTINCT ON (nd.id)
           nd.id as device_id,
           nd.ip_address,
           nd.mac_address,
@@ -8130,9 +8130,17 @@ pause
         FROM network_devices nd
         JOIN network_agents na ON nd.agent_id = na.id
         LEFT JOIN antivirus_info avi ON nd.id = avi.device_id
-        LEFT JOIN comm_device_info cdi ON REPLACE(LOWER(cdi.mac), '-', ':') = REPLACE(LOWER(nd.mac_address), '-', ':')
+        LEFT JOIN (
+            SELECT mac, ip_addresses, device_name, antivirus_state, antivirus_name 
+            FROM comm_device_info 
+        ) cdi ON (
+            (cdi.mac IS NOT NULL AND nd.mac_address IS NOT NULL AND REPLACE(REPLACE(LOWER(cdi.mac), '-', ''), ':', '') = REPLACE(REPLACE(LOWER(nd.mac_address), '-', ''), ':', ''))
+            OR (nd.ip_address IS NOT NULL AND cdi.ip_addresses LIKE '%' || nd.ip_address || '%')
+            OR (nd.hostname IS NOT NULL AND TRIM(nd.hostname) <> '' AND LOWER(cdi.device_name) = LOWER(nd.hostname))
+        )
         WHERE na.azienda_id = $1
         AND nd.ip_address NOT LIKE 'virtual-%'
+        ORDER BY nd.id
       `, [parsedAziendaId]);
 
       console.log('[antivirus-devices] aziendaId:', parsedAziendaId, 'dispositivi:', devices.rows.length);

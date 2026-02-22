@@ -333,7 +333,7 @@ module.exports = (pool, io) => {
             // così la sync non dipende dal payload e funziona anche se device_info non è inviato ogni volta
             try {
                 const infoRow = await pool.query(
-                    'SELECT mac, primary_ip, antivirus_name, antivirus_state FROM comm_device_info WHERE agent_id = $1',
+                    'SELECT mac, ip_addresses, device_name, antivirus_name, antivirus_state FROM comm_device_info WHERE agent_id = $1',
                     [agentId]
                 );
                 const row = infoRow.rows[0];
@@ -347,7 +347,8 @@ module.exports = (pool, io) => {
                 if (!azienda) return;
 
                 const macNorm = (row.mac || '').replace(/[:\-\s]/g, '').toLowerCase().slice(0, 12);
-                const primaryIp = (row.primary_ip || '').trim();
+                const deviceName = (row.device_name || '').trim().toLowerCase();
+                const ipAddressesStr = (row.ip_addresses || '').toLowerCase();
 
                 const ndRes = await pool.query(
                     `SELECT nd.id FROM network_devices nd
@@ -356,13 +357,14 @@ module.exports = (pool, io) => {
                      WHERE (LOWER(TRIM(COALESCE(u.azienda, ''))) = LOWER($1) OR na.azienda_id = (SELECT user_id FROM comm_agents WHERE id = $4))
                      AND (
                        (LENGTH($2) >= 12 AND REPLACE(REPLACE(LOWER(COALESCE(nd.mac_address, '')), ':', ''), '-', '') = $2)
-                       OR (TRIM($3) <> '' AND TRIM(COALESCE(nd.ip_address, '')) = TRIM($3))
+                       OR (TRIM(COALESCE(nd.hostname, '')) <> '' AND LOWER(TRIM(nd.hostname)) = $3)
+                       OR (TRIM(COALESCE($5, '')) <> '' AND TRIM(COALESCE(nd.ip_address, '')) <> '' AND $5 LIKE '%' || LOWER(TRIM(nd.ip_address)) || '%')
                      )`,
-                    [String(azienda), macNorm.length >= 12 ? macNorm : '', primaryIp, Number(agentId)]
+                    [String(azienda), macNorm.length >= 12 ? macNorm : '', deviceName, Number(agentId), ipAddressesStr]
                 );
 
                 if (ndRes.rows.length === 0) {
-                    console.log('[sync-antivirus] Nessun network_device trovato agent=', agentId, 'azienda=', azienda, 'mac=', macNorm || '(vuoto)', 'ip=', primaryIp || '(vuoto)');
+                    console.log('[sync-antivirus] Nessun network_device trovato agent=', agentId, 'azienda=', azienda, 'mac=', macNorm || '(vuoto)', 'hostname=', deviceName || '(vuoto)');
                     return;
                 }
 
