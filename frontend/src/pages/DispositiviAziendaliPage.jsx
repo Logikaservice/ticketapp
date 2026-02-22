@@ -62,6 +62,7 @@ const DispositiviAziendaliPage = ({
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [devices, setDevices] = useState([]);
   const [devicesLoading, setDevicesLoading] = useState(false);
+  const [monitoringIps, setMonitoringIps] = useState(new Set());
 
   useEffect(() => {
     const fetchCompanies = async () => {
@@ -102,6 +103,30 @@ const DispositiviAziendaliPage = ({
       .finally(() => { if (!cancelled) setDevicesLoading(false); });
     return () => { cancelled = true; };
   }, [companyName, getAuthHeader]);
+
+  // IP presenti nel monitoraggio rete (per evidenziarli in grassetto)
+  useEffect(() => {
+    if (!selectedCompanyId) {
+      setMonitoringIps(new Set());
+      return;
+    }
+    let cancelled = false;
+    fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/devices`), { headers: getAuthHeader() })
+      .then(res => res.ok ? res.json() : [])
+      .then(data => {
+        if (cancelled) return;
+        const ips = new Set();
+        (data || []).forEach(d => {
+          if (d.ip_address) ips.add(String(d.ip_address).trim());
+          const add = d.additional_ips;
+          if (Array.isArray(add)) add.forEach(ip => ip && ips.add(String(ip).trim()));
+          else if (typeof add === 'string') try { JSON.parse(add).forEach(ip => ip && ips.add(String(ip).trim())); } catch (_) {}
+        });
+        setMonitoringIps(ips);
+      })
+      .catch(() => { if (!cancelled) setMonitoringIps(new Set()); });
+    return () => { cancelled = true; };
+  }, [selectedCompanyId, getAuthHeader]);
 
   return (
     <div className="fixed inset-0 bg-gray-100 z-50 flex flex-col">
@@ -190,19 +215,13 @@ const DispositiviAziendaliPage = ({
                                   const raw = row.ip_addresses || '';
                                   if (!raw) return <span>—</span>;
                                   const segments = raw.split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
-                                  const primaryStr = (row.primary_ip || '').trim();
                                   return segments.map((seg, i) => {
-                                    const isPrimary = primaryStr && seg === primaryStr;
+                                    const ipOnly = seg.replace(/\s*\(.*$/, '').trim();
+                                    const inMonitoring = monitoringIps.has(ipOnly);
                                     return (
                                       <span key={i}>
                                         {i > 0 && ', '}
-                                        {isPrimary ? (
-                                          <span className="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-medium" title="IP attivo (gateway predefinito)">
-                                            {seg}
-                                          </span>
-                                        ) : (
-                                          seg
-                                        )}
+                                        {inMonitoring ? <strong className="font-semibold text-gray-900" title="Presente nel monitoraggio rete">{seg}</strong> : seg}
                                       </span>
                                     );
                                   });
@@ -219,25 +238,25 @@ const DispositiviAziendaliPage = ({
                                 </div>
                               </div>
                               <div><span className="text-gray-500">RAM:</span> {row.ram_free_gb != null && row.ram_total_gb != null ? `${row.ram_free_gb} / ${row.ram_total_gb} GB liberi` : (row.ram_total_gb != null ? `${row.ram_total_gb} GB` : '—')}</div>
-                              {/* Scheda/e video: sempre visibile; dati da agent (gpus_json o gpu_name) */}
+                              {/* Scheda/e video: solo schede reali (no Virtual/Meta monitor), formato Nome · X GB */}
                               <div className="mt-1">
                                 <span className="text-gray-500 font-medium">Scheda/e video:</span>
                                 {row.gpus_json ? (() => {
                                   try {
                                     const gpus = typeof row.gpus_json === 'string' ? JSON.parse(row.gpus_json) : row.gpus_json;
                                     if (Array.isArray(gpus) && gpus.length > 0) {
-                                      return (
-                                        <div className="mt-0.5 space-y-0.5">
-                                          {gpus.map((g, i) => (
-                                            <div key={i} className="text-gray-700 text-xs bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                                              {g.name || g.caption || '—'}
-                                              {(g.adapter_ram_mb != null || g.driver_version) && (
-                                                <span className="text-gray-500 ml-1">{(g.adapter_ram_mb != null ? ` · ${Math.round(g.adapter_ram_mb / 1024)} GB` : '')}{(g.driver_version ? ` · Driver ${g.driver_version}` : '')}</span>
-                                              )}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      );
+                                      const virtualSkip = /Virtual Desktop Monitor|Meta Virtual Monitor/i;
+                                      const realGpus = gpus.filter(g => {
+                                        const name = (g.name || g.caption || '').trim();
+                                        return name && !virtualSkip.test(name);
+                                      });
+                                      if (realGpus.length === 0) return <span className="text-gray-500"> —</span>;
+                                      const parts = realGpus.map(g => {
+                                        const name = g.name || g.caption || '—';
+                                        const gb = g.adapter_ram_mb != null ? Math.round(g.adapter_ram_mb / 1024) : null;
+                                        return gb != null ? `${name} · ${gb} GB` : name;
+                                      });
+                                      return <span className="text-gray-700"> {parts.join(', ')}</span>;
                                     }
                                   } catch (_) {}
                                   return <span className="text-gray-700"> {row.gpu_name || '—'}</span>;
