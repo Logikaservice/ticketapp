@@ -570,6 +570,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                                                 <th className="px-4 py-3 font-medium text-gray-600">Dispositivo</th>
                                                 <th className="px-4 py-3 font-medium text-gray-600">Prodotto</th>
                                                 <th className="px-4 py-3 font-medium text-gray-600">Scadenza</th>
+                                                <th className="px-4 py-3 font-medium text-gray-600">Utente</th>
                                                 {showAssistenzaButton && <th className="px-4 py-3 font-medium text-gray-600 w-32">Assistenza</th>}
                                                 <th className="px-4 py-3 font-medium text-gray-600 text-right"></th>
                                             </tr>
@@ -697,9 +698,11 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                                                             ) : (
                                                                 <>
                                                                     {!device.ip_address?.startsWith('no-ip-') && (
-                                                                        <div className="font-medium text-gray-900">{device.ip_address}</div>
+                                                                        <div className="font-medium text-gray-900 font-mono">{device.ip_address}</div>
                                                                     )}
-                                                                    <div className="text-xs text-gray-500">{device.device_username || '-'}</div>
+                                                                    {device.mac_address && (
+                                                                        <div className="text-xs text-gray-400 font-mono">{device.mac_address}</div>
+                                                                    )}
                                                                 </>
                                                             )}
                                                         </td>
@@ -728,6 +731,16 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                                                                     onChange={(e) => updateDraft(id, 'expiration_date', e.target.value)}
                                                                     onBlur={() => handleBlurSave(id)}
                                                                 />
+                                                            )}
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            {device.hostname && device.hostname !== '-' && device.hostname !== '' ? (
+                                                                <div className="text-sm font-medium text-gray-800">{device.hostname}</div>
+                                                            ) : null}
+                                                            {device.device_username && device.device_username !== '-' && device.device_username !== '' ? (
+                                                                <div className="text-xs text-gray-500">{device.device_username}</div>
+                                                            ) : (
+                                                                !device.hostname || device.hostname === '-' ? <span className="text-gray-300">-</span> : null
                                                             )}
                                                         </td>
                                                         {showAssistenzaButton && (
