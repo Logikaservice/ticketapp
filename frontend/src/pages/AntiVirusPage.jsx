@@ -145,10 +145,10 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
 
         fetchDevices(false);
 
-        // Auto-refresh every 10 seconds
+        // Refresh automatico ogni 5 secondi (sync antivirus da CommAgent si riflette senza azione utente)
         const intervalId = setInterval(() => {
             fetchDevices(true);
-        }, 10000);
+        }, 5000);
 
         return () => clearInterval(intervalId);
     }, [selectedCompanyId, getAuthHeader]);
