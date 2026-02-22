@@ -362,21 +362,22 @@ module.exports = (pool, io) => {
                     }
 
                     const isActive = /attivo|enabled|on|attiva/i.test(String(d.antivirus_state || ''));
-                    const productName = (d.antivirus_name || '').trim() || null;
+                    const productNameRaw = (d.antivirus_name || '').trim();
+                    const productName = productNameRaw || ''; // sempre stringa per evitare "could not determine data type of parameter $3"
 
                     for (const row of ndRes.rows) {
                         await pool.query(
                             `INSERT INTO antivirus_info (device_id, is_active, product_name, expiration_date, device_type, sort_order, updated_at)
-                             VALUES ($1::integer, $2::boolean, $3::text, NULL, 'pc', 0, NOW())
+                             VALUES ($1, $2, $3, NULL, 'pc', 0, NOW())
                              ON CONFLICT (device_id) DO UPDATE SET
                                is_active = EXCLUDED.is_active,
-                               product_name = COALESCE(EXCLUDED.product_name, antivirus_info.product_name),
+                               product_name = COALESCE(NULLIF(EXCLUDED.product_name, ''), antivirus_info.product_name),
                                updated_at = NOW()`,
-                            [row.id, isActive, productName]
+                            [Number(row.id), Boolean(isActive), String(productName)]
                         );
                     }
-                    if (productName || isActive) {
-                        console.log('[sync-antivirus] Aggiornati', ndRes.rows.length, 'dispositivi antivirus azienda=', azienda, 'product=', productName);
+                    if (productNameRaw || isActive) {
+                        console.log('[sync-antivirus] Aggiornati', ndRes.rows.length, 'dispositivi antivirus azienda=', azienda, 'product=', productNameRaw || '(vuoto)');
                     }
                 } catch (syncErr) {
                     console.warn('⚠️ Sync antivirus CommAgent -> antivirus_info:', syncErr.message);
