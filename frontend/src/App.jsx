@@ -164,7 +164,7 @@ export default function TicketApp() {
   const [networkMonitoringInitialView, setNetworkMonitoringInitialView] = useState(null); // 'agents' o 'create'
   const [selectedCompanyForNavigation, setSelectedCompanyForNavigation] = useState(null); // Azienda selezionata per navigazione tra monitoraggio e mappatura
   const [showCommAgent, setShowCommAgent] = useState(false); // Communication Agent Dashboard
-  const [showFlottaPC, setShowFlottaPC] = useState(false); // Flotta PC aziendali (placeholder per implementazione futura)
+  const [showFlottaPC, setShowFlottaPC] = useState(false); // Dispositivi aziendali (placeholder per implementazione futura)
   const [showDeviceAnalysisStandalone, setShowDeviceAnalysisStandalone] = useState(false);
   const [standaloneDeviceId, setStandaloneDeviceId] = useState(null);
   const [standaloneDeviceLabel, setStandaloneDeviceLabel] = useState('');
@@ -3216,8 +3216,8 @@ export default function TicketApp() {
         {showFlottaPC && (
           <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
             <div style={{ background: '#0f172a', borderRadius: 16, padding: 32, maxWidth: 420, textAlign: 'center', boxShadow: '0 25px 50px rgba(0,0,0,0.4)' }}>
-              <h2 style={{ fontSize: 20, fontWeight: 700, color: '#E2E8F0', marginBottom: 12 }}>Flotta PC aziendali</h2>
-              <p style={{ fontSize: 14, color: '#94A3B8', marginBottom: 24 }}>Sezione in arrivo. Qui gli agent potranno popolare in automatico le informazioni dei PC.</p>
+              <h2 style={{ fontSize: 20, fontWeight: 700, color: '#E2E8F0', marginBottom: 12 }}>Dispositivi aziendali</h2>
+              <p style={{ fontSize: 14, color: '#94A3B8', marginBottom: 24 }}>Sezione in arrivo. Qui gli agent potranno popolare in automatico le informazioni dei dispositivi.</p>
               <button onClick={() => setShowFlottaPC(false)} style={{ padding: '10px 24px', borderRadius: 10, border: 'none', background: '#334155', color: '#E2E8F0', fontWeight: 600, cursor: 'pointer' }}>Chiudi</button>
             </div>
           </div>

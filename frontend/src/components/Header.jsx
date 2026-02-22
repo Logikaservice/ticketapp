@@ -117,8 +117,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
             { label: 'Agent Esistenti', icon: ServerIcon, color: 'cyan', onClick: () => { if (openNetworkMonitoringAgents) { openNetworkMonitoringAgents(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
             { label: 'Notifiche Agent', icon: AlertTriangle, color: 'yellow', onClick: () => { if (openNetworkMonitoringNotifications) { openNetworkMonitoringNotifications(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
             { label: 'Crea Agent', icon: Plus, color: 'cyan', onClick: () => { if (openNetworkMonitoringCreateAgent) { openNetworkMonitoringCreateAgent(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
-            { label: 'Comunicazioni Agent', icon: Bell, color: 'violet', onClick: () => { if (openCommAgent) { openCommAgent(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
-            { label: 'Flotta PC aziendali', icon: Monitor, color: 'teal', onClick: () => { if (openFlottaPC) { openFlottaPC(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } }
+            { label: 'Comunicazioni Agent', icon: Bell, color: 'violet', onClick: () => { if (openCommAgent) { openCommAgent(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } }
           ]
         },
         { label: 'Notifiche Telegram', icon: AlertCircle, color: 'blue', onClick: () => { if (openNetworkMonitoringTelegram) { openNetworkMonitoringTelegram(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
@@ -159,6 +158,14 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       color: 'violet',
       visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && openAntiVirus,
       onClick: () => handleQuickActionClick('antivirus')
+    },
+    {
+      id: 'dispositiviAziendali',
+      label: 'Dispositivi aziendali',
+      icon: Monitor,
+      color: 'teal',
+      visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && openFlottaPC,
+      onClick: () => { if (openFlottaPC) { openFlottaPC(); setShowQuickActions(false); setExpandedAction(null); } }
     },
     // Monitoraggio Rete (sopra Mappatura)
     ...(isCompanyAdmin && currentUser?.ruolo !== 'tecnico' ? [
