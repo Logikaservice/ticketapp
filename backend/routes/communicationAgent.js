@@ -599,8 +599,12 @@ module.exports = (pool, io) => {
             if (result.rows.length === 0) {
                 const debugAgents = await pool.query('SELECT ca.id, u.email, u.azienda, ca.machine_name FROM comm_agents ca JOIN users u ON ca.user_id = u.id');
                 console.log(`📋 [device-info] DEBUG: Ci sono in totale ${debugAgents.rows.length} agent nel DB.`);
+
+                const uniqueCompanies = [...new Set(debugAgents.rows.map(r => String(r.azienda).trim()))];
+                console.log(`📋 [device-info] DEBUG: Aziende presenti nei DB agent:`, uniqueCompanies);
+
                 if (debugAgents.rows.length > 0) {
-                    console.log(`📋 [device-info] DEBUG Sample:`, debugAgents.rows.slice(0, 3));
+                    console.log(`📋 [device-info] DEBUG Sample:`, debugAgents.rows.slice(0, 5));
                 }
             }
 
@@ -868,6 +872,33 @@ WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File "
         } catch (err) {
             console.error('❌ Errore endpoint agent-version:', err);
             res.json({ version: '1.0.0' }); // Fallback
+        }
+    });
+
+    // ============================================
+    // DEBUG ENDPOINT FOR DIAGNOSTICS (TEMPORARY)
+    // ============================================
+    router.get('/debug-state', async (req, res) => {
+        try {
+            await ensureTables();
+
+            const results = {};
+
+            const agents = await pool.query('SELECT ca.id, ca.machine_name, ca.status, ca.last_heartbeat, u.email, u.azienda FROM comm_agents ca LEFT JOIN users u ON ca.user_id = u.id');
+            results.agents = agents.rows;
+
+            const devicesInfo = await pool.query('SELECT agent_id, device_name, os_name, current_user, updated_at FROM comm_device_info');
+            results.devicesInfo = devicesInfo.rows;
+
+            res.json({
+                success: true,
+                currentTime: new Date().toISOString(),
+                agentsCount: agents.rows.length,
+                devicesInfoCount: devicesInfo.rows.length,
+                data: results
+            });
+        } catch (e) {
+            res.json({ success: false, error: e.message, stack: e.stack });
         }
     });
 
