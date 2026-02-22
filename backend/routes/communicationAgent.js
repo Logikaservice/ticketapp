@@ -327,6 +327,50 @@ module.exports = (pool, io) => {
                         d.antivirus_state || null
                     ]
                 );
+
+                // Sincronizza antivirus in lista Gestione Anti-Virus: trova network_devices stessa azienda (MAC o IP) e aggiorna antivirus_info
+                try {
+                    const aziendaRes = await pool.query(
+                        'SELECT TRIM(u.azienda) AS azienda FROM comm_agents ca JOIN users u ON ca.user_id = u.id WHERE ca.id = $1',
+                        [agentId]
+                    );
+                    const azienda = aziendaRes.rows[0]?.azienda;
+                    if (!azienda) return;
+
+                    const macNorm = (d.mac || '').replace(/[:\-\s]/g, '').toLowerCase().slice(0, 12);
+                    const primaryIp = (d.primary_ip || '').trim() || null;
+
+                    const ndRes = await pool.query(
+                        `SELECT nd.id FROM network_devices nd
+                         INNER JOIN network_agents na ON nd.agent_id = na.id
+                         INNER JOIN users u ON na.azienda_id = u.id
+                         WHERE LOWER(TRIM(COALESCE(u.azienda, ''))) = LOWER($1)
+                         AND (
+                           (LENGTH($2) >= 12 AND REPLACE(REPLACE(LOWER(COALESCE(nd.mac_address, '')), ':', ''), '-', '') = $2)
+                           OR ($3 IS NOT NULL AND nd.ip_address = $3)
+                         )`,
+                        [azienda, macNorm.length >= 12 ? macNorm : null, primaryIp]
+                    );
+
+                    if (ndRes.rows.length === 0) return;
+
+                    const isActive = /attivo|enabled|on|attiva/i.test(String(d.antivirus_state || ''));
+                    const productName = (d.antivirus_name || '').trim() || null;
+
+                    for (const row of ndRes.rows) {
+                        await pool.query(
+                            `INSERT INTO antivirus_info (device_id, is_active, product_name, expiration_date, device_type, sort_order, updated_at)
+                             VALUES ($1, $2, $3, NULL, 'pc', 0, NOW())
+                             ON CONFLICT (device_id) DO UPDATE SET
+                               is_active = EXCLUDED.is_active,
+                               product_name = COALESCE(EXCLUDED.product_name, antivirus_info.product_name),
+                               updated_at = NOW()`,
+                            [row.id, isActive, productName]
+                        );
+                    }
+                } catch (syncErr) {
+                    console.warn('⚠️ Sync antivirus CommAgent -> antivirus_info:', syncErr.message);
+                }
             }
 
             // Recupera messaggi pendenti per questo agent
