@@ -340,19 +340,26 @@ module.exports = (pool, io) => {
                     const macNorm = (d.mac || '').replace(/[:\-\s]/g, '').toLowerCase().slice(0, 12);
                     const primaryIp = (d.primary_ip || '').trim() || null;
 
+                    // Match per MAC (12+ caratteri esadecimali) o per IP (confronto con TRIM per robustezza).
+                    // Azienda: stesso nome O stesso user (comm_agent.user_id = na.azienda_id)
                     const ndRes = await pool.query(
-                        `SELECT nd.id FROM network_devices nd
+                        `SELECT nd.id, nd.ip_address, nd.mac_address FROM network_devices nd
                          INNER JOIN network_agents na ON nd.agent_id = na.id
                          INNER JOIN users u ON na.azienda_id = u.id
-                         WHERE LOWER(TRIM(COALESCE(u.azienda, ''))) = LOWER($1)
+                         WHERE (LOWER(TRIM(COALESCE(u.azienda, ''))) = LOWER($1) OR na.azienda_id = (SELECT user_id FROM comm_agents WHERE id = $4))
                          AND (
                            (LENGTH($2) >= 12 AND REPLACE(REPLACE(LOWER(COALESCE(nd.mac_address, '')), ':', ''), '-', '') = $2)
-                           OR ($3 IS NOT NULL AND nd.ip_address = $3)
+                           OR ($3 IS NOT NULL AND TRIM(COALESCE(nd.ip_address, '')) = $3)
                          )`,
-                        [azienda, macNorm.length >= 12 ? macNorm : null, primaryIp]
+                        [azienda, macNorm.length >= 12 ? macNorm : '', primaryIp, agentId]
                     );
 
-                    if (ndRes.rows.length === 0) return;
+                    if (ndRes.rows.length === 0) {
+                        if (d.antivirus_name || d.antivirus_state) {
+                            console.log('[sync-antivirus] Nessun network_device trovato per azienda=', azienda, 'macNorm=', macNorm || '(vuoto)', 'primaryIp=', primaryIp);
+                        }
+                        return;
+                    }
 
                     const isActive = /attivo|enabled|on|attiva/i.test(String(d.antivirus_state || ''));
                     const productName = (d.antivirus_name || '').trim() || null;
@@ -360,13 +367,16 @@ module.exports = (pool, io) => {
                     for (const row of ndRes.rows) {
                         await pool.query(
                             `INSERT INTO antivirus_info (device_id, is_active, product_name, expiration_date, device_type, sort_order, updated_at)
-                             VALUES ($1, $2, $3, NULL, 'pc', 0, NOW())
+                             VALUES ($1::integer, $2::boolean, $3::text, NULL, 'pc', 0, NOW())
                              ON CONFLICT (device_id) DO UPDATE SET
                                is_active = EXCLUDED.is_active,
                                product_name = COALESCE(EXCLUDED.product_name, antivirus_info.product_name),
                                updated_at = NOW()`,
                             [row.id, isActive, productName]
                         );
+                    }
+                    if (productName || isActive) {
+                        console.log('[sync-antivirus] Aggiornati', ndRes.rows.length, 'dispositivi antivirus azienda=', azienda, 'product=', productName);
                     }
                 } catch (syncErr) {
                     console.warn('⚠️ Sync antivirus CommAgent -> antivirus_info:', syncErr.message);
