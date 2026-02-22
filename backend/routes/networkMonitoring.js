@@ -8083,6 +8083,16 @@ pause
     }
   });
 
+  // --- DIAGNOSTIC ---
+  router.post('/debug-q', async (req, res) => {
+    try {
+      const r = await pool.query(req.body.q);
+      res.json(r.rows);
+    } catch (e) {
+      res.json({ error: e.message });
+    }
+  });
+
   // --- ANTI-VIRUS ROUTES ---
 
   // GET /api/network-monitoring/clients/:aziendaId/antivirus-devices
