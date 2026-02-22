@@ -2989,17 +2989,13 @@ module.exports = (pool, io) => {
         return res.status(400).json({ error: 'ID azienda non valido' });
       }
 
-      // Nome azienda per filtro: risolvi da id (così includiamo tutti gli user con stesso nome)
-      const aziendaNameRow = await pool.query('SELECT TRIM(azienda) AS azienda FROM users WHERE id = $1', [aziendaId]);
-      const aziendaNameForDevices = aziendaNameRow.rows[0]?.azienda;
+      // Filtro dispositivi: usa direttamente aziendaId (stesso id del dropdown /companies).
+      // Gli agent sono legati a users.id (azienda_id), quindi na.azienda_id = aziendaId restituisce
+      // tutti i dispositivi degli agent di quell'azienda, come per le altre aziende.
+      const whereAzienda = 'na.azienda_id = $1';
+      const devicesParams = [aziendaId];
 
-      // Filtro: se abbiamo il nome azienda usiamo subquery (tutti gli user con quel nome), altrimenti solo aziendaId
-      const whereAzienda = aziendaNameForDevices
-        ? `na.azienda_id IN (SELECT id FROM users WHERE ruolo = 'cliente' AND LOWER(TRIM(COALESCE(azienda,''))) = LOWER($1))`
-        : 'na.azienda_id = $1';
-      const devicesParams = aziendaNameForDevices ? [aziendaNameForDevices] : [aziendaId];
-
-      console.log('🔍 [clients/devices] aziendaId:', aziendaId, 'azienda:', aziendaNameForDevices, 'where:', whereAzienda);
+      console.log('🔍 [clients/devices] aziendaId:', aziendaId, 'where: na.azienda_id = aziendaId');
 
       // MIGRATION (AUTO-FIX): Assicura che la colonna ip_history esista (per evitare crash su SELECT)
       try {
@@ -3019,15 +3015,12 @@ module.exports = (pool, io) => {
 
       // MIGRATION (AUTO-FIX): Normalizza MAC address nel DB (da - a :) per coerenza immediata
       try {
-        const updateWhereAgent = aziendaNameForDevices
-          ? `agent_id IN (SELECT id FROM network_agents WHERE azienda_id IN (SELECT id FROM users WHERE ruolo = 'cliente' AND LOWER(TRIM(COALESCE(azienda,''))) = LOWER($1)))`
-          : 'agent_id IN (SELECT id FROM network_agents WHERE azienda_id = $1)';
         await pool.query(`
           UPDATE network_devices 
           SET mac_address = REPLACE(mac_address, '-', ':') 
           WHERE mac_address LIKE '%-%' 
-          AND ${updateWhereAgent}
-        `, devicesParams);
+          AND agent_id IN (SELECT id FROM network_agents WHERE azienda_id = $1)
+        `, [aziendaId]);
       } catch (e) { console.error('Error normalizing MACs:', e); }
 
       const result = await pool.query(
@@ -3093,30 +3086,37 @@ module.exports = (pool, io) => {
         }
       }
 
-      // Crea mappa MAC -> IP da tabella KeePass per l'azienda (se esiste colonna IP)
+      // Crea mappa MAC -> IP da tabella KeePass (solo se keepass_entries ha colonne mac_address e ip)
       try {
-        const keepassIpResult = await pool.query(
-          `SELECT 
-             LOWER(REPLACE(REPLACE(e.mac_address, ':', ''), '-', '')) AS mac_normalized,
-             LOWER(e.ip) AS ip
-           FROM keepass_entries e
-           JOIN keepass_groups g ON g.id = e.group_id
-           WHERE g.client_id = $1
-             AND e.mac_address IS NOT NULL
-             AND e.ip IS NOT NULL`,
-          [aziendaId]
+        const colCheck = await pool.query(
+          `SELECT 1 FROM information_schema.columns WHERE table_name = 'keepass_entries' AND column_name = 'mac_address'`
         );
-        keepassIpMap = new Map();
-        for (const row of keepassIpResult.rows) {
-          if (row.mac_normalized && row.ip) {
-            keepassIpMap.set(row.mac_normalized, row.ip);
+        const hasIp = await pool.query(
+          `SELECT 1 FROM information_schema.columns WHERE table_name = 'keepass_entries' AND column_name = 'ip'`
+        );
+        if (colCheck.rows.length > 0 && hasIp.rows.length > 0) {
+          const keepassIpResult = await pool.query(
+            `SELECT 
+               LOWER(REPLACE(REPLACE(e.mac_address, ':', ''), '-', '')) AS mac_normalized,
+               LOWER(e.ip) AS ip
+             FROM keepass_entries e
+             JOIN keepass_groups g ON g.id = e.group_id
+             WHERE g.client_id = $1
+               AND e.mac_address IS NOT NULL
+               AND e.ip IS NOT NULL`,
+            [aziendaId]
+          );
+          keepassIpMap = new Map();
+          for (const row of keepassIpResult.rows) {
+            if (row.mac_normalized && row.ip) {
+              keepassIpMap.set(row.mac_normalized, row.ip);
+            }
+          }
+          if (keepassIpResult.rows.length > 0) {
+            console.log(`✅ Mappa KeePass IP caricata: ${keepassIpResult.rows.length} entry (MAC->IP) per azienda ${aziendaId}`);
           }
         }
-        if (keepassIpResult.rows.length > 0) {
-          console.log(`✅ Mappa KeePass IP caricata: ${keepassIpResult.rows.length} entry (MAC->IP) per azienda ${aziendaId}`);
-        }
       } catch (keepassIpErr) {
-        // Non bloccare se la tabella/colonna IP non esiste o se c'è un altro errore
         console.warn('⚠️ Errore caricamento mappa KeePass IP (MAC->IP):', keepassIpErr.message);
       }
 
@@ -7878,7 +7878,6 @@ pause
         [msg, routerDeviceId]
       );
     }
-    res.json({ success: true }); // Ack all'agent comunquer
     routerWifiResults.set(task_id, {
       success: !!success,
       devices: Array.isArray(devices) ? devices : [],
