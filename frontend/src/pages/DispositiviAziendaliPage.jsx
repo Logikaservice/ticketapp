@@ -1,8 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Monitor } from 'lucide-react';
+import { Monitor, Cpu, HardDrive, Battery, Shield, User, Loader2 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import DispositiviAziendaliIntroCard from '../components/DispositiviAziendaliIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
+
+const formatDisks = (disksJson) => {
+  if (!disksJson) return '—';
+  try {
+    const arr = typeof disksJson === 'string' ? JSON.parse(disksJson) : disksJson;
+    if (!Array.isArray(arr) || arr.length === 0) return '—';
+    return arr.map(d => `${d.letter || ''} ${d.free_gb != null && d.total_gb != null ? `${d.free_gb}/${d.total_gb} GB` : ''}`).filter(Boolean).join(' · ') || '—';
+  } catch {
+    return '—';
+  }
+};
 
 const DispositiviAziendaliPage = ({
   onClose,
@@ -17,6 +28,8 @@ const DispositiviAziendaliPage = ({
 }) => {
   const [companies, setCompanies] = useState([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
+  const [devices, setDevices] = useState([]);
+  const [devicesLoading, setDevicesLoading] = useState(false);
 
   useEffect(() => {
     const fetchCompanies = async () => {
@@ -39,6 +52,24 @@ const DispositiviAziendaliPage = ({
     };
     fetchCompanies();
   }, [getAuthHeader]);
+
+  const selectedCompany = companies.find(c => String(c.id) === String(selectedCompanyId));
+  const companyName = selectedCompany?.azienda || selectedCompany?.nome || '';
+
+  useEffect(() => {
+    if (!companyName) {
+      setDevices([]);
+      return;
+    }
+    let cancelled = false;
+    setDevicesLoading(true);
+    fetch(buildApiUrl(`/api/comm-agent/device-info?azienda=${encodeURIComponent(companyName)}`), { headers: getAuthHeader() })
+      .then(res => res.ok ? res.json() : [])
+      .then(data => { if (!cancelled) setDevices(Array.isArray(data) ? data : []); })
+      .catch(() => { if (!cancelled) setDevices([]); })
+      .finally(() => { if (!cancelled) setDevicesLoading(false); });
+    return () => { cancelled = true; };
+  }, [companyName, getAuthHeader]);
 
   return (
     <div className="fixed inset-0 bg-gray-100 z-50 flex flex-col">
@@ -87,7 +118,62 @@ const DispositiviAziendaliPage = ({
             value={selectedCompanyId}
             onChange={(id) => setSelectedCompanyId(id || '')}
           />
-          {/* Qui in futuro: lista dispositivi / dati dagli agent quando selectedCompanyId è valorizzato */}
+
+          {selectedCompanyId && (
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Dispositivi (dati dagli agent)</h3>
+              {devicesLoading ? (
+                <div className="flex items-center gap-2 text-gray-500 py-8">
+                  <Loader2 size={20} className="animate-spin" />
+                  Caricamento...
+                </div>
+              ) : devices.length === 0 ? (
+                <p className="text-gray-500 py-6">Nessun dispositivo con agent registrato per questa azienda, oppure i dati non sono ancora stati inviati.</p>
+              ) : (
+                <div className="space-y-4">
+                  {devices.map((row) => {
+                    const hasInfo = row.mac || row.device_name || row.os_name;
+                    return (
+                      <div key={row.agent_id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                        {!hasInfo ? (
+                          <p className="text-gray-500 text-sm">Dispositivo {row.machine_name || row.email} — in attesa di dati dall&apos;agent.</p>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div className="space-y-1">
+                              <div className="font-semibold text-gray-800 flex items-center gap-2">
+                                <Monitor size={16} className="text-teal-600" />
+                                {row.device_name || row.machine_name || '—'} {row.real_status === 'online' && <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Online</span>}
+                              </div>
+                              <div><span className="text-gray-500">MAC:</span> {row.mac || '—'}</div>
+                              <div><span className="text-gray-500">IP:</span> {row.ip_addresses || '—'}</div>
+                              <div><span className="text-gray-500">SO:</span> {row.os_name || '—'} {row.os_version && `(${row.os_version})`} {row.os_arch && ` · ${row.os_arch}`}</div>
+                              {row.os_install_date && <div><span className="text-gray-500">Installato:</span> {new Date(row.os_install_date).toLocaleDateString('it-IT')}</div>}
+                            </div>
+                            <div className="space-y-1">
+                              <div><span className="text-gray-500">Hardware:</span> {row.manufacturer || '—'} {row.model && `· ${row.model}`} {row.device_type && `(${row.device_type})`}</div>
+                              <div className="flex items-center gap-1"><Cpu size={14} className="text-gray-400" /><span className="text-gray-500">CPU:</span> {row.cpu_name || '—'} {row.cpu_cores != null && `· ${row.cpu_cores} core`} {row.cpu_clock_mhz != null && `· ${row.cpu_clock_mhz} MHz`}</div>
+                              <div><span className="text-gray-500">RAM:</span> {row.ram_free_gb != null && row.ram_total_gb != null ? `${row.ram_free_gb} / ${row.ram_total_gb} GB liberi` : (row.ram_total_gb != null ? `${row.ram_total_gb} GB` : '—')}</div>
+                              <div className="flex items-center gap-1"><HardDrive size={14} className="text-gray-400" /><span className="text-gray-500">Dischi:</span> {formatDisks(row.disks_json)}</div>
+                              <div className="flex items-center gap-1"><User size={14} className="text-gray-400" /><span className="text-gray-500">Utente:</span> {row.current_user || '—'}</div>
+                              {(row.battery_percent != null || row.battery_status) && (
+                                <div className="flex items-center gap-1"><Battery size={14} className="text-gray-400" /> {row.battery_status || ''} {row.battery_percent != null && `${row.battery_percent}%`} {row.battery_charging && '(in carica)'}</div>
+                              )}
+                              {(row.antivirus_name || row.antivirus_state) && (
+                                <div className="flex items-center gap-1"><Shield size={14} className="text-gray-400" /> {row.antivirus_name || '—'} {row.antivirus_state && `· ${row.antivirus_state}`}</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400">
+                          {row.email} · Aggiornato: {row.device_info_updated_at ? new Date(row.device_info_updated_at).toLocaleString('it-IT') : 'mai'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -78,6 +78,39 @@ module.exports = (pool, io) => {
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_comm_message_delivery_agent ON comm_message_delivery(agent_id);`);
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_comm_message_delivery_status ON comm_message_delivery(status);`);
 
+            // Tabella info dispositivo (inventario da agent, chiave di giunzione MAC)
+            await pool.query(`
+        CREATE TABLE IF NOT EXISTS comm_device_info (
+          id SERIAL PRIMARY KEY,
+          agent_id INTEGER NOT NULL REFERENCES comm_agents(id) ON DELETE CASCADE UNIQUE,
+          mac VARCHAR(48),
+          device_name VARCHAR(255),
+          ip_addresses TEXT,
+          os_name VARCHAR(255),
+          os_version VARCHAR(255),
+          os_arch VARCHAR(32),
+          os_install_date TIMESTAMPTZ,
+          manufacturer VARCHAR(255),
+          model VARCHAR(255),
+          device_type VARCHAR(32),
+          cpu_name VARCHAR(255),
+          cpu_cores INTEGER,
+          cpu_clock_mhz INTEGER,
+          ram_total_gb NUMERIC(10,2),
+          ram_free_gb NUMERIC(10,2),
+          disks_json JSONB,
+          current_user VARCHAR(255),
+          battery_status VARCHAR(64),
+          battery_percent INTEGER,
+          battery_charging BOOLEAN,
+          antivirus_name VARCHAR(255),
+          antivirus_state VARCHAR(64),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+      `);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_comm_device_info_agent ON comm_device_info(agent_id);`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_comm_device_info_mac ON comm_device_info(mac);`);
+
             tablesReady = true;
             console.log('✅ Tabelle Communication Agent inizializzate');
         } catch (err) {
@@ -193,7 +226,7 @@ module.exports = (pool, io) => {
     router.post('/agent/heartbeat', authenticateCommAgent, async (req, res) => {
         try {
             const agentId = req.commAgent.id;
-            const { version } = req.body;
+            const { version, device_info: deviceInfo } = req.body;
 
             // Log versione ricevuta per debug
             if (version) {
@@ -212,6 +245,54 @@ module.exports = (pool, io) => {
             const savedVersion = updateResult.rows[0]?.version;
             if (version && savedVersion) {
                 console.log(`💾 CommAgent heartbeat ${agentId}: versione salvata nel DB = ${savedVersion}`);
+            }
+
+            // Salva/aggiorna inventario dispositivo se presente
+            if (deviceInfo && typeof deviceInfo === 'object') {
+                const d = deviceInfo;
+                const osInstallDate = d.os_install_date ? (isNaN(Date.parse(d.os_install_date)) ? null : new Date(d.os_install_date)) : null;
+                await pool.query(
+                    `INSERT INTO comm_device_info (
+            agent_id, mac, device_name, ip_addresses, os_name, os_version, os_arch, os_install_date,
+            manufacturer, model, device_type, cpu_name, cpu_cores, cpu_clock_mhz,
+            ram_total_gb, ram_free_gb, disks_json, current_user,
+            battery_status, battery_percent, battery_charging, antivirus_name, antivirus_state, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, NOW())
+          ON CONFLICT (agent_id) DO UPDATE SET
+            mac = EXCLUDED.mac, device_name = EXCLUDED.device_name, ip_addresses = EXCLUDED.ip_addresses,
+            os_name = EXCLUDED.os_name, os_version = EXCLUDed.os_version, os_arch = EXCLUDED.os_arch, os_install_date = EXCLUDED.os_install_date,
+            manufacturer = EXCLUDED.manufacturer, model = EXCLUDED.model, device_type = EXCLUDED.device_type,
+            cpu_name = EXCLUDED.cpu_name, cpu_cores = EXCLUDED.cpu_cores, cpu_clock_mhz = EXCLUDED.cpu_clock_mhz,
+            ram_total_gb = EXCLUDED.ram_total_gb, ram_free_gb = EXCLUDED.ram_free_gb, disks_json = EXCLUDED.disks_json,
+            current_user = EXCLUDED.current_user, battery_status = EXCLUDED.battery_status, battery_percent = EXCLUDED.battery_percent,
+            battery_charging = EXCLUDED.battery_charging, antivirus_name = EXCLUDED.antivirus_name, antivirus_state = EXCLUDED.antivirus_state,
+            updated_at = NOW()`,
+                    [
+                        agentId,
+                        d.mac || null,
+                        d.device_name || null,
+                        typeof d.ip_addresses === 'string' ? d.ip_addresses : (Array.isArray(d.ip_addresses) ? d.ip_addresses.join(', ') : null),
+                        d.os_name || null,
+                        d.os_version || null,
+                        d.os_arch || null,
+                        osInstallDate,
+                        d.manufacturer || null,
+                        d.model || null,
+                        d.device_type || null,
+                        d.cpu_name || null,
+                        d.cpu_cores != null ? parseInt(d.cpu_cores, 10) : null,
+                        d.cpu_clock_mhz != null ? parseInt(d.cpu_clock_mhz, 10) : null,
+                        d.ram_total_gb != null ? parseFloat(d.ram_total_gb) : null,
+                        d.ram_free_gb != null ? parseFloat(d.ram_free_gb) : null,
+                        d.disks ? JSON.stringify(Array.isArray(d.disks) ? d.disks : d.disks) : null,
+                        d.current_user || null,
+                        d.battery_status || null,
+                        d.battery_percent != null ? parseInt(d.battery_percent, 10) : null,
+                        d.battery_charging === true || d.battery_charging === 'true',
+                        d.antivirus_name || null,
+                        d.antivirus_state || null
+                    ]
+                );
             }
 
             // Recupera messaggi pendenti per questo agent
@@ -395,6 +476,41 @@ module.exports = (pool, io) => {
             res.json(result.rows);
         } catch (err) {
             console.error('❌ Errore lista aziende comm:', err);
+            res.status(500).json({ error: 'Errore interno' });
+        }
+    });
+
+    // ============================================
+    // DEVICE INFO / INVENTARIO (tecnico, per Dispositivi aziendali)
+    // ============================================
+    router.get('/device-info', authenticateToken, requireRole('tecnico'), async (req, res) => {
+        try {
+            await ensureTables();
+            const { azienda: aziendaFilter } = req.query;
+
+            let query = `
+                SELECT ca.id as agent_id, ca.machine_name, ca.machine_id, ca.status, ca.last_heartbeat, ca.version,
+                       CASE WHEN ca.last_heartbeat > NOW() - INTERVAL '2 minutes' THEN 'online' ELSE 'offline' END as real_status,
+                       u.email, u.nome, u.cognome, u.azienda,
+                       d.mac, d.device_name, d.ip_addresses, d.os_name, d.os_version, d.os_arch, d.os_install_date,
+                       d.manufacturer, d.model, d.device_type, d.cpu_name, d.cpu_cores, d.cpu_clock_mhz,
+                       d.ram_total_gb, d.ram_free_gb, d.disks_json, d.current_user,
+                       d.battery_status, d.battery_percent, d.battery_charging, d.antivirus_name, d.antivirus_state, d.updated_at as device_info_updated_at
+                FROM comm_agents ca
+                JOIN users u ON ca.user_id = u.id
+                LEFT JOIN comm_device_info d ON d.agent_id = ca.id
+            `;
+            const params = [];
+            if (aziendaFilter && String(aziendaFilter).trim()) {
+                params.push(String(aziendaFilter).trim());
+                query += ` WHERE TRIM(u.azienda) = $1`;
+            }
+            query += ` ORDER BY u.azienda, u.cognome, u.nome, ca.machine_name`;
+
+            const result = await pool.query(query, params);
+            res.json(result.rows);
+        } catch (err) {
+            console.error('❌ Errore device-info:', err);
             res.status(500).json({ error: 'Errore interno' });
         }
     });

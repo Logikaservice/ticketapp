@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.22"
+$SCRIPT_VERSION = "1.2.23"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -265,13 +265,150 @@ function Initialize-TrayIcon {
 }
 
 # ============================================
+# INVENTARIO DISPOSITIVO (per Dispositivi aziendali)
+# ============================================
+function Get-DeviceInventory {
+    try {
+        $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction SilentlyContinue | Select-Object -First 1
+        $cs = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction SilentlyContinue | Select-Object -First 1
+        $cpu = Get-CimInstance -ClassName Win32_Processor -ErrorAction SilentlyContinue | Select-Object -First 1
+
+        # MAC e IP (adattatori attivi)
+        $mac = $null
+        $ipParts = @()
+        try {
+            $adapters = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' }
+            foreach ($a in $adapters) {
+                if ($a.MacAddress) { $mac = $a.MacAddress; break }
+            }
+            if (-not $mac) {
+                $wmiNic = Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -ErrorAction SilentlyContinue | Where-Object { $_.IPEnabled -eq $true } | Select-Object -First 1
+                if ($wmiNic -and $wmiNic.MACAddress) { $mac = $wmiNic.MACAddress }
+            }
+            $addrs = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.InterfaceAlias -and $_.IPAddress -and $_.IPAddress -notlike '127.*' }
+            foreach ($addr in $addrs) {
+                $ipParts += "$($addr.IPAddress) ($($addr.InterfaceAlias))"
+            }
+        } catch {}
+        $ipAddresses = ($ipParts | Select-Object -Unique) -join ', '
+        if (-not $ipAddresses) { $ipAddresses = $null }
+
+        # OS
+        $osName = $os.Caption
+        $osVersion = $os.Version
+        $osArch = $os.OSArchitecture
+        $osInstallDate = $null
+        if ($os.InstallDate) {
+            try { $osInstallDate = ([Management.ManagementDateTimeConverter]::ToDateTime($os.InstallDate)).ToString('yyyy-MM-ddTHH:mm:ssZ') } catch {}
+        }
+
+        # Hardware: desktop/portatile da ChassisTypes
+        $deviceType = 'desktop'
+        if ($cs -and $null -ne $cs.ChassisTypes) {
+            $ct = [int]$cs.ChassisTypes
+            if ($ct -in 8,9,10,11,14,23,30) { $deviceType = 'portatile' }
+        }
+        $manufacturer = $cs.Manufacturer
+        $model = $cs.Model
+
+        # CPU
+        $cpuName = $cpu.Name
+        $cpuCores = [int]$cpu.NumberOfCores
+        $cpuClockMhz = [int]$cpu.MaxClockSpeed
+
+        # RAM (TotalPhysicalMemory in bytes, FreePhysicalMemory in KB)
+        $ramTotalBytes = [long]$cs.TotalPhysicalMemory
+        $ramTotalGb = [Math]::Round($ramTotalBytes / 1GB, 2)
+        $ramFreeKb = [long]$os.FreePhysicalMemory
+        $ramFreeGb = [Math]::Round($ramFreeKb / 1MB, 2)
+
+        # Dischi (DriveType 3 = fisso)
+        $disks = @()
+        Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DriveType=3" -ErrorAction SilentlyContinue | ForEach-Object {
+            $totalGb = [Math]::Round([long]$_.Size / 1GB, 2)
+            $freeGb = [Math]::Round([long]$_.FreeSpace / 1GB, 2)
+            $disks += @{ letter = $_.DeviceID; total_gb = $totalGb; free_gb = $freeGb }
+        }
+
+        # Utente
+        $currentUser = $env:USERNAME
+        if ($cs.UserName) { $currentUser = $cs.UserName }
+
+        # Batteria (portatili)
+        $batteryStatus = $null
+        $batteryPercent = $null
+        $batteryCharging = $false
+        try {
+            $bat = Get-CimInstance -ClassName Win32_Battery -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($bat) {
+                $batteryPercent = [int]$bat.EstimatedChargeRemaining
+                $batteryStatus = if ($bat.BatteryStatus -eq 2) { 'In carica' } elseif ($bat.BatteryStatus -eq 1) { 'Scarica' } else { 'Altro' }
+                $batteryCharging = ($bat.BatteryStatus -eq 2)
+            }
+        } catch {}
+
+        # Antivirus (SecurityCenter2)
+        $antivirusName = $null
+        $antivirusState = $null
+        try {
+            $av = Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($av -and $av.displayName) {
+                $antivirusName = $av.displayName
+                $state = [int]$av.productState
+                $antivirusState = if ($state -eq 0) { 'Disattivo' } else { 'Attivo' }
+            }
+        } catch {}
+
+        return @{
+            mac             = $mac
+            device_name     = $env:COMPUTERNAME
+            ip_addresses    = $ipAddresses
+            os_name         = $osName
+            os_version      = $osVersion
+            os_arch         = $osArch
+            os_install_date = $osInstallDate
+            manufacturer    = $manufacturer
+            model           = $model
+            device_type     = $deviceType
+            cpu_name        = $cpuName
+            cpu_cores       = $cpuCores
+            cpu_clock_mhz   = $cpuClockMhz
+            ram_total_gb    = $ramTotalGb
+            ram_free_gb     = $ramFreeGb
+            disks           = $disks
+            current_user    = $currentUser
+            battery_status  = $batteryStatus
+            battery_percent = $batteryPercent
+            battery_charging = $batteryCharging
+            antivirus_name  = $antivirusName
+            antivirus_state = $antivirusState
+        }
+    } catch {
+        Write-Log "Errore raccolta inventario: $_" "WARN"
+        return $null
+    }
+}
+
+# ============================================
 # API & UPDATE LOGIC
 # ============================================
+$script:lastDeviceInfoSent = $null
+$script:deviceInfoIntervalSec = 60
+
 function Send-Heartbeat {
     param($Config)
     $url = "$($Config.server_url)/api/comm-agent/agent/heartbeat"
     try {
-        $body = @{ version = $SCRIPT_VERSION; status = "online" } | ConvertTo-Json
+        $payload = @{ version = $SCRIPT_VERSION; status = "online" }
+        $now = Get-Date
+        if (-not $script:lastDeviceInfoSent -or (($now - $script:lastDeviceInfoSent).TotalSeconds -ge $script:deviceInfoIntervalSec)) {
+            $inv = Get-DeviceInventory
+            if ($inv) {
+                $payload['device_info'] = $inv
+                $script:lastDeviceInfoSent = $now
+            }
+        }
+        $body = $payload | ConvertTo-Json -Depth 5 -Compress
         $headers = @{ "X-Comm-API-Key" = $Config.api_key; "Content-Type" = "application/json" }
         $resp = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $body -ErrorAction Stop
         $msgList = @($resp.messages)
