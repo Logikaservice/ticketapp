@@ -70,23 +70,23 @@ function Show-CustomToast {
         try { $script:activeNotificationForm.Close() } catch {}
     }
 
-    [int]$aR=99; [int]$aG=102; [int]$aB=241
+    [int]$aR = 99; [int]$aG = 102; [int]$aB = 241
     switch ([string]$Type.ToLower()) {
-        "warning"     { $aR=245;  $aG=158; $aB=11 }
-        "maintenance" { $aR=16;   $aG=185; $aB=129 }
-        "update"      { $aR=59;   $aG=130; $aB=246 }
-        "urgent"      { $aR=239;  $aG=68;  $aB=68 }
-        "error"       { $aR=239;  $aG=68;  $aB=68 }
-        default       { $aR=99;   $aG=102; $aB=241 }
+        "warning" { $aR = 245; $aG = 158; $aB = 11 }
+        "maintenance" { $aR = 16; $aG = 185; $aB = 129 }
+        "update" { $aR = 59; $aG = 130; $aB = 246 }
+        "urgent" { $aR = 239; $aG = 68; $aB = 68 }
+        "error" { $aR = 239; $aG = 68; $aB = 68 }
+        default { $aR = 99; $aG = 102; $aB = 241 }
     }
-    $colorAccent   = [System.Drawing.Color]::FromArgb([int]$aR, [int]$aG, [int]$aB)
-    $colorAccentDim= [System.Drawing.Color]::FromArgb(40, [int]$aR, [int]$aG, [int]$aB)
-    $colorBg       = [System.Drawing.Color]::FromArgb(13,  17,  23 )
-    $colorBgHeader = [System.Drawing.Color]::FromArgb(22,  27,  34 )
-    $colorText     = [System.Drawing.Color]::FromArgb(230, 237, 243)
-    $colorSub      = [System.Drawing.Color]::FromArgb(110, 118, 129)
+    $colorAccent = [System.Drawing.Color]::FromArgb([int]$aR, [int]$aG, [int]$aB)
+    $colorAccentDim = [System.Drawing.Color]::FromArgb(40, [int]$aR, [int]$aG, [int]$aB)
+    $colorBg = [System.Drawing.Color]::FromArgb(13, 17, 23 )
+    $colorBgHeader = [System.Drawing.Color]::FromArgb(22, 27, 34 )
+    $colorText = [System.Drawing.Color]::FromArgb(230, 237, 243)
+    $colorSub = [System.Drawing.Color]::FromArgb(110, 118, 129)
 
-    [int]$fW=400; [int]$fH=175; [int]$bdr=5; [int]$hH=38
+    [int]$fW = 400; [int]$fH = 175; [int]$bdr = 5; [int]$hH = 38
     [int]$badgeW = 100
     [int]$fwMinBdr = $fW - $bdr
     [int]$locX1 = $fW - $bdr - $badgeW
@@ -99,12 +99,12 @@ function Show-CustomToast {
 
     $form = New-Object System.Windows.Forms.Form
     $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
-    $form.Size            = New-Object System.Drawing.Size($fW, $fH)
-    $form.BackColor       = $colorBg
-    $form.TopMost         = $true
-    $form.ShowInTaskbar   = $false
-    $form.Opacity         = 0
-    $form.StartPosition   = [System.Windows.Forms.FormStartPosition]::Manual
+    $form.Size = New-Object System.Drawing.Size($fW, $fH)
+    $form.BackColor = $colorBg
+    $form.TopMost = $true
+    $form.ShowInTaskbar = $false
+    $form.Opacity = 0
+    $form.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
 
     $screen = [System.Windows.Forms.Screen]::PrimaryScreen
     $r = $screen.WorkingArea
@@ -113,106 +113,107 @@ function Show-CustomToast {
     $form.Location = New-Object System.Drawing.Point($x, $y)
 
     $panelBdr = New-Object System.Windows.Forms.Panel
-    $panelBdr.Location  = New-Object System.Drawing.Point(0, 0)
-    $panelBdr.Size      = New-Object System.Drawing.Size($bdr, $fH)
+    $panelBdr.Location = New-Object System.Drawing.Point(0, 0)
+    $panelBdr.Size = New-Object System.Drawing.Size($bdr, $fH)
     $panelBdr.BackColor = $colorAccent
     $form.Controls.Add($panelBdr)
 
     $panelHdr = New-Object System.Windows.Forms.Panel
-    $panelHdr.Location  = New-Object System.Drawing.Point($bdr, 0)
-    $panelHdr.Size      = New-Object System.Drawing.Size($fwMinBdr, $hH)
+    $panelHdr.Location = New-Object System.Drawing.Point($bdr, 0)
+    $panelHdr.Size = New-Object System.Drawing.Size($fwMinBdr, $hH)
     $panelHdr.BackColor = $colorBgHeader
     $form.Controls.Add($panelHdr)
 
     $lblBrand = New-Object System.Windows.Forms.Label
-    $lblBrand.Text      = "LOGIKA SERVICE"
-    $lblBrand.Font      = New-Object System.Drawing.Font("Segoe UI", 8.5, [System.Drawing.FontStyle]::Bold)
+    $lblBrand.Text = "LOGIKA SERVICE"
+    $lblBrand.Font = New-Object System.Drawing.Font("Segoe UI", 8.5, [System.Drawing.FontStyle]::Bold)
     $lblBrand.ForeColor = $colorAccent
-    $lblBrand.AutoSize  = $true
-    $lblBrand.Location  = New-Object System.Drawing.Point(10, 11)
+    $lblBrand.AutoSize = $true
+    $lblBrand.Location = New-Object System.Drawing.Point(10, 11)
     $panelHdr.Controls.Add($lblBrand)
 
     $lblBy = New-Object System.Windows.Forms.Label
-    $lblBy.Text      = "by Rapa Alessandro"
-    $lblBy.Font      = New-Object System.Drawing.Font("Segoe UI", 7, [System.Drawing.FontStyle]::Italic)
+    $lblBy.Text = "by Rapa Alessandro"
+    $lblBy.Font = New-Object System.Drawing.Font("Segoe UI", 7, [System.Drawing.FontStyle]::Italic)
     $lblBy.ForeColor = $colorSub
-    $lblBy.AutoSize  = $true
-    $lblBy.Location  = New-Object System.Drawing.Point(122, 13)
+    $lblBy.AutoSize = $true
+    $lblBy.Location = New-Object System.Drawing.Point(122, 13)
     $panelHdr.Controls.Add($lblBy)
 
     $lblBadge = New-Object System.Windows.Forms.Label
-    $lblBadge.Text      = $Type.ToUpper()
-    $lblBadge.Font      = New-Object System.Drawing.Font("Segoe UI", 6.5, [System.Drawing.FontStyle]::Bold)
+    $lblBadge.Text = $Type.ToUpper()
+    $lblBadge.Font = New-Object System.Drawing.Font("Segoe UI", 6.5, [System.Drawing.FontStyle]::Bold)
     $lblBadge.ForeColor = $colorAccent
     $lblBadge.BackColor = $colorAccentDim
-    $lblBadge.AutoSize  = $false
-    $lblBadge.Size      = New-Object System.Drawing.Size($badgeW, 16)
+    $lblBadge.AutoSize = $false
+    $lblBadge.Size = New-Object System.Drawing.Size($badgeW, 16)
     $lblBadge.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-    $lblBadge.Location  = New-Object System.Drawing.Point($locX1, 11)
+    $lblBadge.Location = New-Object System.Drawing.Point($locX1, 11)
     $lblBadge.AutoEllipsis = $true
     $panelHdr.Controls.Add($lblBadge)
 
     $lblTitleCont = New-Object System.Windows.Forms.Label
-    $lblTitleCont.Text      = $Title
-    $lblTitleCont.Font      = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
+    $lblTitleCont.Text = $Title
+    $lblTitleCont.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
     $lblTitleCont.ForeColor = $colorText
-    $lblTitleCont.Location  = New-Object System.Drawing.Point(($bdr + 10), $locY1)
-    $lblTitleCont.Size      = New-Object System.Drawing.Size($szW1, 22)
+    $lblTitleCont.Location = New-Object System.Drawing.Point(($bdr + 10), $locY1)
+    $lblTitleCont.Size = New-Object System.Drawing.Size($szW1, 22)
     $form.Controls.Add($lblTitleCont)
 
     $lblMsg = New-Object System.Windows.Forms.Label
-    $lblMsg.Text      = $Message
-    $lblMsg.Font      = New-Object System.Drawing.Font("Segoe UI", 9.5)
+    $lblMsg.Text = $Message
+    $lblMsg.Font = New-Object System.Drawing.Font("Segoe UI", 9.5)
     $lblMsg.ForeColor = $colorSub
-    $lblMsg.Location  = New-Object System.Drawing.Point(($bdr + 10), $locY2)
-    $lblMsg.Size      = New-Object System.Drawing.Size($szW1, 56)
+    $lblMsg.Location = New-Object System.Drawing.Point(($bdr + 10), $locY2)
+    $lblMsg.Size = New-Object System.Drawing.Size($szW1, 56)
     $form.Controls.Add($lblMsg)
 
     $btnClose = New-Object System.Windows.Forms.Button
-    $btnClose.Text      = "HO CAPITO"
-    $btnClose.Font      = New-Object System.Drawing.Font("Segoe UI", 8.5, [System.Drawing.FontStyle]::Bold)
+    $btnClose.Text = "HO CAPITO"
+    $btnClose.Font = New-Object System.Drawing.Font("Segoe UI", 8.5, [System.Drawing.FontStyle]::Bold)
     $btnClose.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
     $btnClose.FlatAppearance.BorderSize = 0
     $btnClose.BackColor = $colorAccent
     $btnClose.ForeColor = [System.Drawing.Color]::White
-    $btnClose.Size      = New-Object System.Drawing.Size(108, 26)
-    $btnClose.Location  = New-Object System.Drawing.Point($btnX, $btnY)
-    $btnClose.Cursor    = [System.Windows.Forms.Cursors]::Hand
+    $btnClose.Size = New-Object System.Drawing.Size(108, 26)
+    $btnClose.Location = New-Object System.Drawing.Point($btnX, $btnY)
+    $btnClose.Cursor = [System.Windows.Forms.Cursors]::Hand
     $btnClose.Add_Click({ try { $this.FindForm().Close() } catch {} })
     $form.Controls.Add($btnClose)
 
     $pgBg = New-Object System.Windows.Forms.Panel
-    $pgBg.Location  = New-Object System.Drawing.Point($bdr, $pgY)
-    $pgBg.Size      = New-Object System.Drawing.Size($fwMinBdr, 4)
+    $pgBg.Location = New-Object System.Drawing.Point($bdr, $pgY)
+    $pgBg.Size = New-Object System.Drawing.Size($fwMinBdr, 4)
     $pgBg.BackColor = [System.Drawing.Color]::FromArgb(30, $aR, $aG, $aB)
     $form.Controls.Add($pgBg)
 
     $script:toastPgBar = New-Object System.Windows.Forms.Panel
-    $script:toastPgBar.Location  = New-Object System.Drawing.Point(0, 0)
-    $script:toastPgBar.Size      = New-Object System.Drawing.Size($fwMinBdr, 4)
+    $script:toastPgBar.Location = New-Object System.Drawing.Point(0, 0)
+    $script:toastPgBar.Size = New-Object System.Drawing.Size($fwMinBdr, 4)
     $script:toastPgBar.BackColor = $colorAccent
     $pgBg.Controls.Add($script:toastPgBar)
 
-    $script:toastTick  = [int]0
+    $script:toastTick = [int]0
     $script:toastTotal = [int]200
-    $script:toastPgW   = [int]$fwMinBdr
-    $script:toastForm  = $form
+    $script:toastPgW = [int]$fwMinBdr
+    $script:toastForm = $form
 
     $script:toastTimer = New-Object System.Windows.Forms.Timer
     $script:toastTimer.Interval = 50
     $script:toastTimer.Add_Tick({
-        try {
-            $f = $script:toastForm
-            if (-not $f -or $f.IsDisposed) { $script:toastTimer.Stop(); return }
-            if ($f.Opacity -lt 1.0) { $f.Opacity = [Math]::Min(1.0, [double]$f.Opacity + 0.12) }
-            else { $script:toastTimer.Stop() }
-        } catch {}
-    })
+            try {
+                $f = $script:toastForm
+                if (-not $f -or $f.IsDisposed) { $script:toastTimer.Stop(); return }
+                if ($f.Opacity -lt 1.0) { $f.Opacity = [Math]::Min(1.0, [double]$f.Opacity + 0.12) }
+                else { $script:toastTimer.Stop() }
+            }
+            catch {}
+        })
 
     $form.Add_FormClosed({
-        try { $script:toastTimer.Stop(); $script:toastTimer.Dispose() } catch {}
-        $script:activeNotificationForm = $null
-    })
+            try { $script:toastTimer.Stop(); $script:toastTimer.Dispose() } catch {}
+            $script:activeNotificationForm = $null
+        })
 
     $script:activeNotificationForm = $form
     $form.Show()
@@ -285,11 +286,13 @@ function Get-DeviceInventory {
                 $wmiNic = Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -ErrorAction SilentlyContinue | Where-Object { $_.IPEnabled -eq $true } | Select-Object -First 1
                 if ($wmiNic -and $wmiNic.MACAddress) { $mac = $wmiNic.MACAddress }
             }
+            if ($mac) { $mac = $mac -replace '-', ':' }
             $addrs = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.InterfaceAlias -and $_.IPAddress -and $_.IPAddress -notlike '127.*' }
             foreach ($addr in $addrs) {
                 $ipParts += "$($addr.IPAddress) ($($addr.InterfaceAlias))"
             }
-        } catch {}
+        }
+        catch {}
         $ipAddresses = ($ipParts | Select-Object -Unique) -join ', '
         if (-not $ipAddresses) { $ipAddresses = $null }
 
@@ -306,7 +309,7 @@ function Get-DeviceInventory {
         $deviceType = 'desktop'
         if ($cs -and $null -ne $cs.ChassisTypes) {
             $ct = [int]$cs.ChassisTypes
-            if ($ct -in 8,9,10,11,14,23,30) { $deviceType = 'portatile' }
+            if ($ct -in 8, 9, 10, 11, 14, 23, 30) { $deviceType = 'portatile' }
         }
         $manufacturer = $cs.Manufacturer
         $model = $cs.Model
@@ -345,7 +348,8 @@ function Get-DeviceInventory {
                 $batteryStatus = if ($bat.BatteryStatus -eq 2) { 'In carica' } elseif ($bat.BatteryStatus -eq 1) { 'Scarica' } else { 'Altro' }
                 $batteryCharging = ($bat.BatteryStatus -eq 2)
             }
-        } catch {}
+        }
+        catch {}
 
         # Antivirus (SecurityCenter2)
         $antivirusName = $null
@@ -357,33 +361,51 @@ function Get-DeviceInventory {
                 $state = [int]$av.productState
                 $antivirusState = if ($state -eq 0) { 'Disattivo' } else { 'Attivo' }
             }
-        } catch {}
+        }
+        catch {}
+
+        # Scheda grafica (GPU)
+        $gpuName = $null
+        try {
+            $gpus = Get-CimInstance -ClassName Win32_VideoController -ErrorAction SilentlyContinue
+            if ($gpus) {
+                if ($gpus -is [array]) {
+                    $gpuName = ($gpus | Select-Object -ExpandProperty Caption | Where-Object { $_ }) -join ', '
+                }
+                else {
+                    $gpuName = $gpus.Caption
+                }
+            }
+        }
+        catch {}
 
         return @{
-            mac             = $mac
-            device_name     = $env:COMPUTERNAME
-            ip_addresses    = $ipAddresses
-            os_name         = $osName
-            os_version      = $osVersion
-            os_arch         = $osArch
-            os_install_date = $osInstallDate
-            manufacturer    = $manufacturer
-            model           = $model
-            device_type     = $deviceType
-            cpu_name        = $cpuName
-            cpu_cores       = $cpuCores
-            cpu_clock_mhz   = $cpuClockMhz
-            ram_total_gb    = $ramTotalGb
-            ram_free_gb     = $ramFreeGb
-            disks           = $disks
-            current_user    = $currentUser
-            battery_status  = $batteryStatus
-            battery_percent = $batteryPercent
+            mac              = $mac
+            device_name      = $env:COMPUTERNAME
+            ip_addresses     = $ipAddresses
+            os_name          = $osName
+            os_version       = $osVersion
+            os_arch          = $osArch
+            os_install_date  = $osInstallDate
+            manufacturer     = $manufacturer
+            model            = $model
+            device_type      = $deviceType
+            cpu_name         = $cpuName
+            cpu_cores        = $cpuCores
+            cpu_clock_mhz    = $cpuClockMhz
+            gpu_name         = $gpuName
+            ram_total_gb     = $ramTotalGb
+            ram_free_gb      = $ramFreeGb
+            disks            = $disks
+            current_user     = $currentUser
+            battery_status   = $batteryStatus
+            battery_percent  = $batteryPercent
             battery_charging = $batteryCharging
-            antivirus_name  = $antivirusName
-            antivirus_state = $antivirusState
+            antivirus_name   = $antivirusName
+            antivirus_state  = $antivirusState
         }
-    } catch {
+    }
+    catch {
         Write-Log "Errore raccolta inventario: $_" "WARN"
         return $null
     }
@@ -470,14 +492,15 @@ function Check-Update {
 function Register-Agent {
     param($ServerUrl, $Email, $Password)
     try {
-        $body = @{ email=$Email; password=$Password; machine_name=$env:COMPUTERNAME; machine_id=$env:COMPUTERNAME; os_info="Windows" } | ConvertTo-Json
+        $body = @{ email = $Email; password = $Password; machine_name = $env:COMPUTERNAME; machine_id = $env:COMPUTERNAME; os_info = "Windows" } | ConvertTo-Json
         $resp = Invoke-RestMethod -Uri "$ServerUrl/api/comm-agent/agent/register" -Method POST -Body $body -ContentType "application/json" -ErrorAction Stop
         if ($resp.api_key) {
-            $newCfg = @{ server_url=$ServerUrl; api_key=$resp.api_key; agent_id=$resp.agent_id; email=$Email }
+            $newCfg = @{ server_url = $ServerUrl; api_key = $resp.api_key; agent_id = $resp.agent_id; email = $Email }
             Save-Config $newCfg
             return $newCfg
         }
-    } catch {}
+    }
+    catch {}
     return $null
 }
 
@@ -495,7 +518,7 @@ function Get-ConfigOrRegister {
     try {
         $install = Get-Content $installConfigPath -Raw | ConvertFrom-Json
         $serverUrl = $install.server_url
-        $email    = $install.email
+        $email = $install.email
         $password = $install.password
         if (-not $serverUrl) { $serverUrl = "https://ticket.logikaservice.it" }
         if (-not $email -or -not $password) {
@@ -536,9 +559,9 @@ if ($cfg) {
         $script:updateCheckOnce = New-Object System.Windows.Forms.Timer
         $script:updateCheckOnce.Interval = 30000
         $script:updateCheckOnce.Add_Tick({
-            if ($script:updateCheckOnce) { $script:updateCheckOnce.Stop(); $script:updateCheckOnce.Dispose(); $script:updateCheckOnce = $null }
-            Check-Update
-        })
+                if ($script:updateCheckOnce) { $script:updateCheckOnce.Stop(); $script:updateCheckOnce.Dispose(); $script:updateCheckOnce = $null }
+                Check-Update
+            })
         $script:updateCheckOnce.Start()
         [System.Windows.Forms.Application]::Run()
     }
@@ -546,7 +569,8 @@ if ($cfg) {
         Write-Log "Errore avvio tray / message loop: $_" "ERROR"
         Write-Host "Errore avvio: $($_.Exception.Message). Controlla il log: $script:logFile"
     }
-} else {
+}
+else {
     Write-Log "Configurazione mancante o registrazione fallita. Agent non avviato." "ERROR"
     Write-Host "Configurazione mancante. Controlla il log: $script:logFile"
 }

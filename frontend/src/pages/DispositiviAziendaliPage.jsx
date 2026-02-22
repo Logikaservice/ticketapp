@@ -4,14 +4,40 @@ import { buildApiUrl } from '../utils/apiConfig';
 import DispositiviAziendaliIntroCard from '../components/DispositiviAziendaliIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
 
-const formatDisks = (disksJson) => {
-  if (!disksJson) return '—';
+const renderDisks = (disksJson) => {
+  if (!disksJson) return <span className="text-gray-500">—</span>;
   try {
     const arr = typeof disksJson === 'string' ? JSON.parse(disksJson) : disksJson;
-    if (!Array.isArray(arr) || arr.length === 0) return '—';
-    return arr.map(d => `${d.letter || ''} ${d.free_gb != null && d.total_gb != null ? `${d.free_gb}/${d.total_gb} GB` : ''}`).filter(Boolean).join(' · ') || '—';
-  } catch {
-    return '—';
+    if (!Array.isArray(arr) || arr.length === 0) return <span className="text-gray-500">—</span>;
+    return (
+      <div className="flex flex-col gap-2 w-full mt-1">
+        {arr.map((d, i) => {
+          if (d.total_gb == null || d.free_gb == null) return null;
+          const used = Math.max(0, d.total_gb - d.free_gb);
+          const percent = d.total_gb > 0 ? Math.round((used / d.total_gb) * 100) : 0;
+          return (
+            <div key={i} className="flex flex-col gap-1 text-xs w-full bg-gray-50 p-2 rounded border border-gray-100">
+              <div className="flex justify-between text-gray-700 font-medium">
+                <span>Disco {d.letter}</span>
+                <span>{percent}% in uso</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className={`h-1.5 rounded-full ${percent > 90 ? 'bg-red-500' : percent > 75 ? 'bg-yellow-500' : 'bg-teal-500'}`}
+                  style={{ width: `${percent}%` }}
+                ></div>
+              </div>
+              <div className="flex justify-between text-[10px] text-gray-500">
+                <span>Liberi: {d.free_gb} GB</span>
+                <span>Totali: {d.total_gb} GB</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  } catch (e) {
+    return <span className="text-gray-500">—</span>;
   }
 };
 
@@ -151,9 +177,14 @@ const DispositiviAziendaliPage = ({
                             </div>
                             <div className="space-y-1">
                               <div><span className="text-gray-500">Hardware:</span> {row.manufacturer || '—'} {row.model && `· ${row.model}`} {row.device_type && `(${row.device_type})`}</div>
-                              <div className="flex items-center gap-1"><Cpu size={14} className="text-gray-400" /><span className="text-gray-500">CPU:</span> {row.cpu_name || '—'} {row.cpu_cores != null && `· ${row.cpu_cores} core`} {row.cpu_clock_mhz != null && `· ${row.cpu_clock_mhz} MHz`}</div>
+                              <div className="flex items-start gap-1"><Cpu size={14} className="text-gray-400 mt-0.5" />
+                                <div className="flex-1">
+                                  <div><span className="text-gray-500">CPU:</span> {row.cpu_name || '—'} {row.cpu_cores != null && `· ${row.cpu_cores} core`} {row.cpu_clock_mhz != null && `· ${row.cpu_clock_mhz} MHz`}</div>
+                                  {row.gpu_name && <div className="text-xs text-gray-600 mt-0.5"><span className="text-gray-500">GPU:</span> {row.gpu_name}</div>}
+                                </div>
+                              </div>
                               <div><span className="text-gray-500">RAM:</span> {row.ram_free_gb != null && row.ram_total_gb != null ? `${row.ram_free_gb} / ${row.ram_total_gb} GB liberi` : (row.ram_total_gb != null ? `${row.ram_total_gb} GB` : '—')}</div>
-                              <div className="flex items-center gap-1"><HardDrive size={14} className="text-gray-400" /><span className="text-gray-500">Dischi:</span> {formatDisks(row.disks_json)}</div>
+                              <div className="flex flex-col gap-1 w-full"><div className="flex items-center gap-1"><HardDrive size={14} className="text-gray-400" /><span className="text-gray-500 font-medium">Archiviazione Dischi:</span></div> {renderDisks(row.disks_json)}</div>
                               <div className="flex items-center gap-1"><User size={14} className="text-gray-400" /><span className="text-gray-500">Utente:</span> {row.current_user || '—'}</div>
                               {(row.battery_percent != null || row.battery_status) && (
                                 <div className="flex items-center gap-1"><Battery size={14} className="text-gray-400" /> {row.battery_status || ''} {row.battery_percent != null && `${row.battery_percent}%`} {row.battery_charging && '(in carica)'}</div>
