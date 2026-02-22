@@ -901,6 +901,21 @@ WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File "
 
             const results = {};
 
+            const query = `
+SELECT nd.id, nd.ip_address, cdi.ip_addresses as cdi_ips, nd.hostname, nd.mac_address as nd_mac, cdi.device_name as cdi_name, cdi.mac as cdi_mac 
+FROM network_devices nd 
+LEFT JOIN comm_device_info cdi ON (
+    (cdi.mac IS NOT NULL AND nd.mac_address IS NOT NULL AND REPLACE(REPLACE(LOWER(cdi.mac), '-', ''), ':', '') = REPLACE(REPLACE(LOWER(nd.mac_address), '-', ''), ':', '')) 
+    OR (nd.ip_address IS NOT NULL AND (' ' || REPLACE(cdi.ip_addresses, ',', ' ') || ' ') LIKE '% ' || nd.ip_address || ' %') 
+    OR (nd.hostname IS NOT NULL AND TRIM(nd.hostname) <> '' AND LOWER(cdi.device_name) = LOWER(nd.hostname))
+) 
+WHERE cdi.mac IS NOT NULL AND nd.ip_address IN ('192.168.100.2', '192.168.100.20', '192.168.100.200');`;
+            const ipMatch = await pool.query(query);
+            results.ipMatch = ipMatch.rows;
+
+            const avi = await pool.query(`SELECT * FROM antivirus_info WHERE device_id IN (SELECT id FROM network_devices WHERE ip_address IN ('192.168.100.2', '192.168.100.20', '192.168.100.200'))`);
+            results.avi = avi.rows;
+
             const agents = await pool.query('SELECT ca.id, ca.machine_name, ca.status, ca.last_heartbeat, u.email, u.azienda FROM comm_agents ca LEFT JOIN users u ON ca.user_id = u.id');
             results.agents = agents.rows;
 
