@@ -407,7 +407,11 @@ module.exports = (pool, io) => {
             });
 
         } catch (err) {
-            console.error('❌ Errore heartbeat comm agent:', err);
+            console.error('❌ Errore heartbeat comm agent:');
+            console.error('   Messaggio:', err.message);
+            console.error('   Codice DB:', err.code);
+            console.error('   Dettaglio:', err.detail);
+            console.error('   Stack:', err.stack);
             res.status(500).json({ error: 'Errore interno' });
         }
     });
@@ -590,6 +594,16 @@ module.exports = (pool, io) => {
             query += ` ORDER BY u.azienda, u.cognome, u.nome, ca.machine_name`;
 
             let result = await pool.query(query, params);
+
+            console.log(`📋 [device-info] Richiesta per azienda: "${aziendaParam || 'TUTTE'}" -> Trovati: ${result.rows.length}`);
+            if (result.rows.length === 0) {
+                const debugAgents = await pool.query('SELECT ca.id, u.email, u.azienda, ca.machine_name FROM comm_agents ca JOIN users u ON ca.user_id = u.id');
+                console.log(`📋 [device-info] DEBUG: Ci sono in totale ${debugAgents.rows.length} agent nel DB.`);
+                if (debugAgents.rows.length > 0) {
+                    console.log(`📋 [device-info] DEBUG Sample:`, debugAgents.rows.slice(0, 3));
+                }
+            }
+
             res.json(result.rows || []);
         } catch (err) {
             const isMissingTable = err.code === '42P01' || (err.message && String(err.message).includes('comm_device_info'));
