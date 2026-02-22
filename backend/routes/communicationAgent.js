@@ -574,6 +574,78 @@ module.exports = (pool, io) => {
     });
 
     // ============================================
+    // LISTA CLIENTI (per Crea Agent da tecnico)
+    // ============================================
+    router.get('/clients', authenticateToken, requireRole('tecnico'), async (req, res) => {
+        try {
+            await ensureTables();
+            const result = await pool.query(
+                `SELECT id, email, nome, cognome, COALESCE(TRIM(azienda), 'Senza azienda') as azienda
+                 FROM users
+                 WHERE ruolo = 'cliente'
+                 ORDER BY azienda, cognome, nome`
+            );
+            res.json(result.rows);
+        } catch (err) {
+            console.error('❌ Errore lista clienti comm:', err);
+            res.status(500).json({ error: 'Errore interno' });
+        }
+    });
+
+    // ============================================
+    // DOWNLOAD AGENT PER UTENTE SPECIFICO (tecnico)
+    // ============================================
+    router.get('/download-agent-for-user/:userId', authenticateToken, requireRole('tecnico'), async (req, res) => {
+        try {
+            const { userId } = req.params;
+            await ensureTables();
+            const userResult = await pool.query(
+                'SELECT email, password FROM users WHERE id = $1 AND ruolo = \'cliente\'',
+                [userId]
+            );
+            if (userResult.rows.length === 0) {
+                return res.status(404).json({ error: 'Utente non trovato' });
+            }
+            const { email: userEmail, password: userPassword } = userResult.rows[0];
+
+            const agentDir = path.join(__dirname, '..', '..', 'agent', 'CommAgent');
+            if (!fs.existsSync(agentDir)) {
+                return res.status(404).json({ error: 'File agent non trovati sul server' });
+            }
+
+            let version = '1.0.0';
+            try {
+                const serviceContent = fs.readFileSync(path.join(agentDir, 'CommAgentService.ps1'), 'utf8');
+                const match = serviceContent.match(/\$SCRIPT_VERSION = "([^"]+)"/);
+                if (match) version = match[1];
+            } catch (e) { /* versione default */ }
+
+            res.setHeader('Content-Type', 'application/zip');
+            res.setHeader('Content-Disposition', `attachment; filename="LogikaCommAgent-v${version}.zip"`);
+
+            const archive = archiver('zip', { zlib: { level: 9 } });
+            archive.pipe(res);
+
+            const files = fs.readdirSync(agentDir);
+            for (const file of files) {
+                const filePath = path.join(agentDir, file);
+                if (fs.statSync(filePath).isFile()) {
+                    if (file === 'install_config.json' && userEmail && userPassword) {
+                        const config = JSON.stringify({ email: userEmail, password: userPassword }, null, 2);
+                        archive.append(config, { name: 'install_config.json' });
+                    } else {
+                        archive.file(filePath, { name: file });
+                    }
+                }
+            }
+            await archive.finalize();
+        } catch (err) {
+            console.error('❌ Errore download agent per utente:', err);
+            if (!res.headersSent) res.status(500).json({ error: 'Errore interno' });
+        }
+    });
+
+    // ============================================
     // LISTA AZIENDE (per il dropdown invio)
     // ============================================
     router.get('/companies', authenticateToken, requireRole('tecnico'), async (req, res) => {
@@ -866,6 +938,80 @@ WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File "
 
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         res.sendFile(filePath);
+    });
+
+    // ============================================
+    // LISTA CLIENTI (per Crea Agent - solo tecnico)
+    // ============================================
+    router.get('/clients', authenticateToken, requireRole('tecnico'), async (req, res) => {
+        try {
+            const result = await pool.query(
+                `SELECT id, email, nome, cognome, TRIM(COALESCE(azienda, '')) as azienda
+                 FROM users
+                 WHERE ruolo = 'cliente'
+                 ORDER BY azienda, cognome, nome`
+            );
+            res.json(result.rows);
+        } catch (err) {
+            console.error('❌ Errore lista clienti comm agent:', err);
+            res.status(500).json({ error: 'Errore interno' });
+        }
+    });
+
+    // ============================================
+    // DOWNLOAD AGENT PER UTENTE SPECIFICO (solo tecnico)
+    // ============================================
+    router.get('/download-agent-for-user/:userId', authenticateToken, requireRole('tecnico'), async (req, res) => {
+        try {
+            const { userId } = req.params;
+            const userResult = await pool.query(
+                'SELECT email, password FROM users WHERE id = $1',
+                [userId]
+            );
+            if (userResult.rows.length === 0) {
+                return res.status(404).json({ error: 'Utente non trovato' });
+            }
+            const { email: userEmail, password: userPassword } = userResult.rows[0];
+
+            const agentDir = path.join(__dirname, '..', '..', 'agent', 'CommAgent');
+            if (!fs.existsSync(agentDir)) {
+                return res.status(404).json({ error: 'File agent non trovati' });
+            }
+
+            let version = '1.0.0';
+            try {
+                const serviceContent = fs.readFileSync(path.join(agentDir, 'CommAgentService.ps1'), 'utf8');
+                const match = serviceContent.match(/\$SCRIPT_VERSION = "([^"]+)"/);
+                if (match) version = match[1];
+            } catch (e) { /* ignora */ }
+
+            res.setHeader('Content-Type', 'application/zip');
+            res.setHeader('Content-Disposition', `attachment; filename="LogikaCommAgent-v${version}.zip"`);
+
+            const archive = archiver('zip', { zlib: { level: 9 } });
+            archive.pipe(res);
+
+            const files = fs.readdirSync(agentDir);
+            for (const file of files) {
+                const filePath = path.join(agentDir, file);
+                if (fs.statSync(filePath).isFile()) {
+                    archive.file(filePath, { name: file });
+                }
+            }
+
+            const vbsContent = `Set WshShell = CreateObject("WScript.Shell")\nWshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File ""CommAgentService.ps1""", 0, False`;
+            archive.append(vbsContent, { name: 'Start-CommAgent-Hidden.vbs' });
+
+            const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
+            archive.append(JSON.stringify({ server_url: baseUrl, email: userEmail, password: userPassword }, null, 2), { name: 'install_config.json' });
+
+            console.log(`✅ Tecnico ha scaricato CommAgent per utente: ${userEmail}`);
+            await archive.finalize();
+
+        } catch (err) {
+            console.error('❌ Errore download agent per utente:', err);
+            res.status(500).json({ error: 'Errore generazione package' });
+        }
     });
 
     // ============================================
