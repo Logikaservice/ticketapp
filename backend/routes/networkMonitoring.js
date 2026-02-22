@@ -8135,7 +8135,7 @@ pause
             FROM comm_device_info 
         ) cdi ON (
             (cdi.mac IS NOT NULL AND nd.mac_address IS NOT NULL AND REPLACE(REPLACE(LOWER(cdi.mac), '-', ''), ':', '') = REPLACE(REPLACE(LOWER(nd.mac_address), '-', ''), ':', ''))
-            OR (nd.ip_address IS NOT NULL AND cdi.ip_addresses LIKE '%' || nd.ip_address || '%')
+            OR (nd.ip_address IS NOT NULL AND (' ' || REPLACE(cdi.ip_addresses, ',', ' ') || ' ') LIKE '% ' || nd.ip_address || ' %')
             OR (nd.hostname IS NOT NULL AND TRIM(nd.hostname) <> '' AND LOWER(cdi.device_name) = LOWER(nd.hostname))
         )
         WHERE na.azienda_id = $1

@@ -358,7 +358,7 @@ module.exports = (pool, io) => {
                      AND (
                        (LENGTH($2) >= 12 AND REPLACE(REPLACE(LOWER(COALESCE(nd.mac_address, '')), ':', ''), '-', '') = $2)
                        OR (TRIM(COALESCE(nd.hostname, '')) <> '' AND LOWER(TRIM(nd.hostname)) = $3)
-                       OR (TRIM(COALESCE($5, '')) <> '' AND TRIM(COALESCE(nd.ip_address, '')) <> '' AND $5 LIKE '%' || LOWER(TRIM(nd.ip_address)) || '%')
+                       OR (TRIM(COALESCE($5, '')) <> '' AND TRIM(COALESCE(nd.ip_address, '')) <> '' AND (' ' || REPLACE($5, ',', ' ') || ' ') LIKE '% ' || LOWER(TRIM(nd.ip_address)) || ' %')
                      )`,
                     [String(azienda), macNorm.length >= 12 ? macNorm : '', deviceName, Number(agentId), ipAddressesStr]
                 );
