@@ -1,14 +1,45 @@
 /**
  * Migrazione: crea la tabella comm_device_info (inventario dispositivi dagli agent).
- * Eseguire sul server: node backend/migrations/create_comm_device_info.js
- * Richiede DATABASE_URL (database principale dell'app).
+ * Eseguire dalla root progetto: node backend/migrations/create_comm_device_info.js
+ * Carica DATABASE_URL da .env (cerca in root, backend, o cwd) oppure passalo: DATABASE_URL="..." node ...
  */
-require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
+const path = require('path');
+const fs = require('fs');
+const dotenv = require('dotenv');
+
+const possibleEnvPaths = [
+    path.resolve(__dirname, '../../.env'),
+    path.resolve(__dirname, '../.env'),
+    path.resolve(process.cwd(), '.env'),
+    path.resolve(process.cwd(), 'backend/.env')
+];
+for (const envPath of possibleEnvPaths) {
+    if (fs.existsSync(envPath)) {
+        dotenv.config({ path: envPath });
+        break;
+    }
+}
+
+// Fallback: se DATABASE_URL non è ancora impostato, leggi backend/.env manualmente (utile quando .env è in backend/)
+if (!process.env.DATABASE_URL) {
+    const backendEnv = path.resolve(__dirname, '../.env');
+    if (fs.existsSync(backendEnv)) {
+        const content = fs.readFileSync(backendEnv, 'utf8');
+        const match = content.match(/^\s*DATABASE_URL\s*=\s*(.+)\s*$/m);
+        if (match) {
+            process.env.DATABASE_URL = match[1].trim().replace(/^["']|["']$/g, '');
+        }
+    }
+}
+
 const { Pool } = require('pg');
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
-    console.error('❌ DATABASE_URL non configurato. Imposta la variabile o usa .env');
+    console.error('❌ DATABASE_URL non configurato.');
+    console.error('   Opzioni:');
+    console.error('   1. Crea un file .env nella root del progetto (/var/www/ticketapp/.env) con riga: DATABASE_URL=postgresql://user:password@host:5432/nome_db');
+    console.error('   2. Oppure esegui: DATABASE_URL="postgresql://user:password@host:5432/nome_db" node backend/migrations/create_comm_device_info.js');
     process.exit(1);
 }
 
