@@ -109,7 +109,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
           ]
         },
         {
-          label: 'Agent',
+          label: 'Agent Monitor',
           icon: ServerIcon,
           color: 'cyan',
           hasSubActions: true,
