@@ -568,9 +568,9 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                                                 <th className="px-4 py-3 font-medium text-gray-600">Attivo</th>
                                                 <th className="px-4 py-3 font-medium text-gray-600">Tipo</th>
                                                 <th className="px-4 py-3 font-medium text-gray-600">Dispositivo</th>
+                                                <th className="px-4 py-3 font-medium text-gray-600">Utente</th>
                                                 <th className="px-4 py-3 font-medium text-gray-600">Prodotto</th>
                                                 <th className="px-4 py-3 font-medium text-gray-600">Scadenza</th>
-                                                <th className="px-4 py-3 font-medium text-gray-600">Utente</th>
                                                 {showAssistenzaButton && <th className="px-4 py-3 font-medium text-gray-600 w-32">Assistenza</th>}
                                                 <th className="px-4 py-3 font-medium text-gray-600 text-right"></th>
                                             </tr>
@@ -707,6 +707,16 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                                                             )}
                                                         </td>
                                                         <td className="px-4 py-3">
+                                                            {device.hostname && device.hostname !== '-' && device.hostname !== '' ? (
+                                                                <div className="text-sm font-medium text-gray-800">{device.hostname}</div>
+                                                            ) : null}
+                                                            {device.device_username && device.device_username !== '-' && device.device_username !== '' ? (
+                                                                <div className="text-xs text-gray-500">{device.device_username}</div>
+                                                            ) : (
+                                                                !device.hostname || device.hostname === '-' ? <span className="text-gray-300">-</span> : null
+                                                            )}
+                                                        </td>
+                                                        <td className="px-4 py-3">
                                                             {readOnly ? (
                                                                 <span className="text-gray-900">{draft.product_name || '-'}</span>
                                                             ) : (
@@ -731,16 +741,6 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                                                                     onChange={(e) => updateDraft(id, 'expiration_date', e.target.value)}
                                                                     onBlur={() => handleBlurSave(id)}
                                                                 />
-                                                            )}
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            {device.hostname && device.hostname !== '-' && device.hostname !== '' ? (
-                                                                <div className="text-sm font-medium text-gray-800">{device.hostname}</div>
-                                                            ) : null}
-                                                            {device.device_username && device.device_username !== '-' && device.device_username !== '' ? (
-                                                                <div className="text-xs text-gray-500">{device.device_username}</div>
-                                                            ) : (
-                                                                !device.hostname || device.hostname === '-' ? <span className="text-gray-300">-</span> : null
                                                             )}
                                                         </td>
                                                         {showAssistenzaButton && (
