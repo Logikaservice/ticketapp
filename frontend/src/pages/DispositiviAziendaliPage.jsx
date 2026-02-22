@@ -136,35 +136,36 @@ const DispositiviAziendaliPage = ({
         </div>
       </div>
 
-      {/* Content */}
+      {/* Content: intro solo senza azienda selezionata; con azienda solo lista dispositivi a tutta larghezza */}
       <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-4xl mx-auto w-full">
-          <DispositiviAziendaliIntroCard
-            companies={companies}
-            value={selectedCompanyId}
-            onChange={(id) => setSelectedCompanyId(id || '')}
-          />
-
-          {selectedCompanyId && (
-            <div className="mt-8">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Dispositivi (dati dagli agent)</h3>
-              {devicesLoading ? (
-                <div className="flex items-center gap-2 text-gray-500 py-8">
-                  <Loader2 size={20} className="animate-spin" />
-                  Caricamento...
-                </div>
-              ) : devices.length === 0 ? (
-                <p className="text-gray-500 py-6">Nessun dispositivo con agent registrato per questa azienda, oppure i dati non sono ancora stati inviati.</p>
-              ) : (
-                <div className="space-y-4">
-                  {devices.map((row) => {
-                    const hasInfo = row.mac || row.device_name || row.os_name;
-                    return (
-                      <div key={row.agent_id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-                        {!hasInfo ? (
-                          <p className="text-gray-500 text-sm">Dispositivo {row.machine_name || row.email} — in attesa di dati dall&apos;agent.</p>
-                        ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        {!selectedCompanyId ? (
+          <div className="max-w-4xl mx-auto w-full">
+            <DispositiviAziendaliIntroCard
+              companies={companies}
+              value={selectedCompanyId}
+              onChange={(id) => setSelectedCompanyId(id || '')}
+            />
+          </div>
+        ) : (
+          <div className="w-full">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Dispositivi (dati dagli agent)</h3>
+            {devicesLoading ? (
+              <div className="flex items-center gap-2 text-gray-500 py-8">
+                <Loader2 size={20} className="animate-spin" />
+                Caricamento...
+              </div>
+            ) : devices.length === 0 ? (
+              <p className="text-gray-500 py-6">Nessun dispositivo con agent registrato per questa azienda, oppure i dati non sono ancora stati inviati.</p>
+            ) : (
+              <div className="space-y-4">
+                {devices.map((row) => {
+                  const hasInfo = row.mac || row.device_name || row.os_name;
+                  return (
+                    <div key={row.agent_id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                      {!hasInfo ? (
+                        <p className="text-gray-500 text-sm">Dispositivo {row.machine_name || row.email} — in attesa di dati dall&apos;agent.</p>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                             <div className="space-y-1">
                               <div className="font-semibold text-gray-800 flex items-center gap-2">
                                 <Monitor size={16} className="text-teal-600" />
@@ -203,9 +204,8 @@ const DispositiviAziendaliPage = ({
                   })}
                 </div>
               )}
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
