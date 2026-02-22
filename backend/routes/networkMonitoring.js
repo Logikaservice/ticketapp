@@ -8106,8 +8106,15 @@ pause
           COALESCE(nd.device_username, '') as device_username,
           COALESCE(nd.device_path, '') as keepass_path,
           nd.status,
-          COALESCE(avi.is_active, false) as is_active,
-          COALESCE(avi.product_name, '') as product_name,
+          CASE 
+              WHEN avi.device_id IS NOT NULL THEN COALESCE(avi.is_active, false)
+              WHEN cdi.antivirus_state = 'Attivo' THEN true
+              ELSE false
+          END as is_active,
+          CASE 
+              WHEN NULLIF(TRIM(COALESCE(avi.product_name, '')), '') IS NOT NULL THEN avi.product_name
+              ELSE COALESCE(cdi.antivirus_name, '')
+          END as product_name,
           avi.expiration_date,
           COALESCE(avi.device_type,
             CASE WHEN LOWER(TRIM(COALESCE(nd.device_type, ''))) IN ('server', 'domain', 'dc', 'domain controller', 'nvr', 'nas', 'storage') THEN 'server'
@@ -8123,6 +8130,7 @@ pause
         FROM network_devices nd
         JOIN network_agents na ON nd.agent_id = na.id
         LEFT JOIN antivirus_info avi ON nd.id = avi.device_id
+        LEFT JOIN comm_device_info cdi ON REPLACE(LOWER(cdi.mac), '-', ':') = REPLACE(LOWER(nd.mac_address), '-', ':')
         WHERE na.azienda_id = $1
         AND nd.ip_address NOT LIKE 'virtual-%'
       `, [parsedAziendaId]);
