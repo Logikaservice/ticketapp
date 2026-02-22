@@ -8142,8 +8142,34 @@ pause
           const ign = await pool.query('SELECT 1 FROM antivirus_sync_ignored WHERE device_id = $1', [row.device_id]);
           inSyncIgnored = ign.rows.length > 0;
         } catch (_) { /* tabella può non esistere */ }
-        out.network_devices.find(d => d.device_id === row.device_id).antivirus_info = av.rows[0] || null;
-        out.network_devices.find(d => d.device_id === row.device_id).in_sync_ignored = inSyncIgnored;
+        let perche_aggiunto_antivirus = null;
+        if (av.rows[0]) {
+          const commCheck = await pool.query(
+            `SELECT d.primary_ip, d.mac, d.antivirus_name, ca.id AS comm_agent_id
+             FROM comm_device_info d
+             JOIN comm_agents ca ON ca.id = d.agent_id
+             JOIN users u ON u.id = ca.user_id
+             WHERE (ca.user_id = $1 OR LOWER(TRIM(COALESCE(u.azienda, ''))) = LOWER(TRIM($2)))
+             AND (TRIM(COALESCE(d.primary_ip, '')) = $3
+                OR (LENGTH(REPLACE(REPLACE(LOWER(COALESCE(d.mac, '')), '-', ''), ':', '')) >= 12
+                    AND REPLACE(REPLACE(LOWER(COALESCE(d.mac, '')), '-', ''), ':', '') = REPLACE(REPLACE(LOWER(COALESCE($4, '')), '-', ''), ':', ''))`,
+            [row.azienda_id, row.azienda_nome || '', row.ip_address, row.mac_address]
+          );
+          if (commCheck.rows.length > 0) {
+            const c = commCheck.rows[0];
+            if (c.primary_ip && String(c.primary_ip).trim() === String(row.ip_address).trim()) {
+              perche_aggiunto_antivirus = `Aggiunto in automatico dalla sync CommAgent: un PC con Agent Comunicazioni (agent_id ${c.comm_agent_id}) in questa azienda ha primary_ip = ${row.ip_address}, quindi la sync ha scritto l'antivirus ("${c.antivirus_name || ''}") su questo dispositivo.`;
+            } else {
+              perche_aggiunto_antivirus = `Aggiunto in automatico dalla sync CommAgent: match per MAC tra questo dispositivo e un PC con Agent Comunicazioni (agent_id ${c.comm_agent_id}) nella stessa azienda.`;
+            }
+          } else {
+            perche_aggiunto_antivirus = 'Antivirus presente ma nessun CommAgent in questa azienda ha lo stesso IP o MAC: potrebbe essere stato inserito manualmente o da una sync precedente (es. match per hostname generico prima del fix).';
+          }
+        }
+        const devOut = out.network_devices.find(d => d.device_id === row.device_id);
+        devOut.antivirus_info = av.rows[0] || null;
+        devOut.in_sync_ignored = inSyncIgnored;
+        devOut.perche_aggiunto_antivirus = perche_aggiunto_antivirus;
       }
       res.json(out);
     } catch (err) {
