@@ -362,15 +362,14 @@ module.exports = (pool, io) => {
                 const ndRes = await pool.query(
                     `SELECT nd.id FROM network_devices nd
                      INNER JOIN network_agents na ON nd.agent_id = na.id
-                     INNER JOIN users u ON na.azienda_id = u.id
-                     WHERE (LOWER(TRIM(COALESCE(u.azienda, ''))) = LOWER($1) OR na.azienda_id = (SELECT user_id FROM comm_agents WHERE id = $3))
+                     WHERE na.azienda_id = (SELECT user_id FROM comm_agents WHERE id = $1)
                      AND LENGTH(REPLACE(REPLACE(LOWER(COALESCE(nd.mac_address, '')), ':', ''), '-', '')) >= 12
                      AND REPLACE(REPLACE(LOWER(COALESCE(nd.mac_address, '')), ':', ''), '-', '') = $2`,
-                    [String(azienda), macNorm, Number(agentId)]
+                    [Number(agentId), macNorm]
                 );
 
                 if (ndRes.rows.length === 0) {
-                    console.log('[sync-antivirus] Nessun network_device con MAC=', macNorm, 'in azienda=', azienda);
+                    console.log('[sync-antivirus] Nessun network_device con MAC=', macNorm, 'per agent=', agentId, 'azienda=', azienda);
                     return;
                 }
 
