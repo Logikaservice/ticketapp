@@ -546,9 +546,51 @@ module.exports = (pool, io) => {
             }
             query += ` ORDER BY u.azienda, u.cognome, u.nome, ca.machine_name`;
 
-            const result = await pool.query(query, params);
+            let result = await pool.query(query, params);
             res.json(result.rows || []);
         } catch (err) {
+            const isMissingTable = err.code === '42P01' || (err.message && String(err.message).includes('comm_device_info'));
+            if (isMissingTable) {
+                try {
+                    await pool.query(`
+                        CREATE TABLE IF NOT EXISTS comm_device_info (
+                            id SERIAL PRIMARY KEY,
+                            agent_id INTEGER NOT NULL REFERENCES comm_agents(id) ON DELETE CASCADE UNIQUE,
+                            mac VARCHAR(48),
+                            device_name VARCHAR(255),
+                            ip_addresses TEXT,
+                            os_name VARCHAR(255),
+                            os_version VARCHAR(255),
+                            os_arch VARCHAR(32),
+                            os_install_date TIMESTAMPTZ,
+                            manufacturer VARCHAR(255),
+                            model VARCHAR(255),
+                            device_type VARCHAR(32),
+                            cpu_name VARCHAR(255),
+                            cpu_cores INTEGER,
+                            cpu_clock_mhz INTEGER,
+                            ram_total_gb NUMERIC(10,2),
+                            ram_free_gb NUMERIC(10,2),
+                            disks_json JSONB,
+                            current_user VARCHAR(255),
+                            battery_status VARCHAR(64),
+                            battery_percent INTEGER,
+                            battery_charging BOOLEAN,
+                            antivirus_name VARCHAR(255),
+                            antivirus_state VARCHAR(64),
+                            updated_at TIMESTAMPTZ DEFAULT NOW()
+                        );
+                    `);
+                    await pool.query(`CREATE INDEX IF NOT EXISTS idx_comm_device_info_agent ON comm_device_info(agent_id);`);
+                    await pool.query(`CREATE INDEX IF NOT EXISTS idx_comm_device_info_mac ON comm_device_info(mac);`);
+                    const retry = await pool.query(query, params);
+                    return res.json(retry.rows || []);
+                } catch (e2) {
+                    console.error('❌ device-info: tabella comm_device_info mancante e creazione fallita:', e2.message);
+                    console.error('   Eseguire manualmente: node backend/migrations/create_comm_device_info.js');
+                    return res.json([]);
+                }
+            }
             console.error('❌ Errore device-info:', err.message || err);
             res.status(500).json({ error: 'Errore interno', details: process.env.NODE_ENV === 'development' ? (err.message || String(err)) : undefined });
         }
