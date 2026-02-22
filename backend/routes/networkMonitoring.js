@@ -8228,6 +8228,25 @@ pause
       const { deviceId } = req.params;
       const { is_active, product_name, expiration_date, device_type, sort_order } = req.body;
 
+      const isRemoving = is_active === false && (!product_name || String(product_name).trim() === '');
+      // Subito: segna come ignorato dalla sync CommAgent (prima dell'update) così non ritorna se la sync è concorrente
+      if (isRemoving) {
+        try {
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS antivirus_sync_ignored (
+              device_id INTEGER NOT NULL PRIMARY KEY REFERENCES network_devices(id) ON DELETE CASCADE
+            );
+          `);
+          await pool.query(
+            'INSERT INTO antivirus_sync_ignored (device_id) VALUES ($1) ON CONFLICT (device_id) DO NOTHING',
+            [deviceId]
+          );
+          console.log('[antivirus] Dispositivo', deviceId, 'aggiunto a sync_ignored: non verrà più riscritto dalla sync CommAgent');
+        } catch (ignoredErr) {
+          console.warn('⚠️ antivirus_sync_ignored:', ignoredErr.message);
+        }
+      }
+
       const dt = (device_type && typeof device_type === 'string') ? device_type.trim().toLowerCase() : 'pc';
       const validTypes = ['pc', 'server', 'virtual', 'laptop', 'smartphone', 'tablet'];
       const finalType = validTypes.includes(dt) ? dt : 'pc';
@@ -8243,14 +8262,6 @@ pause
             sort_order = EXCLUDED.sort_order,
             updated_at = NOW()
       `, [deviceId, is_active === true, product_name || '', expiration_date || null, finalType, sort_order || 0]);
-
-      // Se l'utente ha svuotato (rimosso dalla lista): segna come ignorato dalla sync CommAgent così non ritorna
-      if (is_active === false && (!product_name || String(product_name).trim() === '')) {
-        await pool.query(
-          'INSERT INTO antivirus_sync_ignored (device_id) VALUES ($1) ON CONFLICT (device_id) DO NOTHING',
-          [deviceId]
-        );
-      }
 
       // NON aggiorniamo automaticamente network_devices.device_type
       // per evitare di sovrascrivere il tipo originale impostato in Monitoraggio/Mappatura
