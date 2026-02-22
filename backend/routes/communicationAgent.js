@@ -367,10 +367,19 @@ module.exports = (pool, io) => {
                     return;
                 }
 
+                let ignoredSet = new Set();
+                try {
+                    const ignoredRes = await pool.query('SELECT device_id FROM antivirus_sync_ignored');
+                    ignoredSet = new Set((ignoredRes.rows || []).map(r => r.device_id));
+                } catch (_) {
+                    // Tabella antivirus_sync_ignored può non esistere ancora (migrazione in networkMonitoring)
+                }
+
                 const isActive = /attivo|enabled|on|attiva/i.test(String(row.antivirus_state || ''));
                 const productName = (row.antivirus_name || '').trim() || '';
 
                 for (const r of ndRes.rows) {
+                    if (ignoredSet.has(r.id)) continue;
                     await pool.query(
                         `INSERT INTO antivirus_info (device_id, is_active, product_name, expiration_date, device_type, sort_order, updated_at)
                          VALUES ($1, $2, $3, NULL, 'pc', 0, NOW())

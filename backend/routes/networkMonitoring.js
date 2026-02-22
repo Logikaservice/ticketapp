@@ -743,6 +743,12 @@ module.exports = (pool, io) => {
             await pool.query(`ALTER TABLE antivirus_info ADD COLUMN IF NOT EXISTS device_type VARCHAR(50);`);
             await pool.query(`ALTER TABLE antivirus_info ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;`);
           } catch (e) { console.warn('AV Migration:', e.message); }
+          // Dispositivi che l'utente ha rimosso dalla lista Anti-Virus: la sync CommAgent non li riscrive
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS antivirus_sync_ignored (
+              device_id INTEGER NOT NULL PRIMARY KEY REFERENCES network_devices(id) ON DELETE CASCADE
+            );
+          `);
         } catch (migErr) {
           if (!migErr.message?.includes('does not exist')) {
             console.warn('⚠️ Migrazione colonne network_*:', migErr.message);
@@ -8237,6 +8243,14 @@ pause
             sort_order = EXCLUDED.sort_order,
             updated_at = NOW()
       `, [deviceId, is_active === true, product_name || '', expiration_date || null, finalType, sort_order || 0]);
+
+      // Se l'utente ha svuotato (rimosso dalla lista): segna come ignorato dalla sync CommAgent così non ritorna
+      if (is_active === false && (!product_name || String(product_name).trim() === '')) {
+        await pool.query(
+          'INSERT INTO antivirus_sync_ignored (device_id) VALUES ($1) ON CONFLICT (device_id) DO NOTHING',
+          [deviceId]
+        );
+      }
 
       // NON aggiorniamo automaticamente network_devices.device_type
       // per evitare di sovrascrivere il tipo originale impostato in Monitoraggio/Mappatura
