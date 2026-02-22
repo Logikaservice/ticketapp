@@ -83,6 +83,7 @@ module.exports = (pool, io) => {
                   mac VARCHAR(48),
                   device_name VARCHAR(255),
                   ip_addresses TEXT,
+                  primary_ip VARCHAR(512),
                   os_name VARCHAR(255),
                   os_version VARCHAR(255),
                   os_arch VARCHAR(32),
@@ -114,6 +115,7 @@ module.exports = (pool, io) => {
             try {
                 await pool.query(`
                     ALTER TABLE comm_device_info 
+                    ADD COLUMN IF NOT EXISTS primary_ip VARCHAR(512),
                     ADD COLUMN IF NOT EXISTS os_install_date TIMESTAMPTZ,
                     ADD COLUMN IF NOT EXISTS manufacturer VARCHAR(255),
                     ADD COLUMN IF NOT EXISTS model VARCHAR(255),
@@ -282,13 +284,13 @@ module.exports = (pool, io) => {
                 const osInstallDate = d.os_install_date ? (isNaN(Date.parse(d.os_install_date)) ? null : new Date(d.os_install_date)) : null;
                 await pool.query(
                     `INSERT INTO comm_device_info (
-            agent_id, mac, device_name, ip_addresses, os_name, os_version, os_arch, os_install_date,
+            agent_id, mac, device_name, ip_addresses, primary_ip, os_name, os_version, os_arch, os_install_date,
             manufacturer, model, device_type, cpu_name, cpu_cores, cpu_clock_mhz, gpu_name, gpus_json,
             ram_total_gb, ram_free_gb, disks_json, "current_user",
             battery_status, battery_percent, battery_charging, antivirus_name, antivirus_state, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, NOW())
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, NOW())
           ON CONFLICT (agent_id) DO UPDATE SET
-            mac = EXCLUDED.mac, device_name = EXCLUDED.device_name, ip_addresses = EXCLUDED.ip_addresses,
+            mac = EXCLUDED.mac, device_name = EXCLUDED.device_name, ip_addresses = EXCLUDED.ip_addresses, primary_ip = EXCLUDED.primary_ip,
             os_name = EXCLUDED.os_name, os_version = EXCLUDed.os_version, os_arch = EXCLUDED.os_arch, os_install_date = EXCLUDED.os_install_date,
             manufacturer = EXCLUDED.manufacturer, model = EXCLUDED.model, device_type = EXCLUDED.device_type,
             cpu_name = EXCLUDED.cpu_name, cpu_cores = EXCLUDED.cpu_cores, cpu_clock_mhz = EXCLUDED.cpu_clock_mhz, gpu_name = EXCLUDED.gpu_name, gpus_json = EXCLUDED.gpus_json,
@@ -301,6 +303,7 @@ module.exports = (pool, io) => {
                         d.mac || null,
                         d.device_name || null,
                         typeof d.ip_addresses === 'string' ? d.ip_addresses : (Array.isArray(d.ip_addresses) ? d.ip_addresses.join(', ') : null),
+                        d.primary_ip || null,
                         d.os_name || null,
                         d.os_version || null,
                         d.os_arch || null,
@@ -528,7 +531,7 @@ module.exports = (pool, io) => {
                 SELECT ca.id as agent_id, ca.machine_name, ca.machine_id, ca.status, ca.last_heartbeat, ca.version,
                        CASE WHEN ca.last_heartbeat > NOW() - INTERVAL '2 minutes' THEN 'online' ELSE 'offline' END as real_status,
                        u.email, u.nome, u.cognome, u.azienda,
-                        d.mac, d.device_name, d.ip_addresses, d.os_name, d.os_version, d.os_arch, d.os_install_date,
+                        d.mac, d.device_name, d.ip_addresses, d.primary_ip, d.os_name, d.os_version, d.os_arch, d.os_install_date,
                        d.manufacturer, d.model, d.device_type, d.cpu_name, d.cpu_cores, d.cpu_clock_mhz, d.gpu_name, d.gpus_json,
                        d.ram_total_gb, d.ram_free_gb, d.disks_json, d."current_user",
                        d.battery_status, d.battery_percent, d.battery_charging, d.antivirus_name, d.antivirus_state, d.updated_at as device_info_updated_at
@@ -570,6 +573,7 @@ module.exports = (pool, io) => {
                             mac VARCHAR(48),
                             device_name VARCHAR(255),
                             ip_addresses TEXT,
+                            primary_ip VARCHAR(512),
                             os_name VARCHAR(255),
                             os_version VARCHAR(255),
                             os_arch VARCHAR(32),
@@ -581,6 +585,7 @@ module.exports = (pool, io) => {
                             cpu_cores INTEGER,
                             cpu_clock_mhz INTEGER,
                             gpu_name VARCHAR(255),
+                            gpus_json JSONB,
                             ram_total_gb NUMERIC(10,2),
                             ram_free_gb NUMERIC(10,2),
                             disks_json JSONB,
@@ -599,6 +604,7 @@ module.exports = (pool, io) => {
                     // MIGRATION: Assicurati che tutti i campi esistano
                     await pool.query(`
                         ALTER TABLE comm_device_info 
+                        ADD COLUMN IF NOT EXISTS primary_ip VARCHAR(512),
                         ADD COLUMN IF NOT EXISTS os_install_date TIMESTAMPTZ,
                         ADD COLUMN IF NOT EXISTS manufacturer VARCHAR(255),
                         ADD COLUMN IF NOT EXISTS model VARCHAR(255),
@@ -607,6 +613,7 @@ module.exports = (pool, io) => {
                         ADD COLUMN IF NOT EXISTS cpu_cores INTEGER,
                         ADD COLUMN IF NOT EXISTS cpu_clock_mhz INTEGER,
                         ADD COLUMN IF NOT EXISTS gpu_name VARCHAR(255),
+                        ADD COLUMN IF NOT EXISTS gpus_json JSONB,
                         ADD COLUMN IF NOT EXISTS ram_total_gb NUMERIC(10,2),
                         ADD COLUMN IF NOT EXISTS ram_free_gb NUMERIC(10,2),
                         ADD COLUMN IF NOT EXISTS disks_json JSONB,

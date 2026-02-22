@@ -276,6 +276,7 @@ function Get-DeviceInventory {
 
         # MAC e IP (adattatori attivi)
         $mac = $null
+        $primaryIp = $null
         $ipParts = @()
         try {
             $adapters = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' }
@@ -291,6 +292,18 @@ function Get-DeviceInventory {
             foreach ($addr in $addrs) {
                 $ipParts += "$($addr.IPAddress) ($($addr.InterfaceAlias))"
             }
+            # IP attivo (quello usato per il gateway predefinito)
+            $primaryIp = $null
+            try {
+                $defRoute = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($defRoute -and $null -ne $defRoute.InterfaceIndex) {
+                    $primaryAddr = Get-NetIPAddress -InterfaceIndex $defRoute.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -and $_.IPAddress -notlike '127.*' } | Select-Object -First 1
+                    if ($primaryAddr) {
+                        $primaryIp = "$($primaryAddr.IPAddress) ($($primaryAddr.InterfaceAlias))"
+                    }
+                }
+            }
+            catch {}
         }
         catch {}
         $ipAddresses = ($ipParts | Select-Object -Unique) -join ', '
@@ -376,6 +389,7 @@ function Get-DeviceInventory {
                     if (-not $caption -and $g.Name) { $caption = $g.Name.Trim() }
                     if (-not $caption -and $g.VideoProcessor) { $caption = $g.VideoProcessor.Trim() }
                     if (-not $caption -and $g.Description) { $caption = $g.Description.Trim() }
+                    if (-not $caption -and $g.AdapterCompatibility) { $caption = $g.AdapterCompatibility.Trim() }
                     if (-not $caption) { $caption = 'Scheda video' }
                     $adapterRamBytes = $null
                     if ($null -ne $g.AdapterRAM -and $g.AdapterRAM -gt 0) {
@@ -398,6 +412,7 @@ function Get-DeviceInventory {
             mac              = $mac
             device_name      = $env:COMPUTERNAME
             ip_addresses     = $ipAddresses
+            primary_ip       = $primaryIp
             os_name          = $osName
             os_version       = $osVersion
             os_arch          = $osArch

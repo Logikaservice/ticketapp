@@ -190,16 +190,14 @@ const DispositiviAziendaliPage = ({
                                   const raw = row.ip_addresses || '';
                                   if (!raw) return <span>—</span>;
                                   const segments = raw.split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
-                                  const virtualKeywords = /vEthernet|VMware|Bluetooth|OpenVPN|Wintun|Hyper-V|Virtual|TAP|Loopback|vethernet/i;
-                                  const primaryIndex = segments.findIndex(s => !virtualKeywords.test(s));
-                                  const idx = primaryIndex >= 0 ? primaryIndex : 0;
+                                  const primaryStr = (row.primary_ip || '').trim();
                                   return segments.map((seg, i) => {
-                                    const isPrimary = i === idx;
+                                    const isPrimary = primaryStr && seg === primaryStr;
                                     return (
                                       <span key={i}>
                                         {i > 0 && ', '}
                                         {isPrimary ? (
-                                          <span className="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-medium" title="IP di regola attivo (scheda principale)">
+                                          <span className="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-medium" title="IP attivo (gateway predefinito)">
                                             {seg}
                                           </span>
                                         ) : (
@@ -221,32 +219,34 @@ const DispositiviAziendaliPage = ({
                                 </div>
                               </div>
                               <div><span className="text-gray-500">RAM:</span> {row.ram_free_gb != null && row.ram_total_gb != null ? `${row.ram_free_gb} / ${row.ram_total_gb} GB liberi` : (row.ram_total_gb != null ? `${row.ram_total_gb} GB` : '—')}</div>
-                              {/* Scheda/e video (anche multiple) */}
-                              {(row.gpu_name || (row.gpus_json && (typeof row.gpus_json === 'string' ? JSON.parse(row.gpus_json || '[]') : row.gpus_json)?.length > 0)) && (
-                                <div className="mt-1">
-                                  <span className="text-gray-500 font-medium">Scheda/e video:</span>
-                                  {row.gpus_json ? (() => {
-                                    try {
-                                      const gpus = typeof row.gpus_json === 'string' ? JSON.parse(row.gpus_json) : row.gpus_json;
-                                      if (Array.isArray(gpus) && gpus.length > 0) {
-                                        return (
-                                          <div className="mt-0.5 space-y-0.5">
-                                            {gpus.map((g, i) => (
-                                              <div key={i} className="text-gray-700 text-xs bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                                                {g.name || g.caption || '—'}
-                                                {(g.adapter_ram_mb != null || g.driver_version) && (
-                                                  <span className="text-gray-500 ml-1">{(g.adapter_ram_mb != null ? ` · ${Math.round(g.adapter_ram_mb / 1024)} GB` : '')}{(g.driver_version ? ` · Driver ${g.driver_version}` : '')}</span>
-                                                )}
-                                              </div>
-                                            ))}
-                                          </div>
-                                        );
-                                      }
-                                    } catch (_) {}
-                                    return <span className="text-gray-700"> {row.gpu_name || '—'}</span>;
-                                  })() : <span className="text-gray-700"> {row.gpu_name}</span>}
-                                </div>
-                              )}
+                              {/* Scheda/e video: sempre visibile; dati da agent (gpus_json o gpu_name) */}
+                              <div className="mt-1">
+                                <span className="text-gray-500 font-medium">Scheda/e video:</span>
+                                {row.gpus_json ? (() => {
+                                  try {
+                                    const gpus = typeof row.gpus_json === 'string' ? JSON.parse(row.gpus_json) : row.gpus_json;
+                                    if (Array.isArray(gpus) && gpus.length > 0) {
+                                      return (
+                                        <div className="mt-0.5 space-y-0.5">
+                                          {gpus.map((g, i) => (
+                                            <div key={i} className="text-gray-700 text-xs bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                                              {g.name || g.caption || '—'}
+                                              {(g.adapter_ram_mb != null || g.driver_version) && (
+                                                <span className="text-gray-500 ml-1">{(g.adapter_ram_mb != null ? ` · ${Math.round(g.adapter_ram_mb / 1024)} GB` : '')}{(g.driver_version ? ` · Driver ${g.driver_version}` : '')}</span>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      );
+                                    }
+                                  } catch (_) {}
+                                  return <span className="text-gray-700"> {row.gpu_name || '—'}</span>;
+                                })() : row.gpu_name ? (
+                                  <span className="text-gray-700"> {row.gpu_name}</span>
+                                ) : (
+                                  <span className="text-gray-400 italic" title="Riavvia o aggiorna l’agent sul PC per inviare i dati delle schede video">Nessun dato ricevuto dall’agent</span>
+                                )}
+                              </div>
                               {(row.battery_percent != null || row.battery_status) && (
                                 <div className="flex items-center gap-1"><Battery size={14} className="text-gray-400" /> {row.battery_status || ''} {row.battery_percent != null && `${row.battery_percent}%`} {row.battery_charging && '(in carica)'}</div>
                               )}
