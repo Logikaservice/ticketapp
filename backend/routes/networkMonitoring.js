@@ -8099,6 +8099,59 @@ pause
     }
   });
 
+  // GET /api/network-monitoring/debug-device-by-ip?ip=192.168.1.55
+  // Mostra da dove viene un IP: quale agent l'ha scoperto, in quale azienda, antivirus_info e se è in sync_ignored
+  router.get('/debug-device-by-ip', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const ip = (req.query.ip || '').trim();
+      if (!ip) {
+        return res.status(400).json({ error: 'Parametro ip obbligatorio (es. ?ip=192.168.1.55)' });
+      }
+      const devices = await pool.query(
+        `SELECT nd.id AS device_id, nd.ip_address, nd.mac_address, nd.hostname, nd.device_type, nd.first_seen, nd.last_seen, nd.status,
+                na.id AS agent_id, na.agent_name, na.azienda_id,
+                u.azienda AS azienda_nome
+         FROM network_devices nd
+         JOIN network_agents na ON nd.agent_id = na.id
+         JOIN users u ON na.azienda_id = u.id
+         WHERE TRIM(nd.ip_address) = $1
+         ORDER BY na.azienda_id, nd.id`,
+        [ip]
+      );
+      const out = {
+        ip,
+        message: devices.rows.length === 0
+          ? `Nessun network_device con ip_address = "${ip}". L'IP non è stato scoperto da nessun agent Monitor.`
+          : `Trovati ${devices.rows.length} record in network_devices con questo IP (stesso IP può esistere in più aziende/agent).`,
+        network_devices: devices.rows.map(r => ({
+          device_id: r.device_id,
+          ip_address: r.ip_address,
+          mac_address: r.mac_address,
+          hostname: r.hostname,
+          device_type: r.device_type,
+          first_seen: r.first_seen,
+          last_seen: r.last_seen,
+          status: r.status,
+          scoperto_da: `Agent ${r.agent_id} (${r.agent_name}), azienda_id=${r.azienda_id} (${r.azienda_nome})`
+        }))
+      };
+      for (const row of devices.rows) {
+        const av = await pool.query('SELECT device_id, is_active, product_name, expiration_date, updated_at FROM antivirus_info WHERE device_id = $1', [row.device_id]);
+        let inSyncIgnored = false;
+        try {
+          const ign = await pool.query('SELECT 1 FROM antivirus_sync_ignored WHERE device_id = $1', [row.device_id]);
+          inSyncIgnored = ign.rows.length > 0;
+        } catch (_) { /* tabella può non esistere */ }
+        out.network_devices.find(d => d.device_id === row.device_id).antivirus_info = av.rows[0] || null;
+        out.network_devices.find(d => d.device_id === row.device_id).in_sync_ignored = inSyncIgnored;
+      }
+      res.json(out);
+    } catch (err) {
+      console.error('❌ debug-device-by-ip:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // --- ANTI-VIRUS ROUTES ---
 
   // GET /api/network-monitoring/clients/:aziendaId/antivirus-devices
