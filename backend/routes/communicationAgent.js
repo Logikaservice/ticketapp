@@ -16,6 +16,7 @@ module.exports = (pool, io) => {
     // INIZIALIZZAZIONE TABELLE
     // ============================================
     let tablesReady = false;
+    let tableInitError = null;
 
     const ensureTables = async () => {
         if (tablesReady) return;
@@ -108,30 +109,37 @@ module.exports = (pool, io) => {
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_comm_device_info_mac ON comm_device_info(mac);`);
 
             // MIGRATION
-            await pool.query(`
-                ALTER TABLE comm_device_info 
-                ADD COLUMN IF NOT EXISTS os_install_date TIMESTAMPTZ,
-                ADD COLUMN IF NOT EXISTS manufacturer VARCHAR(255),
-                ADD COLUMN IF NOT EXISTS model VARCHAR(255),
-                ADD COLUMN IF NOT EXISTS device_type VARCHAR(32),
-                ADD COLUMN IF NOT EXISTS cpu_name VARCHAR(255),
-                ADD COLUMN IF NOT EXISTS cpu_cores INTEGER,
-                ADD COLUMN IF NOT EXISTS cpu_clock_mhz INTEGER,
-                ADD COLUMN IF NOT EXISTS ram_total_gb NUMERIC(10,2),
-                ADD COLUMN IF NOT EXISTS ram_free_gb NUMERIC(10,2),
-                ADD COLUMN IF NOT EXISTS disks_json JSONB,
-                ADD COLUMN IF NOT EXISTS current_user VARCHAR(255),
-                ADD COLUMN IF NOT EXISTS battery_status VARCHAR(64),
-                ADD COLUMN IF NOT EXISTS battery_percent INTEGER,
-                ADD COLUMN IF NOT EXISTS battery_charging BOOLEAN,
-                ADD COLUMN IF NOT EXISTS antivirus_name VARCHAR(255),
-                ADD COLUMN IF NOT EXISTS antivirus_state VARCHAR(64);
-            `);
+            try {
+                await pool.query(`
+                    ALTER TABLE comm_device_info 
+                    ADD COLUMN IF NOT EXISTS os_install_date TIMESTAMPTZ,
+                    ADD COLUMN IF NOT EXISTS manufacturer VARCHAR(255),
+                    ADD COLUMN IF NOT EXISTS model VARCHAR(255),
+                    ADD COLUMN IF NOT EXISTS device_type VARCHAR(32),
+                    ADD COLUMN IF NOT EXISTS cpu_name VARCHAR(255),
+                    ADD COLUMN IF NOT EXISTS cpu_cores INTEGER,
+                    ADD COLUMN IF NOT EXISTS cpu_clock_mhz INTEGER,
+                    ADD COLUMN IF NOT EXISTS ram_total_gb NUMERIC(10,2),
+                    ADD COLUMN IF NOT EXISTS ram_free_gb NUMERIC(10,2),
+                    ADD COLUMN IF NOT EXISTS disks_json JSONB,
+                    ADD COLUMN IF NOT EXISTS current_user VARCHAR(255),
+                    ADD COLUMN IF NOT EXISTS battery_status VARCHAR(64),
+                    ADD COLUMN IF NOT EXISTS battery_percent INTEGER,
+                    ADD COLUMN IF NOT EXISTS battery_charging BOOLEAN,
+                    ADD COLUMN IF NOT EXISTS antivirus_name VARCHAR(255),
+                    ADD COLUMN IF NOT EXISTS antivirus_state VARCHAR(64);
+                `);
+            } catch (migErr) {
+                console.error("Migration fallita:", migErr);
+                tableInitError = migErr.message;
+            }
 
             tablesReady = true;
             console.log('✅ Tabelle Communication Agent inizializzate');
         } catch (err) {
             console.error('❌ Errore inizializzazione tabelle comm_agent:', err.message);
+            tableInitError = err.message;
+            throw err;
         }
     };
 
@@ -823,18 +831,26 @@ WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File "
             const agents = await pool.query('SELECT ca.id, ca.machine_name, ca.status, ca.last_heartbeat, u.email, u.azienda FROM comm_agents ca LEFT JOIN users u ON ca.user_id = u.id');
             results.agents = agents.rows;
 
-            const devicesInfo = await pool.query('SELECT agent_id, device_name, os_name, current_user, updated_at FROM comm_device_info');
-            results.devicesInfo = devicesInfo.rows;
+            if (tablesReady) {
+                const devicesInfo = await pool.query('SELECT agent_id, device_name, os_name, current_user, updated_at FROM comm_device_info');
+                results.devicesInfo = devicesInfo.rows;
+                results.devicesInfoCount = devicesInfo.rows.length;
+            } else {
+                results.devicesInfo = [];
+                results.devicesInfoCount = 0;
+            }
 
             res.json({
                 success: true,
                 currentTime: new Date().toISOString(),
+                tablesReady,
+                tableInitError,
                 agentsCount: agents.rows.length,
-                devicesInfoCount: devicesInfo.rows.length,
+                devicesInfoCount: results.devicesInfoCount,
                 data: results
             });
         } catch (e) {
-            res.json({ success: false, error: e.message, stack: e.stack });
+            res.json({ success: false, error: e.message, stack: e.stack, tablesReady, tableInitError });
         }
     });
 
