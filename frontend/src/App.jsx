@@ -167,8 +167,6 @@ export default function TicketApp() {
   const [selectedCompanyForNavigation, setSelectedCompanyForNavigation] = useState(null); // Azienda selezionata per navigazione tra monitoraggio e mappatura
   const [showCommAgent, setShowCommAgent] = useState(false); // Communication Agent Dashboard
   const [showCommAgentManager, setShowCommAgentManager] = useState(false); // Agent Comunicazioni Manager
-  const [showCommAgentManager, setShowCommAgentManager] = useState(false); // Agent Comunicazioni Manager
-  const [showCommAgentManager, setShowCommAgentManager] = useState(false); // Agent Comunicazioni Manager
   const [showFlottaPC, setShowFlottaPC] = useState(false); // Dispositivi aziendali (placeholder per implementazione futura)
   const [showDeviceAnalysisStandalone, setShowDeviceAnalysisStandalone] = useState(false);
   const [standaloneDeviceId, setStandaloneDeviceId] = useState(null);
@@ -3187,7 +3185,6 @@ export default function TicketApp() {
               openEmail: handleOpenEmail,
               openCommAgent: () => setShowCommAgent(true),
               openCommAgentManager: () => setShowCommAgentManager(true),
-              openCommAgentManager: () => setShowCommAgentManager(true),
               openFlottaPC: handleOpenDispositiviAziendali,
             }}
             openNetworkMonitoringNotifications={() => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('notifications'); }}
@@ -3236,22 +3233,6 @@ export default function TicketApp() {
           <CommAgentDashboard
             currentUser={currentUser}
             closeModal={() => setShowCommAgent(false)}
-            notify={notify}
-          />
-        )}
-
-        {showCommAgentManager && (
-          <CommAgentManager
-            currentUser={currentUser}
-            closeModal={() => setShowCommAgentManager(false)}
-            notify={notify}
-          />
-        )}
-
-        {showCommAgentManager && (
-          <CommAgentManager
-            currentUser={currentUser}
-            closeModal={() => setShowCommAgentManager(false)}
             notify={notify}
           />
         )}
