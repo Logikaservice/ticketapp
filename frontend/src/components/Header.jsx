@@ -115,7 +115,6 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
           hasSubActions: true,
           subActions: [
             { label: 'Agent Esistenti', icon: ServerIcon, color: 'cyan', onClick: () => { if (openNetworkMonitoringAgents) { openNetworkMonitoringAgents(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
-            { label: 'Notifiche Agent', icon: AlertTriangle, color: 'yellow', onClick: () => { if (openNetworkMonitoringNotifications) { openNetworkMonitoringNotifications(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
             { label: 'Crea Agent', icon: Plus, color: 'cyan', onClick: () => { if (openNetworkMonitoringCreateAgent) { openNetworkMonitoringCreateAgent(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
             { label: 'Comunicazioni Agent', icon: Bell, color: 'violet', onClick: () => { if (openCommAgent) { openCommAgent(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } }
           ]
