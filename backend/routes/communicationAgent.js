@@ -96,7 +96,7 @@ module.exports = (pool, io) => {
                   ram_total_gb NUMERIC(10,2),
                   ram_free_gb NUMERIC(10,2),
                   disks_json JSONB,
-                  current_user VARCHAR(255),
+                  "current_user" VARCHAR(255),
                   battery_status VARCHAR(64),
                   battery_percent INTEGER,
                   battery_charging BOOLEAN,
@@ -122,7 +122,7 @@ module.exports = (pool, io) => {
                     ADD COLUMN IF NOT EXISTS ram_total_gb NUMERIC(10,2),
                     ADD COLUMN IF NOT EXISTS ram_free_gb NUMERIC(10,2),
                     ADD COLUMN IF NOT EXISTS disks_json JSONB,
-                    ADD COLUMN IF NOT EXISTS current_user VARCHAR(255),
+                    ADD COLUMN IF NOT EXISTS "current_user" VARCHAR(255),
                     ADD COLUMN IF NOT EXISTS battery_status VARCHAR(64),
                     ADD COLUMN IF NOT EXISTS battery_percent INTEGER,
                     ADD COLUMN IF NOT EXISTS battery_charging BOOLEAN,
@@ -280,7 +280,7 @@ module.exports = (pool, io) => {
                     `INSERT INTO comm_device_info (
             agent_id, mac, device_name, ip_addresses, os_name, os_version, os_arch, os_install_date,
             manufacturer, model, device_type, cpu_name, cpu_cores, cpu_clock_mhz,
-            ram_total_gb, ram_free_gb, disks_json, current_user,
+            ram_total_gb, ram_free_gb, disks_json, "current_user",
             battery_status, battery_percent, battery_charging, antivirus_name, antivirus_state, updated_at
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, NOW())
           ON CONFLICT (agent_id) DO UPDATE SET
@@ -289,7 +289,7 @@ module.exports = (pool, io) => {
             manufacturer = EXCLUDED.manufacturer, model = EXCLUDED.model, device_type = EXCLUDED.device_type,
             cpu_name = EXCLUDED.cpu_name, cpu_cores = EXCLUDED.cpu_cores, cpu_clock_mhz = EXCLUDED.cpu_clock_mhz,
             ram_total_gb = EXCLUDED.ram_total_gb, ram_free_gb = EXCLUDED.ram_free_gb, disks_json = EXCLUDED.disks_json,
-            current_user = EXCLUDED.current_user, battery_status = EXCLUDED.battery_status, battery_percent = EXCLUDED.battery_percent,
+            "current_user" = EXCLUDED."current_user", battery_status = EXCLUDED.battery_status, battery_percent = EXCLUDED.battery_percent,
             battery_charging = EXCLUDED.battery_charging, antivirus_name = EXCLUDED.antivirus_name, antivirus_state = EXCLUDED.antivirus_state,
             updated_at = NOW()`,
                     [
@@ -524,7 +524,7 @@ module.exports = (pool, io) => {
                        u.email, u.nome, u.cognome, u.azienda,
                        d.mac, d.device_name, d.ip_addresses, d.os_name, d.os_version, d.os_arch, d.os_install_date,
                        d.manufacturer, d.model, d.device_type, d.cpu_name, d.cpu_cores, d.cpu_clock_mhz,
-                       d.ram_total_gb, d.ram_free_gb, d.disks_json, d.current_user,
+                       d.ram_total_gb, d.ram_free_gb, d.disks_json, d."current_user",
                        d.battery_status, d.battery_percent, d.battery_charging, d.antivirus_name, d.antivirus_state, d.updated_at as device_info_updated_at
                 FROM comm_agents ca
                 JOIN users u ON ca.user_id = u.id
@@ -577,7 +577,7 @@ module.exports = (pool, io) => {
                             ram_total_gb NUMERIC(10,2),
                             ram_free_gb NUMERIC(10,2),
                             disks_json JSONB,
-                            current_user VARCHAR(255),
+                            "current_user" VARCHAR(255),
                             battery_status VARCHAR(64),
                             battery_percent INTEGER,
                             battery_charging BOOLEAN,
@@ -602,7 +602,7 @@ module.exports = (pool, io) => {
                         ADD COLUMN IF NOT EXISTS ram_total_gb NUMERIC(10,2),
                         ADD COLUMN IF NOT EXISTS ram_free_gb NUMERIC(10,2),
                         ADD COLUMN IF NOT EXISTS disks_json JSONB,
-                        ADD COLUMN IF NOT EXISTS current_user VARCHAR(255),
+                        ADD COLUMN IF NOT EXISTS "current_user" VARCHAR(255),
                         ADD COLUMN IF NOT EXISTS battery_status VARCHAR(64),
                         ADD COLUMN IF NOT EXISTS battery_percent INTEGER,
                         ADD COLUMN IF NOT EXISTS battery_charging BOOLEAN,
@@ -832,7 +832,7 @@ WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File "
             results.agents = agents.rows;
 
             if (tablesReady) {
-                const devicesInfo = await pool.query('SELECT agent_id, device_name, os_name, current_user, updated_at FROM comm_device_info');
+                const devicesInfo = await pool.query('SELECT agent_id, device_name, os_name, "current_user", updated_at FROM comm_device_info');
                 results.devicesInfo = devicesInfo.rows;
                 results.devicesInfoCount = devicesInfo.rows.length;
             } else {
