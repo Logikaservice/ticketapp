@@ -349,21 +349,28 @@ module.exports = (pool, io) => {
                 if (!azienda) return;
 
                 const macNorm = (row.mac || '').replace(/[:\-\s]/g, '').toLowerCase().slice(0, 12);
-                const primaryIp = (row.primary_ip || '').trim();
+
+                // Identificazione SOLO per MAC: il MAC del CommAgent deve corrispondere
+                // al mac_address del network_device nella stessa azienda.
+                // Non si usa IP né hostname: evita falsi positivi (es. telecamere con stesso IP
+                // di un PC con CommAgent installato).
+                if (macNorm.length < 12) {
+                    console.log('[sync-antivirus] Skip: MAC non disponibile per agent=', agentId);
+                    return;
+                }
 
                 const ndRes = await pool.query(
                     `SELECT nd.id FROM network_devices nd
                      INNER JOIN network_agents na ON nd.agent_id = na.id
                      INNER JOIN users u ON na.azienda_id = u.id
-                     WHERE (LOWER(TRIM(COALESCE(u.azienda, ''))) = LOWER($1) OR na.azienda_id = (SELECT user_id FROM comm_agents WHERE id = $4))
-                     AND (
-                       (LENGTH($2) >= 12 AND REPLACE(REPLACE(LOWER(COALESCE(nd.mac_address, '')), ':', ''), '-', '') = $2)
-                       OR (TRIM($3) <> '' AND TRIM(COALESCE(nd.ip_address, '')) = TRIM($3))
-                     )`,
-                    [String(azienda), macNorm.length >= 12 ? macNorm : '', primaryIp, Number(agentId)]
+                     WHERE (LOWER(TRIM(COALESCE(u.azienda, ''))) = LOWER($1) OR na.azienda_id = (SELECT user_id FROM comm_agents WHERE id = $3))
+                     AND LENGTH(REPLACE(REPLACE(LOWER(COALESCE(nd.mac_address, '')), ':', ''), '-', '')) >= 12
+                     AND REPLACE(REPLACE(LOWER(COALESCE(nd.mac_address, '')), ':', ''), '-', '') = $2`,
+                    [String(azienda), macNorm, Number(agentId)]
                 );
 
                 if (ndRes.rows.length === 0) {
+                    console.log('[sync-antivirus] Nessun network_device con MAC=', macNorm, 'in azienda=', azienda);
                     return;
                 }
 

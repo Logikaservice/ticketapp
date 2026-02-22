@@ -8202,15 +8202,17 @@ pause
           COALESCE(nd.device_path, '') as keepass_path,
           nd.status,
           CASE 
+              WHEN asi.device_id IS NOT NULL THEN false
               WHEN avi.device_id IS NOT NULL THEN COALESCE(avi.is_active, false)
               WHEN cdi.antivirus_state = 'Attivo' THEN true
               ELSE false
           END as is_active,
           CASE 
+              WHEN asi.device_id IS NOT NULL THEN ''
               WHEN NULLIF(TRIM(COALESCE(avi.product_name, '')), '') IS NOT NULL THEN avi.product_name
               ELSE COALESCE(cdi.antivirus_name, '')
           END as product_name,
-          avi.expiration_date,
+          CASE WHEN asi.device_id IS NOT NULL THEN NULL ELSE avi.expiration_date END as expiration_date,
           COALESCE(avi.device_type,
             CASE WHEN LOWER(TRIM(COALESCE(nd.device_type, ''))) IN ('server', 'domain', 'dc', 'domain controller', 'nvr', 'nas', 'storage') THEN 'server'
                  WHEN LOWER(TRIM(COALESCE(nd.device_type, ''))) IN ('virtual', 'virtualization', 'virtualizzazione', 'vm', 'vmware', 'hyperv', 'esxi', 'esx', 'exsi') OR LOWER(TRIM(COALESCE(nd.device_type, ''))) LIKE '%virtual%' THEN 'virtual'
@@ -8225,13 +8227,14 @@ pause
         FROM network_devices nd
         JOIN network_agents na ON nd.agent_id = na.id
         LEFT JOIN antivirus_info avi ON nd.id = avi.device_id
+        LEFT JOIN antivirus_sync_ignored asi ON nd.id = asi.device_id
         LEFT JOIN (
-            SELECT mac, ip_addresses, device_name, antivirus_state, antivirus_name 
+            SELECT mac, antivirus_state, antivirus_name 
             FROM comm_device_info 
         ) cdi ON (
-            (cdi.mac IS NOT NULL AND nd.mac_address IS NOT NULL AND REPLACE(REPLACE(LOWER(cdi.mac), '-', ''), ':', '') = REPLACE(REPLACE(LOWER(nd.mac_address), '-', ''), ':', ''))
-            OR (nd.ip_address IS NOT NULL AND (' ' || REPLACE(cdi.ip_addresses, ',', ' ') || ' ') LIKE '% ' || nd.ip_address || ' %')
-            OR (nd.hostname IS NOT NULL AND TRIM(nd.hostname) <> '' AND LOWER(cdi.device_name) = LOWER(nd.hostname))
+            cdi.mac IS NOT NULL AND LENGTH(REPLACE(REPLACE(LOWER(cdi.mac), '-', ''), ':', '')) >= 12
+            AND nd.mac_address IS NOT NULL AND LENGTH(REPLACE(REPLACE(LOWER(nd.mac_address), '-', ''), ':', '')) >= 12
+            AND REPLACE(REPLACE(LOWER(cdi.mac), '-', ''), ':', '') = REPLACE(REPLACE(LOWER(nd.mac_address), '-', ''), ':', '')
         )
         WHERE na.azienda_id = $1
         AND nd.ip_address NOT LIKE 'virtual-%'

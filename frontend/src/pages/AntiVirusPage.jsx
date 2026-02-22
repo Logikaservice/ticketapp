@@ -115,11 +115,29 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                         }
                     } else {
                         // Silent refresh: aggiorna draft esistenti e aggiunge a destra i dispositivi con antivirus rilevato da CommAgent
+                        // UNICA LOGICA che riposta un dispositivo a destra: se l'API restituisce is_active OR product_name OR expiration_date
+                        // e il device_id non è già in selectedDeviceIds, viene aggiunto. La causa di un IP che "ricompare" è quindi
+                        // che GET antivirus-devices sta restituendo quel dispositivo con quei campi valorizzati (es. da comm_device_info
+                        // se il device non è in antivirus_sync_ignored, o da antivirus_info se la sync CommAgent ha riscritto).
                         const withConfig = (d) => d.is_active || d.product_name || d.expiration_date;
                         setSelectedDeviceIds(prevIds => {
-                            const toAdd = data.filter(d => withConfig(d) && !prevIds.includes(d.device_id)).map(d => d.device_id);
+                            const toAdd = data.filter(d => withConfig(d) && !prevIds.includes(d.device_id));
                             if (toAdd.length === 0) return prevIds;
-                            return [...prevIds, ...toAdd];
+                            if (process.env.NODE_ENV !== 'production') {
+                                toAdd.forEach(d => {
+                                    console.log('[AntiVirus] Dispositivo riposto a destra automaticamente:', {
+                                        device_id: d.device_id,
+                                        ip_address: d.ip_address,
+                                        hostname: d.hostname,
+                                        motivo: {
+                                            is_active: d.is_active,
+                                            product_name: d.product_name || '(vuoto)',
+                                            expiration_date: d.expiration_date || '(vuoto)'
+                                        }
+                                    });
+                                });
+                            }
+                            return [...prevIds, ...toAdd.map(d => d.device_id)];
                         });
                         setDrafts(prev => {
                             const next = { ...prev };
