@@ -52,6 +52,27 @@ module.exports = (pool, io) => {
                 `);
                 await pool.query(`CREATE INDEX IF NOT EXISTS idx_comm_device_info_agent ON comm_device_info(agent_id);`);
                 await pool.query(`CREATE INDEX IF NOT EXISTS idx_comm_device_info_mac ON comm_device_info(mac);`);
+
+                // MIGRATION: Assicurati che tutti i campi esistano
+                await pool.query(`
+                    ALTER TABLE comm_device_info 
+                    ADD COLUMN IF NOT EXISTS os_install_date TIMESTAMPTZ,
+                    ADD COLUMN IF NOT EXISTS manufacturer VARCHAR(255),
+                    ADD COLUMN IF NOT EXISTS model VARCHAR(255),
+                    ADD COLUMN IF NOT EXISTS device_type VARCHAR(32),
+                    ADD COLUMN IF NOT EXISTS cpu_name VARCHAR(255),
+                    ADD COLUMN IF NOT EXISTS cpu_cores INTEGER,
+                    ADD COLUMN IF NOT EXISTS cpu_clock_mhz INTEGER,
+                    ADD COLUMN IF NOT EXISTS ram_total_gb NUMERIC(10,2),
+                    ADD COLUMN IF NOT EXISTS ram_free_gb NUMERIC(10,2),
+                    ADD COLUMN IF NOT EXISTS disks_json JSONB,
+                    ADD COLUMN IF NOT EXISTS current_user VARCHAR(255),
+                    ADD COLUMN IF NOT EXISTS battery_status VARCHAR(64),
+                    ADD COLUMN IF NOT EXISTS battery_percent INTEGER,
+                    ADD COLUMN IF NOT EXISTS battery_charging BOOLEAN,
+                    ADD COLUMN IF NOT EXISTS antivirus_name VARCHAR(255),
+                    ADD COLUMN IF NOT EXISTS antivirus_state VARCHAR(64);
+                `);
             } catch (e) {
                 console.error('❌ ensure comm_device_info:', e.message);
             }
@@ -148,6 +169,28 @@ module.exports = (pool, io) => {
       `);
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_comm_device_info_agent ON comm_device_info(agent_id);`);
             await pool.query(`CREATE INDEX IF NOT EXISTS idx_comm_device_info_mac ON comm_device_info(mac);`);
+
+            // MIGRATION: Aggiungi campi che potrebbero mancare se la tabella è stata creata in passato
+            await pool.query(`
+                ALTER TABLE comm_device_info 
+                ADD COLUMN IF NOT EXISTS os_install_date TIMESTAMPTZ,
+                ADD COLUMN IF NOT EXISTS manufacturer VARCHAR(255),
+                ADD COLUMN IF NOT EXISTS model VARCHAR(255),
+                ADD COLUMN IF NOT EXISTS device_type VARCHAR(32),
+                ADD COLUMN IF NOT EXISTS cpu_name VARCHAR(255),
+                ADD COLUMN IF NOT EXISTS cpu_cores INTEGER,
+                ADD COLUMN IF NOT EXISTS cpu_clock_mhz INTEGER,
+                ADD COLUMN IF NOT EXISTS ram_total_gb NUMERIC(10,2),
+                ADD COLUMN IF NOT EXISTS ram_free_gb NUMERIC(10,2),
+                ADD COLUMN IF NOT EXISTS disks_json JSONB,
+                ADD COLUMN IF NOT EXISTS current_user VARCHAR(255),
+                ADD COLUMN IF NOT EXISTS battery_status VARCHAR(64),
+                ADD COLUMN IF NOT EXISTS battery_percent INTEGER,
+                ADD COLUMN IF NOT EXISTS battery_charging BOOLEAN,
+                ADD COLUMN IF NOT EXISTS antivirus_name VARCHAR(255),
+                ADD COLUMN IF NOT EXISTS antivirus_state VARCHAR(64);
+            `);
+
 
             tablesReady = true;
             console.log('✅ Tabelle Communication Agent inizializzate');
@@ -583,6 +626,27 @@ module.exports = (pool, io) => {
                     `);
                     await pool.query(`CREATE INDEX IF NOT EXISTS idx_comm_device_info_agent ON comm_device_info(agent_id);`);
                     await pool.query(`CREATE INDEX IF NOT EXISTS idx_comm_device_info_mac ON comm_device_info(mac);`);
+
+                    // MIGRATION: Assicurati che tutti i campi esistano
+                    await pool.query(`
+                        ALTER TABLE comm_device_info 
+                        ADD COLUMN IF NOT EXISTS os_install_date TIMESTAMPTZ,
+                        ADD COLUMN IF NOT EXISTS manufacturer VARCHAR(255),
+                        ADD COLUMN IF NOT EXISTS model VARCHAR(255),
+                        ADD COLUMN IF NOT EXISTS device_type VARCHAR(32),
+                        ADD COLUMN IF NOT EXISTS cpu_name VARCHAR(255),
+                        ADD COLUMN IF NOT EXISTS cpu_cores INTEGER,
+                        ADD COLUMN IF NOT EXISTS cpu_clock_mhz INTEGER,
+                        ADD COLUMN IF NOT EXISTS ram_total_gb NUMERIC(10,2),
+                        ADD COLUMN IF NOT EXISTS ram_free_gb NUMERIC(10,2),
+                        ADD COLUMN IF NOT EXISTS disks_json JSONB,
+                        ADD COLUMN IF NOT EXISTS current_user VARCHAR(255),
+                        ADD COLUMN IF NOT EXISTS battery_status VARCHAR(64),
+                        ADD COLUMN IF NOT EXISTS battery_percent INTEGER,
+                        ADD COLUMN IF NOT EXISTS battery_charging BOOLEAN,
+                        ADD COLUMN IF NOT EXISTS antivirus_name VARCHAR(255),
+                        ADD COLUMN IF NOT EXISTS antivirus_state VARCHAR(64);
+                    `);
                     const retry = await pool.query(query, params);
                     return res.json(retry.rows || []);
                 } catch (e2) {
@@ -643,7 +707,7 @@ module.exports = (pool, io) => {
 
             let userEmail = null;
             let userPassword = null;
-            
+
             if (token) {
                 const jwt = require('jsonwebtoken');
                 try {
@@ -712,12 +776,12 @@ module.exports = (pool, io) => {
                     archive.file(filePath, { name: file });
                 }
             }
-            
+
             // Crea e aggiungi VBS launcher se non esiste già nel package
             const vbsContent = `Set WshShell = CreateObject("WScript.Shell")
 WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File ""CommAgentService.ps1""", 0, False`;
             archive.append(vbsContent, { name: 'Start-CommAgent-Hidden.vbs' });
-            
+
             // Se abbiamo email e password dal token, crea install_config.json precompilato
             if (userEmail && userPassword) {
                 const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
