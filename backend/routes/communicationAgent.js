@@ -338,7 +338,7 @@ module.exports = (pool, io) => {
                     if (!azienda) return;
 
                     const macNorm = (d.mac || '').replace(/[:\-\s]/g, '').toLowerCase().slice(0, 12);
-                    const primaryIp = (d.primary_ip || '').trim() || null;
+                    const primaryIp = (d.primary_ip || '').trim(); // sempre stringa (anche '') per evitare "could not determine data type of parameter $3"
 
                     // Match per MAC (12+ caratteri esadecimali) o per IP (confronto con TRIM per robustezza).
                     // Azienda: stesso nome O stesso user (comm_agent.user_id = na.azienda_id)
@@ -349,14 +349,14 @@ module.exports = (pool, io) => {
                          WHERE (LOWER(TRIM(COALESCE(u.azienda, ''))) = LOWER($1) OR na.azienda_id = (SELECT user_id FROM comm_agents WHERE id = $4))
                          AND (
                            (LENGTH($2) >= 12 AND REPLACE(REPLACE(LOWER(COALESCE(nd.mac_address, '')), ':', ''), '-', '') = $2)
-                           OR ($3 IS NOT NULL AND TRIM(COALESCE(nd.ip_address, '')) = $3)
+                           OR (TRIM($3) <> '' AND TRIM(COALESCE(nd.ip_address, '')) = TRIM($3))
                          )`,
-                        [azienda, macNorm.length >= 12 ? macNorm : '', primaryIp, agentId]
+                        [String(azienda), macNorm.length >= 12 ? macNorm : '', primaryIp, Number(agentId)]
                     );
 
                     if (ndRes.rows.length === 0) {
                         if (d.antivirus_name || d.antivirus_state) {
-                            console.log('[sync-antivirus] Nessun network_device trovato per azienda=', azienda, 'macNorm=', macNorm || '(vuoto)', 'primaryIp=', primaryIp);
+                            console.log('[sync-antivirus] Nessun network_device trovato per azienda=', azienda, 'macNorm=', macNorm || '(vuoto)', 'primaryIp=', primaryIp || '(vuoto)');
                         }
                         return;
                     }
