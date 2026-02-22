@@ -2989,7 +2989,21 @@ module.exports = (pool, io) => {
         return res.status(400).json({ error: 'ID azienda non valido' });
       }
 
-      console.log('🔍 Eseguendo query con aziendaId:', aziendaId);
+      // Risolvi tutti gli user id con lo stesso nome azienda (all-clients usa MIN(id), gli agent possono essere su altro user)
+      const aziendaNameRow = await pool.query('SELECT TRIM(azienda) AS azienda FROM users WHERE id = $1', [aziendaId]);
+      const aziendaNameForDevices = aziendaNameRow.rows[0]?.azienda;
+      let aziendaUserIds = [aziendaId];
+      if (aziendaNameForDevices) {
+        const idsRes = await pool.query(
+          "SELECT id FROM users WHERE ruolo = 'cliente' AND TRIM(azienda) = $1",
+          [aziendaNameForDevices]
+        );
+        if (idsRes.rows.length > 0) {
+          aziendaUserIds = idsRes.rows.map(r => r.id);
+        }
+      }
+
+      console.log('🔍 Eseguendo query con aziendaId:', aziendaId, 'aziendaUserIds:', aziendaUserIds.length);
 
       // MIGRATION (AUTO-FIX): Assicura che la colonna ip_history esista (per evitare crash su SELECT)
       try {
@@ -3013,8 +3027,8 @@ module.exports = (pool, io) => {
           UPDATE network_devices 
           SET mac_address = REPLACE(mac_address, '-', ':') 
           WHERE mac_address LIKE '%-%' 
-          AND agent_id IN (SELECT id FROM network_agents WHERE azienda_id = $1)
-        `, [aziendaId]);
+          AND agent_id IN (SELECT id FROM network_agents WHERE azienda_id = ANY($1::int[]))
+        `, [aziendaUserIds]);
       } catch (e) { console.error('Error normalizing MACs:', e); }
 
       const result = await pool.query(
@@ -3038,7 +3052,7 @@ module.exports = (pool, io) => {
           nd.agent_id, na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
-         WHERE na.azienda_id = $1
+         WHERE na.azienda_id = ANY($1::int[])
          ORDER BY 
            CASE WHEN nd.is_gateway = true THEN 0 ELSE 1 END,
            -- Ordina prima gli IP validi (IPv4), poi gli altri (virtuali)
@@ -3048,7 +3062,7 @@ module.exports = (pool, io) => {
            CASE WHEN nd.ip_address ~ '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' THEN CAST(split_part(nd.ip_address, '.', 2) AS INTEGER) ELSE 0 END,
            CASE WHEN nd.ip_address ~ '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' THEN CAST(split_part(nd.ip_address, '.', 3) AS INTEGER) ELSE 0 END,
            CASE WHEN nd.ip_address ~ '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' THEN CAST(split_part(nd.ip_address, '.', 4) AS INTEGER) ELSE 0 END ASC`,
-        [aziendaId]
+        [aziendaUserIds]
       );
 
       // Ottimizzazione: carica la mappa KeePass UNA SOLA VOLTA invece di per ogni dispositivo
@@ -8076,6 +8090,7 @@ pause
 
   // GET /api/network-monitoring/clients/:aziendaId/antivirus-devices
   // Tecnici: lettura/scrittura. Admin aziendali (cliente): sola consultazione.
+  // Risolve l'azienda per nome: tutti gli user id con lo stesso nome azienda (all-clients usa MIN(id), gli agent possono essere su altro user)
   router.get('/clients/:aziendaId/antivirus-devices', authenticateToken, checkCompanyAccess, async (req, res) => {
     try {
       const { aziendaId } = req.params;
@@ -8085,6 +8100,20 @@ pause
       }
 
       await ensureTables();
+
+      const aziendaRow = await pool.query('SELECT TRIM(azienda) AS azienda FROM users WHERE id = $1', [parsedAziendaId]);
+      const aziendaName = aziendaRow.rows[0]?.azienda;
+      if (!aziendaName) {
+        return res.json([]);
+      }
+      const userIdsRes = await pool.query(
+        "SELECT id FROM users WHERE ruolo = 'cliente' AND TRIM(azienda) = $1",
+        [aziendaName]
+      );
+      const aziendaUserIds = userIdsRes.rows.map(r => r.id);
+      if (aziendaUserIds.length === 0) {
+        return res.json([]);
+      }
 
       const devices = await pool.query(`
         SELECT 
@@ -8112,9 +8141,9 @@ pause
         FROM network_devices nd
         JOIN network_agents na ON nd.agent_id = na.id
         LEFT JOIN antivirus_info avi ON nd.id = avi.device_id
-        WHERE na.azienda_id = $1
+        WHERE na.azienda_id = ANY($1::int[])
         AND nd.ip_address NOT LIKE 'virtual-%'
-      `, [parsedAziendaId]);
+      `, [aziendaUserIds]);
 
       // Ordinamento IP
       const sortedDevices = devices.rows.sort((a, b) => {
