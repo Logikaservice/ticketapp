@@ -4,6 +4,12 @@ import { buildApiUrl } from '../utils/apiConfig';
 import DispositiviAziendaliIntroCard from '../components/DispositiviAziendaliIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
 
+/** Formatta indirizzo MAC con due punti (es. 00:50:56:C0:00:01) */
+const formatMacWithColons = (mac) => {
+  if (!mac || typeof mac !== 'string') return '—';
+  return mac.trim().replace(/-/g, ':');
+};
+
 const renderDisks = (disksJson) => {
   if (!disksJson) return <span className="text-gray-500">—</span>;
   try {
@@ -165,28 +171,58 @@ const DispositiviAziendaliPage = ({
                       {!hasInfo ? (
                         <p className="text-gray-500 text-sm">Dispositivo {row.machine_name || row.email} — in attesa di dati dall&apos;agent.</p>
                       ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                        <>
+                          {/* Riga titolo: nome + badge Online a sinistra, MAC a destra */}
+                          <div className="flex items-center justify-between gap-4 flex-wrap mb-2">
+                            <div className="font-semibold text-gray-800 flex items-center gap-2">
+                              <Monitor size={16} className="text-teal-600" />
+                              {row.device_name || row.machine_name || '—'} {row.real_status === 'online' && <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Online</span>}
+                            </div>
+                            <div className="text-sm text-gray-600 font-mono"><span className="text-gray-500">MAC:</span> {formatMacWithColons(row.mac)}</div>
+                          </div>
+                          {/* Utente sotto il titolo */}
+                          <div className="flex items-center gap-1 text-sm mb-4"><User size={14} className="text-gray-400" /><span className="text-gray-500">Utente:</span> {row.current_user || '—'}</div>
+                          {/* 3 colonne: Identità/SO | Hardware/CPU/RAM/GPU/Batteria/AV | Archiviazione Dischi */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
                             <div className="space-y-1">
-                              <div className="font-semibold text-gray-800 flex items-center gap-2">
-                                <Monitor size={16} className="text-teal-600" />
-                                {row.device_name || row.machine_name || '—'} {row.real_status === 'online' && <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Online</span>}
-                              </div>
-                              <div><span className="text-gray-500">MAC:</span> {row.mac || '—'}</div>
                               <div><span className="text-gray-500">IP:</span> {row.ip_addresses || '—'}</div>
                               <div><span className="text-gray-500">SO:</span> {row.os_name || '—'} {row.os_version && `(${row.os_version})`} {row.os_arch && ` · ${row.os_arch}`}</div>
                               {row.os_install_date && <div><span className="text-gray-500">Installato:</span> {new Date(row.os_install_date).toLocaleDateString('it-IT')}</div>}
                             </div>
                             <div className="space-y-1">
                               <div><span className="text-gray-500">Hardware:</span> {row.manufacturer || '—'} {row.model && `· ${row.model}`} {row.device_type && `(${row.device_type})`}</div>
-                              <div className="flex items-start gap-1"><Cpu size={14} className="text-gray-400 mt-0.5" />
+                              <div className="flex items-start gap-1"><Cpu size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
                                 <div className="flex-1">
                                   <div><span className="text-gray-500">CPU:</span> {row.cpu_name || '—'} {row.cpu_cores != null && `· ${row.cpu_cores} core`} {row.cpu_clock_mhz != null && `· ${row.cpu_clock_mhz} MHz`}</div>
-                                  {row.gpu_name && <div className="text-xs text-gray-600 mt-0.5"><span className="text-gray-500">GPU:</span> {row.gpu_name}</div>}
                                 </div>
                               </div>
                               <div><span className="text-gray-500">RAM:</span> {row.ram_free_gb != null && row.ram_total_gb != null ? `${row.ram_free_gb} / ${row.ram_total_gb} GB liberi` : (row.ram_total_gb != null ? `${row.ram_total_gb} GB` : '—')}</div>
-                              <div className="flex flex-col gap-1 w-full"><div className="flex items-center gap-1"><HardDrive size={14} className="text-gray-400" /><span className="text-gray-500 font-medium">Archiviazione Dischi:</span></div> {renderDisks(row.disks_json)}</div>
-                              <div className="flex items-center gap-1"><User size={14} className="text-gray-400" /><span className="text-gray-500">Utente:</span> {row.current_user || '—'}</div>
+                              {/* Scheda/e video (anche multiple) */}
+                              {(row.gpu_name || (row.gpus_json && (typeof row.gpus_json === 'string' ? JSON.parse(row.gpus_json || '[]') : row.gpus_json)?.length > 0)) && (
+                                <div className="mt-1">
+                                  <span className="text-gray-500 font-medium">Scheda/e video:</span>
+                                  {row.gpus_json ? (() => {
+                                    try {
+                                      const gpus = typeof row.gpus_json === 'string' ? JSON.parse(row.gpus_json) : row.gpus_json;
+                                      if (Array.isArray(gpus) && gpus.length > 0) {
+                                        return (
+                                          <div className="mt-0.5 space-y-0.5">
+                                            {gpus.map((g, i) => (
+                                              <div key={i} className="text-gray-700 text-xs bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                                                {g.name || g.caption || '—'}
+                                                {(g.adapter_ram_mb != null || g.driver_version) && (
+                                                  <span className="text-gray-500 ml-1">{(g.adapter_ram_mb != null ? ` · ${Math.round(g.adapter_ram_mb / 1024)} GB` : '')}{(g.driver_version ? ` · Driver ${g.driver_version}` : '')}</span>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        );
+                                      }
+                                    } catch (_) {}
+                                    return <span className="text-gray-700"> {row.gpu_name || '—'}</span>;
+                                  })() : <span className="text-gray-700"> {row.gpu_name}</span>}
+                                </div>
+                              )}
                               {(row.battery_percent != null || row.battery_status) && (
                                 <div className="flex items-center gap-1"><Battery size={14} className="text-gray-400" /> {row.battery_status || ''} {row.battery_percent != null && `${row.battery_percent}%`} {row.battery_charging && '(in carica)'}</div>
                               )}
@@ -194,7 +230,12 @@ const DispositiviAziendaliPage = ({
                                 <div className="flex items-center gap-1"><Shield size={14} className="text-gray-400" /> {row.antivirus_name || '—'} {row.antivirus_state && `· ${row.antivirus_state}`}</div>
                               )}
                             </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1"><HardDrive size={14} className="text-gray-400" /><span className="text-gray-500 font-medium">Archiviazione Dischi:</span></div>
+                              {renderDisks(row.disks_json)}
+                            </div>
                           </div>
+                        </>
                         )}
                         <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400">
                           {row.email} · Aggiornato: {row.device_info_updated_at ? new Date(row.device_info_updated_at).toLocaleString('it-IT') : 'mai'}

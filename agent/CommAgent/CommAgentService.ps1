@@ -364,17 +364,29 @@ function Get-DeviceInventory {
         }
         catch {}
 
-        # Scheda grafica (GPU)
+        # Scheda/e grafica (GPU) – nome e dettagli per ogni scheda
         $gpuName = $null
+        $gpusList = @()
         try {
             $gpus = Get-CimInstance -ClassName Win32_VideoController -ErrorAction SilentlyContinue
             if ($gpus) {
-                if ($gpus -is [array]) {
-                    $gpuName = ($gpus | Select-Object -ExpandProperty Caption | Where-Object { $_ }) -join ', '
+                $gpuArray = @($gpus)
+                foreach ($g in $gpuArray) {
+                    $caption = if ($g.Caption) { $g.Caption.Trim() } else { $null }
+                    if (-not $caption) { continue }
+                    $adapterRamBytes = $null
+                    if ($null -ne $g.AdapterRAM -and $g.AdapterRAM -gt 0) {
+                        $adapterRamBytes = [long]$g.AdapterRAM
+                    }
+                    $adapterRamMb = if ($adapterRamBytes -gt 0) { [math]::Round($adapterRamBytes / 1MB, 2) } else { $null }
+                    $gpusList += @{
+                        name           = $caption
+                        caption        = $caption
+                        adapter_ram_mb = $adapterRamMb
+                        driver_version = if ($g.DriverVersion) { $g.DriverVersion.Trim() } else { $null }
+                    }
                 }
-                else {
-                    $gpuName = $gpus.Caption
-                }
+                $gpuName = ($gpusList | ForEach-Object { $_.name }) -join ', '
             }
         }
         catch {}
@@ -394,6 +406,7 @@ function Get-DeviceInventory {
             cpu_cores        = $cpuCores
             cpu_clock_mhz    = $cpuClockMhz
             gpu_name         = $gpuName
+            gpus             = $gpusList
             ram_total_gb     = $ramTotalGb
             ram_free_gb      = $ramFreeGb
             disks            = $disks
