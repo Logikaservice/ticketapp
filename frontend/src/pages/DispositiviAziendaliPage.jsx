@@ -172,20 +172,44 @@ const DispositiviAziendaliPage = ({
                         <p className="text-gray-500 text-sm">Dispositivo {row.machine_name || row.email} — in attesa di dati dall&apos;agent.</p>
                       ) : (
                         <>
-                          {/* Riga titolo: nome + badge Online a sinistra, MAC a destra */}
-                          <div className="flex items-center justify-between gap-4 flex-wrap mb-2">
-                            <div className="font-semibold text-gray-800 flex items-center gap-2">
-                              <Monitor size={16} className="text-teal-600" />
-                              {row.device_name || row.machine_name || '—'} {row.real_status === 'online' && <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Online</span>}
-                            </div>
-                            <div className="text-sm text-gray-600 font-mono"><span className="text-gray-500">MAC:</span> {formatMacWithColons(row.mac)}</div>
+                          {/* Riga titolo: nome, subito dopo MAC (tra parentesi), poi badge Online */}
+                          <div className="font-semibold text-gray-800 flex items-center gap-2 flex-wrap mb-2">
+                            <Monitor size={16} className="text-teal-600" />
+                            <span>{row.device_name || row.machine_name || '—'}</span>
+                            <span className="text-gray-500 font-normal text-sm">(MAC: {formatMacWithColons(row.mac)})</span>
+                            {row.real_status === 'online' && <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Online</span>}
                           </div>
                           {/* Utente sotto il titolo */}
                           <div className="flex items-center gap-1 text-sm mb-4"><User size={14} className="text-gray-400" /><span className="text-gray-500">Utente:</span> {row.current_user || '—'}</div>
                           {/* 3 colonne: Identità/SO | Hardware/CPU/RAM/GPU/Batteria/AV | Archiviazione Dischi */}
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
                             <div className="space-y-1">
-                              <div><span className="text-gray-500">IP:</span> {row.ip_addresses || '—'}</div>
+                              <div>
+                                <span className="text-gray-500">IP:</span>{' '}
+                                {(() => {
+                                  const raw = row.ip_addresses || '';
+                                  if (!raw) return <span>—</span>;
+                                  const segments = raw.split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
+                                  const virtualKeywords = /vEthernet|VMware|Bluetooth|OpenVPN|Wintun|Hyper-V|Virtual|TAP|Loopback|vethernet/i;
+                                  const primaryIndex = segments.findIndex(s => !virtualKeywords.test(s));
+                                  const idx = primaryIndex >= 0 ? primaryIndex : 0;
+                                  return segments.map((seg, i) => {
+                                    const isPrimary = i === idx;
+                                    return (
+                                      <span key={i}>
+                                        {i > 0 && ', '}
+                                        {isPrimary ? (
+                                          <span className="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-medium" title="IP di regola attivo (scheda principale)">
+                                            {seg}
+                                          </span>
+                                        ) : (
+                                          seg
+                                        )}
+                                      </span>
+                                    );
+                                  });
+                                })()}
+                              </div>
                               <div><span className="text-gray-500">SO:</span> {row.os_name || '—'} {row.os_version && `(${row.os_version})`} {row.os_arch && ` · ${row.os_arch}`}</div>
                               {row.os_install_date && <div><span className="text-gray-500">Installato:</span> {new Date(row.os_install_date).toLocaleDateString('it-IT')}</div>}
                             </div>

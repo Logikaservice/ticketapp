@@ -364,7 +364,7 @@ function Get-DeviceInventory {
         }
         catch {}
 
-        # Scheda/e grafica (GPU) – nome e dettagli per ogni scheda
+        # Scheda/e grafica (GPU) – tutte le schede, anche con Caption vuoto (Name/VideoProcessor/Description)
         $gpuName = $null
         $gpusList = @()
         try {
@@ -373,7 +373,10 @@ function Get-DeviceInventory {
                 $gpuArray = @($gpus)
                 foreach ($g in $gpuArray) {
                     $caption = if ($g.Caption) { $g.Caption.Trim() } else { $null }
-                    if (-not $caption) { continue }
+                    if (-not $caption -and $g.Name) { $caption = $g.Name.Trim() }
+                    if (-not $caption -and $g.VideoProcessor) { $caption = $g.VideoProcessor.Trim() }
+                    if (-not $caption -and $g.Description) { $caption = $g.Description.Trim() }
+                    if (-not $caption) { $caption = 'Scheda video' }
                     $adapterRamBytes = $null
                     if ($null -ne $g.AdapterRAM -and $g.AdapterRAM -gt 0) {
                         $adapterRamBytes = [long]$g.AdapterRAM
