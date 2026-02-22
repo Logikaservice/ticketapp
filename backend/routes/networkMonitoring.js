@@ -2989,21 +2989,17 @@ module.exports = (pool, io) => {
         return res.status(400).json({ error: 'ID azienda non valido' });
       }
 
-      // Risolvi tutti gli user id con lo stesso nome azienda (all-clients usa MIN(id), gli agent possono essere su altro user)
+      // Nome azienda per filtro: risolvi da id (così includiamo tutti gli user con stesso nome)
       const aziendaNameRow = await pool.query('SELECT TRIM(azienda) AS azienda FROM users WHERE id = $1', [aziendaId]);
       const aziendaNameForDevices = aziendaNameRow.rows[0]?.azienda;
-      let aziendaUserIds = [aziendaId];
-      if (aziendaNameForDevices) {
-        const idsRes = await pool.query(
-          "SELECT id FROM users WHERE ruolo = 'cliente' AND LOWER(TRIM(azienda)) = LOWER($1)",
-          [aziendaNameForDevices]
-        );
-        if (idsRes.rows.length > 0) {
-          aziendaUserIds = idsRes.rows.map(r => r.id);
-        }
-      }
 
-      console.log('🔍 [clients/devices] aziendaId:', aziendaId, 'azienda:', aziendaNameForDevices, 'aziendaUserIds:', aziendaUserIds.length, aziendaUserIds);
+      // Filtro: se abbiamo il nome azienda usiamo subquery (tutti gli user con quel nome), altrimenti solo aziendaId
+      const whereAzienda = aziendaNameForDevices
+        ? `na.azienda_id IN (SELECT id FROM users WHERE ruolo = 'cliente' AND LOWER(TRIM(COALESCE(azienda,''))) = LOWER($1))`
+        : 'na.azienda_id = $1';
+      const devicesParams = aziendaNameForDevices ? [aziendaNameForDevices] : [aziendaId];
+
+      console.log('🔍 [clients/devices] aziendaId:', aziendaId, 'azienda:', aziendaNameForDevices, 'where:', whereAzienda);
 
       // MIGRATION (AUTO-FIX): Assicura che la colonna ip_history esista (per evitare crash su SELECT)
       try {
@@ -3023,12 +3019,15 @@ module.exports = (pool, io) => {
 
       // MIGRATION (AUTO-FIX): Normalizza MAC address nel DB (da - a :) per coerenza immediata
       try {
+        const updateWhereAgent = aziendaNameForDevices
+          ? `agent_id IN (SELECT id FROM network_agents WHERE azienda_id IN (SELECT id FROM users WHERE ruolo = 'cliente' AND LOWER(TRIM(COALESCE(azienda,''))) = LOWER($1)))`
+          : 'agent_id IN (SELECT id FROM network_agents WHERE azienda_id = $1)';
         await pool.query(`
           UPDATE network_devices 
           SET mac_address = REPLACE(mac_address, '-', ':') 
           WHERE mac_address LIKE '%-%' 
-          AND agent_id IN (SELECT id FROM network_agents WHERE azienda_id = ANY($1::int[]))
-        `, [aziendaUserIds]);
+          AND ${updateWhereAgent}
+        `, devicesParams);
       } catch (e) { console.error('Error normalizing MACs:', e); }
 
       const result = await pool.query(
@@ -3037,13 +3036,12 @@ module.exports = (pool, io) => {
           CASE 
             WHEN nd.hostname IS NULL OR nd.hostname = '' THEN NULL
             WHEN nd.hostname LIKE '{%' THEN 
-              -- Estrae il primo valore da array JSON come stringa (es: {"Android_RPRTJQAR.local", ...})
               REGEXP_REPLACE(
                 SPLIT_PART(REGEXP_REPLACE(nd.hostname, '^[{\s"]+', ''), '",', 1),
                 '["\s]+$', ''
               )
             WHEN LENGTH(nd.hostname) > 100 THEN LEFT(nd.hostname, 97) || '...'
-            ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
+            ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '') 
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
@@ -3052,17 +3050,15 @@ module.exports = (pool, io) => {
           nd.agent_id, na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
-         WHERE na.azienda_id = ANY($1::int[])
+         WHERE ${whereAzienda}
          ORDER BY 
            CASE WHEN nd.is_gateway = true THEN 0 ELSE 1 END,
-           -- Ordina prima gli IP validi (IPv4), poi gli altri (virtuali)
            CASE WHEN nd.ip_address ~ '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' THEN 0 ELSE 1 END,
-           -- Ordinamento numerico ottetti IP
            CASE WHEN nd.ip_address ~ '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' THEN CAST(split_part(nd.ip_address, '.', 1) AS INTEGER) ELSE 0 END,
            CASE WHEN nd.ip_address ~ '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' THEN CAST(split_part(nd.ip_address, '.', 2) AS INTEGER) ELSE 0 END,
            CASE WHEN nd.ip_address ~ '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' THEN CAST(split_part(nd.ip_address, '.', 3) AS INTEGER) ELSE 0 END,
            CASE WHEN nd.ip_address ~ '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' THEN CAST(split_part(nd.ip_address, '.', 4) AS INTEGER) ELSE 0 END ASC`,
-        [aziendaUserIds]
+        devicesParams
       );
 
       console.log('🔍 [clients/devices] dispositivi restituiti:', result.rows.length);
@@ -8109,14 +8105,6 @@ pause
         console.log('[antivirus-devices] Nessun utente con id', parsedAziendaId);
         return res.json([]);
       }
-      const userIdsRes = await pool.query(
-        "SELECT id FROM users WHERE ruolo = 'cliente' AND LOWER(TRIM(azienda)) = LOWER($1)",
-        [aziendaName]
-      );
-      const aziendaUserIds = userIdsRes.rows.map(r => r.id);
-      if (aziendaUserIds.length === 0) {
-        return res.json([]);
-      }
 
       const devices = await pool.query(`
         SELECT 
@@ -8144,11 +8132,11 @@ pause
         FROM network_devices nd
         JOIN network_agents na ON nd.agent_id = na.id
         LEFT JOIN antivirus_info avi ON nd.id = avi.device_id
-        WHERE na.azienda_id = ANY($1::int[])
+        WHERE na.azienda_id IN (SELECT id FROM users WHERE ruolo = 'cliente' AND LOWER(TRIM(COALESCE(azienda,''))) = LOWER($1))
         AND nd.ip_address NOT LIKE 'virtual-%'
-      `, [aziendaUserIds]);
+      `, [aziendaName]);
 
-      console.log('[antivirus-devices] Azienda:', aziendaName, 'userIds:', aziendaUserIds.length, 'dispositivi:', devices.rows.length);
+      console.log('[antivirus-devices] Azienda:', aziendaName, 'dispositivi:', devices.rows.length);
 
       // Ordinamento IP
       const sortedDevices = devices.rows.sort((a, b) => {
