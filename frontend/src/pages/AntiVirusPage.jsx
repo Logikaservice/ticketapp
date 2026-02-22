@@ -114,7 +114,13 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                             setDrafts(initialDrafts);
                         }
                     } else {
-                        // Silent refresh: aggiorna i draft con device_type dall'API così l'icona salvata si vede
+                        // Silent refresh: aggiorna draft esistenti e aggiunge a destra i dispositivi con antivirus rilevato da CommAgent
+                        const withConfig = (d) => d.is_active || d.product_name || d.expiration_date;
+                        setSelectedDeviceIds(prevIds => {
+                            const toAdd = data.filter(d => withConfig(d) && !prevIds.includes(d.device_id)).map(d => d.device_id);
+                            if (toAdd.length === 0) return prevIds;
+                            return [...prevIds, ...toAdd];
+                        });
                         setDrafts(prev => {
                             const next = { ...prev };
                             data.forEach(d => {
@@ -126,6 +132,14 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                                         product_name: d.product_name ?? prev[d.device_id].product_name,
                                         expiration_date: d.expiration_date ? d.expiration_date.split('T')[0] : prev[d.device_id].expiration_date,
                                         sort_order: d.sort_order ?? prev[d.device_id].sort_order
+                                    };
+                                } else if (withConfig(d)) {
+                                    next[d.device_id] = {
+                                        is_active: d.is_active || false,
+                                        product_name: d.product_name || '',
+                                        expiration_date: d.expiration_date ? d.expiration_date.split('T')[0] : '',
+                                        device_type: normalizeDeviceType(d.device_type),
+                                        sort_order: d.sort_order || 0
                                     };
                                 }
                             });
