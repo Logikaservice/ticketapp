@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.21"
+$SCRIPT_VERSION = "1.2.22"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -87,9 +87,9 @@ function Show-CustomToast {
     $colorSub      = [System.Drawing.Color]::FromArgb(110, 118, 129)
 
     [int]$fW=400; [int]$fH=175; [int]$bdr=5; [int]$hH=38
+    [int]$badgeW = 100
     [int]$fwMinBdr = $fW - $bdr
-    [int]$locX1 = $fW - $bdr - 94
-    [int]$locX2 = $fW - $bdr - 28
+    [int]$locX1 = $fW - $bdr - $badgeW
     [int]$locY1 = $hH + 8
     [int]$locY2 = $hH + 34
     [int]$szW1 = $fwMinBdr - 20
@@ -146,23 +146,11 @@ function Show-CustomToast {
     $lblBadge.ForeColor = $colorAccent
     $lblBadge.BackColor = $colorAccentDim
     $lblBadge.AutoSize  = $false
-    $lblBadge.Size      = New-Object System.Drawing.Size(62, 16)
+    $lblBadge.Size      = New-Object System.Drawing.Size($badgeW, 16)
     $lblBadge.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
     $lblBadge.Location  = New-Object System.Drawing.Point($locX1, 11)
+    $lblBadge.AutoEllipsis = $true
     $panelHdr.Controls.Add($lblBadge)
-
-    $btnCloseHeader = New-Object System.Windows.Forms.Button
-    $btnCloseHeader.Text      = "X"
-    $btnCloseHeader.Font      = New-Object System.Drawing.Font("Segoe UI", 9)
-    $btnCloseHeader.ForeColor = $colorSub
-    $btnCloseHeader.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnCloseHeader.FlatAppearance.BorderSize = 0
-    $btnCloseHeader.BackColor = [System.Drawing.Color]::Transparent
-    $btnCloseHeader.Size      = New-Object System.Drawing.Size(26, 26)
-    $btnCloseHeader.Location  = New-Object System.Drawing.Point($locX2, 6)
-    $btnCloseHeader.Cursor    = [System.Windows.Forms.Cursors]::Hand
-    $btnCloseHeader.Add_Click({ try { $this.FindForm().Close() } catch {} })
-    $panelHdr.Controls.Add($btnCloseHeader)
 
     $lblTitleCont = New-Object System.Windows.Forms.Label
     $lblTitleCont.Text      = $Title
@@ -217,12 +205,7 @@ function Show-CustomToast {
             $f = $script:toastForm
             if (-not $f -or $f.IsDisposed) { $script:toastTimer.Stop(); return }
             if ($f.Opacity -lt 1.0) { $f.Opacity = [Math]::Min(1.0, [double]$f.Opacity + 0.12) }
-            $script:toastTick = [int]$script:toastTick + 1
-            $tot = [double]([int]$script:toastTotal)
-            $tick = [double]([int]$script:toastTick)
-            $ratio = [Math]::Max(0.0, 1.0 - ($tick / $tot))
-            if ($script:toastPgBar -and !$script:toastPgBar.IsDisposed) { $script:toastPgBar.Width = [int]([double]$script:toastPgW * $ratio) }
-            if ([int]$script:toastTick -ge [int]$script:toastTotal) { $script:toastTimer.Stop(); try { $f.Close() } catch {} }
+            else { $script:toastTimer.Stop() }
         } catch {}
     })
 

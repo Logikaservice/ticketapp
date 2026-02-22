@@ -24,7 +24,6 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
     const [selectedCompanies, setSelectedCompanies] = useState([]);
     const [title, setTitle] = useState('');
     const [body, setBody] = useState('');
-    const [priority, setPriority] = useState('normal');
     const [category, setCategory] = useState('info');
 
     // Auth headers
@@ -97,7 +96,7 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
                     target_companies: targetType === 'group' ? selectedCompanies : null,
                     title: title.trim(),
                     body: body.trim(),
-                    priority,
+                    priority: category === 'urgent' ? 'urgent' : category === 'warning' ? 'high' : 'normal',
                     category
                 })
             });
@@ -107,7 +106,6 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
                 notify?.(`✅ Messaggio inviato a ${data.delivered_to} destinatari`, 'success');
                 setTitle('');
                 setBody('');
-                setPriority('normal');
                 setCategory('info');
                 fetchMessages();
             } else {
@@ -137,7 +135,6 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
     const handleRinvio = (msg) => {
         setTitle(msg.title || '');
         setBody(msg.body || '');
-        setPriority(msg.priority || 'normal');
         setCategory(msg.category || 'info');
         setTargetType(msg.target_type || 'broadcast');
         if (msg.target_type === 'group' && msg.target_company) {
@@ -156,13 +153,6 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
     };
 
     // Priority/Category configs
-    const priorityOptions = [
-        { value: 'low', label: 'Bassa', color: '#6B7280', icon: '📋' },
-        { value: 'normal', label: 'Normale', color: '#3B82F6', icon: '📬' },
-        { value: 'high', label: 'Alta', color: '#F59E0B', icon: '⚡' },
-        { value: 'urgent', label: 'Urgente', color: '#EF4444', icon: '🚨' }
-    ];
-
     const categoryOptions = [
         { value: 'info', label: 'Informazione', icon: <Info size={14} />, color: '#667EEA' },
         { value: 'warning', label: 'Avviso', icon: <AlertTriangle size={14} />, color: '#F59E0B' },
@@ -439,29 +429,7 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
                                     />
                                 </div>
 
-                                {/* Priorità e Categoria */}
-                                <div style={{ display: 'flex', gap: 16 }}>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ color: '#94A3B8', fontSize: 12, fontWeight: 600, marginBottom: 6, display: 'block', textTransform: 'uppercase', letterSpacing: 1 }}>
-                                            Priorità
-                                        </label>
-                                        <div style={{ display: 'flex', gap: 6 }}>
-                                            {priorityOptions.map(opt => (
-                                                <button key={opt.value} onClick={() => setPriority(opt.value)}
-                                                    style={{
-                                                        flex: 1, padding: '8px 6px', borderRadius: 8, cursor: 'pointer', fontSize: 11,
-                                                        fontWeight: 600, border: priority === opt.value ? `2px solid ${opt.color}` : '2px solid #334155',
-                                                        background: priority === opt.value ? `${opt.color}20` : '#1e293b',
-                                                        color: priority === opt.value ? opt.color : '#64748B',
-                                                        transition: 'all 0.2s', textAlign: 'center'
-                                                    }}>
-                                                    {opt.icon} {opt.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-
+                                {/* Categoria */}
                                 <div>
                                     <label style={{ color: '#94A3B8', fontSize: 12, fontWeight: 600, marginBottom: 6, display: 'block', textTransform: 'uppercase', letterSpacing: 1 }}>
                                         Categoria
@@ -507,7 +475,6 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
                                     title={title || 'Titolo notifica'}
                                     body={body || 'Il messaggio apparirà qui...'}
                                     sender={`${currentUser?.nome || ''} ${currentUser?.cognome || ''}`}
-                                    priority={priority}
                                     category={category}
                                 />
 
@@ -533,9 +500,9 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
                                             <span style={{ color: '#22C55E', fontWeight: 600 }}>{onlineCount} / {agents.length}</span>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                                            <span style={{ color: '#64748B' }}>Priorità:</span>
-                                            <span style={{ color: priorityOptions.find(p => p.value === priority)?.color, fontWeight: 600 }}>
-                                                {priorityOptions.find(p => p.value === priority)?.label}
+                                            <span style={{ color: '#64748B' }}>Categoria:</span>
+                                            <span style={{ color: categoryOptions.find(c => c.value === category)?.color, fontWeight: 600 }}>
+                                                {categoryOptions.find(c => c.value === category)?.label}
                                             </span>
                                         </div>
                                     </div>
@@ -655,7 +622,6 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 {messages.map(msg => {
                                     const catConfig = categoryOptions.find(c => c.value === msg.category);
-                                    const prioConfig = priorityOptions.find(p => p.value === msg.priority);
                                     return (
                                         <div key={msg.id} style={{
                                             padding: '16px 18px', borderRadius: 14,
@@ -667,9 +633,9 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
                                                     <span style={{ fontSize: 14, fontWeight: 700, color: '#E2E8F0' }}>{msg.title}</span>
                                                     <span style={{
                                                         padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700,
-                                                        background: `${prioConfig?.color}20`, color: prioConfig?.color
+                                                        background: `${catConfig?.color}20`, color: catConfig?.color
                                                     }}>
-                                                        {prioConfig?.label}
+                                                        {catConfig?.label}
                                                     </span>
                                                     <span style={{
                                                         padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600,
@@ -706,12 +672,12 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
                                             </div>
                                             <div style={{ fontSize: 13, color: '#94A3B8', marginBottom: 8 }}>{msg.body}</div>
                                             <div style={{ display: 'flex', gap: 16, fontSize: 11, color: '#64748B' }}>
-                                                <span><Users size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} /> {msg.total_targets || 0} destinatari</span>
+                                                <span><Users size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} /> Destinatari: {msg.total_targets ?? 0}</span>
                                                 <span style={{ color: '#22C55E' }}>
-                                                    <CheckCircle2 size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} /> {msg.delivered_count || 0} consegnati
+                                                    <CheckCircle2 size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} /> Ricevuto da: {msg.delivered_count ?? 0}
                                                 </span>
                                                 <span style={{ color: '#818CF8' }}>
-                                                    <Eye size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} /> {msg.read_count || 0} letti
+                                                    <Eye size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} /> Letto da: {msg.read_count ?? 0}
                                                 </span>
                                             </div>
                                         </div>
@@ -742,7 +708,7 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
 // ============================================
 // Componente Preview Notifica (simula l'aspetto WPF)
 // ============================================
-const NotificationPreview = ({ title, body, sender, priority, category }) => {
+const NotificationPreview = ({ title, body, sender, category }) => {
     const schemes = {
         info: { bg1: '#667EEA', bg2: '#764BA2', icon: '💬' },
         warning: { bg1: '#F093FB', bg2: '#F5576C', icon: '⚠️' },
@@ -751,7 +717,7 @@ const NotificationPreview = ({ title, body, sender, priority, category }) => {
         urgent: { bg1: '#FA709A', bg2: '#FEE140', icon: '🚨' }
     };
 
-    const cat = priority === 'urgent' ? 'urgent' : (priority === 'high' && category === 'info' ? 'warning' : category);
+    const cat = category || 'info';
     const scheme = schemes[cat] || schemes.info;
     const time = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
 
@@ -792,15 +758,13 @@ const NotificationPreview = ({ title, body, sender, priority, category }) => {
                         <div style={{ fontSize: 13, fontWeight: 600, color: 'white' }}>{sender || 'Logika Service'}</div>
                         <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)' }}>{time}</div>
                     </div>
-                    {priority !== 'normal' && (
-                        <div style={{
-                            padding: '3px 8px', borderRadius: 6,
-                            background: 'rgba(255,255,255,0.15)', fontSize: 9,
-                            fontWeight: 700, color: 'white', textTransform: 'uppercase'
-                        }}>
-                            {priority}
-                        </div>
-                    )}
+                    <div style={{
+                        padding: '3px 8px', borderRadius: 6,
+                        background: 'rgba(255,255,255,0.15)', fontSize: 9,
+                        fontWeight: 700, color: 'white', textTransform: 'uppercase'
+                    }}>
+                        {cat}
+                    </div>
                     <div style={{
                         width: 26, height: 26, borderRadius: '50%',
                         background: 'rgba(255,255,255,0.2)', display: 'flex',
