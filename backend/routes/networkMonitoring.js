@@ -8086,24 +8086,16 @@ pause
   // --- ANTI-VIRUS ROUTES ---
 
   // GET /api/network-monitoring/clients/:aziendaId/antivirus-devices
-  // Tecnici: lettura/scrittura. Admin aziendali (cliente): sola consultazione.
-  // Risolve l'azienda per nome: tutti gli user id con lo stesso nome azienda (all-clients usa MIN(id), gli agent possono essere su altro user)
+  // Stessa logica di clients/:aziendaId/devices: filtro per azienda_id (id dal dropdown).
   router.get('/clients/:aziendaId/antivirus-devices', authenticateToken, checkCompanyAccess, async (req, res) => {
     try {
       const { aziendaId } = req.params;
       const parsedAziendaId = parseInt(aziendaId, 10);
-      if (isNaN(parsedAziendaId)) {
+      if (isNaN(parsedAziendaId) || parsedAziendaId <= 0) {
         return res.status(400).json({ error: 'ID azienda non valido' });
       }
 
       await ensureTables();
-
-      const aziendaRow = await pool.query('SELECT TRIM(azienda) AS azienda FROM users WHERE id = $1', [parsedAziendaId]);
-      const aziendaName = aziendaRow.rows[0]?.azienda;
-      if (!aziendaName) {
-        console.log('[antivirus-devices] Nessun utente con id', parsedAziendaId);
-        return res.json([]);
-      }
 
       const devices = await pool.query(`
         SELECT 
@@ -8131,11 +8123,11 @@ pause
         FROM network_devices nd
         JOIN network_agents na ON nd.agent_id = na.id
         LEFT JOIN antivirus_info avi ON nd.id = avi.device_id
-        WHERE na.azienda_id IN (SELECT id FROM users WHERE ruolo = 'cliente' AND LOWER(TRIM(COALESCE(azienda,''))) = LOWER($1))
+        WHERE na.azienda_id = $1
         AND nd.ip_address NOT LIKE 'virtual-%'
-      `, [aziendaName]);
+      `, [parsedAziendaId]);
 
-      console.log('[antivirus-devices] Azienda:', aziendaName, 'dispositivi:', devices.rows.length);
+      console.log('[antivirus-devices] aziendaId:', parsedAziendaId, 'dispositivi:', devices.rows.length);
 
       // Ordinamento IP
       const sortedDevices = devices.rows.sort((a, b) => {
