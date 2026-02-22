@@ -57,21 +57,14 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
         document.body.style.cursor = 'col-resize';
     };
 
-    // Fetch companies
+    // Fetch companies: stesso endpoint di Monitoraggio rete (aziende con agent), così l'id coincide con na.azienda_id
     useEffect(() => {
         const fetchCompanies = async () => {
             try {
-                const res = await fetch(buildApiUrl('/api/network-monitoring/all-clients'), { headers: getAuthHeader() });
+                const res = await fetch(buildApiUrl('/api/network-monitoring/companies'), { headers: getAuthHeader() });
                 if (res.ok) {
                     const data = await res.json();
-                    const seen = new Set();
-                    const unique = (data || []).filter(c => {
-                        const name = (c.azienda || c.nome + ' ' + c.cognome || '').trim();
-                        if (!name || seen.has(name)) return false;
-                        seen.add(name);
-                        return true;
-                    });
-                    setCompanies(unique);
+                    setCompanies(data || []);
                 }
             } catch (e) {
                 console.error('Error fetching companies:', e);
