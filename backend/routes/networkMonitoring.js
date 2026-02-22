@@ -2995,7 +2995,7 @@ module.exports = (pool, io) => {
       let aziendaUserIds = [aziendaId];
       if (aziendaNameForDevices) {
         const idsRes = await pool.query(
-          "SELECT id FROM users WHERE ruolo = 'cliente' AND TRIM(azienda) = $1",
+          "SELECT id FROM users WHERE ruolo = 'cliente' AND LOWER(TRIM(azienda)) = LOWER($1)",
           [aziendaNameForDevices]
         );
         if (idsRes.rows.length > 0) {
@@ -3051,7 +3051,7 @@ module.exports = (pool, io) => {
           nd.switch_profile_id, nd.snmp_community, nd.is_managed_switch,
           nd.agent_id, na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
          FROM network_devices nd
-         INNER JOIN network_agents na ON nd.agent_id = na.id
+         INNER JOIN network_agents na ON nd.agent_id = na.id AND na.deleted_at IS NULL
          WHERE na.azienda_id = ANY($1::int[])
          ORDER BY 
            CASE WHEN nd.is_gateway = true THEN 0 ELSE 1 END,
@@ -8104,10 +8104,11 @@ pause
       const aziendaRow = await pool.query('SELECT TRIM(azienda) AS azienda FROM users WHERE id = $1', [parsedAziendaId]);
       const aziendaName = aziendaRow.rows[0]?.azienda;
       if (!aziendaName) {
+        console.log('[antivirus-devices] Nessun utente con id', parsedAziendaId);
         return res.json([]);
       }
       const userIdsRes = await pool.query(
-        "SELECT id FROM users WHERE ruolo = 'cliente' AND TRIM(azienda) = $1",
+        "SELECT id FROM users WHERE ruolo = 'cliente' AND LOWER(TRIM(azienda)) = LOWER($1)",
         [aziendaName]
       );
       const aziendaUserIds = userIdsRes.rows.map(r => r.id);
@@ -8139,11 +8140,13 @@ pause
           COALESCE(nd.device_type, '') as original_device_type,
           COALESCE(avi.sort_order, 0) as sort_order
         FROM network_devices nd
-        JOIN network_agents na ON nd.agent_id = na.id
+        JOIN network_agents na ON nd.agent_id = na.id AND na.deleted_at IS NULL
         LEFT JOIN antivirus_info avi ON nd.id = avi.device_id
         WHERE na.azienda_id = ANY($1::int[])
         AND nd.ip_address NOT LIKE 'virtual-%'
       `, [aziendaUserIds]);
+
+      console.log('[antivirus-devices] Azienda:', aziendaName, 'userIds:', aziendaUserIds.length, 'dispositivi:', devices.rows.length);
 
       // Ordinamento IP
       const sortedDevices = devices.rows.sort((a, b) => {
