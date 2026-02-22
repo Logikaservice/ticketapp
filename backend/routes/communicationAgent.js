@@ -18,7 +18,45 @@ module.exports = (pool, io) => {
     let tablesReady = false;
 
     const ensureTables = async () => {
-        if (tablesReady) return;
+        if (tablesReady) {
+            // Assicura che comm_device_info esista anche se tabella aggiunta dopo avvio server
+            try {
+                await pool.query(`
+                    CREATE TABLE IF NOT EXISTS comm_device_info (
+                        id SERIAL PRIMARY KEY,
+                        agent_id INTEGER NOT NULL REFERENCES comm_agents(id) ON DELETE CASCADE UNIQUE,
+                        mac VARCHAR(48),
+                        device_name VARCHAR(255),
+                        ip_addresses TEXT,
+                        os_name VARCHAR(255),
+                        os_version VARCHAR(255),
+                        os_arch VARCHAR(32),
+                        os_install_date TIMESTAMPTZ,
+                        manufacturer VARCHAR(255),
+                        model VARCHAR(255),
+                        device_type VARCHAR(32),
+                        cpu_name VARCHAR(255),
+                        cpu_cores INTEGER,
+                        cpu_clock_mhz INTEGER,
+                        ram_total_gb NUMERIC(10,2),
+                        ram_free_gb NUMERIC(10,2),
+                        disks_json JSONB,
+                        current_user VARCHAR(255),
+                        battery_status VARCHAR(64),
+                        battery_percent INTEGER,
+                        battery_charging BOOLEAN,
+                        antivirus_name VARCHAR(255),
+                        antivirus_state VARCHAR(64),
+                        updated_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+                `);
+                await pool.query(`CREATE INDEX IF NOT EXISTS idx_comm_device_info_agent ON comm_device_info(agent_id);`);
+                await pool.query(`CREATE INDEX IF NOT EXISTS idx_comm_device_info_mac ON comm_device_info(mac);`);
+            } catch (e) {
+                console.error('❌ ensure comm_device_info:', e.message);
+            }
+            return;
+        }
         try {
             // Tabella agent di comunicazione
             await pool.query(`
@@ -487,6 +525,7 @@ module.exports = (pool, io) => {
         try {
             await ensureTables();
             const { azienda: aziendaFilter } = req.query;
+            const aziendaParam = aziendaFilter && String(aziendaFilter).trim() ? String(aziendaFilter).trim() : null;
 
             let query = `
                 SELECT ca.id as agent_id, ca.machine_name, ca.machine_id, ca.status, ca.last_heartbeat, ca.version,
@@ -501,17 +540,17 @@ module.exports = (pool, io) => {
                 LEFT JOIN comm_device_info d ON d.agent_id = ca.id
             `;
             const params = [];
-            if (aziendaFilter && String(aziendaFilter).trim()) {
-                params.push(String(aziendaFilter).trim());
-                query += ` WHERE TRIM(u.azienda) = $1`;
+            if (aziendaParam) {
+                params.push(aziendaParam);
+                query += ` WHERE LOWER(TRIM(COALESCE(u.azienda, ''))) = LOWER($1)`;
             }
             query += ` ORDER BY u.azienda, u.cognome, u.nome, ca.machine_name`;
 
             const result = await pool.query(query, params);
-            res.json(result.rows);
+            res.json(result.rows || []);
         } catch (err) {
-            console.error('❌ Errore device-info:', err);
-            res.status(500).json({ error: 'Errore interno' });
+            console.error('❌ Errore device-info:', err.message || err);
+            res.status(500).json({ error: 'Errore interno', details: process.env.NODE_ENV === 'development' ? (err.message || String(err)) : undefined });
         }
     });
 
