@@ -254,11 +254,12 @@ const CommAgentManager = ({ currentUser, closeModal, notify }) => {
                                         </div>
                                         <div className="divide-y">
                                             {users.map(user => {
-                                                const hasAgent = agents.some(a => a.user_id === user.id || a.email === user.email);
+                                                const userAgents = agents.filter(a => a.user_id === user.id || a.email === user.email);
+                                                const hasAgent = userAgents.length > 0;
                                                 return (
                                                     <div key={user.id} className="flex items-center gap-4 px-4 py-3 bg-white hover:bg-gray-50 transition">
                                                         <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-2">
+                                                            <div className="flex items-center gap-2 flex-wrap">
                                                                 <span className="font-medium text-gray-800 text-sm">{user.nome} {user.cognome}</span>
                                                                 {hasAgent && (
                                                                     <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -269,6 +270,20 @@ const CommAgentManager = ({ currentUser, closeModal, notify }) => {
                                                             <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
                                                                 <Mail size={10} /> {user.email}
                                                             </div>
+                                                            {userAgents.length > 0 && (
+                                                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                                                    {userAgents.map(a => {
+                                                                        const online = a.status === 'online' || a.real_status === 'online';
+                                                                        return (
+                                                                            <span key={a.id} className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-mono ${online ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+                                                                                <Monitor size={10} />
+                                                                                {a.machine_name || 'PC sconosciuto'}
+                                                                                <span className={`w-1.5 h-1.5 rounded-full ml-0.5 ${online ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                                                            </span>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         <button
                                                             onClick={() => handleDownload(user.id, user.email)}
