@@ -132,9 +132,8 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       visible: !isOrariDomain && currentUser?.ruolo === 'tecnico',
       hasSubActions: true,
       subActions: [
-        { label: 'Agent Esistenti', icon: Monitor, color: 'violet', onClick: () => { if (openCommAgentManager) { openCommAgentManager(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
-        { label: 'Crea Agent', icon: Plus, color: 'violet', onClick: () => { if (openCommAgentManager) { openCommAgentManager(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
-        { label: 'Invia Comunicazione', icon: Bell, color: 'violet', onClick: () => { if (openCommAgent) { openCommAgent(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } }
+        { label: 'Crea / Visualizza Agent', icon: Monitor, color: 'violet', onClick: () => { if (openCommAgentManager) { openCommAgentManager(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
+            { label: 'Invia Comunicazione', icon: Bell, color: 'violet', onClick: () => { if (openCommAgent) { openCommAgent(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } }
       ]
     },
     // === Menu cliente (ordine: Nuove funzionalità, Office, Email, Monitoraggio Rete, Impostazioni) ===
