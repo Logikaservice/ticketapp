@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.25"
+$SCRIPT_VERSION = "1.2.26"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 $APP_NAME = "Logika Service Agent"
@@ -377,14 +377,13 @@ function Get-DeviceInventory {
         }
         catch {}
 
-        # Fallback per Windows Server (SecurityCenter2 non disponibile):
-        # prova con Win32_Service cercando prodotti antivirus noti
+        # Fallback 1: Win32_Service - pattern nomi servizi antivirus noti
         if (-not $antivirusName) {
             try {
                 $avServices = Get-CimInstance -ClassName Win32_Service -ErrorAction SilentlyContinue |
                     Where-Object {
-                        $_.Name -match 'WinDefend|MsMpEng|McAfee|Symantec|Norton|Trend|Sophos|Kaspersky|ESET|Avast|AVG|Bitdefender|Cylance|CrowdStrike|SentinelOne|Carbon|Webroot|Malwarebytes|OpenText|OfficeScan' -or
-                        $_.DisplayName -match 'Defender|McAfee|Symantec|Norton|Trend|Sophos|Kaspersky|ESET|Avast|AVG|Bitdefender|Cylance|CrowdStrike|SentinelOne|Carbon|Webroot|Malwarebytes|OpenText|OfficeScan'
+                        $_.Name -match 'WinDefend|MsMpEng|McAfee|Symantec|Norton|TmFilter|Sophos|Kaspersky|ESET|Avast|AVG|Bitdefender|Cylance|CrowdStrike|SentinelOne|CarbonBlack|WRCore|WRSVC|WRSkyClient|Webroot|Malwarebytes|OpenText|OfficeScan|SAVService|SavService|CiscoAmp|tpam|csc_ssm' -or
+                        $_.DisplayName -match 'Defender|McAfee|Symantec|Norton|Trend Micro|Sophos|Kaspersky|ESET|Avast|AVG|Bitdefender|Cylance|CrowdStrike|SentinelOne|Carbon Black|Webroot|Malwarebytes|OpenText|OfficeScan|Cisco|Endpoint Protection'
                     } | Select-Object -First 1
                 if ($avServices) {
                     $antivirusName = $avServices.DisplayName
@@ -394,7 +393,34 @@ function Get-DeviceInventory {
             catch {}
         }
 
-        # Secondo fallback: Windows Defender tramite Get-MpComputerStatus (disponibile su Server 2016+)
+        # Fallback 2: cerca nel registro di sistema (Uninstall) - metodo più affidabile su Server
+        if (-not $antivirusName) {
+            try {
+                $regPaths = @(
+                    'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                    'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+                )
+                $avKeywords = 'antivirus|endpoint protection|endpoint security|internet security|total security|opentext|webroot|sophos|kaspersky|mcafee|symantec|norton|eset|avast|avg|bitdefender|cylance|crowdstrike|sentinelone|malwarebytes|trend micro|cisco amp|carbonblack'
+                foreach ($path in $regPaths) {
+                    $found = Get-ItemProperty $path -ErrorAction SilentlyContinue |
+                        Where-Object { $_.DisplayName -match $avKeywords } |
+                        Select-Object -First 1
+                    if ($found -and $found.DisplayName) {
+                        $antivirusName = $found.DisplayName
+                        $antivirusState = 'Installato'
+                        # Prova a determinare se attivo cercando il processo
+                        try {
+                            $procCheck = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'wrsa|WRSA|wrskyc|wrcore|cscc|MsMpEng|avgui|avast|bdagent|ekrn|sophosui|mcshield|nortonsecurity|opentext' } | Select-Object -First 1
+                            if ($procCheck) { $antivirusState = 'Attivo' }
+                        } catch {}
+                        break
+                    }
+                }
+            }
+            catch {}
+        }
+
+        # Fallback 3: Windows Defender tramite Get-MpComputerStatus (Server 2016+)
         if (-not $antivirusName) {
             try {
                 $mpStatus = Get-MpComputerStatus -ErrorAction SilentlyContinue
