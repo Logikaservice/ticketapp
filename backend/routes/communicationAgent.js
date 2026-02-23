@@ -592,58 +592,7 @@ module.exports = (pool, io) => {
         }
     });
 
-    // ============================================
-    // DOWNLOAD AGENT PER UTENTE SPECIFICO (tecnico)
-    // ============================================
-    router.get('/download-agent-for-user/:userId', authenticateToken, requireRole('tecnico'), async (req, res) => {
-        try {
-            const { userId } = req.params;
-            await ensureTables();
-            const userResult = await pool.query(
-                'SELECT email, password FROM users WHERE id = $1 AND ruolo = \'cliente\'',
-                [userId]
-            );
-            if (userResult.rows.length === 0) {
-                return res.status(404).json({ error: 'Utente non trovato' });
-            }
-            const { email: userEmail, password: userPassword } = userResult.rows[0];
 
-            const agentDir = path.join(__dirname, '..', '..', 'agent', 'CommAgent');
-            if (!fs.existsSync(agentDir)) {
-                return res.status(404).json({ error: 'File agent non trovati sul server' });
-            }
-
-            let version = '1.0.0';
-            try {
-                const serviceContent = fs.readFileSync(path.join(agentDir, 'CommAgentService.ps1'), 'utf8');
-                const match = serviceContent.match(/\$SCRIPT_VERSION = "([^"]+)"/);
-                if (match) version = match[1];
-            } catch (e) { /* versione default */ }
-
-            res.setHeader('Content-Type', 'application/zip');
-            res.setHeader('Content-Disposition', `attachment; filename="LogikaCommAgent-v${version}.zip"`);
-
-            const archive = archiver('zip', { zlib: { level: 9 } });
-            archive.pipe(res);
-
-            const files = fs.readdirSync(agentDir);
-            for (const file of files) {
-                const filePath = path.join(agentDir, file);
-                if (fs.statSync(filePath).isFile()) {
-                    if (file === 'install_config.json' && userEmail && userPassword) {
-                        const config = JSON.stringify({ email: userEmail, password: userPassword }, null, 2);
-                        archive.append(config, { name: 'install_config.json' });
-                    } else {
-                        archive.file(filePath, { name: file });
-                    }
-                }
-            }
-            await archive.finalize();
-        } catch (err) {
-            console.error('❌ Errore download agent per utente:', err);
-            if (!res.headersSent) res.status(500).json({ error: 'Errore interno' });
-        }
-    });
 
     // ============================================
     // LISTA AZIENDE (per il dropdown invio)
