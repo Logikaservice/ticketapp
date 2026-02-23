@@ -960,9 +960,24 @@ WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File "
 
     // ============================================
     // DOWNLOAD AGENT PER UTENTE SPECIFICO (solo tecnico)
+    // Supporta token via query string (?token=...) per window.open()
     // ============================================
-    router.get('/download-agent-for-user/:userId', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    router.get('/download-agent-for-user/:userId', async (req, res) => {
         try {
+            // Verifica token (header o query string)
+            const token = req.query.token || (req.headers.authorization && req.headers.authorization.replace('Bearer ', ''));
+            if (!token) return res.status(401).json({ error: 'Token di autenticazione richiesto', code: 'MISSING_TOKEN' });
+            const jwt = require('jsonwebtoken');
+            let decoded;
+            try {
+                decoded = jwt.verify(token, process.env.JWT_SECRET || 'logika-secret-key');
+            } catch (e) {
+                return res.status(401).json({ error: 'Token non valido' });
+            }
+            if (decoded.ruolo !== 'tecnico') {
+                return res.status(403).json({ error: 'Accesso negato: solo i tecnici possono scaricare agent per altri utenti' });
+            }
+
             const { userId } = req.params;
             const userResult = await pool.query(
                 'SELECT email, password FROM users WHERE id = $1',
