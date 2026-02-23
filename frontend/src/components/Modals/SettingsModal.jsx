@@ -129,34 +129,6 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
           {currentUser?.ruolo === 'tecnico' && (
             <div className="border-t pt-4">
               <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                <Shield size={16} className="text-indigo-500" />
-                Sicurezza Accesso
-              </h3>
-              <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-xl p-4">
-                <p className="text-sm text-gray-600 mb-3">
-                  Inserisci l'IP statico della tua connessione (es. ufficio o casa). Se accedi da un IP diverso, riceverai una notifica Telegram.
-                </p>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">IP Statico autorizzato</label>
-                  <input
-                    type="text"
-                    value={settingsData.ip_statico || ''}
-                    onChange={(e) => setSettingsData({ ...settingsData, ip_statico: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm"
-                    placeholder="es. 87.18.45.123 — lascia vuoto per disabilitare"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Lascia vuoto per non ricevere notifiche di accesso
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* IP Statico - solo per tecnici */}
-          {currentUser?.ruolo === 'tecnico' && (
-            <div className="border-t pt-4">
-              <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
                 <Shield size={16} className="text-red-500" />
                 Sicurezza Accesso
               </h3>
