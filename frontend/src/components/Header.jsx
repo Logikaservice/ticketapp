@@ -118,20 +118,23 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
             { label: 'Crea Agent', icon: Plus, color: 'cyan', onClick: () => { if (openNetworkMonitoringCreateAgent) { openNetworkMonitoringCreateAgent(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } }
           ]
         },
-        {
-          label: 'Agent Comunicazioni',
-          icon: Bell,
-          color: 'violet',
-          hasSubActions: true,
-          subActions: [
-            { label: 'Agent Esistenti', icon: Monitor, color: 'violet', onClick: () => { if (openCommAgentManager) { openCommAgentManager(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
-            { label: 'Crea Agent', icon: Plus, color: 'violet', onClick: () => { if (openCommAgentManager) { openCommAgentManager(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
-            { label: 'Invia Comunicazione', icon: Bell, color: 'violet', onClick: () => { if (openCommAgent) { openCommAgent(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } }
-          ]
-        },
         { label: 'Notifiche Telegram', icon: AlertCircle, color: 'blue', onClick: () => { if (openNetworkMonitoringTelegram) { openNetworkMonitoringTelegram(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
         { label: 'Analytics', icon: BarChart3, color: 'purple', onClick: () => { if (openAnalytics) { openAnalytics(); } setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } },
         { label: 'Log accessi', icon: Activity, color: 'orange', onClick: () => { if (openAccessLogs) { openAccessLogs(); } setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } }
+      ]
+    },
+    // === COMUNICAZIONI (solo tecnico) ===
+    {
+      id: 'comunicazioni',
+      label: 'Comunicazioni',
+      icon: Bell,
+      color: 'violet',
+      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico',
+      hasSubActions: true,
+      subActions: [
+        { label: 'Agent Esistenti', icon: Monitor, color: 'violet', onClick: () => { if (openCommAgentManager) { openCommAgentManager(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
+        { label: 'Crea Agent', icon: Plus, color: 'violet', onClick: () => { if (openCommAgentManager) { openCommAgentManager(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
+        { label: 'Invia Comunicazione', icon: Bell, color: 'violet', onClick: () => { if (openCommAgent) { openCommAgent(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } }
       ]
     },
     // === Menu cliente (ordine: Nuove funzionalità, Office, Email, Monitoraggio Rete, Impostazioni) ===
