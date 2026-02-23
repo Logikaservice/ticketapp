@@ -12,6 +12,19 @@ const { authenticateToken, requireRole } = require('../middleware/authMiddleware
 
 module.exports = (pool, io) => {
 
+    // Log dedicato comunicazioni agent: prefisso unico [COMM-MSG] + file per facile diagnosi
+    const COMM_MSG_PREFIX = '[COMM-MSG]';
+    const commMsgLogFile = path.join(__dirname, '..', '..', 'logs', 'comm_agent_messages.log');
+    const commMsgLog = (msg) => {
+        const line = `${new Date().toISOString()} ${COMM_MSG_PREFIX} ${msg}`;
+        console.log(line);
+        try {
+            const logDir = path.dirname(commMsgLogFile);
+            if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+            fs.appendFileSync(commMsgLogFile, line + '\n');
+        } catch (_) {}
+    };
+
     // ============================================
     // INIZIALIZZAZIONE TABELLE
     // ============================================
@@ -259,24 +272,11 @@ module.exports = (pool, io) => {
             const agentId = req.commAgent.id;
             const { version, device_info: deviceInfo } = req.body;
 
-            // Log versione ricevuta per debug
-            if (version) {
-                console.log(`📦 CommAgent heartbeat ${agentId}: versione ricevuta = ${version}`);
-            } else {
-                console.log(`⚠️ CommAgent heartbeat ${agentId}: versione NON presente nel payload`);
-            }
-
             // Aggiorna status e last_heartbeat
             const updateResult = await pool.query(
                 `UPDATE comm_agents SET status = 'online', last_heartbeat = NOW(), version = COALESCE($1, version) WHERE id = $2 RETURNING version`,
                 [version || null, agentId]
             );
-
-            // Log versione salvata per debug
-            const savedVersion = updateResult.rows[0]?.version;
-            if (version && savedVersion) {
-                console.log(`💾 CommAgent heartbeat ${agentId}: versione salvata nel DB = ${savedVersion}`);
-            }
 
             // Salva/aggiorna inventario dispositivo se presente
             if (deviceInfo && typeof deviceInfo === 'object') {
@@ -420,7 +420,7 @@ module.exports = (pool, io) => {
             );
 
             if (pendingMessages.rows.length > 0) {
-                console.log(`📬 [heartbeat] agent=${agentId} → ${pendingMessages.rows.length} msg pending: ${pendingMessages.rows.map(m => `"${m.title}"`).join(', ')}`);
+                commMsgLog(`CONSEGNA agent=${agentId} → ${pendingMessages.rows.length} msg: ${pendingMessages.rows.map(m => `"${m.title}"`).join(', ')}`);
             }
 
             // Segna come delivered i messaggi restituiti
@@ -431,12 +431,13 @@ module.exports = (pool, io) => {
            WHERE agent_id = $1 AND message_id = ANY($2::int[])`,
                     [agentId, messageIds]
                 );
-                console.log(`✅ [heartbeat] agent=${agentId} → messaggi marcati delivered: ${messageIds.join(', ')}`);
+                commMsgLog(`OK agent=${agentId} messaggi consegnati (id: ${messageIds.join(', ')})`);
             }
 
+            const messagesPayload = Array.isArray(pendingMessages.rows) ? pendingMessages.rows : [];
             res.json({
                 success: true,
-                messages: pendingMessages.rows,
+                messages: messagesPayload,
                 timestamp: new Date().toISOString()
             });
 
@@ -522,7 +523,8 @@ module.exports = (pool, io) => {
                 );
             }
 
-            console.log(`📨 Messaggio inviato: "${title}" a ${targetAgents.length} agent (tipo: ${target_type})`);
+            const agentIds = targetAgents.map(a => a.id).join(', ');
+            commMsgLog(`INVIO "${title}" → ${targetAgents.length} agent (${target_type}) agent IDs: [${agentIds}]`);
 
             // Emit WebSocket per notifica real-time (se l'agent è connesso al socket)
             if (io) {

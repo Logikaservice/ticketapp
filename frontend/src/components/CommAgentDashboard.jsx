@@ -495,6 +495,14 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
                                                         (selectedAgent ? `${selectedAgent.nome} ${selectedAgent.cognome}` : 'Nessuno')}
                                             </span>
                                         </div>
+                                        {(() => {
+                                            const targetList = targetType === 'broadcast' ? agents : targetType === 'group' ? agents.filter(a => selectedCompanies.includes(a.azienda)) : (selectedAgent ? [selectedAgent] : []);
+                                            return targetList.length > 0 ? (
+                                                <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
+                                                    Riceveranno {targetList.length} agent → PC: {targetList.map(a => a.machine_name || a.email || '?').join(', ')}
+                                                </div>
+                                            ) : null;
+                                        })()}
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
                                             <span style={{ color: '#64748B' }}>Online ora:</span>
                                             <span style={{ color: '#22C55E', fontWeight: 600 }}>{onlineCount} / {agents.length}</span>

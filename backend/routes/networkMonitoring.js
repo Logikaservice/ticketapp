@@ -657,21 +657,21 @@ module.exports = (pool, io) => {
             // Rimuovi vecchio vincolo unique se esiste
             await pool.query(`ALTER TABLE switch_mac_port_cache DROP CONSTRAINT IF EXISTS switch_mac_port_cache_managed_switch_id_mac_address_key;`);
 
-            // Crea nuovo vincolo unique (se non esiste già)
-            // Nota: switch_device_id può essere null in vecchi record? Dovrebbe essere stato popolato.
-            // Se fallisce, significa che ci sono null. Ma nel codice POST è sempre settato.
-            const uniqueCheck = await pool.query(`
-              SELECT count(*) FROM pg_constraint WHERE conname = 'switch_mac_port_cache_device_mac_key'
+            // Crea indice unique se non esiste (evita warning "already exists" nei log)
+            const idxExists = await pool.query(`
+              SELECT 1 FROM pg_indexes WHERE indexname = 'switch_mac_port_cache_device_mac_idx' LIMIT 1
             `);
-            if (parseInt(uniqueCheck.rows[0].count) === 0) {
+            if (idxExists.rows.length === 0) {
               await pool.query(`
-                CREATE UNIQUE INDEX switch_mac_port_cache_device_mac_idx 
-                ON switch_mac_port_cache (switch_device_id, mac_address) 
+                CREATE UNIQUE INDEX switch_mac_port_cache_device_mac_idx
+                ON switch_mac_port_cache (switch_device_id, mac_address)
                 WHERE switch_device_id IS NOT NULL;
               `);
             }
           } catch (migErr) {
-            console.warn('⚠️ Migrazione switch_mac_port_cache:', migErr.message);
+            if (!/already exists|duplicate/i.test(migErr.message)) {
+              console.warn('⚠️ Migrazione switch_mac_port_cache:', migErr.message);
+            }
           }
 
           // Nuova tablla Profili Switch (Modelli)

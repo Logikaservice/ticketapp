@@ -9,6 +9,7 @@ dist/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+logs/
 
 # File di ambiente (contengono dati sensibili)
 .env
