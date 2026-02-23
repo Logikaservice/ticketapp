@@ -179,7 +179,8 @@ export default function TicketApp() {
     telefono: '',
     azienda: '',
     passwordAttuale: '',
-    nuovaPassword: ''
+    nuovaPassword: '',
+    ip_statico: ''
   });
   const [newClientData, setNewClientData] = useState(() => ({ ...INITIAL_NEW_CLIENT_DATA }));
   const [isEditingTicket, setIsEditingTicket] = useState(null);
@@ -2009,7 +2010,8 @@ export default function TicketApp() {
       telefono: currentUser.telefono || '',
       azienda: currentUser.azienda || '',
       passwordAttuale: currentUser.password || '',
-      nuovaPassword: ''
+      nuovaPassword: '',
+      ip_statico: currentUser.ip_statico || ''
     });
     setModalState({ type: 'settings' });
   };
@@ -2278,7 +2280,8 @@ export default function TicketApp() {
         cognome: settingsData.cognome || '',
         email: settingsData.email,
         telefono: settingsData.telefono || null,
-        azienda: settingsData.azienda || null
+        azienda: settingsData.azienda || null,
+        ip_statico: settingsData.ip_statico || null
       };
 
       // Aggiungi password solo se fornita
@@ -2320,7 +2323,8 @@ export default function TicketApp() {
         telefono: updatedUser.telefono || '',
         azienda: updatedUser.azienda || '',
         passwordAttuale: updatedUser.password || '',
-        nuovaPassword: ''
+        nuovaPassword: '',
+        ip_statico: updatedUser.ip_statico || ''
       });
 
       showNotification('Impostazioni aggiornate con successo!', 'success');

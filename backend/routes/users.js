@@ -122,7 +122,7 @@ module.exports = (pool) => {
   // ENDPOINT: Aggiorna un utente/cliente - SICURO con hash password
   router.patch('/:id', async (req, res) => {
     const { id } = req.params;
-    const { nome, cognome, email, telefono, azienda, password, admin_companies, enabled_projects, inactivity_timeout_minutes } = req.body;
+    const { nome, cognome, email, telefono, azienda, password, admin_companies, enabled_projects, inactivity_timeout_minutes, ip_statico } = req.body;
     
     try {
       const client = await pool.connect();
@@ -181,6 +181,10 @@ module.exports = (pool) => {
         updateFields.push(`inactivity_timeout_minutes = $${paramIndex++}`);
         updateValues.push(inactivity_timeout_minutes);
       }
+      if (ip_statico !== undefined) {
+        updateFields.push(`ip_statico = $${paramIndex++}`);
+        updateValues.push(ip_statico || null);
+      }
       
       if (updateFields.length === 0) {
         client.release();
@@ -192,7 +196,7 @@ module.exports = (pool) => {
             UPDATE users 
         SET ${updateFields.join(', ')}
         WHERE id = $${paramIndex}
-        RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies, COALESCE(enabled_projects, '["ticket"]'::jsonb) as enabled_projects, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes;
+        RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, ip_statico, COALESCE(admin_companies, '[]'::jsonb) as admin_companies, COALESCE(enabled_projects, '["ticket"]'::jsonb) as enabled_projects, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes;
           `;
       values = updateValues;
       

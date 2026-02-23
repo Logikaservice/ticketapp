@@ -262,6 +262,14 @@ const ensureAccessLogsTable = async () => {
     }
 
     console.log('✅ Tabella access_logs pronta');
+
+    // Migrazione: aggiungi colonna ip_statico a users se non esiste
+    try {
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ip_statico VARCHAR(64)`);
+      console.log('✅ Colonna ip_statico pronta');
+    } catch (e) {
+      console.warn('⚠️ Migrazione ip_statico:', e.message);
+    }
   } catch (err) {
     console.error('❌ Errore creazione tabella access_logs:', err);
     console.error('❌ Stack:', err.stack);
@@ -667,6 +675,30 @@ app.post('/api/login', async (req, res) => {
 
       // Registra access log
       const sessionId = await recordAccessLog(user, req);
+
+      // Check IP statico per tecnici: se impostato e IP diverso → notifica Telegram
+      if (user.ruolo === 'tecnico') {
+        try {
+          const userFull = await pool.query('SELECT ip_statico FROM users WHERE id = $1', [user.id]);
+          const ipStatico = (userFull.rows[0]?.ip_statico || '').trim();
+          const loginIp = extractClientIp(req);
+          if (ipStatico && ipStatico !== loginIp) {
+            const telegramService = require('./utils/telegramService');
+            const now = new Date().toLocaleString('it-IT', { timeZone: 'Europe/Rome', dateStyle: 'short', timeStyle: 'short' });
+            await telegramService.sendTelegramMessage(
+              `⚠️ <b>Accesso da IP non riconosciuto</b>\n\n` +
+              `👤 Tecnico: <b>${user.nome || ''} ${user.cognome || ''}</b> (${user.email})\n` +
+              `🌐 IP accesso: <code>${loginIp}</code>\n` +
+              `✅ IP autorizzato: <code>${ipStatico}</code>\n` +
+              `🕐 Data/ora: ${now}\n\n` +
+              `Se non sei stato tu, cambia immediatamente la password.`
+            );
+            console.log(`⚠️ Login tecnico ${user.email} da IP non autorizzato: ${loginIp} (atteso: ${ipStatico})`);
+          }
+        } catch (ipCheckErr) {
+          console.warn('⚠️ Errore check IP statico:', ipCheckErr.message);
+        }
+      }
 
       // Ripristina JWT token e refresh token
       try {
