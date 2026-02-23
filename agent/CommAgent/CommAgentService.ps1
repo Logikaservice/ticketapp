@@ -1,6 +1,12 @@
-$SCRIPT_VERSION = "1.2.26"
+$SCRIPT_VERSION = "1.2.27"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
+
+# Stato condiviso thread-safe per heartbeat asincrono
+$script:bgState = [System.Collections.Hashtable]::Synchronized(@{
+    HbRunning  = $false
+    ToastQueue = [System.Collections.Concurrent.ConcurrentQueue[hashtable]]::new()
+})
 $APP_NAME = "Logika Service Agent"
 $APP_TOOLTIP = "Logika Service - Communication Agent v$SCRIPT_VERSION"
 
@@ -505,41 +511,56 @@ $script:deviceInfoIntervalSec = 60
 
 function Send-Heartbeat {
     param($Config)
-    $url = "$($Config.server_url)/api/comm-agent/agent/heartbeat"
+
+    # Evita sovrapposizione: se il heartbeat precedente è ancora in esecuzione, salta
+    if ($script:bgState.HbRunning) { return $true }
+    $script:bgState.HbRunning = $true
+
+    # Raccoglie l'inventario sul thread UI (operazioni WMI veloci, < 1s di norma)
+    $payload = @{ version = $SCRIPT_VERSION; status = "online" }
+    $now = Get-Date
+    if (-not $script:lastDeviceInfoSent -or (($now - $script:lastDeviceInfoSent).TotalSeconds -ge $script:deviceInfoIntervalSec)) {
+        $inv = Get-DeviceInventory
+        if ($inv) { $payload['device_info'] = $inv; $script:lastDeviceInfoSent = $now }
+    }
+    $bodyJson = $payload | ConvertTo-Json -Depth 5 -Compress
+    $url      = "$($Config.server_url)/api/comm-agent/agent/heartbeat"
+    $apiKey   = $Config.api_key
+    $bgState  = $script:bgState   # cattura riferimento per il runspace
+
+    # Esegue la chiamata HTTP in un runspace separato (non blocca il thread UI)
     try {
-        $payload = @{ version = $SCRIPT_VERSION; status = "online" }
-        $now = Get-Date
-        if (-not $script:lastDeviceInfoSent -or (($now - $script:lastDeviceInfoSent).TotalSeconds -ge $script:deviceInfoIntervalSec)) {
-            $inv = Get-DeviceInventory
-            if ($inv) {
-                $payload['device_info'] = $inv
-                $script:lastDeviceInfoSent = $now
-            }
-        }
-        $body = $payload | ConvertTo-Json -Depth 5 -Compress
-        $headers = @{ "X-Comm-API-Key" = $Config.api_key; "Content-Type" = "application/json" }
-        $resp = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $body -ErrorAction Stop
-        $msgList = @($resp.messages)
-        if ($msgList -and $msgList.Count -gt 0) {
-            Write-Log "Messaggi ricevuti: $($msgList.Count). Mostro avvisi." "INFO"
-            foreach ($m in $msgList) {
-                try {
-                    $msgType = if ($m.category) { $m.category } else { "info" }
-                    $tit = if ($m.title) { $m.title } else { "Notifica" }
-                    $bod = if ($m.body) { $m.body } else { "" }
-                    Show-CustomToast -Title $tit -Message $bod -Type $msgType
+        $rs = [runspacefactory]::CreateRunspace()
+        $rs.ApartmentState = 'MTA'
+        $rs.Open()
+        $ps = [powershell]::Create()
+        $ps.Runspace = $rs
+        [void]$ps.AddScript({
+            param($url, $apiKey, $bodyJson, $bgState)
+            try {
+                $headers = @{ 'X-Comm-API-Key' = $apiKey; 'Content-Type' = 'application/json' }
+                $resp = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $bodyJson `
+                                         -TimeoutSec 8 -ErrorAction Stop
+                foreach ($m in @($resp.messages)) {
+                    if ($m) {
+                        $bgState.ToastQueue.Enqueue(@{
+                            title = if ($m.title)    { [string]$m.title    } else { 'Notifica' }
+                            body  = if ($m.body)     { [string]$m.body     } else { '' }
+                            type  = if ($m.category) { [string]$m.category } else { 'info' }
+                        })
+                    }
                 }
-                catch {
-                    Write-Log "Errore mostrando toast per messaggio: $_" "WARN"
-                }
-            }
-        }
-        return $true
+            } catch {}
+            $bgState.HbRunning = $false
+        })
+        [void]$ps.AddParameters(@{ url = $url; apiKey = $apiKey; bodyJson = $bodyJson; bgState = $bgState })
+        [void]$ps.BeginInvoke()
+    } catch {
+        $script:bgState.HbRunning = $false
+        Write-Log "Errore avvio heartbeat async: $_" "WARN"
     }
-    catch {
-        Write-Log "Heartbeat fallito (messaggi non recuperati): $_" "WARN"
-        return $false
-    }
+
+    return $true
 }
 
 function Check-Update {
@@ -547,14 +568,14 @@ function Check-Update {
     $config = Load-Config
     try {
         $vUrl = "$($config.server_url)/api/comm-agent/agent-version"
-        $vData = Invoke-RestMethod -Uri $vUrl -Method GET -ErrorAction Stop
+        $vData = Invoke-RestMethod -Uri $vUrl -Method GET -TimeoutSec 10 -ErrorAction Stop
         if ($vData.version -ne $SCRIPT_VERSION) {
             Write-Log "Aggiornamento rilevato: $SCRIPT_VERSION -> $($vData.version). Download e riavvio..." "INFO"
             $zipPath = Join-Path $env:TEMP "LogikaCommAgent_Update.zip"
             $extractPath = Join-Path $env:TEMP "LogikaCommAgent_Update"
             $dlUrl = "$($config.server_url)/api/comm-agent/download-agent"
             $headers = @{ "X-Comm-API-Key" = $config.api_key }
-            Invoke-WebRequest -Uri $dlUrl -Headers $headers -OutFile $zipPath -ErrorAction Stop
+            Invoke-WebRequest -Uri $dlUrl -Headers $headers -OutFile $zipPath -TimeoutSec 30 -ErrorAction Stop
             if (Test-Path $extractPath) { Remove-Item $extractPath -Recurse -Force }
             Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force -ErrorAction Stop
             $updaterBat = Join-Path $env:TEMP "LogikaUpdate.bat"
@@ -649,6 +670,21 @@ if ($cfg) {
                 Check-Update
             })
         $script:updateCheckOnce.Start()
+
+        # Timer UI che processa i toast accodati dal runspace heartbeat (ogni 500ms sul thread UI)
+        $script:toastCheckTimer = New-Object System.Windows.Forms.Timer
+        $script:toastCheckTimer.Interval = 500
+        $script:toastCheckTimer.Add_Tick({
+            $item = $null
+            while ($script:bgState.ToastQueue.TryDequeue([ref]$item)) {
+                try {
+                    Show-CustomToast -Title $item.title -Message $item.body -Type $item.type
+                    Write-Log "Toast mostrato: $($item.title)" "INFO"
+                } catch { Write-Log "Errore toast: $_" "WARN" }
+            }
+        })
+        $script:toastCheckTimer.Start()
+
         [System.Windows.Forms.Application]::Run()
     }
     catch {
