@@ -364,7 +364,7 @@ function Get-DeviceInventory {
         }
         catch {}
 
-        # Antivirus (SecurityCenter2)
+        # Antivirus (SecurityCenter2 per client; fallback per Server)
         $antivirusName = $null
         $antivirusState = $null
         try {
@@ -376,6 +376,35 @@ function Get-DeviceInventory {
             }
         }
         catch {}
+
+        # Fallback per Windows Server (SecurityCenter2 non disponibile):
+        # prova con Win32_Service cercando prodotti antivirus noti
+        if (-not $antivirusName) {
+            try {
+                $avServices = Get-CimInstance -ClassName Win32_Service -ErrorAction SilentlyContinue |
+                    Where-Object {
+                        $_.Name -match 'WinDefend|MsMpEng|McAfee|Symantec|Norton|Trend|Sophos|Kaspersky|ESET|Avast|AVG|Bitdefender|Cylance|CrowdStrike|SentinelOne|Carbon|Webroot|Malwarebytes|OpenText|OfficeScan' -or
+                        $_.DisplayName -match 'Defender|McAfee|Symantec|Norton|Trend|Sophos|Kaspersky|ESET|Avast|AVG|Bitdefender|Cylance|CrowdStrike|SentinelOne|Carbon|Webroot|Malwarebytes|OpenText|OfficeScan'
+                    } | Select-Object -First 1
+                if ($avServices) {
+                    $antivirusName = $avServices.DisplayName
+                    $antivirusState = if ($avServices.State -eq 'Running') { 'Attivo' } else { 'Disattivo' }
+                }
+            }
+            catch {}
+        }
+
+        # Secondo fallback: Windows Defender tramite Get-MpComputerStatus (disponibile su Server 2016+)
+        if (-not $antivirusName) {
+            try {
+                $mpStatus = Get-MpComputerStatus -ErrorAction SilentlyContinue
+                if ($mpStatus) {
+                    $antivirusName = 'Windows Defender'
+                    $antivirusState = if ($mpStatus.AntivirusEnabled) { 'Attivo' } else { 'Disattivo' }
+                }
+            }
+            catch {}
+        }
 
         # Scheda/e grafica (GPU) – tutte le schede, anche con Caption vuoto (Name/VideoProcessor/Description)
         $gpuName = $null
