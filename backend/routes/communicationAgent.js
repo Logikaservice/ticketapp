@@ -419,6 +419,10 @@ module.exports = (pool, io) => {
                 [agentId]
             );
 
+            if (pendingMessages.rows.length > 0) {
+                console.log(`📬 [heartbeat] agent=${agentId} → ${pendingMessages.rows.length} msg pending: ${pendingMessages.rows.map(m => `"${m.title}"`).join(', ')}`);
+            }
+
             // Segna come delivered i messaggi restituiti
             if (pendingMessages.rows.length > 0) {
                 const messageIds = pendingMessages.rows.map(m => m.id);
@@ -427,6 +431,7 @@ module.exports = (pool, io) => {
            WHERE agent_id = $1 AND message_id = ANY($2::int[])`,
                     [agentId, messageIds]
                 );
+                console.log(`✅ [heartbeat] agent=${agentId} → messaggi marcati delivered: ${messageIds.join(', ')}`);
             }
 
             res.json({

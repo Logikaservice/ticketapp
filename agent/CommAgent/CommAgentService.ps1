@@ -1,11 +1,11 @@
-$SCRIPT_VERSION = "1.2.27"
+$SCRIPT_VERSION = "1.2.28"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 
 # Stato condiviso thread-safe per heartbeat asincrono
 $script:bgState = [System.Collections.Hashtable]::Synchronized(@{
     HbRunning  = $false
-    ToastQueue = [System.Collections.Concurrent.ConcurrentQueue[hashtable]]::new()
+    ToastQueue = [System.Collections.Queue]::Synchronized([System.Collections.Queue]::new())
 })
 $APP_NAME = "Logika Service Agent"
 $APP_TOOLTIP = "Logika Service - Communication Agent v$SCRIPT_VERSION"
@@ -527,6 +527,7 @@ function Send-Heartbeat {
     $url      = "$($Config.server_url)/api/comm-agent/agent/heartbeat"
     $apiKey   = $Config.api_key
     $bgState  = $script:bgState   # cattura riferimento per il runspace
+    $logFile  = $script:logFile   # percorso log per scrivere dal runspace
 
     # Esegue la chiamata HTTP in un runspace separato (non blocca il thread UI)
     try {
@@ -536,24 +537,32 @@ function Send-Heartbeat {
         $ps = [powershell]::Create()
         $ps.Runspace = $rs
         [void]$ps.AddScript({
-            param($url, $apiKey, $bodyJson, $bgState)
+            param($url, $apiKey, $bodyJson, $bgState, $logFile)
+            function RsLog($msg) {
+                try { Add-Content -Path $logFile -Value "$(Get-Date -f 'yyyy-MM-dd HH:mm:ss') [BG] $msg" -ErrorAction SilentlyContinue } catch {}
+            }
             try {
                 $headers = @{ 'X-Comm-API-Key' = $apiKey; 'Content-Type' = 'application/json' }
                 $resp = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $bodyJson `
                                          -TimeoutSec 8 -ErrorAction Stop
-                foreach ($m in @($resp.messages)) {
+                $msgList = @($resp.messages)
+                RsLog "Heartbeat OK - messaggi ricevuti: $($msgList.Count)"
+                foreach ($m in $msgList) {
                     if ($m) {
-                        $bgState.ToastQueue.Enqueue(@{
+                        $bgState.ToastQueue.Enqueue([pscustomobject]@{
                             title = if ($m.title)    { [string]$m.title    } else { 'Notifica' }
                             body  = if ($m.body)     { [string]$m.body     } else { '' }
                             type  = if ($m.category) { [string]$m.category } else { 'info' }
                         })
+                        RsLog "Accodato toast: $($m.title)"
                     }
                 }
-            } catch {}
+            } catch {
+                RsLog "Heartbeat ERRORE: $_"
+            }
             $bgState.HbRunning = $false
         })
-        [void]$ps.AddParameters(@{ url = $url; apiKey = $apiKey; bodyJson = $bodyJson; bgState = $bgState })
+        [void]$ps.AddParameters(@{ url = $url; apiKey = $apiKey; bodyJson = $bodyJson; bgState = $bgState; logFile = $logFile })
         [void]$ps.BeginInvoke()
     } catch {
         $script:bgState.HbRunning = $false
@@ -675,13 +684,18 @@ if ($cfg) {
         $script:toastCheckTimer = New-Object System.Windows.Forms.Timer
         $script:toastCheckTimer.Interval = 500
         $script:toastCheckTimer.Add_Tick({
-            $item = $null
-            while ($script:bgState.ToastQueue.TryDequeue([ref]$item)) {
-                try {
-                    Show-CustomToast -Title $item.title -Message $item.body -Type $item.type
-                    Write-Log "Toast mostrato: $($item.title)" "INFO"
-                } catch { Write-Log "Errore toast: $_" "WARN" }
-            }
+            try {
+                while ($script:bgState.ToastQueue.Count -gt 0) {
+                    $item = $script:bgState.ToastQueue.Dequeue()
+                    if ($item) {
+                        $tit = if ($item.title) { [string]$item.title } else { 'Notifica' }
+                        $bod = if ($item.body)  { [string]$item.body  } else { '' }
+                        $typ = if ($item.type)  { [string]$item.type  } else { 'info' }
+                        Show-CustomToast -Title $tit -Message $bod -Type $typ
+                        Write-Log "Toast mostrato: $tit" "INFO"
+                    }
+                }
+            } catch { Write-Log "Errore timer toast: $_" "WARN" }
         })
         $script:toastCheckTimer.Start()
 
