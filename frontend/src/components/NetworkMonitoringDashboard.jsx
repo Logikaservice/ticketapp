@@ -2363,10 +2363,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 <MonitorSmartphone size={16} />
                 Desktop Remoto
               </button>
-              {(ipContextMenu.device?.id || ipContextMenu.device?.device_id) && (
+              {/* Analisi dispositivo: usa device_id (eventi di rete) o id (tabella dispositivi). Non usare id negli eventi agent (device_id null, id = id evento) per evitare 404 */}
+              {(ipContextMenu.device?.device_id != null || (ipContextMenu.device?.id != null && ipContextMenu.device?.event_category !== 'agent')) && (
                 <button
                   onClick={() => {
-                    const id = ipContextMenu.device?.id || ipContextMenu.device?.device_id;
+                    const id = ipContextMenu.device?.device_id ?? ipContextMenu.device?.id;
                     const label = ipContextMenu.device?.hostname || ipContextMenu.device?.ip_address || ipContextMenu.ip;
                     const deviceLabel = label ? `${label} (${ipContextMenu.ip})` : ipContextMenu.ip;
                     const params = new URLSearchParams();
