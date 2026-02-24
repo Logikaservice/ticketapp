@@ -298,9 +298,8 @@ const TimeLoggerModal = ({
   };
 
   return (
-    <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-xl">
-      {/* Header fisso: niente scroll qui */}
-      <div className="flex-shrink-0 flex items-center justify-between p-6 border-b border-gray-200">
+    <div className="bg-white rounded-xl max-w-4xl w-full p-6 shadow-xl">
+      <div className="flex items-center justify-between mb-6 border-b pb-3">
         <h2 className="text-2xl font-bold text-blue-700 flex items-center gap-2">
           {readOnly ? (
             isEditing ? <Edit size={24} /> : <Eye size={24} />
@@ -314,9 +313,7 @@ const TimeLoggerModal = ({
         </button>
       </div>
 
-      {/* Solo quest’area scrolla: flex-1 min-h-0 evita l’effetto molla */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6">
-        <div className="space-y-6">
+      <div className="space-y-6">
         <div className="bg-blue-50 p-3 rounded-lg text-sm">
           Ticket: {selectedTicket.numero} - {selectedTicket.titolo}
         </div>
@@ -884,11 +881,8 @@ const TimeLoggerModal = ({
             Aggiungi Intervento
           </button>
         )}
-        </div>
-      </div>
 
-      {/* Pulsanti sempre visibili in basso: niente scroll per raggiungerli */}
-      <div className="flex-shrink-0 flex gap-3 p-6 pt-4 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+        <div className="flex gap-3 pt-4 border-t">
         <button onClick={closeModal} className="flex-1 px-4 py-3 border border-gray-300 bg-white rounded-lg hover:bg-gray-50">
           {readOnly && !isEditing ? 'Chiudi' : 'Annulla'}
         </button>
@@ -928,6 +922,7 @@ const TimeLoggerModal = ({
             Conferma e Risolvi
           </button>
         )}
+      </div>
       </div>
     </div>
   );
