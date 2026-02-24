@@ -2197,27 +2197,40 @@ module.exports = (pool, io) => {
             }).catch(e => console.error('❌ [IP_CHANGED] Telegram notification error:', e));
           }
 
-          // Notifica se torna ONLINE (era offline, ora è online) - SOLO se notify_telegram è true
-          if (existingDevice.status === 'offline' && (status || 'online') === 'online' && existingDevice.notify_telegram === true) {
-            console.log(`📤 [ONLINE] Tentativo invio notifica Telegram per dispositivo online: MAC=${normalizedMac || existingDevice.mac_address}, IP=${ip_address}, Hostname=${effectiveHostname || existingDevice.hostname}, Stato Precedente=offline`);
-            sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
-              hostname: effectiveHostname || existingDevice.hostname,
-              deviceType: deviceTypeFromKeepass || existingDevice.device_type,
-              ip: ip_address,
-              mac: normalizedMac || existingDevice.mac_address,
-              status: 'online',
-              oldStatus: 'offline',
-              agentName,
-              aziendaName
-            }).then(result => {
-              if (result) {
-                console.log(`✅ [ONLINE] Notifica Telegram inviata con successo per MAC=${normalizedMac || existingDevice.mac_address}`);
-              } else {
-                console.log(`⚠️ [ONLINE] Notifica Telegram NON inviata (ritornato false) per MAC=${normalizedMac || existingDevice.mac_address} - verifica config.notify_status_changes`);
-              }
-            }).catch(e => console.error('❌ [ONLINE] Telegram notification error (Device Online):', e));
-          } else if (existingDevice.status === 'offline' && (status || 'online') === 'online') {
-            console.log(`⏭️ [ONLINE] Notifica Telegram saltata: notify_telegram=${existingDevice.notify_telegram} per MAC=${normalizedMac || existingDevice.mac_address}`);
+          // Se il dispositivo passa da OFFLINE a ONLINE, registra SEMPRE un evento nel DB
+          if (existingDevice.status === 'offline' && (status || 'online') === 'online') {
+            try {
+              await pool.query(
+                `INSERT INTO network_changes (device_id, agent_id, change_type, old_value, new_value)
+                 VALUES ($1, $2, 'device_online', 'offline', 'online')`,
+                [existingDevice.id, agentId]
+              );
+            } catch (e) {
+              console.error('❌ Errore salvataggio evento device_online in network_changes:', e);
+            }
+
+            // Notifica Telegram solo se abilitata
+            if (existingDevice.notify_telegram === true) {
+              console.log(`📤 [ONLINE] Tentativo invio notifica Telegram per dispositivo online: MAC=${normalizedMac || existingDevice.mac_address}, IP=${ip_address}, Hostname=${effectiveHostname || existingDevice.hostname}, Stato Precedente=offline`);
+              sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
+                hostname: effectiveHostname || existingDevice.hostname,
+                deviceType: deviceTypeFromKeepass || existingDevice.device_type,
+                ip: ip_address,
+                mac: normalizedMac || existingDevice.mac_address,
+                status: 'online',
+                oldStatus: 'offline',
+                agentName,
+                aziendaName
+              }).then(result => {
+                if (result) {
+                  console.log(`✅ [ONLINE] Notifica Telegram inviata con successo per MAC=${normalizedMac || existingDevice.mac_address}`);
+                } else {
+                  console.log(`⚠️ [ONLINE] Notifica Telegram NON inviata (ritornato false) per MAC=${normalizedMac || existingDevice.mac_address} - verifica config.notify_status_changes`);
+                }
+              }).catch(e => console.error('❌ [ONLINE] Telegram notification error (Device Online):', e));
+            } else {
+              console.log(`⏭️ [ONLINE] Notifica Telegram saltata: notify_telegram=${existingDevice.notify_telegram} per MAC=${normalizedMac || existingDevice.mac_address}`);
+            }
           }
 
           await pool.query(`UPDATE network_devices SET
