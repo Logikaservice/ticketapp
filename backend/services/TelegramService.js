@@ -100,7 +100,24 @@ class TelegramService {
 
   // Formatta messaggio per dispositivo statico online/offline
   formatDeviceStatusMessage(deviceInfo) {
-    const emoji = deviceInfo.status === 'online' ? '🟢' : '🔴';
+    const isOnline = deviceInfo.status === 'online';
+    const statusEmoji = isOnline ? '🟢' : '🔴';
+    const deviceLabel = (deviceInfo.hostname || deviceInfo.deviceType || '').toLowerCase();
+
+    // Scegli icona in base al tipo di dispositivo (coerente con il monitoraggio)
+    let deviceEmoji = '💻'; // default: PC
+    if (deviceLabel.includes('ap') || deviceLabel.includes('u6') || deviceLabel.includes('wi-fi') || deviceLabel.includes('wifi') || deviceLabel.includes('access point')) {
+      // Access Point / WiFi
+      deviceEmoji = '📶';
+    } else if (deviceLabel.includes('switch')) {
+      deviceEmoji = '🔀';
+    } else if (deviceLabel.includes('server')) {
+      deviceEmoji = '🖥️';
+    } else if (deviceLabel.includes('router')) {
+      deviceEmoji = '📡';
+    }
+
+    const emoji = `${statusEmoji} ${deviceEmoji}`;
     const statusText = deviceInfo.status === 'online' ? 'Online' : 'Offline';
     
     return `${emoji} <b>Dispositivo ${statusText}</b>
