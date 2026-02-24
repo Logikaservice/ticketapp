@@ -117,19 +117,13 @@ const HourlyChart = ({ data }) => {
 };
 
 /* ─── Timeline Item ─── */
-const TimelineItem = ({ ev, prev }) => {
+const TimelineItem = ({ ev }) => {
   const isOffline = ev.change_type === 'device_offline';
   const isOnline = ev.change_type === 'device_online' || ev.change_type === 'new_device';
   const isConflict = ev.change_type === 'ip_conflict';
   const isChange = ev.change_type === 'ip_changed' || ev.change_type === 'mac_changed';
 
-  let duration = null;
-  if (isOnline && prev && prev.change_type === 'device_offline') {
-    const ms = new Date(ev.detected_at).getTime() - new Date(prev.detected_at).getTime();
-    const min = Math.round(ms / 60000);
-    const h = Math.floor(min / 60);
-    duration = h > 0 ? `${h}h ${min % 60}m offline` : `${min}m offline`;
-  }
+  const duration = ev._offlineDurationLabel || null;
 
   const dotColor = isOffline ? 'bg-red-500' : isOnline ? 'bg-green-500' : isConflict ? 'bg-amber-500' : 'bg-blue-400';
   const Icon = isOffline ? ArrowDownRight : isOnline ? ArrowUpRight : isConflict ? AlertTriangle : Minus;
@@ -304,7 +298,37 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
   const pattern = data?.pattern?.by_hour || [];
   const sameNetwork = data?.same_network_issues || [];
   const timeline = data?.timeline || [];
-  const visibleTimeline = timelineExpanded ? timeline : timeline.slice(0, 8);
+
+  // Timeline ordinata dal più recente al più vecchio,
+  // ma con durata offline calcolata in ordine cronologico
+  const timelineChrono = [...timeline].sort(
+    (a, b) => new Date(a.detected_at).getTime() - new Date(b.detected_at).getTime()
+  );
+  for (let i = 1; i < timelineChrono.length; i += 1) {
+    const ev = timelineChrono[i];
+    const prev = timelineChrono[i - 1];
+    const isOnline =
+      ev.change_type === 'device_online' || ev.change_type === 'new_device';
+    if (isOnline && prev && prev.change_type === 'device_offline') {
+      const ms =
+        new Date(ev.detected_at).getTime() -
+        new Date(prev.detected_at).getTime();
+      const min = Math.round(ms / 60000);
+      const h = Math.floor(min / 60);
+      // Salviamo l'etichetta sul singolo evento per poterla usare
+      // anche quando visualizziamo in ordine inverso
+      ev._offlineDurationLabel =
+        h > 0 ? `${h}h ${min % 60}m offline` : `${min}m offline`;
+    } else if (!ev._offlineDurationLabel) {
+      ev._offlineDurationLabel = null;
+    }
+  }
+  const timelineSorted = [...timelineChrono].sort(
+    (a, b) => new Date(b.detected_at).getTime() - new Date(a.detected_at).getTime()
+  );
+  const visibleTimeline = timelineExpanded
+    ? timelineSorted
+    : timelineSorted.slice(0, 8);
 
   const inner = (
     <div className="flex flex-col h-full overflow-hidden">
@@ -729,7 +753,7 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
                   <>
                     <div className="relative">
                       {visibleTimeline.map((ev, i) => (
-                        <TimelineItem key={i} ev={ev} prev={i > 0 ? visibleTimeline[i - 1] : null} />
+                        <TimelineItem key={i} ev={ev} />
                       ))}
                     </div>
                     {timeline.length > 8 && (

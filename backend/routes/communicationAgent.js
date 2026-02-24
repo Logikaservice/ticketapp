@@ -14,15 +14,24 @@ module.exports = (pool, io) => {
 
     // Log dedicato comunicazioni agent: prefisso unico [COMM-MSG] + file per facile diagnosi
     const COMM_MSG_PREFIX = '[COMM-MSG]';
-    const commMsgLogFile = path.join(__dirname, '..', '..', 'logs', 'comm_agent_messages.log');
+    const commMsgLogFile = path.resolve(path.join(__dirname, '..', '..', 'logs', 'comm_agent_messages.log'));
+    const logDir = path.dirname(commMsgLogFile);
+    try {
+        if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+        fs.appendFileSync(commMsgLogFile, `${new Date().toISOString()} ${COMM_MSG_PREFIX} Log avviato (file: ${commMsgLogFile})\n`);
+    } catch (e) {
+        console.warn('[COMM-MSG] Impossibile creare file log:', e.message);
+    }
+    console.log(`[COMM-MSG] File log comunicazioni agent: ${commMsgLogFile}`);
+
     const commMsgLog = (msg) => {
         const line = `${new Date().toISOString()} ${COMM_MSG_PREFIX} ${msg}`;
         console.log(line);
         try {
-            const logDir = path.dirname(commMsgLogFile);
-            if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
             fs.appendFileSync(commMsgLogFile, line + '\n');
-        } catch (_) {}
+        } catch (e) {
+            console.warn('[COMM-MSG] Errore scrittura log:', e.message);
+        }
     };
 
     // ============================================
