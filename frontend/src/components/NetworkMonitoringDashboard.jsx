@@ -2961,7 +2961,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         )}
                         {(info.antivirus_name || info.antivirus_state) && (
                           <div className="flex items-center gap-1">
-                            <Shield size={14} className="text-gray-400 flex-shrink-0" />
                             <span className="text-gray-500">AV:</span>{' '}
                             {info.antivirus_name || '—'}{' '}
                             {info.antivirus_state && `· ${info.antivirus_state}`}
@@ -2972,21 +2971,16 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                       {/* Colonna 2: Hardware / CPU / RAM / GPU */}
                       <div className="space-y-1">
                         <div>
-                          <span className="text-gray-500">Hardware:</span>{' '}
+                          <span className="text-gray-500">HW:</span>{' '}
                           {info.manufacturer || '—'}{' '}
                           {info.model && `· ${info.model}`}{' '}
                           {info.device_type && `(${info.device_type})`}
                         </div>
-                        <div className="flex items-start gap-1">
-                          <Cpu size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                          <div className="flex-1">
-                            <div>
-                              <span className="text-gray-500">CPU:</span>{' '}
-                              {info.cpu_name || '—'}{' '}
-                              {info.cpu_cores != null && `· ${info.cpu_cores} core`}{' '}
-                              {info.cpu_clock_mhz != null && `· ${info.cpu_clock_mhz} MHz`}
-                            </div>
-                          </div>
+                        <div>
+                          <span className="text-gray-500">CPU:</span>{' '}
+                          {info.cpu_name || '—'}{' '}
+                          {info.cpu_cores != null && `· ${info.cpu_cores} core`}{' '}
+                          {info.cpu_clock_mhz != null && `· ${info.cpu_clock_mhz} MHz`}
                         </div>
                         <div>
                           <span className="text-gray-500">RAM:</span>{' '}
@@ -2994,10 +2988,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             ? `${info.ram_free_gb} / ${info.ram_total_gb} GB liberi`
                             : (info.ram_total_gb != null ? `${info.ram_total_gb} GB` : '—')}
                         </div>
-                        <div className="mt-1 flex items-start gap-1">
-                          <Monitor size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                          <div className="flex-1">
-                          <span className="text-gray-500 font-medium">GPU:</span>
+                        <div className="mt-1">
+                          <span className="text-gray-500">GPU:</span>
                           {info.gpus_json ? (() => {
                             try {
                               const gpus = typeof info.gpus_json === 'string' ? JSON.parse(info.gpus_json) : info.gpus_json;

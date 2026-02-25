@@ -230,22 +230,18 @@ const DispositiviAziendaliPage = ({
                               <div><span className="text-gray-500">SO:</span> {row.os_name || '—'} {row.os_version && `(${row.os_version})`} {row.os_arch && ` · ${row.os_arch}`}</div>
                               {row.os_install_date && <div><span className="text-gray-500">Installato:</span> {new Date(row.os_install_date).toLocaleDateString('it-IT')}</div>}
                               {(row.antivirus_name || row.antivirus_state) && (
-                                <div className="flex items-center gap-1"><Shield size={14} className="text-gray-400 flex-shrink-0" /><span className="text-gray-500">AV:</span> {row.antivirus_name || '—'} {row.antivirus_state && `· ${row.antivirus_state}`}</div>
+                                <div className="flex items-center gap-1"><span className="text-gray-500">AV:</span> {row.antivirus_name || '—'} {row.antivirus_state && `· ${row.antivirus_state}`}</div>
                               )}
                             </div>
                             <div className="space-y-1">
-                              <div><span className="text-gray-500">Hardware:</span> {row.manufacturer || '—'} {row.model && `· ${row.model}`} {row.device_type && `(${row.device_type})`}</div>
-                              <div className="flex items-start gap-1"><Cpu size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                                <div className="flex-1">
-                                  <div><span className="text-gray-500">CPU:</span> {row.cpu_name || '—'} {row.cpu_cores != null && `· ${row.cpu_cores} core`} {row.cpu_clock_mhz != null && `· ${row.cpu_clock_mhz} MHz`}</div>
-                                </div>
+                              <div><span className="text-gray-500">HW:</span> {row.manufacturer || '—'} {row.model && `· ${row.model}`} {row.device_type && `(${row.device_type})`}</div>
+                              <div>
+                                <span className="text-gray-500">CPU:</span> {row.cpu_name || '—'} {row.cpu_cores != null && `· ${row.cpu_cores} core`} {row.cpu_clock_mhz != null && `· ${row.cpu_clock_mhz} MHz`}
                               </div>
                               <div><span className="text-gray-500">RAM:</span> {row.ram_free_gb != null && row.ram_total_gb != null ? `${row.ram_free_gb} / ${row.ram_total_gb} GB liberi` : (row.ram_total_gb != null ? `${row.ram_total_gb} GB` : '—')}</div>
                               {/* GPU: solo schede reali (no Virtual/Meta monitor), formato Nome · X GB */}
-                              <div className="mt-1 flex items-start gap-1">
-                                <Monitor size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                                <div className="flex-1">
-                                <span className="text-gray-500 font-medium">GPU:</span>
+                              <div className="mt-1">
+                                <span className="text-gray-500">GPU:</span>
                                 {row.gpus_json ? (() => {
                                   try {
                                     const gpus = typeof row.gpus_json === 'string' ? JSON.parse(row.gpus_json) : row.gpus_json;
