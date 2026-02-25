@@ -230,7 +230,7 @@ const DispositiviAziendaliPage = ({
                               <div><span className="text-gray-500">SO:</span> {row.os_name || '—'} {row.os_version && `(${row.os_version})`} {row.os_arch && ` · ${row.os_arch}`}</div>
                               {row.os_install_date && <div><span className="text-gray-500">Installato:</span> {new Date(row.os_install_date).toLocaleDateString('it-IT')}</div>}
                               {(row.antivirus_name || row.antivirus_state) && (
-                                <div className="flex items-center gap-1"><Shield size={14} className="text-gray-400 flex-shrink-0" /><span className="text-gray-500">ANTIVIRUS:</span> {row.antivirus_name || '—'} {row.antivirus_state && `· ${row.antivirus_state}`}</div>
+                                <div className="flex items-center gap-1"><Shield size={14} className="text-gray-400 flex-shrink-0" /><span className="text-gray-500">AV:</span> {row.antivirus_name || '—'} {row.antivirus_state && `· ${row.antivirus_state}`}</div>
                               )}
                             </div>
                             <div className="space-y-1">

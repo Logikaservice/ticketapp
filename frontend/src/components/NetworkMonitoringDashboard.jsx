@@ -2962,7 +2962,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         {(info.antivirus_name || info.antivirus_state) && (
                           <div className="flex items-center gap-1">
                             <Shield size={14} className="text-gray-400 flex-shrink-0" />
-                            <span className="text-gray-500">ANTIVIRUS:</span>{' '}
+                            <span className="text-gray-500">AV:</span>{' '}
                             {info.antivirus_name || '—'}{' '}
                             {info.antivirus_state && `· ${info.antivirus_state}`}
                           </div>
