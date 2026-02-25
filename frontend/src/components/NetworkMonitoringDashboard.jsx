@@ -2898,7 +2898,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             role="presentation"
           >
             <div
-              className="absolute bg-white/95 border border-gray-200 rounded-xl shadow-2xl p-4 min-w-[680px] max-w-[940px] text-xs"
+              className="absolute bg-white/95 border border-gray-200 rounded-xl shadow-2xl p-4 min-w-[820px] max-w-[1180px] text-[11px] leading-snug"
               style={{ left: dispositivoAziendaliPopover.left, top: dispositivoAziendaliPopover.top }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -2911,7 +2911,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 return (
                   <div className="space-y-3">
                     {/* Riga titolo: nome, MAC, badge Online */}
-                    <div className="font-semibold text-gray-800 flex items-center gap-2 flex-wrap text-sm">
+                    <div className="font-semibold text-gray-800 flex items-center gap-2 flex-wrap text-xs">
                       <Monitor size={16} className="text-teal-600" />
                       <span>{info.device_name || info.machine_name || '—'}</span>
                       <span className="text-gray-500 font-normal text-xs">
