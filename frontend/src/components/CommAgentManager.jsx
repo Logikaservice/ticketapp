@@ -196,6 +196,7 @@ const CommAgentManager = ({ currentUser, closeModal, notify }) => {
                                             {/* Info */}
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="text-xs font-mono bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded" title="ID usato nei log backend">#{agent.id}</span>
                                                     <span className="font-semibold text-gray-800 text-sm">
                                                         {agent.nome} {agent.cognome}
                                                     </span>

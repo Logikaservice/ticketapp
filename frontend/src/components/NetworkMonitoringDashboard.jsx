@@ -2668,7 +2668,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
                             <span title={change.keepass_username ? `Utente: ${change.keepass_username}` : ''}>
-                              {change.device_path || change.keepass_title || change.vendor || '-'}
+                              {change.hostname || change.keepass_title || change.device_path || change.vendor || '-'}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">

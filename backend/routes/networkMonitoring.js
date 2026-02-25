@@ -4362,12 +4362,41 @@ module.exports = (pool, io) => {
       `;
       params.push(limit);
 
-      // DEBUG: Log query generata
-      console.log('🔍 DEBUG Query unificata:', unifiedQuery);
-      console.log('🔍 DEBUG Params:', params);
-
       // Esegui query
       const result = await pool.query(unifiedQuery, params);
+
+      // Arricchisci gli eventi DISPOSITIVO con KeePass (stessa logica di /all/devices) così hostname e Titolo coincidono con la lista dispositivi per lo stesso MAC
+      const keepassPassword = process.env.KEEPASS_PASSWORD;
+      let keepassMap = null;
+      if (keepassPassword && result.rows.length > 0) {
+        try {
+          keepassMap = await keepassDriveService.getMacToTitleMap(keepassPassword);
+        } catch (keepassErr) {
+          console.warn('⚠️ Eventi unificati: errore caricamento KeePass:', keepassErr.message);
+        }
+      }
+      if (keepassMap) {
+        for (const row of result.rows) {
+          if (row.event_category !== 'device' || !row.mac_address || !row.azienda) continue;
+          try {
+            const macHex = (row.mac_address || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+            const normalizedMac = macHex.length === 12 ? macHex : row.mac_address.replace(/[:-]/g, '').toUpperCase();
+            const keepassEntries = keepassMap.get(normalizedMac);
+            const keepassResult = Array.isArray(keepassEntries)
+              ? keepassDriveService.pickEntryForAzienda(keepassEntries, row.azienda)
+              : keepassEntries;
+            if (keepassResult) {
+              row.hostname = (keepassResult.title && keepassResult.title.trim()) ? keepassResult.title.trim() : (row.hostname || null);
+              const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
+              row.device_path = (lastPathElement && lastPathElement.trim()) ? lastPathElement.trim() : null;
+              row.keepass_username = (keepassResult.username && keepassResult.username.trim()) ? keepassResult.username.trim() : null;
+              row.keepass_title = (keepassResult.title && keepassResult.title.trim()) ? keepassResult.title.trim() : null;
+            }
+          } catch (e) {
+            // ignora errore per singolo evento
+          }
+        }
+      }
 
       // Conta eventi ultime 24h se richiesto
       let count24hResult = null;
