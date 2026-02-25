@@ -2994,8 +2994,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             ? `${info.ram_free_gb} / ${info.ram_total_gb} GB liberi`
                             : (info.ram_total_gb != null ? `${info.ram_total_gb} GB` : '—')}
                         </div>
-                        <div className="mt-1">
-                          <span className="text-gray-500 font-medium">Scheda/e video:</span>
+                        <div className="mt-1 flex items-start gap-1">
+                          <Monitor size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1">
+                          <span className="text-gray-500 font-medium">GPU:</span>
                           {info.gpus_json ? (() => {
                             try {
                               const gpus = typeof info.gpus_json === 'string' ? JSON.parse(info.gpus_json) : info.gpus_json;
@@ -3022,6 +3024,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                               Nessun dato ricevuto dall’agent
                             </span>
                           )}
+                          </div>
                         </div>
                         {(info.battery_percent != null || info.battery_status) && (
                           <div className="flex items-center gap-1">

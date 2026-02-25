@@ -241,9 +241,11 @@ const DispositiviAziendaliPage = ({
                                 </div>
                               </div>
                               <div><span className="text-gray-500">RAM:</span> {row.ram_free_gb != null && row.ram_total_gb != null ? `${row.ram_free_gb} / ${row.ram_total_gb} GB liberi` : (row.ram_total_gb != null ? `${row.ram_total_gb} GB` : '—')}</div>
-                              {/* Scheda/e video: solo schede reali (no Virtual/Meta monitor), formato Nome · X GB */}
-                              <div className="mt-1">
-                                <span className="text-gray-500 font-medium">Scheda/e video:</span>
+                              {/* GPU: solo schede reali (no Virtual/Meta monitor), formato Nome · X GB */}
+                              <div className="mt-1 flex items-start gap-1">
+                                <Monitor size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                                <div className="flex-1">
+                                <span className="text-gray-500 font-medium">GPU:</span>
                                 {row.gpus_json ? (() => {
                                   try {
                                     const gpus = typeof row.gpus_json === 'string' ? JSON.parse(row.gpus_json) : row.gpus_json;
@@ -268,6 +270,7 @@ const DispositiviAziendaliPage = ({
                                 ) : (
                                   <span className="text-gray-400 italic" title="Riavvia o aggiorna l’agent sul PC per inviare i dati delle schede video">Nessun dato ricevuto dall’agent</span>
                                 )}
+                                </div>
                               </div>
                               {(row.battery_percent != null || row.battery_status) && (
                                 <div className="flex items-center gap-1"><Battery size={14} className="text-gray-400" /> {row.battery_status || ''} {row.battery_percent != null && `${row.battery_percent}%`} {row.battery_charging && '(in carica)'}</div>
