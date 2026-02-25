@@ -2898,8 +2898,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             role="presentation"
           >
             <div
-              className="absolute bg-white/95 border border-gray-200 rounded-xl shadow-2xl p-4 min-w-[820px] max-w-[1180px] text-[11px] leading-snug"
-              style={{ left: dispositivoAziendaliPopover.left, top: dispositivoAziendaliPopover.top }}
+              className="absolute bg-white/95 border border-gray-200 rounded-xl shadow-2xl p-4 min-w-[400px] text-[11px] leading-snug"
+              style={{ left: dispositivoAziendaliPopover.left, right: 24, top: dispositivoAziendaliPopover.top }}
               onClick={(e) => e.stopPropagation()}
             >
               {(() => {
