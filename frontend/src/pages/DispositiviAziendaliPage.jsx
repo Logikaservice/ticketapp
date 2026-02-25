@@ -266,7 +266,6 @@ const DispositiviAziendaliPage = ({
                                 ) : (
                                   <span className="text-gray-400 italic" title="Riavvia o aggiorna l’agent sul PC per inviare i dati delle schede video">Nessun dato ricevuto dall’agent</span>
                                 )}
-                                </div>
                               </div>
                               {(row.battery_percent != null || row.battery_status) && (
                                 <div className="flex items-center gap-1"><Battery size={14} className="text-gray-400" /> {row.battery_status || ''} {row.battery_percent != null && `${row.battery_percent}%`} {row.battery_charging && '(in carica)'}</div>

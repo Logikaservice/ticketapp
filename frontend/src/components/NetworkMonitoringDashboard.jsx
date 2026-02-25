@@ -75,6 +75,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   // Dispositivi aziendali: lista per MAC (icona + fumetto in tabella)
   const [dispositiviAziendaliList, setDispositiviAziendaliList] = useState([]);
   const [dispositivoAziendaliPopover, setDispositivoAziendaliPopover] = useState({ show: false, left: 0, top: 0, device: null, info: null });
+  const popoverDeviceInfo = dispositivoAziendaliPopover.info;
+  const popoverHasInfo = !!(popoverDeviceInfo && (popoverDeviceInfo.mac || popoverDeviceInfo.device_name || popoverDeviceInfo.os_name));
   // selectedStaticIPs non serve più, usiamo is_static dal database
   const seenMacAddressesRef = useRef(new Set());
   const [newDevicesInList, setNewDevicesInList] = useState(new Set());
@@ -2902,181 +2904,82 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               style={{ left: dispositivoAziendaliPopover.left, right: 24, top: dispositivoAziendaliPopover.top }}
               onClick={(e) => e.stopPropagation()}
             >
-              {(() => {
-                const info = dispositivoAziendaliPopover.info;
-                const hasInfo = info.mac || info.device_name || info.os_name;
-                if (!hasInfo) {
-                  return <p className="text-gray-500 text-sm">In attesa di dati dall&apos;agent.</p>;
-                }
-                return (
-                  <div className="space-y-3">
-                    {/* Riga titolo: nome, MAC, badge Online */}
-                    <div className="font-semibold text-gray-800 flex items-center gap-2 flex-wrap text-xs">
-                      <Monitor size={16} className="text-teal-600" />
-                      <span>{info.device_name || info.machine_name || '—'}</span>
-                      <span className="text-gray-500 font-normal text-xs">
-                        (MAC: {formatMacWithColons(info.mac || '')})
-                      </span>
-                      {info.real_status === 'online' && (
-                        <span className="text-[11px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Online</span>
+              {!popoverHasInfo && (
+                <p className="text-gray-500 text-sm">In attesa di dati dall&apos;agent.</p>
+              )}
+              {popoverHasInfo && (
+                <div className="space-y-2">
+                  {/* Riga titolo: nome, MAC, badge Online */}
+                  <div className="flex items-center gap-2 flex-wrap text-xs font-semibold text-gray-800">
+                    <Monitor size={16} className="text-teal-600" />
+                    <span>{popoverDeviceInfo.device_name || popoverDeviceInfo.machine_name || '—'}</span>
+                    <span className="text-gray-500 text-[10px]">
+                      (MAC: {formatMacWithColons(popoverDeviceInfo.mac || '')})
+                    </span>
+                    {popoverDeviceInfo.real_status === 'online' && (
+                      <span className="text-[11px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Online</span>
+                    )}
+                  </div>
+
+                  {/* Dati principali in due colonne compatte */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px] mt-1">
+                    <div className="space-y-1 text-gray-700">
+                      <div>
+                        <span className="text-gray-500">IP:</span>{' '}
+                        {popoverDeviceInfo.primary_ip || '—'}
+                      </div>
+                      <div>
+                        <span className="text-gray-500">SO:</span>{' '}
+                        {popoverDeviceInfo.os_name || '—'}{' '}
+                        {popoverDeviceInfo.os_version && `(${popoverDeviceInfo.os_version})`}{' '}
+                        {popoverDeviceInfo.os_arch && ` · ${popoverDeviceInfo.os_arch}`}
+                      </div>
+                      {popoverDeviceInfo.os_install_date && (
+                        <div>
+                          <span className="text-gray-500">Installato:</span>{' '}
+                          {new Date(popoverDeviceInfo.os_install_date).toLocaleDateString('it-IT')}
+                        </div>
+                      )}
+                      {(popoverDeviceInfo.antivirus_name || popoverDeviceInfo.antivirus_state) && (
+                        <div>
+                          <span className="text-gray-500">AV:</span>{' '}
+                          {popoverDeviceInfo.antivirus_name || '—'}{' '}
+                          {popoverDeviceInfo.antivirus_state && `· ${popoverDeviceInfo.antivirus_state}`}
+                        </div>
                       )}
                     </div>
 
-                    {/* Utente */}
-                    <div className="flex items-center gap-1 text-sm">
-                      <User size={14} className="text-gray-400" />
-                      <span className="text-gray-500">Utente:</span>{' '}
-                      {info.current_user || '—'}
-                    </div>
-
-                    {/* 3 colonne: IP/SO/AV | Hardware/CPU/RAM/GPU | Dischi */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm mt-2">
-                      {/* Colonna 1: IP / SO / Antivirus */}
-                      <div className="space-y-1">
-                        <div>
-                          <span className="text-gray-500">IP:</span>{' '}
-                          {(() => {
-                            const raw = info.ip_addresses || info.primary_ip || '';
-                            if (!raw) return <span>—</span>;
-                            const segments = String(raw).split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
-                            return segments.map((seg, i) => (
-                              <span key={i}>
-                                {i > 0 && ', '}
-                                {seg}
-                              </span>
-                            ));
-                          })()}
-                        </div>
-                        <div>
-                          <span className="text-gray-500">SO:</span>{' '}
-                          {info.os_name || '—'}{' '}
-                          {info.os_version && `(${info.os_version})`}{' '}
-                          {info.os_arch && ` · ${info.os_arch}`}
-                        </div>
-                        {info.os_install_date && (
-                          <div>
-                            <span className="text-gray-500">Installato:</span>{' '}
-                            {new Date(info.os_install_date).toLocaleDateString('it-IT')}
-                          </div>
-                        )}
-                        {(info.antivirus_name || info.antivirus_state) && (
-                          <div className="flex items-center gap-1">
-                            <span className="text-gray-500">AV:</span>{' '}
-                            {info.antivirus_name || '—'}{' '}
-                            {info.antivirus_state && `· ${info.antivirus_state}`}
-                          </div>
-                        )}
+                    <div className="space-y-1 text-gray-700">
+                      <div>
+                        <span className="text-gray-500">HW:</span>{' '}
+                        {popoverDeviceInfo.manufacturer || '—'}{' '}
+                        {popoverDeviceInfo.model && `· ${popoverDeviceInfo.model}`}{' '}
+                        {popoverDeviceInfo.device_type && `(${popoverDeviceInfo.device_type})`}
                       </div>
-
-                      {/* Colonna 2: Hardware / CPU / RAM / GPU */}
-                      <div className="space-y-1">
-                        <div>
-                          <span className="text-gray-500">HW:</span>{' '}
-                          {info.manufacturer || '—'}{' '}
-                          {info.model && `· ${info.model}`}{' '}
-                          {info.device_type && `(${info.device_type})`}
-                        </div>
-                        <div>
-                          <span className="text-gray-500">CPU:</span>{' '}
-                          {info.cpu_name || '—'}{' '}
-                          {info.cpu_cores != null && `· ${info.cpu_cores} core`}{' '}
-                          {info.cpu_clock_mhz != null && `· ${info.cpu_clock_mhz} MHz`}
-                        </div>
-                        <div>
-                          <span className="text-gray-500">RAM:</span>{' '}
-                          {info.ram_free_gb != null && info.ram_total_gb != null
-                            ? `${info.ram_free_gb} / ${info.ram_total_gb} GB liberi`
-                            : (info.ram_total_gb != null ? `${info.ram_total_gb} GB` : '—')}
-                        </div>
-                        <div className="mt-1">
-                          <span className="text-gray-500">GPU:</span>
-                          {info.gpus_json ? (() => {
-                            try {
-                              const gpus = typeof info.gpus_json === 'string' ? JSON.parse(info.gpus_json) : info.gpus_json;
-                              if (Array.isArray(gpus) && gpus.length > 0) {
-                                const virtualSkip = /Virtual Desktop Monitor|Meta Virtual Monitor/i;
-                                const realGpus = gpus.filter(g => {
-                                  const name = (g.name || g.caption || '').trim();
-                                  return name && !virtualSkip.test(name);
-                                });
-                                if (realGpus.length === 0) return <span className="text-gray-500"> —</span>;
-                                const parts = realGpus.map(g => {
-                                  const name = g.name || g.caption || '—';
-                                  const gb = g.adapter_ram_mb != null ? Math.round(g.adapter_ram_mb / 1024) : null;
-                                  return gb != null ? `${name} · ${gb} GB` : name;
-                                });
-                                return <span className="text-gray-700"> {parts.join(', ')}</span>;
-                              }
-                            } catch (_) { /* ignore */ }
-                            return <span className="text-gray-700"> {info.gpu_name || '—'}</span>;
-                          })() : info.gpu_name ? (
-                            <span className="text-gray-700"> {info.gpu_name}</span>
-                          ) : (
-                            <span className="text-gray-400 italic">
-                              Nessun dato ricevuto dall’agent
-                            </span>
-                          )}
-                          </div>
-                        </div>
-                        {(info.battery_percent != null || info.battery_status) && (
-                          <div className="flex items-center gap-1">
-                            <Battery size={14} className="text-gray-400" />
-                            <span className="text-gray-500">Batteria:</span>{' '}
-                            {info.battery_status || ''}{' '}
-                            {info.battery_percent != null && `${info.battery_percent}%`}{' '}
-                            {info.battery_charging && '(in carica)'}
-                          </div>
-                        )}
+                      <div>
+                        <span className="text-gray-500">CPU:</span>{' '}
+                        {popoverDeviceInfo.cpu_name || '—'}{' '}
+                        {popoverDeviceInfo.cpu_cores != null && `· ${popoverDeviceInfo.cpu_cores} core`}{' '}
+                        {popoverDeviceInfo.cpu_clock_mhz != null && `· ${popoverDeviceInfo.cpu_clock_mhz} MHz`}
                       </div>
-
-                      {/* Colonna 3: Archiviazione Dischi (versione compatta) */}
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1">
-                          <HardDrive size={14} className="text-gray-400" />
-                          <span className="text-gray-500 font-medium">Archiviazione Dischi:</span>
-                        </div>
-                        {(() => {
-                          const disksJson = info.disks_json;
-                          if (!disksJson) return <span className="text-gray-500 text-xs">—</span>;
-                          try {
-                            const arr = typeof disksJson === 'string' ? JSON.parse(disksJson) : disksJson;
-                            if (!Array.isArray(arr) || arr.length === 0) return <span className="text-gray-500 text-xs">—</span>;
-                            return (
-                              <div className="flex flex-col gap-2 w-full mt-1">
-                                {arr.map((d, i) => {
-                                  if (d.total_gb == null || d.free_gb == null) return null;
-                                  const used = Math.max(0, d.total_gb - d.free_gb);
-                                  const percent = d.total_gb > 0 ? Math.round((used / d.total_gb) * 100) : 0;
-                                  return (
-                                    <div key={i} className="flex flex-col gap-1 text-[11px] w-full bg-gray-50 p-2 rounded border border-gray-100">
-                                      <div className="flex justify-between text-gray-700 font-medium">
-                                        <span>Disco {d.letter}</span>
-                                        <span>{percent}% in uso</span>
-                                      </div>
-                                      <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                                        <div
-                                          className={`h-1.5 rounded-full ${percent > 90 ? 'bg-red-500' : percent > 75 ? 'bg-yellow-500' : 'bg-teal-500'}`}
-                                          style={{ width: `${percent}%` }}
-                                        />
-                                      </div>
-                                      <div className="flex justify-between text-[9px] text-gray-500">
-                                        <span>Liberi: {d.free_gb} GB</span>
-                                        <span>Totali: {d.total_gb} GB</span>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            );
-                          } catch (e) {
-                            return <span className="text-gray-500 text-xs">—</span>;
-                          }
-                        })()}
+                      <div>
+                        <span className="text-gray-500">RAM:</span>{' '}
+                        {popoverDeviceInfo.ram_free_gb != null && popoverDeviceInfo.ram_total_gb != null
+                          ? `${popoverDeviceInfo.ram_free_gb} / ${popoverDeviceInfo.ram_total_gb} GB liberi`
+                          : (popoverDeviceInfo.ram_total_gb != null ? `${popoverDeviceInfo.ram_total_gb} GB` : '—')}
                       </div>
+                      {(popoverDeviceInfo.battery_percent != null || popoverDeviceInfo.battery_status) && (
+                        <div>
+                          <span className="text-gray-500">Batteria:</span>{' '}
+                          {popoverDeviceInfo.battery_status || ''}{' '}
+                          {popoverDeviceInfo.battery_percent != null && `${popoverDeviceInfo.battery_percent}%`}{' '}
+                          {popoverDeviceInfo.battery_charging && '(in carica)'}
+                        </div>
+                      )}
                     </div>
                   </div>
-                );
-              })()}
+                </div>
+              )}
             </div>
           </div>,
           document.body
