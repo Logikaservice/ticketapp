@@ -8220,6 +8220,47 @@ pause
     }
   });
 
+  // GET /api/network-monitoring/dispositivi-aziendali-by-mac
+  // Restituisce l'elenco di dispositivi presenti in "Dispositivi aziendali" (comm_device_info) keyed by MAC normalizzato, per mostrare icona/fumetto nel monitoraggio rete.
+  router.get('/dispositivi-aziendali-by-mac', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const result = await pool.query(`
+        SELECT 
+          UPPER(REPLACE(REPLACE(LOWER(TRIM(COALESCE(d.mac, ''))), '-', ''), ':', '')) AS mac_normalized,
+          u.id AS azienda_id,
+          u.azienda,
+          d.device_name,
+          d."current_user",
+          d.antivirus_name,
+          d.antivirus_state,
+          d.primary_ip,
+          d.os_name
+        FROM comm_device_info d
+        JOIN comm_agents ca ON ca.id = d.agent_id
+        JOIN users u ON u.id = ca.user_id
+        WHERE d.mac IS NOT NULL AND LENGTH(TRIM(d.mac)) >= 12
+      `);
+      const list = (result.rows || []).map(r => ({
+        mac_normalized: r.mac_normalized && r.mac_normalized.length >= 12 ? r.mac_normalized : null,
+        azienda_id: r.azienda_id,
+        azienda: r.azienda,
+        device_name: r.device_name,
+        current_user: r.current_user,
+        antivirus_name: r.antivirus_name,
+        antivirus_state: r.antivirus_state,
+        primary_ip: r.primary_ip,
+        os_name: r.os_name
+      })).filter(r => r.mac_normalized);
+      res.json(list);
+    } catch (err) {
+      if (err.code === '42P01' || (err.message && String(err.message).includes('comm_device_info'))) {
+        return res.json([]);
+      }
+      console.error('❌ Errore GET dispositivi-aziendali-by-mac:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // --- ANTI-VIRUS ROUTES ---
 
   // GET /api/network-monitoring/clients/:aziendaId/antivirus-devices

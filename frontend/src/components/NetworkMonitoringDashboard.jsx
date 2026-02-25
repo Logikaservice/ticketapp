@@ -71,6 +71,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [showDeviceAnalysisModal, setShowDeviceAnalysisModal] = useState(false);
   const [deviceAnalysisDeviceId, setDeviceAnalysisDeviceId] = useState(null);
   const [deviceAnalysisLabel, setDeviceAnalysisLabel] = useState('');
+  // Dispositivi aziendali: lista per MAC (icona + fumetto in tabella)
+  const [dispositiviAziendaliList, setDispositiviAziendaliList] = useState([]);
+  const [dispositivoAziendaliPopover, setDispositivoAziendaliPopover] = useState({ show: false, left: 0, top: 0, device: null, info: null });
   // selectedStaticIPs non serve più, usiamo is_static dal database
   const seenMacAddressesRef = useRef(new Set());
   const [newDevicesInList, setNewDevicesInList] = useState(new Set());
@@ -415,6 +418,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   }, [initialView, readOnly]);
 
   // Carica dispositivi
+  // Normalizza MAC a 12 caratteri esadecimali maiuscoli (riscontro solo tramite MAC)
+  const normalizeMac = useCallback((mac) => {
+    if (!mac || typeof mac !== 'string') return '';
+    const hex = mac.replace(/[^0-9A-Fa-f]/g, '').toUpperCase().slice(0, 12);
+    return hex.length === 12 ? hex : '';
+  }, []);
+
   const loadDevices = useCallback(async (silent = false) => {
     try {
       if (!silent) {
@@ -480,6 +490,32 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       }
     }
   }, [getAuthHeader, changesSearchTerm, changesCompanyFilter, changesNetworkFilter, eventTypeFilter]);
+
+  // Carica lista dispositivi aziendali (solo MAC) per icona/fumetto in tabella
+  const loadDispositiviAziendaliByMac = useCallback(async () => {
+    try {
+      const response = await fetch(buildApiUrl('/api/network-monitoring/dispositivi-aziendali-by-mac'), {
+        headers: getAuthHeader()
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      setDispositiviAziendaliList(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Errore caricamento dispositivi aziendali by MAC:', err);
+    }
+  }, [getAuthHeader]);
+
+  // Mappa MAC normalizzato -> elenco entry (stesso MAC può essere in più aziende)
+  const dispositiviAziendaliMap = useMemo(() => {
+    const map = new Map();
+    for (const row of dispositiviAziendaliList) {
+      const mac = row.mac_normalized;
+      if (!mac) continue;
+      if (!map.has(mac)) map.set(mac, []);
+      map.get(mac).push(row);
+    }
+    return map;
+  }, [dispositiviAziendaliList]);
 
   // Carica reti quando cambia l'azienda selezionata nei filtri eventi
   useEffect(() => {
@@ -742,6 +778,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       await Promise.all([
         loadDevices(),
         loadChanges(false),
+        loadDispositiviAziendaliByMac(),
         selectedCompanyId ? loadCompanyDevices(selectedCompanyId) : Promise.resolve()
       ]);
     } catch (err) {
@@ -750,7 +787,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeader, loadDevices, loadChanges, loadCompanyDevices, selectedCompanyId]);
+  }, [getAuthHeader, loadDevices, loadChanges, loadCompanyDevices, loadDispositiviAziendaliByMac, selectedCompanyId]);
 
   // Disabilita agent (blocca ricezione dati, ma NON disinstalla)
   const disableAgent = useCallback(async (agentId, agentName) => {
@@ -892,7 +929,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     loadChanges(false);
     loadAgents();
     loadCompanies();
-  }, [loadDevices, loadChanges, loadAgents, loadCompanies]);
+    loadDispositiviAziendaliByMac();
+  }, [loadDevices, loadChanges, loadAgents, loadCompanies, loadDispositiviAziendaliByMac]);
 
   // Auto-refresh ogni 30 secondi - DISABILITATO se il modal di creazione è aperto
   useEffect(() => {
@@ -2122,6 +2160,27 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   </button>
                                 </div>
                                 <StatusBadge status={device.status} pingResponsive={device.ping_responsive} />
+                                {/* Icona Dispositivi aziendali: visibile solo se il MAC è nella lista (riscontro solo tramite MAC) */}
+                                {(() => {
+                                  const macNorm = normalizeMac(device.mac_address);
+                                  const entries = macNorm ? dispositiviAziendaliMap.get(macNorm) : null;
+                                  if (!entries || entries.length === 0) return null;
+                                  const info = entries.find(e => e.azienda_id === device.azienda_id) || entries[0];
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        setDispositivoAziendaliPopover({ show: true, left: rect.left, top: rect.bottom + 6, device, info });
+                                      }}
+                                      className="p-1 rounded hover:bg-teal-100 transition-colors inline-flex items-center justify-center min-w-[24px] min-h-[24px] text-teal-600"
+                                      title="Dati da Dispositivi aziendali"
+                                    >
+                                      <MonitorSmartphone className="w-4 h-4" />
+                                    </button>
+                                  );
+                                })()}
                               </div>
                             </td>
                             {/* 3. IP */}
@@ -2769,8 +2828,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                   loadDevices();
                   loadChanges(false);
                   loadAgents();
-                  // opzionale: aggiorna lista aziende (se UI mostra conteggi o dropdown dipende dal backend)
                   loadCompanies();
+                  loadDispositiviAziendaliByMac();
                 }, 200);
               }
             }}
@@ -2822,6 +2881,44 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               loadAgents();
             }}
           />
+        )}
+
+        {/* Fumetto Dispositivi aziendali (solo se aperto da icona in tabella) */}
+        {dispositivoAziendaliPopover.show && dispositivoAziendaliPopover.info && createPortal(
+          <div
+            className="fixed inset-0 z-[100]"
+            onClick={() => setDispositivoAziendaliPopover({ show: false, left: 0, top: 0, device: null, info: null })}
+            role="presentation"
+          >
+            <div
+              className="absolute bg-white border border-gray-200 rounded-lg shadow-xl p-4 min-w-[240px] max-w-[320px] text-sm"
+              style={{ left: dispositivoAziendaliPopover.left, top: dispositivoAziendaliPopover.top }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="font-semibold text-gray-800 border-b border-gray-100 pb-2 mb-2">Dispositivi aziendali</div>
+              <div className="space-y-1.5 text-gray-700">
+                {dispositivoAziendaliPopover.info.device_name && (
+                  <div><span className="text-gray-500">PC:</span> {dispositivoAziendaliPopover.info.device_name}</div>
+                )}
+                {dispositivoAziendaliPopover.info.current_user && (
+                  <div><span className="text-gray-500">Utente:</span> {dispositivoAziendaliPopover.info.current_user}</div>
+                )}
+                {(dispositivoAziendaliPopover.info.antivirus_name || dispositivoAziendaliPopover.info.antivirus_state) && (
+                  <div><span className="text-gray-500">Antivirus:</span> {dispositivoAziendaliPopover.info.antivirus_name || '—'} {dispositivoAziendaliPopover.info.antivirus_state && `· ${dispositivoAziendaliPopover.info.antivirus_state}`}</div>
+                )}
+                {dispositivoAziendaliPopover.info.azienda && (
+                  <div><span className="text-gray-500">Azienda:</span> {dispositivoAziendaliPopover.info.azienda}</div>
+                )}
+                {dispositivoAziendaliPopover.info.os_name && (
+                  <div><span className="text-gray-500">SO:</span> {dispositivoAziendaliPopover.info.os_name}</div>
+                )}
+                {dispositivoAziendaliPopover.info.primary_ip && (
+                  <div><span className="text-gray-500">IP (agent):</span> {dispositivoAziendaliPopover.info.primary_ip}</div>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
         )}
       </div>
     </div>
