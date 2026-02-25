@@ -8,7 +8,8 @@ import {
   Activity, TrendingUp, TrendingDown, Search,
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
   Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit, Menu,
-  CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle, Terminal, Network, History, Key, MonitorSmartphone
+  CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle, Terminal, Network, History, Key, MonitorSmartphone,
+  Cpu, HardDrive, Battery, Shield, User
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import { getDeviceIcon, AVAILABLE_ICONS } from '../utils/deviceTypeIcons';
@@ -423,6 +424,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     if (!mac || typeof mac !== 'string') return '';
     const hex = mac.replace(/[^0-9A-Fa-f]/g, '').toUpperCase().slice(0, 12);
     return hex.length === 12 ? hex : '';
+  }, []);
+
+  // Formatta MAC con i due punti (es. 00:50:56:C0:00:01)
+  const formatMacWithColons = useCallback((mac) => {
+    if (!mac || typeof mac !== 'string') return '—';
+    return mac.trim().replace(/-/g, ':');
   }, []);
 
   const loadDevices = useCallback(async (silent = false) => {
@@ -2891,31 +2898,190 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             role="presentation"
           >
             <div
-              className="absolute bg-white border border-gray-200 rounded-lg shadow-xl p-4 min-w-[240px] max-w-[320px] text-sm"
+              className="absolute bg-white border border-gray-200 rounded-xl shadow-xl p-4 min-w-[520px] max-w-[720px] text-sm"
               style={{ left: dispositivoAziendaliPopover.left, top: dispositivoAziendaliPopover.top }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="font-semibold text-gray-800 border-b border-gray-100 pb-2 mb-2">Dispositivi aziendali</div>
-              <div className="space-y-1.5 text-gray-700">
-                {dispositivoAziendaliPopover.info.device_name && (
-                  <div><span className="text-gray-500">PC:</span> {dispositivoAziendaliPopover.info.device_name}</div>
-                )}
-                {dispositivoAziendaliPopover.info.current_user && (
-                  <div><span className="text-gray-500">Utente:</span> {dispositivoAziendaliPopover.info.current_user}</div>
-                )}
-                {(dispositivoAziendaliPopover.info.antivirus_name || dispositivoAziendaliPopover.info.antivirus_state) && (
-                  <div><span className="text-gray-500">Antivirus:</span> {dispositivoAziendaliPopover.info.antivirus_name || '—'} {dispositivoAziendaliPopover.info.antivirus_state && `· ${dispositivoAziendaliPopover.info.antivirus_state}`}</div>
-                )}
-                {dispositivoAziendaliPopover.info.azienda && (
-                  <div><span className="text-gray-500">Azienda:</span> {dispositivoAziendaliPopover.info.azienda}</div>
-                )}
-                {dispositivoAziendaliPopover.info.os_name && (
-                  <div><span className="text-gray-500">SO:</span> {dispositivoAziendaliPopover.info.os_name}</div>
-                )}
-                {dispositivoAziendaliPopover.info.primary_ip && (
-                  <div><span className="text-gray-500">IP (agent):</span> {dispositivoAziendaliPopover.info.primary_ip}</div>
-                )}
-              </div>
+              {(() => {
+                const info = dispositivoAziendaliPopover.info;
+                const hasInfo = info.mac || info.device_name || info.os_name;
+                if (!hasInfo) {
+                  return <p className="text-gray-500 text-sm">In attesa di dati dall&apos;agent.</p>;
+                }
+                return (
+                  <div className="space-y-3">
+                    {/* Riga titolo: nome, MAC, badge Online */}
+                    <div className="font-semibold text-gray-800 flex items-center gap-2 flex-wrap">
+                      <Monitor size={16} className="text-teal-600" />
+                      <span>{info.device_name || info.machine_name || '—'}</span>
+                      <span className="text-gray-500 font-normal text-xs">
+                        (MAC: {formatMacWithColons(info.mac || '')})
+                      </span>
+                      {info.real_status === 'online' && (
+                        <span className="text-[11px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Online</span>
+                      )}
+                    </div>
+
+                    {/* Utente */}
+                    <div className="flex items-center gap-1 text-sm">
+                      <User size={14} className="text-gray-400" />
+                      <span className="text-gray-500">Utente:</span>{' '}
+                      {info.current_user || '—'}
+                    </div>
+
+                    {/* 3 colonne: IP/SO/AV | Hardware/CPU/RAM/GPU | Dischi */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm mt-2">
+                      {/* Colonna 1: IP / SO / Antivirus */}
+                      <div className="space-y-1">
+                        <div>
+                          <span className="text-gray-500">IP:</span>{' '}
+                          {(() => {
+                            const raw = info.ip_addresses || info.primary_ip || '';
+                            if (!raw) return <span>—</span>;
+                            const segments = String(raw).split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
+                            return segments.map((seg, i) => (
+                              <span key={i}>
+                                {i > 0 && ', '}
+                                {seg}
+                              </span>
+                            ));
+                          })()}
+                        </div>
+                        <div>
+                          <span className="text-gray-500">SO:</span>{' '}
+                          {info.os_name || '—'}{' '}
+                          {info.os_version && `(${info.os_version})`}{' '}
+                          {info.os_arch && ` · ${info.os_arch}`}
+                        </div>
+                        {info.os_install_date && (
+                          <div>
+                            <span className="text-gray-500">Installato:</span>{' '}
+                            {new Date(info.os_install_date).toLocaleDateString('it-IT')}
+                          </div>
+                        )}
+                        {(info.antivirus_name || info.antivirus_state) && (
+                          <div className="flex items-center gap-1">
+                            <Shield size={14} className="text-gray-400 flex-shrink-0" />
+                            <span className="text-gray-500">ANTIVIRUS:</span>{' '}
+                            {info.antivirus_name || '—'}{' '}
+                            {info.antivirus_state && `· ${info.antivirus_state}`}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Colonna 2: Hardware / CPU / RAM / GPU */}
+                      <div className="space-y-1">
+                        <div>
+                          <span className="text-gray-500">Hardware:</span>{' '}
+                          {info.manufacturer || '—'}{' '}
+                          {info.model && `· ${info.model}`}{' '}
+                          {info.device_type && `(${info.device_type})`}
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <Cpu size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <div>
+                              <span className="text-gray-500">CPU:</span>{' '}
+                              {info.cpu_name || '—'}{' '}
+                              {info.cpu_cores != null && `· ${info.cpu_cores} core`}{' '}
+                              {info.cpu_clock_mhz != null && `· ${info.cpu_clock_mhz} MHz`}
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">RAM:</span>{' '}
+                          {info.ram_free_gb != null && info.ram_total_gb != null
+                            ? `${info.ram_free_gb} / ${info.ram_total_gb} GB liberi`
+                            : (info.ram_total_gb != null ? `${info.ram_total_gb} GB` : '—')}
+                        </div>
+                        <div className="mt-1">
+                          <span className="text-gray-500 font-medium">Scheda/e video:</span>
+                          {info.gpus_json ? (() => {
+                            try {
+                              const gpus = typeof info.gpus_json === 'string' ? JSON.parse(info.gpus_json) : info.gpus_json;
+                              if (Array.isArray(gpus) && gpus.length > 0) {
+                                const virtualSkip = /Virtual Desktop Monitor|Meta Virtual Monitor/i;
+                                const realGpus = gpus.filter(g => {
+                                  const name = (g.name || g.caption || '').trim();
+                                  return name && !virtualSkip.test(name);
+                                });
+                                if (realGpus.length === 0) return <span className="text-gray-500"> —</span>;
+                                const parts = realGpus.map(g => {
+                                  const name = g.name || g.caption || '—';
+                                  const gb = g.adapter_ram_mb != null ? Math.round(g.adapter_ram_mb / 1024) : null;
+                                  return gb != null ? `${name} · ${gb} GB` : name;
+                                });
+                                return <span className="text-gray-700"> {parts.join(', ')}</span>;
+                              }
+                            } catch (_) { /* ignore */ }
+                            return <span className="text-gray-700"> {info.gpu_name || '—'}</span>;
+                          })() : info.gpu_name ? (
+                            <span className="text-gray-700"> {info.gpu_name}</span>
+                          ) : (
+                            <span className="text-gray-400 italic">
+                              Nessun dato ricevuto dall’agent
+                            </span>
+                          )}
+                        </div>
+                        {(info.battery_percent != null || info.battery_status) && (
+                          <div className="flex items-center gap-1">
+                            <Battery size={14} className="text-gray-400" />
+                            <span className="text-gray-500">Batteria:</span>{' '}
+                            {info.battery_status || ''}{' '}
+                            {info.battery_percent != null && `${info.battery_percent}%`}{' '}
+                            {info.battery_charging && '(in carica)'}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Colonna 3: Archiviazione Dischi (versione compatta) */}
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1">
+                          <HardDrive size={14} className="text-gray-400" />
+                          <span className="text-gray-500 font-medium">Archiviazione Dischi:</span>
+                        </div>
+                        {(() => {
+                          const disksJson = info.disks_json;
+                          if (!disksJson) return <span className="text-gray-500 text-xs">—</span>;
+                          try {
+                            const arr = typeof disksJson === 'string' ? JSON.parse(disksJson) : disksJson;
+                            if (!Array.isArray(arr) || arr.length === 0) return <span className="text-gray-500 text-xs">—</span>;
+                            return (
+                              <div className="flex flex-col gap-2 w-full mt-1">
+                                {arr.map((d, i) => {
+                                  if (d.total_gb == null || d.free_gb == null) return null;
+                                  const used = Math.max(0, d.total_gb - d.free_gb);
+                                  const percent = d.total_gb > 0 ? Math.round((used / d.total_gb) * 100) : 0;
+                                  return (
+                                    <div key={i} className="flex flex-col gap-1 text-[11px] w-full bg-gray-50 p-2 rounded border border-gray-100">
+                                      <div className="flex justify-between text-gray-700 font-medium">
+                                        <span>Disco {d.letter}</span>
+                                        <span>{percent}% in uso</span>
+                                      </div>
+                                      <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                                        <div
+                                          className={`h-1.5 rounded-full ${percent > 90 ? 'bg-red-500' : percent > 75 ? 'bg-yellow-500' : 'bg-teal-500'}`}
+                                          style={{ width: `${percent}%` }}
+                                        />
+                                      </div>
+                                      <div className="flex justify-between text-[9px] text-gray-500">
+                                        <span>Liberi: {d.free_gb} GB</span>
+                                        <span>Totali: {d.total_gb} GB</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          } catch (e) {
+                            return <span className="text-gray-500 text-xs">—</span>;
+                          }
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>,
           document.body

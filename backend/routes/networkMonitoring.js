@@ -8221,20 +8221,45 @@ pause
   });
 
   // GET /api/network-monitoring/dispositivi-aziendali-by-mac
-  // Restituisce l'elenco di dispositivi presenti in "Dispositivi aziendali" (comm_device_info) keyed by MAC normalizzato, per mostrare icona/fumetto nel monitoraggio rete.
+  // Restituisce l'elenco di dispositivi presenti in "Dispositivi aziendali" (comm_device_info) keyed by MAC normalizzato,
+  // con gli stessi campi principali usati nella scheda Dispositivi aziendali (per mostrare un fumetto quasi identico).
   router.get('/dispositivi-aziendali-by-mac', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       const result = await pool.query(`
         SELECT 
           UPPER(REPLACE(REPLACE(LOWER(TRIM(COALESCE(d.mac, ''))), '-', ''), ':', '')) AS mac_normalized,
+          d.mac,
           u.id AS azienda_id,
           u.azienda,
+          ca.machine_name,
+          ca.status,
+          ca.last_heartbeat,
+          CASE WHEN ca.last_heartbeat > NOW() - INTERVAL '2 minutes' THEN 'online' ELSE 'offline' END AS real_status,
           d.device_name,
+          d.ip_addresses,
+          d.primary_ip,
+          d.os_name,
+          d.os_version,
+          d.os_arch,
+          d.os_install_date,
+          d.manufacturer,
+          d.model,
+          d.device_type,
+          d.cpu_name,
+          d.cpu_cores,
+          d.cpu_clock_mhz,
+          d.gpu_name,
+          d.gpus_json,
+          d.ram_total_gb,
+          d.ram_free_gb,
+          d.disks_json,
           d."current_user",
+          d.battery_status,
+          d.battery_percent,
+          d.battery_charging,
           d.antivirus_name,
           d.antivirus_state,
-          d.primary_ip,
-          d.os_name
+          d.updated_at AS device_info_updated_at
         FROM comm_device_info d
         JOIN comm_agents ca ON ca.id = d.agent_id
         JOIN users u ON u.id = ca.user_id
@@ -8242,14 +8267,38 @@ pause
       `);
       const list = (result.rows || []).map(r => ({
         mac_normalized: r.mac_normalized && r.mac_normalized.length >= 12 ? r.mac_normalized : null,
+        mac: r.mac,
         azienda_id: r.azienda_id,
         azienda: r.azienda,
+        machine_name: r.machine_name,
+        status: r.status,
+        last_heartbeat: r.last_heartbeat,
+        real_status: r.real_status,
         device_name: r.device_name,
+        ip_addresses: r.ip_addresses,
+        primary_ip: r.primary_ip,
+        os_name: r.os_name,
+        os_version: r.os_version,
+        os_arch: r.os_arch,
+        os_install_date: r.os_install_date,
+        manufacturer: r.manufacturer,
+        model: r.model,
+        device_type: r.device_type,
+        cpu_name: r.cpu_name,
+        cpu_cores: r.cpu_cores,
+        cpu_clock_mhz: r.cpu_clock_mhz,
+        gpu_name: r.gpu_name,
+        gpus_json: r.gpus_json,
+        ram_total_gb: r.ram_total_gb,
+        ram_free_gb: r.ram_free_gb,
+        disks_json: r.disks_json,
         current_user: r.current_user,
+        battery_status: r.battery_status,
+        battery_percent: r.battery_percent,
+        battery_charging: r.battery_charging,
         antivirus_name: r.antivirus_name,
         antivirus_state: r.antivirus_state,
-        primary_ip: r.primary_ip,
-        os_name: r.os_name
+        device_info_updated_at: r.device_info_updated_at
       })).filter(r => r.mac_normalized);
       res.json(list);
     } catch (err) {
