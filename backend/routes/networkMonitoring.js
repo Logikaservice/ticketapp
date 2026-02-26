@@ -3207,6 +3207,8 @@ module.exports = (pool, io) => {
               row.device_path = (lastPathElement && lastPathElement.trim()) ? lastPathElement.trim() : null;
               // Utente: da KeePass UserName — SEMPRE aggiornato
               row.device_username = (keepassResult.username && keepassResult.username.trim()) ? keepassResult.username.trim() : null;
+              // Modello: da KeePass custom field 'Modello'
+              row.keepass_model = (keepassResult.model && keepassResult.model.trim()) ? keepassResult.model.trim() : null;
 
               // MAPPING ICONE KEEPASS -> TIPO DISPOSITIVO (solo se NON manuale)
               if (!row.is_manual_type) {
