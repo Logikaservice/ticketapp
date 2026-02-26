@@ -2517,42 +2517,6 @@ module.exports = (pool, io) => {
               }
             }
 
-            // Verifica se è un dispositivo con notifiche Telegram attive
-            try {
-              const deviceCheck = await pool.query(
-                'SELECT notify_telegram, hostname, ip_address, mac_address, status, device_type FROM network_devices WHERE id = $1',
-                [deviceId]
-              );
-
-              if (deviceCheck.rows.length > 0 && deviceCheck.rows[0].notify_telegram) {
-                const device = deviceCheck.rows[0];
-                const agentInfo = await pool.query(
-                  'SELECT na.agent_name, na.azienda_id, u.azienda as azienda_name FROM network_agents na LEFT JOIN users u ON na.azienda_id = u.id WHERE na.id = $1',
-                  [agentId]
-                );
-
-                if (agentInfo.rows.length > 0) {
-                  await sendTelegramNotification(
-                    agentId,
-                    agentInfo.rows[0].azienda_id,
-                    'status_changed',
-                    {
-                      hostname: device.hostname,
-                      deviceType: device.device_type,
-                      ip: device.ip_address,
-                      mac: device.mac_address,
-                      oldStatus: change_type === 'device_offline' ? 'online' : 'offline',
-                      status: change_type === 'device_offline' ? 'offline' : 'online',
-                      agentName: agentInfo.rows[0].agent_name,
-                      aziendaName: agentInfo.rows[0].azienda_name
-                    }
-                  );
-                }
-              }
-            } catch (telegramErr) {
-              console.error('❌ Errore invio notifica Telegram per cambio status:', telegramErr);
-            }
-
             // Verifica se questo IP è configurato per notifiche
             const notificationConfig = await pool.query(
               'SELECT enabled FROM network_notification_config WHERE agent_id = $1 AND ip_address = $2',
