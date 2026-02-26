@@ -200,10 +200,12 @@ class KeepassDriveService {
                   return container[n];
                 }
               }
-              // Fallback case-insensitive
+              // Fallback case-insensitive (match esatto o che contiene "modello")
               const lowerSet = new Set(names.map(n => n.toLowerCase()));
               for (const [key, value] of Object.entries(container)) {
-                if (lowerSet.has(key.toLowerCase()) && value !== undefined && value !== null && String(value).trim() !== '') {
+                const kLower = key.toLowerCase();
+                if ((lowerSet.has(kLower) || kLower.includes('modello')) &&
+                    value !== undefined && value !== null && String(value).trim() !== '') {
                   return value;
                 }
               }
