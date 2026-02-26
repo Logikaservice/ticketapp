@@ -3989,6 +3989,7 @@ module.exports = (pool, io) => {
               const lastPathElement = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
               row.device_path = (lastPathElement && lastPathElement.trim()) ? lastPathElement.trim() : null;
               row.device_username = (keepassResult.username && keepassResult.username.trim()) ? keepassResult.username.trim() : null;
+              row.keepass_model = (keepassResult.model && keepassResult.model.trim()) ? keepassResult.model.trim() : null;
 
               // device_type — solo se NON manuale
               if (!row.is_manual_type) {
@@ -4391,6 +4392,7 @@ module.exports = (pool, io) => {
               row.device_path = (lastPathElement && lastPathElement.trim()) ? lastPathElement.trim() : null;
               row.keepass_username = (keepassResult.username && keepassResult.username.trim()) ? keepassResult.username.trim() : null;
               row.keepass_title = (keepassResult.title && keepassResult.title.trim()) ? keepassResult.title.trim() : null;
+              row.keepass_model = (keepassResult.model && keepassResult.model.trim()) ? keepassResult.model.trim() : null;
             }
           } catch (e) {
             // ignora errore per singolo evento

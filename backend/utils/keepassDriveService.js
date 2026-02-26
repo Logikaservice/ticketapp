@@ -183,12 +183,50 @@ class KeepassDriveService {
             const titleField = entry.fields && entry.fields['Title'];
             let titleStr = titleField ? (titleField instanceof ProtectedValue ? titleField.getText() : String(titleField)) : '';
             if (!titleStr || !titleStr.trim()) {
-              const getCustom = (name) => {
+              const getCustomTitle = (name) => {
                 if (!entry.customFields) return null;
                 return typeof entry.customFields.get === 'function' ? entry.customFields.get(name) : entry.customFields[name];
               };
-              const alt = getCustom('Titolo') || getCustom('Hostname') || getCustom('Nome') || (entry.fields && (entry.fields['Titolo'] || entry.fields['Hostname'] || entry.fields['Nome']));
+              const alt = getCustomTitle('Titolo') || getCustomTitle('Hostname') || getCustomTitle('Nome') || (entry.fields && (entry.fields['Titolo'] || entry.fields['Hostname'] || entry.fields['Nome']));
               if (alt) titleStr = alt instanceof ProtectedValue ? alt.getText() : String(alt);
+            }
+
+            // Estrai il campo "Modello" da KeePass (sia tra i campi standard che tra i campi personalizzati)
+            const modelloNames = ['Modello', 'MODELLO', 'modello', 'Model', 'MODEL', 'model'];
+            const readFieldValue = (container, names) => {
+              if (!container) return null;
+              for (const n of names) {
+                if (container[n] !== undefined && container[n] !== null && String(container[n]).trim() !== '') {
+                  return container[n];
+                }
+              }
+              // Fallback case-insensitive
+              const lowerSet = new Set(names.map(n => n.toLowerCase()));
+              for (const [key, value] of Object.entries(container)) {
+                if (lowerSet.has(key.toLowerCase()) && value !== undefined && value !== null && String(value).trim() !== '') {
+                  return value;
+                }
+              }
+              return null;
+            };
+
+            let modelloStr = '';
+            let modelloField = readFieldValue(entry.fields || {}, modelloNames);
+            if (!modelloField && entry.customFields) {
+              if (typeof entry.customFields.get === 'function') {
+                for (const name of modelloNames) {
+                  const v = entry.customFields.get(name);
+                  if (v !== undefined && v !== null && String(v).trim() !== '') {
+                    modelloField = v;
+                    break;
+                  }
+                }
+              } else {
+                modelloField = readFieldValue(entry.customFields || {}, modelloNames);
+              }
+            }
+            if (modelloField) {
+              modelloStr = modelloField instanceof ProtectedValue ? modelloField.getText() : String(modelloField);
             }
 
 
@@ -334,7 +372,7 @@ class KeepassDriveService {
                 }
                 // Stesso MAC può apparire in più entry (es. Theorica e Cestino): teniamo TUTTE le entry per MAC.
                 // In fase di lettura (route dispositivi) si sceglie l'entry il cui path contiene il nome azienda (es. "Theorica").
-                const entryData = { title: titleStr || '', path: currentPath || '', username: usernameStr || '', iconId: iconId };
+                const entryData = { title: titleStr || '', path: currentPath || '', username: usernameStr || '', iconId: iconId, model: (modelloStr || '').trim() };
                 if (!macMap.has(normalizedMac)) macMap.set(normalizedMac, []);
                 macMap.get(normalizedMac).push(entryData);
               }

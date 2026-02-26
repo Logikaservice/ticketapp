@@ -2277,9 +2277,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   >
                                     {device.ip_address}
                                   </span>
-                                  {device.device_path && (
+                                  {(device.keepass_model || device.device_path) && (
                                     <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-20 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap max-w-xs">
-                                      Modello: {device.device_path}
+                                      Modello: {device.keepass_model || device.device_path}
                                     </div>
                                   )}
                                 </div>
@@ -2374,9 +2374,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                     {device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}
                                     {device.keepass_outside_azienda && <span className="text-amber-600 font-bold" title="Dati da KeePass fuori dal percorso dell'azienda"> *</span>}
                                   </span>
-                                  {device.device_path && (
+                                  {(device.keepass_model || device.device_path) && (
                                     <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-20 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap max-w-xs">
-                                      Modello: {device.device_path}
+                                      Modello: {device.keepass_model || device.device_path}
                                     </div>
                                   )}
                                 </div>
@@ -2744,9 +2744,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                               <span>
                                 {change.mac_address ? change.mac_address.replace(/-/g, ':') : '-'}
                               </span>
-                              {change.device_path && (
+                              {(change.keepass_model || change.device_path) && (
                                 <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-20 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap max-w-xs">
-                                  Modello: {change.device_path}
+                                  Modello: {change.keepass_model || change.device_path}
                                 </div>
                               )}
                             </div>
