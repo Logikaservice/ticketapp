@@ -2269,6 +2269,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                     </div>
                                   )}
 
+                                <div className="relative inline-flex items-center group">
                                   <span
                                     onClick={(e) => handleIpClick(e, device.ip_address, device)}
                                     className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
@@ -2276,6 +2277,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   >
                                     {device.ip_address}
                                   </span>
+                                  {device.device_path && (
+                                    <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-20 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap max-w-xs">
+                                      Modello KeePass: {device.device_path}
+                                    </div>
+                                  )}
+                                </div>
                                 </div>
                                 {device.previous_ip && (
                                   <div className="text-xs text-orange-600 font-mono">
@@ -2706,15 +2713,22 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   </div>
                                 )}
 
-                                {/* IP Address */}
+                                {/* IP Address + tooltip modello KeePass (device_path eventi) */}
                                 {change.ip_address ? (
-                                  <span
-                                    onClick={(e) => handleIpClick(e, change.ip_address, change)}
-                                    className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
-                                    title="Clicca per opzioni"
-                                  >
-                                    {change.ip_address}
-                                  </span>
+                                  <div className="relative inline-flex items-center group">
+                                    <span
+                                      onClick={(e) => handleIpClick(e, change.ip_address, change)}
+                                      className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                                      title="Clicca per opzioni"
+                                    >
+                                      {change.ip_address}
+                                    </span>
+                                    {change.device_path && (
+                                      <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-20 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap max-w-xs">
+                                        Modello KeePass: {change.device_path}
+                                      </div>
+                                    )}
+                                  </div>
                                 ) : (isAgent ? '-' : 'N/A')}
 
                                 {isStatic && (
