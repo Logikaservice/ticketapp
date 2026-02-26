@@ -1208,7 +1208,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   // Il file .bat si auto-elimina e rimuove le credenziali automaticamente
   const handleRemoteDesktop = async (ip) => {
     closeIpContextMenu();
-    
+
     try {
       const response = await fetch(buildApiUrl(`/api/network-monitoring/tools/rdp-credentials?ip=${encodeURIComponent(ip)}`), {
         headers: getAuthHeader()
@@ -2269,13 +2269,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                     </div>
                                   )}
 
-                                <span
-                                  onClick={(e) => handleIpClick(e, device.ip_address, device)}
-                                  className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
-                                  title="Clicca per opzioni"
-                                >
-                                  {device.ip_address}
-                                </span>
+                                  <span
+                                    onClick={(e) => handleIpClick(e, device.ip_address, device)}
+                                    className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                                    title="Clicca per opzioni"
+                                  >
+                                    {device.ip_address}
+                                  </span>
                                 </div>
                                 {device.previous_ip && (
                                   <div className="text-xs text-orange-600 font-mono">
@@ -2367,9 +2367,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                     {device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}
                                     {device.keepass_outside_azienda && <span className="text-amber-600 font-bold" title="Dati da KeePass fuori dal percorso dell'azienda"> *</span>}
                                   </span>
-                                  {(device.keepass_model || device.device_path) && (
+                                  {device.keepass_model && (
                                     <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-20 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap max-w-xs">
-                                      Modello: {device.keepass_model || device.device_path}
+                                      Modello: {device.keepass_model}
                                     </div>
                                   )}
                                 </div>
@@ -2474,320 +2474,320 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
         {/* Sezione eventi unificati (dispositivi + agent): nascosta se cliente senza agent */}
         {showEventiDiRete && (
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Eventi di Rete</h2>
-              <span className="text-sm text-gray-500">{changes.length} totali</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-              {/* Filtro Azienda */}
-              <div className="relative">
-                <select
-                  value={changesCompanyFilter || ''}
-                  onChange={(e) => {
-                    const companyId = e.target.value ? parseInt(e.target.value) : null;
-                    setChangesCompanyFilter(companyId);
-                  }}
-                  className="w-full px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
-                >
-                  <option value="">Tutte le Aziende</option>
-                  {companies
-                    .filter(company => (company.agents_count ?? company.agent_count ?? 0) > 0 || company.id === changesCompanyFilter || company.id === selectedCompanyId)
-                    .map((company) => (
-                      <option key={company.id} value={company.id}>
-                        {company.azienda}
-                      </option>
-                    ))
-                  }
-                </select>
-                <Building
-                  size={16}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
-                />
+          <div className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">Eventi di Rete</h2>
+                <span className="text-sm text-gray-500">{changes.length} totali</span>
               </div>
-
-              {/* Filtro Rete (visibile solo se azienda selezionata e reti disponibili) */}
-              {changesCompanyFilter && availableNetworks.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                {/* Filtro Azienda */}
                 <div className="relative">
                   <select
-                    value={changesNetworkFilter}
-                    onChange={(e) => setChangesNetworkFilter(e.target.value)}
+                    value={changesCompanyFilter || ''}
+                    onChange={(e) => {
+                      const companyId = e.target.value ? parseInt(e.target.value) : null;
+                      setChangesCompanyFilter(companyId);
+                    }}
                     className="w-full px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
                   >
-                    <option value="">Tutte le Reti</option>
-                    {availableNetworks.map((net, idx) => (
-                      <option key={idx} value={net.range || net}>
-                        {net.name ? `${net.name} (${net.range})` : (net.range || net)}
-                      </option>
-                    ))}
+                    <option value="">Tutte le Aziende</option>
+                    {companies
+                      .filter(company => (company.agents_count ?? company.agent_count ?? 0) > 0 || company.id === changesCompanyFilter || company.id === selectedCompanyId)
+                      .map((company) => (
+                        <option key={company.id} value={company.id}>
+                          {company.azienda}
+                        </option>
+                      ))
+                    }
                   </select>
-                  <Wifi
+                  <Building
                     size={16}
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
                   />
                 </div>
-              )}
 
-              {/* Filtro Tipo Evento */}
-              <select
-                value={eventTypeFilter}
-                onChange={(e) => setEventTypeFilter(e.target.value)}
-                className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-              >
-                <option value="all">Tutti gli Eventi</option>
-                <option value="device">Solo Dispositivi</option>
-                <option value="agent">Solo Agent</option>
-              </select>
-
-              {/* Barra di ricerca */}
-              <div className="relative md:col-span-2">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Cerca (IP, MAC, hostname, agent...)"
-                  value={changesSearchTerm}
-                  onChange={(e) => setChangesSearchTerm(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && loadChanges(false)}
-                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                {changesSearchTerm && (
-                  <button
-                    onClick={() => { setChangesSearchTerm(''); loadChanges(false); }}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="p-6">
-            {changes.length === 0 ? (
-              <div className="text-center py-12">
-                <Activity className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 text-lg">Nessun evento rilevato</p>
-                <p className="text-gray-400 text-sm mt-2">Gli eventi di rete verranno visualizzati qui</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[1200px]">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 w-10" title="Tipo dispositivo (solo se riconosciuto)"></th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo Evento</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Prod.</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Titolo</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Azienda</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Data</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {changes.slice(0, 50).map((change) => {
-                      const isStatic = change.is_static === true;
-                      const isAgent = change.event_category === 'agent';
-                      return (
-                        <tr
-                          key={`${change.event_category || 'device'}-${change.id}`}
-                          className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''
-                            } ${change.severity === 'critical' ? 'bg-red-50' : ''}`}
-                        >
-                          {/* Icona tipo dispositivo: solo per eventi dispositivo con device_type riconosciuto */}
-                          <td className="py-3 px-2 w-10 whitespace-nowrap align-middle">
-                            {!isAgent && change.device_type && String(change.device_type).trim() !== '' ? (
-                              <span className="inline-flex items-center justify-center" title={change.device_type}>
-                                {getDeviceIcon(change.device_type, 18, 'text-gray-500')}
-                              </span>
-                            ) : null}
-                          </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
-                            {(() => {
-                              const actualEventType = change.event_type || change.change_type;
-                              const actualCategory = change.event_category || 'device';
-                              const isNewDevice = change.is_new_device;
-
-                              // Configurazione badge per eventi dispositivi (senza icone)
-                              const deviceBadges = {
-                                new_device: {
-                                  label: 'Nuovo',
-                                  bg: 'bg-green-100',
-                                  text: 'text-green-800',
-                                  border: 'border-green-300'
-                                },
-                                device_online: {
-                                  label: isNewDevice ? 'Nuovo' : 'Online',
-                                  bg: isNewDevice ? 'bg-green-100' : 'bg-blue-100',
-                                  text: isNewDevice ? 'text-green-800' : 'text-blue-800',
-                                  border: isNewDevice ? 'border-green-300' : 'border-blue-300'
-                                },
-                                device_offline: {
-                                  label: 'Offline',
-                                  bg: 'bg-red-100',
-                                  text: 'text-red-800',
-                                  border: 'border-red-300'
-                                },
-                                ip_changed: {
-                                  label: 'IP Cambiato (Statico)',
-                                  bg: 'bg-orange-100',
-                                  text: 'text-orange-800',
-                                  border: 'border-orange-300'
-                                },
-                                mac_changed: {
-                                  label: 'MAC Cambiato',
-                                  bg: 'bg-orange-100',
-                                  text: 'text-orange-800',
-                                  border: 'border-orange-300'
-                                },
-                                ip_conflict: {
-                                  label: 'Conflitto IP',
-                                  bg: 'bg-amber-100',
-                                  text: 'text-amber-800',
-                                  border: 'border-amber-300'
-                                },
-                                hostname_changed: {
-                                  label: 'Hostname Cambiato',
-                                  bg: 'bg-yellow-100',
-                                  text: 'text-yellow-800',
-                                  border: 'border-yellow-300'
-                                }
-                              };
-
-                              // Configurazione badge per eventi agent (senza icone)
-                              const agentBadges = {
-                                offline: {
-                                  label: 'Agent Off.',
-                                  bg: 'bg-red-100',
-                                  text: 'text-red-800',
-                                  border: 'border-red-300'
-                                },
-                                online: {
-                                  label: 'Agent Online',
-                                  bg: 'bg-green-100',
-                                  text: 'text-green-800',
-                                  border: 'border-green-300'
-                                },
-                                reboot: {
-                                  label: 'Agent Riavviato',
-                                  bg: 'bg-purple-100',
-                                  text: 'text-purple-800',
-                                  border: 'border-purple-300'
-                                },
-                                network_issue: {
-                                  label: 'Problema Rete',
-                                  bg: 'bg-yellow-100',
-                                  text: 'text-yellow-800',
-                                  border: 'border-yellow-300'
-                                }
-                              };
-
-                              const badges = actualCategory === 'agent' ? agentBadges : deviceBadges;
-                              const badge = badges[actualEventType] || {
-                                label: actualEventType || '-',
-                                bg: 'bg-gray-100',
-                                text: 'text-gray-800',
-                                border: 'border-gray-300'
-                              };
-
-                              return (
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${badge.bg} ${badge.text} ${badge.border} whitespace-nowrap`}>
-                                  {badge.label}
-                                </span>
-                              );
-                            })()}
-                          </td>
-                          <td className="py-3 px-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
-                              <div className="flex items-center gap-2">
-                                {/* Indicatore disconnessioni frequenti */}
-                                {change.has_ping_failures && (
-                                  <div className="relative group flex items-center">
-                                    <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
-                                      <span className="text-white text-xs font-bold leading-none">+</span>
-                                    </div>
-                                    <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                                      Disconnessioni frequenti rilevate
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* IP Address */}
-                                {change.ip_address ? (
-                                  <span
-                                    onClick={(e) => handleIpClick(e, change.ip_address, change)}
-                                    className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
-                                    title="Clicca per opzioni"
-                                  >
-                                    {change.ip_address}
-                                  </span>
-                                ) : (isAgent ? '-' : 'N/A')}
-
-                                {isStatic && (
-                                  <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-200 text-blue-800 font-semibold whitespace-nowrap">
-                                    STATICO
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-sm text-gray-600 font-mono whitespace-nowrap">
-                            <div className="relative inline-flex items-center group">
-                              <span>
-                                {change.mac_address ? change.mac_address.replace(/-/g, ':') : '-'}
-                              </span>
-                              {(change.keepass_model || change.device_path) && (
-                                <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-20 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap max-w-xs">
-                                  Modello: {change.keepass_model || change.device_path}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
-                            {change.hostname || '-'}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
-                            {change.device_type || '-'}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
-                            <span title={change.keepass_username ? `Utente: ${change.keepass_username}` : ''}>
-                              {change.hostname || change.keepass_title || change.device_path || change.vendor || '-'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
-                            {change.azienda ? (
-                              <span
-                                onClick={() => {
-                                  if (change.azienda_id) {
-                                    setSelectedCompanyId(change.azienda_id);
-                                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                                  }
-                                }}
-                                className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
-                                title="Vedi dispositivi azienda"
-                              >
-                                {change.azienda}
-                              </span>
-                            ) : 'N/A'}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-gray-500 whitespace-nowrap">
-                            {formatDate(change.detected_at)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {changes.length > 50 && (
-                  <div className="text-center py-4 text-sm text-gray-500 border-t border-gray-200">
-                    Mostrati i primi 50 cambiamenti di {changes.length} totali
+                {/* Filtro Rete (visibile solo se azienda selezionata e reti disponibili) */}
+                {changesCompanyFilter && availableNetworks.length > 0 && (
+                  <div className="relative">
+                    <select
+                      value={changesNetworkFilter}
+                      onChange={(e) => setChangesNetworkFilter(e.target.value)}
+                      className="w-full px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+                    >
+                      <option value="">Tutte le Reti</option>
+                      {availableNetworks.map((net, idx) => (
+                        <option key={idx} value={net.range || net}>
+                          {net.name ? `${net.name} (${net.range})` : (net.range || net)}
+                        </option>
+                      ))}
+                    </select>
+                    <Wifi
+                      size={16}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
+                    />
                   </div>
                 )}
+
+                {/* Filtro Tipo Evento */}
+                <select
+                  value={eventTypeFilter}
+                  onChange={(e) => setEventTypeFilter(e.target.value)}
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                >
+                  <option value="all">Tutti gli Eventi</option>
+                  <option value="device">Solo Dispositivi</option>
+                  <option value="agent">Solo Agent</option>
+                </select>
+
+                {/* Barra di ricerca */}
+                <div className="relative md:col-span-2">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Cerca (IP, MAC, hostname, agent...)"
+                    value={changesSearchTerm}
+                    onChange={(e) => setChangesSearchTerm(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && loadChanges(false)}
+                    className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {changesSearchTerm && (
+                    <button
+                      onClick={() => { setChangesSearchTerm(''); loadChanges(false); }}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               </div>
-            )}
+            </div>
+            <div className="p-6">
+              {changes.length === 0 ? (
+                <div className="text-center py-12">
+                  <Activity className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 text-lg">Nessun evento rilevato</p>
+                  <p className="text-gray-400 text-sm mt-2">Gli eventi di rete verranno visualizzati qui</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[1200px]">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 w-10" title="Tipo dispositivo (solo se riconosciuto)"></th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Tipo Evento</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">IP</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">MAC</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hostname</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Prod.</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Titolo</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Azienda</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Data</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {changes.slice(0, 50).map((change) => {
+                        const isStatic = change.is_static === true;
+                        const isAgent = change.event_category === 'agent';
+                        return (
+                          <tr
+                            key={`${change.event_category || 'device'}-${change.id}`}
+                            className={`border-b border-gray-100 hover:bg-gray-50 ${isStatic ? 'bg-blue-50 hover:bg-blue-100' : ''
+                              } ${change.severity === 'critical' ? 'bg-red-50' : ''}`}
+                          >
+                            {/* Icona tipo dispositivo: solo per eventi dispositivo con device_type riconosciuto */}
+                            <td className="py-3 px-2 w-10 whitespace-nowrap align-middle">
+                              {!isAgent && change.device_type && String(change.device_type).trim() !== '' ? (
+                                <span className="inline-flex items-center justify-center" title={change.device_type}>
+                                  {getDeviceIcon(change.device_type, 18, 'text-gray-500')}
+                                </span>
+                              ) : null}
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              {(() => {
+                                const actualEventType = change.event_type || change.change_type;
+                                const actualCategory = change.event_category || 'device';
+                                const isNewDevice = change.is_new_device;
+
+                                // Configurazione badge per eventi dispositivi (senza icone)
+                                const deviceBadges = {
+                                  new_device: {
+                                    label: 'Nuovo',
+                                    bg: 'bg-green-100',
+                                    text: 'text-green-800',
+                                    border: 'border-green-300'
+                                  },
+                                  device_online: {
+                                    label: isNewDevice ? 'Nuovo' : 'Online',
+                                    bg: isNewDevice ? 'bg-green-100' : 'bg-blue-100',
+                                    text: isNewDevice ? 'text-green-800' : 'text-blue-800',
+                                    border: isNewDevice ? 'border-green-300' : 'border-blue-300'
+                                  },
+                                  device_offline: {
+                                    label: 'Offline',
+                                    bg: 'bg-red-100',
+                                    text: 'text-red-800',
+                                    border: 'border-red-300'
+                                  },
+                                  ip_changed: {
+                                    label: 'IP Cambiato (Statico)',
+                                    bg: 'bg-orange-100',
+                                    text: 'text-orange-800',
+                                    border: 'border-orange-300'
+                                  },
+                                  mac_changed: {
+                                    label: 'MAC Cambiato',
+                                    bg: 'bg-orange-100',
+                                    text: 'text-orange-800',
+                                    border: 'border-orange-300'
+                                  },
+                                  ip_conflict: {
+                                    label: 'Conflitto IP',
+                                    bg: 'bg-amber-100',
+                                    text: 'text-amber-800',
+                                    border: 'border-amber-300'
+                                  },
+                                  hostname_changed: {
+                                    label: 'Hostname Cambiato',
+                                    bg: 'bg-yellow-100',
+                                    text: 'text-yellow-800',
+                                    border: 'border-yellow-300'
+                                  }
+                                };
+
+                                // Configurazione badge per eventi agent (senza icone)
+                                const agentBadges = {
+                                  offline: {
+                                    label: 'Agent Off.',
+                                    bg: 'bg-red-100',
+                                    text: 'text-red-800',
+                                    border: 'border-red-300'
+                                  },
+                                  online: {
+                                    label: 'Agent Online',
+                                    bg: 'bg-green-100',
+                                    text: 'text-green-800',
+                                    border: 'border-green-300'
+                                  },
+                                  reboot: {
+                                    label: 'Agent Riavviato',
+                                    bg: 'bg-purple-100',
+                                    text: 'text-purple-800',
+                                    border: 'border-purple-300'
+                                  },
+                                  network_issue: {
+                                    label: 'Problema Rete',
+                                    bg: 'bg-yellow-100',
+                                    text: 'text-yellow-800',
+                                    border: 'border-yellow-300'
+                                  }
+                                };
+
+                                const badges = actualCategory === 'agent' ? agentBadges : deviceBadges;
+                                const badge = badges[actualEventType] || {
+                                  label: actualEventType || '-',
+                                  bg: 'bg-gray-100',
+                                  text: 'text-gray-800',
+                                  border: 'border-gray-300'
+                                };
+
+                                return (
+                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${badge.bg} ${badge.text} ${badge.border} whitespace-nowrap`}>
+                                    {badge.label}
+                                  </span>
+                                );
+                              })()}
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">
+                                <div className="flex items-center gap-2">
+                                  {/* Indicatore disconnessioni frequenti */}
+                                  {change.has_ping_failures && (
+                                    <div className="relative group flex items-center">
+                                      <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
+                                        <span className="text-white text-xs font-bold leading-none">+</span>
+                                      </div>
+                                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                                        Disconnessioni frequenti rilevate
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* IP Address */}
+                                  {change.ip_address ? (
+                                    <span
+                                      onClick={(e) => handleIpClick(e, change.ip_address, change)}
+                                      className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                                      title="Clicca per opzioni"
+                                    >
+                                      {change.ip_address}
+                                    </span>
+                                  ) : (isAgent ? '-' : 'N/A')}
+
+                                  {isStatic && (
+                                    <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-200 text-blue-800 font-semibold whitespace-nowrap">
+                                      STATICO
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-600 font-mono whitespace-nowrap">
+                              <div className="relative inline-flex items-center group">
+                                <span>
+                                  {change.mac_address ? change.mac_address.replace(/-/g, ':') : '-'}
+                                </span>
+                                {change.keepass_model && (
+                                  <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-20 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap max-w-xs">
+                                    Modello: {change.keepass_model}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
+                              {change.hostname || '-'}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
+                              {change.device_type || '-'}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
+                              <span title={change.keepass_username ? `Utente: ${change.keepass_username}` : ''}>
+                                {change.hostname || change.keepass_title || change.device_path || change.vendor || '-'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
+                              {change.azienda ? (
+                                <span
+                                  onClick={() => {
+                                    if (change.azienda_id) {
+                                      setSelectedCompanyId(change.azienda_id);
+                                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }
+                                  }}
+                                  className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                                  title="Vedi dispositivi azienda"
+                                >
+                                  {change.azienda}
+                                </span>
+                              ) : 'N/A'}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-500 whitespace-nowrap">
+                              {formatDate(change.detected_at)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {changes.length > 50 && (
+                    <div className="text-center py-4 text-sm text-gray-500 border-t border-gray-200">
+                      Mostrati i primi 50 cambiamenti di {changes.length} totali
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
         )}
 
         {/* Popover Tipo dispositivo: portale a schermo intero così le icone non vengono mai tagliate */}
