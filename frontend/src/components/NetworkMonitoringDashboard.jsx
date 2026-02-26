@@ -2369,10 +2369,17 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   </div>
                                 )}
 
-                                <span className={newDevicesInList.has(device.id) ? "bg-yellow-100 px-1 rounded font-bold" : ""} title={device.keepass_outside_azienda ? 'Dati da KeePass fuori dal percorso dell\'azienda' : undefined}>
-                                  {device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}
-                                  {device.keepass_outside_azienda && <span className="text-amber-600 font-bold" title="Dati da KeePass fuori dal percorso dell'azienda"> *</span>}
-                                </span>
+                                <div className="relative inline-flex items-center group">
+                                  <span className={newDevicesInList.has(device.id) ? "bg-yellow-100 px-1 rounded font-bold" : ""} title={device.keepass_outside_azienda ? 'Dati da KeePass fuori dal percorso dell\'azienda' : undefined}>
+                                    {device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}
+                                    {device.keepass_outside_azienda && <span className="text-amber-600 font-bold" title="Dati da KeePass fuori dal percorso dell'azienda"> *</span>}
+                                  </span>
+                                  {device.device_path && (
+                                    <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-20 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap max-w-xs">
+                                      Modello KeePass: {device.device_path}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </td>
                             <td className="py-1 px-3 text-sm text-gray-600 max-w-[11rem] truncate" title={device.hostname || '-'}>
@@ -2713,22 +2720,15 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   </div>
                                 )}
 
-                                {/* IP Address + tooltip modello KeePass (device_path eventi) */}
+                                {/* IP Address */}
                                 {change.ip_address ? (
-                                  <div className="relative inline-flex items-center group">
-                                    <span
-                                      onClick={(e) => handleIpClick(e, change.ip_address, change)}
-                                      className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
-                                      title="Clicca per opzioni"
-                                    >
-                                      {change.ip_address}
-                                    </span>
-                                    {change.device_path && (
-                                      <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-20 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap max-w-xs">
-                                        Modello KeePass: {change.device_path}
-                                      </div>
-                                    )}
-                                  </div>
+                                  <span
+                                    onClick={(e) => handleIpClick(e, change.ip_address, change)}
+                                    className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
+                                    title="Clicca per opzioni"
+                                  >
+                                    {change.ip_address}
+                                  </span>
                                 ) : (isAgent ? '-' : 'N/A')}
 
                                 {isStatic && (
@@ -2740,7 +2740,16 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             </div>
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-600 font-mono whitespace-nowrap">
-                            {change.mac_address ? change.mac_address.replace(/-/g, ':') : '-'}
+                            <div className="relative inline-flex items-center group">
+                              <span>
+                                {change.mac_address ? change.mac_address.replace(/-/g, ':') : '-'}
+                              </span>
+                              {change.device_path && (
+                                <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-20 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap max-w-xs">
+                                  Modello KeePass: {change.device_path}
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
                             {change.hostname || '-'}
