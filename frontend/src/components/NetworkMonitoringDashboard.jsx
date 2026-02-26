@@ -2279,7 +2279,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   </span>
                                   {device.device_path && (
                                     <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-20 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap max-w-xs">
-                                      Modello KeePass: {device.device_path}
+                                      Modello: {device.device_path}
                                     </div>
                                   )}
                                 </div>
@@ -2376,7 +2376,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   </span>
                                   {device.device_path && (
                                     <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-20 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap max-w-xs">
-                                      Modello KeePass: {device.device_path}
+                                      Modello: {device.device_path}
                                     </div>
                                   )}
                                 </div>
@@ -2746,7 +2746,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                               </span>
                               {change.device_path && (
                                 <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-20 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap max-w-xs">
-                                  Modello KeePass: {change.device_path}
+                                  Modello: {change.device_path}
                                 </div>
                               )}
                             </div>
