@@ -191,21 +191,20 @@ class KeepassDriveService {
               if (alt) titleStr = alt instanceof ProtectedValue ? alt.getText() : String(alt);
             }
 
-            // Estrai il campo "Modello" da KeePass (sia tra i campi standard che tra i campi personalizzati)
-            const modelloNames = ['Modello', 'MODELLO', 'modello', 'Model', 'MODEL', 'model'];
-            const readFieldValue = (container, names) => {
-              if (!container) return null;
-              for (const n of names) {
-                if (container[n] !== undefined && container[n] !== null && String(container[n]).trim() !== '') {
-                  return container[n];
-                }
-              }
-              // Fallback case-insensitive (match esatto o che contiene "modello")
-              const lowerSet = new Set(names.map(n => n.toLowerCase()));
-              for (const [key, value] of Object.entries(container)) {
-                const kLower = key.toLowerCase();
-                if ((lowerSet.has(kLower) || kLower.includes('modello')) &&
-                    value !== undefined && value !== null && String(value).trim() !== '') {
+            // Estrai il campo "Modello" da KeePass (campi standard + "Campi stringa" / custom)
+            // kdbxweb può esporre entry.fields e entry.customFields come Map: usare entries(), non Object.entries
+            const allEntries = (container) => {
+              if (!container) return [];
+              if (typeof container.entries === 'function') return [...container.entries()];
+              return Object.entries(container);
+            };
+            const modelloKeyMatch = (key) => {
+              const k = String(key || '').trim().toLowerCase();
+              return k === 'modello' || k === 'model' || k.includes('modello');
+            };
+            const readModelloFromContainer = (container) => {
+              for (const [key, value] of allEntries(container)) {
+                if (modelloKeyMatch(key) && value !== undefined && value !== null && String(value).trim() !== '') {
                   return value;
                 }
               }
@@ -213,19 +212,9 @@ class KeepassDriveService {
             };
 
             let modelloStr = '';
-            let modelloField = readFieldValue(entry.fields || {}, modelloNames);
+            let modelloField = readModelloFromContainer(entry.fields || null);
             if (!modelloField && entry.customFields) {
-              if (typeof entry.customFields.get === 'function') {
-                for (const name of modelloNames) {
-                  const v = entry.customFields.get(name);
-                  if (v !== undefined && v !== null && String(v).trim() !== '') {
-                    modelloField = v;
-                    break;
-                  }
-                }
-              } else {
-                modelloField = readFieldValue(entry.customFields || {}, modelloNames);
-              }
+              modelloField = readModelloFromContainer(entry.customFields);
             }
             if (modelloField) {
               modelloStr = modelloField instanceof ProtectedValue ? modelloField.getText() : String(modelloField);
@@ -233,15 +222,15 @@ class KeepassDriveService {
 
 
             // Cerca MAC in TUTTI i campi (inclusi campi personalizzati)
-            // Prima ottieni tutti i nomi dei campi disponibili
-            const allFieldNames = entry.fields ? Object.keys(entry.fields) : [];
+            // entry.fields e entry.customFields possono essere Map: usare keys/entries, non Object.keys
+            const allFieldNames = entry.fields
+              ? (typeof entry.fields.keys === 'function' ? [...entry.fields.keys()] : Object.keys(entry.fields))
+              : [];
             let customFieldNames = [];
             if (entry.customFields) {
-              if (typeof entry.customFields.keys === 'function') {
-                customFieldNames = [...entry.customFields.keys()];
-              } else {
-                customFieldNames = Object.keys(entry.customFields);
-              }
+              customFieldNames = typeof entry.customFields.keys === 'function'
+                ? [...entry.customFields.keys()]
+                : Object.keys(entry.customFields);
             }
 
             const standardFields = ['UserName', 'Password', 'URL', 'Notes', 'Title'];
@@ -303,16 +292,13 @@ class KeepassDriveService {
             // Cerca TUTTI i MAC in TUTTI i campi (un campo può contenere più MAC)
             const foundMacs = [];
 
+            const getField = (container, name) => {
+              if (!container) return null;
+              if (typeof container.get === 'function') return container.get(name);
+              return container[name];
+            };
             for (const fieldName of fieldsToCheck) {
-              // Prova prima in entry.fields, poi in entry.customFields (oggetto o Map)
-              let fieldValue = null;
-              if (entry.fields && entry.fields[fieldName]) {
-                fieldValue = entry.fields[fieldName];
-              } else if (entry.customFields) {
-                fieldValue = typeof entry.customFields.get === 'function'
-                  ? entry.customFields.get(fieldName)
-                  : entry.customFields[fieldName];
-              }
+              let fieldValue = getField(entry.fields, fieldName) || getField(entry.customFields, fieldName);
 
               if (fieldValue) {
                 const valueStr = fieldValue instanceof ProtectedValue
