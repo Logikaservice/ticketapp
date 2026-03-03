@@ -77,6 +77,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [dispositivoAziendaliPopover, setDispositivoAziendaliPopover] = useState({ show: false, left: 0, top: 0, device: null, info: null });
   const popoverDeviceInfo = dispositivoAziendaliPopover.info;
   const popoverHasInfo = !!(popoverDeviceInfo && (popoverDeviceInfo.mac || popoverDeviceInfo.device_name || popoverDeviceInfo.os_name));
+  // Dimensioni sicure per il fumetto dispositivi aziendali (adattato alla larghezza pagina)
+  const popoverMaxWidth = (typeof window !== 'undefined')
+    ? Math.max(320, Math.min(520, window.innerWidth - 32)) // minimo 320px, massimo 520px, con margine 16px per lato
+    : 520;
+  const popoverSafeLeft = (typeof window !== 'undefined')
+    ? Math.max(16, Math.min(dispositivoAziendaliPopover.left, window.innerWidth - popoverMaxWidth - 16))
+    : dispositivoAziendaliPopover.left;
   // selectedStaticIPs non serve più, usiamo is_static dal database
   const seenMacAddressesRef = useRef(new Set());
   const [newDevicesInList, setNewDevicesInList] = useState(new Set());
@@ -2916,8 +2923,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             role="presentation"
           >
             <div
-              className="absolute bg-white/95 border border-gray-200 rounded-xl shadow-2xl p-4 min-w-[400px] text-[11px] leading-snug"
-              style={{ left: dispositivoAziendaliPopover.left, right: 24, top: dispositivoAziendaliPopover.top }}
+              className="absolute bg-white/95 border border-gray-200 rounded-xl shadow-2xl p-4 text-[11px] leading-snug max-w-[520px]"
+              style={{ left: popoverSafeLeft, top: dispositivoAziendaliPopover.top, maxWidth: popoverMaxWidth }}
               onClick={(e) => e.stopPropagation()}
             >
               {!popoverHasInfo && (
