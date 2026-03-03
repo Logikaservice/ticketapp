@@ -79,8 +79,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const popoverHasInfo = !!(popoverDeviceInfo && (popoverDeviceInfo.mac || popoverDeviceInfo.device_name || popoverDeviceInfo.os_name));
   // Dimensioni sicure per il fumetto dispositivi aziendali (adattato alla larghezza pagina)
   const popoverMaxWidth = (typeof window !== 'undefined')
-    ? Math.max(320, Math.min(520, window.innerWidth - 32)) // minimo 320px, massimo 520px, con margine 16px per lato
-    : 520;
+    ? Math.max(480, Math.min(960, window.innerWidth - 32)) // minimo 480px, massimo ~doppio (960px), con margine 16px per lato
+    : 960;
   const popoverSafeLeft = (typeof window !== 'undefined')
     ? Math.max(16, Math.min(dispositivoAziendaliPopover.left, window.innerWidth - popoverMaxWidth - 16))
     : dispositivoAziendaliPopover.left;
@@ -2976,7 +2976,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             role="presentation"
           >
             <div
-              className="absolute bg-white/95 border border-gray-200 rounded-xl shadow-2xl p-4 text-[11px] leading-snug max-w-[520px]"
+              className="absolute bg-white/95 border border-gray-200 rounded-xl shadow-2xl p-4 text-[11px] leading-snug max-w-[960px]"
               style={{ left: popoverSafeLeft, top: dispositivoAziendaliPopover.top, maxWidth: popoverMaxWidth }}
               onClick={(e) => e.stopPropagation()}
             >
