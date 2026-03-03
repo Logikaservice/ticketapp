@@ -246,12 +246,23 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
       return tickets;
     })();
 
-    return { 
-      displayTickets: filterTickets(), 
-      ticketCounts: countTickets(relevantTicketsForCounts), 
+    return {
+      displayTickets: filterTickets(),
+      ticketCounts: countTickets(relevantTicketsForCounts),
       usersMap
     };
   }, [tickets, currentUser, users, selectedClientFilter, selectedMonth, selectedYear, viewState]);
+
+  // Mappa clientId -> numero di ticket presenti nella lista corrente (displayTickets)
+  const ticketsPerClient = useMemo(() => {
+    const map = new Map();
+    displayTickets.forEach(t => {
+      const id = Number(t.clienteid);
+      if (!id || Number.isNaN(id)) return;
+      map.set(id, (map.get(id) || 0) + 1);
+    });
+    return map;
+  }, [displayTickets]);
 
   // Confronta contatori con ultima visita
   useEffect(() => {
@@ -516,10 +527,20 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                           )}
                         </button>
                         {Object.entries(clientiPerAzienda).map(([azienda, clientiAzienda]) => {
+                          const clientsWithTickets = clientiAzienda.filter(cliente => {
+                            const count = ticketsPerClient.get(cliente.id) || 0;
+                            return count > 0;
+                          });
+
+                          // Mostra solo le aziende che hanno almeno un cliente con almeno un ticket nella lista corrente
+                          if (clientsWithTickets.length === 0) {
+                            return null;
+                          }
+
                           const isExpanded = expandedCompanies.has(azienda);
                           const isNoCompany = azienda === 'Senza azienda';
                           const isCompanySelected = selectedClientFilter === `company:${azienda}`;
-                          
+
                           return (
                             <div key={azienda} className="border-b border-gray-100 last:border-b-0">
                               <div className="flex items-center">
@@ -539,7 +560,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                                         {isNoCompany ? 'Senza azienda' : azienda}
                                       </h3>
                                       <p className="text-xs text-gray-600">
-                                        {clientiAzienda.length} {clientiAzienda.length === 1 ? 'cliente' : 'clienti'}
+                                        {clientsWithTickets.length} {clientsWithTickets.length === 1 ? 'cliente con ticket' : 'clienti con ticket'}
                                       </p>
                                     </div>
                                   </div>
@@ -565,10 +586,10 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                               
                               {isExpanded && (
                                 <div className="bg-gray-50">
-                                  {clientiAzienda.map((cliente) => {
+                                  {clientsWithTickets.map((cliente) => {
                                     const isAdmin = isAdminOfCompany(cliente);
                                     const isSelected = cliente.id.toString() === selectedClientFilter;
-                                    const ticketsForThisClient = displayTickets.filter(t => t.clienteid === cliente.id).length;
+                                    const ticketsForThisClient = ticketsPerClient.get(cliente.id) || 0;
                                     
                                     return (
                                       <button
