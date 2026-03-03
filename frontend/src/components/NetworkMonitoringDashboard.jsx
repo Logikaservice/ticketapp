@@ -23,46 +23,6 @@ import MonitoraggioIntroCard from './MonitoraggioIntroCard';
 import SectionNavMenu from './SectionNavMenu';
 import DeviceAnalysisModal from './Modals/DeviceAnalysisModal';
 
-// Formatta una sintesi compatta dello stato dischi (per fumetto dispositivi aziendali)
-const renderDisksSummary = (disksJson) => {
-  if (!disksJson) return null;
-  let arr;
-  try {
-    arr = typeof disksJson === 'string' ? JSON.parse(disksJson) : disksJson;
-  } catch {
-    return null;
-  }
-  if (!Array.isArray(arr) || arr.length === 0) return null;
-
-  const visible = arr.slice(0, 2); // massimo 2 righe per non allargare troppo il fumetto
-  const extraCount = arr.length - visible.length;
-
-  return (
-    <div className="space-y-0.5">
-      {visible.map((d, i) => {
-        if (d.total_gb == null || d.free_gb == null) return null;
-        const used = Math.max(0, d.total_gb - d.free_gb);
-        const percent = d.total_gb > 0 ? Math.round((used / d.total_gb) * 100) : 0;
-        return (
-          <div key={i} className="flex items-center justify-between gap-2">
-            <span className="text-gray-600">
-              {d.letter ? `Disco ${d.letter}` : 'Disco'}:
-            </span>
-            <span className="text-gray-700 font-medium">
-              {percent}% in uso · liberi {d.free_gb} / {d.total_gb} GB
-            </span>
-          </div>
-        );
-      })}
-      {extraCount > 0 && (
-        <div className="text-[10px] text-gray-500">
-          + {extraCount} {extraCount === 1 ? 'altro disco' : 'altri dischi'}
-        </div>
-      )}
-    </div>
-  );
-};
-
 const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
   const [devices, setDevices] = useState([]);
   const [changes, setChanges] = useState([]);
@@ -1461,30 +1421,52 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     </>
   );
 
-  // Helper per riassunto dischi nel fumetto dispositivi aziendali
+  // Helper per rappresentare i dischi nel fumetto dispositivi aziendali
+  // (stile simile alla pagina Dispositivi Aziendali, con barra grafica)
   const renderDisksInline = (disksJson) => {
     if (!disksJson) return null;
     try {
       const arr = typeof disksJson === 'string' ? JSON.parse(disksJson) : disksJson;
       if (!Array.isArray(arr) || arr.length === 0) return null;
-      const items = arr.filter(d => d && d.total_gb != null && d.free_gb != null && d.letter);
-      if (items.length === 0) return null;
+
+      const visible = arr.slice(0, 2); // massimo 2 dischi nel fumetto
+      const extraCount = arr.length - visible.length;
+
       return (
-        <div className="mt-1 space-y-0.5">
-          {items.map((d, i) => {
+        <div className="flex flex-col gap-2 w-full mt-1">
+          {visible.map((d, i) => {
+            if (d.total_gb == null || d.free_gb == null) return null;
             const used = Math.max(0, d.total_gb - d.free_gb);
             const percent = d.total_gb > 0 ? Math.round((used / d.total_gb) * 100) : 0;
-            const colorClass =
-              percent > 90 ? 'text-red-600' : percent > 75 ? 'text-yellow-600' : 'text-emerald-600';
             return (
-              <div key={i} className="flex justify-between">
-                <span className="text-gray-500">Disco {d.letter}:</span>
-                <span className={`ml-2 ${colorClass}`}>
-                  {percent}% in uso ({d.free_gb} / {d.total_gb} GB liberi)
-                </span>
+              <div
+                key={i}
+                className="flex flex-col gap-1 text-[10px] w-full bg-gray-50 p-2 rounded border border-gray-100"
+              >
+                <div className="flex justify-between text-gray-700 font-medium">
+                  <span>{d.letter ? `Disco ${d.letter}` : 'Disco'}</span>
+                  <span>{percent}% in uso</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className={`h-1.5 rounded-full ${
+                      percent > 90 ? 'bg-red-500' : percent > 75 ? 'bg-yellow-500' : 'bg-teal-500'
+                    }`}
+                    style={{ width: `${percent}%` }}
+                  ></div>
+                </div>
+                <div className="flex justify-between text-[9px] text-gray-500">
+                  <span>Liberi: {d.free_gb} GB</span>
+                  <span>Totali: {d.total_gb} GB</span>
+                </div>
               </div>
             );
           })}
+          {extraCount > 0 && (
+            <div className="text-[9px] text-gray-500">
+              + {extraCount} {extraCount === 1 ? 'altro disco' : 'altri dischi'}
+            </div>
+          )}
         </div>
       );
     } catch {
@@ -3015,9 +2997,15 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                     )}
                   </div>
 
-                  {/* Dati principali in due colonne compatte */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px] mt-1">
+                  {/* Dati principali in tre colonne compatte (come carta Dispositivi aziendali) */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[11px] mt-1">
                     <div className="space-y-1 text-gray-700">
+                      {popoverDeviceInfo.current_user && (
+                        <div>
+                          <span className="text-gray-500">Utente:</span>{' '}
+                          {popoverDeviceInfo.current_user}
+                        </div>
+                      )}
                       <div>
                         <span className="text-gray-500">IP:</span>{' '}
                         {popoverDeviceInfo.primary_ip || '—'}
@@ -3062,13 +3050,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           ? `${popoverDeviceInfo.ram_free_gb} / ${popoverDeviceInfo.ram_total_gb} GB liberi`
                           : (popoverDeviceInfo.ram_total_gb != null ? `${popoverDeviceInfo.ram_total_gb} GB` : '—')}
                       </div>
-                      {popoverDeviceInfo.disks_json && (
+                      {popoverDeviceInfo.gpu_name && (
                         <div>
-                          <span className="text-gray-500">Dischi:</span>{' '}
-                          {renderDisksSummary(popoverDeviceInfo.disks_json) || <span>—</span>}
+                          <span className="text-gray-500">GPU:</span>{' '}
+                          {popoverDeviceInfo.gpu_name}
                         </div>
                       )}
-                      {renderDisksInline(popoverDeviceInfo.disks_json)}
                       {(popoverDeviceInfo.battery_percent != null || popoverDeviceInfo.battery_status) && (
                         <div>
                           <span className="text-gray-500">Batteria:</span>{' '}
@@ -3076,6 +3063,16 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           {popoverDeviceInfo.battery_percent != null && `${popoverDeviceInfo.battery_percent}%`}{' '}
                           {popoverDeviceInfo.battery_charging && '(in carica)'}
                         </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1 text-gray-700">
+                      <div className="flex items-center gap-1">
+                        <HardDrive size={12} className="text-gray-400" />
+                        <span className="text-gray-500 font-medium">Archiviazione Dischi:</span>
+                      </div>
+                      {renderDisksInline(popoverDeviceInfo.disks_json) || (
+                        <span className="text-gray-500 text-xs">—</span>
                       )}
                     </div>
                   </div>
