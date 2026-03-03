@@ -23,6 +23,46 @@ import MonitoraggioIntroCard from './MonitoraggioIntroCard';
 import SectionNavMenu from './SectionNavMenu';
 import DeviceAnalysisModal from './Modals/DeviceAnalysisModal';
 
+// Formatta una sintesi compatta dello stato dischi (per fumetto dispositivi aziendali)
+const renderDisksSummary = (disksJson) => {
+  if (!disksJson) return null;
+  let arr;
+  try {
+    arr = typeof disksJson === 'string' ? JSON.parse(disksJson) : disksJson;
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(arr) || arr.length === 0) return null;
+
+  const visible = arr.slice(0, 2); // massimo 2 righe per non allargare troppo il fumetto
+  const extraCount = arr.length - visible.length;
+
+  return (
+    <div className="space-y-0.5">
+      {visible.map((d, i) => {
+        if (d.total_gb == null || d.free_gb == null) return null;
+        const used = Math.max(0, d.total_gb - d.free_gb);
+        const percent = d.total_gb > 0 ? Math.round((used / d.total_gb) * 100) : 0;
+        return (
+          <div key={i} className="flex items-center justify-between gap-2">
+            <span className="text-gray-600">
+              {d.letter ? `Disco ${d.letter}` : 'Disco'}:
+            </span>
+            <span className="text-gray-700 font-medium">
+              {percent}% in uso · liberi {d.free_gb} / {d.total_gb} GB
+            </span>
+          </div>
+        );
+      })}
+      {extraCount > 0 && (
+        <div className="text-[10px] text-gray-500">
+          + {extraCount} {extraCount === 1 ? 'altro disco' : 'altri dischi'}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
   const [devices, setDevices] = useState([]);
   const [changes, setChanges] = useState([]);
@@ -1420,6 +1460,37 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       })()}
     </>
   );
+
+  // Helper per riassunto dischi nel fumetto dispositivi aziendali
+  const renderDisksInline = (disksJson) => {
+    if (!disksJson) return null;
+    try {
+      const arr = typeof disksJson === 'string' ? JSON.parse(disksJson) : disksJson;
+      if (!Array.isArray(arr) || arr.length === 0) return null;
+      const items = arr.filter(d => d && d.total_gb != null && d.free_gb != null && d.letter);
+      if (items.length === 0) return null;
+      return (
+        <div className="mt-1 space-y-0.5">
+          {items.map((d, i) => {
+            const used = Math.max(0, d.total_gb - d.free_gb);
+            const percent = d.total_gb > 0 ? Math.round((used / d.total_gb) * 100) : 0;
+            const colorClass =
+              percent > 90 ? 'text-red-600' : percent > 75 ? 'text-yellow-600' : 'text-emerald-600';
+            return (
+              <div key={i} className="flex justify-between">
+                <span className="text-gray-500">Disco {d.letter}:</span>
+                <span className={`ml-2 ${colorClass}`}>
+                  {percent}% in uso ({d.free_gb} / {d.total_gb} GB liberi)
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      );
+    } catch {
+      return null;
+    }
+  };
 
   if (loading && devices.length === 0) {
     return (
@@ -2991,6 +3062,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           ? `${popoverDeviceInfo.ram_free_gb} / ${popoverDeviceInfo.ram_total_gb} GB liberi`
                           : (popoverDeviceInfo.ram_total_gb != null ? `${popoverDeviceInfo.ram_total_gb} GB` : '—')}
                       </div>
+                      {popoverDeviceInfo.disks_json && (
+                        <div>
+                          <span className="text-gray-500">Dischi:</span>{' '}
+                          {renderDisksSummary(popoverDeviceInfo.disks_json) || <span>—</span>}
+                        </div>
+                      )}
+                      {renderDisksInline(popoverDeviceInfo.disks_json)}
                       {(popoverDeviceInfo.battery_percent != null || popoverDeviceInfo.battery_status) && (
                         <div>
                           <span className="text-gray-500">Batteria:</span>{' '}
