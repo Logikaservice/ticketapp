@@ -8,7 +8,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
   const [showClientMenu, setShowClientMenu] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [expandedAction, setExpandedAction] = useState(null);
-  const [expandedSubAction, setExpandedSubAction] = useState(null); // Per sottomenù annidati
+  const [expandedSubAction, setExpandedSubAction] = useState(null);
   const menuRef = useRef(null);
   const quickActionsRef = useRef(null);
 
@@ -44,7 +44,6 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
           setShowQuickActions(false);
           setExpandedAction(null);
         }
-
       } else if (action === 'mappatura') {
         window.dispatchEvent(new CustomEvent('open-mappatura'));
         setShowQuickActions(false);
@@ -133,10 +132,10 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       hasSubActions: true,
       subActions: [
         { label: 'Crea / Visualizza Agent', icon: Monitor, color: 'violet', onClick: () => { if (openCommAgentManager) { openCommAgentManager(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } },
-            { label: 'Invia Comunicazione', icon: Bell, color: 'violet', onClick: () => { if (openCommAgent) { openCommAgent(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } }
+        { label: 'Invia Comunicazione', icon: Bell, color: 'violet', onClick: () => { if (openCommAgent) { openCommAgent(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } } }
       ]
     },
-    // === Menu cliente (ordine: Nuove funzionalità, Office, Email, Monitoraggio Rete, Impostazioni) ===
+    // === Menu cliente ===
     {
       id: 'alerts',
       label: 'Nuove funzionalità',
@@ -145,7 +144,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       visible: !isOrariDomain && currentUser?.ruolo === 'cliente',
       onClick: () => handleQuickActionClick('alerts')
     },
-    // === Voci condivise tecnico + cliente (Office, Email, Monitoraggio Rete) ===
+    // === Voci condivise tecnico + cliente ===
     {
       id: 'office',
       label: 'Office',
@@ -235,33 +234,170 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
     }
   ].filter(action => action.visible);
 
+  const colorClasses = {
+    emerald: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
+    cyan: 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100',
+    indigo: 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100',
+    purple: 'bg-purple-50 text-purple-700 hover:bg-purple-100',
+    amber: 'bg-amber-50 text-amber-700 hover:bg-amber-100',
+    orange: 'bg-orange-50 text-orange-700 hover:bg-orange-100',
+    sky: 'bg-sky-50 text-sky-700 hover:bg-sky-100',
+    blue: 'bg-blue-50 text-blue-700 hover:bg-blue-100',
+    violet: 'bg-violet-50 text-violet-700 hover:bg-violet-100',
+    teal: 'bg-teal-50 text-teal-700 hover:bg-teal-100',
+    rose: 'bg-rose-50 text-rose-700 hover:bg-rose-100',
+    slate: 'bg-slate-50 text-slate-700 hover:bg-slate-100'
+  };
+
+  const getIconBgClass = (color) => {
+    const classes = {
+      emerald: 'bg-emerald-100 text-emerald-600',
+      cyan: 'bg-cyan-100 text-cyan-600',
+      indigo: 'bg-indigo-100 text-indigo-600',
+      purple: 'bg-purple-100 text-purple-600',
+      amber: 'bg-amber-100 text-amber-600',
+      orange: 'bg-orange-100 text-orange-600',
+      sky: 'bg-sky-100 text-sky-600',
+      blue: 'bg-blue-100 text-blue-600',
+      violet: 'bg-violet-100 text-violet-600',
+      teal: 'bg-teal-100 text-teal-600',
+      rose: 'bg-rose-100 text-rose-600',
+      slate: 'bg-slate-100 text-slate-600'
+    };
+    return classes[color] || 'bg-gray-100 text-gray-600';
+  };
+
+  const getIconTextClass = (color) => {
+    const classes = {
+      emerald: 'text-emerald-600',
+      cyan: 'text-cyan-600',
+      indigo: 'text-indigo-600',
+      purple: 'text-purple-600',
+      amber: 'text-amber-600',
+      orange: 'text-orange-600',
+      sky: 'text-sky-600',
+      blue: 'text-blue-600',
+      violet: 'text-violet-600',
+      teal: 'text-teal-600',
+      rose: 'text-rose-600',
+      slate: 'text-slate-600'
+    };
+    return classes[color] || 'text-gray-600';
+  };
+
   return (
-    <div className="bg-white border-b relative">
+    <div className="bg-white border-b">
       <div className="max-w-7xl mx-auto px-4 py-4">
         <div className="flex items-center justify-between flex-wrap gap-4">
-          {/* Pulsante Pannello Rapido */}
+
+          {/* Pulsante Pannello Rapido + Titolo */}
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowQuickActions(!showQuickActions)}
-              className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
-              title="Pannello rapido"
-            >
-              <List size={20} />
-            </button>
+            {/* Wrapper relative: il dropdown è ancorato sotto questo pulsante */}
+            <div className="relative" ref={quickActionsRef}>
+              <button
+                onClick={() => setShowQuickActions(!showQuickActions)}
+                className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                title="Pannello rapido"
+              >
+                <List size={20} />
+              </button>
+
+              {/* Pannello Rapido a discesa, sempre sotto il pulsante */}
+              {showQuickActions && (
+                <div className="absolute left-0 top-full mt-2 w-64 bg-white rounded-lg shadow-2xl border border-gray-200 py-2 z-50">
+                  {quickActions.map((action) => {
+                    const Icon = action.icon;
+                    return (
+                      <div key={action.id}>
+                        <button
+                          onClick={() => action.onClick ? action.onClick() : handleQuickActionClick(action.id, action.hasSubActions)}
+                          className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${colorClasses[action.color]}`}
+                        >
+                          <div className={`p-2 rounded-lg ${getIconBgClass(action.color)}`}>
+                            <Icon size={18} />
+                          </div>
+                          <span className="font-medium">{action.label}</span>
+                        </button>
+
+                        {/* Sotto-azioni */}
+                        {action.hasSubActions && expandedAction === action.id && (
+                          <div className="ml-4 border-l-2 border-gray-200 pl-2">
+                            {action.subActions.map((subAction, idx) => {
+                              const SubIcon = subAction.icon;
+                              const subActionKey = `${action.id}-${idx}`;
+                              const isSubActionExpanded = expandedSubAction === subActionKey;
+
+                              return (
+                                <div key={idx}>
+                                  <button
+                                    onClick={() => {
+                                      if (subAction.hasSubActions) {
+                                        setExpandedSubAction(isSubActionExpanded ? null : subActionKey);
+                                      } else if (subAction.onClick) {
+                                        subAction.onClick();
+                                        setShowQuickActions(false);
+                                        setExpandedAction(null);
+                                        setExpandedSubAction(null);
+                                      }
+                                    }}
+                                    className={`w-full flex items-center gap-3 px-4 py-2 text-left transition ${colorClasses[subAction.color]}`}
+                                  >
+                                    <SubIcon size={16} className={getIconTextClass(subAction.color)} />
+                                    <span className="text-sm flex-1">{subAction.label}</span>
+                                    {subAction.hasSubActions && (
+                                      <ChevronRight size={14} className={`transition-transform ${isSubActionExpanded ? 'rotate-90' : ''}`} />
+                                    )}
+                                  </button>
+
+                                  {/* Sottomenù annidati */}
+                                  {subAction.hasSubActions && isSubActionExpanded && subAction.subActions && (
+                                    <div className="ml-4 border-l-2 border-gray-300 pl-2">
+                                      {subAction.subActions.map((nestedAction, nestedIdx) => {
+                                        const NestedIcon = nestedAction.icon;
+                                        return (
+                                          <button
+                                            key={nestedIdx}
+                                            onClick={() => {
+                                              if (nestedAction.onClick) {
+                                                nestedAction.onClick();
+                                                setShowQuickActions(false);
+                                                setExpandedAction(null);
+                                                setExpandedSubAction(null);
+                                              }
+                                            }}
+                                            className={`w-full flex items-center gap-3 px-4 py-2 text-left transition ${colorClasses[nestedAction.color]}`}
+                                          >
+                                            <NestedIcon size={14} className={getIconTextClass(nestedAction.color)} />
+                                            <span className="text-sm">{nestedAction.label}</span>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             <div>
               <h1 className="text-2xl font-bold">{isOrariDomain ? 'Gestione Orari e Turni' : 'Sistema Gestione Ticket'}</h1>
               <p className="text-sm text-gray-600 mt-1">
-                {/* --- CODICE CORRETTO --- */}
                 <span className={`px-2 py-0.5 rounded text-xs font-medium ${roleClasses}`}>
                   {userRole}
                 </span>
-                {/* Controlla che currentUser esista prima di accedere alle sue proprietà */}
                 <span className="ml-2">{currentUser?.nome} - {currentUser?.azienda}</span>
               </p>
             </div>
           </div>
 
+          {/* Pulsanti azione destra */}
           <div className="flex items-center gap-2">
             {!isOrariDomain && currentUser?.ruolo === 'cliente' && (
               <button
@@ -311,145 +447,6 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
           </div>
         </div>
       </div>
-
-      {/* Pannello Rapido Laterale */}
-      {showQuickActions && (
-        <div
-          ref={quickActionsRef}
-          className="absolute left-0 top-full mt-2 w-64 bg-white rounded-lg shadow-2xl border border-gray-200 py-2 z-50"
-        >
-          {quickActions.map((action) => {
-            const Icon = action.icon;
-            const colorClasses = {
-              emerald: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
-              cyan: 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100',
-              indigo: 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100',
-              purple: 'bg-purple-50 text-purple-700 hover:bg-purple-100',
-              amber: 'bg-amber-50 text-amber-700 hover:bg-amber-100',
-              orange: 'bg-orange-50 text-orange-700 hover:bg-orange-100',
-              sky: 'bg-sky-50 text-sky-700 hover:bg-sky-100',
-              blue: 'bg-blue-50 text-blue-700 hover:bg-blue-100',
-              violet: 'bg-violet-50 text-violet-700 hover:bg-violet-100',
-              teal: 'bg-teal-50 text-teal-700 hover:bg-teal-100',
-              rose: 'bg-rose-50 text-rose-700 hover:bg-rose-100',
-              slate: 'bg-slate-50 text-slate-700 hover:bg-slate-100'
-            };
-
-            const getIconBgClass = (color) => {
-              const classes = {
-                emerald: 'bg-emerald-100 text-emerald-600',
-                cyan: 'bg-cyan-100 text-cyan-600',
-                indigo: 'bg-indigo-100 text-indigo-600',
-                purple: 'bg-purple-100 text-purple-600',
-                amber: 'bg-amber-100 text-amber-600',
-                orange: 'bg-orange-100 text-orange-600',
-                sky: 'bg-sky-100 text-sky-600',
-                blue: 'bg-blue-100 text-blue-600',
-                violet: 'bg-violet-100 text-violet-600',
-                teal: 'bg-teal-100 text-teal-600',
-                rose: 'bg-rose-100 text-rose-600',
-                slate: 'bg-slate-100 text-slate-600'
-              };
-              return classes[color] || 'bg-gray-100 text-gray-600';
-            };
-
-            const getIconTextClass = (color) => {
-              const classes = {
-                emerald: 'text-emerald-600',
-                cyan: 'text-cyan-600',
-                indigo: 'text-indigo-600',
-                purple: 'text-purple-600',
-                amber: 'text-amber-600',
-                orange: 'text-orange-600',
-                sky: 'text-sky-600',
-                blue: 'text-blue-600',
-                violet: 'text-violet-600',
-                teal: 'text-teal-600',
-                rose: 'text-rose-600',
-                slate: 'text-slate-600'
-              };
-              return classes[color] || 'text-gray-600';
-            };
-
-            return (
-              <div key={action.id}>
-                <button
-                  onClick={() => action.onClick ? action.onClick() : handleQuickActionClick(action.id, action.hasSubActions)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${colorClasses[action.color]}`}
-                >
-                  <div className={`p-2 rounded-lg ${getIconBgClass(action.color)}`}>
-                    <Icon size={18} />
-                  </div>
-                  <span className="font-medium">{action.label}</span>
-                </button>
-
-                {/* Sotto-azioni (es. Gestione Clienti) */}
-                {action.hasSubActions && expandedAction === action.id && (
-                  <div className="ml-4 border-l-2 border-gray-200 pl-2">
-                    {action.subActions.map((subAction, idx) => {
-                      const SubIcon = subAction.icon;
-                      const subActionKey = `${action.id}-${idx}`;
-                      const isSubActionExpanded = expandedSubAction === subActionKey;
-
-                      return (
-                        <div key={idx}>
-                          <button
-                            onClick={() => {
-                              if (subAction.hasSubActions) {
-                                // Se ha sottomenù, espandi/contrai
-                                setExpandedSubAction(isSubActionExpanded ? null : subActionKey);
-                              } else if (subAction.onClick) {
-                                // Se ha onClick, esegui e chiudi menu
-                                subAction.onClick();
-                                setShowQuickActions(false);
-                                setExpandedAction(null);
-                                setExpandedSubAction(null);
-                              }
-                            }}
-                            className={`w-full flex items-center gap-3 px-4 py-2 text-left transition ${colorClasses[subAction.color]}`}
-                          >
-                            <SubIcon size={16} className={getIconTextClass(subAction.color)} />
-                            <span className="text-sm flex-1">{subAction.label}</span>
-                            {subAction.hasSubActions && (
-                              <ChevronRight size={14} className={`transition-transform ${isSubActionExpanded ? 'rotate-90' : ''}`} />
-                            )}
-                          </button>
-
-                          {/* Sottomenù annidati */}
-                          {subAction.hasSubActions && isSubActionExpanded && subAction.subActions && (
-                            <div className="ml-4 border-l-2 border-gray-300 pl-2">
-                              {subAction.subActions.map((nestedAction, nestedIdx) => {
-                                const NestedIcon = nestedAction.icon;
-                                return (
-                                  <button
-                                    key={nestedIdx}
-                                    onClick={() => {
-                                      if (nestedAction.onClick) {
-                                        nestedAction.onClick();
-                                        setShowQuickActions(false);
-                                        setExpandedAction(null);
-                                        setExpandedSubAction(null);
-                                      }
-                                    }}
-                                    className={`w-full flex items-center gap-3 px-4 py-2 text-left transition ${colorClasses[nestedAction.color]}`}
-                                  >
-                                    <NestedIcon size={14} className={getIconTextClass(nestedAction.color)} />
-                                    <span className="text-sm">{nestedAction.label}</span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 };
