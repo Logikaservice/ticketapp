@@ -13,20 +13,46 @@ const formatDateItalian = (dateString) => {
   return `${day}/${month}/${year}`;
 };
 
+// Funzione helper per combinare raggruppamento date e orari
+const formatLogDatesAndTimes = (log) => {
+  if (log.workPhases && Array.isArray(log.workPhases) && log.workPhases.length > 0) {
+    const validPhases = log.workPhases.filter(phase => phase.oraInizio && phase.oraFine);
+    if (validPhases.length > 0) {
+      const grouped = {};
+      validPhases.forEach(phase => {
+        const dateStr = phase.data || log.data;
+        if (!grouped[dateStr]) grouped[dateStr] = [];
+        grouped[dateStr].push(`${phase.oraInizio}-${phase.oraFine}`);
+      });
+
+      const parts = Object.keys(grouped).map(dateStr => {
+        const dateIt = formatDateItalian(dateStr);
+        return `${dateIt} (${grouped[dateStr].join(', ')})`;
+      });
+
+      return parts.join(' | ');
+    }
+  }
+
+  const dataIt = formatDateItalian(log.data);
+  const timeIntervalsFormatted = formatTimeIntervals(log);
+  return `${dataIt} (${timeIntervalsFormatted})`;
+};
+
 export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
   const isInvoice = reportType === 'invoice';
-  
+
   // Calcola totali
   let totalServizi = 0;
   let totalMateriali = 0;
   let totalOfferte = 0;
-  
+
   tickets.forEach(ticket => {
     if (ticket.timelogs && ticket.timelogs.length > 0) {
       ticket.timelogs.forEach(log => {
         const costoManodopera = (parseFloat(log.costoUnitario) || 0) * (1 - (parseFloat(log.sconto) || 0) / 100) * (parseFloat(log.oreIntervento) || 0);
         totalServizi += costoManodopera;
-        
+
         if (log.materials && log.materials.length > 0) {
           log.materials.forEach(m => {
             const nomeMateriale = (m.nome || '').trim();
@@ -35,7 +61,7 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
             }
           });
         }
-        
+
         // Aggiungi costi delle offerte
         if (log.offerte && log.offerte.length > 0) {
           log.offerte.forEach(offerta => {
@@ -45,7 +71,7 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
       });
     }
   });
-  
+
   const totalGenerale = totalServizi + totalMateriali + totalOfferte;
 
   // Genera HTML
@@ -200,7 +226,7 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
     const cliente = users.find(u => u.id === ticket.clienteid);
     const dataApertura = formatDate(ticket.dataapertura);
     const dataChiusura = ticket.datachiusura ? formatDate(ticket.datachiusura) : 'N/A';
-    
+
     let totaleTicket = 0;
 
     html += `
@@ -244,7 +270,7 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
 
       ticket.timelogs.forEach((log, logIndex) => {
         const costoManodopera = (parseFloat(log.costoUnitario) || 0) * (1 - (parseFloat(log.sconto) || 0) / 100) * (parseFloat(log.oreIntervento) || 0);
-        
+
         // Calcola costo materiali per questo log specifico
         const costoMaterialiLog = (log.materials || []).reduce((sum, m) => {
           const nomeMateriale = (m.nome || '').trim();
@@ -253,20 +279,19 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
           }
           return sum;
         }, 0);
-        
+
         // Calcola costo offerte per questo log specifico
         const costoOfferteLog = (log.offerte || []).reduce((sum, o) => {
           return sum + (parseFloat(o.totale) || 0);
         }, 0);
-        
+
         totaleTicket += costoManodopera + costoMaterialiLog + costoOfferteLog;
 
-        const dataItaliana = formatDateItalian(log.data);
-        const timeIntervalsFormatted = formatTimeIntervals(log);
+        const formattedDateAndTime = formatLogDatesAndTimes(log);
 
         html += `
                 <tr>
-                    <td>${logIndex + 1}. ${log.modalita} - ${dataItaliana} (${timeIntervalsFormatted})</td>
+                    <td>${logIndex + 1}. ${log.modalita} - ${formattedDateAndTime}</td>
                     <td style="text-align: center;">${log.oreIntervento}h</td>
                     <td style="text-align: center;">€${parseFloat(log.costoUnitario).toFixed(0)}</td>
                     <td style="text-align: center;">${parseFloat(log.sconto).toFixed(0)}%</td>
@@ -293,7 +318,7 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
       // MATERIALI - Raccogli tutti i materiali validi
       let allMaterialsText = '';
       let hasMaterials = false;
-      
+
       ticket.timelogs.forEach(log => {
         if (log.materials && log.materials.length > 0) {
           log.materials.forEach(m => {
@@ -308,7 +333,7 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
           });
         }
       });
-      
+
       if (hasMaterials) {
         allMaterialsText = allMaterialsText.slice(0, -2); // Rimuovi ultima virgola
         html += `
@@ -322,7 +347,7 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
       let allOfferteText = '';
       let hasOfferte = false;
       let totaleOfferteTicket = 0;
-      
+
       ticket.timelogs.forEach(log => {
         if (log.offerte && log.offerte.length > 0) {
           log.offerte.forEach(o => {
@@ -334,7 +359,7 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
           });
         }
       });
-      
+
       if (hasOfferte) {
         allOfferteText = allOfferteText.slice(0, -2); // Rimuovi ultima virgola
         html += `
@@ -432,7 +457,7 @@ export const generateSingleTicketHTML = (ticket, options = {}) => {
   </div>
 
   <div class="meta">
-    <div><strong>Stato:</strong> ${ticket.stato.replace('_',' ')}</div>
+    <div><strong>Stato:</strong> ${ticket.stato.replace('_', ' ')}</div>
     <div><strong>Priorità:</strong> ${ticket.priorita}</div>
   </div>
   <div class="meta">
@@ -472,14 +497,13 @@ export const generateSingleTicketHTML = (ticket, options = {}) => {
     `;
 
     ticket.timelogs.forEach((log) => {
-      const dataIt = formatDateItalian(log.data);
-      const timeIntervalsFormatted = formatTimeIntervals(log);
+      const formattedDateAndTime = formatLogDatesAndTimes(log);
       html += `
         <tr>
-          <td style="font-size: 9pt;">${dataIt} (${timeIntervalsFormatted})</td>
+          <td style="font-size: 9pt;">${formattedDateAndTime}</td>
           <td style="font-size: 9pt;">${log.modalita || ''}</td>
           <td style="font-size: 9pt; text-align: center;">${log.oreIntervento || ''}</td>
-          <td class="descrizione-cell" style="font-size: 10pt;">${(log.descrizione || '').replace(/\n/g,'<br>')}</td>
+          <td class="descrizione-cell" style="font-size: 10pt;">${(log.descrizione || '').replace(/\n/g, '<br>')}</td>
         </tr>
       `;
     });
@@ -494,23 +518,23 @@ export const generateSingleTicketHTML = (ticket, options = {}) => {
   // Sezione Materiali: raccoglie tutti i materiali presenti nei timelogs (solo se includeTimeLogs è true)
   const allMaterials = (includeTimeLogs && Array.isArray(ticket.timelogs))
     ? ticket.timelogs.flatMap(tl => {
-        if (Array.isArray(tl.materials)) {
-          return tl.materials.map(m => {
-            const nomeMateriale = (m.nome || '').trim();
-            // Filtra solo materiali validi (con nome non vuoto)
-            if (nomeMateriale && nomeMateriale !== '0' && nomeMateriale !== '') {
-              return {
-                nome: nomeMateriale,
-                quantita: parseInt(m.quantita) || 0,
-                costo: parseFloat(m.costo) || 0,
-                totale: (parseInt(m.quantita) || 0) * (parseFloat(m.costo) || 0)
-              };
-            }
-            return null;
-          }).filter(m => m !== null);
-        }
-        return [];
-      })
+      if (Array.isArray(tl.materials)) {
+        return tl.materials.map(m => {
+          const nomeMateriale = (m.nome || '').trim();
+          // Filtra solo materiali validi (con nome non vuoto)
+          if (nomeMateriale && nomeMateriale !== '0' && nomeMateriale !== '') {
+            return {
+              nome: nomeMateriale,
+              quantita: parseInt(m.quantita) || 0,
+              costo: parseFloat(m.costo) || 0,
+              totale: (parseInt(m.quantita) || 0) * (parseFloat(m.costo) || 0)
+            };
+          }
+          return null;
+        }).filter(m => m !== null);
+      }
+      return [];
+    })
     : [];
 
   if (allMaterials.length > 0) {
@@ -586,7 +610,7 @@ export const generateSingleTicketHTML = (ticket, options = {}) => {
           <td style="text-align:right;">${(parseFloat(o.costoUnitario) || 0).toFixed(2)}</td>
           <td style="text-align:center;">${(parseFloat(o.sconto) || 0).toFixed(2)}</td>
           <td style="text-align:right; font-weight:700;">${(parseFloat(o.totale) || 0).toFixed(2)}</td>
-          <td class="descrizione-cell">${(o.descrizione || '').replace(/\n/g,'<br>')}</td>
+          <td class="descrizione-cell">${(o.descrizione || '').replace(/\n/g, '<br>')}</td>
         </tr>
       `;
     });
