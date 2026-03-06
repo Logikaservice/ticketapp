@@ -2097,24 +2097,61 @@ module.exports = (pool, io) => {
           const res = await pool.query('SELECT * FROM network_devices WHERE agent_id = $1 AND ip_address = $2 ORDER BY last_seen DESC NULLS LAST', [agentId, ip_address]);
 
           if (res.rows.length > 0) {
-            existingDevice = res.rows[0]; // Il più recente
+            const matchingByIp = res.rows[0]; // Il più recente
 
-            // Se ci sono duplicati per IP (senza MAC), elimina quelli vecchi
-            if (res.rows.length > 1) {
-              console.log(`⚠️  Trovati ${res.rows.length} duplicati per IP ${ip_address} (Agent ${agentId}). Rimuovo ${res.rows.length - 1} duplicati.`);
+            // Se l'IP corrisponde, ma il MAC è DIVERSO ed ENTRAMBI i MAC sono presenti
+            // Questo significa che un NUOVO dispositivo ha preso l'IP di uno vecchio.
+            if (normalizedMac && matchingByIp.mac_address && matchingByIp.mac_address !== normalizedMac) {
+              console.log(`🔄 [MAC CONFLICT] Nuovo MAC ${normalizedMac} ha preso l'IP ${ip_address} del vecchio MAC ${matchingByIp.mac_address}. Tratto come nuovo dispositivo.`);
 
-              for (let i = 1; i < res.rows.length; i++) {
-                const duplicate = res.rows[i];
+              // Mandiamo offline il vecchio dispositivo
+              if (matchingByIp.status === 'online') {
+                await pool.query(`UPDATE network_devices SET status = 'offline' WHERE id = $1`, [matchingByIp.id]);
 
-                // Aggiorna parent_device_id references
+                // Notifica offline per il vecchio dispositivo
+                if (matchingByIp.notify_telegram === true) {
+                  sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
+                    hostname: matchingByIp.hostname,
+                    deviceType: matchingByIp.device_type,
+                    ip: matchingByIp.ip_address,
+                    mac: matchingByIp.mac_address,
+                    status: 'offline',
+                    oldStatus: 'online',
+                    agentName,
+                    aziendaName
+                  }).catch(e => console.error('Telegram error:', e));
+                }
+              }
+
+              // Se era statico registriamo anche un evento di "mac_changed"
+              if (matchingByIp.is_static === true) {
                 await pool.query(
-                  'UPDATE network_devices SET parent_device_id = $1 WHERE parent_device_id = $2',
-                  [existingDevice.id, duplicate.id]
+                  `INSERT INTO network_changes (device_id, agent_id, change_type, old_value, new_value)
+                    VALUES ($1, $2, 'mac_changed', $3, $4)`,
+                  [matchingByIp.id, agentId, matchingByIp.mac_address, normalizedMac]
                 );
+              }
+              // Lasciando existingDevice a null, il resto del codice farà un INSERT (Nuovo Dispositivo)
+            } else {
+              existingDevice = matchingByIp;
 
-                // Elimina il duplicato
-                await pool.query('DELETE FROM network_devices WHERE id = $1', [duplicate.id]);
-                console.log(`   ❌ Rimosso duplicato ID=${duplicate.id}, MAC=${duplicate.mac_address || 'N/A'}`);
+              // Se ci sono duplicati per IP (senza MAC), elimina quelli vecchi
+              if (res.rows.length > 1) {
+                console.log(`⚠️  Trovati ${res.rows.length} duplicati per IP ${ip_address} (Agent ${agentId}). Rimuovo ${res.rows.length - 1} duplicati.`);
+
+                for (let i = 1; i < res.rows.length; i++) {
+                  const duplicate = res.rows[i];
+
+                  // Aggiorna parent_device_id references
+                  await pool.query(
+                    'UPDATE network_devices SET parent_device_id = $1 WHERE parent_device_id = $2',
+                    [existingDevice.id, duplicate.id]
+                  );
+
+                  // Elimina il duplicato
+                  await pool.query('DELETE FROM network_devices WHERE id = $1', [duplicate.id]);
+                  console.log(`   ❌ Rimosso duplicato ID=${duplicate.id}, MAC=${duplicate.mac_address || 'N/A'}`);
+                }
               }
             }
           }
