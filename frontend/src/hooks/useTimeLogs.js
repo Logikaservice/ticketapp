@@ -10,23 +10,23 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
   // Inizializza timeLogs da un ticket
   const initializeTimeLogs = (ticket) => {
     const logs = Array.isArray(ticket.timelogs) ? ticket.timelogs : [];
-    const initialLogs = logs.length > 0 
-      ? logs.map(lg => ({ 
-          ...lg, 
-          id: Date.now() + Math.random(), 
-          materials: Array.isArray(lg.materials) 
-            ? lg.materials.map(m => ({ 
-                ...m, 
-                id: Date.now() + Math.random(), 
-                // Mostra vuoto se il valore è 0, altrimenti mantieni il valore
-                quantita: (parseInt(m.quantita) || 0) === 0 ? '' : parseInt(m.quantita),
-                costo: (parseFloat(m.costo) || 0) === 0 ? '' : parseFloat(m.costo)
-              })) 
-            : [getInitialMaterial()],
-          offerte: Array.isArray(lg.offerte) 
-            ? lg.offerte.map(o => ({ ...o, id: Date.now() + Math.random() })) 
-            : []
-        })) 
+    const initialLogs = logs.length > 0
+      ? logs.map(lg => ({
+        ...lg,
+        id: Date.now() + Math.random(),
+        materials: Array.isArray(lg.materials)
+          ? lg.materials.map(m => ({
+            ...m,
+            id: Date.now() + Math.random(),
+            // Mostra vuoto se il valore è 0, altrimenti mantieni il valore
+            quantita: (parseInt(m.quantita) || 0) === 0 ? '' : parseInt(m.quantita),
+            costo: (parseFloat(m.costo) || 0) === 0 ? '' : parseFloat(m.costo)
+          }))
+          : [getInitialMaterial()],
+        offerte: Array.isArray(lg.offerte)
+          ? lg.offerte.map(o => ({ ...o, id: Date.now() + Math.random() }))
+          : []
+      }))
       : [getInitialTimeLog()];
     setTimeLogs(initialLogs);
   };
@@ -34,30 +34,30 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
   // Inizializza timeLogs per visualizzazione (senza default se vuoto)
   const initializeTimeLogsForView = (ticket) => {
     const logs = Array.isArray(ticket.timelogs) ? ticket.timelogs : [];
-    const initialLogs = logs.length > 0 
-      ? logs.map(lg => ({ 
-          ...lg, 
-          id: Date.now() + Math.random(), 
-          materials: Array.isArray(lg.materials) 
-            ? lg.materials.map(m => ({ 
-                ...m, 
-                id: Date.now() + Math.random(),
-                // Mostra vuoto se il valore è 0, altrimenti mantieni il valore
-                quantita: (parseInt(m.quantita) || 0) === 0 ? '' : parseInt(m.quantita),
-                costo: (parseFloat(m.costo) || 0) === 0 ? '' : parseFloat(m.costo)
-              })) 
-            : [getInitialMaterial()],
-          offerte: Array.isArray(lg.offerte) 
-            ? lg.offerte.map(o => ({ ...o, id: Date.now() + Math.random() })) 
-            : []
-        })) 
+    const initialLogs = logs.length > 0
+      ? logs.map(lg => ({
+        ...lg,
+        id: Date.now() + Math.random(),
+        materials: Array.isArray(lg.materials)
+          ? lg.materials.map(m => ({
+            ...m,
+            id: Date.now() + Math.random(),
+            // Mostra vuoto se il valore è 0, altrimenti mantieni il valore
+            quantita: (parseInt(m.quantita) || 0) === 0 ? '' : parseInt(m.quantita),
+            costo: (parseFloat(m.costo) || 0) === 0 ? '' : parseFloat(m.costo)
+          }))
+          : [getInitialMaterial()],
+        offerte: Array.isArray(lg.offerte)
+          ? lg.offerte.map(o => ({ ...o, id: Date.now() + Math.random() }))
+          : []
+      }))
       : [];
     setTimeLogs(initialLogs);
   };
 
   // Modifica un campo di un timelog
   const handleTimeLogChange = (logId, field, value) => {
-    setTimeLogs(prev => prev.map(log => 
+    setTimeLogs(prev => prev.map(log =>
       log.id === logId ? { ...log, [field]: value } : log
     ));
   };
@@ -110,14 +110,14 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
 
   // Aggiungi un materiale
   const handleAddMaterial = (logId) => {
-    setTimeLogs(prev => prev.map(log => 
+    setTimeLogs(prev => prev.map(log =>
       log.id === logId ? { ...log, materials: [...log.materials, getInitialMaterial()] } : log
     ));
   };
 
   // Rimuovi un materiale
   const handleRemoveMaterial = (logId, materialId) => {
-    setTimeLogs(prev => prev.map(log => 
+    setTimeLogs(prev => prev.map(log =>
       log.id === logId ? { ...log, materials: log.materials.filter(m => m.id !== materialId) } : log
     ));
   };
@@ -137,7 +137,7 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
       };
 
       const newOfferta = { ...log.offerte.find(o => o.id === offertaId), [field]: coerceValue(field, value) };
-      
+
       // Calcola il totale automaticamente quando cambiano qta, sconto o costoUnitario
       if (['qta', 'sconto', 'costoUnitario'].includes(field)) {
         const qta = field === 'qta' ? coerceValue('qta', value) : (parseInt(newOfferta.qta) || 0);
@@ -158,14 +158,14 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
 
   // Aggiungi un'offerta
   const handleAddOfferta = (logId) => {
-    setTimeLogs(prev => prev.map(log => 
+    setTimeLogs(prev => prev.map(log =>
       log.id === logId ? { ...log, offerte: [...log.offerte, getInitialOfferta()] } : log
     ));
   };
 
   // Rimuovi un'offerta
   const handleRemoveOfferta = (logId, offertaId) => {
-    setTimeLogs(prev => prev.map(log => 
+    setTimeLogs(prev => prev.map(log =>
       log.id === logId ? { ...log, offerte: log.offerte.filter(o => o.id !== offertaId) } : log
     ));
   };
@@ -176,9 +176,9 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
       console.error('[SAVE-TIMELOGS] Nessun ticket selezionato');
       return;
     }
-    
+
     console.log('[SAVE-TIMELOGS] Inizio salvataggio per ticket:', selectedTicket.id);
-    
+
     try {
       const logsToSave = timeLogs.map(log => ({
         modalita: log.modalita,
@@ -190,12 +190,24 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
         oreIntervento: parseFloat(log.oreIntervento) || 0,
         costoUnitario: parseFloat(log.costoUnitario) || 0,
         sconto: parseFloat(log.sconto) || 0,
-        materials: log.materials.map(m => ({
+        workPhases: Array.isArray(log.workPhases) ? log.workPhases.map(phase => ({
+          id: phase.id,
+          modalita: phase.modalita,
+          data: phase.data,
+          oraInizio: phase.oraInizio,
+          oraFine: phase.oraFine
+        })) : [],
+        timeIntervals: Array.isArray(log.timeIntervals) ? log.timeIntervals.map(i => ({
+          id: i.id,
+          start: i.start,
+          end: i.end
+        })) : [],
+        materials: Array.isArray(log.materials) ? log.materials.map(m => ({
           nome: m.nome,
           quantita: parseInt(m.quantita) || 0,
           costo: parseFloat(m.costo) || 0
-        })),
-        offerte: log.offerte.map(o => ({
+        })) : [],
+        offerte: Array.isArray(log.offerte) ? log.offerte.map(o => ({
           numeroOfferta: o.numeroOfferta,
           dataOfferta: o.dataOfferta,
           qta: parseInt(o.qta) || 1,
@@ -203,14 +215,14 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
           totale: parseFloat(o.totale) || 0,
           descrizione: o.descrizione,
           allegati: Array.isArray(o.allegati) ? o.allegati : []
-        }))
+        })) : []
       }));
 
       console.log('[SAVE-TIMELOGS] Dati da inviare:', logsToSave);
 
       const response = await fetch(buildApiUrl(`/api/tickets/${selectedTicket.id}/timelogs`), {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           ...getAuthHeader()
         },
@@ -241,7 +253,7 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
       if (!Array.isArray(parsedTimelogs)) {
         parsedTimelogs = [];
       }
-      
+
       // Crea ticket con timelogs parsati per la sincronizzazione
       const ticketForSync = {
         ...updatedTicket,
@@ -251,25 +263,25 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
       // Aggiorna lo stato globale dei ticket
       setTickets(prev => prev.map(t => t.id === selectedTicket.id ? ticketForSync : t));
       setSelectedTicket(ticketForSync);
-      
+
       // Aggiorna i timeLogs nel modal
       const updatedLogs = Array.isArray(parsedTimelogs) ? parsedTimelogs : [];
-      const refreshedLogs = updatedLogs.length > 0 ? updatedLogs.map(lg => ({ 
-        ...lg, 
-        id: Date.now() + Math.random(), 
+      const refreshedLogs = updatedLogs.length > 0 ? updatedLogs.map(lg => ({
+        ...lg,
+        id: Date.now() + Math.random(),
         materials: Array.isArray(lg.materials) ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) : [getInitialMaterial()],
         offerte: Array.isArray(lg.offerte) ? lg.offerte.map(o => ({ ...o, id: Date.now() + Math.random() })) : []
       })) : [];
       setTimeLogs(refreshedLogs);
-      
+
       // Mostra notifica e modal IMMEDIATAMENTE (non aspettare la sincronizzazione Google Calendar)
       showNotification('Modifiche salvate con successo!', 'success');
-      
+
       // Mostra modal per chiedere se inviare la mail IMMEDIATAMENTE
       if (setModalState) {
         setModalState({ type: 'sendEmailConfirm', data: updatedTicket });
       }
-      
+
       // Sincronizzazione Google Calendar in background (NON blocca l'interfaccia)
       // Sincronizza sempre, anche se non ci sono interventi (per rimuovere eventi eliminati)
       if (googleCalendarSync && typeof googleCalendarSync === 'function') {

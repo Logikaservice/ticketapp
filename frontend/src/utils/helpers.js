@@ -12,10 +12,17 @@ export const calculateDurationHours = (start, end) => {
 
 // Formatta gli intervalli di tempo per la visualizzazione nei report
 export const formatTimeIntervals = (log) => {
+  if (log.workPhases && Array.isArray(log.workPhases) && log.workPhases.length > 0) {
+    const validPhases = log.workPhases.filter(phase => phase.oraInizio && phase.oraFine);
+    if (validPhases.length > 0) {
+      return validPhases.map(phase => `${phase.oraInizio}-${phase.oraFine}`).join(', ');
+    }
+  }
+
   // Normalizza il log per assicurarsi di avere timeIntervals
   const normalized = normalizeTimeLog(log);
   const intervals = normalized.timeIntervals || [];
-  
+
   if (intervals.length === 0) {
     // Fallback a oraInizio/oraFine se non ci sono intervalli
     if (log.oraInizio && log.oraFine) {
@@ -23,14 +30,14 @@ export const formatTimeIntervals = (log) => {
     }
     return log.oraInizio || log.oraFine || 'N/A';
   }
-  
+
   // Filtra solo gli intervalli con start e end validi
   const validIntervals = intervals.filter(interval => interval.start && interval.end);
-  
+
   if (validIntervals.length === 0) {
     return 'N/A';
   }
-  
+
   // Formatta come "09:00-12:00, 14:00-17:00"
   return validIntervals.map(interval => `${interval.start}-${interval.end}`).join(', ');
 };
@@ -57,11 +64,11 @@ export const getInitialOfferta = () => ({
 // Normalizza un timelog per supportare timeIntervals (retrocompatibilità)
 export const normalizeTimeLog = (log) => {
   // Se ha già timeIntervals, restituiscilo così com'è
-  if (log.timeIntervals && Array.isArray(log.timeIntervals) && log.timeIntervals.length > 0) {
+  if (log.timeIntervals && Array.isArray(log.timeIntervals) && log.timeIntervals.length > 0 && log.workPhases && Array.isArray(log.workPhases) && log.workPhases.length > 0) {
     return log;
   }
-  
-  // Altrimenti, converti oraInizio/oraFine in timeIntervals
+
+  // Altrimenti, converti oraInizio/oraFine in timeIntervals E workPhases
   const intervals = [];
   if (log.oraInizio && log.oraFine) {
     intervals.push({
@@ -77,7 +84,7 @@ export const normalizeTimeLog = (log) => {
       end: log.oraFine || '10:00'
     });
   }
-  
+
   // Se non ha intervalli, crea uno vuoto
   if (intervals.length === 0) {
     intervals.push({
@@ -86,24 +93,36 @@ export const normalizeTimeLog = (log) => {
       end: '10:00'
     });
   }
-  
+
+  let workPhases = log.workPhases || [];
+  if (!workPhases || !Array.isArray(workPhases) || workPhases.length === 0) {
+    workPhases = intervals.map(interval => ({
+      id: Date.now() + Math.random(),
+      modalita: log.modalita || 'Telefonica',
+      data: log.data || new Date().toISOString().substring(0, 10),
+      oraInizio: interval.start,
+      oraFine: interval.end
+    }));
+  }
+
   return {
     ...log,
-    timeIntervals: intervals
+    timeIntervals: intervals,
+    workPhases: workPhases
   };
 };
 
 // Calcola le ore totali da tutti gli intervalli
 export const calculateTotalHoursFromIntervals = (intervals) => {
   if (!intervals || !Array.isArray(intervals)) return 0;
-  
+
   let totalHours = 0;
   intervals.forEach(interval => {
     if (interval.start && interval.end) {
       totalHours += calculateDurationHours(interval.start, interval.end);
     }
   });
-  
+
   return totalHours;
 };
 
@@ -114,6 +133,13 @@ export const getInitialTimeLog = () => ({
     id: Date.now(),
     start: '09:00',
     end: '10:00'
+  }],
+  workPhases: [{
+    id: Date.now() + Math.random(),
+    modalita: 'Telefonica',
+    data: new Date().toISOString().substring(0, 10),
+    oraInizio: '09:00',
+    oraFine: '10:00'
   }],
   // Manteniamo oraInizio/oraFine per retrocompatibilità (saranno sincronizzati con il primo intervallo)
   oraInizio: '09:00',
