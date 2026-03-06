@@ -4557,7 +4557,7 @@ module.exports = (pool, io) => {
       try {
         // Prova prima con network_ranges_config
         result = await pool.query(
-        `SELECT
+          `SELECT
   na.id, na.agent_name,
     COALESCE(na.status,
       CASE WHEN na.last_heartbeat IS NOT NULL AND na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online' ELSE 'offline' END
@@ -4578,7 +4578,7 @@ module.exports = (pool, io) => {
         if (queryErr.message && queryErr.message.includes('network_ranges_config')) {
           console.warn('⚠️ Colonna network_ranges_config non trovata, uso solo network_ranges');
           result = await pool.query(
-          `SELECT
+            `SELECT
   na.id, na.agent_name,
     COALESCE(na.status,
       CASE WHEN na.last_heartbeat IS NOT NULL AND na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online' ELSE 'offline' END
@@ -7334,13 +7334,13 @@ pause
   // scaricano da /download/agent/NetworkMonitorService.ps1 e si riavviano (auto-update).
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.6.17'; // Versione corrente agent - device test remoto via agent
+      const CURRENT_AGENT_VERSION = '2.6.18'; // Rilevamento sleep mode PC e retry veloce heartbeat
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
         version: CURRENT_AGENT_VERSION,
         download_url: `${baseUrl}/api/network-monitoring/download/agent/NetworkMonitorService.ps1`,
-        release_date: '2026-02-21',
+        release_date: '2026-03-06',
         features: [
           'Device Test Remoto - Ping e scan porte eseguiti dall\'agent in locale (IP privati)',
           'Parallelismo scansione WiFi (router multipli simultanei)',

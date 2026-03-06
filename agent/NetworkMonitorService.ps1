@@ -5,15 +5,15 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.6.17
-# Data ultima modifica: 2026-02-14
+# Versione: 2.6.18
+# Data ultima modifica: 2026-03-06
 
 param(
     [string]$ConfigPath = "config.json"
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.6.17"
+$SCRIPT_VERSION = "2.6.18"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2947,10 +2947,20 @@ $nextScanTime = (Get-Date).AddSeconds(-5)
 $nextHeartbeatTime = Get-Date  # Heartbeat ogni 5 minuti
 $script:nextUpdateCheckTime = (Get-Date).AddMinutes(2)  # Check aggiornamenti ogni 2 min (oltre a heartbeat e post-scan)
 Write-Log "Prima scansione programmata immediatamente (nextScanTime: $($nextScanTime.ToString('HH:mm:ss')))"
+$script:lastLoopTime = Get-Date
 
 while ($script:isRunning) {
     try {
         $now = Get-Date
+
+        # Rileva risveglio dallo standby o salto temporale se il PC era in sleep
+        if ($script:lastLoopTime -and ($now - $script:lastLoopTime).TotalSeconds -gt 30) {
+            Write-Log "Rilevato risveglio dallo standby (salto di $([math]::Round(($now - $script:lastLoopTime).TotalSeconds)) sec). Forzo ripristino rete e heartbeat immediato." "INFO"
+            $nextHeartbeatTime = $now
+        }
+        $script:lastLoopTime = $now
+
+        $heartbeatFailedNow = $false
         
         # Heartbeat periodico (ogni 5 minuti) per verificare configurazione server
         if ($now -ge $nextHeartbeatTime) {
@@ -3018,10 +3028,16 @@ while ($script:isRunning) {
                 if (-not $script:networkIssueStartTime) {
                     $script:networkIssueStartTime = Get-Date
                 }
+                $heartbeatFailedNow = $true
             }
             
-            # Prossimo heartbeat tra 5 minuti
-            $nextHeartbeatTime = $now.AddMinutes(5)
+            # Prossimo heartbeat: se fallito riprova tra 1 minuto, altrimenti tra 5 minuti
+            if ($heartbeatFailedNow) {
+                $nextHeartbeatTime = $now.AddMinutes(1)
+                Write-Log "Tentativo heartbeat fallito, riprovo tra 1 minuto per prevenire stato offline prolungato." "INFO"
+            } else {
+                $nextHeartbeatTime = $now.AddMinutes(5)
+            }
             
             # Controlla aggiornamenti agent (ogni heartbeat)
             try {
