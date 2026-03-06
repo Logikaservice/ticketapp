@@ -28,7 +28,7 @@ const TimeLoggerModal = ({
 }) => {
   // Stato locale per gestire la modalità editing
   const [isEditing, setIsEditing] = useState(false);
-  
+
   // Stato per gestire la visibilità delle sezioni collassabili per ogni intervento
   const [expandedSections, setExpandedSections] = useState({});
 
@@ -36,7 +36,7 @@ const TimeLoggerModal = ({
 
   // Determina se i campi sono modificabili
   const fieldsDisabled = readOnly && !isEditing;
-  
+
   // Funzione per gestire l'espansione/collasso delle sezioni
   const toggleSection = (logId, section) => {
     setExpandedSections(prev => ({
@@ -44,35 +44,37 @@ const TimeLoggerModal = ({
       [`${logId}-${section}`]: !prev[`${logId}-${section}`]
     }));
   };
-  
+
   // Verifica se una sezione è espansa
   const isSectionExpanded = (logId, section, log) => {
-    // In modalità visualizzazione (readOnly), se ci sono dati, mostrare sempre
+    // In modalità visualizzazione (readOnly), mostrare solo se ci sono dati SIGNIFICATIVI
     if (readOnly && log) {
       if (section === 'manodopera') {
-        const hours = parseFloat(log.oreIntervento) || 0;
+        // Mostra solo se esiste un costo orario o uno sconto reale (le ore auto-calcolate non bastano)
         const costPerHour = parseFloat(log.costoUnitario) || 0;
         const discount = parseFloat(log.sconto) || 0;
-        if (hours > 0 || costPerHour > 0 || discount > 0) return true;
+        if (costPerHour > 0 || discount > 0) return true;
+        return false;
       }
       if (section === 'materiali') {
-        if (log.materials && log.materials.length > 0) return true;
+        // Mostra solo se c'è almeno un materiale con un nome
+        const hasRealMaterial = log.materials && log.materials.some(m => (m.nome || '').trim() !== '');
+        return !!hasRealMaterial;
       }
     }
     const key = `${logId}-${section}`;
     return expandedSections[key] || false;
   };
-  
+
   // Verifica se una sezione ha dati (per mostrare i dati anche se collassata)
   const hasSectionData = (log, section) => {
     if (section === 'manodopera') {
-      const hours = parseFloat(log.oreIntervento) || 0;
       const costPerHour = parseFloat(log.costoUnitario) || 0;
       const discount = parseFloat(log.sconto) || 0;
-      return hours > 0 || costPerHour > 0 || discount > 0;
+      return costPerHour > 0 || discount > 0;
     }
     if (section === 'materiali') {
-      return log.materials && log.materials.length > 0;
+      return log.materials && log.materials.some(m => (m.nome || '').trim() !== '');
     }
     return false;
   };
@@ -82,7 +84,7 @@ const TimeLoggerModal = ({
     if (timeLogs && Array.isArray(timeLogs)) {
       const normalized = timeLogs.map(log => {
         const normalizedLog = normalizeTimeLog(log);
-        
+
         // Inizializza workPhases se non esiste
         if (!normalizedLog.workPhases || !Array.isArray(normalizedLog.workPhases) || normalizedLog.workPhases.length === 0) {
           const intervals = normalizedLog.timeIntervals || [];
@@ -94,16 +96,16 @@ const TimeLoggerModal = ({
             oraFine: intervals[0]?.end || normalizedLog.oraFine || '10:00'
           }];
         }
-        
+
         return normalizedLog;
       });
-      
+
       // Controlla se ci sono differenze
       const hasChanges = normalized.some((log, idx) => {
         const original = timeLogs[idx];
         return !original.workPhases || JSON.stringify(log.workPhases) !== JSON.stringify(original.workPhases);
       });
-      
+
       if (hasChanges) {
         setTimeLogs(normalized);
       }
@@ -125,7 +127,7 @@ const TimeLoggerModal = ({
           };
           log.workPhases = [firstPhase];
         }
-        
+
         // Aggiungi una nuova fase con i valori della fase precedente (o default)
         const lastPhase = log.workPhases[log.workPhases.length - 1];
         const newPhase = {
@@ -135,9 +137,9 @@ const TimeLoggerModal = ({
           oraInizio: '09:00',
           oraFine: '10:00'
         };
-        
+
         const updatedPhases = [...log.workPhases, newPhase];
-        
+
         // Calcola ore totali da tutte le fasi
         const totalHours = updatedPhases.reduce((sum, phase) => {
           if (phase.oraInizio && phase.oraFine) {
@@ -145,7 +147,7 @@ const TimeLoggerModal = ({
           }
           return sum;
         }, 0);
-        
+
         return {
           ...log,
           workPhases: updatedPhases,
@@ -166,12 +168,12 @@ const TimeLoggerModal = ({
     setTimeLogs(prev => prev.map(log => {
       if (log.id === logId && log.workPhases && Array.isArray(log.workPhases)) {
         const updatedPhases = log.workPhases.filter(phase => phase.id !== phaseId);
-        
+
         // Non permettere di rimuovere l'ultima fase
         if (updatedPhases.length === 0) {
           return log;
         }
-        
+
         // Calcola ore totali
         const totalHours = updatedPhases.reduce((sum, phase) => {
           if (phase.oraInizio && phase.oraFine) {
@@ -179,7 +181,7 @@ const TimeLoggerModal = ({
           }
           return sum;
         }, 0);
-        
+
         return {
           ...log,
           workPhases: updatedPhases,
@@ -205,7 +207,7 @@ const TimeLoggerModal = ({
           }
           return phase;
         });
-        
+
         // Calcola ore totali
         const totalHours = updatedPhases.reduce((sum, phase) => {
           if (phase.oraInizio && phase.oraFine) {
@@ -213,7 +215,7 @@ const TimeLoggerModal = ({
           }
           return sum;
         }, 0);
-        
+
         return {
           ...log,
           workPhases: updatedPhases,
@@ -234,14 +236,14 @@ const TimeLoggerModal = ({
     setTimeLogs(prev => prev.map(log => {
       if (log.id === logId) {
         const updatedIntervals = (log.timeIntervals || []).filter(interval => interval.id !== intervalId);
-        
+
         // Non permettere di rimuovere l'ultimo intervallo
         if (updatedIntervals.length === 0) {
           return log;
         }
-        
+
         const totalHours = calculateTotalHoursFromIntervals(updatedIntervals);
-        
+
         return {
           ...log,
           timeIntervals: updatedIntervals,
@@ -262,7 +264,7 @@ const TimeLoggerModal = ({
         const updatedIntervals = (log.timeIntervals || []).map(interval => {
           if (interval.id === intervalId) {
             const updated = { ...interval, [field]: value };
-            
+
             // Se si aggiorna start o end, ricalcola la durata dell'intervallo
             if (field === 'start' || field === 'end') {
               const start = field === 'start' ? value : interval.start;
@@ -276,14 +278,14 @@ const TimeLoggerModal = ({
                 }
               }
             }
-            
+
             return updated;
           }
           return interval;
         });
-        
+
         const totalHours = calculateTotalHoursFromIntervals(updatedIntervals);
-        
+
         return {
           ...log,
           timeIntervals: updatedIntervals,
@@ -322,7 +324,7 @@ const TimeLoggerModal = ({
           // Assicurati che il log abbia timeIntervals normalizzati
           const normalizedLog = normalizeTimeLog(log);
           const intervals = normalizedLog.timeIntervals || [];
-          
+
           // Inizializza workPhases se non esiste (migrazione da struttura vecchia)
           if (!normalizedLog.workPhases || !Array.isArray(normalizedLog.workPhases)) {
             normalizedLog.workPhases = [{
@@ -333,9 +335,9 @@ const TimeLoggerModal = ({
               oraFine: intervals[0]?.end || normalizedLog.oraFine || '10:00'
             }];
           }
-          
+
           const workPhases = normalizedLog.workPhases || [];
-          
+
           const hours = parseFloat(normalizedLog.oreIntervento) || 0;
           const costPerHour = parseFloat(normalizedLog.costoUnitario) || 0;
           const discount = parseFloat(normalizedLog.sconto) || 0;
@@ -379,61 +381,61 @@ const TimeLoggerModal = ({
                 <div className="mb-4 space-y-3">
                   {workPhases.map((phase, phaseIndex) => (
                     <div key={phase.id} className="grid md:grid-cols-5 gap-4 items-end">
-                  <div>
-                    <label className="block text-xs mb-1">Modalità</label>
-                    <select
+                      <div>
+                        <label className="block text-xs mb-1">Modalità</label>
+                        <select
                           value={phase.modalita || 'Telefonica'}
                           onChange={(e) => handleUpdateWorkPhase(normalizedLog.id, phase.id, 'modalita', e.target.value)}
-                      disabled={fieldsDisabled}
-                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    >
-                      <option>Telefonica</option>
-                      <option>Teleassistenza</option>
-                      <option>Presso il Cliente</option>
-                      <option>In laboratorio</option>
-                    </select>
-                  </div>
+                          disabled={fieldsDisabled}
+                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        >
+                          <option>Telefonica</option>
+                          <option>Teleassistenza</option>
+                          <option>Presso il Cliente</option>
+                          <option>In laboratorio</option>
+                        </select>
+                      </div>
 
-                  <div>
-                    <label className="block text-xs mb-1">Data</label>
-                    <input
-                      type="date"
+                      <div>
+                        <label className="block text-xs mb-1">Data</label>
+                        <input
+                          type="date"
                           value={phase.data || ''}
                           onChange={(e) => handleUpdateWorkPhase(normalizedLog.id, phase.id, 'data', e.target.value)}
-                      disabled={fieldsDisabled}
-                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    />
-                  </div>
+                          disabled={fieldsDisabled}
+                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        />
+                      </div>
 
-                  <div>
-                    <label className="block text-xs mb-1">Ora Inizio</label>
-                    <input
-                      type="time"
+                      <div>
+                        <label className="block text-xs mb-1">Ora Inizio</label>
+                        <input
+                          type="time"
                           value={phase.oraInizio || ''}
-                      step="900"
+                          step="900"
                           onChange={(e) => handleUpdateWorkPhase(normalizedLog.id, phase.id, 'oraInizio', e.target.value)}
                           disabled={fieldsDisabled || normalizedLog.eventoGiornaliero}
-                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    />
-                  </div>
+                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        />
+                      </div>
 
-                  <div>
-                    <label className="block text-xs mb-1">Ora Fine</label>
-                    <input
-                      type="time"
+                      <div>
+                        <label className="block text-xs mb-1">Ora Fine</label>
+                        <input
+                          type="time"
                           value={phase.oraFine || ''}
-                      step="900"
+                          step="900"
                           onChange={(e) => handleUpdateWorkPhase(normalizedLog.id, phase.id, 'oraFine', e.target.value)}
                           disabled={fieldsDisabled || normalizedLog.eventoGiornaliero}
-                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    />
-                  </div>
+                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        />
+                      </div>
 
                       <div className="flex items-end gap-2">
                         <div className="flex-1">
                           <div className="text-xs text-gray-600 mb-1">Durata</div>
                           <div className="text-sm font-semibold text-gray-700">
-                            {phase.oraInizio && phase.oraFine 
+                            {phase.oraInizio && phase.oraFine
                               ? `${calculateDurationHours(phase.oraInizio, phase.oraFine).toFixed(2)} ore`
                               : '0.00 ore'}
                           </div>
@@ -470,25 +472,25 @@ const TimeLoggerModal = ({
 
                 {/* Evento giornaliero */}
                 <div className="mb-4">
-                    <label className="inline-flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
                       checked={!!normalizedLog.eventoGiornaliero}
                       onChange={(e) => setTimeLogs(p => p.map(l => l.id === normalizedLog.id ? {
-                          ...l,
-                          eventoGiornaliero: e.target.checked,
-                          // se diventa giornaliero, azzero gli orari per non inviarli
-                        ...(e.target.checked ? { 
+                        ...l,
+                        eventoGiornaliero: e.target.checked,
+                        // se diventa giornaliero, azzero gli orari per non inviarli
+                        ...(e.target.checked ? {
                           timeIntervals: l.timeIntervals?.map(interval => ({ ...interval, start: '', end: '' })) || [],
-                          oraInizio: '', 
-                          oraFine: '', 
-                          oreIntervento: 0 
+                          oraInizio: '',
+                          oraFine: '',
+                          oreIntervento: 0
                         } : {})
-                        } : l))}
-                        className="accent-blue-600"
-                      />
-                      Evento giornaliero
-                    </label>
+                      } : l))}
+                      className="accent-blue-600"
+                    />
+                    Evento giornaliero
+                  </label>
                 </div>
 
                 <textarea
@@ -531,56 +533,56 @@ const TimeLoggerModal = ({
                           </button>
                         )}
                       </div>
-                  <div className="grid sm:grid-cols-5 gap-4 items-end">
-                    <div>
-                      <label className="block text-xs mb-1">Ore</label>
-                      <input
-                        type="number"
-                        step="0.25"
+                      <div className="grid sm:grid-cols-5 gap-4 items-end">
+                        <div>
+                          <label className="block text-xs mb-1">Ore</label>
+                          <input
+                            type="number"
+                            step="0.25"
                             value={normalizedLog.oreIntervento}
                             onChange={(e) => handleTimeLogChange(normalizedLog.id, 'oreIntervento', e.target.value)}
-                        disabled={fieldsDisabled}
-                        className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      />
-                    </div>
+                            disabled={fieldsDisabled}
+                            className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          />
+                        </div>
 
-                    <div>
-                      <label className="block text-xs mb-1">Costo Unit.(€)</label>
-                      <input
-                        type="number"
-                        step="0.01"
+                        <div>
+                          <label className="block text-xs mb-1">Costo Unit.(€)</label>
+                          <input
+                            type="number"
+                            step="0.01"
                             value={normalizedLog.costoUnitario}
                             onChange={(e) => handleTimeLogChange(normalizedLog.id, 'costoUnitario', e.target.value)}
-                        disabled={fieldsDisabled}
-                        className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      />
-                    </div>
+                            disabled={fieldsDisabled}
+                            className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          />
+                        </div>
 
-                    <div>
-                      <label className="block text-xs mb-1">Sconto(%)</label>
-                      <input
-                        type="number"
+                        <div>
+                          <label className="block text-xs mb-1">Sconto(%)</label>
+                          <input
+                            type="number"
                             value={normalizedLog.sconto}
                             onChange={(e) => handleTimeLogChange(normalizedLog.id, 'sconto', e.target.value)}
-                        disabled={fieldsDisabled}
-                        className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      />
-                    </div>
+                            disabled={fieldsDisabled}
+                            className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          />
+                        </div>
 
-                    <div>
-                      <label className="block text-xs mb-1">Costo Scontato</label>
-                      <div className="p-2.5 bg-gray-100 rounded-lg font-bold">
-                        {(costPerHour * (1 - (discount / 100))).toFixed(2)}€
-                      </div>
-                    </div>
+                        <div>
+                          <label className="block text-xs mb-1">Costo Scontato</label>
+                          <div className="p-2.5 bg-gray-100 rounded-lg font-bold">
+                            {(costPerHour * (1 - (discount / 100))).toFixed(2)}€
+                          </div>
+                        </div>
 
-                    <div>
-                      <label className="block text-xs mb-1">Totale</label>
-                      <div className="p-2.5 bg-blue-100 rounded-lg font-bold text-blue-800">
-                        {total.toFixed(2)}€
+                        <div>
+                          <label className="block text-xs mb-1">Totale</label>
+                          <div className="p-2.5 bg-blue-100 rounded-lg font-bold text-blue-800">
+                            {total.toFixed(2)}€
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
                     </>
                   ) : (
                     <>
@@ -593,11 +595,7 @@ const TimeLoggerModal = ({
                           Aggiungi Costo Manodopera
                         </button>
                       )}
-                      {readOnly && hasSectionData(normalizedLog, 'manodopera') && (
-                        <div className="text-sm text-gray-500 italic py-2">
-                          Costo manodopera presente ma non visualizzabile (errore di visualizzazione)
-                        </div>
-                      )}
+                      {/* In readOnly senza dati, non mostrare nulla */}
                     </>
                   )}
                 </div>
@@ -607,9 +605,9 @@ const TimeLoggerModal = ({
                     <>
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="text-sm font-bold flex items-center gap-2">
-                    <Users size={16} />
-                    Materiali
-                  </h4>
+                          <Users size={16} />
+                          Materiali
+                        </h4>
                         {!fieldsDisabled && (
                           <button
                             onClick={() => toggleSection(normalizedLog.id, 'materiali')}
@@ -619,80 +617,80 @@ const TimeLoggerModal = ({
                           </button>
                         )}
                       </div>
-                  <div className="space-y-3">
+                      <div className="space-y-3">
                         {normalizedLog.materials && normalizedLog.materials.map(m => (
-                      <div key={m.id} className="grid grid-cols-6 gap-3 items-center p-2 bg-gray-50 rounded-lg border">
-                        <div className="col-span-2">
-                          <label className="block text-xs mb-1">Materiale</label>
-                          <input
-                            type="text"
-                            value={m.nome}
+                          <div key={m.id} className="grid grid-cols-6 gap-3 items-center p-2 bg-gray-50 rounded-lg border">
+                            <div className="col-span-2">
+                              <label className="block text-xs mb-1">Materiale</label>
+                              <input
+                                type="text"
+                                value={m.nome}
                                 onChange={(e) => handleMaterialChange(normalizedLog.id, m.id, 'nome', e.target.value)}
-                            disabled={fieldsDisabled}
-                            className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                          />
-                        </div>
+                                disabled={fieldsDisabled}
+                                className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              />
+                            </div>
 
-                        <div className="col-span-1">
-                          <label className="block text-xs mb-1">Qta</label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={m.quantita === 0 || m.quantita === '0' ? '' : (m.quantita || '')}
+                            <div className="col-span-1">
+                              <label className="block text-xs mb-1">Qta</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={m.quantita === 0 || m.quantita === '0' ? '' : (m.quantita || '')}
                                 onChange={(e) => handleMaterialChange(normalizedLog.id, m.id, 'quantita', e.target.value)}
-                            disabled={fieldsDisabled}
-                            className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                            placeholder=""
-                          />
-                        </div>
+                                disabled={fieldsDisabled}
+                                className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                placeholder=""
+                              />
+                            </div>
 
-                        <div className="col-span-1">
-                          <label className="block text-xs mb-1">Costo (€)</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={m.costo === 0 || m.costo === '0' || m.costo === 0.00 ? '' : (m.costo || '')}
+                            <div className="col-span-1">
+                              <label className="block text-xs mb-1">Costo (€)</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={m.costo === 0 || m.costo === '0' || m.costo === 0.00 ? '' : (m.costo || '')}
                                 onChange={(e) => handleMaterialChange(normalizedLog.id, m.id, 'costo', e.target.value)}
-                            disabled={fieldsDisabled}
-                            className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                            placeholder=""
-                          />
-                        </div>
+                                disabled={fieldsDisabled}
+                                className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                placeholder=""
+                              />
+                            </div>
 
-                        <div className="col-span-1">
-                          <label className="block text-xs mb-1">Totale (€)</label>
-                          <div className="p-2 bg-purple-100 rounded-lg font-bold text-purple-800 text-right">
-                            {(() => {
-                              const qta = m.quantita === '' || m.quantita === null || m.quantita === undefined ? 0 : parseFloat(m.quantita) || 0;
-                              const costo = m.costo === '' || m.costo === null || m.costo === undefined ? 0 : parseFloat(m.costo) || 0;
-                              return (qta * costo).toFixed(2);
-                            })()}
-                          </div>
-                        </div>
+                            <div className="col-span-1">
+                              <label className="block text-xs mb-1">Totale (€)</label>
+                              <div className="p-2 bg-purple-100 rounded-lg font-bold text-purple-800 text-right">
+                                {(() => {
+                                  const qta = m.quantita === '' || m.quantita === null || m.quantita === undefined ? 0 : parseFloat(m.quantita) || 0;
+                                  const costo = m.costo === '' || m.costo === null || m.costo === undefined ? 0 : parseFloat(m.costo) || 0;
+                                  return (qta * costo).toFixed(2);
+                                })()}
+                              </div>
+                            </div>
 
-                        <div className="col-span-1 pt-4 text-right">
+                            <div className="col-span-1 pt-4 text-right">
                               {!fieldsDisabled && normalizedLog.materials.length > 1 && (
-                            <button
+                                <button
                                   onClick={() => handleRemoveMaterial(normalizedLog.id, m.id)}
-                              className="text-red-500 p-1"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                                  className="text-red-500 p-1"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
 
-                    {!fieldsDisabled && (
-                      <button
+                        {!fieldsDisabled && (
+                          <button
                             onClick={() => handleAddMaterial(normalizedLog.id)}
-                        className="w-full text-blue-500 text-xs font-medium flex items-center justify-center gap-1 mt-2 p-1"
-                      >
-                        <Plus size={14} />
-                        Aggiungi Materiale
-                      </button>
-                    )}
-                  </div>
+                            className="w-full text-blue-500 text-xs font-medium flex items-center justify-center gap-1 mt-2 p-1"
+                          >
+                            <Plus size={14} />
+                            Aggiungi Materiale
+                          </button>
+                        )}
+                      </div>
                     </>
                   ) : (
                     <>
@@ -711,11 +709,7 @@ const TimeLoggerModal = ({
                           Aggiungi Materiale
                         </button>
                       )}
-                      {readOnly && hasSectionData(normalizedLog, 'materiali') && (
-                        <div className="text-sm text-gray-500 italic py-2">
-                          Materiali presenti ma non visualizzabili (errore di visualizzazione)
-                        </div>
-                      )}
+                      {/* In readOnly senza dati, non mostrare nulla */}
                     </>
                   )}
                 </div>
@@ -723,138 +717,138 @@ const TimeLoggerModal = ({
                 {/* Sezione Come da Offerta - LEGATA A QUESTO INTERVENTO */}
                 {normalizedLog.offerte && normalizedLog.offerte.length > 0 && (
                   <div className="mt-5 p-4 border rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50">
-                  <h3 className="text-lg font-bold text-purple-800 mb-4 flex items-center gap-2">
-                    <Users size={20} />
-                    Come da Offerta
-                  </h3>
+                    <h3 className="text-lg font-bold text-purple-800 mb-4 flex items-center gap-2">
+                      <Users size={20} />
+                      Come da Offerta
+                    </h3>
 
-                  <div className="space-y-4">
-                    {normalizedLog.offerte.map((offerta, offertaIndex) => (
-                      <div key={offerta.id} className="p-4 bg-white rounded-lg border border-purple-200">
-                        <div className="flex justify-between items-center mb-3">
-                          <h4 className="font-semibold text-purple-700">Offerta #{offertaIndex + 1}</h4>
-                          {!fieldsDisabled && (
-                            <button
-                              onClick={() => handleRemoveOfferta(normalizedLog.id, offerta.id)}
-                              className="text-red-500 p-1 hover:bg-red-50 rounded"
-                              title="Elimina offerta"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          )}
-                        </div>
-
-                        <div className="flex flex-col md:flex-row md:items-end gap-2 md:gap-3 mb-4">
-                          <div className="w-full md:w-auto" style={{ minWidth: 140 }}>
-                            <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Offerta n°</label>
-                            <input
-                              type="text"
-                              value={offerta.numeroOfferta}
-                              onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'numeroOfferta', e.target.value)}
-                              placeholder="OFF-001"
-                              disabled={fieldsDisabled}
-                              className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
-                            />
+                    <div className="space-y-4">
+                      {normalizedLog.offerte.map((offerta, offertaIndex) => (
+                        <div key={offerta.id} className="p-4 bg-white rounded-lg border border-purple-200">
+                          <div className="flex justify-between items-center mb-3">
+                            <h4 className="font-semibold text-purple-700">Offerta #{offertaIndex + 1}</h4>
+                            {!fieldsDisabled && (
+                              <button
+                                onClick={() => handleRemoveOfferta(normalizedLog.id, offerta.id)}
+                                className="text-red-500 p-1 hover:bg-red-50 rounded"
+                                title="Elimina offerta"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
                           </div>
 
-                          <div className="w-full md:w-auto" style={{ minWidth: 125 }}>
-                            <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Data</label>
-                            <input
-                              type="date"
-                              value={offerta.dataOfferta}
-                              onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'dataOfferta', e.target.value)}
-                              disabled={fieldsDisabled}
-                              className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
-                            />
-                          </div>
+                          <div className="flex flex-col md:flex-row md:items-end gap-2 md:gap-3 mb-4">
+                            <div className="w-full md:w-auto" style={{ minWidth: 140 }}>
+                              <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Offerta n°</label>
+                              <input
+                                type="text"
+                                value={offerta.numeroOfferta}
+                                onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'numeroOfferta', e.target.value)}
+                                placeholder="OFF-001"
+                                disabled={fieldsDisabled}
+                                className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              />
+                            </div>
 
-                          <div className="w-full md:w-auto" style={{ minWidth: 70 }}>
-                            <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Qta</label>
-                            <input
-                              type="number"
-                              min="1"
-                              step="0.25"
-                              value={offerta.qta}
-                              onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'qta', e.target.value)}
-                              disabled={fieldsDisabled}
-                              className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
-                            />
-                          </div>
+                            <div className="w-full md:w-auto" style={{ minWidth: 125 }}>
+                              <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Data</label>
+                              <input
+                                type="date"
+                                value={offerta.dataOfferta}
+                                onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'dataOfferta', e.target.value)}
+                                disabled={fieldsDisabled}
+                                className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              />
+                            </div>
 
-                          <div className="w-full md:w-auto" style={{ minWidth: 120 }}>
-                            <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Costo Unit.</label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={offerta.costoUnitario || 0}
-                              onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'costoUnitario', e.target.value)}
-                              disabled={fieldsDisabled}
-                              className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
-                            />
-                          </div>
+                            <div className="w-full md:w-auto" style={{ minWidth: 70 }}>
+                              <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Qta</label>
+                              <input
+                                type="number"
+                                min="1"
+                                step="0.25"
+                                value={offerta.qta}
+                                onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'qta', e.target.value)}
+                                disabled={fieldsDisabled}
+                                className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              />
+                            </div>
 
-                          <div className="w-full md:w-auto" style={{ minWidth: 80 }}>
-                            <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Sconto %</label>
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              value={offerta.sconto}
-                              onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'sconto', e.target.value)}
-                              disabled={fieldsDisabled}
-                              className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
-                            />
-                          </div>
+                            <div className="w-full md:w-auto" style={{ minWidth: 120 }}>
+                              <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Costo Unit.</label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={offerta.costoUnitario || 0}
+                                onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'costoUnitario', e.target.value)}
+                                disabled={fieldsDisabled}
+                                className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              />
+                            </div>
 
-                          <div className="w-full md:w-auto md:ml-auto" style={{ minWidth: 120 }}>
-                            <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Totale</label>
-                            <div className="px-2 py-1.5 bg-purple-100 rounded-lg font-bold text-purple-800 text-sm">
-                              {offerta.totale.toFixed(2)}€
+                            <div className="w-full md:w-auto" style={{ minWidth: 80 }}>
+                              <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Sconto %</label>
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                value={offerta.sconto}
+                                onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'sconto', e.target.value)}
+                                disabled={fieldsDisabled}
+                                className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              />
+                            </div>
+
+                            <div className="w-full md:w-auto md:ml-auto" style={{ minWidth: 120 }}>
+                              <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Totale</label>
+                              <div className="px-2 py-1.5 bg-purple-100 rounded-lg font-bold text-purple-800 text-sm">
+                                {offerta.totale.toFixed(2)}€
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div>
-                          <label className="block text-xs mb-1 text-gray-600">Descrizione</label>
-                          <textarea
-                            rows="2"
-                            value={offerta.descrizione}
-                            onChange={(e) => {
-                              e.currentTarget.style.height = 'auto';
-                              e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
-                              handleOffertaChange(log.id, offerta.id, 'descrizione', e.target.value);
-                            }}
-                            onInput={(e) => {
-                              e.currentTarget.style.height = 'auto';
-                              e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
-                            }}
-                            ref={(el) => {
-                              if (el) {
-                                el.style.height = 'auto';
-                                el.style.height = `${el.scrollHeight}px`;
-                              }
-                            }}
-                            placeholder="Descrizione dell'offerta..."
-                            disabled={fieldsDisabled}
-                            className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-hidden"
-                            style={{ height: 'auto' }}
-                          />
+                          <div>
+                            <label className="block text-xs mb-1 text-gray-600">Descrizione</label>
+                            <textarea
+                              rows="2"
+                              value={offerta.descrizione}
+                              onChange={(e) => {
+                                e.currentTarget.style.height = 'auto';
+                                e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                                handleOffertaChange(log.id, offerta.id, 'descrizione', e.target.value);
+                              }}
+                              onInput={(e) => {
+                                e.currentTarget.style.height = 'auto';
+                                e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                              }}
+                              ref={(el) => {
+                                if (el) {
+                                  el.style.height = 'auto';
+                                  el.style.height = `${el.scrollHeight}px`;
+                                }
+                              }}
+                              placeholder="Descrizione dell'offerta..."
+                              disabled={fieldsDisabled}
+                              className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-hidden"
+                              style={{ height: 'auto' }}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
 
-                    {!fieldsDisabled && (
-                      <button
-                        onClick={() => handleAddOfferta(normalizedLog.id)}
-                        className="w-full text-purple-600 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-purple-300 rounded-lg hover:bg-purple-50"
-                      >
-                        <Plus size={16} />
-                        Aggiungi Offerta
-                      </button>
-                    )}
-                  </div>
+                      {!fieldsDisabled && (
+                        <button
+                          onClick={() => handleAddOfferta(normalizedLog.id)}
+                          className="w-full text-purple-600 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-purple-300 rounded-lg hover:bg-purple-50"
+                        >
+                          <Plus size={16} />
+                          Aggiungi Offerta
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -883,46 +877,46 @@ const TimeLoggerModal = ({
         )}
 
         <div className="flex gap-3 pt-4 border-t">
-        <button onClick={closeModal} className="flex-1 px-4 py-3 border border-gray-300 bg-white rounded-lg hover:bg-gray-50">
-          {readOnly && !isEditing ? 'Chiudi' : 'Annulla'}
-        </button>
-
-        {/* Pulsante Modifica - Solo per TECNICO in modalità readOnly */}
-        {readOnly && !isEditing && currentUser?.ruolo === 'tecnico' && (
-          <button
-            onClick={() => setIsEditing(true)}
-            className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
-          >
-            <Edit size={18} />
-            Modifica
+          <button onClick={closeModal} className="flex-1 px-4 py-3 border border-gray-300 bg-white rounded-lg hover:bg-gray-50">
+            {readOnly && !isEditing ? 'Chiudi' : 'Annulla'}
           </button>
-        )}
 
-        {/* Pulsante Salva - Quando in modalità editing */}
-        {readOnly && isEditing && (
-          <button
-            onClick={() => {
-              handleSaveTimeLogs();
-              setIsEditing(false);
-            }}
-            className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
-          >
-            <Save size={18} />
-            Salva Modifiche
-          </button>
-        )}
+          {/* Pulsante Modifica - Solo per TECNICO in modalità readOnly */}
+          {readOnly && !isEditing && currentUser?.ruolo === 'tecnico' && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
+            >
+              <Edit size={18} />
+              Modifica
+            </button>
+          )}
 
-        {/* Pulsante Conferma e Risolvi - Solo quando NON è readOnly */}
-        {!readOnly && (
-          <button
-            onClick={handleConfirmTimeLogs}
-            className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
-          >
-            <Check size={18} />
-            Conferma e Risolvi
-          </button>
-        )}
-      </div>
+          {/* Pulsante Salva - Quando in modalità editing */}
+          {readOnly && isEditing && (
+            <button
+              onClick={() => {
+                handleSaveTimeLogs();
+                setIsEditing(false);
+              }}
+              className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
+            >
+              <Save size={18} />
+              Salva Modifiche
+            </button>
+          )}
+
+          {/* Pulsante Conferma e Risolvi - Solo quando NON è readOnly */}
+          {!readOnly && (
+            <button
+              onClick={handleConfirmTimeLogs}
+              className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
+            >
+              <Check size={18} />
+              Conferma e Risolvi
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
