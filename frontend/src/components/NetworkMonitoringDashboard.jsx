@@ -39,6 +39,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [showAgentsList, setShowAgentsList] = useState(false);
   const [showAgentNotificationsList, setShowAgentNotificationsList] = useState(false);
   const [showTelegramConfig, setShowTelegramConfig] = useState(false);
+  const [showAgentControlsMenu, setShowAgentControlsMenu] = useState(false);
   const [telegramConfigs, setTelegramConfigs] = useState([]);
   const [telegramConfigLoading, setTelegramConfigLoading] = useState(false);
   const [agentEvents, setAgentEvents] = useState([]);
@@ -1382,6 +1383,53 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           <Network size={18} />
           Mappatura
         </button>
+      )}
+
+      {/* Menu rapido Agent (Agent Esistenti / Crea Agent) */}
+      {!readOnly && (
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowAgentControlsMenu(prev => !prev)}
+            className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 hover:border-gray-400 text-gray-600 flex items-center justify-center"
+            title="Opzioni Agent (lista e creazione)"
+          >
+            <Settings size={18} />
+          </button>
+          {showAgentControlsMenu && (
+            <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-30">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAgentsList(true);
+                  setShowCreateAgentModal(false);
+                  setShowAgentNotificationsList(false);
+                  setShowTelegramConfig(false);
+                  setShowAgentControlsMenu(false);
+                  loadAgents();
+                }}
+                className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+              >
+                <ServerIcon size={16} className="text-purple-600" />
+                <span>Agent esistenti</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateAgentModal(true);
+                  setShowAgentsList(false);
+                  setShowAgentNotificationsList(false);
+                  setShowTelegramConfig(false);
+                  setShowAgentControlsMenu(false);
+                }}
+                className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 flex items-center gap-2 border-t border-gray-100"
+              >
+                <Plus size={16} className="text-green-600" />
+                <span>+ Crea Agent</span>
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Versione agent più alta */}
