@@ -1425,7 +1425,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 flex items-center gap-2 border-t border-gray-100"
               >
                 <Plus size={16} className="text-green-600" />
-                <span>+ Crea Agent</span>
+                <span>Crea Agent</span>
               </button>
             </div>
           )}
@@ -1497,9 +1497,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
                   <div
-                    className={`h-1.5 rounded-full ${
-                      percent > 90 ? 'bg-red-500' : percent > 75 ? 'bg-yellow-500' : 'bg-teal-500'
-                    }`}
+                    className={`h-1.5 rounded-full ${percent > 90 ? 'bg-red-500' : percent > 75 ? 'bg-yellow-500' : 'bg-teal-500'
+                      }`}
                     style={{ width: `${percent}%` }}
                   ></div>
                 </div>

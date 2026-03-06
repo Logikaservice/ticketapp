@@ -876,7 +876,7 @@ module.exports = (pool, io) => {
 
       // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
       // Serve per far capire all'installer quale versione dovrebbe risultare installata.
-      const CURRENT_AGENT_VERSION = '2.6.17'; // Versione di fallback (allineata a $SCRIPT_VERSION)
+      const CURRENT_AGENT_VERSION = '2.6.18'; // Versione di fallback (allineata a $SCRIPT_VERSION)
       let agentPackageVersion = CURRENT_AGENT_VERSION;
       try {
         const projectRoot = path.resolve(__dirname, '..', '..');
@@ -4875,7 +4875,7 @@ module.exports = (pool, io) => {
       }
 
       // Versione agent per ZIP e config.json incluso (allineata a NetworkMonitorService.ps1 $SCRIPT_VERSION)
-      const CURRENT_AGENT_VERSION = '2.6.17';
+      const CURRENT_AGENT_VERSION = '2.6.18';
       const agentVersion = CURRENT_AGENT_VERSION;
       console.log(`ℹ️ Versione agent per ZIP: ${agentVersion} `);
 
