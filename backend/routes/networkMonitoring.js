@@ -2245,8 +2245,7 @@ module.exports = (pool, io) => {
                  device_type = CASE WHEN is_manual_type THEN device_type ELSE COALESCE($8, device_type) END,
                  device_path = COALESCE($9, device_path),
                  additional_ips = $11,
-                 previous_ip = CASE WHEN $12 THEN $13 ELSE previous_ip END,
-                 is_new_device = false
+                 previous_ip = CASE WHEN $12 THEN $13 ELSE previous_ip END
                  WHERE id = $10`,
             [ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass, existingDevice.id, JSON.stringify(additional_ips || []), isStaticIPChange, isStaticIPChange ? oldIp : null]
           );
@@ -5624,6 +5623,30 @@ pause
       res.json(result.rows[0]);
     } catch (err) {
       console.error('❌ Errore reset warning:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // PATCH /api/network-monitoring/devices/:id/acknowledge
+  // Conferma la presa visione di un nuovo dispositivo
+  router.patch('/devices/:id/acknowledge', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+      const { id } = req.params;
+
+      const result = await pool.query(
+        'UPDATE network_devices SET is_new_device = false WHERE id = $1 RETURNING *',
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Dispositivo non trovato' });
+      }
+
+      console.log(`✅ Dispositivo nuovo confermato, id: ${id}`);
+      res.json({ message: 'Dispositivo confermato', device: result.rows[0] });
+    } catch (err) {
+      console.error('❌ Errore conferma dispositivo:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });

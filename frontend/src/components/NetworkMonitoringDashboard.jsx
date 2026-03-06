@@ -9,7 +9,7 @@ import {
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
   Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit, Menu,
   CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle, Terminal, Network, History, Key, MonitorSmartphone,
-  Cpu, HardDrive, Battery, Shield, User
+  Cpu, HardDrive, Battery, Shield, User, HelpCircle
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import { getDeviceIcon, AVAILABLE_ICONS } from '../utils/deviceTypeIcons';
@@ -2491,6 +2491,36 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                     {device.mac_address ? device.mac_address.replace(/-/g, ':') : '-'}
                                     {device.keepass_outside_azienda && <span className="text-amber-600 font-bold" title="Dati da KeePass fuori dal percorso dell'azienda"> *</span>}
                                   </span>
+                                  {newDevicesInList.has(device.id) && !readOnly && (
+                                    <button
+                                      onClick={async (e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        try {
+                                          const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/acknowledge`), {
+                                            method: 'PATCH',
+                                            headers: getAuthHeader()
+                                          });
+                                          if (!response.ok) {
+                                            const errorData = await response.json();
+                                            throw new Error(errorData.error || 'Errore conferma dispositivo');
+                                          }
+                                          setNewDevicesInList(prev => {
+                                            const next = new Set(prev);
+                                            next.delete(device.id);
+                                            return next;
+                                          });
+                                        } catch (err) {
+                                          console.error('Errore conferma dispositivo:', err);
+                                          alert(`Errore: ${err.message}`);
+                                        }
+                                      }}
+                                      className="ml-1 text-slate-400 hover:text-green-600 transition-colors bg-white hover:bg-green-50 rounded-full shadow-sm border border-gray-200"
+                                      title="Conferma visione nuovo dispositivo"
+                                    >
+                                      <HelpCircle className="w-4 h-4 p-0.5" />
+                                    </button>
+                                  )}
                                   {device.keepass_model && (
                                     <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-20 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap max-w-xs">
                                       Modello: {device.keepass_model}
