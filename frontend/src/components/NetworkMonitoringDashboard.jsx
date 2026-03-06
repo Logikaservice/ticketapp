@@ -1589,7 +1589,24 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           </span>
                         </div>
                         <div className="mt-2 text-sm text-gray-600 space-y-1">
-                          <p><strong>Azienda:</strong> {agent.azienda || 'N/A'}</p>
+                          <p>
+                            <strong>Azienda:</strong>{' '}
+                            {agent.azienda || 'N/A'}
+                            {agent.azienda_ip_statico && (
+                              <>
+                                {' '}
+                                (
+                                <span
+                                  className="font-mono text-blue-600 cursor-pointer hover:underline"
+                                  title="Clicca per opzioni IP (ping, web, desktop remoto...)"
+                                  onClick={(e) => handleIpClick(e, agent.azienda_ip_statico, null)}
+                                >
+                                  {agent.azienda_ip_statico}
+                                </span>
+                                )
+                              </>
+                            )}
+                          </p>
                           {editingAgentId === agent.id ? (
                             <div className="space-y-2 mt-2">
                               <div>

@@ -4557,7 +4557,7 @@ module.exports = (pool, io) => {
       try {
         // Prova prima con network_ranges_config
         result = await pool.query(
-          `SELECT
+        `SELECT
   na.id, na.agent_name,
     COALESCE(na.status,
       CASE WHEN na.last_heartbeat IS NOT NULL AND na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online' ELSE 'offline' END
@@ -4566,7 +4566,8 @@ module.exports = (pool, io) => {
     na.version, na.network_ranges, na.network_ranges_config, na.scan_interval_minutes, na.unifi_config, na.enabled,
     na.unifi_last_ok, na.unifi_last_check_at,
     na.created_at, na.azienda_id, na.api_key,
-    u.azienda
+    u.azienda,
+    u.ip_statico AS azienda_ip_statico
            FROM network_agents na
            LEFT JOIN users u ON na.azienda_id = u.id
            WHERE na.deleted_at IS NULL
@@ -4577,7 +4578,7 @@ module.exports = (pool, io) => {
         if (queryErr.message && queryErr.message.includes('network_ranges_config')) {
           console.warn('⚠️ Colonna network_ranges_config non trovata, uso solo network_ranges');
           result = await pool.query(
-            `SELECT
+          `SELECT
   na.id, na.agent_name,
     COALESCE(na.status,
       CASE WHEN na.last_heartbeat IS NOT NULL AND na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online' ELSE 'offline' END
@@ -4586,7 +4587,8 @@ module.exports = (pool, io) => {
     na.version, na.network_ranges, na.scan_interval_minutes, na.enabled,
     na.unifi_last_ok, na.unifi_last_check_at,
     na.created_at, na.azienda_id, na.api_key,
-    u.azienda
+    u.azienda,
+    u.ip_statico AS azienda_ip_statico
              FROM network_agents na
              LEFT JOIN users u ON na.azienda_id = u.id
              WHERE na.deleted_at IS NULL
