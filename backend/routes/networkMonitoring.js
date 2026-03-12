@@ -2315,7 +2315,7 @@ module.exports = (pool, io) => {
           // Use '!= ALL' which is more robust than 'NOT IN' with arrays in Postgres
           // RETURNING per notifiche offline (include notify_telegram per filtrare)
           const offlineRes = await pool.query(`UPDATE network_devices SET status = 'offline'
-                WHERE agent_id = $1 AND status = 'online' AND ip_address != ALL($2::text[])
+                WHERE agent_id = $1 AND status = 'online' AND ip_address != ALL($2::text[]) AND ip_address NOT LIKE 'virtual-%'
                 RETURNING id, hostname, ip_address, mac_address, device_type, notify_telegram`,
             [agentId, receivedList]
           );
@@ -2357,7 +2357,7 @@ module.exports = (pool, io) => {
       } else {
         try {
           const offlineAllRes = await pool.query(`UPDATE network_devices SET status = 'offline' 
-                WHERE agent_id = $1 AND status = 'online'
+                WHERE agent_id = $1 AND status = 'online' AND ip_address NOT LIKE 'virtual-%'
                 RETURNING id, hostname, ip_address, mac_address, device_type, notify_telegram`, [agentId]);
 
           if (offlineAllRes.rows.length > 0) {
