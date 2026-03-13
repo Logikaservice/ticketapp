@@ -5,15 +5,15 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.6.18
-# Data ultima modifica: 2026-03-06
+# Versione: 2.6.19
+# Data ultima modifica: 2026-03-13
 
 param(
     [string]$ConfigPath = "config.json"
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.6.18"
+$SCRIPT_VERSION = "2.6.19"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -1681,7 +1681,7 @@ function Get-NetworkDevices {
                                         
                                         # Se Get-NetNeighbor non ha trovato, prova SendARP come fallback
                                         if (-not $macAddress) {
-                                            $macFromSendArp = $null($ip)
+                                            $macFromSendArp = $null
                                             if ($macFromSendArp -and 
                                                 $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
                                                 $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
@@ -1714,7 +1714,7 @@ function Get-NetworkDevices {
                                     }
                                     # Ultimo tentativo con SendARP
                                     if (-not $macAddress) {
-                                        $macFromSendArp = $null($ip)
+                                        $macFromSendArp = $null
                                         if ($macFromSendArp -and 
                                             $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
                                             $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
@@ -1747,7 +1747,7 @@ function Get-NetworkDevices {
                                         }
                                         # Fallback SendARP solo se Get-NetNeighbor non ha trovato
                                         if (-not $macAddress) {
-                                            $macFromSendArp = $null($ip)
+                                            $macFromSendArp = $null
                                             if ($macFromSendArp -and 
                                                 $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
                                                 $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
@@ -2991,5 +2991,6 @@ while ($script:isRunning) {
 
 Write-Log "=== Network Monitor Service Arrestato ==="
 Update-StatusFile -Status "stopping" -Message "Servizio in arresto"
+
 
 

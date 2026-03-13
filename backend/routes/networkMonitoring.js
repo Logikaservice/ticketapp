@@ -7394,13 +7394,13 @@ pause
   // scaricano da /download/agent/NetworkMonitorService.ps1 e si riavviano (auto-update).
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.6.18'; // Rilevamento sleep mode PC e retry veloce heartbeat
+      const CURRENT_AGENT_VERSION = '2.6.19'; // AV Compatibility: removed Add-Type / ArpHelper
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
         version: CURRENT_AGENT_VERSION,
         download_url: `${baseUrl}/api/network-monitoring/download/agent/NetworkMonitorService.ps1`,
-        release_date: '2026-03-06',
+        release_date: '2026-03-13',
         features: [
           'Device Test Remoto - Ping e scan porte eseguiti dall\'agent in locale (IP privati)',
           'Parallelismo scansione WiFi (router multipli simultanei)',
