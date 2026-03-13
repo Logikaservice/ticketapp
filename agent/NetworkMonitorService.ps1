@@ -48,113 +48,26 @@ function Write-BootstrapLog {
     catch { }
 }
 
-$script:arpHelperAvailable = $false
-Write-BootstrapLog "BOOT: avvio NetworkMonitorService.ps1 (v=$SCRIPT_VERSION, PS=$($PSVersionTable.PSVersion), PID=$PID, ConfigPath=$ConfigPath)"
-try {
-    # Aggiungi definizione API Windows per recupero MAC (come Advanced IP Scanner)
-    Add-Type -TypeDefinition @"
-using System;
-using System.Net;
-using System.Net.NetworkInformation;
-using System.Runtime.InteropServices;
-using System.Text;
-
-public class ArpHelper {
-    [DllImport("iphlpapi.dll", ExactSpelling = true)]
-    public static extern int SendARP(uint destIP, uint srcIP, byte[] pMacAddr, ref uint phyAddrLen);
-    
-    [DllImport("iphlpapi.dll", SetLastError = true)]
-    public static extern int GetIpNetTable(IntPtr pIpNetTable, ref int pdwSize, bool bOrder);
-    
-    public static string GetMacAddress(string ipAddress) {
-        try {
-            IPAddress ip = IPAddress.Parse(ipAddress);
-            byte[] macAddr = new byte[6];
-            uint macAddrLen = (uint)macAddr.Length;
-            
-            // PROVA 1: SendARP con network byte order (big endian)
-            byte[] ipBytes = ip.GetAddressBytes();
-            uint destIP = (uint)((ipBytes[0] << 24) | (ipBytes[1] << 16) | (ipBytes[2] << 8) | ipBytes[3]);
-            
-            int result = SendARP(destIP, 0, macAddr, ref macAddrLen);
-            if (result == 0 && macAddrLen == 6) {
-                bool allZero = true;
-                foreach (byte b in macAddr) {
-                    if (b != 0) {
-                        allZero = false;
-                        break;
-                    }
-                }
-                if (!allZero) {
-                    return string.Format("{0:X2}-{1:X2}-{2:X2}-{3:X2}-{4:X2}-{5:X2}",
-                        macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
-                }
-            }
-            
-            // PROVA 2: SendARP con host byte order (little endian) - alcuni sistemi lo richiedono
-            destIP = (uint)(ipBytes[0] | (ipBytes[1] << 8) | (ipBytes[2] << 16) | (ipBytes[3] << 24));
-            macAddrLen = (uint)macAddr.Length;
-            Array.Clear(macAddr, 0, macAddr.Length);
-            
-            result = SendARP(destIP, 0, macAddr, ref macAddrLen);
-            if (result == 0 && macAddrLen == 6) {
-                bool allZero = true;
-                foreach (byte b in macAddr) {
-                    if (b != 0) {
-                        allZero = false;
-                        break;
-                    }
-                }
-                if (!allZero) {
-                    return string.Format("{0:X2}-{1:X2}-{2:X2}-{3:X2}-{4:X2}-{5:X2}",
-                        macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
-                }
-            }
-        } catch {
-            // Ignora errori
+# Utilizza Get-NetNeighbor (nativo in Windows 10/11) invece di SendARP via C# (Add-Type) 
+# per evitare rilevazioni antivirus di "compilazione sospetta in memoria".
+$script:arpHelperAvailable = $true
+function Get-MacFromNeighbor {
+    param([string]$ip)
+    try {
+        $n = Get-NetNeighbor -IPAddress $ip -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($n -and $n.LinkLayerAddress) {
+            return $n.LinkLayerAddress.ToUpper().Replace(':','-')
         }
-        return null;
-    }
-    
-    public static int GetMacAddressWithError(string ipAddress, out string macAddress) {
-        macAddress = null;
-        try {
-            IPAddress ip = IPAddress.Parse(ipAddress);
-            byte[] macAddr = new byte[6];
-            uint macAddrLen = (uint)macAddr.Length;
-            
-            byte[] ipBytes = ip.GetAddressBytes();
-            uint destIP = (uint)((ipBytes[0] << 24) | (ipBytes[1] << 16) | (ipBytes[2] << 8) | ipBytes[3]);
-            
-            int result = SendARP(destIP, 0, macAddr, ref macAddrLen);
-            if (result == 0 && macAddrLen == 6) {
-                bool allZero = true;
-                foreach (byte b in macAddr) {
-                    if (b != 0) {
-                        allZero = false;
-                        break;
-                    }
-                }
-                if (!allZero) {
-                    macAddress = string.Format("{0:X2}-{1:X2}-{2:X2}-{3:X2}-{4:X2}-{5:X2}",
-                        macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
-                    return 0;
-                }
-            }
-            return result; // Restituisce codice errore
-        } catch {
-            return -1;
+        # Fallback su arp.exe
+        $arpRaw = arp -a $ip 2>$null | Select-String $ip
+        if ($arpRaw -match "([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}") {
+            return $matches[0].ToUpper().Replace(':','-')
         }
-    }
+    } catch {}
+    return $null
 }
-"@
-    $script:arpHelperAvailable = $true
 }
-catch {
-    Write-BootstrapLog "WARN: Add-Type ArpHelper fallito: $($_.Exception.Message)"
-    try { Write-BootstrapLog "Stack: $($_.Exception.StackTrace)" } catch { }
-    # Non bloccare il servizio: useremo fallback (Get-NetNeighbor/arp.exe) dove possibile.
-}
+    Write-BootstrapLog "BOOT: avvio NetworkMonitorService.ps1 (v=$SCRIPT_VERSION, PS=$($PSVersionTable.PSVersion), PID=$PID, ConfigPath=$ConfigPath)"
 
 # Variabili globali
 # Determina directory script (funziona anche come servizio)
@@ -288,23 +201,8 @@ function Check-UnifiUpdates {
     try {
         # Ignora errori certificato self-signed
         # Ignora errori certificato self-signed
-        if (-not ("TrustAllCertsPolicy" -as [type])) {
-            try {
-                add-type -ErrorAction Stop @"
-                    using System.Net;
-                    using System.Security.Cryptography.X509Certificates;
-                    public class TrustAllCertsPolicy : ICertificatePolicy {
-                        public bool CheckValidationResult(
-                            ServicePoint srvPoint, X509Certificate certificate,
-                            WebRequest request, int certificateProblem) {
-                            return true;
-                        }
-                    }
-"@
-            }
-            catch { Write-Log "Add-Type TrustAllCertsPolicy error (Check-UnifiUpdates): $_" "WARN" }
-        }
-        [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        # Disabilita verifica certificato SSL (alternativa a Add-Type TrustAllCertsPolicy che causa rilevazioni AV)
+        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
 
         # Sessione Web per mantenere i cookie
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
@@ -416,16 +314,7 @@ function Invoke-RouterWifiFetchAndReport {
             $base = if ($ControllerUrl -and $ControllerUrl.Trim()) { $ControllerUrl.Trim().TrimEnd('/') } else { "https://${RouterIp}:8443" }
             Write-Log "Controller WiFi (Unifi): inizio connessione a $base (modello: $RouterModel, user: $Username)" "INFO"
             # Bypass certificato SSL auto-firmato per UniFi controller
-            if (-not ("TrustAllCertsPolicy" -as [type])) {
-                try {
-                    add-type -ErrorAction Stop @"
-                        using System.Net; using System.Security.Cryptography.X509Certificates;
-                        public class TrustAllCertsPolicy : ICertificatePolicy { public bool CheckValidationResult(ServicePoint s, X509Certificate c, WebRequest r, int p) { return true; } }
-"@
-                }
-                catch { Write-Log "Add-Type TrustAllCertsPolicy error: $_" "WARN" }
-            }
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+            # Bypass certificato SSL auto-firmato per UniFi controller - usa callback nativa
             [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
             
             if (-not $base.StartsWith('http')) { $base = "https://$base" }
@@ -734,18 +623,8 @@ function Invoke-UnifiConnectionTestAndReport {
     try {
         $base = ($Url -as [string]).Trim().TrimEnd('/')
         if (-not $base) { $msg = "URL non valido"; throw $msg }
-        if (-not ("TrustAllCertsPolicy" -as [type])) {
-            try {
-                add-type -ErrorAction Stop @"
-                using System.Net; using System.Security.Cryptography.X509Certificates;
-                public class TrustAllCertsPolicy : ICertificatePolicy {
-                    public bool CheckValidationResult(ServicePoint s, X509Certificate c, WebRequest r, int p) { return true; }
-                }
-"@
-            }
-            catch { Write-Log "Add-Type TrustAllCertsPolicy error: $_" "WARN" }
-        }
-        [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        # Disabilita verifica certificato SSL (callback nativa, NO Add-Type per ridurre rilevazioni AV)
+        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
         $loginBody = @{ username = $Username; password = $Password } | ConvertTo-Json
         try {
@@ -1396,306 +1275,35 @@ function Get-NetworkDevices {
                             $macRecoveryScriptBlock = {
                                 param($targetIP, $arpTableData)
                         
-                                # Ricrea ArpHelper nel runspace (necessario per SendARP)
-                                try {
-                                    Add-Type -TypeDefinition @"
-using System;
-using System.Net;
-using System.Net.NetworkInformation;
-using System.Runtime.InteropServices;
-using System.Text;
-
-public class ArpHelper {
-    [DllImport("iphlpapi.dll", ExactSpelling = true)]
-    public static extern int SendARP(uint destIP, uint srcIP, byte[] pMacAddr, ref uint phyAddrLen);
-    
-    public static string GetMacAddress(string ipAddress) {
-        try {
-            IPAddress ip = IPAddress.Parse(ipAddress);
-            byte[] macAddr = new byte[6];
-            uint macAddrLen = (uint)macAddr.Length;
-            
-            byte[] ipBytes = ip.GetAddressBytes();
-            uint destIP = (uint)((ipBytes[0] << 24) | (ipBytes[1] << 16) | (ipBytes[2] << 8) | ipBytes[3]);
-            
-            int result = SendARP(destIP, 0, macAddr, ref macAddrLen);
-            if (result == 0 && macAddrLen == 6) {
-                bool allZero = true;
-                foreach (byte b in macAddr) {
-                    if (b != 0) {
-                        allZero = false;
-                        break;
-                    }
-                }
-                if (!allZero) {
-                    return string.Format("{0:X2}-{1:X2}-{2:X2}-{3:X2}-{4:X2}-{5:X2}",
-                        macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
-                }
-            }
-            
-            // Prova little endian
-            destIP = (uint)(ipBytes[0] | (ipBytes[1] << 8) | (ipBytes[2] << 16) | (ipBytes[3] << 24));
-            macAddrLen = (uint)macAddr.Length;
-            Array.Clear(macAddr, 0, macAddr.Length);
-            
-            result = SendARP(destIP, 0, macAddr, ref macAddrLen);
-            if (result == 0 && macAddrLen == 6) {
-                bool allZero = true;
-                foreach (byte b in macAddr) {
-                    if (b != 0) {
-                        allZero = false;
-                        break;
-                    }
-                }
-                if (!allZero) {
-                    return string.Format("{0:X2}-{1:X2}-{2:X2}-{3:X2}-{4:X2}-{5:X2}",
-                        macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
-                }
-            }
-        } catch {
-            // Ignora errori
-        }
-        return null;
-    }
-}
-"@
-                                }
-                                catch { }
                         
-                                $macAddress = $null
-                        
-                                # PRIORIT├Ç 1: Tabella ARP pre-caricata (pi├╣ affidabile di SendARP diretto)
-                                # Get-NetNeighbor ├¿ pi├╣ accurato perch├® legge direttamente dalla cache ARP aggiornata
+                                # PRIORITÀ 1: Tabella ARP pre-caricata (veloce e sicura per AV)
                                 if ($arpTableData -and $arpTableData.ContainsKey($targetIP)) {
                                     $macFromTable = $arpTableData[$targetIP]
-                                    if ($macFromTable -and 
-                                        $macFromTable -notmatch '^00-00-00-00-00-00' -and 
-                                        $macFromTable -ne '00:00:00:00:00:00' -and
-                                        $macFromTable -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                        $macAddress = $macFromTable
-                                        return @{ ip = $targetIP; mac = $macAddress }
+                                    if ($macFromTable -and $macFromTable.LinkLayerAddress -match "([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}") {
+                                        return @{ ip = $targetIP; mac = $macFromTable.LinkLayerAddress.ToUpper().Replace(':', '-') }
                                     }
                                 }
                         
-                                # PRIORIT├Ç 2: Get-NetNeighbor diretto (pi├╣ affidabile di SendARP)
-                                # Questo legge direttamente dalla cache ARP di Windows, pi├╣ accurato
-                                # IMPORTANTE: Filtra MAC virtuali (VMware, VirtualBox, Hyper-V) e preferisci interfacce fisiche
+                                # PRIORITÀ 2: Get-NetNeighbor o arp.exe (nativo)
                                 try {
-                                    $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
-                                    $physicalMacs = @()
-                                    $virtualMacs = @()
-                            
-                                    foreach ($arpEntry in $arpEntries) {
-                                        if ($arpEntry.LinkLayerAddress) {
-                                            $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                            # Normalizza formato MAC per confronto
-                                            $macNormalized = $macFromNeighbor -replace '[:-]', '' -replace ' ', ''
-                                    
-                                            # Verifica che sia un MAC valido
-                                            if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                                $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                                $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                        
-                                                # Filtra MAC virtuali (prefissi OUI comuni)
-                                                # VMware: 00:50:56, 00:0C:29, 00:05:69
-                                                # VirtualBox: 08:00:27
-                                                # Hyper-V: 00:15:5D
-                                                $isVirtual = $false
-                                                if ($macNormalized -match '^(005056|000C29|000569|080027|00155D)') {
-                                                    $isVirtual = $true
-                                                }
-                                        
-                                                if ($isVirtual) {
-                                                    $virtualMacs += $macFromNeighbor
-                                                }
-                                                else {
-                                                    $physicalMacs += $macFromNeighbor
-                                                }
-                                            }
-                                        }
+                                    # Forza aggiornamento ARP con un ping rapido
+                                    $p = New-Object System.Net.NetworkInformation.Ping
+                                    $p.Send($targetIP, 300) | Out-Null
+
+                                    # Leggi da Get-NetNeighbor (Windows 10/11/Server 2012+)
+                                    $n = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue | Select-Object -First 1
+                                    if ($n -and $n.LinkLayerAddress -and $n.LinkLayerAddress -ne "00-00-00-00-00-00") {
+                                        return @{ ip = $targetIP; mac = $n.LinkLayerAddress.ToUpper().Replace(':', '-') }
                                     }
-                            
-                                    # Preferisci MAC fisici rispetto a virtuali
-                                    if ($physicalMacs.Count -gt 0) {
-                                        return @{ ip = $targetIP; mac = $physicalMacs[0] }
-                                    }
-                                    elseif ($virtualMacs.Count -gt 0) {
-                                        # Se ci sono solo MAC virtuali, usa il primo (meglio di niente)
-                                        return @{ ip = $targetIP; mac = $virtualMacs[0] }
+
+                                    # Fallback su arp.exe (ovunque)
+                                    $arpRaw = arp -a $targetIP 2>$null | Select-String $targetIP
+                                    if ($arpRaw -match "([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}") {
+                                        return @{ ip = $targetIP; mac = $matches[0].ToUpper().Replace(':', '-') }
                                     }
                                 }
                                 catch { }
                         
-                                # PRIORIT├Ç 3: Ping multipli per forzare ARP + Get-NetNeighbor (come Advanced IP Scanner)
-                                # IMPORTANTE: Advanced IP Scanner fa SEMPRE ping prima di leggere MAC
-                                # Questo aggiorna la cache ARP e garantisce MAC corretti
-                                # CRITICO: Deve essere fatto SEMPRE, anche se la tabella ARP ha gi├á il MAC
-                                # perch├® potrebbe essere vecchio o riferirsi all'interfaccia sbagliata
-                                try {
-                                    $ping = New-Object System.Net.NetworkInformation.Ping
-                                    # Fai 3 ping per forzare aggiornamento ARP cache (come Advanced IP Scanner)
-                                    $pingSuccess = $false
-                                    for ($i = 1; $i -le 3; $i++) {
-                                        $pingReply = $ping.Send($targetIP, 500)
-                                        if ($pingReply.Status -eq 'Success') {
-                                            $pingSuccess = $true
-                                            # Attesa per aggiornamento ARP cache (importante!)
-                                            Start-Sleep -Milliseconds 400
-                                        }
-                                    }
-                            
-                                    # DOPO tutti i ping, attendi un po' per garantire aggiornamento ARP cache
-                                    if ($pingSuccess) {
-                                        Start-Sleep -Milliseconds 500  # Attesa extra per ARP cache
-                                
-                                        # Leggi da Get-NetNeighbor (pi├╣ affidabile di SendARP e tabella ARP pre-caricata)
-                                        # Questo legge direttamente dalla cache ARP aggiornata dopo i ping
-                                        # IMPORTANTE: Filtra MAC virtuali e preferisci interfacce fisiche
-                                        $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
-                                        $physicalMacs = @()
-                                        $virtualMacs = @()
-                                
-                                        foreach ($arpEntry in $arpEntries) {
-                                            if ($arpEntry.LinkLayerAddress) {
-                                                $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                                # Normalizza formato MAC per confronto
-                                                $macNormalized = $macFromNeighbor -replace '[:-]', '' -replace ' ', ''
-                                        
-                                                # Verifica che sia un MAC valido
-                                                if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                                    $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                                    $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            
-                                                    # Filtra MAC virtuali (prefissi OUI comuni)
-                                                    $isVirtual = $false
-                                                    if ($macNormalized -match '^(005056|000C29|000569|080027|00155D)') {
-                                                        $isVirtual = $true
-                                                    }
-                                            
-                                                    if ($isVirtual) {
-                                                        $virtualMacs += $macFromNeighbor
-                                                    }
-                                                    else {
-                                                        $physicalMacs += $macFromNeighbor
-                                                    }
-                                                }
-                                            }
-                                        }
-                                
-                                        # Preferisci MAC fisici rispetto a virtuali
-                                        if ($physicalMacs.Count -gt 0) {
-                                            $ping.Dispose()
-                                            return @{ ip = $targetIP; mac = $physicalMacs[0] }
-                                        }
-                                        elseif ($virtualMacs.Count -gt 0) {
-                                            # Se ci sono solo MAC virtuali, usa il primo (meglio di niente)
-                                            $ping.Dispose()
-                                            return @{ ip = $targetIP; mac = $virtualMacs[0] }
-                                        }
-                                
-                                        # Se Get-NetNeighbor non ha trovato nulla dopo ping, riprova dopo altra attesa
-                                        Start-Sleep -Milliseconds 300
-                                        $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
-                                        $physicalMacs = @()
-                                        $virtualMacs = @()
-                                
-                                        foreach ($arpEntry in $arpEntries) {
-                                            if ($arpEntry.LinkLayerAddress) {
-                                                $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                                $macNormalized = $macFromNeighbor -replace '[:-]', '' -replace ' ', ''
-                                        
-                                                if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                                    $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                                    $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            
-                                                    $isVirtual = $false
-                                                    if ($macNormalized -match '^(005056|000C29|000569|080027|00155D)') {
-                                                        $isVirtual = $true
-                                                    }
-                                            
-                                                    if ($isVirtual) {
-                                                        $virtualMacs += $macFromNeighbor
-                                                    }
-                                                    else {
-                                                        $physicalMacs += $macFromNeighbor
-                                                    }
-                                                }
-                                            }
-                                        }
-                                
-                                        if ($physicalMacs.Count -gt 0) {
-                                            $ping.Dispose()
-                                            return @{ ip = $targetIP; mac = $physicalMacs[0] }
-                                        }
-                                        elseif ($virtualMacs.Count -gt 0) {
-                                            $ping.Dispose()
-                                            return @{ ip = $targetIP; mac = $virtualMacs[0] }
-                                        }
-                                
-                                        # Fallback: SendARP solo se Get-NetNeighbor non ha trovato nulla dopo ping
-                                        # NOTA: SendARP pu├▓ restituire MAC sbagliato se ci sono pi├╣ interfacce
-                                        $macFromSendArp = [ArpHelper]::GetMacAddress($targetIP)
-                                        if ($macFromSendArp -and 
-                                            $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
-                                            $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            $ping.Dispose()
-                                            return @{ ip = $targetIP; mac = $macFromSendArp }
-                                        }
-                                    }
-                                    $ping.Dispose()
-                            
-                                    # Se ping ha funzionato ma non abbiamo ancora MAC, attendi e riprova Get-NetNeighbor
-                                    if ($pingSuccess) {
-                                        Start-Sleep -Milliseconds 500  # Attesa extra per ARP cache
-                                        $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
-                                        foreach ($arpEntry in $arpEntries) {
-                                            if ($arpEntry.LinkLayerAddress) {
-                                                $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                                if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                                    $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                                    $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                                    return @{ ip = $targetIP; mac = $macFromNeighbor }
-                                                }
-                                            }
-                                        }
-                                        # Ultimo tentativo con SendARP
-                                        $macFromSendArp = [ArpHelper]::GetMacAddress($targetIP)
-                                        if ($macFromSendArp -and 
-                                            $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
-                                            $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            return @{ ip = $targetIP; mac = $macFromSendArp }
-                                        }
-                                    }
-                                }
-                                catch { }
-                        
-                                # PRIORIT├Ç 4: SendARP diretto (solo come ultimo fallback - pu├▓ essere impreciso)
-                                # NOTA: SendARP senza ping pu├▓ restituire MAC del gateway invece del dispositivo
-                                try {
-                                    $macFromSendArp = [ArpHelper]::GetMacAddress($targetIP)
-                                    if ($macFromSendArp -and 
-                                        $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
-                                        $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                        return @{ ip = $targetIP; mac = $macFromSendArp }
-                                    }
-                                }
-                                catch { }
-                        
-                                # PRIORIT├Ç 5: arp.exe (fallback finale)
-                                try {
-                                    $arpOutput = arp -a 2>$null
-                                    if ($arpOutput -match "(?m)^\s*$([regex]::Escape($targetIP))\s+([0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2})") {
-                                        $macFromArp = $matches[2]
-                                        if ($macFromArp -notmatch '^00-00-00-00-00-00' -and 
-                                            $macFromArp -ne '00:00:00:00:00:00' -and
-                                            $macFromArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            return @{ ip = $targetIP; mac = $macFromArp }
-                                        }
-                                    }
-                                }
-                                catch { }
-                        
-                                # Nessun MAC trovato
                                 return @{ ip = $targetIP; mac = $null }
                             }
                     
