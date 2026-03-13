@@ -437,6 +437,8 @@ export default function TicketApp() {
     setShowEmail(false);
     setShowOffice(false);
     setShowFlottaPC(false);
+    setShowMappatura(false);
+    setShowPackVision(false);
     setNetworkMonitoringInitialView(null);
   };
 
