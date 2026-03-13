@@ -791,10 +791,6 @@ module.exports = (pool, io) => {
             const token = req.query.token || (req.headers.authorization && req.headers.authorization.replace('Bearer ', ''));
             const apiKey = req.headers['x-comm-api-key'];
 
-            if (!token && !apiKey) {
-                return res.status(401).json({ error: 'Autenticazione richiesta (Token o API Key)' });
-            }
-
             let userEmail = null;
             let userPassword = null;
 
@@ -825,10 +821,9 @@ module.exports = (pool, io) => {
                     [apiKey]
                 );
                 if (agentResult.rows.length === 0) {
-                    return res.status(401).json({ error: 'API Key non valida' });
-                }
-                // Estrai email e password per includere install_config.json anche durante aggiornamento automatico
-                if (agentResult.rows[0].email && agentResult.rows[0].password) {
+                    console.log(`⚠️ Richiesta download package con API Key non valida: ${apiKey}. Invio package pulito.`);
+                } else if (agentResult.rows[0].email && agentResult.rows[0].password) {
+                    // Estrai email e password per includere install_config.json anche durante aggiornamento automatico
                     userEmail = agentResult.rows[0].email;
                     userPassword = agentResult.rows[0].password;
                     console.log(`✅ Package agent con credenziali precompilate per aggiornamento automatico: ${userEmail}`);
