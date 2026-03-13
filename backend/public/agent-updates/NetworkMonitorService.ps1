@@ -1,4 +1,4 @@
-﻿# NetworkMonitorService.ps1
+# NetworkMonitorService.ps1
 # Servizio Windows permanente per Network Monitor Agent
 # Rimane sempre attivo e esegue scansioni periodicamente
 # Gestisce tutto internamente senza dipendere da Scheduled Task
@@ -48,18 +48,25 @@ function Write-BootstrapLog {
     catch { }
 }
 
-$script:arpHelperAvailable = $false
+# Utilizza Get-NetNeighbor (nativo in Windows 10/11) invece di SendARP via C# (Add-Type) 
+# per evitare rilevazioni antivirus di "compilazione sospetta in memoria".
+$script:arpHelperAvailable = $true
+function Get-MacFromNeighbor {
+    param([string]$ip)
+    try {
+        $n = Get-NetNeighbor -IPAddress $ip -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($n -and $n.LinkLayerAddress) {
+            return $n.LinkLayerAddress.ToUpper().Replace(':','-')
+        }
+        # Fallback su arp.exe
+        $arpRaw = arp -a $ip 2>$null | Select-String $ip
+        if ($arpRaw -match "([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}") {
+            return $matches[0].ToUpper().Replace(':','-')
+        }
+    } catch {}
+    return $null
+}
 Write-BootstrapLog "BOOT: avvio NetworkMonitorService.ps1 (v=$SCRIPT_VERSION, PS=$($PSVersionTable.PSVersion), PID=$PID, ConfigPath=$ConfigPath)"
-try {
-    # Aggiungi definizione API Windows per recupero MAC (come Advanced IP Scanner)
-    # Removed Add-Type for AV safety
-    $script:arpHelperAvailable = $true
-}
-catch {
-    Write-BootstrapLog "WARN: Add-Type ArpHelper fallito: $($_.Exception.Message)"
-    try { Write-BootstrapLog "Stack: $($_.Exception.StackTrace)" } catch { }
-    # Non bloccare il servizio: useremo fallback (Get-NetNeighbor/arp.exe) dove possibile.
-}
 
 # Variabili globali
 # Determina directory script (funziona anche come servizio)
@@ -193,12 +200,7 @@ function Check-UnifiUpdates {
     try {
         # Ignora errori certificato self-signed
         # Ignora errori certificato self-signed
-        if (-not ("TrustAllCertsPolicy" -as [type])) {
-            try {
-                # Removed Add-Type for AV safety
-            }
-            catch { Write-Log "Add-Type TrustAllCertsPolicy error (Check-UnifiUpdates): $_" "WARN" }
-        }
+        # Disabilita verifica certificato SSL (alternativa a Add-Type TrustAllCertsPolicy che causa rilevazioni AV)
         [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
 
         # Sessione Web per mantenere i cookie
@@ -311,13 +313,7 @@ function Invoke-RouterWifiFetchAndReport {
             $base = if ($ControllerUrl -and $ControllerUrl.Trim()) { $ControllerUrl.Trim().TrimEnd('/') } else { "https://${RouterIp}:8443" }
             Write-Log "Controller WiFi (Unifi): inizio connessione a $base (modello: $RouterModel, user: $Username)" "INFO"
             # Bypass certificato SSL auto-firmato per UniFi controller
-            if (-not ("TrustAllCertsPolicy" -as [type])) {
-                try {
-                    # Removed Add-Type for AV safety
-                }
-                catch { Write-Log "Add-Type TrustAllCertsPolicy error: $_" "WARN" }
-            }
-            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+            # Bypass certificato SSL auto-firmato per UniFi controller - usa callback nativa
             [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
             
             if (-not $base.StartsWith('http')) { $base = "https://$base" }
@@ -626,12 +622,7 @@ function Invoke-UnifiConnectionTestAndReport {
     try {
         $base = ($Url -as [string]).Trim().TrimEnd('/')
         if (-not $base) { $msg = "URL non valido"; throw $msg }
-        if (-not ("TrustAllCertsPolicy" -as [type])) {
-            try {
-                # Removed Add-Type for AV safety
-            }
-            catch { Write-Log "Add-Type TrustAllCertsPolicy error: $_" "WARN" }
-        }
+        # Disabilita verifica certificato SSL (callback nativa, NO Add-Type per ridurre rilevazioni AV)
         [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
         $loginBody = @{ username = $Username; password = $Password } | ConvertTo-Json
@@ -974,7 +965,8 @@ function Get-NetworkDevices {
                 
                 # Parallelizza scansione IP usando RunspacePool (molto pi├╣ veloce)
                 if ($ipListToScan.Count -gt 0) {
-                    $runspacePool = [runspacefactory]::CreateRunspacePool(1, 100)
+                    # Ridotto pool a 50 runspace per evitare saturazione risorse (era 100)
+                    $runspacePool = [runspacefactory]::CreateRunspacePool(1, 50)
                     $runspacePool.Open()
                     $jobs = New-Object System.Collections.ArrayList
                     
@@ -1111,9 +1103,9 @@ function Get-NetworkDevices {
                     }
                     
                     # Raccogli risultati con timeout per evitare blocchi
-                    # IMPORTANTE: Salva gli IP man mano che vengono trovati, cos├¼ appaiono in tempo reale nella tray icon
+                    # FIX: Timeout aumentato a 30s per dare tempo ai job, ma con watchdog anti-hang
                     $activeIPs = New-Object System.Collections.ArrayList
-                    $pingTimeout = 10  # Timeout 10 secondi per raccolta risultati ping
+                    $pingTimeout = 30  # Timeout 30 secondi per raccolta risultati ping (era 10)
                     $pingStartTime = Get-Date
                     
                     Write-Log "Raccolta risultati scansione ibrida (Ping+TCP) per $($jobs.Count) job..." "INFO"
@@ -1137,11 +1129,11 @@ function Get-NetworkDevices {
                                 break
                             }
                             
-                            # Attendi risultato con timeout (3 secondi per job - aumentato per ping multipli)
+                            # Attendi risultato con timeout ridotto per evitare hang
                             if ($jobInfo.AsyncResult) {
                                 $asyncWait = $jobInfo.AsyncResult.AsyncWaitHandle
-                                # Timeout aumentato a 3 secondi per gestire ping multipli (3 tentativi)
-                                if ($asyncWait -and $asyncWait.WaitOne(3000)) {
+                                # FIX: Ridotto a 1500ms per evitare che job bloccati congelino l'intero agent
+                                if ($asyncWait -and $asyncWait.WaitOne(1500)) {
                                     try {
                                         $result = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
                                         if ($result) {
@@ -1173,42 +1165,10 @@ function Get-NetworkDevices {
                                                 }
                                             }
                                             
-                                            # Salva SUBITO questo IP nella tray icon (aggiornamento in tempo reale)
-                                            try {
-                                                $currentIPs = @()
-                                                if (Test-Path $script:currentScanIPsFile) {
-                                                    $existingContent = Get-Content $script:currentScanIPsFile -Raw -ErrorAction SilentlyContinue
-                                                    if ($existingContent -and $existingContent.Trim() -ne '[]' -and $existingContent.Trim() -ne '') {
-                                                        try {
-                                                            $existingData = $existingContent | ConvertFrom-Json
-                                                            if ($existingData -is [System.Array]) {
-                                                                foreach ($existingItem in $existingData) {
-                                                                    if ($existingItem -is [PSCustomObject] -and $existingItem.ip) {
-                                                                        $currentIPs += @{ ip = $existingItem.ip.ToString(); mac = if ($existingItem.mac) { $existingItem.mac.ToString() } else { $null } }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                        catch { }
-                                                    }
-                                                }
-                                                
-                                                # Aggiungi il nuovo IP se non ├¿ gi├á presente
-                                                $ipExists = $false
-                                                foreach ($existingIP in $currentIPs) {
-                                                    if ($existingIP.ip -eq $resultIP) {
-                                                        $ipExists = $true
-                                                        break
-                                                    }
-                                                }
-                                                if (-not $ipExists) {
-                                                    $currentIPs += @{ ip = $resultIP; mac = $null }
-                                                    $currentIPs | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
-                                                }
-                                            }
-                                            catch {
-                                                # Ignora errori salvataggio in tempo reale
-                                            }
+                                            # FIX: Non salviamo pi├╣ su disco dentro il loop hot dei 253 job
+                                            # I/O su file dentro questo loop causava deadlock quando
+                                            # Synology Active Backup o AVG bloccavano i file
+                                            # Il salvataggio viene fatto in batch DOPO la raccolta
                                         }
                                     }
                                     catch {
@@ -1245,12 +1205,38 @@ function Get-NetworkDevices {
                     
                     Write-Log "Raccolta ping completata: $($activeIPs.Count) IP attivi trovati su $($jobs.Count) job processati" "INFO"
                     
+                    # FIX: Watchdog - forza chiusura di TUTTI i job rimasti aperti
+                    try {
+                        foreach ($jobInfo in $jobs) {
+                            try {
+                                if ($jobInfo.Job -and $jobInfo.AsyncResult -and (-not $jobInfo.AsyncResult.IsCompleted)) {
+                                    $jobInfo.Job.Stop()
+                                }
+                                if ($jobInfo.Job) { $jobInfo.Job.Dispose() }
+                            }
+                            catch { }
+                        }
+                    }
+                    catch { }
+                    
                     try {
                         $runspacePool.Close()
                         $runspacePool.Dispose()
                     }
                     catch {
                         Write-Log "Errore chiusura runspace pool ping: $_" "WARN"
+                    }
+                    
+                    # FIX: Salva IP trovati nella tray icon in un'unica operazione batch
+                    # (spostato fuori dal loop hot per evitare deadlock con I/O disco)
+                    try {
+                        if ($activeIPs.Count -gt 0 -and $script:currentScanIPsFile) {
+                            $ipsForTray = $activeIPs | ForEach-Object { @{ ip = $_.ToString(); mac = $null } }
+                            $ipsForTray | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
+                        }
+                    }
+                    catch {
+                        Write-Log "Errore salvataggio IP tray icon: $_" "WARN"
                     }
                     
                     
@@ -1288,246 +1274,35 @@ function Get-NetworkDevices {
                             $macRecoveryScriptBlock = {
                                 param($targetIP, $arpTableData)
                         
-                                # Ricrea ArpHelper nel runspace (necessario per SendARP)
-                                try {
-                                    # Removed Add-Type for AV safety
-                                }
-                                catch { }
                         
-                                $macAddress = $null
-                        
-                                # PRIORIT├Ç 1: Tabella ARP pre-caricata (pi├╣ affidabile di SendARP diretto)
-                                # Get-NetNeighbor ├¿ pi├╣ accurato perch├® legge direttamente dalla cache ARP aggiornata
+                                # PRIORITÀ 1: Tabella ARP pre-caricata (veloce e sicura per AV)
                                 if ($arpTableData -and $arpTableData.ContainsKey($targetIP)) {
                                     $macFromTable = $arpTableData[$targetIP]
-                                    if ($macFromTable -and 
-                                        $macFromTable -notmatch '^00-00-00-00-00-00' -and 
-                                        $macFromTable -ne '00:00:00:00:00:00' -and
-                                        $macFromTable -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                        $macAddress = $macFromTable
-                                        return @{ ip = $targetIP; mac = $macAddress }
+                                    if ($macFromTable -and $macFromTable.LinkLayerAddress -match "([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}") {
+                                        return @{ ip = $targetIP; mac = $macFromTable.LinkLayerAddress.ToUpper().Replace(':', '-') }
                                     }
                                 }
                         
-                                # PRIORIT├Ç 2: Get-NetNeighbor diretto (pi├╣ affidabile di SendARP)
-                                # Questo legge direttamente dalla cache ARP di Windows, pi├╣ accurato
-                                # IMPORTANTE: Filtra MAC virtuali (VMware, VirtualBox, Hyper-V) e preferisci interfacce fisiche
+                                # PRIORITÀ 2: Get-NetNeighbor o arp.exe (nativo)
                                 try {
-                                    $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
-                                    $physicalMacs = @()
-                                    $virtualMacs = @()
-                            
-                                    foreach ($arpEntry in $arpEntries) {
-                                        if ($arpEntry.LinkLayerAddress) {
-                                            $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                            # Normalizza formato MAC per confronto
-                                            $macNormalized = $macFromNeighbor -replace '[:-]', '' -replace ' ', ''
-                                    
-                                            # Verifica che sia un MAC valido
-                                            if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                                $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                                $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                        
-                                                # Filtra MAC virtuali (prefissi OUI comuni)
-                                                # VMware: 00:50:56, 00:0C:29, 00:05:69
-                                                # VirtualBox: 08:00:27
-                                                # Hyper-V: 00:15:5D
-                                                $isVirtual = $false
-                                                if ($macNormalized -match '^(005056|000C29|000569|080027|00155D)') {
-                                                    $isVirtual = $true
-                                                }
-                                        
-                                                if ($isVirtual) {
-                                                    $virtualMacs += $macFromNeighbor
-                                                }
-                                                else {
-                                                    $physicalMacs += $macFromNeighbor
-                                                }
-                                            }
-                                        }
+                                    # Forza aggiornamento ARP con un ping rapido
+                                    $p = New-Object System.Net.NetworkInformation.Ping
+                                    $p.Send($targetIP, 300) | Out-Null
+
+                                    # Leggi da Get-NetNeighbor (Windows 10/11/Server 2012+)
+                                    $n = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue | Select-Object -First 1
+                                    if ($n -and $n.LinkLayerAddress -and $n.LinkLayerAddress -ne "00-00-00-00-00-00") {
+                                        return @{ ip = $targetIP; mac = $n.LinkLayerAddress.ToUpper().Replace(':', '-') }
                                     }
-                            
-                                    # Preferisci MAC fisici rispetto a virtuali
-                                    if ($physicalMacs.Count -gt 0) {
-                                        return @{ ip = $targetIP; mac = $physicalMacs[0] }
-                                    }
-                                    elseif ($virtualMacs.Count -gt 0) {
-                                        # Se ci sono solo MAC virtuali, usa il primo (meglio di niente)
-                                        return @{ ip = $targetIP; mac = $virtualMacs[0] }
+
+                                    # Fallback su arp.exe (ovunque)
+                                    $arpRaw = arp -a $targetIP 2>$null | Select-String $targetIP
+                                    if ($arpRaw -match "([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}") {
+                                        return @{ ip = $targetIP; mac = $matches[0].ToUpper().Replace(':', '-') }
                                     }
                                 }
                                 catch { }
                         
-                                # PRIORIT├Ç 3: Ping multipli per forzare ARP + Get-NetNeighbor (come Advanced IP Scanner)
-                                # IMPORTANTE: Advanced IP Scanner fa SEMPRE ping prima di leggere MAC
-                                # Questo aggiorna la cache ARP e garantisce MAC corretti
-                                # CRITICO: Deve essere fatto SEMPRE, anche se la tabella ARP ha gi├á il MAC
-                                # perch├® potrebbe essere vecchio o riferirsi all'interfaccia sbagliata
-                                try {
-                                    $ping = New-Object System.Net.NetworkInformation.Ping
-                                    # Fai 3 ping per forzare aggiornamento ARP cache (come Advanced IP Scanner)
-                                    $pingSuccess = $false
-                                    for ($i = 1; $i -le 3; $i++) {
-                                        $pingReply = $ping.Send($targetIP, 500)
-                                        if ($pingReply.Status -eq 'Success') {
-                                            $pingSuccess = $true
-                                            # Attesa per aggiornamento ARP cache (importante!)
-                                            Start-Sleep -Milliseconds 400
-                                        }
-                                    }
-                            
-                                    # DOPO tutti i ping, attendi un po' per garantire aggiornamento ARP cache
-                                    if ($pingSuccess) {
-                                        Start-Sleep -Milliseconds 500  # Attesa extra per ARP cache
-                                
-                                        # Leggi da Get-NetNeighbor (pi├╣ affidabile di SendARP e tabella ARP pre-caricata)
-                                        # Questo legge direttamente dalla cache ARP aggiornata dopo i ping
-                                        # IMPORTANTE: Filtra MAC virtuali e preferisci interfacce fisiche
-                                        $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
-                                        $physicalMacs = @()
-                                        $virtualMacs = @()
-                                
-                                        foreach ($arpEntry in $arpEntries) {
-                                            if ($arpEntry.LinkLayerAddress) {
-                                                $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                                # Normalizza formato MAC per confronto
-                                                $macNormalized = $macFromNeighbor -replace '[:-]', '' -replace ' ', ''
-                                        
-                                                # Verifica che sia un MAC valido
-                                                if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                                    $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                                    $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            
-                                                    # Filtra MAC virtuali (prefissi OUI comuni)
-                                                    $isVirtual = $false
-                                                    if ($macNormalized -match '^(005056|000C29|000569|080027|00155D)') {
-                                                        $isVirtual = $true
-                                                    }
-                                            
-                                                    if ($isVirtual) {
-                                                        $virtualMacs += $macFromNeighbor
-                                                    }
-                                                    else {
-                                                        $physicalMacs += $macFromNeighbor
-                                                    }
-                                                }
-                                            }
-                                        }
-                                
-                                        # Preferisci MAC fisici rispetto a virtuali
-                                        if ($physicalMacs.Count -gt 0) {
-                                            $ping.Dispose()
-                                            return @{ ip = $targetIP; mac = $physicalMacs[0] }
-                                        }
-                                        elseif ($virtualMacs.Count -gt 0) {
-                                            # Se ci sono solo MAC virtuali, usa il primo (meglio di niente)
-                                            $ping.Dispose()
-                                            return @{ ip = $targetIP; mac = $virtualMacs[0] }
-                                        }
-                                
-                                        # Se Get-NetNeighbor non ha trovato nulla dopo ping, riprova dopo altra attesa
-                                        Start-Sleep -Milliseconds 300
-                                        $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
-                                        $physicalMacs = @()
-                                        $virtualMacs = @()
-                                
-                                        foreach ($arpEntry in $arpEntries) {
-                                            if ($arpEntry.LinkLayerAddress) {
-                                                $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                                $macNormalized = $macFromNeighbor -replace '[:-]', '' -replace ' ', ''
-                                        
-                                                if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                                    $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                                    $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            
-                                                    $isVirtual = $false
-                                                    if ($macNormalized -match '^(005056|000C29|000569|080027|00155D)') {
-                                                        $isVirtual = $true
-                                                    }
-                                            
-                                                    if ($isVirtual) {
-                                                        $virtualMacs += $macFromNeighbor
-                                                    }
-                                                    else {
-                                                        $physicalMacs += $macFromNeighbor
-                                                    }
-                                                }
-                                            }
-                                        }
-                                
-                                        if ($physicalMacs.Count -gt 0) {
-                                            $ping.Dispose()
-                                            return @{ ip = $targetIP; mac = $physicalMacs[0] }
-                                        }
-                                        elseif ($virtualMacs.Count -gt 0) {
-                                            $ping.Dispose()
-                                            return @{ ip = $targetIP; mac = $virtualMacs[0] }
-                                        }
-                                
-                                        # Fallback: SendARP solo se Get-NetNeighbor non ha trovato nulla dopo ping
-                                        # NOTA: SendARP pu├▓ restituire MAC sbagliato se ci sono pi├╣ interfacce
-                                        $macFromSendArp = $null
-                                        if ($macFromSendArp -and 
-                                            $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
-                                            $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            $ping.Dispose()
-                                            return @{ ip = $targetIP; mac = $macFromSendArp }
-                                        }
-                                    }
-                                    $ping.Dispose()
-                            
-                                    # Se ping ha funzionato ma non abbiamo ancora MAC, attendi e riprova Get-NetNeighbor
-                                    if ($pingSuccess) {
-                                        Start-Sleep -Milliseconds 500  # Attesa extra per ARP cache
-                                        $arpEntries = Get-NetNeighbor -IPAddress $targetIP -ErrorAction SilentlyContinue
-                                        foreach ($arpEntry in $arpEntries) {
-                                            if ($arpEntry.LinkLayerAddress) {
-                                                $macFromNeighbor = $arpEntry.LinkLayerAddress
-                                                if ($macFromNeighbor -notmatch '^00-00-00-00-00-00' -and 
-                                                    $macFromNeighbor -ne '00:00:00:00:00:00' -and
-                                                    $macFromNeighbor -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                                    return @{ ip = $targetIP; mac = $macFromNeighbor }
-                                                }
-                                            }
-                                        }
-                                        # Ultimo tentativo con SendARP
-                                        $macFromSendArp = $null
-                                        if ($macFromSendArp -and 
-                                            $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
-                                            $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            return @{ ip = $targetIP; mac = $macFromSendArp }
-                                        }
-                                    }
-                                }
-                                catch { }
-                        
-                                # PRIORIT├Ç 4: SendARP diretto (solo come ultimo fallback - pu├▓ essere impreciso)
-                                # NOTA: SendARP senza ping pu├▓ restituire MAC del gateway invece del dispositivo
-                                try {
-                                    $macFromSendArp = $null
-                                    if ($macFromSendArp -and 
-                                        $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
-                                        $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                        return @{ ip = $targetIP; mac = $macFromSendArp }
-                                    }
-                                }
-                                catch { }
-                        
-                                # PRIORIT├Ç 5: arp.exe (fallback finale)
-                                try {
-                                    $arpOutput = arp -a 2>$null
-                                    if ($arpOutput -match "(?m)^\s*$([regex]::Escape($targetIP))\s+([0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2}[:-][0-9A-F]{2})") {
-                                        $macFromArp = $matches[2]
-                                        if ($macFromArp -notmatch '^00-00-00-00-00-00' -and 
-                                            $macFromArp -ne '00:00:00:00:00:00' -and
-                                            $macFromArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
-                                            return @{ ip = $targetIP; mac = $macFromArp }
-                                        }
-                                    }
-                                }
-                                catch { }
-                        
-                                # Nessun MAC trovato
                                 return @{ ip = $targetIP; mac = $null }
                             }
                     
@@ -1681,7 +1456,7 @@ function Get-NetworkDevices {
                                         
                                         # Se Get-NetNeighbor non ha trovato, prova SendARP come fallback
                                         if (-not $macAddress) {
-                                            $macFromSendArp = $null
+                                            $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
                                             if ($macFromSendArp -and 
                                                 $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
                                                 $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
@@ -1714,7 +1489,7 @@ function Get-NetworkDevices {
                                     }
                                     # Ultimo tentativo con SendARP
                                     if (-not $macAddress) {
-                                        $macFromSendArp = $null
+                                        $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
                                         if ($macFromSendArp -and 
                                             $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
                                             $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
@@ -1747,7 +1522,7 @@ function Get-NetworkDevices {
                                         }
                                         # Fallback SendARP solo se Get-NetNeighbor non ha trovato
                                         if (-not $macAddress) {
-                                            $macFromSendArp = $null
+                                            $macFromSendArp = [ArpHelper]::GetMacAddress($ip)
                                             if ($macFromSendArp -and 
                                                 $macFromSendArp -notmatch '^00-00-00-00-00-00' -and
                                                 $macFromSendArp -match '^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$') {
@@ -2262,6 +2037,77 @@ function Get-ServerConfig {
     }
 }
 
+function Sync-ConfigFromServer {
+    param(
+        [string]$ServerUrl,
+        [string]$ApiKey
+    )
+    try {
+        $serverConfigResult = Get-ServerConfig -ServerUrl $ServerUrl -ApiKey $ApiKey
+        if ($serverConfigResult.success) {
+            $newConfig = $serverConfigResult.config
+            $configPath = Join-Path $script:scriptDir "config.json"
+            $configUpdated = $false
+            
+            # Check scan_interval_minutes
+            if ($newConfig.scan_interval_minutes) {
+                $serverInterval = $newConfig.scan_interval_minutes
+                # Se l'intervallo ├¿ diverso, aggiornalo solo in memoria (il servizio lo usa direttamente)
+                if ($serverInterval -ne $script:scanIntervalMinutes) {
+                    Write-Log "Rilevato cambio intervallo scansione: $($script:scanIntervalMinutes) -> $serverInterval minuti" "INFO"
+                    $script:scanIntervalMinutes = $serverInterval
+                    $configUpdated = $true
+                }
+            }
+            
+            # Check network_ranges (aggiorna in memoria e su disco se cambiati)
+            if ($newConfig.network_ranges -and ($newConfig.network_ranges -is [Array])) {
+                $serverRanges = $newConfig.network_ranges | Sort-Object
+                $currentRanges = if ($script:config.network_ranges) { $script:config.network_ranges | Sort-Object } else { @() }
+                
+                $rangesChanged = $false
+                if ($serverRanges.Count -ne $currentRanges.Count) {
+                    $rangesChanged = $true
+                }
+                else {
+                    for ($i = 0; $i -lt $serverRanges.Count; $i++) {
+                        if ($serverRanges[$i] -ne $currentRanges[$i]) { $rangesChanged = $true; break }
+                    }
+                }
+                
+                if ($rangesChanged) {
+                    Write-Log "Rilevato cambio network_ranges: aggiornamento configurazione locale..." "INFO"
+                    # Aggiorna memoria
+                    if ($script:config) { $script:config.network_ranges = $newConfig.network_ranges }
+                    $configUpdated = $true
+                }
+            }
+
+            # Persistenza su config.json se ci sono cambiamenti
+            if ($configUpdated -and (Test-Path $configPath)) {
+                try {
+                    $localConfig = Get-Content $configPath -Raw | ConvertFrom-Json
+                    if ($newConfig.scan_interval_minutes) { $localConfig.scan_interval_minutes = $newConfig.scan_interval_minutes }
+                    if ($newConfig.network_ranges) { $localConfig.network_ranges = $newConfig.network_ranges }
+                    # Opzionale: se il server invia anche network_ranges_config, aggiornalo
+                    if ($newConfig.network_ranges_config) { $localConfig.network_ranges_config = $newConfig.network_ranges_config }
+                    
+                    $localConfig | ConvertTo-Json -Depth 10 | Out-File -FilePath $configPath -Encoding UTF8 -Force
+                    Write-Log "Config.json locale aggiornato con nuove impostazioni." "INFO"
+                }
+                catch {
+                    Write-Log "Errore scrittura config.json: $_" "WARN"
+                }
+            }
+        }
+        return $serverConfigResult
+    }
+    catch {
+        # Non bloccare se il sync fallisce, ritorna errore gestito
+        return @{ success = $false; error = $_.Exception.Message }
+    }
+}
+
 function Send-Heartbeat {
     param(
         [string]$ServerUrl,
@@ -2335,32 +2181,8 @@ function Send-Heartbeat {
 
         $pendingUnifi = $response.pending_unifi_test
         
-        # Recupera configurazione dal server per verificare se scan_interval_minutes ├¿ cambiato
-        try {
-            $serverConfigResult = Get-ServerConfig -ServerUrl $ServerUrl -ApiKey $ApiKey
-            if ($serverConfigResult.success -and $serverConfigResult.config.scan_interval_minutes) {
-                $serverInterval = $serverConfigResult.config.scan_interval_minutes
-                
-                # Se l'intervallo ├¿ diverso, aggiornalo solo in memoria (il servizio lo usa direttamente)
-                if ($serverInterval -ne $script:scanIntervalMinutes) {
-                    Write-Log "Rilevato cambio intervallo scansione: $($script:scanIntervalMinutes) -> $serverInterval minuti" "INFO"
-                    $script:scanIntervalMinutes = $serverInterval
-                    
-                    # Aggiorna config.json locale per persistenza
-                    $configPath = Join-Path $script:scriptDir "config.json"
-                    if (Test-Path $configPath) {
-                        $localConfig = Get-Content $configPath -Raw | ConvertFrom-Json
-                        $localConfig.scan_interval_minutes = $serverInterval
-                        $localConfig | ConvertTo-Json -Depth 10 | Out-File -FilePath $configPath -Encoding UTF8 -Force
-                        Write-Log "Config.json locale aggiornato con nuovo intervallo ($serverInterval minuti)" "INFO"
-                        Write-Log "Il nuovo intervallo sara' applicato dalla prossima scansione" 'INFO'
-                    }
-                }
-            }
-        }
-        catch {
-            # Non bloccare l'esecuzione se il controllo configurazione fallisce
-        }
+        # Sincronizza configurazione (include intervallo e range reti)
+        $serverConfigResult = Sync-ConfigFromServer -ServerUrl $ServerUrl -ApiKey $ApiKey
         
         return @{ success = $true; uninstall = $false; config = $serverConfigResult.config; pending_unifi_test = $pendingUnifi; pending_router_wifi_task = $response.pending_router_wifi_task; pending_device_test_task = $response.pending_device_test_task }
     }
@@ -2863,6 +2685,14 @@ while ($script:isRunning) {
         
         # Controlla se ├¿ il momento di eseguire una scansione (programmata o forzata)
         if ($now -ge $nextScanTime -or $forceScan) {
+            
+            # Sincronizza configurazione PRIMA della scansione per assicurare che network_ranges sia aggiornato
+            # (rispetta l'intervallo di scan che puo' essere diverso da heartbeat)
+            try {
+                Sync-ConfigFromServer -ServerUrl $config.server_url -ApiKey $config.api_key | Out-Null
+            }
+            catch { Write-Log "Errore sync config pre-scan: $_" "WARN" }
+
             if ($forceScan) {
                 Write-Log "Esecuzione scansione FORZATA..."
             }
@@ -2991,6 +2821,4 @@ while ($script:isRunning) {
 
 Write-Log "=== Network Monitor Service Arrestato ==="
 Update-StatusFile -Status "stopping" -Message "Servizio in arresto"
-
-
 

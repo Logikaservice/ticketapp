@@ -66,8 +66,7 @@ function Get-MacFromNeighbor {
     } catch {}
     return $null
 }
-}
-    Write-BootstrapLog "BOOT: avvio NetworkMonitorService.ps1 (v=$SCRIPT_VERSION, PS=$($PSVersionTable.PSVersion), PID=$PID, ConfigPath=$ConfigPath)"
+Write-BootstrapLog "BOOT: avvio NetworkMonitorService.ps1 (v=$SCRIPT_VERSION, PS=$($PSVersionTable.PSVersion), PID=$PID, ConfigPath=$ConfigPath)"
 
 # Variabili globali
 # Determina directory script (funziona anche come servizio)
