@@ -351,24 +351,28 @@ export default function TicketApp() {
     }
   }, [showDeviceAnalysisStandalone, showOffice, showMappatura, showNetworkMonitoring, showAntiVirus, showEmail, showFlottaPC]);
 
+  const handleOpenMappatura = (companyId) => {
+    if (companyId !== undefined && companyId !== null && typeof companyId !== 'object') setShowGloballySelectedCompanyId(companyId);
+    setShowMappatura(true);
+    setShowDashboard(false);
+    setShowNetworkMonitoring(false);
+    setShowOrariTurni(false);
+    setShowVivaldi(false);
+    setShowPackVision(false);
+    setShowAntiVirus(false);
+    setShowOffice(false);
+    setShowFlottaPC(false);
+    setShowEmail(false);
+  };
+
   useEffect(() => {
-    // Gestione Mappa Rete rimossa su richiesta
-    const handleOpenMappatura = (companyId) => {
-      if (companyId) setShowGloballySelectedCompanyId(companyId);
-      setShowMappatura(true);
-      setShowDashboard(false);
-      setShowNetworkMonitoring(false);
-      // setShowNetworkMap(false); // Rimosso
-      setShowOrariTurni(false);
-      setShowVivaldi(false);
-      setShowPackVision(false);
-      setShowAntiVirus(false);
+    const onOpenMappatura = (e) => {
+        const cId = e && e.detail ? e.detail : undefined;
+        handleOpenMappatura(cId);
     };
-    // window.addEventListener('open-network-map', handleOpenNetworkMap);
-    window.addEventListener('open-mappatura', handleOpenMappatura);
+    window.addEventListener('open-mappatura', onOpenMappatura);
     return () => {
-      // window.removeEventListener('open-network-map', handleOpenNetworkMap);
-      window.removeEventListener('open-mappatura', handleOpenMappatura);
+      window.removeEventListener('open-mappatura', onOpenMappatura);
     };
   }, []);
 
