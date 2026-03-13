@@ -1,11 +1,12 @@
-$SCRIPT_VERSION = "1.2.28"
+$SCRIPT_VERSION = "1.2.29"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 
 # Stato condiviso thread-safe per heartbeat asincrono
 $script:bgState = [System.Collections.Hashtable]::Synchronized(@{
-    HbRunning  = $false
-    ToastQueue = [System.Collections.Queue]::Synchronized([System.Collections.Queue]::new())
+    HbRunning     = $false
+    ToastQueue    = [System.Collections.Queue]::Synchronized([System.Collections.Queue]::new())
+    InvalidApiKey = $false
 })
 $APP_NAME = "Logika Service Agent"
 $APP_TOOLTIP = "Logika Service - Communication Agent v$SCRIPT_VERSION"
@@ -558,7 +559,20 @@ function Send-Heartbeat {
                     }
                 }
             } catch {
-                RsLog "Heartbeat ERRORE: $_"
+                $errJson = $_.Exception.Message
+                if ($null -ne $_.Exception.Response) {
+                    try {
+                        $sr = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+                        $errJson = $sr.ReadToEnd()
+                    } catch {}
+                }
+                
+                RsLog "Heartbeat ERRORE: $errJson"
+                
+                # Se la chiave non è valida, segnaliamo al thread principale di cancellare la config
+                if ($errJson -match "API Key comunicazione non valida") {
+                    $bgState.InvalidApiKey = $true
+                }
             }
             $bgState.HbRunning = $false
         })
@@ -593,7 +607,7 @@ function Check-Update {
             $vbsContent = "Set WshShell = CreateObject(""WScript.Shell"")" + "`r`n" + "WshShell.Run ""powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File """"$myPath\CommAgentService.ps1"""""", 0, False" + "`r`n" + "Set WshShell = Nothing"
             $vbsContent | Out-File -FilePath $vbsLauncher -Encoding ASCII -Force
 
-            $batContent = "@echo off`r`ntimeout /t 2 /nobreak >nul`r`ntaskkill /F /PID $PID >nul 2>&1`r`ntimeout /t 1 /nobreak >nul`r`nrobocopy `"$extractPath`" `"$myPath`" /E /IS /IT /NP /XF *.log /XF Start-CommAgent-Hidden.vbs`r`nwscript.exe `"$vbsLauncher`"`r`ndel `"%~f0`""
+            $batContent = "@echo off`r`ntimeout /t 2 /nobreak >nul`r`ntaskkill /F /PID $PID >nul 2>&1`r`ntimeout /t 1 /nobreak >nul`r`nrobocopy `"$extractPath`" `"$myPath`" /E /IS /IT /NP /XF *.log /XF config.json /XF install_config.json /XF Start-CommAgent-Hidden.vbs`r`nwscript.exe `"$vbsLauncher`"`r`ndel `"%~f0`""
             $batContent | Out-File -FilePath $updaterBat -Encoding ASCII -Force
             Start-Process -FilePath $updaterBat -WindowStyle Hidden
             [System.Windows.Forms.Application]::Exit()
@@ -685,6 +699,24 @@ if ($cfg) {
         $script:toastCheckTimer.Interval = 500
         $script:toastCheckTimer.Add_Tick({
             try {
+                # Se il thread heartbeat ha segnalato una chiave non valida
+                if ($script:bgState.InvalidApiKey) {
+                    $script:bgState.InvalidApiKey = $false
+                    Write-Log "Rilevata API Key non valida. Tentativo di ri-registrazione..." "WARN"
+                    if (Test-Path $script:configFile) { Remove-Item $script:configFile -Force }
+                    
+                    # Ricarichiamo la config (che forzerà Get-ConfigOrRegister a riprovare)
+                    $newCfg = Get-ConfigOrRegister
+                    if ($newCfg) {
+                        $cfg.api_key = $newCfg.api_key
+                        $cfg.agent_id = $newCfg.agent_id
+                        Write-Log "Ri-registrazione completata con successo." "INFO"
+                    } else {
+                        Write-Log "Ri-registrazione fallita. L'agent si fermerà." "ERROR"
+                        [System.Windows.Forms.Application]::Exit()
+                    }
+                }
+
                 while ($script:bgState.ToastQueue.Count -gt 0) {
                     $item = $script:bgState.ToastQueue.Dequeue()
                     if ($item) {
