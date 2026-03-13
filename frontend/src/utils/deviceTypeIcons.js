@@ -16,9 +16,7 @@ export const AVAILABLE_ICONS = [
   { type: 'nas', icon: HardDrive, label: 'NAS / Storage' },
   { type: 'router', icon: Router, label: 'Router' },
   { type: 'firewall', icon: Shield, label: 'Firewall' },
-  { type: 'switch', icon: Network, label: 'Switch' },
   { type: 'unmanaged_switch', icon: Network, label: 'Unmanaged Switch' },
-  { type: 'managed_switch', icon: Network, label: 'Managed Switch' },
   { type: 'wifi', icon: Wifi, label: 'WiFi / AP' },
   { type: 'cloud_key', icon: Key, label: 'Cloud Key / Controller WiFi' },
   { type: 'radio', icon: RadioTower, label: 'Ponte Radio' },
@@ -32,7 +30,6 @@ export const AVAILABLE_ICONS = [
   { type: 'pbx', icon: PhoneCall, label: 'Centralino VoIP / PBX' },
   { type: 'dect_cell', icon: RadioTower, label: 'Cella DECT / Base DECT' },
   { type: 'dect_handset', icon: Phone, label: 'Cordless DECT' },
-  { type: 'database', icon: Database, label: 'Database' },
   { type: 'cloud', icon: Cloud, label: 'Cloud' },
   { type: 'internet', icon: Globe, label: 'Internet' },
   { type: 'generic', icon: Circle, label: 'Generico / Altro' }
