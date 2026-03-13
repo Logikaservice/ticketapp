@@ -88,6 +88,48 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   // selectedStaticIPs non serve più, usiamo is_static dal database
   const seenMacAddressesRef = useRef(new Set());
   const [newDevicesInList, setNewDevicesInList] = useState(new Set());
+  const pendingUpdatesRef = useRef({}); // { [deviceId]: { [field]: { value, timestamp } } }
+
+  // Applica gli aggiornamenti pendenti ai dati ricevuti dal server
+  const applyPendingUpdates = useCallback((items) => {
+    if (!items || !Array.isArray(items)) return items;
+    const now = Date.now();
+    const LOCK_TIME = 8000; // 8 secondi di "blocco" per evitare overwrite da refresh (visti i tempi del backend)
+
+    return items.map(item => {
+      const pending = pendingUpdatesRef.current[item.id];
+      if (!pending) return item;
+
+      let newItem = { ...item };
+      let hasUpdates = false;
+
+      Object.keys(pending).forEach(field => {
+        if (now - pending[field].timestamp < LOCK_TIME) {
+          newItem[field] = pending[field].value;
+          hasUpdates = true;
+        } else {
+          // Pulisci update vecchio
+          delete pendingUpdatesRef.current[item.id][field];
+        }
+      });
+
+      if (Object.keys(pendingUpdatesRef.current[item.id]).length === 0) {
+        delete pendingUpdatesRef.current[item.id];
+      }
+
+      return hasUpdates ? newItem : item;
+    });
+  }, []);
+
+  const markPendingUpdate = (deviceId, field, value) => {
+    if (!pendingUpdatesRef.current[deviceId]) {
+      pendingUpdatesRef.current[deviceId] = {};
+    }
+    pendingUpdatesRef.current[deviceId][field] = {
+      value,
+      timestamp: Date.now()
+    };
+  };
 
   // Funzione per generare report stampabile
   const generatePrintableReport = () => {
@@ -458,7 +500,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       }
 
       const data = await response.json();
-      setDevices(data);
+      const updatedData = applyPendingUpdates(data);
+      setDevices(updatedData);
       setLastUpdate(new Date());
     } catch (err) {
       console.error('Errore caricamento dispositivi:', err);
@@ -731,10 +774,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       }
       const data = await response.json();
 
-      // Rileva nuovi dispositivi usando il flag dal backend
-      const newlyDetected = new Set();
+      // 1. Applica subito gli aggiornamenti pendenti ai dati ricevuti (per is_static, notify_telegram, device_type, is_new_device)
+      const updatedData = applyPendingUpdates(data);
 
-      data.forEach(device => {
+      // 2. Rileva nuovi dispositivi usando il flag (ora aggiornato optimisticamente)
+      const newlyDetected = new Set();
+      updatedData.forEach(device => {
         if (device.is_new_device) {
           newlyDetected.add(device.id);
         }
@@ -753,7 +798,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         setNewDevicesInList(new Set());
       }
 
-      setCompanyDevices(data);
+      setCompanyDevices(updatedData);
 
     } catch (err) {
       console.error('Errore caricamento dispositivi azienda:', err);
@@ -2192,6 +2237,15 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                     checked={isStatic}
                                     onChange={async (e) => {
                                       const newIsStatic = e.target.checked;
+                                      
+                                      // 1. Update ottimistico locale
+                                      setCompanyDevices(prev => prev.map(d =>
+                                        d.id === device.id ? { ...d, is_static: newIsStatic } : d
+                                      ));
+                                      
+                                      // 2. Blocca overwrite da background refresh per 8s
+                                      markPendingUpdate(device.id, 'is_static', newIsStatic);
+
                                       try {
                                         const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/static`), {
                                           method: 'PATCH',
@@ -2206,14 +2260,16 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                           const errorData = await response.json();
                                           throw new Error(errorData.error || 'Errore aggiornamento');
                                         }
-
-                                        setCompanyDevices(prev => prev.map(d =>
-                                          d.id === device.id ? { ...d, is_static: newIsStatic } : d
-                                        ));
+                                        // Update definitivo non necessario se abbiamo già fatto quello ottimistico,
+                                        // ma carichiamo comunque i dati aggiornati per sicurezza al prossimo refresh
                                       } catch (err) {
                                         console.error('Errore aggiornamento statico:', err);
                                         alert(`Errore: ${err.message}`);
-                                        e.target.checked = !newIsStatic;
+                                        // Revert in caso di errore
+                                        setCompanyDevices(prev => prev.map(d =>
+                                          d.id === device.id ? { ...d, is_static: !newIsStatic } : d
+                                        ));
+                                        delete pendingUpdatesRef.current[device.id]?.is_static;
                                       }
                                     }}
                                     className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
@@ -2226,6 +2282,15 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                     checked={device.notify_telegram === true}
                                     onChange={async (e) => {
                                       const newNotifyTelegram = e.target.checked;
+                                      
+                                      // 1. Update ottimistico locale
+                                      setCompanyDevices(prev => prev.map(d =>
+                                        d.id === device.id ? { ...d, notify_telegram: newNotifyTelegram } : d
+                                      ));
+                                      
+                                      // 2. Blocca overwrite da background refresh per 8s
+                                      markPendingUpdate(device.id, 'notify_telegram', newNotifyTelegram);
+
                                       try {
                                         const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/static`), {
                                           method: 'PATCH',
@@ -2240,14 +2305,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                           const errorData = await response.json();
                                           throw new Error(errorData.error || 'Errore aggiornamento');
                                         }
-
-                                        setCompanyDevices(prev => prev.map(d =>
-                                          d.id === device.id ? { ...d, notify_telegram: newNotifyTelegram } : d
-                                        ));
                                       } catch (err) {
                                         console.error('Errore aggiornamento notifiche:', err);
                                         alert(`Errore: ${err.message}`);
-                                        e.target.checked = !newNotifyTelegram;
+                                        // Revert in caso di errore
+                                        setCompanyDevices(prev => prev.map(d =>
+                                          d.id === device.id ? { ...d, notify_telegram: !newNotifyTelegram } : d
+                                        ));
+                                        delete pendingUpdatesRef.current[device.id]?.notify_telegram;
                                       }
                                     }}
                                     className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
@@ -2496,6 +2561,16 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                       onClick={async (e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
+
+                                        // 1. Update ottimistico locale
+                                        setNewDevicesInList(prev => {
+                                          const next = new Set(prev);
+                                          next.delete(device.id);
+                                          return next;
+                                        });
+
+                                        // 2. Blocca overwrite da background refresh per 8s
+                                        markPendingUpdate(device.id, 'is_new_device', false);
                                         try {
                                           const response = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/acknowledge`), {
                                             method: 'PATCH',
@@ -2505,14 +2580,16 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                             const errorData = await response.json();
                                             throw new Error(errorData.error || 'Errore conferma dispositivo');
                                           }
-                                          setNewDevicesInList(prev => {
-                                            const next = new Set(prev);
-                                            next.delete(device.id);
-                                            return next;
-                                          });
                                         } catch (err) {
                                           console.error('Errore conferma dispositivo:', err);
                                           alert(`Errore: ${err.message}`);
+                                          // Revert in caso di errore
+                                          setNewDevicesInList(prev => {
+                                            const next = new Set(prev);
+                                            next.add(device.id);
+                                            return next;
+                                          });
+                                          delete pendingUpdatesRef.current[device.id]?.is_new_device;
                                         }
                                       }}
                                       className="ml-1 text-slate-400 hover:text-green-600 transition-colors bg-white hover:bg-green-50 rounded-full shadow-sm border border-gray-200"
@@ -2964,21 +3041,34 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                       <button
                         key={iconItem.type}
                         type="button"
-                        onClick={async () => {
-                          const newType = iconItem.type;
-                          try {
-                            const res = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/type`), {
-                              method: 'PATCH',
-                              headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ device_type: newType })
-                            });
-                            if (res.ok) {
-                              setCompanyDevices(prev => prev.map(d => d.id === device.id ? { ...d, device_type: newType } : d));
-                              setDeviceTypePickerDeviceId(null);
-                              setDeviceTypePickerAnchor(null);
+                          onClick={async () => {
+                            const newType = iconItem.type;
+                            
+                            // 1. Update ottimistico locale
+                            setCompanyDevices(prev => prev.map(d => d.id === device.id ? { ...d, device_type: newType } : d));
+                            
+                            // 2. Blocca overwrite da background refresh
+                            markPendingUpdate(device.id, 'device_type', newType);
+                            
+                            setDeviceTypePickerDeviceId(null);
+                            setDeviceTypePickerAnchor(null);
+
+                            try {
+                              const res = await fetch(buildApiUrl(`/api/network-monitoring/devices/${device.id}/type`), {
+                                method: 'PATCH',
+                                headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ device_type: newType })
+                              });
+                              if (!res.ok) {
+                                throw new Error('Errore aggiornamento tipo');
+                              }
+                            } catch (e) { 
+                              console.error('Errore aggiornamento tipo', e); 
+                              // Revert
+                              setCompanyDevices(prev => prev.map(d => d.id === device.id ? { ...d, device_type: device.device_type } : d));
+                              delete pendingUpdatesRef.current[device.id]?.device_type;
                             }
-                          } catch (e) { console.error('Errore aggiornamento tipo', e); }
-                        }}
+                          }}
                         className={`p-3 rounded-xl flex flex-col items-center justify-center gap-1 transition-all ${isSelected ? 'bg-blue-100 ring-2 ring-blue-500 text-blue-700' : 'bg-gray-50 hover:bg-gray-100 text-gray-700 hover:text-gray-900'}`}
                         title={iconItem.label}
                       >
