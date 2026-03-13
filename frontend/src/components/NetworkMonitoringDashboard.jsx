@@ -1802,61 +1802,61 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         ) : (
                           <div className="flex flex-col gap-2">
                              {/* Fila 1: Modifica, Disabilita, Elimina */}
-                            <div className="flex flex-row gap-2">
+                            <div className="flex flex-row gap-1 mb-1.5">
                               <button
                                 onClick={() => handleEditAgent(agent)}
                                 disabled={readOnly}
-                                className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold ${readOnly
-                                  ? 'bg-gray-400 text-white cursor-not-allowed'
-                                  : 'bg-blue-600 text-white hover:bg-blue-700'
+                                className={`flex-1 py-1.5 rounded flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-wider border transition-all ${readOnly
+                                  ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                  : 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100'
                                   }`}
                                 title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Modifica'}
                               >
-                                <Edit size={16} />
+                                <Edit size={13} />
                                 Modifica
                               </button>
                               <button
                                 onClick={() => disableAgent(agent.id, agent.agent_name)}
                                 disabled={readOnly}
-                                className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold ${readOnly
-                                  ? 'bg-gray-400 text-white cursor-not-allowed'
-                                  : 'bg-orange-600 text-white hover:bg-orange-700'
+                                className={`flex-1 py-1.5 rounded flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-wider border transition-all ${readOnly
+                                  ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                  : 'bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100'
                                   }`}
                                 title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Disabilita'}
                               >
-                                <PowerOff size={16} />
+                                <PowerOff size={13} />
                                 Disabilita
                               </button>
                               <button
                                 onClick={() => deleteAgent(agent.id, agent.agent_name)}
                                 disabled={readOnly}
-                                className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold ${readOnly
-                                  ? 'bg-gray-400 text-white cursor-not-allowed'
-                                  : 'bg-red-600 text-white hover:bg-red-700'
+                                className={`flex-1 py-1.5 rounded flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-wider border transition-all ${readOnly
+                                  ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                                  : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
                                   }`}
                                 title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Elimina'}
                               >
-                                <Trash2 size={16} />
+                                <Trash2 size={13} />
                                 Elimina
                               </button>
                             </div>
 
                             {/* Fila 2: Scarica Pacchetto, Diagnostica */}
-                            <div className="flex flex-row gap-2">
+                            <div className="flex flex-row gap-1">
                               <button
                                 onClick={() => downloadAgentPackage(agent.id, agent.agent_name)}
-                                className="flex-1 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center justify-center gap-2 text-xs font-semibold"
+                                className="flex-1 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-wider transition-all shadow-sm"
                                 title="Scarica pacchetto completo"
                               >
-                                <Download size={16} />
-                                Scarica Pacchetto
+                                <Download size={13} />
+                                Pacchetto
                               </button>
                               <button
                                 onClick={() => showAgentDiagnostics(agent.id, agent.agent_name)}
-                                className="flex-1 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2 text-xs font-semibold"
+                                className="flex-1 py-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-wider transition-all shadow-sm"
                                 title="Mostra diagnostica"
                               >
-                                <Stethoscope size={16} />
+                                <Stethoscope size={13} />
                                 Diagnostica
                               </button>
                             </div>
