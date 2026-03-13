@@ -1767,13 +1767,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                           )}
                         </div>
                       </div>
-                      <div className="ml-4 flex flex-col gap-2">
+                      <div className="ml-4 flex flex-col gap-2 min-w-[320px]">
                         {editingAgentId === agent.id ? (
-                          <>
+                          <div className="flex flex-row gap-2">
                             <button
                               onClick={handleSaveAgent}
                               disabled={readOnly}
-                              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${readOnly
+                              className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 ${readOnly
                                 ? 'bg-gray-400 text-white cursor-not-allowed'
                                 : 'bg-green-600 text-white hover:bg-green-700'
                                 }`}
@@ -1784,67 +1784,74 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             </button>
                             <button
                               onClick={handleCancelEditAgent}
-                              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
+                              className="flex-1 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center justify-center gap-2"
                             >
                               <X size={18} />
                               Annulla
                             </button>
-                          </>
+                          </div>
                         ) : (
-                          <>
-                            <button
-                              onClick={() => handleEditAgent(agent)}
-                              disabled={readOnly}
-                              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${readOnly
-                                ? 'bg-gray-400 text-white cursor-not-allowed'
-                                : 'bg-blue-600 text-white hover:bg-blue-700'
-                                }`}
-                              title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Modifica configurazione agent (nome, reti, intervallo scansione)'}
-                            >
-                              <Edit size={18} />
-                              Modifica
-                            </button>
-                            <button
-                              onClick={() => showAgentDiagnostics(agent.id, agent.agent_name)}
-                              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
-                              title="Mostra diagnostica agent (heartbeat, eventi, analisi)"
-                            >
-                              <Stethoscope size={18} />
-                              Diagnostica
-                            </button>
-                            <button
-                              onClick={() => downloadAgentPackage(agent.id, agent.agent_name)}
-                              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
-                              title="Scarica pacchetto completo (ZIP con config.json, NetworkMonitor.ps1, InstallerCompleto.ps1)"
-                            >
-                              <Download size={18} />
-                              Scarica Pacchetto
-                            </button>
-                            <button
-                              onClick={() => disableAgent(agent.id, agent.agent_name)}
-                              disabled={readOnly}
-                              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${readOnly
-                                ? 'bg-gray-400 text-white cursor-not-allowed'
-                                : 'bg-orange-600 text-white hover:bg-orange-700'
-                                }`}
-                              title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Disabilita agent (disinstallazione remota al prossimo heartbeat)'}
-                            >
-                              <PowerOff size={18} />
-                              Disabilita
-                            </button>
-                            <button
-                              onClick={() => deleteAgent(agent.id, agent.agent_name)}
-                              disabled={readOnly}
-                              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${readOnly
-                                ? 'bg-gray-400 text-white cursor-not-allowed'
-                                : 'bg-red-600 text-white hover:bg-red-700'
-                                }`}
-                              title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Elimina agent definitivamente'}
-                            >
-                              <Trash2 size={18} />
-                              Elimina
-                            </button>
-                          </>
+                          <div className="flex flex-col gap-2">
+                             {/* Fila 1: Modifica, Disabilita, Elimina */}
+                            <div className="flex flex-row gap-2">
+                              <button
+                                onClick={() => handleEditAgent(agent)}
+                                disabled={readOnly}
+                                className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold ${readOnly
+                                  ? 'bg-gray-400 text-white cursor-not-allowed'
+                                  : 'bg-blue-600 text-white hover:bg-blue-700'
+                                  }`}
+                                title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Modifica'}
+                              >
+                                <Edit size={16} />
+                                Modifica
+                              </button>
+                              <button
+                                onClick={() => disableAgent(agent.id, agent.agent_name)}
+                                disabled={readOnly}
+                                className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold ${readOnly
+                                  ? 'bg-gray-400 text-white cursor-not-allowed'
+                                  : 'bg-orange-600 text-white hover:bg-orange-700'
+                                  }`}
+                                title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Disabilita'}
+                              >
+                                <PowerOff size={16} />
+                                Disabilita
+                              </button>
+                              <button
+                                onClick={() => deleteAgent(agent.id, agent.agent_name)}
+                                disabled={readOnly}
+                                className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold ${readOnly
+                                  ? 'bg-gray-400 text-white cursor-not-allowed'
+                                  : 'bg-red-600 text-white hover:bg-red-700'
+                                  }`}
+                                title={readOnly ? 'Non disponibile in modalità visualizzazione' : 'Elimina'}
+                              >
+                                <Trash2 size={16} />
+                                Elimina
+                              </button>
+                            </div>
+
+                            {/* Fila 2: Scarica Pacchetto, Diagnostica */}
+                            <div className="flex flex-row gap-2">
+                              <button
+                                onClick={() => downloadAgentPackage(agent.id, agent.agent_name)}
+                                className="flex-1 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center justify-center gap-2 text-xs font-semibold"
+                                title="Scarica pacchetto completo"
+                              >
+                                <Download size={16} />
+                                Scarica Pacchetto
+                              </button>
+                              <button
+                                onClick={() => showAgentDiagnostics(agent.id, agent.agent_name)}
+                                className="flex-1 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2 text-xs font-semibold"
+                                title="Mostra diagnostica"
+                              >
+                                <Stethoscope size={16} />
+                                Diagnostica
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
