@@ -9,7 +9,7 @@ import { buildApiUrl } from '../utils/apiConfig';
 import EmailIntroCard from '../components/EmailIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
 
-const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser, onOpenTicket, onNavigateOffice, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
+const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onCompanyChange, currentUser, onOpenTicket, onNavigateOffice, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
   const isCliente = currentUser?.ruolo === 'cliente';
   const showAssistenzaButton = isCliente && typeof onOpenTicket === 'function';
   const showPasswordColumn = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin' || (currentUser?.ruolo === 'cliente' && currentUser?.admin_companies && currentUser.admin_companies.length > 0);
@@ -24,6 +24,13 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
   const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId);
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
+
+  // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
+  useEffect(() => {
+    if (initialCompanyId !== selectedCompanyId) {
+      setSelectedCompanyId(initialCompanyId);
+    }
+  }, [initialCompanyId]);
 
   // Quota state
   const [quotaData, setQuotaData] = useState({}); // keyed by email
@@ -420,6 +427,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
               onChange={async (e) => {
                 const newCompanyId = e.target.value || null;
                 setSelectedCompanyId(newCompanyId);
+                if (onCompanyChange) onCompanyChange(newCompanyId);
                 setError(null);
                 setItems([]);
                 setCompanyName('');
@@ -606,6 +614,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
                 onChange={(companyId) => {
                   const newCompanyId = companyId || null;
                   setSelectedCompanyId(newCompanyId);
+                  if (onCompanyChange) onCompanyChange(newCompanyId);
                   setError(null);
                   setItems([]);
                   setCompanyName('');

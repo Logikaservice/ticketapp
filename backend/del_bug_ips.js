@@ -1,0 +1,3 @@
+const { Pool } = require('pg');
+const pool = new Pool({ connectionString: process.env.DATABASE_URL || 'postgres://ticketapp:ticketapp@localhost:5432/ticketapp' });
+pool.query("DELETE FROM antivirus_info WHERE device_id IN (SELECT id FROM network_devices WHERE ip_address IN ('192.168.100.2', '192.168.100.20', '192.168.100.3', '192.168.100.4', '192.168.100.5', '192.168.100.1', '192.168.100.10', '192.168.100.11', '192.168.100.12', '192.168.100.13', '192.168.100.14', '192.168.100.15', '192.168.100.16', '192.168.100.18', '192.168.100.19', '192.168.100.22', '192.168.100.201'))").then(r => console.log('Deleted rows:', r.rowCount)).catch(console.error).finally(() => pool.end());

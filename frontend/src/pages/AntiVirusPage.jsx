@@ -4,10 +4,10 @@ import { buildApiUrl } from '../utils/apiConfig';
 import AntiVirusIntroCard from '../components/AntiVirusIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
 
-const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, onOpenTicket, onNavigateOffice, onNavigateEmail, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
+const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onCompanyChange, readOnly = false, currentUser, onOpenTicket, onNavigateOffice, onNavigateEmail, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
     const showAssistenzaButton = readOnly && typeof onOpenTicket === 'function';
     const [companies, setCompanies] = useState([]);
-    const [selectedCompanyId, setSelectedCompanyId] = useState('');
+    const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId || '');
     const [devices, setDevices] = useState([]);
     const [selectedDeviceIds, setSelectedDeviceIds] = useState([]);
     const [drafts, setDrafts] = useState({});
@@ -15,6 +15,13 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
     const [loading, setLoading] = useState(false);
     const [activeDropdown, setActiveDropdown] = useState(null); // ID of the row with open icon dropdown
     const [sidebarWidth, setSidebarWidth] = useState(450); // Default width in px
+
+    // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
+    useEffect(() => {
+        if (initialCompanyId && String(initialCompanyId) !== String(selectedCompanyId)) {
+            setSelectedCompanyId(initialCompanyId);
+        }
+    }, [initialCompanyId]);
 
     const companyName = (companies.find(c => String(c.id) === String(selectedCompanyId))?.azienda || companies.find(c => String(c.id) === String(selectedCompanyId))?.nome) || '—';
 
@@ -460,7 +467,11 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                     <select
                         className="border rounded-lg px-3 py-2 bg-gray-50 text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-w-[200px]"
                         value={selectedCompanyId}
-                        onChange={(e) => setSelectedCompanyId(e.target.value)}
+                        onChange={(e) => {
+                            const newId = e.target.value;
+                            setSelectedCompanyId(newId);
+                            if (onCompanyChange) onCompanyChange(newId);
+                        }}
                     >
                         <option value="">{readOnly ? 'Seleziona Azienda...' : 'Seleziona Cliente...'}</option>
                         {companies.map(c => (
@@ -478,7 +489,11 @@ const AntiVirusPage = ({ onClose, getAuthHeader, readOnly = false, currentUser, 
                             <AntiVirusIntroCard
                                 companies={companies}
                                 value={selectedCompanyId}
-                                onChange={(id) => setSelectedCompanyId(id || '')}
+                                onChange={(id) => {
+                                    const newId = id || '';
+                                    setSelectedCompanyId(newId);
+                                    if (onCompanyChange) onCompanyChange(newId);
+                                }}
                             />
                         </div>
                     </div>

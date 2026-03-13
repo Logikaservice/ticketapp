@@ -217,7 +217,7 @@ const RefreshTimer = () => {
     return <span>{seconds < 10 ? `0${seconds}` : seconds}s</span>;
 };
 
-const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onNavigateToMonitoring = null, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateMappatura }) => {
+const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onCompanyChange = null, onNavigateToMonitoring = null, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateMappatura }) => {
     const isCliente = currentUser?.ruolo === 'cliente';
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId ? String(initialCompanyId) : '');
@@ -265,6 +265,13 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         setWifiExpanded(false);
         setIconsExpanded(false);
     }, [selectedNode, selectedDevice]);
+
+    // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
+    useEffect(() => {
+        if (initialCompanyId && String(initialCompanyId) !== String(selectedCompanyId)) {
+            setSelectedCompanyId(String(initialCompanyId));
+        }
+    }, [initialCompanyId]);
 
     const [pendingLockNode, setPendingLockNode] = useState(null); // { id, x, y, nodeOriginal }
 
@@ -1717,7 +1724,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         <select
                             className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                             value={selectedCompanyId}
-                            onChange={(e) => setSelectedCompanyId(e.target.value)}
+                            onChange={(e) => {
+                                const newId = e.target.value;
+                                setSelectedCompanyId(newId);
+                                if (onCompanyChange) onCompanyChange(newId);
+                            }}
                         >
                             <option value="">Seleziona Azienda...</option>
                             {companies.filter(c => c.id != null).map(c => <option key={c.id} value={String(c.id)}>{c.azienda}</option>)}
@@ -1972,7 +1983,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                         <MonitoraggioIntroCard
                                             companies={companies}
                                             value={selectedCompanyId}
-                                            onChange={(companyId) => setSelectedCompanyId(companyId ? String(companyId) : '')}
+                                            onChange={(companyId) => {
+                                                const newId = companyId ? String(companyId) : '';
+                                                setSelectedCompanyId(newId);
+                                                if (onCompanyChange) onCompanyChange(newId);
+                                            }}
                                         />
                                     </div>
                                 ) : (

@@ -164,8 +164,18 @@ export default function TicketApp() {
   const [showEmail, setShowEmail] = useState(false);
   const [showOffice, setShowOffice] = useState(false);
   const [networkMonitoringInitialView, setNetworkMonitoringInitialView] = useState(null); // 'agents' o 'create'
-  const [selectedCompanyForNavigation, setSelectedCompanyForNavigation] = useState(null); // Azienda selezionata per navigazione tra monitoraggio e mappatura
-  const [showCommAgent, setShowCommAgent] = useState(false); // Communication Agent Dashboard
+  const [globallySelectedCompanyId, setGloballySelectedCompanyId] = useState(() => {
+    return localStorage.getItem('globallySelectedCompanyId') || null;
+  }); // Azienda selezionata globalmente per navigazione tra le varie sezioni
+  const setShowGloballySelectedCompanyId = (id) => {
+    setGloballySelectedCompanyId(id);
+    if (id) {
+      localStorage.setItem('globallySelectedCompanyId', id);
+    } else {
+      localStorage.removeItem('globallySelectedCompanyId');
+    }
+  };
+   const [showCommAgent, setShowCommAgent] = useState(false); // Communication Agent Dashboard
   const [showCommAgentManager, setShowCommAgentManager] = useState(false); // Agent Comunicazioni Manager
   const [showFlottaPC, setShowFlottaPC] = useState(false); // Dispositivi aziendali (placeholder per implementazione futura)
   const [showDeviceAnalysisStandalone, setShowDeviceAnalysisStandalone] = useState(false);
@@ -3280,13 +3290,14 @@ export default function TicketApp() {
                 socket={socket}
                 initialView={networkMonitoringInitialView}
                 onViewReset={() => setNetworkMonitoringInitialView(null)}
-                onClose={() => { setShowNetworkMonitoring(false); setShowDashboard(true); setSelectedCompanyForNavigation(null); }}
+                onClose={() => { setShowNetworkMonitoring(false); setShowDashboard(true); }}
                 onNavigateToMappatura={(companyId) => {
-                  setSelectedCompanyForNavigation(companyId);
+                  setShowGloballySelectedCompanyId(companyId);
                   setShowNetworkMonitoring(false);
                   setShowMappatura(true);
                 }}
-                initialCompanyId={selectedCompanyForNavigation}
+                initialCompanyId={globallySelectedCompanyId}
+                onCompanyChange={setShowGloballySelectedCompanyId}
                 readOnly={isReadOnly}
                 currentUser={currentUser}
                 onNavigateOffice={handleOpenOffice}
@@ -3294,7 +3305,7 @@ export default function TicketApp() {
                 onNavigateAntiVirus={handleOpenAntiVirus}
                 onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
                 onNavigateNetworkMonitoring={null}
-                onNavigateMappatura={() => { setShowMappatura(true); setShowNetworkMonitoring(false); setShowDashboard(false); setSelectedCompanyForNavigation(selectedCompanyForNavigation); }}
+                onNavigateMappatura={() => { setShowMappatura(true); setShowNetworkMonitoring(false); setShowDashboard(false); }}
               />
             ) : (
               // Messaggio di accesso negato
@@ -3336,11 +3347,12 @@ export default function TicketApp() {
 
         {showMappatura && (
           <MappaturaPage
-            onClose={() => { setShowMappatura(false); setShowDashboard(true); setSelectedCompanyForNavigation(null); }}
+            onClose={() => { setShowMappatura(false); setShowDashboard(true); }}
             getAuthHeader={getAuthHeader}
-            selectedCompanyId={selectedCompanyForNavigation}
+            selectedCompanyId={globallySelectedCompanyId}
+            onCompanyChange={setShowGloballySelectedCompanyId}
             onNavigateToMonitoring={(companyId) => {
-              setSelectedCompanyForNavigation(companyId);
+              setShowGloballySelectedCompanyId(companyId);
               setShowMappatura(false);
               setShowNetworkMonitoring(true);
             }}
@@ -3357,7 +3369,8 @@ export default function TicketApp() {
           <OfficePage
             onClose={() => { setShowOffice(false); setShowDashboard(true); }}
             getAuthHeader={getAuthHeader}
-            selectedCompanyId={selectedCompanyForNavigation || (currentUser?.ruolo === 'cliente' ? currentUser?.azienda_id : null) || (currentUser?.admin_companies && currentUser.admin_companies.length > 0 ? currentUser.admin_companies[0] : null)}
+            selectedCompanyId={globallySelectedCompanyId || (currentUser?.ruolo === 'cliente' ? currentUser?.azienda_id : null) || (currentUser?.admin_companies && currentUser.admin_companies.length > 0 ? currentUser.admin_companies[0] : null)}
+            onCompanyChange={setShowGloballySelectedCompanyId}
             onOpenTicket={openNewTicketWithData}
             currentUser={currentUser}
             onNavigateEmail={handleOpenEmail}
@@ -3372,6 +3385,8 @@ export default function TicketApp() {
           <AntiVirusPage
             onClose={() => { setShowAntiVirus(false); setShowDashboard(true); }}
             getAuthHeader={getAuthHeader}
+            selectedCompanyId={globallySelectedCompanyId}
+            onCompanyChange={setShowGloballySelectedCompanyId}
             readOnly={currentUser?.ruolo === 'cliente' && !!(currentUser?.admin_companies && currentUser.admin_companies.length > 0)}
             currentUser={currentUser}
             onOpenTicket={openNewTicketWithData}
@@ -3387,7 +3402,8 @@ export default function TicketApp() {
           <EmailPage
             onClose={() => { setShowEmail(false); setShowDashboard(true); }}
             getAuthHeader={getAuthHeader}
-            selectedCompanyId={selectedCompanyForNavigation || (currentUser?.ruolo === 'cliente' ? currentUser?.azienda_id : null) || (currentUser?.admin_companies && currentUser.admin_companies.length > 0 ? currentUser.admin_companies[0] : null)}
+            selectedCompanyId={globallySelectedCompanyId || (currentUser?.ruolo === 'cliente' ? currentUser?.azienda_id : null) || (currentUser?.admin_companies && currentUser.admin_companies.length > 0 ? currentUser.admin_companies[0] : null)}
+            onCompanyChange={setShowGloballySelectedCompanyId}
             currentUser={currentUser}
             onOpenTicket={openNewTicketWithData}
             onNavigateOffice={handleOpenOffice}

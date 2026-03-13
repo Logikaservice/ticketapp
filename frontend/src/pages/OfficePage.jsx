@@ -6,7 +6,7 @@ import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 import OfficeIntroCard from '../components/OfficeIntroCard';
 
-const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, currentUser, onOpenTicket, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
+const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onCompanyChange, currentUser, onOpenTicket, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
   const isCliente = currentUser?.ruolo === 'cliente';
   const isTecnico = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
   const showPasswordColumn = isTecnico || (currentUser?.ruolo === 'cliente' && currentUser?.admin_companies && currentUser.admin_companies.length > 0);
@@ -20,6 +20,13 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
   const [cardStatuses, setCardStatuses] = useState({});  // chiave = "title||username" → { note }
   const [visiblePasswords, setVisiblePasswords] = useState({});
   const [loadingPasswords, setLoadingPasswords] = useState({});
+
+  // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
+  useEffect(() => {
+    if (initialCompanyId !== selectedCompanyId) {
+      setSelectedCompanyId(initialCompanyId);
+    }
+  }, [initialCompanyId]);
 
   // Se l'azienda selezionata non è nella lista, considera come "nessuna selezione" (stesso fix di EmailPage per cliente)
   const selectedCompanyValid = companies.length > 0 && selectedCompanyId &&
@@ -262,6 +269,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
               onChange={async (e) => {
                 const newCompanyId = e.target.value;
                 setSelectedCompanyId(newCompanyId);
+                if (onCompanyChange) onCompanyChange(newCompanyId);
                 setError(null);
                 setOfficeData(null);
                 setCompanyName('');
@@ -300,6 +308,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
               onChange={(companyId) => {
                 const newCompanyId = companyId || null;
                 setSelectedCompanyId(newCompanyId);
+                if (onCompanyChange) onCompanyChange(newCompanyId);
                 setError(null);
                 setOfficeData(null);
                 setCompanyName('');

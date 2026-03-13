@@ -23,7 +23,7 @@ import MonitoraggioIntroCard from './MonitoraggioIntroCard';
 import SectionNavMenu from './SectionNavMenu';
 import DeviceAnalysisModal from './Modals/DeviceAnalysisModal';
 
-const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
+const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, onCompanyChange = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
   const [devices, setDevices] = useState([]);
   const [changes, setChanges] = useState([]);
   const [recentChangesCount, setRecentChangesCount] = useState(0); // Conteggio cambiamenti ultime 24h dal backend
@@ -53,7 +53,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     search: ''
   });
   const [companies, setCompanies] = useState([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId);
+  const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId ? Number(initialCompanyId) : null);
   const [companyDevices, setCompanyDevices] = useState([]);
   const [loadingCompanyDevices, setLoadingCompanyDevices] = useState(false);
   const [showOfflineDevices, setShowOfflineDevices] = useState(true); // Mostra dispositivi offline di default
@@ -89,6 +89,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const seenMacAddressesRef = useRef(new Set());
   const [newDevicesInList, setNewDevicesInList] = useState(new Set());
   const pendingUpdatesRef = useRef({}); // { [deviceId]: { [field]: { value, timestamp } } }
+  
+  // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
+  useEffect(() => {
+    const numericId = initialCompanyId ? Number(initialCompanyId) : null;
+    if (numericId !== selectedCompanyId) {
+      setSelectedCompanyId(numericId);
+    }
+  }, [initialCompanyId]);
 
   // Applica gli aggiornamenti pendenti ai dati ricevuti dal server
   const applyPendingUpdates = useCallback((items) => {
@@ -1376,6 +1384,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           onChange={(e) => {
             const companyId = e.target.value ? parseInt(e.target.value) : null;
             setSelectedCompanyId(companyId);
+            if (onCompanyChange) onCompanyChange(companyId);
             if (companyId) {
               loadCompanyDevices(companyId);
             } else {
@@ -2107,6 +2116,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               onChange={(companyId) => {
                 const id = companyId ? parseInt(companyId, 10) : null;
                 setSelectedCompanyId(id);
+                if (onCompanyChange) onCompanyChange(id);
                 if (id) loadCompanyDevices(id);
                 else setCompanyDevices([]);
               }}
