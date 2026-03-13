@@ -3047,14 +3047,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             <>
               <div className="fixed inset-0 z-20 bg-black/20" aria-hidden="true" onClick={() => { setDeviceTypePickerDeviceId(null); setDeviceTypePickerAnchor(null); }} />
               <div
-                className="fixed z-30 bg-white border border-gray-200 rounded-xl shadow-2xl p-4 w-[600px] max-w-[95vw]"
-                style={{ left: Math.min(deviceTypePickerAnchor.left, window.innerWidth - 620), top: Math.min(deviceTypePickerAnchor.top, window.innerHeight - 350) }}
+                className="fixed z-30 bg-white border border-gray-200 rounded-xl shadow-2xl p-3 w-[560px] max-w-[95vw]"
+                style={{ left: Math.min(deviceTypePickerAnchor.left, window.innerWidth - 580), top: Math.min(deviceTypePickerAnchor.top, window.innerHeight - 350) }}
               >
                 <div className="flex justify-between items-center mb-3 px-1">
                   <p className="text-sm font-semibold text-gray-700">Tipo dispositivo</p>
                   <button type="button" onClick={() => { setDeviceTypePickerDeviceId(null); setDeviceTypePickerAnchor(null); }} className="text-gray-400 hover:text-gray-600 font-bold text-lg leading-none" title="Chiudi">&times;</button>
                 </div>
-                <div className="grid grid-cols-5 gap-2 max-h-[380px] overflow-y-auto pr-1">
+                <div className="grid grid-cols-6 gap-1.5 max-h-[360px] overflow-y-auto pr-1">
                   {AVAILABLE_ICONS.map((iconItem) => {
                     const IconComp = iconItem.icon;
                     const isSelected = (device.device_type || '').toLowerCase() === iconItem.type;
@@ -3090,11 +3090,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                               delete pendingUpdatesRef.current[device.id]?.device_type;
                             }
                           }}
-                        className={`p-2 rounded-lg flex flex-col items-center justify-start gap-1.5 transition-all ${isSelected ? 'bg-blue-100 ring-2 ring-blue-500 text-blue-700' : 'bg-transparent hover:bg-gray-100 text-gray-600 hover:text-gray-900 border border-transparent hover:border-gray-200'}`}
+                        className={`p-1.5 rounded-lg flex flex-col items-center justify-start gap-1 transition-all ${isSelected ? 'bg-blue-100 ring-2 ring-blue-500 text-blue-700' : 'bg-transparent hover:bg-gray-100 text-gray-600 hover:text-gray-900 border border-transparent hover:border-gray-200'}`}
                         title={iconItem.label}
                       >
-                        <IconComp size={24} strokeWidth={isSelected ? 2 : 1.5} className="shrink-0" />
-                        <span className="text-[11px] leading-tight text-center w-full px-0.5 whitespace-normal break-words">{iconItem.label}</span>
+                        <IconComp size={22} strokeWidth={isSelected ? 2 : 1.5} className="shrink-0" />
+                        <span className="text-[10px] leading-[1.15] text-center w-full px-0 whitespace-normal break-words">{iconItem.label}</span>
                       </button>
                     );
                   })}
