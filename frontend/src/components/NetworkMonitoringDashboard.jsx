@@ -3047,11 +3047,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             <>
               <div className="fixed inset-0 z-20 bg-black/20" aria-hidden="true" onClick={() => { setDeviceTypePickerDeviceId(null); setDeviceTypePickerAnchor(null); }} />
               <div
-                className="fixed z-30 bg-white border border-gray-200 rounded-xl shadow-2xl p-4 min-w-[380px] max-w-[95vw]"
-                style={{ left: Math.min(deviceTypePickerAnchor.left, window.innerWidth - 400), top: Math.min(deviceTypePickerAnchor.top, window.innerHeight - 340) }}
+                className="fixed z-30 bg-white border border-gray-200 rounded-xl shadow-2xl p-3 w-[420px] max-w-[95vw]"
+                style={{ left: Math.min(deviceTypePickerAnchor.left, window.innerWidth - 440), top: Math.min(deviceTypePickerAnchor.top, window.innerHeight - 300) }}
               >
-                <p className="text-sm font-semibold text-gray-700 mb-3">Tipo dispositivo</p>
-                <div className="grid grid-cols-6 gap-3 max-h-[300px] overflow-y-auto">
+                <div className="flex justify-between items-center mb-2 px-1">
+                  <p className="text-sm font-semibold text-gray-700">Tipo dispositivo</p>
+                  <button type="button" onClick={() => { setDeviceTypePickerDeviceId(null); setDeviceTypePickerAnchor(null); }} className="text-gray-400 hover:text-gray-600 font-bold text-lg leading-none" title="Chiudi">&times;</button>
+                </div>
+                <div className="grid grid-cols-6 gap-1.5 max-h-[350px] overflow-y-auto pr-1">
                   {AVAILABLE_ICONS.map((iconItem) => {
                     const IconComp = iconItem.icon;
                     const isSelected = (device.device_type || '').toLowerCase() === iconItem.type;
@@ -3087,11 +3090,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                               delete pendingUpdatesRef.current[device.id]?.device_type;
                             }
                           }}
-                        className={`p-3 rounded-xl flex flex-col items-center justify-center gap-1 transition-all ${isSelected ? 'bg-blue-100 ring-2 ring-blue-500 text-blue-700' : 'bg-gray-50 hover:bg-gray-100 text-gray-700 hover:text-gray-900'}`}
+                        className={`p-1.5 rounded-lg flex flex-col items-center justify-center gap-1.5 transition-all ${isSelected ? 'bg-blue-100 ring-1 ring-blue-500 text-blue-700' : 'bg-transparent hover:bg-gray-100 text-gray-600 hover:text-gray-900 border border-transparent hover:border-gray-200'}`}
                         title={iconItem.label}
                       >
-                        <IconComp size={28} strokeWidth={1.5} />
-                        <span className="text-[10px] leading-tight text-center truncate w-full">{iconItem.label}</span>
+                        <IconComp size={22} strokeWidth={isSelected ? 2 : 1.5} />
+                        <span className="text-[10px] leading-tight text-center truncate w-full px-0.5">{iconItem.label}</span>
                       </button>
                     );
                   })}
