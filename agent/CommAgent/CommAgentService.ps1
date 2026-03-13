@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.29"
+$SCRIPT_VERSION = "1.2.30"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 
@@ -9,7 +9,7 @@ $script:bgState = [System.Collections.Hashtable]::Synchronized(@{
     InvalidApiKey = $false
 })
 $APP_NAME = "Logika Service Agent"
-$APP_TOOLTIP = "Logika Service - Communication Agent v$SCRIPT_VERSION"
+$APP_TOOLTIP = "Logika Service - Agent v$SCRIPT_VERSION"
 
 # ============================================
 # CONFIGURAZIONE SICUREZZA
@@ -260,9 +260,7 @@ function Initialize-TrayIcon {
         $itemExit.Add_Click({ try { $script:trayIcon.Visible = $false; [System.Windows.Forms.Application]::Exit() } catch {} })
         $script:trayIcon.ContextMenuStrip = $menu
         $script:trayIcon.Visible = $true
-        $script:trayIcon.BalloonTipTitle = "Logika Service Agent"
-        $script:trayIcon.BalloonTipText = "Agent avviato. Clicca l'icona vicino all'orologio per il menu."
-        $script:trayIcon.ShowBalloonTip(5000)
+        # $script:trayIcon.ShowBalloonTip(5000) # Rimosso per rendere l'avvio silenzioso
         [System.Windows.Forms.Application]::DoEvents()
         Write-Log "Tray icon creata e visibile." "INFO"
     }
@@ -559,18 +557,14 @@ function Send-Heartbeat {
                     }
                 }
             } catch {
-                $errJson = $_.Exception.Message
-                if ($null -ne $_.Exception.Response) {
-                    try {
-                        $sr = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-                        $errJson = $sr.ReadToEnd()
-                    } catch {}
-                }
+                $errContent = $_.ToString()
+                $statusCode = 0
+                try { if ($_.Exception.Response) { $statusCode = [int]$_.Exception.Response.StatusCode } } catch {}
                 
-                RsLog "Heartbeat ERRORE: $errJson"
+                RsLog "Heartbeat ERRORE (Status: $statusCode): $errContent"
                 
-                # Se la chiave non è valida, segnaliamo al thread principale di cancellare la config
-                if ($errJson -match "API Key comunicazione non valida") {
+                # Se la chiave non è valida (401) o il server lo indica esplicitamente, forziamo ri-registrazione
+                if ($statusCode -eq 401 -or $errContent -match "401" -or $errContent -match "API Key comunicazione non valida") {
                     $bgState.InvalidApiKey = $true
                 }
             }
