@@ -379,6 +379,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
             onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
             onNavigateMappatura={onNavigateMappatura}
             currentUser={currentUser}
+            selectedCompanyId={selectedCompanyId}
           />
           <div>
             <h1 className="text-xl font-bold text-gray-900">Email</h1>

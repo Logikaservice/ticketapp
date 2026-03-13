@@ -255,6 +255,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
             onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
             onNavigateMappatura={onNavigateMappatura}
             currentUser={currentUser}
+            selectedCompanyId={selectedCompanyId}
           />
           <div>
             <h1 className="text-xl font-bold text-gray-900">Office</h1>

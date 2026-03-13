@@ -50,6 +50,8 @@ const renderDisks = (disksJson) => {
 const DispositiviAziendaliPage = ({
   onClose,
   getAuthHeader,
+  selectedCompanyId: initialCompanyId,
+  onCompanyChange,
   readOnly = false,
   currentUser,
   onNavigateOffice,
@@ -59,10 +61,17 @@ const DispositiviAziendaliPage = ({
   onNavigateMappatura
 }) => {
   const [companies, setCompanies] = useState([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState('');
+  const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId || '');
   const [devices, setDevices] = useState([]);
   const [devicesLoading, setDevicesLoading] = useState(false);
   const [monitoringIps, setMonitoringIps] = useState(new Set());
+
+  // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
+  useEffect(() => {
+    if (initialCompanyId && String(initialCompanyId) !== String(selectedCompanyId)) {
+      setSelectedCompanyId(initialCompanyId);
+    }
+  }, [initialCompanyId]);
 
   useEffect(() => {
     const fetchCompanies = async () => {
@@ -88,6 +97,13 @@ const DispositiviAziendaliPage = ({
 
   const selectedCompany = companies.find(c => String(c.id) === String(selectedCompanyId));
   const companyName = selectedCompany?.azienda || selectedCompany?.nome || '';
+
+  // Effetto per sincronizzare verso l'alto quando cambia localmente
+  useEffect(() => {
+    if (onCompanyChange && selectedCompanyId) {
+      onCompanyChange(selectedCompanyId);
+    }
+  }, [selectedCompanyId, onCompanyChange]);
 
   useEffect(() => {
     if (!companyName) {
@@ -143,6 +159,7 @@ const DispositiviAziendaliPage = ({
             onNavigateMappatura={onNavigateMappatura}
             onNavigateDispositiviAziendali={null}
             currentUser={currentUser}
+            selectedCompanyId={selectedCompanyId}
           />
           <div className="bg-teal-100 p-2 rounded-lg text-teal-600">
             <Monitor size={24} />

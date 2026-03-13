@@ -453,6 +453,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
                         onNavigateMappatura={onNavigateMappatura}
                         currentUser={currentUser}
+                        selectedCompanyId={selectedCompanyId}
                     />
                     <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
                         <Shield size={24} />

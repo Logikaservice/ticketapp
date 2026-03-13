@@ -1602,6 +1602,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               onNavigateNetworkMonitoring={null}
               onNavigateMappatura={onNavigateMappatura}
               currentUser={currentUser}
+              selectedCompanyId={selectedCompanyId}
             />
             <div className="h-6 w-px bg-gray-300"></div>
             <h1 className="font-bold text-xl text-gray-800">Monitoraggio Rete</h1>

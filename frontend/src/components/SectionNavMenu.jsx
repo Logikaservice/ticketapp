@@ -13,7 +13,8 @@ const SectionNavMenu = ({
   onNavigateNetworkMonitoring,
   onNavigateMappatura,
   onNavigateDispositiviAziendali,
-  currentUser
+  currentUser,
+  selectedCompanyId = null
 }) => {
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
@@ -63,7 +64,7 @@ const SectionNavMenu = ({
             <button
               key={id}
               onClick={() => {
-                onClick?.();
+                onClick?.(selectedCompanyId);
                 setOpen(false);
               }}
               className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-700 hover:bg-gray-50 transition"

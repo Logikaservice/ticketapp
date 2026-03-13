@@ -221,6 +221,13 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
     const isCliente = currentUser?.ruolo === 'cliente';
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId ? String(initialCompanyId) : '');
+
+    // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
+    useEffect(() => {
+        if (initialCompanyId && String(initialCompanyId) !== String(selectedCompanyId)) {
+            setSelectedCompanyId(String(initialCompanyId));
+        }
+    }, [initialCompanyId, selectedCompanyId]);
     const [devices, setDevices] = useState([]);
     const [loading, setLoading] = useState(false);
     const [nodes, setNodes] = useState([]);
@@ -1714,6 +1721,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             onNavigateNetworkMonitoring={onNavigateToMonitoring ? () => onNavigateToMonitoring(selectedCompanyId ? parseInt(selectedCompanyId) : null) : null}
                             onNavigateMappatura={null}
                             currentUser={currentUser}
+                            selectedCompanyId={selectedCompanyId}
                         />
                         <div>
                             <h1 className="text-xl font-bold text-gray-900">Mappatura</h1>
