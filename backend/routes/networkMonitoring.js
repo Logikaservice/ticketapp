@@ -4194,7 +4194,7 @@ module.exports = (pool, io) => {
 
   // GET /api/network-monitoring/all/events
   // Ottieni tutti gli eventi unificati (dispositivi + agent) con filtri avanzati
-  router.get('/all/events', authenticateToken, requireRole('tecnico'), async (req, res) => {
+  router.get('/all/events', authenticateToken, requireRole(['tecnico', 'admin', 'cliente']), async (req, res) => {
     try {
       await ensureTables();
 
