@@ -178,6 +178,7 @@ export default function TicketApp() {
    const [showCommAgent, setShowCommAgent] = useState(false); // Communication Agent Dashboard
   const [showCommAgentManager, setShowCommAgentManager] = useState(false); // Agent Comunicazioni Manager
   const [showFlottaPC, setShowFlottaPC] = useState(false); // Dispositivi aziendali (placeholder per implementazione futura)
+  const [dispositiviAziendaliHighlightMac, setDispositiviAziendaliHighlightMac] = useState(null);
   const [showDeviceAnalysisStandalone, setShowDeviceAnalysisStandalone] = useState(false);
   const [standaloneDeviceId, setStandaloneDeviceId] = useState(null);
   const [standaloneDeviceLabel, setStandaloneDeviceLabel] = useState('');
@@ -400,8 +401,9 @@ export default function TicketApp() {
     setShowFlottaPC(false);
   };
 
-  const handleOpenDispositiviAziendali = (companyId) => {
+  const handleOpenDispositiviAziendali = (companyId, highlightMac = null) => {
     if (companyId) setShowGloballySelectedCompanyId(companyId);
+    setDispositiviAziendaliHighlightMac(highlightMac || null);
     setShowFlottaPC(true);
     setShowDashboard(false);
     setShowNetworkMonitoring(false);
@@ -3296,6 +3298,7 @@ export default function TicketApp() {
             onNavigateAntiVirus={handleOpenAntiVirus}
             onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
             onNavigateMappatura={handleOpenMappatura}
+            highlightMac={dispositiviAziendaliHighlightMac}
           />
         )}
 

@@ -58,13 +58,16 @@ const DispositiviAziendaliPage = ({
   onNavigateEmail,
   onNavigateAntiVirus,
   onNavigateNetworkMonitoring,
-  onNavigateMappatura
+  onNavigateMappatura,
+  highlightMac = null
 }) => {
   const [companies, setCompanies] = useState([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId || '');
   const [devices, setDevices] = useState([]);
   const [devicesLoading, setDevicesLoading] = useState(false);
   const [monitoringIps, setMonitoringIps] = useState(new Set());
+  const [highlightedDeviceId, setHighlightedDeviceId] = useState(null);
+  const highlightRef = React.useRef(null);
 
   // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
   useEffect(() => {
@@ -144,6 +147,34 @@ const DispositiviAziendaliPage = ({
     return () => { cancelled = true; };
   }, [selectedCompanyId, getAuthHeader]);
 
+  // Evidenzia il dispositivo richiesto (per navigazione da Monitoraggio Rete)
+  useEffect(() => {
+    if (!highlightMac || !devices.length) return;
+    // Normalizza MAC (rimuovi trattini, uppercase)
+    const norm = (s) => s ? s.replace(/[:\-]/g, '').toUpperCase() : '';
+    const highlight = norm(highlightMac);
+    const match = devices.find(d => {
+      if (d.mac && norm(d.mac) === highlight) return true;
+      // Prova anche match IP
+      if (d.ip_addresses) {
+        const ips = d.ip_addresses.split(/[,\s]+/).map(s => s.replace(/\s*\(.*$/, '').trim());
+        if (ips.some(ip => ip === highlightMac)) return true;
+      }
+      return false;
+    });
+    if (match) {
+      setHighlightedDeviceId(match.agent_id);
+      // Scrolla verso la card dopo un breve delay
+      setTimeout(() => {
+        if (highlightRef.current) {
+          highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+      // Rimuovi highlight dopo 4s
+      setTimeout(() => setHighlightedDeviceId(null), 4000);
+    }
+  }, [highlightMac, devices]);
+
   return (
     <div className="fixed inset-0 bg-gray-100 z-50 flex flex-col">
       {/* Header */}
@@ -209,7 +240,11 @@ const DispositiviAziendaliPage = ({
                 {devices.map((row) => {
                   const hasInfo = row.mac || row.device_name || row.os_name;
                   return (
-                    <div key={row.agent_id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                    <div
+                      key={row.agent_id}
+                      ref={highlightedDeviceId === row.agent_id ? highlightRef : null}
+                      className={`bg-white border border-gray-200 rounded-xl p-4 shadow-sm transition-all duration-700 ${highlightedDeviceId === row.agent_id ? 'ring-4 ring-yellow-400 bg-yellow-50' : ''}`}
+                    >
                       {!hasInfo ? (
                         <p className="text-gray-500 text-sm">Dispositivo {row.machine_name || row.email} — in attesa di dati dall&apos;agent.</p>
                       ) : (

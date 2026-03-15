@@ -2663,7 +2663,37 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                               </div>
                             </td>
                             <td className="py-1 px-3 text-sm text-gray-600 max-w-[11rem] truncate" title={device.hostname || '-'}>
-                              {getDisplayTitle(device)}
+                              {(() => {
+                                const macNorm = normalizeMac(device.mac_address);
+                                const deviceIp = device.ip_address?.trim();
+                                let hasMatch = false;
+                                let matchValue = null;
+
+                                if (macNorm && dispositiviAziendaliMap.has(macNorm)) {
+                                  hasMatch = true;
+                                  matchValue = macNorm;
+                                } else if (deviceIp && dispositiviAziendaliMap.has(deviceIp)) {
+                                  hasMatch = true;
+                                  matchValue = deviceIp;
+                                }
+
+                                if (hasMatch && onNavigateDispositiviAziendali) {
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onNavigateDispositiviAziendali(selectedCompanyId, matchValue);
+                                      }}
+                                      className="text-left text-blue-600 hover:text-blue-800 hover:underline transition-colors truncate w-full"
+                                      title="Vai al dispositivo in Dispositivi aziendali"
+                                    >
+                                      {getDisplayTitle(device)}
+                                    </button>
+                                  );
+                                }
+                                return getDisplayTitle(device);
+                              })()}
                             </td>
                             <td className="py-1 px-3 text-sm text-gray-600 whitespace-nowrap">{device.device_username || '-'}</td>
                             <td className="py-1 px-3 text-sm text-gray-600 whitespace-nowrap max-w-[8rem] truncate" title={device.device_path || '-'}>{device.device_path || '-'}</td>
