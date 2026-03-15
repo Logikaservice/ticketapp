@@ -96,7 +96,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     const numericId = initialCompanyId ? Number(initialCompanyId) : null;
     if (numericId !== selectedCompanyId) {
       setSelectedCompanyId(numericId);
-      setChangesCompanyFilter(numericId);
     }
   }, [initialCompanyId, selectedCompanyId]);
 
@@ -1050,14 +1049,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
     return () => clearInterval(interval);
   }, [autoRefresh, loadDevices, loadChanges, loadCompanyDevices, selectedCompanyId, showCreateAgentModal]);
-
-  // Carica dispositivi azienda quando viene passato initialCompanyId
-  useEffect(() => {
-    if (initialCompanyId && initialCompanyId !== selectedCompanyId) {
-      setSelectedCompanyId(initialCompanyId);
-      loadCompanyDevices(initialCompanyId);
-    }
-  }, [initialCompanyId, loadCompanyDevices]);
 
   // Ricarica i cambiamenti quando cambia il filtro azienda per i cambiamenti
   useEffect(() => {
