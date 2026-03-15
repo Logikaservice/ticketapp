@@ -4408,9 +4408,9 @@ module.exports = (pool, io) => {
         try {
           const count24hQuery = `
             SELECT COUNT(*) as count FROM (
-              (${deviceEventsQuery}${deviceFilters} AND nc.detected_at >= NOW() - INTERVAL '24 hours')
+              (${deviceEventsQuery}${deviceFilters} AND nc.detected_at >= CURRENT_DATE)
               UNION ALL
-              (${agentEventsQuery}${agentFilters} AND nae.detected_at >= NOW() - INTERVAL '24 hours')
+              (${agentEventsQuery}${agentFilters} AND nae.detected_at >= CURRENT_DATE)
             ) as recent_events
           `;
           const countResult = await pool.query(count24hQuery, params.slice(0, -1)); // Rimuovi limit

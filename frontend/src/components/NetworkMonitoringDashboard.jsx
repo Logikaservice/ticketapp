@@ -1390,8 +1390,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     // Usa il conteggio dal backend se disponibile, altrimenti calcola lato frontend
     recentChanges: recentChangesCount > 0 ? recentChangesCount : changes.filter(c => {
       const changeDate = new Date(c.detected_at);
-      const hoursAgo = (Date.now() - changeDate.getTime()) / 3600000;
-      return hoursAgo < 24;
+      const todayMidnight = new Date();
+      todayMidnight.setHours(0, 0, 0, 0);
+      return changeDate.getTime() >= todayMidnight.getTime();
     }).length,
     agentsTotal: agents.length,
     agentsOnline: agents.filter(a => a.status === 'online').length,
@@ -2115,7 +2116,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
               <Activity size={16} className="text-blue-600" />
-              Cambiamenti (24h)
+              Cambiamenti (Oggi)
             </div>
             <div className="text-3xl font-bold text-blue-600">{stats.recentChanges}</div>
           </div>
