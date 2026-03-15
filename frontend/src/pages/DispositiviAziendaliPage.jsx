@@ -59,6 +59,8 @@ const DispositiviAziendaliPage = ({
   onNavigateAntiVirus,
   onNavigateNetworkMonitoring,
   onNavigateMappatura,
+  onNavigateCommAgent = null,
+  onNavigateCommAgentManager = null,
   highlightMac = null
 }) => {
   const [companies, setCompanies] = useState([]);
@@ -68,12 +70,24 @@ const DispositiviAziendaliPage = ({
   const [monitoringIps, setMonitoringIps] = useState(new Set());
   const [highlightedDeviceId, setHighlightedDeviceId] = useState(null);
   const highlightRef = React.useRef(null);
-  // Stats: dispositivi online/offline globali e agent per azienda
+  // Stats: dispositivi online/offline globali
   const [globalOnline, setGlobalOnline] = useState(null);
   const [globalOffline, setGlobalOffline] = useState(null);
-  const [companyAgentsOnline, setCompanyAgentsOnline] = useState(null);
-  const [companyAgentsOffline, setCompanyAgentsOffline] = useState(null);
-  const [totalAgents, setTotalAgents] = useState(null);
+  // Gear dropdown visibility
+  const [showGearMenu, setShowGearMenu] = useState(false);
+  const gearRef = React.useRef(null);
+
+  // Chiudi dropdown gear se si clicca fuori
+  useEffect(() => {
+    const handler = (e) => { if (gearRef.current && !gearRef.current.contains(e.target)) setShowGearMenu(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Conteggi comm-agent per azienda (calcolati dai devices già caricati)
+  const companyAgentsOnline = devices.filter(d => d.real_status === 'online').length;
+  const companyAgentsOffline = devices.filter(d => d.real_status !== 'online').length;
+  const totalCompanyAgents = devices.length;
 
   // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
   useEffect(() => {
@@ -122,24 +136,8 @@ const DispositiviAziendaliPage = ({
   // Carica agent online/offline per azienda selezionata
   useEffect(() => {
     if (!selectedCompanyId) {
-      setCompanyAgentsOnline(null);
-      setCompanyAgentsOffline(null);
-      setTotalAgents(null);
-      return;
+      return; // calcolati da devices
     }
-    const loadAgents = async () => {
-      try {
-        const res = await fetch(buildApiUrl('/api/network-monitoring/agents'), { headers: getAuthHeader() });
-        if (!res.ok) return;
-        const data = await res.json();
-        const all = Array.isArray(data) ? data : [];
-        const companyAgents = all.filter(a => String(a.azienda_id) === String(selectedCompanyId));
-        setTotalAgents(all.length);
-        setCompanyAgentsOnline(companyAgents.filter(a => a.status === 'online').length);
-        setCompanyAgentsOffline(companyAgents.filter(a => a.status === 'offline').length);
-      } catch (e) { /* silent */ }
-    };
-    loadAgents();
   }, [selectedCompanyId, getAuthHeader]);
 
   const selectedCompany = companies.find(c => String(c.id) === String(selectedCompanyId));
@@ -265,14 +263,41 @@ const DispositiviAziendaliPage = ({
             <Activity size={16} />
             <span className="hidden sm:inline">Monitoraggio</span>
           </button>
-          {/* Pulsante: gestione agent */}
-          <button
-            title="Crea/Visualizza Agent e invia comunicazione"
-            onClick={() => onNavigateNetworkMonitoring && onNavigateNetworkMonitoring(selectedCompanyId || null, 'agent-settings')}
-            className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
-          >
-            <Settings size={16} />
-          </button>
+          {/* Pulsante Comunicazioni / Gear con dropdown */}
+          <div className="relative" ref={gearRef}>
+            <button
+              title="Comunicazioni"
+              onClick={() => setShowGearMenu(v => !v)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+            >
+              <Settings size={16} />
+            </button>
+            {showGearMenu && (
+              <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 py-1 z-50">
+                <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide border-b mb-1">Comunicazioni</div>
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-violet-50 text-gray-700 hover:text-violet-700 transition-colors"
+                  onClick={() => {
+                    setShowGearMenu(false);
+                    if (onNavigateCommAgentManager) onNavigateCommAgentManager(selectedCompanyId || null);
+                  }}
+                >
+                  <Monitor size={16} className="text-violet-500" />
+                  Crea / Visualizza Agent
+                </button>
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-violet-50 text-gray-700 hover:text-violet-700 transition-colors"
+                  onClick={() => {
+                    setShowGearMenu(false);
+                    if (onNavigateCommAgent) onNavigateCommAgent(selectedCompanyId || null);
+                  }}
+                >
+                  <Settings size={16} className="text-violet-500" />
+                  Invia Comunicazione
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -296,17 +321,23 @@ const DispositiviAziendaliPage = ({
           <div className="flex items-center gap-2 text-blue-600 text-xs font-medium">
             <Activity size={14} /> Agent Online
           </div>
-          <div className="text-2xl font-bold text-blue-600">{companyAgentsOnline ?? '—'}</div>
-          {totalAgents !== null && <div className="text-[10px] text-gray-400">di {totalAgents} totali</div>}
-          {companyAgentsOnline === null && <div className="text-[10px] text-gray-400">seleziona un'azienda</div>}
+          <div className="text-2xl font-bold text-blue-600">
+            {selectedCompanyId ? companyAgentsOnline : '—'}
+          </div>
+          {selectedCompanyId
+            ? <div className="text-[10px] text-gray-400">di {totalCompanyAgents} per questa azienda</div>
+            : <div className="text-[10px] text-gray-400">seleziona un'azienda</div>}
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-1 shadow-sm">
           <div className="flex items-center gap-2 text-orange-500 text-xs font-medium">
             <Activity size={14} /> Agent Offline
           </div>
-          <div className="text-2xl font-bold text-orange-500">{companyAgentsOffline ?? '—'}</div>
-          {totalAgents !== null && <div className="text-[10px] text-gray-400">di {totalAgents} totali</div>}
-          {companyAgentsOffline === null && <div className="text-[10px] text-gray-400">seleziona un'azienda</div>}
+          <div className="text-2xl font-bold text-orange-500">
+            {selectedCompanyId ? companyAgentsOffline : '—'}
+          </div>
+          {selectedCompanyId
+            ? <div className="text-[10px] text-gray-400">di {totalCompanyAgents} per questa azienda</div>
+            : <div className="text-[10px] text-gray-400">seleziona un'azienda</div>}
         </div>
       </div>
 

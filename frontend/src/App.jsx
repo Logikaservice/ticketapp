@@ -449,6 +449,18 @@ export default function TicketApp() {
     }
   };
 
+  const handleOpenCommAgent = (companyId) => {
+    if (companyId) setShowGloballySelectedCompanyId(companyId);
+    setShowCommAgent(true);
+    setShowDashboard(false);
+  };
+
+  const handleOpenCommAgentManager = (companyId) => {
+    if (companyId) setShowGloballySelectedCompanyId(companyId);
+    setShowCommAgentManager(true);
+    setShowDashboard(false);
+  };
+
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
   const [dashboardHighlights, setDashboardHighlights] = useState({});
   const [prevTicketStates, setPrevTicketStates] = useState({});
@@ -3303,6 +3315,8 @@ export default function TicketApp() {
             onNavigateAntiVirus={handleOpenAntiVirus}
             onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
             onNavigateMappatura={handleOpenMappatura}
+            onNavigateCommAgent={handleOpenCommAgent}
+            onNavigateCommAgentManager={handleOpenCommAgentManager}
             highlightMac={dispositiviAziendaliHighlightMac}
           />
         )}
