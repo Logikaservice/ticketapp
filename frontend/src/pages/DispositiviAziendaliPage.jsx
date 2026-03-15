@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Monitor, Cpu, HardDrive, Battery, Shield, User, Loader2 } from 'lucide-react';
+import { Monitor, Cpu, HardDrive, Battery, Shield, User, Loader2, Wifi, WifiOff, Activity, Settings } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import DispositiviAziendaliIntroCard from '../components/DispositiviAziendaliIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
@@ -68,6 +68,12 @@ const DispositiviAziendaliPage = ({
   const [monitoringIps, setMonitoringIps] = useState(new Set());
   const [highlightedDeviceId, setHighlightedDeviceId] = useState(null);
   const highlightRef = React.useRef(null);
+  // Stats: dispositivi online/offline globali e agent per azienda
+  const [globalOnline, setGlobalOnline] = useState(null);
+  const [globalOffline, setGlobalOffline] = useState(null);
+  const [companyAgentsOnline, setCompanyAgentsOnline] = useState(null);
+  const [companyAgentsOffline, setCompanyAgentsOffline] = useState(null);
+  const [totalAgents, setTotalAgents] = useState(null);
 
   // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
   useEffect(() => {
@@ -97,6 +103,44 @@ const DispositiviAziendaliPage = ({
     };
     fetchCompanies();
   }, [getAuthHeader]);
+
+  // Carica statistiche globali (tutti i dispositivi online/offline)
+  useEffect(() => {
+    const loadGlobalStats = async () => {
+      try {
+        const res = await fetch(buildApiUrl('/api/network-monitoring/all/devices'), { headers: getAuthHeader() });
+        if (!res.ok) return;
+        const data = await res.json();
+        const devs = Array.isArray(data) ? data : (data.devices || []);
+        setGlobalOnline(devs.filter(d => d.status === 'online').length);
+        setGlobalOffline(devs.filter(d => d.status === 'offline').length);
+      } catch (e) { /* silent */ }
+    };
+    loadGlobalStats();
+  }, [getAuthHeader]);
+
+  // Carica agent online/offline per azienda selezionata
+  useEffect(() => {
+    if (!selectedCompanyId) {
+      setCompanyAgentsOnline(null);
+      setCompanyAgentsOffline(null);
+      setTotalAgents(null);
+      return;
+    }
+    const loadAgents = async () => {
+      try {
+        const res = await fetch(buildApiUrl('/api/network-monitoring/agents'), { headers: getAuthHeader() });
+        if (!res.ok) return;
+        const data = await res.json();
+        const all = Array.isArray(data) ? data : [];
+        const companyAgents = all.filter(a => String(a.azienda_id) === String(selectedCompanyId));
+        setTotalAgents(all.length);
+        setCompanyAgentsOnline(companyAgents.filter(a => a.status === 'online').length);
+        setCompanyAgentsOffline(companyAgents.filter(a => a.status === 'offline').length);
+      } catch (e) { /* silent */ }
+    };
+    loadAgents();
+  }, [selectedCompanyId, getAuthHeader]);
 
   const selectedCompany = companies.find(c => String(c.id) === String(selectedCompanyId));
   const companyName = selectedCompany?.azienda || selectedCompany?.nome || '';
@@ -201,7 +245,7 @@ const DispositiviAziendaliPage = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           <select
             className="border rounded-lg px-3 py-2 bg-gray-50 text-sm focus:ring-2 focus:ring-teal-500 outline-none min-w-[200px]"
             value={selectedCompanyId}
@@ -212,6 +256,57 @@ const DispositiviAziendaliPage = ({
               <option key={c.id} value={c.id}>{c.azienda || (c.nome && c.cognome ? `${c.nome} ${c.cognome}` : `ID ${c.id}`)}</option>
             ))}
           </select>
+          {/* Pulsante: torna a Monitoraggio Rete */}
+          <button
+            title="Vai a Monitoraggio Rete"
+            onClick={() => onNavigateNetworkMonitoring && onNavigateNetworkMonitoring(selectedCompanyId || null)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+          >
+            <Activity size={16} />
+            <span className="hidden sm:inline">Monitoraggio</span>
+          </button>
+          {/* Pulsante: gestione agent */}
+          <button
+            title="Crea/Visualizza Agent e invia comunicazione"
+            onClick={() => onNavigateNetworkMonitoring && onNavigateNetworkMonitoring(selectedCompanyId || null, 'agent-settings')}
+            className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+          >
+            <Settings size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* Stats cards */}
+      <div className="bg-white border-b px-6 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-1 shadow-sm">
+          <div className="flex items-center gap-2 text-green-600 text-xs font-medium">
+            <Wifi size={14} /> Online
+          </div>
+          <div className="text-2xl font-bold text-green-600">{globalOnline ?? '—'}</div>
+          <div className="text-[10px] text-gray-400">dispositivi monitorati</div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-1 shadow-sm">
+          <div className="flex items-center gap-2 text-red-500 text-xs font-medium">
+            <WifiOff size={14} /> Offline
+          </div>
+          <div className="text-2xl font-bold text-red-500">{globalOffline ?? '—'}</div>
+          <div className="text-[10px] text-gray-400">dispositivi monitorati</div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-1 shadow-sm">
+          <div className="flex items-center gap-2 text-blue-600 text-xs font-medium">
+            <Activity size={14} /> Agent Online
+          </div>
+          <div className="text-2xl font-bold text-blue-600">{companyAgentsOnline ?? '—'}</div>
+          {totalAgents !== null && <div className="text-[10px] text-gray-400">di {totalAgents} totali</div>}
+          {companyAgentsOnline === null && <div className="text-[10px] text-gray-400">seleziona un'azienda</div>}
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-1 shadow-sm">
+          <div className="flex items-center gap-2 text-orange-500 text-xs font-medium">
+            <Activity size={14} /> Agent Offline
+          </div>
+          <div className="text-2xl font-bold text-orange-500">{companyAgentsOffline ?? '—'}</div>
+          {totalAgents !== null && <div className="text-[10px] text-gray-400">di {totalAgents} totali</div>}
+          {companyAgentsOffline === null && <div className="text-[10px] text-gray-400">seleziona un'azienda</div>}
         </div>
       </div>
 

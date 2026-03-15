@@ -429,7 +429,7 @@ export default function TicketApp() {
     setShowPackVision(false);
   };
 
-  const handleOpenNetworkMonitoring = (companyId) => {
+  const handleOpenNetworkMonitoring = (companyId, view = null) => {
     if (companyId) setShowGloballySelectedCompanyId(companyId);
     setShowNetworkMonitoring(true);
     setShowDashboard(false);
@@ -441,7 +441,12 @@ export default function TicketApp() {
     setShowFlottaPC(false);
     setShowMappatura(false);
     setShowPackVision(false);
-    setNetworkMonitoringInitialView(null);
+    // Se viene passata una view specifica, impostala
+    if (view === 'agent-settings') {
+      setNetworkMonitoringInitialView('agents');
+    } else {
+      setNetworkMonitoringInitialView(null);
+    }
   };
 
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
