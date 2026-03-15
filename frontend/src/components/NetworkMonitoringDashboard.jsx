@@ -577,13 +577,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const dispositiviAziendaliMap = useMemo(() => {
     const map = new Map();
     for (const row of dispositiviAziendaliList) {
-      const mac = row.mac_normalized;
+      const mac = normalizeMac(row.mac_normalized || row.mac);
       if (!mac) continue;
       if (!map.has(mac)) map.set(mac, []);
       map.get(mac).push(row);
     }
     return map;
-  }, [dispositiviAziendaliList]);
+  }, [dispositiviAziendaliList, normalizeMac]);
 
   // Carica reti quando cambia l'azienda selezionata nei filtri eventi
   useEffect(() => {
