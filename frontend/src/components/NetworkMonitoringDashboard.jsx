@@ -60,7 +60,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [showOfflineDevices, setShowOfflineDevices] = useState(true); // Mostra dispositivi offline di default
   const [showPingFailuresOnly, setShowPingFailuresOnly] = useState(false); // Filtra solo disconnessioni rilevate
   const [changesSearchTerm, setChangesSearchTerm] = useState('');
-  const [changesCompanyFilter, setChangesCompanyFilter] = useState(null); // Filtro azienda separato per "Cambiamenti Rilevati"
+  const [changesCompanyFilter, setChangesCompanyFilter] = useState(initialCompanyId ? Number(initialCompanyId) : null); // Filtro azienda separato per "Cambiamenti Rilevati"
   const [changesNetworkFilter, setChangesNetworkFilter] = useState(''); // Filtro rete per "Cambiamenti Rilevati"
   const [availableNetworks, setAvailableNetworks] = useState([]); // Reti disponibili per l'azienda selezionata
   const [eventTypeFilter, setEventTypeFilter] = useState('all'); // all, device, agent
@@ -96,8 +96,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     const numericId = initialCompanyId ? Number(initialCompanyId) : null;
     if (numericId !== selectedCompanyId) {
       setSelectedCompanyId(numericId);
+      setChangesCompanyFilter(numericId);
     }
-  }, [initialCompanyId]);
+  }, [initialCompanyId, selectedCompanyId]);
 
   // Applica gli aggiornamenti pendenti ai dati ricevuti dal server
   const applyPendingUpdates = useCallback((items) => {
