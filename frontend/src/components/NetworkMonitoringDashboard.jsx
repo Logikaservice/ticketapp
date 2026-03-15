@@ -574,14 +574,44 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     }
   }, [getAuthHeader]);
 
-  // Mappa MAC normalizzato -> elenco entry (stesso MAC può essere in più aziende)
+  // Mappa MAC normalizzato e IP -> elenco entry (stesso MAC/IP può essere in più aziende)
   const dispositiviAziendaliMap = useMemo(() => {
     const map = new Map();
     for (const row of dispositiviAziendaliList) {
       const mac = normalizeMac(row.mac_normalized || row.mac);
-      if (!mac) continue;
-      if (!map.has(mac)) map.set(mac, []);
-      map.get(mac).push(row);
+      if (mac) {
+        if (!map.has(mac)) map.set(mac, []);
+        map.get(mac).push(row);
+      }
+      
+      const primaryIp = row.primary_ip?.trim();
+      if (primaryIp) {
+        if (!map.has(primaryIp)) map.set(primaryIp, []);
+        if (!map.get(primaryIp).some(r => r.mac === row.mac)) {
+          map.get(primaryIp).push(row);
+        }
+      }
+      
+      let ips = [];
+      try {
+        if (typeof row.ip_addresses === 'string') {
+          ips = row.ip_addresses.includes('[') ? JSON.parse(row.ip_addresses) : row.ip_addresses.split(',');
+        } else if (Array.isArray(row.ip_addresses)) {
+          ips = row.ip_addresses;
+        }
+      } catch (e) {}
+      
+      if (Array.isArray(ips)) {
+        for (const ip of ips) {
+          const cleanIp = typeof ip === 'string' ? ip.trim() : '';
+          if (cleanIp) {
+            if (!map.has(cleanIp)) map.set(cleanIp, []);
+            if (!map.get(cleanIp).some(r => r.mac === row.mac)) {
+               map.get(cleanIp).push(row);
+            }
+          }
+        }
+      }
     }
     return map;
   }, [dispositiviAziendaliList, normalizeMac]);
@@ -2383,10 +2413,18 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   </button>
                                 </div>
                                 <StatusBadge status={device.status} pingResponsive={device.ping_responsive} />
-                                {/* Icona Dispositivi aziendali: visibile solo se il MAC è nella lista (riscontro solo tramite MAC) */}
+                                {/* Icona Dispositivi aziendali: visibile se il MAC o l'IP è nella lista */}
                                 {(() => {
                                   const macNorm = normalizeMac(device.mac_address);
-                                  const entries = macNorm ? dispositiviAziendaliMap.get(macNorm) : null;
+                                  const deviceIp = device.ip_address?.trim();
+                                  let entries = null;
+                                  
+                                  if (macNorm && dispositiviAziendaliMap.has(macNorm)) {
+                                    entries = dispositiviAziendaliMap.get(macNorm);
+                                  } else if (deviceIp && dispositiviAziendaliMap.has(deviceIp)) {
+                                    entries = dispositiviAziendaliMap.get(deviceIp);
+                                  }
+                                  
                                   if (!entries || entries.length === 0) return null;
                                   const info = entries.find(e => e.azienda_id === device.azienda_id) || entries[0];
                                   return (
