@@ -24,6 +24,7 @@ import SectionNavMenu from './SectionNavMenu';
 import DeviceAnalysisModal from './Modals/DeviceAnalysisModal';
 
 const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, onCompanyChange = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
+  const updateTimeoutRef = useRef(null);
   const [devices, setDevices] = useState([]);
   const [changes, setChanges] = useState([]);
   const [recentChangesCount, setRecentChangesCount] = useState(0); // Conteggio cambiamenti ultime 24h dal backend
@@ -1068,22 +1069,28 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     const handleNetworkUpdate = (data) => {
       console.log('📡 Network monitoring update ricevuto:', data);
 
-      // Ricarica dati quando arriva un aggiornamento SOLO se il modal non è aperto
-      // Usa modalità "silent" per evitare flicker (gli aggiornamenti WebSocket sono già real-time)
-      if (!showCreateAgentModal) {
-        loadDevices(true);
-        loadChanges(true);
-
-        // Se l'evento riguarda un cambio di status dell'agent, ricarica anche la lista agenti
-        if (data && data.type === 'agent-status-changed') {
-          loadAgents();
-        }
-
-        // Se un'azienda è selezionata, ricarica anche i dispositivi dell'azienda (già silenzioso)
-        if (selectedCompanyId) {
-          loadCompanyDevices(selectedCompanyId, true);
-        }
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
       }
+
+      updateTimeoutRef.current = setTimeout(() => {
+        // Ricarica dati quando arriva un aggiornamento SOLO se il modal non è aperto
+        // Usa modalità "silent" per evitare flicker (gli aggiornamenti WebSocket sono già real-time)
+        if (!showCreateAgentModal) {
+          loadDevices(true);
+          loadChanges(true);
+
+          // Se l'evento riguarda un cambio di status dell'agent, ricarica anche la lista agenti
+          if (data && data.type === 'agent-status-changed') {
+            loadAgents();
+          }
+
+          // Se un'azienda è selezionata, ricarica anche i dispositivi dell'azienda (già silenzioso)
+          if (selectedCompanyId) {
+            loadCompanyDevices(selectedCompanyId, true);
+          }
+        }
+      }, 1500); // 1.5 secondi debounce
     };
 
     const handleAgentEvent = (data) => {
