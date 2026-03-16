@@ -2788,17 +2788,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                       const percorso = device?.device_path || device?.device_username || '-';
                       const utente = device?.keepass_username || device?.device_username || '-';
 
-                      const titolo = `Segnalazione dispositivo – ${ip}${companyName ? ` – ${companyName}` : ''}`;
+                      const hostnameLabel = hostname !== '-' ? hostname : ip;
+                      const percorsoLabel = percorso !== '-' ? percorso : (utente !== '-' ? utente : '');
+
+                      const titolo = `Segnalazione dispositivo ${hostnameLabel}${percorsoLabel ? ` - ${percorsoLabel}` : ''}`;
                       const descrizione =
-                        `=== DISPOSITIVO DI RETE ===\n` +
-                        `Data: ${now}\n` +
-                        `Azienda: ${companyName || '-'}\n` +
+                        `====== DISPOSITIVO DI RETE ======\n` +
                         `IP: ${ip}\n` +
                         `MAC: ${mac}\n` +
-                        `Hostname / Titolo: ${hostname}\n` +
-                        `Tipo: ${tipoUtente}\n` +
-                        `Percorso / Utente: ${percorso !== '-' ? percorso : utente}\n` +
-                        `Stato: ${device?.status === 'online' ? 'Online' : 'Offline'}\n` +
                         `==========================\n\n` +
                         `Descrizione del problema:\n`;
 
