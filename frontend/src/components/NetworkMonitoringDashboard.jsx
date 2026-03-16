@@ -95,6 +95,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   useEffect(() => {
     const numericId = initialCompanyId ? Number(initialCompanyId) : null;
     if (numericId !== selectedCompanyId) {
+      setCompanyDevices([]); // Pulisci la lista quando cambia dall'esterno
       setSelectedCompanyId(numericId);
     }
   }, [initialCompanyId, selectedCompanyId]);
@@ -1058,10 +1059,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   // Resetta il toggle e carica i dati quando cambia l'azienda selezionata
   useEffect(() => {
     setShowOfflineDevices(true); // Mostra sempre i dispositivi offline quando si cambia azienda
+    setCompanyDevices([]); // Svuota l'array per mostrare il loader subito e non i vecchi dati
     if (selectedCompanyId) {
       loadCompanyDevices(selectedCompanyId);
-    } else {
-      setCompanyDevices([]);
     }
   }, [selectedCompanyId, loadCompanyDevices]);
 
@@ -1413,13 +1413,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           value={selectedCompanyId || ''}
           onChange={(e) => {
             const companyId = e.target.value ? parseInt(e.target.value) : null;
+            setCompanyDevices([]); // Svuota immediatamente per reattività UI
             setSelectedCompanyId(companyId);
             if (onCompanyChange) onCompanyChange(companyId);
-            if (companyId) {
-              loadCompanyDevices(companyId);
-            } else {
-              setCompanyDevices([]);
-            }
+            // loadCompanyDevices viene gestito in automatico dall'useEffect
           }}
           className="px-4 py-2 pr-8 bg-white border border-gray-300 rounded-lg text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer min-w-[200px]"
         >
@@ -2146,10 +2143,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               value={selectedCompanyId}
               onChange={(companyId) => {
                 const id = companyId ? parseInt(companyId, 10) : null;
+                setCompanyDevices([]); // Svuota immediatamente
                 setSelectedCompanyId(id);
                 if (onCompanyChange) onCompanyChange(id);
-                if (id) loadCompanyDevices(id);
-                else setCompanyDevices([]);
+                // loadCompanyDevices viene gestito in automatico dall'useEffect
               }}
             />
           </div>
@@ -3077,6 +3074,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 <span
                                   onClick={() => {
                                     if (change.azienda_id) {
+                                      setCompanyDevices([]); // Svuota immediatamente
                                       setSelectedCompanyId(change.azienda_id);
                                       window.scrollTo({ top: 0, behavior: 'smooth' });
                                     }
