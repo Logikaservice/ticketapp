@@ -2802,7 +2802,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         `==========================\n\n` +
                         `Descrizione del problema:\n`;
 
-                      onOpenTicket({ titolo, descrizione });
+                      onOpenTicket({ titolo, descrizione, clientId: selectedCompanyId });
                       closeIpContextMenu();
                     }}
                     className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center gap-2 transition-colors font-medium"

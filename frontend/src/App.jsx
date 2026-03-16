@@ -2001,7 +2001,7 @@ export default function TicketApp() {
       dataapertura: ''
     });
     setIsEditingTicket(null);
-    setSelectedClientForNewTicket(selectedCompanyForNavigation || currentUser?.azienda_id || '');
+    setSelectedClientForNewTicket(data.clientId || globallySelectedCompanyId || currentUser?.azienda_id || '');
     setModalState({ type: 'newTicket' });
   };
 
