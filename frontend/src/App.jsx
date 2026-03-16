@@ -3354,6 +3354,7 @@ export default function TicketApp() {
                 onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
                 onNavigateNetworkMonitoring={null}
                 onNavigateMappatura={() => { setShowMappatura(true); setShowNetworkMonitoring(false); setShowDashboard(false); }}
+                onOpenTicket={openNewTicketWithData}
               />
             ) : (
               // Messaggio di accesso negato
@@ -3521,6 +3522,7 @@ export default function TicketApp() {
                     initialView={networkMonitoringInitialView}
                     onViewReset={() => setNetworkMonitoringInitialView(null)}
                     readOnly={isReadOnly}
+                    onOpenTicket={openNewTicketWithData}
                   />
                 </div>
               ) : (

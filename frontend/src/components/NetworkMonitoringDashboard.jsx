@@ -9,7 +9,7 @@ import {
   Filter, X, Loader, Plus, Download, Server as ServerIcon,
   Trash2, PowerOff, Building, ArrowLeft, ChevronRight, Settings, Edit, Menu,
   CircleAlert, Stethoscope, Eye, EyeOff, FileText, ArrowUpCircle, Terminal, Network, History, Key, MonitorSmartphone,
-  Cpu, HardDrive, Battery, Shield, User, HelpCircle
+  Cpu, HardDrive, Battery, Shield, User, HelpCircle, Ticket
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import { getDeviceIcon, AVAILABLE_ICONS } from '../utils/deviceTypeIcons';
@@ -23,7 +23,7 @@ import MonitoraggioIntroCard from './MonitoraggioIntroCard';
 import SectionNavMenu from './SectionNavMenu';
 import DeviceAnalysisModal from './Modals/DeviceAnalysisModal';
 
-const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, onCompanyChange = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura }) => {
+const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, onCompanyChange = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura, onOpenTicket = null }) => {
   const updateTimeoutRef = useRef(null);
   const [devices, setDevices] = useState([]);
   const [changes, setChanges] = useState([]);
@@ -2771,6 +2771,46 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                   <Activity size={16} />
                   Analisi dispositivo
                 </button>
+              )}
+              {/* Crea ticket da dispositivo */}
+              {onOpenTicket && (
+                <>
+                  <div className="border-t border-gray-100 my-1" />
+                  <button
+                    onClick={() => {
+                      const device = ipContextMenu.device;
+                      const ip = ipContextMenu.ip;
+                      const now = new Date().toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' });
+                      const companyName = companies.find(c => c.id === selectedCompanyId)?.azienda || device?.azienda || '';
+                      const mac = device?.mac_address ? device.mac_address.replace(/-/g, ':') : '-';
+                      const hostname = device?.hostname || '-';
+                      const tipoUtente = device?.device_type || device?.tipo_utente || '-';
+                      const percorso = device?.device_path || device?.device_username || '-';
+                      const utente = device?.keepass_username || device?.device_username || '-';
+
+                      const titolo = `Segnalazione dispositivo – ${ip}${companyName ? ` – ${companyName}` : ''}`;
+                      const descrizione =
+                        `=== DISPOSITIVO DI RETE ===\n` +
+                        `Data: ${now}\n` +
+                        `Azienda: ${companyName || '-'}\n` +
+                        `IP: ${ip}\n` +
+                        `MAC: ${mac}\n` +
+                        `Hostname / Titolo: ${hostname}\n` +
+                        `Tipo: ${tipoUtente}\n` +
+                        `Percorso / Utente: ${percorso !== '-' ? percorso : utente}\n` +
+                        `Stato: ${device?.status === 'online' ? 'Online' : 'Offline'}\n` +
+                        `==========================\n\n` +
+                        `Descrizione del problema:\n`;
+
+                      onOpenTicket({ titolo, descrizione });
+                      closeIpContextMenu();
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center gap-2 transition-colors font-medium"
+                  >
+                    <Ticket size={16} />
+                    + Ticket
+                  </button>
+                </>
               )}
             </div>
           </>
