@@ -70,7 +70,7 @@ const DispositiviAziendaliPage = ({
   const [monitoringIps, setMonitoringIps] = useState(new Set());
   const [highlightedDeviceId, setHighlightedDeviceId] = useState(null);
   const highlightRef = React.useRef(null);
-  // Stats: dispositivi online/offline globali
+  // Stats: agent comm online/offline globali (tutte le aziende)
   const [globalOnline, setGlobalOnline] = useState(null);
   const [globalOffline, setGlobalOffline] = useState(null);
   // Gear dropdown visibility
@@ -118,19 +118,22 @@ const DispositiviAziendaliPage = ({
     fetchCompanies();
   }, [getAuthHeader]);
 
-  // Carica statistiche globali (tutti i dispositivi online/offline)
+  // Carica statistiche globali: tutti gli agent comm di tutte le aziende
   useEffect(() => {
     const loadGlobalStats = async () => {
       try {
-        const res = await fetch(buildApiUrl('/api/network-monitoring/all/devices'), { headers: getAuthHeader() });
+        const res = await fetch(buildApiUrl('/api/comm-agent/device-info'), { headers: getAuthHeader() });
         if (!res.ok) return;
         const data = await res.json();
-        const devs = Array.isArray(data) ? data : (data.devices || []);
-        setGlobalOnline(devs.filter(d => d.status === 'online').length);
-        setGlobalOffline(devs.filter(d => d.status === 'offline').length);
+        const devs = Array.isArray(data) ? data : [];
+        setGlobalOnline(devs.filter(d => d.real_status === 'online').length);
+        setGlobalOffline(devs.filter(d => d.real_status !== 'online').length);
       } catch (e) { /* silent */ }
     };
     loadGlobalStats();
+    // Aggiorna ogni 30s per mantenere i contatori globali freschi
+    const interval = setInterval(loadGlobalStats, 30000);
+    return () => clearInterval(interval);
   }, [getAuthHeader]);
 
   // Carica agent online/offline per azienda selezionata
@@ -308,14 +311,14 @@ const DispositiviAziendaliPage = ({
             <Wifi size={14} /> Online
           </div>
           <div className="text-2xl font-bold text-green-600">{globalOnline ?? '—'}</div>
-          <div className="text-[10px] text-gray-400">dispositivi monitorati</div>
+          <div className="text-[10px] text-gray-400">agent monitor (tutte le aziende)</div>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-1 shadow-sm">
           <div className="flex items-center gap-2 text-red-500 text-xs font-medium">
             <WifiOff size={14} /> Offline
           </div>
           <div className="text-2xl font-bold text-red-500">{globalOffline ?? '—'}</div>
-          <div className="text-[10px] text-gray-400">dispositivi monitorati</div>
+          <div className="text-[10px] text-gray-400">agent monitor (tutte le aziende)</div>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-1 shadow-sm">
           <div className="flex items-center gap-2 text-blue-600 text-xs font-medium">
