@@ -9,6 +9,7 @@ const archiver = require('archiver');
 const path = require('path');
 const fs = require('fs');
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
+const { verifyPassword } = require('../utils/passwordUtils');
 
 module.exports = (pool, io) => {
 
@@ -220,8 +221,15 @@ module.exports = (pool, io) => {
 
             const user = userResult.rows[0];
 
-            // Verifica password (in chiaro nel sistema attuale)
-            if (user.password !== password) {
+            // Verifica password (gestisce sia chiaro che hashata)
+            let isValidPassword = false;
+            if (user.password && user.password.startsWith('$2b$')) {
+                isValidPassword = await verifyPassword(password, user.password);
+            } else {
+                isValidPassword = (user.password === password);
+            }
+
+            if (!isValidPassword) {
                 return res.status(401).json({ error: 'Password non valida' });
             }
 

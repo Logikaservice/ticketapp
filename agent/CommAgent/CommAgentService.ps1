@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.30"
+$SCRIPT_VERSION = "1.2.31"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 
@@ -624,7 +624,22 @@ function Register-Agent {
             return $newCfg
         }
     }
-    catch {}
+    catch {
+        $msg = $_.Exception.Message
+        if ($_.Exception.Response) {
+            try {
+                $errStream = $_.Exception.Response.GetResponseStream()
+                $reader = New-Object System.IO.StreamReader($errStream)
+                $errBody = $reader.ReadToEnd()
+                $errData = $errBody | ConvertFrom-Json
+                if ($errData.error) { $msg = "$($_.Exception.Response.StatusCode): $($errData.error)" }
+                else { $msg = "$($_.Exception.Response.StatusCode): $errBody" }
+            } catch {
+                $msg = "$($_.Exception.Response.StatusCode): $($_.Exception.Message)"
+            }
+        }
+        Write-Log "Errore registrazione: $msg" "ERROR"
+    }
     return $null
 }
 
