@@ -220,6 +220,7 @@ module.exports = (pool, io) => {
             }
 
             const user = userResult.rows[0];
+            console.log(`DEBUG REG: email=${email} password=${password} db_password=${user.password}`);
 
             // Verifica password (gestisce sia chiaro che hashata)
             let isValidPassword = false;
