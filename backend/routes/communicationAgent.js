@@ -203,12 +203,10 @@ module.exports = (pool, io) => {
     // REGISTRAZIONE AGENT (l'agent si registra con email/password)
     // ============================================
     router.post('/agent/register', async (req, res) => {
-        console.log(`--- [DEBUG ENGINE] REGISTRATION ATTEMPT: ${req.body.email} from ${req.ip}`);
         try {
             await ensureTables();
             let { email, password, machine_name, machine_id, os_info } = req.body;
             email = (email || '').trim().toLowerCase();
-
 
             if (!email || !password) {
                 return res.status(400).json({ error: 'Email e password richiesti' });
@@ -223,21 +221,16 @@ module.exports = (pool, io) => {
             if (userResult.rows.length === 0) {
                 return res.status(401).json({ error: 'Email non trovata' });
             }
-
             const user = userResult.rows[0];
-            console.log(`DEBUG REG: email=${email} password=${password} db_password=${user.password}`);
+            
+            const isPasswordValid = isPasswordHashed(user.password) 
+                ? await verifyPassword(password, user.password)
+                : (password === user.password);
 
-            // Verifica password (gestisce sia chiaro che hashata)
-            let isValidPassword = false;
-            if (user.password && user.password.startsWith('$2b$')) {
-                isValidPassword = await verifyPassword(password, user.password);
-            } else {
-                isValidPassword = (user.password === password);
+            if (!isPasswordValid) {
+                return res.status(401).json({ error: 'Credenziali non valide' });
             }
-
-            if (!isValidPassword) {
-                return res.status(401).json({ error: 'Password non valida' });
-            }
+   
 
             // Genera API key unica
             const apiKey = 'COMM-' + crypto.randomBytes(32).toString('hex');
