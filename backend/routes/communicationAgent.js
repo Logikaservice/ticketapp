@@ -206,7 +206,9 @@ module.exports = (pool, io) => {
         console.log(`--- [DEBUG ENGINE] REGISTRATION ATTEMPT: ${req.body.email} from ${req.ip}`);
         try {
             await ensureTables();
-            const { email, password, machine_name, machine_id, os_info } = req.body;
+            let { email, password, machine_name, machine_id, os_info } = req.body;
+            email = (email || '').trim().toLowerCase();
+
 
             if (!email || !password) {
                 return res.status(400).json({ error: 'Email e password richiesti' });
