@@ -43,6 +43,8 @@ module.exports = (pool, io) => {
 
     const ensureTables = async () => {
         if (tablesReady) return;
+        console.log('--- [DEBUG ENGINE] Inizializzazione tabelle in corso... ---');
+
 
         try {
             await pool.query(`
