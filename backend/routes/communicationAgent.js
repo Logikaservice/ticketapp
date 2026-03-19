@@ -201,6 +201,7 @@ module.exports = (pool, io) => {
     // REGISTRAZIONE AGENT (l'agent si registra con email/password)
     // ============================================
     router.post('/agent/register', async (req, res) => {
+        console.log(`--- [DEBUG ENGINE] REGISTRATION ATTEMPT: ${req.body.email} from ${req.ip}`);
         try {
             await ensureTables();
             const { email, password, machine_name, machine_id, os_info } = req.body;
