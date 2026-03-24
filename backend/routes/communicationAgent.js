@@ -350,73 +350,65 @@ module.exports = (pool, io) => {
             // di scrivere lo stesso antivirus su decine di dispositivi (es. 192.168.1.55 in più aziende).
             // Se l'utente ha "svuotato" la riga (product_name vuoto e is_active false) non sovrascriviamo.
             try {
-                const infoRow = await pool.query(
-                    'SELECT mac, primary_ip, antivirus_name, antivirus_state FROM comm_device_info WHERE agent_id = $1',
-                    [agentId]
-                );
-                const row = infoRow.rows[0];
-                if (!row || (!row.antivirus_name && !row.antivirus_state)) return;
-
-                const aziendaRes = await pool.query(
-                    'SELECT TRIM(u.azienda) AS azienda FROM comm_agents ca JOIN users u ON ca.user_id = u.id WHERE ca.id = $1',
-                    [agentId]
-                );
-                const azienda = aziendaRes.rows[0]?.azienda;
-                if (!azienda) return;
-
-                const macNorm = (row.mac || '').replace(/[:\-\s]/g, '').toLowerCase().slice(0, 12);
-
-                // Identificazione SOLO per MAC: il MAC del CommAgent deve corrispondere
-                // al mac_address del network_device nella stessa azienda.
-                // Non si usa IP né hostname: evita falsi positivi (es. telecamere con stesso IP
-                // di un PC con CommAgent installato).
-                if (macNorm.length < 12) {
-                    console.log('[sync-antivirus] Skip: MAC non disponibile per agent=', agentId);
-                    return;
-                }
-
-                const ndRes = await pool.query(
-                    `SELECT nd.id FROM network_devices nd
-                     INNER JOIN network_agents na ON nd.agent_id = na.id
-                     WHERE na.azienda_id = (SELECT user_id FROM comm_agents WHERE id = $1)
-                     AND LENGTH(REPLACE(REPLACE(LOWER(COALESCE(nd.mac_address, '')), ':', ''), '-', '')) >= 12
-                     AND REPLACE(REPLACE(LOWER(COALESCE(nd.mac_address, '')), ':', ''), '-', '') = $2`,
-                    [Number(agentId), macNorm]
-                );
-
-                if (ndRes.rows.length === 0) {
-                    console.log('[sync-antivirus] Nessun network_device con MAC=', macNorm, 'per agent=', agentId, 'azienda=', azienda);
-                    return;
-                }
-
-                let ignoredSet = new Set();
-                try {
-                    const ignoredRes = await pool.query('SELECT device_id FROM antivirus_sync_ignored');
-                    ignoredSet = new Set((ignoredRes.rows || []).map(r => r.device_id));
-                } catch (_) {
-                    // Tabella antivirus_sync_ignored può non esistere ancora (migrazione in networkMonitoring)
-                }
-
-                const isActive = /attivo|enabled|on|attiva/i.test(String(row.antivirus_state || ''));
-                const productName = (row.antivirus_name || '').trim() || '';
-
-                for (const r of ndRes.rows) {
-                    if (ignoredSet.has(r.id)) continue;
-                    await pool.query(
-                        `INSERT INTO antivirus_info (device_id, is_active, product_name, expiration_date, device_type, sort_order, updated_at)
-                         VALUES ($1, $2, $3, NULL, 'pc', 0, NOW())
-                         ON CONFLICT (device_id) DO UPDATE SET
-                           is_active = CASE WHEN (antivirus_info.product_name IS NULL OR TRIM(antivirus_info.product_name) = '') AND antivirus_info.is_active = false
-                             THEN antivirus_info.is_active ELSE EXCLUDED.is_active END,
-                           product_name = CASE WHEN (antivirus_info.product_name IS NULL OR TRIM(antivirus_info.product_name) = '') AND antivirus_info.is_active = false
-                             THEN antivirus_info.product_name ELSE COALESCE(NULLIF(EXCLUDED.product_name, ''), antivirus_info.product_name) END,
-                           updated_at = NOW()`,
-                        [Number(r.id), Boolean(isActive), String(productName)]
+                await (async () => {
+                    const infoRow = await pool.query(
+                        'SELECT mac, primary_ip, antivirus_name, antivirus_state FROM comm_device_info WHERE agent_id = $1',
+                        [agentId]
                     );
-                }
-                if (ndRes.rows.length > 0 && (productName || isActive)) {
-                    console.log('[sync-antivirus] OK agent=', agentId, 'azienda=', azienda, 'dispositivi=', ndRes.rows.length, 'product=', productName || '(vuoto)');
-                }
+                    const row = infoRow.rows[0];
+                    if (!row || (!row.antivirus_name && !row.antivirus_state)) return;
+    
+                    const aziendaRes = await pool.query(
+                        'SELECT TRIM(u.azienda) AS azienda FROM comm_agents ca JOIN users u ON ca.user_id = u.id WHERE ca.id = $1',
+                        [agentId]
+                    );
+                    const azienda = aziendaRes.rows[0]?.azienda;
+                    if (!azienda) return;
+    
+                    const macNorm = (row.mac || '').replace(/[:\-\s]/g, '').toLowerCase().slice(0, 12);
+    
+                    if (macNorm.length < 12) {
+                        return;
+                    }
+    
+                    const ndRes = await pool.query(
+                        `SELECT nd.id FROM network_devices nd
+                         INNER JOIN network_agents na ON nd.agent_id = na.id
+                         WHERE na.azienda_id = (SELECT user_id FROM comm_agents WHERE id = $1)
+                         AND LENGTH(REPLACE(REPLACE(LOWER(COALESCE(nd.mac_address, '')), ':', ''), '-', '')) >= 12
+                         AND REPLACE(REPLACE(LOWER(COALESCE(nd.mac_address, '')), ':', ''), '-', '') = $2`,
+                        [Number(agentId), macNorm]
+                    );
+    
+                    if (ndRes.rows.length === 0) {
+                        return;
+                    }
+    
+                    let ignoredSet = new Set();
+                    try {
+                        const ignoredRes = await pool.query('SELECT device_id FROM antivirus_sync_ignored');
+                        ignoredSet = new Set((ignoredRes.rows || []).map(r => r.device_id));
+                    } catch (_) {
+                    }
+    
+                    const isActive = /attivo|enabled|on|attiva/i.test(String(row.antivirus_state || ''));
+                    const productName = (row.antivirus_name || '').trim() || '';
+    
+                    for (const r of ndRes.rows) {
+                        if (ignoredSet.has(r.id)) continue;
+                        await pool.query(
+                            `INSERT INTO antivirus_info (device_id, is_active, product_name, expiration_date, device_type, sort_order, updated_at)
+                             VALUES ($1, $2, $3, NULL, 'pc', 0, NOW())
+                             ON CONFLICT (device_id) DO UPDATE SET
+                               is_active = CASE WHEN (antivirus_info.product_name IS NULL OR TRIM(antivirus_info.product_name) = '') AND antivirus_info.is_active = false
+                                 THEN antivirus_info.is_active ELSE EXCLUDED.is_active END,
+                               product_name = CASE WHEN (antivirus_info.product_name IS NULL OR TRIM(antivirus_info.product_name) = '') AND antivirus_info.is_active = false
+                                 THEN antivirus_info.product_name ELSE COALESCE(NULLIF(EXCLUDED.product_name, ''), antivirus_info.product_name) END,
+                               updated_at = NOW()`,
+                            [Number(r.id), Boolean(isActive), String(productName)]
+                        );
+                    }
+                })();
             } catch (syncErr) {
                 console.warn('⚠️ Sync antivirus CommAgent -> antivirus_info:', syncErr.message);
             }
