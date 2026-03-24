@@ -385,6 +385,8 @@ export default function TicketApp() {
     setShowMappatura(false);
     setShowAntiVirus(false);
     setShowEmail(false);
+    setShowCommAgent(false);
+    setShowCommAgentManager(false);
   };
 
   const handleOpenAntiVirus = (companyId) => {
@@ -399,6 +401,8 @@ export default function TicketApp() {
     setShowPackVision(false);
     setShowEmail(false);
     setShowFlottaPC(false);
+    setShowCommAgent(false);
+    setShowCommAgentManager(false);
   };
 
   const handleOpenDispositiviAziendali = (companyId, highlightMac = null) => {
@@ -414,6 +418,8 @@ export default function TicketApp() {
     setShowPackVision(false);
     setShowEmail(false);
     setShowAntiVirus(false);
+    setShowCommAgent(false);
+    setShowCommAgentManager(false);
   };
 
   const handleOpenEmail = (companyId) => {
@@ -427,6 +433,8 @@ export default function TicketApp() {
     setShowAntiVirus(false);
     setShowOffice(false);
     setShowPackVision(false);
+    setShowCommAgent(false);
+    setShowCommAgentManager(false);
   };
 
   const handleOpenNetworkMonitoring = (companyId, view = null) => {
@@ -441,6 +449,8 @@ export default function TicketApp() {
     setShowFlottaPC(false);
     setShowMappatura(false);
     setShowPackVision(false);
+    setShowCommAgent(false);
+    setShowCommAgentManager(false);
     // Se viene passata una view specifica, impostala
     if (view === 'agent-settings') {
       setNetworkMonitoringInitialView('agents');
@@ -453,12 +463,30 @@ export default function TicketApp() {
     if (companyId) setShowGloballySelectedCompanyId(companyId);
     setShowCommAgent(true);
     setShowDashboard(false);
+    setShowOrariTurni(false);
+    setShowVivaldi(false);
+    setShowAntiVirus(false);
+    setShowEmail(false);
+    setShowOffice(false);
+    setShowFlottaPC(false);
+    setShowMappatura(false);
+    setShowPackVision(false);
+    setShowNetworkMonitoring(false);
   };
 
   const handleOpenCommAgentManager = (companyId) => {
     if (companyId) setShowGloballySelectedCompanyId(companyId);
     setShowCommAgentManager(true);
     setShowDashboard(false);
+    setShowOrariTurni(false);
+    setShowVivaldi(false);
+    setShowAntiVirus(false);
+    setShowEmail(false);
+    setShowOffice(false);
+    setShowFlottaPC(false);
+    setShowMappatura(false);
+    setShowPackVision(false);
+    setShowNetworkMonitoring(false);
   };
 
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
