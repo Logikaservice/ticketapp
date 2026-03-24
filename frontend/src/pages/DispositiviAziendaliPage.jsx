@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Monitor, Cpu, HardDrive, Battery, Shield, User, Loader2, Wifi, WifiOff, Activity, Settings } from 'lucide-react';
+import { Monitor, Cpu, HardDrive, Battery, Shield, User, Loader2, Wifi, WifiOff, Activity, Settings, X } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import DispositiviAziendaliIntroCard from '../components/DispositiviAziendaliIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
@@ -142,6 +142,24 @@ const DispositiviAziendaliPage = ({
       return; // calcolati da devices
     }
   }, [selectedCompanyId, getAuthHeader]);
+
+  const handleDeleteDevice = async (agentId, deviceName) => {
+    if (!window.confirm(`Sei sicuro di voler eliminare definitivamente il dispositivo "${deviceName || 'Sconosciuto'}"? Verranno persi tutti i suoi dati registrati.`)) return;
+    try {
+      const res = await fetch(buildApiUrl(`/api/comm-agent/agents/${agentId}`), {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+      if (res.ok) {
+        setDevices(prev => prev.filter(d => d.agent_id !== agentId));
+      } else {
+        alert("Errore durante l'eliminazione del dispositivo.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Errore di connessione durante l'eliminazione.");
+    }
+  };
 
   const selectedCompany = companies.find(c => String(c.id) === String(selectedCompanyId));
   const companyName = selectedCompany?.azienda || selectedCompany?.nome || '';
@@ -375,15 +393,25 @@ const DispositiviAziendaliPage = ({
                       className={`bg-white border border-gray-200 rounded-xl p-4 shadow-sm transition-all duration-700 ${highlightedDeviceId === row.agent_id ? 'ring-4 ring-yellow-400 bg-yellow-50' : ''}`}
                     >
                       {!hasInfo ? (
-                        <p className="text-gray-500 text-sm">Dispositivo {row.machine_name || row.email} — in attesa di dati dall&apos;agent.</p>
+                        <div className="flex justify-between items-center gap-4">
+                          <p className="text-gray-500 text-sm">Dispositivo {row.machine_name || row.email} — in attesa di dati dall&apos;agent.</p>
+                          <button onClick={() => handleDeleteDevice(row.agent_id, row.machine_name || row.email)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors flex-shrink-0" title="Elimina dispositivo">
+                            <X size={18} />
+                          </button>
+                        </div>
                       ) : (
                         <>
                           {/* Riga titolo: nome, subito dopo MAC (tra parentesi), poi badge Online */}
                           <div className="font-semibold text-gray-800 flex items-center gap-2 flex-wrap mb-2">
                             <Monitor size={16} className="text-teal-600" />
                             <span>{row.device_name || row.machine_name || '—'}</span>
-                            <span className="text-gray-500 font-normal text-sm">(MAC: {formatMacWithColons(row.mac)})</span>
+                            <span className="text-gray-500 font-normal text-sm">{row.mac ? `(MAC: ${formatMacWithColons(row.mac)})` : ''}</span>
                             {row.real_status === 'online' && <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Online</span>}
+                            <div className="ml-auto">
+                              <button onClick={() => handleDeleteDevice(row.agent_id, row.device_name || row.machine_name)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors flex-shrink-0" title="Elimina dispositivo">
+                                <X size={18} />
+                              </button>
+                            </div>
                           </div>
                           {/* Utente sotto il titolo */}
                           <div className="flex items-center gap-1 text-sm mb-4"><User size={14} className="text-gray-400" /><span className="text-gray-500">Utente:</span> {row.current_user || '—'}</div>
