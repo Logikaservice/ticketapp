@@ -462,31 +462,11 @@ export default function TicketApp() {
   const handleOpenCommAgent = (companyId) => {
     if (companyId) setShowGloballySelectedCompanyId(companyId);
     setShowCommAgent(true);
-    setShowDashboard(false);
-    setShowOrariTurni(false);
-    setShowVivaldi(false);
-    setShowAntiVirus(false);
-    setShowEmail(false);
-    setShowOffice(false);
-    setShowFlottaPC(false);
-    setShowMappatura(false);
-    setShowPackVision(false);
-    setShowNetworkMonitoring(false);
   };
 
   const handleOpenCommAgentManager = (companyId) => {
     if (companyId) setShowGloballySelectedCompanyId(companyId);
     setShowCommAgentManager(true);
-    setShowDashboard(false);
-    setShowOrariTurni(false);
-    setShowVivaldi(false);
-    setShowAntiVirus(false);
-    setShowEmail(false);
-    setShowOffice(false);
-    setShowFlottaPC(false);
-    setShowMappatura(false);
-    setShowPackVision(false);
-    setShowNetworkMonitoring(false);
   };
 
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
