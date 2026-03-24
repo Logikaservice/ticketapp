@@ -9,7 +9,7 @@ const archiver = require('archiver');
 const path = require('path');
 const fs = require('fs');
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
-const { verifyPassword } = require('../utils/passwordUtils');
+const { verifyPassword, isPasswordHashed } = require('../utils/passwordUtils');
 
 module.exports = (pool, io) => {
 
