@@ -161,8 +161,8 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
             </div>
 
             <div className="flex gap-1">
-              {/* Foto ticket - solo per stati consentiti */}
-              {canManagePhotos && (
+              {/* Foto ticket - visibile per stati consentiti o se ci sono foto */}
+              {(canManagePhotos || hasPhotos) && (
                 <button
                   onClick={(e) => { 
                     e.stopPropagation(); 
