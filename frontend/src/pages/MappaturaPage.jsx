@@ -1866,14 +1866,16 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     </button>
                                 </div>
                             </div>
-                            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                                <h4 className="px-2 py-1 text-[10px] font-bold text-gray-600 uppercase border-b border-gray-100 shrink-0" title="Clicca per i dati a destra · Trascina in mappa per aggiungere · Trascina su un pallino per associare come figlio">IP presenti e individuati</h4>
+                            <div className="flex-1 border-t border-gray-100 flex flex-col relative overflow-hidden">
+                                <div className="h-7 shrink-0">
+                                    <h4 className="px-2 py-1 text-[10px] font-bold text-gray-600 uppercase border-b border-gray-100" title="Clicca per i dati a destra · Trascina in mappa per aggiungere · Trascina su un pallino per associare come figlio">IP presenti e individuati</h4>
+                                </div>
                                 {reassociateChildNode && typeof reassociateChildNode === 'object' && (
-                                    <div className="px-2 py-1.5 bg-amber-50 border-b border-amber-200 text-amber-800 text-[10px] font-medium shrink-0">
+                                    <div className="px-2 py-1.5 bg-amber-50 border-b border-amber-200 text-amber-800 text-[10px] font-medium shrink-0 z-10">
                                         ✓ Modalità associa: ora clicca sul nuovo padre in mappa per il dispositivo selezionato.
                                     </div>
                                 )}
-                                <div className="flex-1 overflow-y-scroll overflow-x-hidden p-1 pb-12 space-y-0.5 min-h-[0px] h-0">
+                                <div className="absolute top-7 bottom-0 left-0 right-0 overflow-y-scroll overflow-x-hidden p-1 pb-8 space-y-0.5 custom-scrollbar-sidebar" style={reassociateChildNode ? { top: '3.5rem' } : {}}>
                                     {loading && <div className="flex items-center gap-1 text-gray-500 text-xs py-1"><Loader size={12} className="animate-spin" /> Caricamento…</div>}
                                     {!loading && ipList.length === 0 && (
                                         <p className="text-xs text-gray-400 py-1">
