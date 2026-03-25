@@ -1799,7 +1799,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                 <div className="flex-1 flex min-h-0 select-none mappatura-main-content">
                     {/* Left: toolbar + IP list */}
                     {selectedCompanyId && (
-                        <div className="mappatura-left-sidebar w-48 shrink-0 flex flex-col bg-white border-r border-gray-200 overflow-hidden h-full min-h-0 max-h-full">
+                        <div className="mappatura-left-sidebar w-48 shrink-0 flex flex-col bg-white border-r border-gray-200 overflow-hidden h-[calc(100%-80px)] min-h-0 max-h-[calc(100%-80px)] mb-20 shadow-lg z-50">
                             <div className="p-2 flex flex-col gap-1.5 border-b border-gray-100 shrink-0">
                                 <button
                                     className="bg-white p-1.5 rounded shadow border border-gray-200 hover:bg-gray-50 flex items-center justify-center gap-1.5"
