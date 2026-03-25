@@ -1875,7 +1875,14 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                         ✓ Modalità associa: ora clicca sul nuovo padre in mappa per il dispositivo selezionato.
                                     </div>
                                 )}
-                                <div className="absolute top-7 bottom-0 left-0 right-0 overflow-y-scroll overflow-x-hidden p-1 pb-8 space-y-0.5 custom-scrollbar-sidebar" style={reassociateChildNode ? { top: '3.5rem' } : {}}>
+                                <div 
+                                    className="absolute top-7 left-0 right-0 overflow-y-scroll overflow-x-hidden p-1 pb-24 space-y-0.5 custom-scrollbar-sidebar" 
+                                    style={{ 
+                                        ...(reassociateChildNode ? { top: '3.5rem' } : {}),
+                                        paddingBottom: "8rem",
+                                        maxHeight: "calc(100vh - 220px)" 
+                                    }}
+                                >
                                     {loading && <div className="flex items-center gap-1 text-gray-500 text-xs py-1"><Loader size={12} className="animate-spin" /> Caricamento…</div>}
                                     {!loading && ipList.length === 0 && (
                                         <p className="text-xs text-gray-400 py-1">
