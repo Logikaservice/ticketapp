@@ -1796,10 +1796,10 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     </div>
                 </div>
 
-                <div className="flex-1 flex min-h-0 select-none mappatura-main-content">
+                <div className="flex-1 select-none mappatura-main-content relative bg-slate-50 overflow-hidden">
                     {/* Left: toolbar + IP list */}
                     {selectedCompanyId && (
-                        <div className="mappatura-left-sidebar w-48 shrink-0 flex flex-col bg-white border-r border-gray-200 overflow-hidden h-[calc(100%-80px)] min-h-0 max-h-[calc(100%-80px)] mb-20 shadow-lg z-50">
+                        <div className="mappatura-left-sidebar w-48 bg-white border-r border-gray-100 overflow-hidden absolute top-0 left-0 bottom-8 z-50 shadow-xl flex flex-col">
                             <div className="p-2 flex flex-col gap-1.5 border-b border-gray-100 shrink-0">
                                 <button
                                     className="bg-white p-1.5 rounded shadow border border-gray-200 hover:bg-gray-50 flex items-center justify-center gap-1.5"
@@ -1938,7 +1938,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     {/* Canvas */}
                     <div
                         ref={canvasContainerRef}
-                        className="mappatura-canvas-container flex-1 min-h-0 bg-white relative overflow-hidden cursor-move touch-none"
+                        className={`mappatura-canvas-container absolute top-0 bottom-0 right-0 overflow-hidden cursor-move touch-none bg-white ${selectedCompanyId ? 'left-48' : 'left-0'}`}
                         onClick={() => {
                             if (justDroppedRef.current) {
                                 justDroppedRef.current = false;
