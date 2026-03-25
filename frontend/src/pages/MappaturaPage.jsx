@@ -16,6 +16,21 @@ const style = document.createElement('style');
 style.innerHTML = `
   /* Animazioni personalizzate rimosse - ora usiamo animate-ping di Tailwind */
   
+  /* Stili scrollbar custom per la sidebar sinistra */
+  .mappatura-left-sidebar .overflow-y-auto::-webkit-scrollbar {
+    width: 6px;
+  }
+  .mappatura-left-sidebar .overflow-y-auto::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .mappatura-left-sidebar .overflow-y-auto::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 10px;
+  }
+  .mappatura-left-sidebar .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
+  }
+
   /* Stili per la stampa - nasconde sidebar sinistra e altri elementi non necessari */
   @media print {
     /* Nascondi la sidebar sinistra */
