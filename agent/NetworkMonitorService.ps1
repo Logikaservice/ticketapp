@@ -5,15 +5,15 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.6.19
-# Data ultima modifica: 2026-03-13
+# Versione: 2.6.20
+# Data ultima modifica: 2026-03-25
 
 param(
     [string]$ConfigPath = "config.json"
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.6.19"
+$SCRIPT_VERSION = "2.6.20"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -1895,7 +1895,8 @@ function Send-ScanResults {
         $url = "$ServerUrl/api/network-monitoring/agent/scan-results"
         Write-Log "Invio dati a: $url"
         
-        $response = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $payload -ErrorAction Stop
+        # Aggiunto -TimeoutSec 30 per evitare blocchi infiniti
+        $response = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $payload -TimeoutSec 30 -ErrorAction Stop
         
         Write-Log "Dati inviati con successo: $($response.devices_processed) dispositivi, $($response.changes_processed) cambiamenti"
         
