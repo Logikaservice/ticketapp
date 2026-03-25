@@ -1939,11 +1939,6 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                             </div>
                                         );
                                     })}
-                                    
-                                    {/* VISUAL SPACER TO FORCE SCROLLBAR */}
-                                    <div className="w-full h-[300px] flex items-center justify-center border-t-2 border-dashed border-gray-300 mt-4 bg-gray-50 rounded">
-                                        <p className="text-gray-400 text-[10px] text-center px-4">Fine della lista IP.<br/>Seleziona la scrollbar qui a lato per salire o usa la rotellina del mouse.</p>
-                                    </div>
                                 </div>
                             </div>
                         </div>
