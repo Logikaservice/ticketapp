@@ -17,17 +17,21 @@ style.innerHTML = `
   /* Animazioni personalizzate rimosse - ora usiamo animate-ping di Tailwind */
   
   /* Stili scrollbar custom per la sidebar sinistra */
-  .mappatura-left-sidebar .overflow-y-auto::-webkit-scrollbar {
+  .mappatura-left-sidebar .overflow-y-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+  .mappatura-left-sidebar .overflow-y-scroll::-webkit-scrollbar {
     width: 6px;
   }
-  .mappatura-left-sidebar .overflow-y-auto::-webkit-scrollbar-track {
+  .mappatura-left-sidebar .overflow-y-scroll::-webkit-scrollbar-track {
     background: transparent;
   }
-  .mappatura-left-sidebar .overflow-y-auto::-webkit-scrollbar-thumb {
+  .mappatura-left-sidebar .overflow-y-scroll::-webkit-scrollbar-thumb {
     background-color: #cbd5e1;
     border-radius: 10px;
   }
-  .mappatura-left-sidebar .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  .mappatura-left-sidebar .overflow-y-scroll::-webkit-scrollbar-thumb:hover {
     background-color: #94a3b8;
   }
 
@@ -1869,7 +1873,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                         ✓ Modalità associa: ora clicca sul nuovo padre in mappa per il dispositivo selezionato.
                                     </div>
                                 )}
-                                <div className="flex-1 overflow-y-auto p-1 space-y-0.5">
+                                <div className="flex-1 overflow-y-scroll overflow-x-hidden p-1 pb-12 space-y-0.5 min-h-[0px] h-0">
                                     {loading && <div className="flex items-center gap-1 text-gray-500 text-xs py-1"><Loader size={12} className="animate-spin" /> Caricamento…</div>}
                                     {!loading && ipList.length === 0 && (
                                         <p className="text-xs text-gray-400 py-1">
