@@ -1947,7 +1947,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     {/* Canvas */}
                     <div
                         ref={canvasContainerRef}
-                        className={`mappatura-canvas-container absolute top-0 bottom-0 right-0 overflow-hidden cursor-move touch-none bg-white ${selectedCompanyId ? 'left-48' : 'left-0'}`}
+                        className={`mappatura-canvas-container absolute top-0 bottom-0 overflow-hidden cursor-move touch-none bg-white ${(selectedNode || selectedDevice) ? 'right-80' : 'right-0'} ${selectedCompanyId ? 'left-48' : 'left-0'}`}
                         onClick={() => {
                             if (justDroppedRef.current) {
                                 justDroppedRef.current = false;
@@ -2283,7 +2283,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             nodeForPanel.locked = false;
                         }
                         return (
-                            <div className="mappatura-right-sidebar w-80 shrink-0 bg-white shadow-xl border-l border-gray-200 p-4 flex flex-col animate-slideInRight z-50 select-text">
+                            <div className="mappatura-right-sidebar absolute top-0 right-0 bottom-0 w-80 bg-white shadow-xl border-l border-gray-200 p-4 flex flex-col animate-slideInRight z-[60] select-text overflow-y-auto">
                                 <div className="flex justify-between items-start mb-4">
                                     <h3 className="text-lg font-bold text-gray-800 break-all">{display.label || display.ip}</h3>
                                     <button onClick={() => { setSelectedNode(null); setSelectedDevice(null); setReassociateChildNode(null); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
