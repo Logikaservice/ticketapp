@@ -242,6 +242,15 @@ const SpeedTestPage = ({
     return d.toLocaleDateString('it-IT') + ' ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const fmtPing = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.round(n) : '—';
+  };
+  const fmtMbps = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n.toFixed(1) : '—';
+  };
+
   // Filtra per ricerca
   const filteredOverview = overview.filter(c =>
     (c.azienda_name || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -340,45 +349,59 @@ const SpeedTestPage = ({
       left: active ? 23 : 3,
       transition: 'left 0.3s'
     }),
-    gaugeCircle: (pct, colorVar) => ({
-      width: 100, height: 100,
-      borderRadius: '50%',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
+    gaugeWrap: {
+      width: 100,
+      height: 100,
       margin: '0 auto 8px',
-      position: 'relative',
+      position: 'relative'
+    },
+    gaugeRing: (pct, colorVar) => ({
+      position: 'absolute',
+      inset: 0,
+      borderRadius: '50%',
       background: `conic-gradient(${colorVar} ${pct}%, #334155 0)`,
       WebkitMask: 'radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px))',
-      mask: 'radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px))'
+      mask: 'radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px))',
+      pointerEvents: 'none',
+      zIndex: 0
     }),
     gaugeInner: {
-      position: 'absolute', inset: 4,
+      position: 'absolute',
+      inset: 4,
       borderRadius: '50%',
       background: '#1e293b',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center'
+      justifyContent: 'center',
+      zIndex: 1
     },
-    detailGaugeCircle: (pct, colorVar) => ({
-      width: 160, height: 160,
-      borderRadius: '50%',
-      position: 'relative',
+    detailGaugeWrap: {
+      width: 160,
+      height: 160,
       margin: '0 auto 12px',
+      position: 'relative'
+    },
+    detailGaugeRing: (pct, colorVar) => ({
+      position: 'absolute',
+      inset: 0,
+      borderRadius: '50%',
       background: `conic-gradient(${colorVar} ${pct}%, #1e293b 0)`,
       WebkitMask: 'radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px))',
-      mask: 'radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px))'
+      mask: 'radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px))',
+      pointerEvents: 'none',
+      zIndex: 0
     }),
     detailGaugeInner: {
-      position: 'absolute', inset: 6,
+      position: 'absolute',
+      inset: 6,
       borderRadius: '50%',
       background: '#0f172a',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center'
+      justifyContent: 'center',
+      zIndex: 1
     },
     backBtn: {
       background: '#334155',
@@ -482,10 +505,11 @@ const SpeedTestPage = ({
         <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: 8 }}>
           {/* Ping */}
           <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={styles.gaugeCircle(enabled && hasData ? getPingPct(company.ping_ms) : 0, enabled ? '#22c55e' : '#475569')}>
+            <div style={styles.gaugeWrap}>
+              <div style={styles.gaugeRing(enabled && hasData ? getPingPct(company.ping_ms) : 0, enabled ? '#22c55e' : '#475569')} />
               <div style={styles.gaugeInner}>
                 <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
-                  {enabled && hasData ? Math.round(company.ping_ms) : '—'}
+                  {enabled && hasData ? fmtPing(company.ping_ms) : '—'}
                 </span>
                 <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'ms' : ''}</span>
               </div>
@@ -494,10 +518,11 @@ const SpeedTestPage = ({
           </div>
           {/* Download */}
           <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={styles.gaugeCircle(enabled && hasData ? getDownloadPct(company.download_mbps) : 0, enabled ? '#7c3aed' : '#475569')}>
+            <div style={styles.gaugeWrap}>
+              <div style={styles.gaugeRing(enabled && hasData ? getDownloadPct(company.download_mbps) : 0, enabled ? '#7c3aed' : '#475569')} />
               <div style={styles.gaugeInner}>
                 <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
-                  {enabled && hasData ? company.download_mbps?.toFixed(1) : '—'}
+                  {enabled && hasData ? fmtMbps(company.download_mbps) : '—'}
                 </span>
                 <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'Mbps' : ''}</span>
               </div>
@@ -506,10 +531,11 @@ const SpeedTestPage = ({
           </div>
           {/* Upload */}
           <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={styles.gaugeCircle(enabled && hasData ? getUploadPct(company.upload_mbps) : 0, enabled ? '#06b6d4' : '#475569')}>
+            <div style={styles.gaugeWrap}>
+              <div style={styles.gaugeRing(enabled && hasData ? getUploadPct(company.upload_mbps) : 0, enabled ? '#06b6d4' : '#475569')} />
               <div style={styles.gaugeInner}>
                 <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
-                  {enabled && hasData ? company.upload_mbps?.toFixed(1) : '—'}
+                  {enabled && hasData ? fmtMbps(company.upload_mbps) : '—'}
                 </span>
                 <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'Mbps' : ''}</span>
               </div>
@@ -597,10 +623,11 @@ const SpeedTestPage = ({
                   <div style={{ display: 'flex', justifyContent: 'center', gap: 48, marginBottom: 16, flexWrap: 'wrap' }}>
                     {/* Ping */}
                     <div style={{ textAlign: 'center' }}>
-                      <div style={styles.detailGaugeCircle(getPingPct(lastResult.ping_ms), '#22c55e')}>
+                      <div style={styles.detailGaugeWrap}>
+                        <div style={styles.detailGaugeRing(getPingPct(lastResult.ping_ms), '#22c55e')} />
                         <div style={styles.detailGaugeInner}>
                           <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
-                            {Math.round(lastResult.ping_ms)}
+                            {fmtPing(lastResult.ping_ms)}
                           </span>
                           <span style={{ fontSize: 14, color: '#94a3b8' }}>ms</span>
                         </div>
@@ -609,10 +636,11 @@ const SpeedTestPage = ({
                     </div>
                     {/* Download */}
                     <div style={{ textAlign: 'center' }}>
-                      <div style={styles.detailGaugeCircle(getDownloadPct(lastResult.download_mbps), '#7c3aed')}>
+                      <div style={styles.detailGaugeWrap}>
+                        <div style={styles.detailGaugeRing(getDownloadPct(lastResult.download_mbps), '#7c3aed')} />
                         <div style={styles.detailGaugeInner}>
                           <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
-                            {lastResult.download_mbps?.toFixed(1)}
+                            {fmtMbps(lastResult.download_mbps)}
                           </span>
                           <span style={{ fontSize: 14, color: '#94a3b8' }}>Mbps</span>
                         </div>
@@ -621,10 +649,11 @@ const SpeedTestPage = ({
                     </div>
                     {/* Upload */}
                     <div style={{ textAlign: 'center' }}>
-                      <div style={styles.detailGaugeCircle(getUploadPct(lastResult.upload_mbps), '#06b6d4')}>
+                      <div style={styles.detailGaugeWrap}>
+                        <div style={styles.detailGaugeRing(getUploadPct(lastResult.upload_mbps), '#06b6d4')} />
                         <div style={styles.detailGaugeInner}>
                           <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
-                            {lastResult.upload_mbps?.toFixed(1)}
+                            {fmtMbps(lastResult.upload_mbps)}
                           </span>
                           <span style={{ fontSize: 14, color: '#94a3b8' }}>Mbps</span>
                         </div>
