@@ -8701,13 +8701,27 @@ pause
         return res.status(400).json({ error: 'ping_ms, download_mbps e upload_mbps sono richiesti' });
       }
 
+      const ping = Number(ping_ms);
+      const down = Number(download_mbps);
+      const up = Number(upload_mbps);
+      if (!Number.isFinite(ping) || !Number.isFinite(down) || !Number.isFinite(up)) {
+        return res.status(400).json({ error: 'ping_ms, download_mbps e upload_mbps devono essere numerici' });
+      }
+      if (ping < 0 || ping > 10000 || down < 0 || down > 200000 || up < 0 || up > 200000) {
+        return res.status(400).json({ error: 'Valori fuori range ragionevole per uno speed test' });
+      }
+
+      const rawJsonStored = typeof raw_json === 'string' && raw_json.length > 65535
+        ? raw_json.slice(0, 65535) + '\n…[truncated]'
+        : raw_json;
+
       await ensureTables();
 
       const result = await pool.query(
         `INSERT INTO speedtest_results (agent_id, azienda_id, test_date, ping_ms, download_mbps, upload_mbps, isp, public_ip, server_name, result_url, raw_json)
          VALUES ($1, $2, COALESCE($3, NOW()), $4, $5, $6, $7, $8, $9, $10, $11)
          RETURNING id, test_date`,
-        [agentId, aziendaId, test_date || null, ping_ms, download_mbps, upload_mbps, isp || null, public_ip || null, server_name || null, result_url || null, raw_json || null]
+        [agentId, aziendaId, test_date || null, ping, down, up, isp || null, public_ip || null, server_name || null, result_url || null, rawJsonStored || null]
       );
 
       console.log(`📊 Speed test ricevuto da agent ${agentId}: ↓${download_mbps} Mbps ↑${upload_mbps} Mbps 🏓${ping_ms} ms`);
@@ -8717,7 +8731,7 @@ pause
         io.to('role:tecnico').to('role:admin').emit('speedtest-update', {
           agentId,
           aziendaId,
-          ping_ms, download_mbps, upload_mbps,
+          ping_ms: ping, download_mbps: down, upload_mbps: up,
           isp, public_ip, server_name,
           test_date: result.rows[0].test_date
         });
@@ -8732,7 +8746,7 @@ pause
 
   // GET /api/network-monitoring/speedtest/overview
   // Panoramica: ultimo risultato speed test per ogni azienda (solo tecnici)
-  router.get('/speedtest/overview', authenticateToken, requireRole('tecnico'), async (req, res) => {
+  router.get('/speedtest/overview', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
     try {
       await ensureTables();
 
@@ -8764,7 +8778,7 @@ pause
 
   // GET /api/network-monitoring/speedtest/company/:aziendaId/history
   // Cronologia speed test per una specifica azienda (solo tecnici)
-  router.get('/speedtest/company/:aziendaId/history', authenticateToken, requireRole('tecnico'), async (req, res) => {
+  router.get('/speedtest/company/:aziendaId/history', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
     try {
       await ensureTables();
 
@@ -8806,7 +8820,7 @@ pause
 
   // PUT /api/network-monitoring/speedtest/toggle/:agentId
   // Attiva/disattiva speed test per un agent specifico (solo tecnici)
-  router.put('/speedtest/toggle/:agentId', authenticateToken, requireRole('tecnico'), async (req, res) => {
+  router.put('/speedtest/toggle/:agentId', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
     try {
       await ensureTables();
 

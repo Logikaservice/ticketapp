@@ -2188,13 +2188,13 @@ function Invoke-SpeedTest {
             }
             catch {
                 Write-Log "[SpeedTest] Errore download CLI: $_" "ERROR"
-                return
+                return $false
             }
         }
 
         if (-not (Test-Path $speedtestExe)) {
             Write-Log "[SpeedTest] speedtest.exe non trovato dopo download" "ERROR"
-            return
+            return $false
         }
 
         # Esegui speed test con output JSON (accetta licenza automaticamente)
@@ -2206,12 +2206,12 @@ function Invoke-SpeedTest {
         }
         catch {
             Write-Log "[SpeedTest] Errore parsing JSON: $jsonOutput" "ERROR"
-            return
+            return $false
         }
 
         if (-not $result.ping -or -not $result.download -or -not $result.upload) {
             Write-Log "[SpeedTest] Risultato incompleto: $jsonOutput" "WARN"
-            return
+            return $false
         }
 
         # Converti bytes/s in Mbps (Ookla CLI restituisce bytes/s nella proprieta' bandwidth)
@@ -2248,13 +2248,14 @@ function Invoke-SpeedTest {
 
         if ($sendResult.success) {
             Write-Log "[SpeedTest] Risultati inviati al server con successo (ID: $($sendResult.id))" "INFO"
+            return $true
         }
-        else {
-            Write-Log "[SpeedTest] Server ha rifiutato i risultati" "WARN"
-        }
+        Write-Log "[SpeedTest] Server ha rifiutato i risultati" "WARN"
+        return $false
     }
     catch {
         Write-Log "[SpeedTest] Errore: $_" "ERROR"
+        return $false
     }
 }
 
@@ -2782,8 +2783,9 @@ while ($script:isRunning) {
                 if ($null -ne $heartbeatResult.speedtest_enabled) {
                     $script:speedtestEnabled = [bool]$heartbeatResult.speedtest_enabled
                 }
-                if ($heartbeatResult.speedtest_interval_hours) {
-                    $script:speedtestIntervalHours = [int]$heartbeatResult.speedtest_interval_hours
+                if ($null -ne $heartbeatResult.speedtest_interval_hours) {
+                    $ih = [int]$heartbeatResult.speedtest_interval_hours
+                    if ($ih -gt 0) { $script:speedtestIntervalHours = $ih }
                 }
             }
             catch {
@@ -2819,9 +2821,14 @@ while ($script:isRunning) {
 
                 if ($runSpeedTest) {
                     try {
-                        Invoke-SpeedTest -ServerUrl $config.server_url -ApiKey $config.api_key
-                        $script:lastSpeedTestTime = Get-Date
-                        Write-Log "[SpeedTest] Prossimo test tra $script:speedtestIntervalHours ore" "INFO"
+                        $stOk = Invoke-SpeedTest -ServerUrl $config.server_url -ApiKey $config.api_key
+                        if ($stOk) {
+                            $script:lastSpeedTestTime = Get-Date
+                            Write-Log "[SpeedTest] Prossimo test tra $script:speedtestIntervalHours ore" "INFO"
+                        }
+                        else {
+                            Write-Log "[SpeedTest] Test non completato o invio fallito; timer non avanzato, riprovo al prossimo heartbeat" "WARN"
+                        }
                     }
                     catch {
                         Write-Log "[SpeedTest] Errore esecuzione: $_" "WARN"

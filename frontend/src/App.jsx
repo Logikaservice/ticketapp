@@ -3353,7 +3353,7 @@ export default function TicketApp() {
           />
         )}
 
-        {showSpeedTest && currentUser?.ruolo === 'tecnico' && (
+        {showSpeedTest && (currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin') && (
           <SpeedTestPage
             currentUser={currentUser}
             getAuthHeader={getAuthHeader}

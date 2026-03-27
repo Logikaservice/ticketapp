@@ -182,7 +182,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       label: 'Speed Test',
       icon: Gauge,
       color: 'purple',
-      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openSpeedTest,
+      visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin') && openSpeedTest,
       onClick: () => { if (openSpeedTest) { openSpeedTest(); setShowQuickActions(false); setExpandedAction(null); } }
     },
     // Monitoraggio Rete (sopra Mappatura)
