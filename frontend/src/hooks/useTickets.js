@@ -677,12 +677,25 @@ export const useTickets = (
       const logsToSave = timeLogs.map(log => ({
         modalita: log.modalita,
         data: log.data,
-        oraInizio: log.oraInizio,
-        oraFine: log.oraFine,
+        oraInizio: log.eventoGiornaliero ? '' : log.oraInizio,
+        oraFine: log.eventoGiornaliero ? '' : log.oraFine,
+        eventoGiornaliero: !!log.eventoGiornaliero,
         descrizione: log.descrizione,
         oreIntervento: parseFloat(log.oreIntervento) || 0,
         costoUnitario: parseFloat(log.costoUnitario) || 0,
         sconto: parseFloat(log.sconto) || 0,
+        workPhases: Array.isArray(log.workPhases) ? log.workPhases.map(phase => ({
+          id: phase.id,
+          modalita: phase.modalita,
+          data: phase.data,
+          oraInizio: phase.oraInizio,
+          oraFine: phase.oraFine
+        })) : [],
+        timeIntervals: Array.isArray(log.timeIntervals) ? log.timeIntervals.map(interval => ({
+          id: interval.id,
+          start: interval.start,
+          end: interval.end
+        })) : [],
         materials: log.materials.map(m => ({
           nome: m.nome,
           quantita: parseInt(m.quantita) || 0,
