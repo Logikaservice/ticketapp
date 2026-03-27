@@ -15,6 +15,42 @@ const telegramService = require('../services/TelegramService');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const https = require('https');
 
+// Chiavi allineate a frontend/src/utils/deviceTypeIcons.js (AVAILABLE_ICONS)
+const VALID_DEVICE_TYPE_KEYS = new Set([
+  'pc', 'server', 'virtual', 'virtualization', 'nas', 'router', 'firewall', 'unmanaged_switch', 'wifi',
+  'cloud_key', 'radio', 'printer', 'smartphone', 'tablet', 'laptop', 'telecamera', 'tv',
+  'phone', 'pbx', 'dect_cell', 'dect_handset', 'cloud', 'internet', 'generic', 'switch',
+  'camera', 'workstation', 'wearable', 'speaker'
+]);
+
+function mapKeepassIconIdToDeviceType(iconId) {
+  if (iconId === undefined || iconId === null || iconId === '') return null;
+  switch (Number(iconId)) {
+    case 3: return 'server';
+    case 4: return 'pc';
+    case 18: return 'printer';
+    case 19: return 'nas';
+    case 22: return 'nas';
+    case 27: return 'laptop';
+    case 28: return 'smartphone';
+    case 29: return 'firewall';
+    case 34: return 'wifi';
+    case 61: return 'switch';
+    default: return null;
+  }
+}
+
+/** Nella risposta API: se il tipo non è una chiave nota (es. titolo KeePass vecchio), ma c'è UniFi → icona WiFi/AP */
+function applyUnifiWifiDeviceTypeFallback(row) {
+  if (row.is_manual_type) return;
+  const unifi = row.unifi_name && String(row.unifi_name).trim();
+  if (!unifi) return;
+  const t = (row.device_type || '').trim().toLowerCase();
+  if (!t || t === 'generic' || !VALID_DEVICE_TYPE_KEYS.has(t)) {
+    row.device_type = 'wifi';
+  }
+}
+
 module.exports = (pool, io) => {
   // Mappe in-memory per test Unifi delegato all'agent (IP privati: VPS non raggiunge 192.168.x.x)
   const pendingUnifiTests = new Map(); // agentId -> { test_id, url, username, password, created_at }
@@ -2214,6 +2250,12 @@ module.exports = (pool, io) => {
           } catch (e) { /* ignore */ }
         }
 
+        // Tipo icona: KeePass vince; altrimenti client visti da UniFi (unifi_name) → WiFi/AP (stessa icona della mappatura)
+        let effectiveDeviceType = deviceTypeFromKeepass;
+        if (!effectiveDeviceType && unifi_name && String(unifi_name).trim()) {
+          effectiveDeviceType = 'wifi';
+        }
+
         // Priorità titolo:
         // 1) Keepass (se presente) -> titolo principale
         // 2) UniFi (se Keepass manca ma UniFi ha nome)
@@ -2239,7 +2281,7 @@ module.exports = (pool, io) => {
             );
             sendTelegramNotification(agentId, req.agent.azienda_id, 'ip_changed', {
               hostname: effectiveHostname || existingDevice.hostname,
-              deviceType: deviceTypeFromKeepass || existingDevice.device_type,
+              deviceType: effectiveDeviceType || existingDevice.device_type,
               oldIP: oldIp,
               newIP: newIp,
               mac: normalizedMac || existingDevice.mac_address,
@@ -2269,7 +2311,7 @@ module.exports = (pool, io) => {
               console.log(`📤 [ONLINE] Tentativo invio notifica Telegram per dispositivo online: MAC=${normalizedMac || existingDevice.mac_address}, IP=${ip_address}, Hostname=${effectiveHostname || existingDevice.hostname}, Stato Precedente=offline`);
               sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
                 hostname: effectiveHostname || existingDevice.hostname,
-                deviceType: deviceTypeFromKeepass || existingDevice.device_type,
+                deviceType: effectiveDeviceType || existingDevice.device_type,
                 ip: ip_address,
                 mac: normalizedMac || existingDevice.mac_address,
                 status: 'online',
@@ -2303,7 +2345,7 @@ module.exports = (pool, io) => {
                  previous_ip = CASE WHEN $12 THEN $13 ELSE previous_ip END,
                  unifi_name = COALESCE($14, unifi_name)
                  WHERE id = $10`,
-            [ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass, existingDevice.id, JSON.stringify(additional_ips || []), isStaticIPChange, isStaticIPChange ? oldIp : null, (unifi_name && String(unifi_name).trim()) ? String(unifi_name).trim() : null]
+            [ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, effectiveDeviceType, devicePathFromKeepass, existingDevice.id, JSON.stringify(additional_ips || []), isStaticIPChange, isStaticIPChange ? oldIp : null, (unifi_name && String(unifi_name).trim()) ? String(unifi_name).trim() : null]
           );
           deviceResults.push({ action: 'updated', id: existingDevice.id, ip: ip_address });
 
@@ -2316,7 +2358,7 @@ module.exports = (pool, io) => {
           const res = await pool.query(`INSERT INTO network_devices
                  (agent_id, ip_address, mac_address, hostname, vendor, status, ping_responsive, upgrade_available, device_type, device_path, additional_ips, is_new_device, unifi_name)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, $12) RETURNING id`,
-            [agentId, ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass, JSON.stringify(additional_ips || []), (unifi_name && String(unifi_name).trim()) ? String(unifi_name).trim() : null]
+            [agentId, ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, effectiveDeviceType, devicePathFromKeepass, JSON.stringify(additional_ips || []), (unifi_name && String(unifi_name).trim()) ? String(unifi_name).trim() : null]
           );
           deviceResults.push({ action: 'created', id: res.rows[0].id, ip: ip_address });
 
@@ -3235,27 +3277,12 @@ module.exports = (pool, io) => {
               // Modello: da KeePass custom field 'Modello'
               row.keepass_model = (keepassResult.model && keepassResult.model.trim()) ? keepassResult.model.trim() : null;
 
-              // MAPPING ICONE KEEPASS -> TIPO DISPOSITIVO (solo se NON manuale)
+              // Tipo dispositivo solo da icona KeePass mappata — non usare il titolo (non è una chiave tipo)
               if (!row.is_manual_type) {
-                let deviceType = keepassResult.title;
-                const iconId = keepassResult.iconId;
-
-                if (iconId !== undefined) {
-                  switch (Number(iconId)) {
-                    case 3: deviceType = 'server'; break;         // Server
-                    case 4: deviceType = 'pc'; break;             // Screen/Monitor
-                    case 18: deviceType = 'printer'; break;       // Scanner/Printer
-                    case 19: deviceType = 'nas'; break;           // Archive
-                    case 22: deviceType = 'nas'; break;           // Drive
-                    case 27: deviceType = 'laptop'; break;        // Laptop
-                    case 28: deviceType = 'smartphone'; break;    // Mobile Phone
-                    case 29: deviceType = 'firewall'; break;      // Key/Lock -> Firewall?
-                    case 34: deviceType = 'wifi'; break;          // Network/Wifi
-                    case 61: deviceType = 'switch'; break;        // Networking
-                  }
+                const mappedType = mapKeepassIconIdToDeviceType(keepassResult.iconId);
+                if (mappedType) {
+                  row.device_type = mappedType;
                 }
-
-                row.device_type = deviceType;
               }
             }
             // Se non trovato, mantieni i valori esistenti dal database
@@ -3264,6 +3291,8 @@ module.exports = (pool, io) => {
             console.error(`❌ Errore ricerca MAC ${row.mac_address} in mappa KeePass:`, keepassErr.message);
           }
         }
+
+        applyUnifiWifiDeviceTypeFallback(row);
 
         return row;
       });
@@ -4022,9 +4051,12 @@ module.exports = (pool, io) => {
               row.device_username = (keepassResult.username && keepassResult.username.trim()) ? keepassResult.username.trim() : null;
               row.keepass_model = (keepassResult.model && keepassResult.model.trim()) ? keepassResult.model.trim() : null;
 
-              // device_type — solo se NON manuale
+              // device_type solo da icona KeePass — mai dal titolo (rompe le icone in dashboard)
               if (!row.is_manual_type) {
-                row.device_type = keepassResult.title;
+                const mappedType = mapKeepassIconIdToDeviceType(keepassResult.iconId);
+                if (mappedType) {
+                  row.device_type = mappedType;
+                }
               }
             }
             // Se non trovato, mantieni i valori esistenti dal database
@@ -4033,6 +4065,8 @@ module.exports = (pool, io) => {
             console.error(`❌ Errore ricerca MAC ${row.mac_address} in mappa KeePass:`, keepassErr.message);
           }
         }
+
+        applyUnifiWifiDeviceTypeFallback(row);
 
         return row;
       });
@@ -6311,25 +6345,9 @@ pause
             // Titolo Keepass = hostname nel DB (colonna mostrata come "Titolo" in UI)
             const hostnameFromKeepass = keepassResult.title && keepassResult.title.trim() !== '' ? keepassResult.title.trim() : null;
 
-            // MAPPING ICONE KEEPASS -> TIPO DISPOSITIVO
-            let deviceType = keepassResult.title;
             const iconId = keepassResult.iconId;
-
-            if (iconId !== undefined) {
-              // Mappa Icon ID KeePass (standard set) ai nostri tipi
-              switch (Number(iconId)) {
-                case 3: deviceType = 'server'; break;
-                case 4: deviceType = 'pc'; break;
-                case 18: deviceType = 'printer'; break;
-                case 19: deviceType = 'nas'; break;
-                case 22: deviceType = 'nas'; break;
-                case 27: deviceType = 'laptop'; break;
-                case 28: deviceType = 'smartphone'; break;
-                case 29: deviceType = 'firewall'; break;
-                case 34: deviceType = 'wifi'; break;
-                case 61: deviceType = 'switch'; break;
-              }
-            }
+            const mappedKeepassType = mapKeepassIconIdToDeviceType(iconId);
+            const deviceType = mappedKeepassType !== null ? mappedKeepassType : device.device_type;
 
             // Debug per MAC specifico (CC:96:E5:0E:60:2F, 10:13:31:cd:ff:6c)
             if (normalizedMac === '101331CDFF6C' || normalizedMac === 'CC96E50E602F') {
