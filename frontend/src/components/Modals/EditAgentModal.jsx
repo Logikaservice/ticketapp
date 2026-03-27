@@ -106,10 +106,38 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
                     setUnifiTestStatus('ok');
                     setUnifiTestMessage('Connessione OK (Verificato direttamente dal server)');
                 } else if (data.deferred) {
-                    // Test delegato all'agent (rete locale)
-                    // Non aspettiamo il polling, diamo feedback immediato
-                    setUnifiTestStatus('pending'); // Nuovo stato 'pending' o usa 'ok' con messaggio specifico
-                    setUnifiTestMessage('Richiesta inviata all\'agent. Il controllo avverrà a breve in background. Controlla lo stato aggiornato tra qualche minuto.');
+                    // Test delegato all'agent (rete locale): polling risultato per ~6 minuti
+                    const testId = data.test_id;
+                    setUnifiTestStatus('pending');
+                    setUnifiTestMessage('Richiesta inviata all\'agent. Attendo esito...');
+                    if (!testId) return;
+
+                    const start = Date.now();
+                    const timeoutMs = 6 * 60 * 1000; // heartbeat agent ~5 min + margine
+                    const pollEveryMs = 5000;
+
+                    while ((Date.now() - start) < timeoutMs) {
+                        await new Promise(resolve => setTimeout(resolve, pollEveryMs));
+                        const pollRes = await fetch(buildApiUrl(`/api/network-monitoring/unifi-test-result/${encodeURIComponent(testId)}`), {
+                            headers: { ...getAuthHeader() }
+                        });
+                        const pollData = await pollRes.json().catch(() => ({}));
+                        const pollStatus = pollData?.status;
+
+                        if (pollStatus === 'ok') {
+                            setUnifiTestStatus('ok');
+                            setUnifiTestMessage(pollData?.message || 'Connessione OK (verificata dall\'agent)');
+                            return;
+                        }
+                        if (pollStatus === 'error') {
+                            setUnifiTestStatus('error');
+                            setUnifiTestMessage(pollData?.message || 'Connessione fallita (verificata dall\'agent)');
+                            return;
+                        }
+                    }
+
+                    setUnifiTestStatus('error');
+                    setUnifiTestMessage('Nessun esito dal test entro 6 minuti. Verifica che l\'agent sia online e riprova.');
                 } else {
                     setUnifiTestStatus('error');
                     setUnifiTestMessage(data.message || 'Errore sconosciuto');

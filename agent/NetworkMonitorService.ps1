@@ -5,15 +5,15 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.6.20
-# Data ultima modifica: 2026-03-25
+# Versione: 2.6.21
+# Data ultima modifica: 2026-03-27
 
 param(
     [string]$ConfigPath = "config.json"
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.6.20"
+$SCRIPT_VERSION = "2.6.21"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -206,23 +206,46 @@ function Check-UnifiUpdates {
         # Sessione Web per mantenere i cookie
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 
-        # 1. Login
-        $loginUrl = "$baseUrl/api/auth/login"
+        # 1. Login (fallback automatico su :8443 se l'URL non include una porta)
+        $baseCandidates = @($baseUrl)
+        if ($baseUrl -match '^https?://[^/:]+$') {
+            $baseCandidates += "$baseUrl:8443"
+        }
         $loginBody = @{ username = $username; password = $password } | ConvertTo-Json
-        
-        try {
-            $loginRes = Invoke-WebRequest -Uri $loginUrl -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -ErrorAction Stop
-        }
-        catch {
-            if ($_.Exception.Response.StatusCode -eq "NotFound") {
-                # Fallback per controller vecchi
-                $loginUrl = "$baseUrl/api/login"
-                $loginRes = Invoke-WebRequest -Uri $loginUrl -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -ErrorAction Stop
+        $selectedBaseUrl = $null
+        $lastLoginError = $null
+
+        foreach ($candidate in $baseCandidates) {
+            try {
+                $loginUrl = "$candidate/api/auth/login"
+                try {
+                    Invoke-WebRequest -Uri $loginUrl -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -ErrorAction Stop | Out-Null
+                    $selectedBaseUrl = $candidate
+                    break
+                }
+                catch {
+                    if ($_.Exception.Response.StatusCode -eq "NotFound") {
+                        # Fallback per controller vecchi
+                        $loginUrl = "$candidate/api/login"
+                        Invoke-WebRequest -Uri $loginUrl -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -ErrorAction Stop | Out-Null
+                        $selectedBaseUrl = $candidate
+                        break
+                    }
+                    else {
+                        throw $_
+                    }
+                }
             }
-            else {
-                Throw $_
+            catch {
+                $lastLoginError = $_
+                Write-Log "Unifi login fallito su ${candidate}: $($_.Exception.Message)" "WARN"
             }
         }
+
+        if (-not $selectedBaseUrl) {
+            if ($lastLoginError) { throw $lastLoginError } else { throw "Login Unifi fallito su tutti gli endpoint/porte" }
+        }
+        $baseUrl = $selectedBaseUrl
 
         # 2. Recupera devices (site default)
         # Controller: /api/s/default/stat/device | UDM/UCG: /proxy/network/api/s/default/stat/device
@@ -626,15 +649,36 @@ function Invoke-UnifiConnectionTestAndReport {
         [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
         $loginBody = @{ username = $Username; password = $Password } | ConvertTo-Json
-        try {
-            Invoke-WebRequest -Uri "$base/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null
+        $baseCandidates = @($base)
+        if ($base -match '^https?://[^/:]+$') {
+            $baseCandidates += "$base:8443"
         }
-        catch {
-            if ($_.Exception.Response.StatusCode -eq "NotFound") {
-                Invoke-WebRequest -Uri "$base/api/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null
+        $selectedBase = $null
+        $lastLoginError = $null
+        foreach ($candidate in $baseCandidates) {
+            try {
+                try {
+                    Invoke-WebRequest -Uri "$candidate/api/auth/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null
+                    $selectedBase = $candidate
+                    break
+                }
+                catch {
+                    if ($_.Exception.Response.StatusCode -eq "NotFound") {
+                        Invoke-WebRequest -Uri "$candidate/api/login" -Method Post -Body $loginBody -ContentType "application/json" -WebSession $session -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop | Out-Null
+                        $selectedBase = $candidate
+                        break
+                    }
+                    else { throw }
+                }
             }
-            else { throw }
+            catch {
+                $lastLoginError = $_
+            }
         }
+        if (-not $selectedBase) {
+            if ($lastLoginError) { throw $lastLoginError } else { throw "Login Unifi fallito su tutti gli endpoint/porte" }
+        }
+        $base = $selectedBase
         $dev = $null
         try {
             $dev = Invoke-RestMethod -Uri "$base/api/s/default/stat/device" -Method Get -WebSession $session -TimeoutSec 15 -ErrorAction Stop
