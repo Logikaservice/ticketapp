@@ -291,6 +291,18 @@ module.exports = (pool, io) => {
         }
       }
 
+      // Aggiungi colonna unifi_name per memorizzare il nome rilevato da UniFi
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices
+          ADD COLUMN IF NOT EXISTS unifi_name VARCHAR(255);
+        `);
+      } catch (err) {
+        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+          console.warn('⚠️ Avviso aggiunta colonna unifi_name:', err.message);
+        }
+      }
+
       // Crea tabella network_changes
       await pool.query(`
         CREATE TABLE IF NOT EXISTS network_changes (
@@ -2197,10 +2209,11 @@ module.exports = (pool, io) => {
           } catch (e) { /* ignore */ }
         }
 
-        // Hostname Priority: KeePass Title > NULL (Strict Mode)
-        // Se KeePass ha un titolo forzalo. Se non ce l'ha, lascia NULL (vuoto).
-        // Non usiamo più l'hostname rilevato dalla rete come fallback se KeePass manca, per evitare dati errati.
-        effectiveHostname = titleFromKeepass || null;
+        // Priorità titolo:
+        // 1) Keepass (se presente) -> titolo principale
+        // 2) UniFi (se Keepass manca ma UniFi ha nome)
+        // 3) Nessun titolo
+        effectiveHostname = titleFromKeepass || (unifi_name ? String(unifi_name).trim() : null) || null;
 
         if (effectiveHostname && effectiveHostname.length > 250) effectiveHostname = effectiveHostname.substring(0, 250);
 
@@ -2282,9 +2295,10 @@ module.exports = (pool, io) => {
                  device_type = CASE WHEN is_manual_type THEN device_type ELSE COALESCE($8, device_type) END,
                  device_path = COALESCE($9, device_path),
                  additional_ips = $11,
-                 previous_ip = CASE WHEN $12 THEN $13 ELSE previous_ip END
+                 previous_ip = CASE WHEN $12 THEN $13 ELSE previous_ip END,
+                 unifi_name = COALESCE($14, unifi_name)
                  WHERE id = $10`,
-            [ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass, existingDevice.id, JSON.stringify(additional_ips || []), isStaticIPChange, isStaticIPChange ? oldIp : null]
+            [ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass, existingDevice.id, JSON.stringify(additional_ips || []), isStaticIPChange, isStaticIPChange ? oldIp : null, (unifi_name && String(unifi_name).trim()) ? String(unifi_name).trim() : null]
           );
           deviceResults.push({ action: 'updated', id: existingDevice.id, ip: ip_address });
 
@@ -2295,9 +2309,9 @@ module.exports = (pool, io) => {
         } else {
           // INSERT
           const res = await pool.query(`INSERT INTO network_devices
-                 (agent_id, ip_address, mac_address, hostname, vendor, status, ping_responsive, upgrade_available, device_type, device_path, additional_ips, is_new_device)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true) RETURNING id`,
-            [agentId, ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass, JSON.stringify(additional_ips || [])]
+                 (agent_id, ip_address, mac_address, hostname, vendor, status, ping_responsive, upgrade_available, device_type, device_path, additional_ips, is_new_device, unifi_name)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, $12) RETURNING id`,
+            [agentId, ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, deviceTypeFromKeepass, devicePathFromKeepass, JSON.stringify(additional_ips || []), (unifi_name && String(unifi_name).trim()) ? String(unifi_name).trim() : null]
           );
           deviceResults.push({ action: 'created', id: res.rows[0].id, ip: ip_address });
 
@@ -3031,6 +3045,12 @@ module.exports = (pool, io) => {
           ADD COLUMN IF NOT EXISTS router_model VARCHAR(100)
         `);
       } catch (e) { console.warn('Warning adding router_model column:', e.message); }
+      try {
+        await pool.query(`
+          ALTER TABLE network_devices
+          ADD COLUMN IF NOT EXISTS unifi_name VARCHAR(255)
+        `);
+      } catch (e) { console.warn('Warning adding unifi_name column:', e.message); }
 
       // MIGRATION (AUTO-FIX): Normalizza MAC address nel DB (da - a :) per coerenza immediata
       try {
@@ -3056,7 +3076,7 @@ module.exports = (pool, io) => {
             ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '') 
           END as hostname,
           nd.vendor, 
-          nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
+          nd.device_type, nd.device_path, nd.device_username, nd.unifi_name, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
           nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port, nd.notes, nd.is_manual_type, nd.ip_history, nd.additional_ips, nd.is_new_device, nd.router_model, nd.wifi_sync_status, nd.wifi_sync_msg, nd.wifi_sync_last_at,
           nd.switch_profile_id, nd.snmp_community, nd.is_managed_switch,
           nd.agent_id, na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
@@ -3892,6 +3912,10 @@ module.exports = (pool, io) => {
           ALTER TABLE network_devices 
           ADD COLUMN IF NOT EXISTS router_model VARCHAR(100);
         `);
+        await pool.query(`
+          ALTER TABLE network_devices
+          ADD COLUMN IF NOT EXISTS unifi_name VARCHAR(255);
+        `);
       } catch (migrationErr) {
         // Ignora errore se colonna esiste già
         if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
@@ -3914,7 +3938,7 @@ module.exports = (pool, io) => {
             ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
           END as hostname,
           nd.vendor, 
-          nd.device_type, nd.device_path, nd.device_username, nd.status, nd.is_static, nd.notify_telegram, nd.is_manual_type, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
+          nd.device_type, nd.device_path, nd.device_username, nd.unifi_name, nd.status, nd.is_static, nd.notify_telegram, nd.is_manual_type, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
           nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.notes, nd.router_model,
           na.agent_name, na.azienda_id, na.last_heartbeat as agent_last_seen, na.status as agent_status,
           u.azienda

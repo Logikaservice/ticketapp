@@ -1234,6 +1234,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     return title.slice(0, MAX_TITLE_LENGTH_VIRTUAL) + '…';
   };
 
+  const getUnifiSubtitle = (device) => {
+    const keepassTitle = (device?.hostname || '').trim();
+    const unifiTitle = (device?.unifi_name || '').trim();
+    if (!keepassTitle || !unifiTitle) return '';
+    if (keepassTitle.toLowerCase() === unifiTitle.toLowerCase()) return '';
+    return unifiTitle;
+  };
+
   // Gestisce il click sull'IP per mostrare il menu contestuale (deviceOrChange = dispositivo dalla tabella o change da Cambiamenti, per avere id/device_id)
   const handleIpClick = (e, ip, deviceOrChange) => {
     e.preventDefault();
@@ -2659,12 +2667,29 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 </div>
                               </div>
                             </td>
-                            <td className="py-1 px-3 text-sm text-gray-600 max-w-[11rem] truncate" title={device.hostname || '-'}>
+                            <td className="py-1 px-3 text-sm text-gray-600 max-w-[11rem]" title={device.hostname || '-'}>
                               {(() => {
                                 const macNorm = normalizeMac(device.mac_address);
                                 const deviceIp = device.ip_address?.trim();
                                 let hasMatch = false;
                                 let matchValue = null;
+                                const titleValue = getDisplayTitle(device);
+                                const unifiSubtitle = getUnifiSubtitle(device);
+                                const titleContent = (
+                                  <span className="block max-w-[11rem]">
+                                    <span className="block truncate">{titleValue}</span>
+                                    {unifiSubtitle && (
+                                      <span className="mt-0.5 flex items-center gap-1 min-w-0">
+                                        <span className="inline-flex items-center rounded bg-indigo-100 px-1.5 py-[1px] text-[10px] font-semibold text-indigo-700">
+                                          UniFi
+                                        </span>
+                                        <span className="block truncate text-[11px] text-gray-500 min-w-0">
+                                          {unifiSubtitle}
+                                        </span>
+                                      </span>
+                                    )}
+                                  </span>
+                                );
 
                                 if (macNorm && dispositiviAziendaliMap.has(macNorm)) {
                                   hasMatch = true;
@@ -2682,14 +2707,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                         e.stopPropagation();
                                         onNavigateDispositiviAziendali(selectedCompanyId, matchValue);
                                       }}
-                                      className="text-left text-blue-600 hover:text-blue-800 hover:underline transition-colors truncate w-full"
+                                      className="text-left text-blue-600 hover:text-blue-800 hover:underline transition-colors w-full"
                                       title="Vai al dispositivo in Dispositivi aziendali"
                                     >
-                                      {getDisplayTitle(device)}
+                                      {titleContent}
                                     </button>
                                   );
                                 }
-                                return getDisplayTitle(device);
+                                return titleContent;
                               })()}
                             </td>
                             <td className="py-1 px-3 text-sm text-gray-600 whitespace-nowrap">{device.device_username || '-'}</td>
