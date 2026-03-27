@@ -25,6 +25,46 @@ module.exports = (pool, io) => {
   const routerWifiResults = new Map();      // task_id -> { success, devices: [], error, at }
   const pendingDeviceTestTasks = new Map(); // agentId -> { task_id, device_id, ip, ports, profile, profileLabel, device_type }
   const deviceTestResults = new Map();     // task_id -> { status: 'ok'|'error', ping, ports, profile, profileLabel, device_type, error?, at }
+  const AGENT_VERSION_FALLBACK = '2.6.21';
+  const AGENT_SERVICE_SOURCE_PATH = path.resolve(__dirname, '..', '..', 'agent', 'NetworkMonitorService.ps1');
+  const AGENT_SERVICE_PUBLIC_PATH = path.resolve(__dirname, '..', 'public', 'agent-updates', 'NetworkMonitorService.ps1');
+
+  const extractAgentVersionFromContent = (content) => {
+    const versionPatterns = [
+      /\$SCRIPT_VERSION\s*=\s*["']([\d.]+)["']/,
+      /SCRIPT_VERSION\s*=\s*["']([\d.]+)["']/,
+      /Versione[:\s]+([\d.]+)/i,
+      /Version[:\s]+([\d.]+)/i
+    ];
+    for (const pattern of versionPatterns) {
+      const match = String(content || '').match(pattern);
+      if (match && match[1]) return match[1];
+    }
+    return null;
+  };
+
+  const getCurrentAgentVersion = () => {
+    try {
+      if (!fs.existsSync(AGENT_SERVICE_SOURCE_PATH)) return AGENT_VERSION_FALLBACK;
+      let serviceContent = fs.readFileSync(AGENT_SERVICE_SOURCE_PATH, 'utf8');
+      if (serviceContent.charCodeAt(0) === 0xFEFF) serviceContent = serviceContent.slice(1); // strip BOM
+      return extractAgentVersionFromContent(serviceContent) || AGENT_VERSION_FALLBACK;
+    } catch (err) {
+      console.warn('⚠️ Impossibile leggere versione agent dal file sorgente:', err.message);
+      return AGENT_VERSION_FALLBACK;
+    }
+  };
+
+  const syncPublicAgentServiceScript = () => {
+    try {
+      if (!fs.existsSync(AGENT_SERVICE_SOURCE_PATH)) return;
+      const publicDir = path.dirname(AGENT_SERVICE_PUBLIC_PATH);
+      if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
+      fs.copyFileSync(AGENT_SERVICE_SOURCE_PATH, AGENT_SERVICE_PUBLIC_PATH);
+    } catch (err) {
+      console.warn('⚠️ Impossibile sincronizzare backend/public/agent-updates/NetworkMonitorService.ps1:', err.message);
+    }
+  };
 
   // Funzione helper per inizializzare le tabelle se non esistono
   const initTables = async () => {
@@ -886,43 +926,8 @@ module.exports = (pool, io) => {
 
       await ensureTables();
 
-      // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
-      // Serve per far capire all'installer quale versione dovrebbe risultare installata.
-      const CURRENT_AGENT_VERSION = '2.6.21'; // Versione di fallback (allineata a $SCRIPT_VERSION)
-      let agentPackageVersion = CURRENT_AGENT_VERSION;
-      try {
-        const projectRoot = path.resolve(__dirname, '..', '..');
-        const agentDir = path.join(projectRoot, 'agent');
-        const servicePath = path.join(agentDir, 'NetworkMonitorService.ps1');
-        if (fs.existsSync(servicePath)) {
-          // Leggi file rimuovendo BOM se presente
-          let serviceContent = fs.readFileSync(servicePath, 'utf8');
-          if (serviceContent.charCodeAt(0) === 0xFEFF) {
-            serviceContent = serviceContent.slice(1);
-          }
-
-          // Cerca versione con pattern multipli
-          const versionPatterns = [
-            /\$SCRIPT_VERSION\s*=\s*["']([\d\.]+)["']/,
-            /\$SCRIPT_VERSION\s*=\s*[""]([\d\.]+)[""]/,
-            /SCRIPT_VERSION\s*=\s*["']([\d\.]+)["']/,
-            /Versione[:\s]+([\d\.]+)/i,
-            /Version[:\s]+([\d\.]+)/i
-          ];
-
-          for (const pattern of versionPatterns) {
-            const versionMatch = serviceContent.match(pattern);
-            if (versionMatch && versionMatch[1]) {
-              agentPackageVersion = versionMatch[1];
-              break;
-            }
-          }
-        }
-      } catch (versionErr) {
-        // Non bloccare la risposta se non riusciamo a leggere la versione
-        console.warn('⚠️ Impossibile leggere versione pacchetto agent:', versionErr.message);
-        console.warn(`⚠️ Uso versione fallback: ${CURRENT_AGENT_VERSION}`);
-      }
+      // Versione "ufficiale" pacchetto agent: sempre dal sorgente del service
+      const agentPackageVersion = getCurrentAgentVersion();
 
       const result = await pool.query(
         `SELECT id, agent_name, network_ranges, scan_interval_minutes, enabled, unifi_config 
@@ -4934,9 +4939,10 @@ module.exports = (pool, io) => {
         return res.status(500).json({ error: errorMsg });
       }
 
-      // Versione agent per ZIP e config.json incluso (allineata a NetworkMonitorService.ps1 $SCRIPT_VERSION)
-      const CURRENT_AGENT_VERSION = '2.6.21';
-      const agentVersion = CURRENT_AGENT_VERSION;
+      // Versione agent per ZIP e config.json: sempre dal file sorgente dell'agent
+      const agentVersion = getCurrentAgentVersion();
+      // Mantiene allineata anche la copia legacy in backend/public/agent-updates
+      syncPublicAgentServiceScript();
       console.log(`ℹ️ Versione agent per ZIP: ${agentVersion} `);
 
       /* LOGICA LETTURA FILE DISABILITATA TEMPORANEAMENTE PER RISOLVERE PROBLEMA VERSIONE
@@ -7418,7 +7424,8 @@ pause
   // scaricano da /download/agent/NetworkMonitorService.ps1 e si riavviano (auto-update).
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.6.21'; // Fix UniFi: fallback porta 8443 + esito reale test delegato all'agent
+      const CURRENT_AGENT_VERSION = getCurrentAgentVersion();
+      syncPublicAgentServiceScript();
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
