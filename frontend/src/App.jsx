@@ -3245,7 +3245,7 @@ export default function TicketApp() {
         ))}
       </div>
       <div className="app-zoom-wrapper">
-        {!showPackVision && !showNetworkMonitoring && !showEmail && !showOffice && !showAntiVirus && !showMappatura && (
+        {!showPackVision && !showNetworkMonitoring && !showEmail && !showOffice && !showAntiVirus && !showMappatura && !showSpeedTest && (
           <Header
             {...{
               currentUser,
