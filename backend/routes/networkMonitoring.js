@@ -888,7 +888,7 @@ module.exports = (pool, io) => {
 
       // Versione "ufficiale" pacchetto agent sul server (presa dai file in /agent)
       // Serve per far capire all'installer quale versione dovrebbe risultare installata.
-      const CURRENT_AGENT_VERSION = '2.6.20'; // Versione di fallback (allineata a $SCRIPT_VERSION)
+      const CURRENT_AGENT_VERSION = '2.6.21'; // Versione di fallback (allineata a $SCRIPT_VERSION)
       let agentPackageVersion = CURRENT_AGENT_VERSION;
       try {
         const projectRoot = path.resolve(__dirname, '..', '..');
@@ -4935,7 +4935,7 @@ module.exports = (pool, io) => {
       }
 
       // Versione agent per ZIP e config.json incluso (allineata a NetworkMonitorService.ps1 $SCRIPT_VERSION)
-      const CURRENT_AGENT_VERSION = '2.6.20';
+      const CURRENT_AGENT_VERSION = '2.6.21';
       const agentVersion = CURRENT_AGENT_VERSION;
       console.log(`ℹ️ Versione agent per ZIP: ${agentVersion} `);
 
@@ -7418,14 +7418,16 @@ pause
   // scaricano da /download/agent/NetworkMonitorService.ps1 e si riavviano (auto-update).
   router.get('/agent-version', async (req, res) => {
     try {
-      const CURRENT_AGENT_VERSION = '2.6.20'; // Fix: TimeoutSec 30 su scan-results POST per evitare blocchi infiniti
+      const CURRENT_AGENT_VERSION = '2.6.21'; // Fix UniFi: fallback porta 8443 + esito reale test delegato all'agent
       const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
 
       res.json({
         version: CURRENT_AGENT_VERSION,
         download_url: `${baseUrl}/api/network-monitoring/download/agent/NetworkMonitorService.ps1`,
-        release_date: '2026-03-25',
+        release_date: '2026-03-27',
         features: [
+          'Fix UniFi: fallback automatico su porta 8443 quando URL controller non include porta',
+          'UX: Prova connessione UniFi con polling esito reale dal test delegato all\'agent',
           'Fix: TimeoutSec 30 su invio scan-results per evitare blocchi infiniti dopo sleep/standby',
           'Device Test Remoto - Ping e scan porte eseguiti dall\'agent in locale (IP privati)',
           'Parallelismo scansione WiFi (router multipli simultanei)',
