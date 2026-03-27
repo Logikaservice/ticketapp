@@ -8750,10 +8750,14 @@ pause
     try {
       await ensureTables();
 
-      // Prendi l'ultimo speed test per ogni agent/azienda
+      // Una riga per agent (na.id); ultimo speed test via LATERAL. DISTINCT ON (azienda_id) tagliava
+      // agent multipli e peggiorava chiavi React; sr.agent_id è spesso NULL senza risultati.
       const result = await pool.query(`
-        SELECT DISTINCT ON (na.azienda_id)
-          sr.id, sr.agent_id, sr.azienda_id, sr.test_date, sr.ping_ms, sr.download_mbps, sr.upload_mbps,
+        SELECT
+          na.id as agent_id,
+          sr.id as speedtest_result_id,
+          na.azienda_id,
+          sr.test_date, sr.ping_ms, sr.download_mbps, sr.upload_mbps,
           sr.isp, sr.public_ip, sr.server_name, sr.result_url,
           na.agent_name, na.status as agent_status, na.speedtest_enabled, na.speedtest_interval_hours,
           u.azienda as azienda_name
@@ -8766,7 +8770,7 @@ pause
           LIMIT 1
         ) sr ON true
         WHERE na.deleted_at IS NULL
-        ORDER BY na.azienda_id, sr.test_date DESC NULLS LAST
+        ORDER BY u.azienda ASC NULLS LAST, na.agent_name ASC NULLS LAST, na.id ASC
       `);
 
       res.json({ success: true, data: result.rows });

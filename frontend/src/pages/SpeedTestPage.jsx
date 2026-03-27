@@ -7,6 +7,18 @@ import { ArrowLeft, Search, Gauge, Wifi, WifiOff, RefreshCw, Globe, Server as Se
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 
+/** Una sola riga per agent_id (evita liste raddoppiate in caso di richieste sovrapposte o dati anomali). */
+function dedupeSpeedtestOverview(rows) {
+  const map = new Map();
+  let fb = 0;
+  for (const row of rows) {
+    const aid = row.agent_id != null ? Number(row.agent_id) : NaN;
+    const key = Number.isFinite(aid) ? aid : `__fb_${fb++}`;
+    map.set(key, row);
+  }
+  return Array.from(map.values());
+}
+
 const SpeedTestPage = ({
   currentUser,
   getAuthHeader,
@@ -29,22 +41,27 @@ const SpeedTestPage = ({
   const [historyDays, setHistoryDays] = useState(30);
   const chartCanvasRef = useRef(null);
   const chartContainerRef = useRef(null);
+  const overviewFetchSeqRef = useRef(0);
 
   // Carica panoramica
   const fetchOverview = useCallback(async () => {
+    const seq = ++overviewFetchSeqRef.current;
     try {
       setLoading(true);
       const res = await fetch(buildApiUrl('/api/network-monitoring/speedtest/overview'), {
         headers: getAuthHeader()
       });
       const data = await res.json();
+      if (seq !== overviewFetchSeqRef.current) return;
       if (data.success) {
-        setOverview(data.data || []);
+        setOverview(dedupeSpeedtestOverview(data.data || []));
       }
     } catch (err) {
       console.error('Errore caricamento panoramica speed test:', err);
     } finally {
-      setLoading(false);
+      if (seq === overviewFetchSeqRef.current) {
+        setLoading(false);
+      }
     }
   }, [getAuthHeader]);
 
@@ -761,7 +778,8 @@ const SpeedTestPage = ({
           </div>
         </div>
         <button
-          onClick={fetchOverview}
+          type="button"
+          onClick={() => fetchOverview()}
           style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 8, borderRadius: 8 }}
           title="Aggiorna"
         >
@@ -810,7 +828,7 @@ const SpeedTestPage = ({
       ) : (
         <div style={styles.grid}>
           {filteredOverview.map((company, idx) => (
-            <CompanyCard key={company.azienda_id || idx} company={company} />
+            <CompanyCard key={company.agent_id != null ? `agent-${company.agent_id}` : `row-${idx}`} company={company} />
           ))}
         </div>
       )}
