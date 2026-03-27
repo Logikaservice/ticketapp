@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.7.2
+# Versione: 2.7.3
 # Data ultima modifica: 2026-03-27
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.7.2"
+$SCRIPT_VERSION = "2.7.3"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2269,6 +2269,35 @@ function Invoke-SpeedTest {
     }
 }
 
+# Esegue speed test se abilitato e scaduto l'intervallo (chiamare ogni ciclo loop, non solo a heartbeat)
+function Invoke-SpeedTestIfDue {
+    param([string]$ServerUrl, [string]$ApiKey)
+    if (-not $script:speedtestEnabled) { return }
+    $runSpeedTest = $false
+    if (-not $script:lastSpeedTestTime) {
+        if ($script:lastSuccessfulHeartbeat -and ((Get-Date) - $script:lastSuccessfulHeartbeat).TotalMinutes -ge 2) {
+            $runSpeedTest = $true
+        }
+    }
+    elseif ((Get-Date) -ge $script:lastSpeedTestTime.AddHours($script:speedtestIntervalHours)) {
+        $runSpeedTest = $true
+    }
+    if (-not $runSpeedTest) { return }
+    try {
+        $stOk = Invoke-SpeedTest -ServerUrl $ServerUrl -ApiKey $ApiKey
+        if ($stOk) {
+            $script:lastSpeedTestTime = Get-Date
+            Write-Log "[SpeedTest] Completato e inviato. Prossimo tra $script:speedtestIntervalHours ore" "INFO"
+        }
+        else {
+            Write-Log "[SpeedTest] Tentativo non riuscito (vedi errori sopra); riprovo al prossimo ciclo" "WARN"
+        }
+    }
+    catch {
+        Write-Log "[SpeedTest] Errore in Invoke-SpeedTestIfDue: $_" "WARN"
+    }
+}
+
 function Send-Heartbeat {
     param(
         [string]$ServerUrl,
@@ -2820,36 +2849,6 @@ while ($script:isRunning) {
                 $nextHeartbeatTime = $now.AddMinutes(5)
             }
 
-            # === Speed Test periodico ===
-            if ($script:speedtestEnabled) {
-                $runSpeedTest = $false
-                if (-not $script:lastSpeedTestTime) {
-                    # Primo avvio: dopo una heartbeat riuscita attendi 2 min (prima era 5: troppi ritardi per vedere dati in dashboard)
-                    if ($script:lastSuccessfulHeartbeat -and ((Get-Date) - $script:lastSuccessfulHeartbeat).TotalMinutes -ge 2) {
-                        $runSpeedTest = $true
-                    }
-                }
-                elseif ((Get-Date) -ge $script:lastSpeedTestTime.AddHours($script:speedtestIntervalHours)) {
-                    $runSpeedTest = $true
-                }
-
-                if ($runSpeedTest) {
-                    try {
-                        $stOk = Invoke-SpeedTest -ServerUrl $config.server_url -ApiKey $config.api_key
-                        if ($stOk) {
-                            $script:lastSpeedTestTime = Get-Date
-                            Write-Log "[SpeedTest] Prossimo test tra $script:speedtestIntervalHours ore" "INFO"
-                        }
-                        else {
-                            Write-Log "[SpeedTest] Test non completato o invio fallito; timer non avanzato, riprovo al prossimo heartbeat" "WARN"
-                        }
-                    }
-                    catch {
-                        Write-Log "[SpeedTest] Errore esecuzione: $_" "WARN"
-                    }
-                }
-            }
-            
             # Controlla aggiornamenti agent (ogni heartbeat)
             try {
                 $version = if ($config.version) { $config.version } else { $SCRIPT_VERSION }
@@ -3010,6 +3009,14 @@ while ($script:isRunning) {
                     $nextScanTime = (Get-Date).AddMinutes($script:scanIntervalMinutes)
                 }
             }
+        }
+
+        # Speed test: controllato ogni ciclo (non legato al timer heartbeat), cosi' il primo test avviene ~2 min dopo l'ultima heartbeat ok senza aspettare 5 min
+        try {
+            Invoke-SpeedTestIfDue -ServerUrl $config.server_url -ApiKey $config.api_key
+        }
+        catch {
+            Write-Log "[SpeedTest] Errore pianificazione: $_" "WARN"
         }
         
         # Dormi per 5 secondi prima di controllare di nuovo (ridotto da 30 per reattivit├á migliore)
