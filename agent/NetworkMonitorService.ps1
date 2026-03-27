@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.7.1
+# Versione: 2.7.2
 # Data ultima modifica: 2026-03-27
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.7.1"
+$SCRIPT_VERSION = "2.7.2"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2197,20 +2197,30 @@ function Invoke-SpeedTest {
             return $false
         }
 
-        # Esegui speed test con output JSON (accetta licenza automaticamente)
-        $rawOutput = & $speedtestExe --format=json --accept-license --accept-gdpr 2>&1
-        $jsonOutput = $rawOutput | Where-Object { $_ -notmatch '^\s*$' } | Out-String
+        # Output JSON solo da stdout (2>&1 mescolerebbe messaggi/licenza su stderr e romperebbe ConvertFrom-Json)
+        $rawOutput = & $speedtestExe --format=json --accept-license --accept-gdpr 2>$null
+        if ($rawOutput -is [Array]) {
+            $jsonOutput = ($rawOutput | Where-Object { $_ -and $_.ToString().Trim() -ne '' }) -join "`n"
+        }
+        else {
+            $jsonOutput = [string]$rawOutput
+        }
+        $jsonOutput = $jsonOutput.Trim()
+        if (-not $jsonOutput) {
+            Write-Log "[SpeedTest] Output CLI vuoto (verifica che speedtest.exe possa raggiungere speedtest.net)" "ERROR"
+            return $false
+        }
 
         try {
             $result = $jsonOutput | ConvertFrom-Json
         }
         catch {
-            Write-Log "[SpeedTest] Errore parsing JSON: $jsonOutput" "ERROR"
+            Write-Log "[SpeedTest] Errore parsing JSON (primi 500 char): $($jsonOutput.Substring(0, [Math]::Min(500, $jsonOutput.Length)))" "ERROR"
             return $false
         }
 
-        if (-not $result.ping -or -not $result.download -or -not $result.upload) {
-            Write-Log "[SpeedTest] Risultato incompleto: $jsonOutput" "WARN"
+        if (-not $result.download -or -not $result.upload -or $null -eq $result.ping -or $null -eq $result.ping.latency) {
+            Write-Log "[SpeedTest] Risultato incompleto (manca ping/download/upload nel JSON)" "WARN"
             return $false
         }
 
@@ -2814,8 +2824,8 @@ while ($script:isRunning) {
             if ($script:speedtestEnabled) {
                 $runSpeedTest = $false
                 if (-not $script:lastSpeedTestTime) {
-                    # Primo avvio: esegui dopo 5 minuti di stabilita'
-                    if ($script:lastSuccessfulHeartbeat -and ((Get-Date) - $script:lastSuccessfulHeartbeat).TotalMinutes -ge 5) {
+                    # Primo avvio: dopo una heartbeat riuscita attendi 2 min (prima era 5: troppi ritardi per vedere dati in dashboard)
+                    if ($script:lastSuccessfulHeartbeat -and ((Get-Date) - $script:lastSuccessfulHeartbeat).TotalMinutes -ge 2) {
                         $runSpeedTest = $true
                     }
                 }

@@ -428,7 +428,11 @@ const SpeedTestPage = ({
   const CompanyCard = ({ company }) => {
     const [hovered, setHovered] = useState(false);
     const enabled = company.speedtest_enabled !== false;
-    const hasData = company.test_date && company.ping_ms !== null;
+    const hasData = Boolean(
+      company.test_date != null &&
+        company.ping_ms != null &&
+        !Number.isNaN(Number(company.ping_ms))
+    );
 
     return (
       <div
@@ -465,8 +469,12 @@ const SpeedTestPage = ({
               {company.isp || '—'} &nbsp;·&nbsp;
               <span style={{ color: '#7c3aed', fontFamily: 'monospace', fontSize: 11 }}>{company.public_ip || '—'}</span>
             </>
+          ) : enabled ? (
+            <span>
+              Nessun risultato ancora: l’agent lancia lo speed test dopo un heartbeat riuscito (in genere entro ~5–15 min dall’avvio), poi ogni {company.speedtest_interval_hours || 2} h. Se resta così, sui PC verifica firewall/out verso speedtest.net e i log [SpeedTest].
+            </span>
           ) : (
-            'Speed test non attivo per questa azienda'
+            'Speed test disattivato: attiva il toggle per raccogliere misure da questo agent.'
           )}
         </div>
 

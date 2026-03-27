@@ -61,7 +61,7 @@ module.exports = (pool, io) => {
   const routerWifiResults = new Map();      // task_id -> { success, devices: [], error, at }
   const pendingDeviceTestTasks = new Map(); // agentId -> { task_id, device_id, ip, ports, profile, profileLabel, device_type }
   const deviceTestResults = new Map();     // task_id -> { status: 'ok'|'error', ping, ports, profile, profileLabel, device_type, error?, at }
-  const AGENT_VERSION_FALLBACK = '2.7.1';
+  const AGENT_VERSION_FALLBACK = '2.7.2';
   const AGENT_SERVICE_SOURCE_PATH = path.resolve(__dirname, '..', '..', 'agent', 'NetworkMonitorService.ps1');
   const AGENT_SERVICE_PUBLIC_PATH = path.resolve(__dirname, '..', 'public', 'agent-updates', 'NetworkMonitorService.ps1');
 
