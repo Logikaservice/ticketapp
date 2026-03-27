@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.6.21
+# Versione: 2.7.0
 # Data ultima modifica: 2026-03-27
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.6.21"
+$SCRIPT_VERSION = "2.7.0"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -105,6 +105,12 @@ $script:currentScanIPsFile = Join-Path $script:scriptDir ".current_scan_ips.json
 $script:lastSuccessfulHeartbeat = $null
 $script:failedHeartbeatCount = 0
 $script:networkIssueStartTime = $null
+
+# Speed Test - variabili globali
+$script:speedtestEnabled = $true
+$script:speedtestIntervalHours = 2
+$script:lastSpeedTestTime = $null
+
 $script:forceScanTriggerFile = Join-Path $script:scriptDir ".force_scan.trigger"
 # Unifi: in memoria da /agent/config, mai su config.json o disco
 $script:unifiConfig = $null
@@ -2153,6 +2159,105 @@ function Sync-ConfigFromServer {
     }
 }
 
+# ============================================================
+# SPEED TEST - Esegue Ookla Speedtest CLI e invia risultati al server
+# ============================================================
+function Invoke-SpeedTest {
+    param(
+        [string]$ServerUrl,
+        [string]$ApiKey
+    )
+    try {
+        Write-Log "[SpeedTest] Avvio speed test..." "INFO"
+        $speedtestDir = Join-Path $script:scriptDir "speedtest"
+        $speedtestExe = Join-Path $speedtestDir "speedtest.exe"
+
+        # Scarica Ookla Speedtest CLI se non presente
+        if (-not (Test-Path $speedtestExe)) {
+            Write-Log "[SpeedTest] Download Ookla Speedtest CLI..." "INFO"
+            if (-not (Test-Path $speedtestDir)) {
+                New-Item -ItemType Directory -Path $speedtestDir -Force | Out-Null
+            }
+            $zipUrl = "https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-win64.zip"
+            $zipPath = Join-Path $speedtestDir "speedtest.zip"
+            try {
+                Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing -TimeoutSec 60
+                Expand-Archive -Path $zipPath -DestinationPath $speedtestDir -Force
+                Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+                Write-Log "[SpeedTest] CLI scaricata con successo" "INFO"
+            }
+            catch {
+                Write-Log "[SpeedTest] Errore download CLI: $_" "ERROR"
+                return
+            }
+        }
+
+        if (-not (Test-Path $speedtestExe)) {
+            Write-Log "[SpeedTest] speedtest.exe non trovato dopo download" "ERROR"
+            return
+        }
+
+        # Esegui speed test con output JSON (accetta licenza automaticamente)
+        $rawOutput = & $speedtestExe --format=json --accept-license --accept-gdpr 2>&1
+        $jsonOutput = $rawOutput | Where-Object { $_ -notmatch '^\s*$' } | Out-String
+
+        try {
+            $result = $jsonOutput | ConvertFrom-Json
+        }
+        catch {
+            Write-Log "[SpeedTest] Errore parsing JSON: $jsonOutput" "ERROR"
+            return
+        }
+
+        if (-not $result.ping -or -not $result.download -or -not $result.upload) {
+            Write-Log "[SpeedTest] Risultato incompleto: $jsonOutput" "WARN"
+            return
+        }
+
+        # Converti bytes/s in Mbps (Ookla CLI restituisce bytes/s nella proprieta' bandwidth)
+        $pingMs = [math]::Round($result.ping.latency, 2)
+        $downloadMbps = [math]::Round(($result.download.bandwidth * 8) / 1000000, 2)
+        $uploadMbps = [math]::Round(($result.upload.bandwidth * 8) / 1000000, 2)
+        $isp = $result.isp
+        $publicIp = $result.interface.externalIp
+        $serverName = "$($result.server.location) - $($result.server.name)"
+        $resultUrl = $result.result.url
+
+        Write-Log "[SpeedTest] Risultato: Ping $pingMs ms | Download $downloadMbps Mbps | Upload $uploadMbps Mbps | ISP: $isp | IP: $publicIp" "INFO"
+
+        # Invia risultati al server
+        $payload = @{
+            ping_ms = $pingMs
+            download_mbps = $downloadMbps
+            upload_mbps = $uploadMbps
+            isp = $isp
+            public_ip = $publicIp
+            server_name = $serverName
+            result_url = $resultUrl
+            raw_json = $jsonOutput
+            test_date = (Get-Date).ToString("yyyy-MM-ddTHH:mm:sszzz")
+        } | ConvertTo-Json
+
+        $headers = @{
+            "Content-Type" = "application/json"
+            "X-API-Key"    = $ApiKey
+        }
+
+        $url = "$ServerUrl/api/network-monitoring/agent/speedtest-result"
+        $sendResult = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $payload -TimeoutSec 30 -ErrorAction Stop
+
+        if ($sendResult.success) {
+            Write-Log "[SpeedTest] Risultati inviati al server con successo (ID: $($sendResult.id))" "INFO"
+        }
+        else {
+            Write-Log "[SpeedTest] Server ha rifiutato i risultati" "WARN"
+        }
+    }
+    catch {
+        Write-Log "[SpeedTest] Errore: $_" "ERROR"
+    }
+}
+
 function Send-Heartbeat {
     param(
         [string]$ServerUrl,
@@ -2229,7 +2334,7 @@ function Send-Heartbeat {
         # Sincronizza configurazione (include intervallo e range reti)
         $serverConfigResult = Sync-ConfigFromServer -ServerUrl $ServerUrl -ApiKey $ApiKey
         
-        return @{ success = $true; uninstall = $false; config = $serverConfigResult.config; pending_unifi_test = $pendingUnifi; pending_router_wifi_task = $response.pending_router_wifi_task; pending_device_test_task = $response.pending_device_test_task }
+        return @{ success = $true; uninstall = $false; config = $serverConfigResult.config; pending_unifi_test = $pendingUnifi; pending_router_wifi_task = $response.pending_router_wifi_task; pending_device_test_task = $response.pending_device_test_task; speedtest_enabled = $response.speedtest_enabled; speedtest_interval_hours = $response.speedtest_interval_hours }
     }
     catch {
         Write-Log "Errore heartbeat: $_" "WARN"
@@ -2672,6 +2777,14 @@ while ($script:isRunning) {
                 else {
                     Write-Log "Heartbeat fallito: $($heartbeatResult.error)" "WARN"
                 }
+
+                # Aggiorna config Speed Test dalla risposta heartbeat
+                if ($null -ne $heartbeatResult.speedtest_enabled) {
+                    $script:speedtestEnabled = [bool]$heartbeatResult.speedtest_enabled
+                }
+                if ($heartbeatResult.speedtest_interval_hours) {
+                    $script:speedtestIntervalHours = [int]$heartbeatResult.speedtest_interval_hours
+                }
             }
             catch {
                 Write-Log "Errore heartbeat: $_" "WARN"
@@ -2689,6 +2802,31 @@ while ($script:isRunning) {
                 Write-Log "Tentativo heartbeat fallito, riprovo tra 1 minuto per prevenire stato offline prolungato." "INFO"
             } else {
                 $nextHeartbeatTime = $now.AddMinutes(5)
+            }
+
+            # === Speed Test periodico ===
+            if ($script:speedtestEnabled) {
+                $runSpeedTest = $false
+                if (-not $script:lastSpeedTestTime) {
+                    # Primo avvio: esegui dopo 5 minuti di stabilita'
+                    if ($script:lastSuccessfulHeartbeat -and ((Get-Date) - $script:lastSuccessfulHeartbeat).TotalMinutes -ge 5) {
+                        $runSpeedTest = $true
+                    }
+                }
+                elseif ((Get-Date) -ge $script:lastSpeedTestTime.AddHours($script:speedtestIntervalHours)) {
+                    $runSpeedTest = $true
+                }
+
+                if ($runSpeedTest) {
+                    try {
+                        Invoke-SpeedTest -ServerUrl $config.server_url -ApiKey $config.api_key
+                        $script:lastSpeedTestTime = Get-Date
+                        Write-Log "[SpeedTest] Prossimo test tra $script:speedtestIntervalHours ore" "INFO"
+                    }
+                    catch {
+                        Write-Log "[SpeedTest] Errore esecuzione: $_" "WARN"
+                    }
+                }
             }
             
             # Controlla aggiornamenti agent (ogni heartbeat)

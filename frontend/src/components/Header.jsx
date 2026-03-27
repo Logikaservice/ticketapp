@@ -1,10 +1,10 @@
 // src/components/Header.jsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table, Wifi, Server as ServerIcon, MapPin, Shield, AlertTriangle, AlertCircle, ChevronRight, Building2, Mail, Bell } from 'lucide-react';
+import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor, FileText, Table, Wifi, Server as ServerIcon, MapPin, Shield, AlertTriangle, AlertCircle, ChevronRight, Building2, Mail, Bell, Gauge } from 'lucide-react';
 import AgentNotifications from './AgentNotifications';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, openNetworkMonitoring, openNetworkMonitoringAgents, openNetworkMonitoringCreateAgent, openNetworkMonitoringDeviceTypes, openNetworkMonitoringNotifications, openNetworkMonitoringTelegram, openMappatura, openOffice, openAntiVirus, openEmail, openCommAgent, openCommAgentManager = null, openFlottaPC = null, isOrariDomain = false, getAuthHeader = null, socket = null }) => {
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openVivaldi = null, openPackVision, openCreateContract, openContractsList, openNetworkMonitoring, openNetworkMonitoringAgents, openNetworkMonitoringCreateAgent, openNetworkMonitoringDeviceTypes, openNetworkMonitoringNotifications, openNetworkMonitoringTelegram, openMappatura, openOffice, openAntiVirus, openEmail, openCommAgent, openCommAgentManager = null, openFlottaPC = null, openSpeedTest = null, isOrariDomain = false, getAuthHeader = null, socket = null }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [expandedAction, setExpandedAction] = useState(null);
@@ -176,6 +176,14 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       color: 'teal',
       visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && openFlottaPC,
       onClick: () => { if (openFlottaPC) { openFlottaPC(); setShowQuickActions(false); setExpandedAction(null); } }
+    },
+    {
+      id: 'speedTest',
+      label: 'Speed Test',
+      icon: Gauge,
+      color: 'purple',
+      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openSpeedTest,
+      onClick: () => { if (openSpeedTest) { openSpeedTest(); setShowQuickActions(false); setExpandedAction(null); } }
     },
     // Monitoraggio Rete (sopra Mappatura)
     ...(isCompanyAdmin && currentUser?.ruolo !== 'tecnico' ? [

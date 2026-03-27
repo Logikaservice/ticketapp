@@ -1,0 +1,787 @@
+// src/pages/SpeedTestPage.jsx
+// Dashboard Speed Test - Monitoraggio velocità connessione per azienda
+// Visibile solo ai tecnici
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { ArrowLeft, Search, Gauge, Wifi, WifiOff, RefreshCw, Globe, Server as ServerIcon, Clock, Activity } from 'lucide-react';
+import SectionNavMenu from '../components/SectionNavMenu';
+import { buildApiUrl } from '../utils/apiConfig';
+
+const SpeedTestPage = ({
+  currentUser,
+  getAuthHeader,
+  onNavigateHome,
+  onNavigateOffice,
+  onNavigateEmail,
+  onNavigateAntiVirus,
+  onNavigateNetworkMonitoring,
+  onNavigateMappatura,
+  onNavigateDispositiviAziendali,
+  selectedCompanyId
+}) => {
+  const [overview, setOverview] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState(null); // { aziendaId, aziendaName }
+  const [history, setHistory] = useState([]);
+  const [companyInfo, setCompanyInfo] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyDays, setHistoryDays] = useState(30);
+  const chartCanvasRef = useRef(null);
+  const chartContainerRef = useRef(null);
+
+  // Carica panoramica
+  const fetchOverview = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(buildApiUrl('/api/network-monitoring/speedtest/overview'), {
+        headers: getAuthHeader()
+      });
+      const data = await res.json();
+      if (data.success) {
+        setOverview(data.data || []);
+      }
+    } catch (err) {
+      console.error('Errore caricamento panoramica speed test:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [getAuthHeader]);
+
+  // Carica cronologia per azienda
+  const fetchHistory = useCallback(async (aziendaId, days = 30) => {
+    try {
+      setHistoryLoading(true);
+      const res = await fetch(buildApiUrl(`/api/network-monitoring/speedtest/company/${aziendaId}/history?days=${days}`), {
+        headers: getAuthHeader()
+      });
+      const data = await res.json();
+      if (data.success) {
+        setHistory(data.history || []);
+        setCompanyInfo(data.company || null);
+      }
+    } catch (err) {
+      console.error('Errore caricamento cronologia speed test:', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [getAuthHeader]);
+
+  // Toggle speed test attivo/disattivo
+  const toggleSpeedTest = async (agentId, enabled, e) => {
+    if (e) e.stopPropagation();
+    try {
+      const res = await fetch(buildApiUrl(`/api/network-monitoring/speedtest/toggle/${agentId}`), {
+        method: 'PUT',
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Aggiorna panoramica locale
+        setOverview(prev => prev.map(c =>
+          c.agent_id === parseInt(agentId) ? { ...c, speedtest_enabled: enabled } : c
+        ));
+        // Aggiorna info azienda se siamo nel dettaglio
+        if (companyInfo && companyInfo.agent_id === parseInt(agentId)) {
+          setCompanyInfo(prev => ({ ...prev, speedtest_enabled: enabled }));
+        }
+      }
+    } catch (err) {
+      console.error('Errore toggle speed test:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchOverview();
+  }, [fetchOverview]);
+
+  // Quando si seleziona un'azienda, carica cronologia
+  useEffect(() => {
+    if (selectedCompany) {
+      fetchHistory(selectedCompany.aziendaId, historyDays);
+    }
+  }, [selectedCompany, historyDays, fetchHistory]);
+
+  // Disegna il grafico quando cambiano i dati
+  useEffect(() => {
+    if (selectedCompany && history.length > 0 && chartCanvasRef.current && chartContainerRef.current) {
+      drawChart();
+    }
+  }, [history, selectedCompany]);
+
+  // Ridisegna al resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (selectedCompany && history.length > 0) drawChart();
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [selectedCompany, history]);
+
+  // === Funzione disegno grafico ===
+  const drawChart = () => {
+    const canvas = chartCanvasRef.current;
+    const container = chartContainerRef.current;
+    if (!canvas || !container || history.length === 0) return;
+
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = container.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    const W = rect.width, H = rect.height;
+    ctx.clearRect(0, 0, W, H);
+
+    const padL = 55, padR = 55, padT = 15, padB = 35;
+    const cW = W - padL - padR, cH = H - padT - padB;
+
+    // Calcola scale
+    const downloads = history.map(d => d.download_mbps || 0);
+    const uploads = history.map(d => d.upload_mbps || 0);
+    const pings = history.map(d => d.ping_ms || 0);
+    const maxMbps = Math.max(Math.ceil(Math.max(...downloads, ...uploads) / 10) * 10 + 10, 20);
+    const maxPing = Math.max(Math.ceil(Math.max(...pings) / 5) * 5 + 5, 10);
+
+    // Griglia
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 1;
+    const gridLines = 5;
+    for (let i = 0; i <= gridLines; i++) {
+      const y = padT + (cH / gridLines) * i;
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+      // Etichette sinistra (Mbps)
+      ctx.fillStyle = '#64748b';
+      ctx.font = '11px Inter, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(Math.round(maxMbps - (maxMbps / gridLines) * i) + '', padL - 8, y + 4);
+      // Etichette destra (ms)
+      ctx.textAlign = 'left';
+      ctx.fillText(Math.round(maxPing - (maxPing / gridLines) * i) + ' ms', W - padR + 8, y + 4);
+    }
+
+    // Etichette X (date)
+    ctx.fillStyle = '#64748b';
+    ctx.textAlign = 'center';
+    const n = history.length;
+    const step = Math.max(1, Math.floor(n / 7));
+    for (let i = 0; i < n; i += step) {
+      const x = padL + (cW / Math.max(n - 1, 1)) * i;
+      const d = new Date(history[i].test_date);
+      ctx.fillText(d.getDate() + '/' + (d.getMonth() + 1), x, H - 8);
+    }
+    // Ultima data
+    if (n > 1) {
+      const xLast = padL + cW;
+      const dLast = new Date(history[n - 1].test_date);
+      ctx.fillText(dLast.getDate() + '/' + (dLast.getMonth() + 1), xLast, H - 8);
+    }
+
+    // Disegna linea
+    const drawLine = (values, maxV, color, lineW) => {
+      if (values.length < 2) return;
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineW;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      values.forEach((v, i) => {
+        const x = padL + (cW / Math.max(values.length - 1, 1)) * i;
+        const y = padT + cH - (v / maxV) * cH;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // Effetto glow
+      ctx.save();
+      ctx.globalAlpha = 0.12;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineW + 6;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      values.forEach((v, i) => {
+        const x = padL + (cW / Math.max(values.length - 1, 1)) * i;
+        const y = padT + cH - (v / maxV) * cH;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    drawLine(downloads, maxMbps, '#7c3aed', 2.5);
+    drawLine(uploads, maxMbps, '#06b6d4', 2.5);
+    drawLine(pings, maxPing, '#22c55e', 2);
+
+    // Etichette asse
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '11px Inter, sans-serif';
+    ctx.save();
+    ctx.translate(14, padT + cH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('Mbps', 0, 0);
+    ctx.restore();
+    ctx.save();
+    ctx.translate(W - 10, padT + cH / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('Ping (ms)', 0, 0);
+    ctx.restore();
+  };
+
+  // === Helpers ===
+  const getPingPct = (ping) => Math.max(5, Math.min(95, 100 - (ping / 50) * 100));
+  const getDownloadPct = (d) => Math.max(5, Math.min(95, (d / 200) * 100));
+  const getUploadPct = (u) => Math.max(5, Math.min(95, (u / 100) * 100));
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('it-IT') + ' ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Filtra per ricerca
+  const filteredOverview = overview.filter(c =>
+    (c.azienda_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const activeCount = overview.filter(c => c.speedtest_enabled !== false).length;
+  const disabledCount = overview.filter(c => c.speedtest_enabled === false).length;
+
+  // === STILE INLINE (tema scuro speedtest.net) ===
+  const styles = {
+    page: {
+      background: '#0f172a',
+      minHeight: '100vh',
+      color: '#e2e8f0',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
+    },
+    header: {
+      background: '#1e293b',
+      borderBottom: '1px solid #334155',
+      padding: '16px 32px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: '16px'
+    },
+    headerLeft: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px'
+    },
+    headerIcon: {
+      width: 40, height: 40,
+      background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
+      borderRadius: 10,
+      display: 'flex', alignItems: 'center', justifyContent: 'center'
+    },
+    filterBar: {
+      padding: '16px 32px',
+      display: 'flex',
+      gap: '12px',
+      alignItems: 'center',
+      flexWrap: 'wrap'
+    },
+    searchInput: {
+      background: '#1e293b',
+      border: '1px solid #334155',
+      color: '#e2e8f0',
+      padding: '8px 14px',
+      borderRadius: 8,
+      fontSize: 14,
+      width: 280,
+      outline: 'none',
+      fontFamily: 'inherit'
+    },
+    statsBar: {
+      display: 'flex',
+      gap: 16,
+      marginLeft: 'auto',
+      fontSize: 13,
+      color: '#94a3b8'
+    },
+    grid: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))',
+      gap: 20,
+      padding: '0 32px 32px'
+    },
+    card: (enabled, isHovered) => ({
+      background: '#1e293b',
+      border: `1px solid ${isHovered && enabled ? '#7c3aed' : '#334155'}`,
+      borderRadius: 16,
+      padding: 24,
+      cursor: enabled ? 'pointer' : 'default',
+      transition: 'all 0.3s ease',
+      opacity: enabled ? 1 : 0.5,
+      transform: isHovered && enabled ? 'translateY(-2px)' : 'none',
+      boxShadow: isHovered && enabled ? '0 8px 32px rgba(124, 58, 237, 0.15)' : 'none'
+    }),
+    toggle: (active) => ({
+      width: 44, height: 24,
+      background: active ? '#22c55e' : '#475569',
+      borderRadius: 12,
+      position: 'relative',
+      cursor: 'pointer',
+      transition: 'background 0.3s',
+      border: 'none',
+      padding: 0,
+      flexShrink: 0
+    }),
+    toggleDot: (active) => ({
+      width: 18, height: 18,
+      background: 'white',
+      borderRadius: '50%',
+      position: 'absolute',
+      top: 3,
+      left: active ? 23 : 3,
+      transition: 'left 0.3s'
+    }),
+    gaugeCircle: (pct, colorVar) => ({
+      width: 100, height: 100,
+      borderRadius: '50%',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      margin: '0 auto 8px',
+      position: 'relative',
+      background: `conic-gradient(${colorVar} ${pct}%, #334155 0)`,
+      WebkitMask: 'radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px))',
+      mask: 'radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px))'
+    }),
+    gaugeInner: {
+      position: 'absolute', inset: 4,
+      borderRadius: '50%',
+      background: '#1e293b',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    detailGaugeCircle: (pct, colorVar) => ({
+      width: 160, height: 160,
+      borderRadius: '50%',
+      position: 'relative',
+      margin: '0 auto 12px',
+      background: `conic-gradient(${colorVar} ${pct}%, #1e293b 0)`,
+      WebkitMask: 'radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px))',
+      mask: 'radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px))'
+    }),
+    detailGaugeInner: {
+      position: 'absolute', inset: 6,
+      borderRadius: '50%',
+      background: '#0f172a',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    backBtn: {
+      background: '#334155',
+      border: 'none',
+      color: '#e2e8f0',
+      padding: '8px 16px',
+      borderRadius: 8,
+      cursor: 'pointer',
+      fontSize: 14,
+      fontFamily: 'inherit',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 24,
+      transition: 'background 0.2s'
+    },
+    chartSection: {
+      background: '#1e293b',
+      border: '1px solid #334155',
+      borderRadius: 16,
+      padding: 24
+    },
+    periodBtn: (active) => ({
+      background: active ? '#7c3aed' : '#334155',
+      border: 'none',
+      color: active ? 'white' : '#94a3b8',
+      padding: '6px 14px',
+      borderRadius: 6,
+      fontSize: 13,
+      fontFamily: 'inherit',
+      fontWeight: 600,
+      cursor: 'pointer',
+      transition: 'all 0.2s'
+    }),
+    disabledBadge: {
+      display: 'inline-block',
+      background: '#7f1d1d',
+      color: '#fca5a5',
+      fontSize: 11,
+      fontWeight: 600,
+      padding: '3px 10px',
+      borderRadius: 6
+    }
+  };
+
+  // === COMPONENTE CARD ===
+  const CompanyCard = ({ company }) => {
+    const [hovered, setHovered] = useState(false);
+    const enabled = company.speedtest_enabled !== false;
+    const hasData = company.test_date && company.ping_ms !== null;
+
+    return (
+      <div
+        style={styles.card(enabled, hovered)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onClick={() => enabled && setSelectedCompany({ aziendaId: company.azienda_id, aziendaName: company.azienda_name })}
+      >
+        {/* Intestazione card */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>{company.azienda_name || 'N/A'}</div>
+            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+              {hasData ? `🕐 ${formatDate(company.test_date)}` : ''}
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {!enabled && <span style={styles.disabledBadge}>Disattivato</span>}
+            <button
+              style={styles.toggle(enabled)}
+              onClick={(e) => toggleSpeedTest(company.agent_id, !enabled, e)}
+              title={enabled ? 'Disattiva speed test' : 'Attiva speed test'}
+            >
+              <div style={styles.toggleDot(enabled)} />
+            </button>
+          </div>
+        </div>
+
+        {/* Info ISP */}
+        <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20 }}>
+          {enabled && hasData ? (
+            <>
+              <Globe size={14} />
+              {company.isp || '—'} &nbsp;·&nbsp;
+              <span style={{ color: '#7c3aed', fontFamily: 'monospace', fontSize: 11 }}>{company.public_ip || '—'}</span>
+            </>
+          ) : (
+            'Speed test non attivo per questa azienda'
+          )}
+        </div>
+
+        {/* Gauge */}
+        <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: 8 }}>
+          {/* Ping */}
+          <div style={{ textAlign: 'center', flex: 1 }}>
+            <div style={styles.gaugeCircle(enabled && hasData ? getPingPct(company.ping_ms) : 0, enabled ? '#22c55e' : '#475569')}>
+              <div style={styles.gaugeInner}>
+                <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
+                  {enabled && hasData ? Math.round(company.ping_ms) : '—'}
+                </span>
+                <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'ms' : ''}</span>
+              </div>
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: enabled ? '#22c55e' : '#475569' }}>PING</div>
+          </div>
+          {/* Download */}
+          <div style={{ textAlign: 'center', flex: 1 }}>
+            <div style={styles.gaugeCircle(enabled && hasData ? getDownloadPct(company.download_mbps) : 0, enabled ? '#7c3aed' : '#475569')}>
+              <div style={styles.gaugeInner}>
+                <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
+                  {enabled && hasData ? company.download_mbps?.toFixed(1) : '—'}
+                </span>
+                <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'Mbps' : ''}</span>
+              </div>
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: enabled ? '#7c3aed' : '#475569' }}>SCARICA</div>
+          </div>
+          {/* Upload */}
+          <div style={{ textAlign: 'center', flex: 1 }}>
+            <div style={styles.gaugeCircle(enabled && hasData ? getUploadPct(company.upload_mbps) : 0, enabled ? '#06b6d4' : '#475569')}>
+              <div style={styles.gaugeInner}>
+                <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
+                  {enabled && hasData ? company.upload_mbps?.toFixed(1) : '—'}
+                </span>
+                <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'Mbps' : ''}</span>
+              </div>
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: enabled ? '#06b6d4' : '#475569' }}>CARICA</div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // === RENDER ===
+  if (selectedCompany) {
+    // VISTA DETTAGLIO AZIENDA
+    const lastResult = history.length > 0 ? history[history.length - 1] : null;
+    const enabled = companyInfo?.speedtest_enabled !== false;
+
+    return (
+      <div style={styles.page}>
+        {/* Intestazione */}
+        <div style={styles.header}>
+          <div style={styles.headerLeft}>
+            <SectionNavMenu
+              currentPage="speedtest"
+              onNavigateHome={onNavigateHome}
+              onNavigateOffice={onNavigateOffice}
+              onNavigateEmail={onNavigateEmail}
+              onNavigateAntiVirus={onNavigateAntiVirus}
+              onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
+              onNavigateMappatura={onNavigateMappatura}
+              onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
+              currentUser={currentUser}
+              selectedCompanyId={selectedCompanyId}
+            />
+            <div style={styles.headerIcon}>
+              <Gauge size={20} color="white" />
+            </div>
+            <div>
+              <h1 style={{ fontSize: 20, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>Speed Test Dashboard</h1>
+              <p style={{ fontSize: 12, color: '#94a3b8', margin: '2px 0 0' }}>Monitoraggio velocità connessione · Solo tecnici</p>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: 32 }}>
+          {/* Pulsante Indietro */}
+          <button
+            style={styles.backBtn}
+            onClick={() => { setSelectedCompany(null); setHistory([]); setCompanyInfo(null); }}
+            onMouseEnter={(e) => e.target.style.background = '#475569'}
+            onMouseLeave={(e) => e.target.style.background = '#334155'}
+          >
+            <ArrowLeft size={16} /> Torna alla panoramica
+          </button>
+
+          {/* Intestazione azienda */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+            <div>
+              <h2 style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9', margin: 0 }}>{selectedCompany.aziendaName}</h2>
+              <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>
+                Ultimo test: {lastResult ? formatDate(lastResult.test_date) : '—'}
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#94a3b8' }}>
+              <span>Speed Test</span>
+              <button
+                style={styles.toggle(enabled)}
+                onClick={() => companyInfo && toggleSpeedTest(companyInfo.agent_id, !enabled)}
+              >
+                <div style={styles.toggleDot(enabled)} />
+              </button>
+            </div>
+          </div>
+
+          {historyLoading ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#94a3b8' }}>
+              <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite' }} />
+              <p style={{ marginTop: 12 }}>Caricamento dati...</p>
+            </div>
+          ) : (
+            <>
+              {/* Gauge grandi */}
+              {lastResult && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 48, marginBottom: 16, flexWrap: 'wrap' }}>
+                    {/* Ping */}
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={styles.detailGaugeCircle(getPingPct(lastResult.ping_ms), '#22c55e')}>
+                        <div style={styles.detailGaugeInner}>
+                          <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
+                            {Math.round(lastResult.ping_ms)}
+                          </span>
+                          <span style={{ fontSize: 14, color: '#94a3b8' }}>ms</span>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#22c55e', textTransform: 'uppercase' }}>PING</div>
+                    </div>
+                    {/* Download */}
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={styles.detailGaugeCircle(getDownloadPct(lastResult.download_mbps), '#7c3aed')}>
+                        <div style={styles.detailGaugeInner}>
+                          <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
+                            {lastResult.download_mbps?.toFixed(1)}
+                          </span>
+                          <span style={{ fontSize: 14, color: '#94a3b8' }}>Mbps</span>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase' }}>SCARICA</div>
+                    </div>
+                    {/* Upload */}
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={styles.detailGaugeCircle(getUploadPct(lastResult.upload_mbps), '#06b6d4')}>
+                        <div style={styles.detailGaugeInner}>
+                          <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
+                            {lastResult.upload_mbps?.toFixed(1)}
+                          </span>
+                          <span style={{ fontSize: 14, color: '#94a3b8' }}>Mbps</span>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#06b6d4', textTransform: 'uppercase' }}>CARICA</div>
+                    </div>
+                  </div>
+
+                  {/* Info connessione */}
+                  <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 14, marginBottom: 40, display: 'flex', justifyContent: 'center', gap: 24, flexWrap: 'wrap' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Globe size={14} /> Operatore: <strong style={{ color: '#e2e8f0' }}>{lastResult.isp || '—'}</strong>
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Wifi size={14} /> IP Pubblico: <strong style={{ color: '#e2e8f0', fontFamily: 'monospace' }}>{lastResult.public_ip || '—'}</strong>
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <ServerIcon size={14} /> Server: <strong style={{ color: '#e2e8f0' }}>{lastResult.server_name || '—'}</strong>
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {!lastResult && (
+                <div style={{ textAlign: 'center', padding: 40, color: '#64748b' }}>
+                  <Activity size={40} style={{ marginBottom: 12 }} />
+                  <p>Nessun risultato speed test disponibile per questa azienda.</p>
+                  <p style={{ fontSize: 13, marginTop: 4 }}>Il primo test verrà eseguito dall'agent entro 2 ore.</p>
+                </div>
+              )}
+
+              {/* Grafico cronologia */}
+              {history.length > 1 && (
+                <div style={styles.chartSection}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                    <h3 style={{ fontSize: 18, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>📈 Cronologia</h3>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {[7, 14, 30].map(d => (
+                        <button
+                          key={d}
+                          style={styles.periodBtn(historyDays === d)}
+                          onClick={() => setHistoryDays(d)}
+                        >
+                          {d}g
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Legenda */}
+                  <div style={{ display: 'flex', gap: 20, marginBottom: 16, fontSize: 12, color: '#94a3b8' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 20, height: 3, borderRadius: 2, background: '#7c3aed', display: 'inline-block' }} />
+                      Download (Mbps)
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 20, height: 3, borderRadius: 2, background: '#06b6d4', display: 'inline-block' }} />
+                      Upload (Mbps)
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 20, height: 3, borderRadius: 2, background: '#22c55e', display: 'inline-block' }} />
+                      Ping (ms)
+                    </span>
+                  </div>
+
+                  <div ref={chartContainerRef} style={{ width: '100%', height: 280, position: 'relative' }}>
+                    <canvas ref={chartCanvasRef} style={{ width: '100%', height: '100%' }} />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* CSS animazione spin */}
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  // VISTA PANORAMICA
+  return (
+    <div style={styles.page}>
+      {/* Intestazione */}
+      <div style={styles.header}>
+        <div style={styles.headerLeft}>
+          <SectionNavMenu
+            currentPage="speedtest"
+            onNavigateHome={onNavigateHome}
+            onNavigateOffice={onNavigateOffice}
+            onNavigateEmail={onNavigateEmail}
+            onNavigateAntiVirus={onNavigateAntiVirus}
+            onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
+            onNavigateMappatura={onNavigateMappatura}
+            onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
+            currentUser={currentUser}
+            selectedCompanyId={selectedCompanyId}
+          />
+          <div style={styles.headerIcon}>
+            <Gauge size={20} color="white" />
+          </div>
+          <div>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>Speed Test Dashboard</h1>
+            <p style={{ fontSize: 12, color: '#94a3b8', margin: '2px 0 0' }}>Monitoraggio velocità connessione · Solo tecnici</p>
+          </div>
+        </div>
+        <button
+          onClick={fetchOverview}
+          style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 8, borderRadius: 8 }}
+          title="Aggiorna"
+        >
+          <RefreshCw size={18} />
+        </button>
+      </div>
+
+      {/* Barra filtri */}
+      <div style={styles.filterBar}>
+        <div style={{ position: 'relative' }}>
+          <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+          <input
+            type="text"
+            placeholder="Cerca azienda..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ ...styles.searchInput, paddingLeft: 34 }}
+          />
+        </div>
+        <div style={styles.statsBar}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+            {activeCount} attivi
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#64748b', display: 'inline-block' }} />
+            {disabledCount} disattivati
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Clock size={14} /> Test ogni 2 ore
+          </span>
+        </div>
+      </div>
+
+      {/* Griglia card */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 60, color: '#94a3b8' }}>
+          <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite' }} />
+          <p style={{ marginTop: 12 }}>Caricamento dati speed test...</p>
+        </div>
+      ) : filteredOverview.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 60, color: '#64748b' }}>
+          <Gauge size={40} style={{ marginBottom: 12 }} />
+          <p>{searchTerm ? 'Nessuna azienda corrisponde alla ricerca.' : 'Nessun agent configurato. Configura un agent di monitoraggio per iniziare.'}</p>
+        </div>
+      ) : (
+        <div style={styles.grid}>
+          {filteredOverview.map((company, idx) => (
+            <CompanyCard key={company.azienda_id || idx} company={company} />
+          ))}
+        </div>
+      )}
+
+      {/* CSS animazione spin */}
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+};
+
+export default SpeedTestPage;

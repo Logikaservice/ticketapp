@@ -837,6 +837,34 @@ module.exports = (pool, io) => {
               device_id INTEGER NOT NULL PRIMARY KEY REFERENCES network_devices(id) ON DELETE CASCADE
             );
           `);
+
+          // Tabella Speed Test Results
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS speedtest_results (
+              id SERIAL PRIMARY KEY,
+              agent_id INTEGER NOT NULL REFERENCES network_agents(id) ON DELETE CASCADE,
+              azienda_id INTEGER,
+              test_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+              ping_ms REAL,
+              download_mbps REAL,
+              upload_mbps REAL,
+              isp TEXT,
+              public_ip TEXT,
+              server_name TEXT,
+              result_url TEXT,
+              raw_json TEXT,
+              created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+          `);
+          await pool.query(`CREATE INDEX IF NOT EXISTS idx_speedtest_results_agent ON speedtest_results(agent_id);`);
+          await pool.query(`CREATE INDEX IF NOT EXISTS idx_speedtest_results_azienda ON speedtest_results(azienda_id);`);
+          await pool.query(`CREATE INDEX IF NOT EXISTS idx_speedtest_results_test_date ON speedtest_results(test_date DESC);`);
+
+          // Colonna speedtest_enabled su network_agents (default true)
+          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS speedtest_enabled BOOLEAN DEFAULT true;`);
+          // Colonna speedtest_interval_hours (default 2 ore)
+          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS speedtest_interval_hours INTEGER DEFAULT 2;`);
+
         } catch (migErr) {
           if (!migErr.message?.includes('does not exist')) {
             console.warn('⚠️ Migrazione colonne network_*:', migErr.message);
@@ -1307,6 +1335,19 @@ module.exports = (pool, io) => {
       }
 
       const resp = { success: true, timestamp: new Date().toISOString(), uninstall: false };
+
+      // Speedtest config per l'agent
+      try {
+        const stCfg = await pool.query(
+          'SELECT speedtest_enabled, speedtest_interval_hours FROM network_agents WHERE id = $1',
+          [agentId]
+        );
+        if (stCfg.rows.length > 0) {
+          resp.speedtest_enabled = stCfg.rows[0].speedtest_enabled !== false;
+          resp.speedtest_interval_hours = stCfg.rows[0].speedtest_interval_hours || 2;
+        }
+      } catch (e) { /* colonna potrebbe non esistere ancora */ }
+
       const pt = pendingUnifiTests.get(agentId);
       if (pt) {
         resp.pending_unifi_test = { test_id: pt.test_id, url: pt.url, username: pt.username, password: pt.password };
@@ -8640,6 +8681,156 @@ pause
       res.json({ success: true, message: 'Dispositivo eliminato definitivamente' });
     } catch (err) {
       console.error('❌ Errore DELETE device:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // ============================================================
+  // SPEED TEST ENDPOINTS
+  // ============================================================
+
+  // POST /api/network-monitoring/agent/speedtest-result
+  // Riceve i risultati dello speed test dall'agent (autenticato via API Key)
+  router.post('/agent/speedtest-result', authenticateAgent, async (req, res) => {
+    try {
+      const agentId = req.agent.id;
+      const aziendaId = req.agent.azienda_id;
+      const { ping_ms, download_mbps, upload_mbps, isp, public_ip, server_name, result_url, raw_json, test_date } = req.body;
+
+      if (ping_ms === undefined || download_mbps === undefined || upload_mbps === undefined) {
+        return res.status(400).json({ error: 'ping_ms, download_mbps e upload_mbps sono richiesti' });
+      }
+
+      await ensureTables();
+
+      const result = await pool.query(
+        `INSERT INTO speedtest_results (agent_id, azienda_id, test_date, ping_ms, download_mbps, upload_mbps, isp, public_ip, server_name, result_url, raw_json)
+         VALUES ($1, $2, COALESCE($3, NOW()), $4, $5, $6, $7, $8, $9, $10, $11)
+         RETURNING id, test_date`,
+        [agentId, aziendaId, test_date || null, ping_ms, download_mbps, upload_mbps, isp || null, public_ip || null, server_name || null, result_url || null, raw_json || null]
+      );
+
+      console.log(`📊 Speed test ricevuto da agent ${agentId}: ↓${download_mbps} Mbps ↑${upload_mbps} Mbps 🏓${ping_ms} ms`);
+
+      // Emetti evento WebSocket per aggiornamento in tempo reale
+      if (io) {
+        io.to('role:tecnico').to('role:admin').emit('speedtest-update', {
+          agentId,
+          aziendaId,
+          ping_ms, download_mbps, upload_mbps,
+          isp, public_ip, server_name,
+          test_date: result.rows[0].test_date
+        });
+      }
+
+      res.json({ success: true, id: result.rows[0].id });
+    } catch (err) {
+      console.error('❌ Errore salvataggio speed test:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/speedtest/overview
+  // Panoramica: ultimo risultato speed test per ogni azienda (solo tecnici)
+  router.get('/speedtest/overview', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+
+      // Prendi l'ultimo speed test per ogni agent/azienda
+      const result = await pool.query(`
+        SELECT DISTINCT ON (na.azienda_id)
+          sr.id, sr.agent_id, sr.azienda_id, sr.test_date, sr.ping_ms, sr.download_mbps, sr.upload_mbps,
+          sr.isp, sr.public_ip, sr.server_name, sr.result_url,
+          na.agent_name, na.status as agent_status, na.speedtest_enabled, na.speedtest_interval_hours,
+          u.azienda as azienda_name
+        FROM network_agents na
+        LEFT JOIN users u ON na.azienda_id = u.id
+        LEFT JOIN LATERAL (
+          SELECT * FROM speedtest_results sr2
+          WHERE sr2.agent_id = na.id
+          ORDER BY sr2.test_date DESC
+          LIMIT 1
+        ) sr ON true
+        WHERE na.deleted_at IS NULL
+        ORDER BY na.azienda_id, sr.test_date DESC NULLS LAST
+      `);
+
+      res.json({ success: true, data: result.rows });
+    } catch (err) {
+      console.error('❌ Errore recupero panoramica speed test:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // GET /api/network-monitoring/speedtest/company/:aziendaId/history
+  // Cronologia speed test per una specifica azienda (solo tecnici)
+  router.get('/speedtest/company/:aziendaId/history', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+
+      const { aziendaId } = req.params;
+      const days = parseInt(req.query.days) || 30;
+
+      const result = await pool.query(`
+        SELECT sr.id, sr.agent_id, sr.azienda_id, sr.test_date, sr.ping_ms, sr.download_mbps, sr.upload_mbps,
+               sr.isp, sr.public_ip, sr.server_name, sr.result_url,
+               na.agent_name, na.speedtest_enabled, na.speedtest_interval_hours,
+               u.azienda as azienda_name
+        FROM speedtest_results sr
+        JOIN network_agents na ON sr.agent_id = na.id
+        LEFT JOIN users u ON sr.azienda_id = u.id
+        WHERE sr.azienda_id = $1
+          AND sr.test_date > NOW() - INTERVAL '1 day' * $2
+        ORDER BY sr.test_date ASC
+      `, [aziendaId, days]);
+
+      // Info azienda
+      const companyInfo = await pool.query(`
+        SELECT u.id, u.azienda as azienda_name, na.speedtest_enabled, na.speedtest_interval_hours, na.agent_name, na.id as agent_id
+        FROM network_agents na
+        LEFT JOIN users u ON na.azienda_id = u.id
+        WHERE na.azienda_id = $1 AND na.deleted_at IS NULL
+        LIMIT 1
+      `, [aziendaId]);
+
+      res.json({
+        success: true,
+        company: companyInfo.rows[0] || null,
+        history: result.rows
+      });
+    } catch (err) {
+      console.error('❌ Errore recupero cronologia speed test:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // PUT /api/network-monitoring/speedtest/toggle/:agentId
+  // Attiva/disattiva speed test per un agent specifico (solo tecnici)
+  router.put('/speedtest/toggle/:agentId', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      await ensureTables();
+
+      const { agentId } = req.params;
+      const { enabled } = req.body;
+
+      if (typeof enabled !== 'boolean') {
+        return res.status(400).json({ error: 'Il campo enabled (boolean) è richiesto' });
+      }
+
+      const result = await pool.query(
+        'UPDATE network_agents SET speedtest_enabled = $1 WHERE id = $2 AND deleted_at IS NULL RETURNING id, agent_name, speedtest_enabled',
+        [enabled, agentId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato' });
+      }
+
+      console.log(`🔧 Speed test ${enabled ? 'attivato' : 'disattivato'} per agent ${agentId} (${result.rows[0].agent_name})`);
+
+      res.json({ success: true, agent: result.rows[0] });
+    } catch (err) {
+      console.error('❌ Errore toggle speed test:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });
