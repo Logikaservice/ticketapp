@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.7.0
+# Versione: 2.7.1
 # Data ultima modifica: 2026-03-27
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.7.0"
+$SCRIPT_VERSION = "2.7.1"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2128,8 +2128,8 @@ function Sync-ConfigFromServer {
                 
                 if ($rangesChanged) {
                     Write-Log "Rilevato cambio network_ranges: aggiornamento configurazione locale..." "INFO"
-                    # Aggiorna memoria
-                    if ($script:config) { $script:config.network_ranges = $newConfig.network_ranges }
+                    # Aggiorna memoria (stesso riferimento di $config nel MAIN)
+                    $script:config.network_ranges = $newConfig.network_ranges
                     $configUpdated = $true
                 }
             }
@@ -2658,6 +2658,10 @@ if (-not $config.server_url -or -not $config.api_key -or -not $config.network_ra
     Update-StatusFile -Status "error" -Message $errorMsg
     exit 1
 }
+
+# Stesso oggetto usato dal loop (Get-NetworkDevices usa $config) e da Sync-ConfigFromServer / heartbeat ($script:config).
+# Senza questo, Sync scriveva network_ranges su disco ma $config in memoria restava vecchio -> scansioni vuote e niente dati al server.
+$script:config = $config
 
 # Inizializza intervallo scansione
 $script:scanIntervalMinutes = $config.scan_interval_minutes
