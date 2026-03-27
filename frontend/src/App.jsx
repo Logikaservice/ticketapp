@@ -179,7 +179,10 @@ export default function TicketApp() {
    const [showCommAgent, setShowCommAgent] = useState(false); // Communication Agent Dashboard
   const [showCommAgentManager, setShowCommAgentManager] = useState(false); // Agent Comunicazioni Manager
   const [showFlottaPC, setShowFlottaPC] = useState(false); // Dispositivi aziendali (placeholder per implementazione futura)
-  const [showSpeedTest, setShowSpeedTest] = useState(false); // Speed Test Dashboard
+  const [showSpeedTest, setShowSpeedTest] = useState(() => {
+    const h = (typeof window !== 'undefined' && window.location.hash ? window.location.hash : '').replace(/^#/, '').toLowerCase();
+    return h === 'speedtest';
+  }); // Speed Test Dashboard (#speedtest)
   const [dispositiviAziendaliHighlightMac, setDispositiviAziendaliHighlightMac] = useState(null);
   const [showDeviceAnalysisStandalone, setShowDeviceAnalysisStandalone] = useState(false);
   const [standaloneDeviceId, setStandaloneDeviceId] = useState(null);
@@ -204,8 +207,11 @@ export default function TicketApp() {
   const [previousUnreadCounts, setPreviousUnreadCounts] = useState({});
   // Inizializza lo stato in base al dominio richiesto
   const [showDashboard, setShowDashboard] = useState(() => {
-    // La dashboard è sempre la schermata principale, tranne per orari/turni
-    return !isOrariDomain;
+    if (isOrariDomain) return false;
+    const h = (typeof window !== 'undefined' && window.location.hash ? window.location.hash : '').replace(/^#/, '').toLowerCase();
+    const fullHashViews = ['mappatura', 'network-monitoring', 'antivirus', 'dispositivi-aziendali', 'speedtest', 'email', 'office', 'device-analysis'];
+    if (h && (fullHashViews.includes(h) || h.startsWith('device-analysis'))) return false;
+    return true;
   });
 
   const [showOrariTurni, setShowOrariTurni] = useState(() => {
@@ -294,8 +300,13 @@ export default function TicketApp() {
       setShowDashboard(false);
       setShowOrariTurni(false);
     } else {
-      // Nessun dominio specifico, mostra dashboard principale
-      setShowDashboard(true);
+      // Non forzare la dashboard ticket se l'hash URL è una vista a schermo intero (es. #speedtest)
+      const h = (typeof window !== 'undefined' && window.location.hash ? window.location.hash : '').replace(/^#/, '').toLowerCase();
+      const fullHashViews = ['mappatura', 'network-monitoring', 'antivirus', 'dispositivi-aziendali', 'speedtest', 'email', 'office', 'device-analysis'];
+      const hashIsFullView = h && (fullHashViews.includes(h) || h.startsWith('device-analysis'));
+      if (!hashIsFullView) {
+        setShowDashboard(true);
+      }
       setShowOrariTurni(false);
       setShowVivaldi(false);
     }
@@ -326,6 +337,7 @@ export default function TicketApp() {
       setShowFlottaPC(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
       setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowSpeedTest(false);
     } else if (view === 'speedtest') {
+      setShowDeviceAnalysisStandalone(false);
       setShowSpeedTest(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
       setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false);
     } else if (view === 'email') {
@@ -338,6 +350,7 @@ export default function TicketApp() {
       setShowDeviceAnalysisStandalone(false);
       setShowDashboard(true); setShowMappatura(false); setShowNetworkMonitoring(false);
       setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false);
+      setShowSpeedTest(false);
     }
   };
 
@@ -3506,6 +3519,7 @@ export default function TicketApp() {
           />
         )}
 
+        {!(showSpeedTest && (currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin')) && (
         <main className="mx-auto px-4 py-6 max-w-7xl">
           {showVivaldi ? (
             // Verifica accesso al sistema Vivaldi (admin e tecnici hanno sempre accesso)
@@ -3726,6 +3740,7 @@ export default function TicketApp() {
             </div>
           )}
         </main>
+        )}
       </div>
 
       <AllModals
