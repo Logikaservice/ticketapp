@@ -2675,14 +2675,19 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 let matchValue = null;
                                 const titleValue = getDisplayTitle(device);
                                 const unifiSubtitle = getUnifiSubtitle(device);
+                                const hasUnifiName = !!(device?.unifi_name && String(device.unifi_name).trim());
                                 const titleContent = (
                                   <span className="block max-w-[11rem]">
-                                    <span className="block truncate">{titleValue}</span>
-                                    {unifiSubtitle && (
-                                      <span className="mt-0.5 flex items-center gap-1 min-w-0">
-                                        <span className="inline-flex items-center rounded bg-indigo-100 px-1.5 py-[1px] text-[10px] font-semibold text-indigo-700">
+                                    <span className="flex items-center gap-1 min-w-0">
+                                      {hasUnifiName && (
+                                        <span className="inline-flex items-center rounded bg-indigo-100 px-1.5 py-[1px] text-[10px] font-semibold text-indigo-700 flex-shrink-0">
                                           UniFi
                                         </span>
+                                      )}
+                                      <span className="block truncate min-w-0">{titleValue}</span>
+                                    </span>
+                                    {unifiSubtitle && (
+                                      <span className="mt-0.5 flex items-center gap-1 min-w-0 pl-[2px]">
                                         <span className="block truncate text-[11px] text-gray-500 min-w-0">
                                           {unifiSubtitle}
                                         </span>
