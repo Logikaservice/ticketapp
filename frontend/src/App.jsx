@@ -3366,21 +3366,6 @@ export default function TicketApp() {
           />
         )}
 
-        {showSpeedTest && (currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin') && (
-          <SpeedTestPage
-            currentUser={currentUser}
-            getAuthHeader={getAuthHeader}
-            onNavigateHome={() => { setShowSpeedTest(false); setShowDashboard(true); }}
-            onNavigateOffice={handleOpenOffice}
-            onNavigateEmail={handleOpenEmail}
-            onNavigateAntiVirus={handleOpenAntiVirus}
-            onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
-            onNavigateMappatura={handleOpenMappatura}
-            onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
-            selectedCompanyId={globallySelectedCompanyId}
-          />
-        )}
-
         {showNetworkMonitoring && !isOrariHostname && !isVivaldiHostname && !isPackVisionHostname && (
           // Verifica accesso al network monitoring (tecnici/admin globali/admin aziendali)
           (() => {
@@ -3742,6 +3727,24 @@ export default function TicketApp() {
         </main>
         )}
       </div>
+
+      {/* Fuori da app-zoom-wrapper: il transform scale(0.9) rompe il hit-testing dei click sulle card */}
+      {showSpeedTest && (currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin') && (
+        <div className="fixed inset-0 z-[200] overflow-y-auto">
+          <SpeedTestPage
+            currentUser={currentUser}
+            getAuthHeader={getAuthHeader}
+            onNavigateHome={() => { setShowSpeedTest(false); setShowDashboard(true); }}
+            onNavigateOffice={handleOpenOffice}
+            onNavigateEmail={handleOpenEmail}
+            onNavigateAntiVirus={handleOpenAntiVirus}
+            onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
+            onNavigateMappatura={handleOpenMappatura}
+            onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
+            selectedCompanyId={globallySelectedCompanyId}
+          />
+        </div>
+      )}
 
       <AllModals
         modalState={modalState}

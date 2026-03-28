@@ -7,6 +7,15 @@ import { ArrowLeft, Search, Gauge, Wifi, WifiOff, RefreshCw, Globe, Server as Se
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 
+/** Estrae l'id azienda dalla riga API (snake_case o camelCase). */
+function getAziendaIdFromOverviewRow(row) {
+  const raw = row?.azienda_id ?? row?.aziendaId;
+  if (raw == null || raw === '') return null;
+  const n = Number(typeof raw === 'string' ? raw.trim() : raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
+
 /** Una sola riga per agent_id (evita liste raddoppiate in caso di richieste sovrapposte o dati anomali). */
 function dedupeSpeedtestOverview(rows) {
   const map = new Map();
@@ -468,8 +477,8 @@ const SpeedTestPage = ({
   const CompanyCard = ({ company }) => {
     const [hovered, setHovered] = useState(false);
     const enabled = company.speedtest_enabled !== false;
-    const canOpenDetail =
-      company.azienda_id != null && company.azienda_id !== '' && !Number.isNaN(Number(company.azienda_id));
+    const aziendaIdResolved = getAziendaIdFromOverviewRow(company);
+    const canOpenDetail = aziendaIdResolved != null;
     const hasData = Boolean(
       company.test_date != null &&
         company.ping_ms != null &&
@@ -481,13 +490,13 @@ const SpeedTestPage = ({
         style={styles.card(canOpenDetail, enabled, hovered)}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        onClick={() =>
-          canOpenDetail &&
+        onClick={() => {
+          if (aziendaIdResolved == null) return;
           setSelectedCompany({
-            aziendaId: Number(company.azienda_id),
-            aziendaName: company.azienda_name || 'Azienda'
-          })
-        }
+            aziendaId: aziendaIdResolved,
+            aziendaName: company.azienda_name || company.aziendaName || 'Azienda'
+          });
+        }}
       >
         {/* Intestazione card */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
@@ -500,6 +509,7 @@ const SpeedTestPage = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {!enabled && <span style={styles.disabledBadge}>Disattivato</span>}
             <button
+              type="button"
               style={styles.toggle(enabled)}
               onClick={(e) => toggleSpeedTest(company.agent_id, !enabled, e)}
               title={enabled ? 'Disattiva speed test' : 'Attiva speed test'}
@@ -627,6 +637,7 @@ const SpeedTestPage = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#94a3b8' }}>
               <span>Speed Test</span>
               <button
+                type="button"
                 style={styles.toggle(enabled)}
                 onClick={() => companyInfo && toggleSpeedTest(companyInfo.agent_id, !enabled)}
               >
