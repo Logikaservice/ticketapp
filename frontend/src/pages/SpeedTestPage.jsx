@@ -7,15 +7,6 @@ import { ArrowLeft, Search, Gauge, Wifi, WifiOff, RefreshCw, Globe, Server as Se
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 
-/** Estrae l'id azienda dalla riga API (snake_case o camelCase). */
-function getAziendaIdFromOverviewRow(row) {
-  const raw = row?.azienda_id ?? row?.aziendaId;
-  if (raw == null || raw === '') return null;
-  const n = Number(typeof raw === 'string' ? raw.trim() : raw);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return n;
-}
-
 /** Una sola riga per agent_id (evita liste raddoppiate in caso di richieste sovrapposte o dati anomali). */
 function dedupeSpeedtestOverview(rows) {
   const map = new Map();
@@ -43,7 +34,7 @@ const SpeedTestPage = ({
   const [overview, setOverview] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCompany, setSelectedCompany] = useState(null); // { aziendaId, aziendaName }
+  const [selectedCompany, setSelectedCompany] = useState(null); // { agentId, aziendaName } — una card = un agent
   const [history, setHistory] = useState([]);
   const [companyInfo, setCompanyInfo] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -74,11 +65,11 @@ const SpeedTestPage = ({
     }
   }, [getAuthHeader]);
 
-  // Carica cronologia per azienda
-  const fetchHistory = useCallback(async (aziendaId, days = 30) => {
+  // Carica cronologia per agent (ogni card overview è un agent)
+  const fetchHistory = useCallback(async (agentId, days = 30) => {
     try {
       setHistoryLoading(true);
-      const res = await fetch(buildApiUrl(`/api/network-monitoring/speedtest/company/${aziendaId}/history?days=${days}`), {
+      const res = await fetch(buildApiUrl(`/api/network-monitoring/speedtest/agent/${agentId}/history?days=${days}`), {
         headers: getAuthHeader()
       });
       const data = await res.json();
@@ -122,10 +113,10 @@ const SpeedTestPage = ({
     fetchOverview();
   }, [fetchOverview]);
 
-  // Quando si seleziona un'azienda, carica cronologia
+  // Quando si seleziona un agent, carica cronologia
   useEffect(() => {
-    if (selectedCompany) {
-      fetchHistory(selectedCompany.aziendaId, historyDays);
+    if (selectedCompany?.agentId != null) {
+      fetchHistory(selectedCompany.agentId, historyDays);
     }
   }, [selectedCompany, historyDays, fetchHistory]);
 
@@ -291,7 +282,10 @@ const SpeedTestPage = ({
       background: '#0f172a',
       minHeight: '100vh',
       color: '#e2e8f0',
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      position: 'relative',
+      zIndex: 1,
+      pointerEvents: 'auto'
     },
     header: {
       background: '#1e293b',
@@ -342,18 +336,34 @@ const SpeedTestPage = ({
       display: 'grid',
       gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))',
       gap: 20,
-      padding: '0 32px 32px'
+      padding: '0 32px 32px',
+      position: 'relative',
+      zIndex: 1
     },
-    card: (clickable, speedtestOn, isHovered) => ({
+    cardOuter: (clickable, speedtestOn, isHovered) => ({
+      position: 'relative',
       background: '#1e293b',
       border: `1px solid ${isHovered && clickable ? '#7c3aed' : '#334155'}`,
       borderRadius: 16,
       padding: 24,
-      cursor: clickable ? 'pointer' : 'default',
       transition: 'all 0.3s ease',
       opacity: clickable ? (speedtestOn ? 1 : 0.88) : 0.5,
       transform: isHovered && clickable ? 'translateY(-2px)' : 'none',
       boxShadow: isHovered && clickable ? '0 8px 32px rgba(124, 58, 237, 0.15)' : 'none'
+    }),
+    cardOpenBtn: (canOpen) => ({
+      display: 'block',
+      width: '100%',
+      margin: 0,
+      padding: 0,
+      paddingRight: 8,
+      border: 'none',
+      background: 'transparent',
+      cursor: canOpen ? 'pointer' : 'not-allowed',
+      textAlign: 'left',
+      color: 'inherit',
+      fontFamily: 'inherit',
+      WebkitTapHighlightColor: 'transparent'
     }),
     toggle: (active) => ({
       width: 44, height: 24,
@@ -477,106 +487,122 @@ const SpeedTestPage = ({
   const CompanyCard = ({ company }) => {
     const [hovered, setHovered] = useState(false);
     const enabled = company.speedtest_enabled !== false;
-    const aziendaIdResolved = getAziendaIdFromOverviewRow(company);
-    const canOpenDetail = aziendaIdResolved != null;
+    const rawAgent = company.agent_id ?? company.agentId;
+    const agentIdNum = rawAgent != null ? Number(rawAgent) : NaN;
+    const canOpenDetail = Number.isFinite(agentIdNum) && agentIdNum > 0;
     const hasData = Boolean(
       company.test_date != null &&
         company.ping_ms != null &&
         !Number.isNaN(Number(company.ping_ms))
     );
 
+    const openDetail = () => {
+      if (!canOpenDetail) return;
+      setSelectedCompany({
+        agentId: agentIdNum,
+        aziendaName: company.azienda_name || company.aziendaName || company.agent_name || 'Agent'
+      });
+    };
+
     return (
       <div
-        style={styles.card(canOpenDetail, enabled, hovered)}
+        style={styles.cardOuter(canOpenDetail, enabled, hovered)}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        onClick={() => {
-          if (aziendaIdResolved == null) return;
-          setSelectedCompany({
-            aziendaId: aziendaIdResolved,
-            aziendaName: company.azienda_name || company.aziendaName || 'Azienda'
-          });
-        }}
       >
-        {/* Intestazione card */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>{company.azienda_name || 'N/A'}</div>
+        <button
+          type="button"
+          style={styles.cardOpenBtn(canOpenDetail)}
+          onClick={openDetail}
+        >
+          {/* Intestazione (spazio a destra per toggle assoluto) */}
+          <div style={{ paddingRight: 100, marginBottom: 16 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>{company.azienda_name || company.agent_name || 'N/A'}</div>
             <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
               {hasData ? `🕐 ${formatDate(company.test_date)}` : ''}
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {!enabled && <span style={styles.disabledBadge}>Disattivato</span>}
-            <button
-              type="button"
-              style={styles.toggle(enabled)}
-              onClick={(e) => toggleSpeedTest(company.agent_id, !enabled, e)}
-              title={enabled ? 'Disattiva speed test' : 'Attiva speed test'}
-            >
-              <div style={styles.toggleDot(enabled)} />
-            </button>
-          </div>
-        </div>
 
-        {/* Info ISP */}
-        <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20 }}>
-          {enabled && hasData ? (
-            <>
-              <Globe size={14} />
-              {company.isp || '—'} &nbsp;·&nbsp;
-              <span style={{ color: '#7c3aed', fontFamily: 'monospace', fontSize: 11 }}>{company.public_ip || '—'}</span>
-            </>
-          ) : enabled ? (
-            <span>
-              Nessun risultato ancora: l’agent lancia lo speed test dopo un heartbeat riuscito (in genere entro ~5–15 min dall’avvio), poi ogni {company.speedtest_interval_hours || 2} h. Se resta così, sui PC verifica firewall/out verso speedtest.net e i log [SpeedTest].
-            </span>
-          ) : (
-            'Speed test disattivato: attiva il toggle per raccogliere misure da questo agent.'
-          )}
-        </div>
+          {/* Info ISP */}
+          <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20 }}>
+            {enabled && hasData ? (
+              <>
+                <Globe size={14} />
+                {company.isp || '—'} &nbsp;·&nbsp;
+                <span style={{ color: '#7c3aed', fontFamily: 'monospace', fontSize: 11 }}>{company.public_ip || '—'}</span>
+              </>
+            ) : enabled ? (
+              <span>
+                Nessun risultato ancora: l’agent lancia lo speed test dopo un heartbeat riuscito (in genere entro ~5–15 min dall’avvio), poi ogni {company.speedtest_interval_hours || 2} h. Se resta così, sui PC verifica firewall/out verso speedtest.net e i log [SpeedTest].
+              </span>
+            ) : (
+              'Speed test disattivato: attiva il toggle per raccogliere misure da questo agent.'
+            )}
+          </div>
 
-        {/* Gauge */}
-        <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: 8 }}>
-          {/* Ping */}
-          <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={styles.gaugeWrap}>
-              <div style={styles.gaugeRing(enabled && hasData ? getPingPct(company.ping_ms) : 0, enabled ? '#22c55e' : '#475569')} />
-              <div style={styles.gaugeInner}>
-                <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
-                  {enabled && hasData ? fmtPing(company.ping_ms) : '—'}
-                </span>
-                <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'ms' : ''}</span>
+          {/* Gauge */}
+          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: 8 }}>
+            <div style={{ textAlign: 'center', flex: 1 }}>
+              <div style={styles.gaugeWrap}>
+                <div style={styles.gaugeRing(enabled && hasData ? getPingPct(company.ping_ms) : 0, enabled ? '#22c55e' : '#475569')} />
+                <div style={styles.gaugeInner}>
+                  <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
+                    {enabled && hasData ? fmtPing(company.ping_ms) : '—'}
+                  </span>
+                  <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'ms' : ''}</span>
+                </div>
               </div>
+              <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: enabled ? '#22c55e' : '#475569' }}>PING</div>
             </div>
-            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: enabled ? '#22c55e' : '#475569' }}>PING</div>
-          </div>
-          {/* Download */}
-          <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={styles.gaugeWrap}>
-              <div style={styles.gaugeRing(enabled && hasData ? getDownloadPct(company.download_mbps) : 0, enabled ? '#7c3aed' : '#475569')} />
-              <div style={styles.gaugeInner}>
-                <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
-                  {enabled && hasData ? fmtMbps(company.download_mbps) : '—'}
-                </span>
-                <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'Mbps' : ''}</span>
+            <div style={{ textAlign: 'center', flex: 1 }}>
+              <div style={styles.gaugeWrap}>
+                <div style={styles.gaugeRing(enabled && hasData ? getDownloadPct(company.download_mbps) : 0, enabled ? '#7c3aed' : '#475569')} />
+                <div style={styles.gaugeInner}>
+                  <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
+                    {enabled && hasData ? fmtMbps(company.download_mbps) : '—'}
+                  </span>
+                  <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'Mbps' : ''}</span>
+                </div>
               </div>
+              <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: enabled ? '#7c3aed' : '#475569' }}>SCARICA</div>
             </div>
-            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: enabled ? '#7c3aed' : '#475569' }}>SCARICA</div>
-          </div>
-          {/* Upload */}
-          <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={styles.gaugeWrap}>
-              <div style={styles.gaugeRing(enabled && hasData ? getUploadPct(company.upload_mbps) : 0, enabled ? '#06b6d4' : '#475569')} />
-              <div style={styles.gaugeInner}>
-                <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
-                  {enabled && hasData ? fmtMbps(company.upload_mbps) : '—'}
-                </span>
-                <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'Mbps' : ''}</span>
+            <div style={{ textAlign: 'center', flex: 1 }}>
+              <div style={styles.gaugeWrap}>
+                <div style={styles.gaugeRing(enabled && hasData ? getUploadPct(company.upload_mbps) : 0, enabled ? '#06b6d4' : '#475569')} />
+                <div style={styles.gaugeInner}>
+                  <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
+                    {enabled && hasData ? fmtMbps(company.upload_mbps) : '—'}
+                  </span>
+                  <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'Mbps' : ''}</span>
+                </div>
               </div>
+              <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: enabled ? '#06b6d4' : '#475569' }}>CARICA</div>
             </div>
-            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: enabled ? '#06b6d4' : '#475569' }}>CARICA</div>
           </div>
+        </button>
+
+        <div
+          style={{
+            position: 'absolute',
+            top: 20,
+            right: 20,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            zIndex: 2
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          {!enabled && <span style={styles.disabledBadge}>Disattivato</span>}
+          <button
+            type="button"
+            style={styles.toggle(enabled)}
+            onClick={(e) => toggleSpeedTest(company.agent_id, !enabled, e)}
+            title={enabled ? 'Disattiva speed test' : 'Attiva speed test'}
+          >
+            <div style={styles.toggleDot(enabled)} />
+          </button>
         </div>
       </div>
     );
@@ -618,10 +644,11 @@ const SpeedTestPage = ({
         <div style={{ padding: 32 }}>
           {/* Pulsante Indietro */}
           <button
+            type="button"
             style={styles.backBtn}
             onClick={() => { setSelectedCompany(null); setHistory([]); setCompanyInfo(null); }}
-            onMouseEnter={(e) => e.target.style.background = '#475569'}
-            onMouseLeave={(e) => e.target.style.background = '#334155'}
+            onMouseEnter={(e) => { e.target.style.background = '#475569'; }}
+            onMouseLeave={(e) => { e.target.style.background = '#334155'; }}
           >
             <ArrowLeft size={16} /> Torna alla panoramica
           </button>
@@ -629,7 +656,9 @@ const SpeedTestPage = ({
           {/* Intestazione azienda */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
             <div>
-              <h2 style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9', margin: 0 }}>{selectedCompany.aziendaName}</h2>
+              <h2 style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9', margin: 0 }}>
+                {companyInfo?.azienda_name || selectedCompany.aziendaName}
+              </h2>
               <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>
                 Ultimo test: {lastResult ? formatDate(lastResult.test_date) : '—'}
               </div>

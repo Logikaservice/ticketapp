@@ -8822,6 +8822,50 @@ pause
     }
   });
 
+  // GET /api/network-monitoring/speedtest/agent/:agentId/history
+  // Cronologia per agent (stessa forma della risposta company; utile se azienda_id non è disponibile in overview)
+  router.get('/speedtest/agent/:agentId/history', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
+    try {
+      await ensureTables();
+
+      const agentId = parseInt(req.params.agentId, 10);
+      const days = parseInt(req.query.days) || 30;
+      if (!Number.isFinite(agentId) || agentId <= 0) {
+        return res.status(400).json({ error: 'agentId non valido' });
+      }
+
+      const result = await pool.query(`
+        SELECT sr.id, sr.agent_id, sr.azienda_id, sr.test_date, sr.ping_ms, sr.download_mbps, sr.upload_mbps,
+               sr.isp, sr.public_ip, sr.server_name, sr.result_url,
+               na.agent_name, na.speedtest_enabled, na.speedtest_interval_hours,
+               u.azienda as azienda_name
+        FROM speedtest_results sr
+        JOIN network_agents na ON sr.agent_id = na.id
+        LEFT JOIN users u ON sr.azienda_id = u.id
+        WHERE sr.agent_id = $1
+          AND sr.test_date > NOW() - INTERVAL '1 day' * $2
+        ORDER BY sr.test_date ASC
+      `, [agentId, days]);
+
+      const companyInfo = await pool.query(`
+        SELECT u.id, u.azienda as azienda_name, na.speedtest_enabled, na.speedtest_interval_hours, na.agent_name, na.id as agent_id
+        FROM network_agents na
+        LEFT JOIN users u ON na.azienda_id = u.id
+        WHERE na.id = $1 AND na.deleted_at IS NULL
+        LIMIT 1
+      `, [agentId]);
+
+      res.json({
+        success: true,
+        company: companyInfo.rows[0] || null,
+        history: result.rows
+      });
+    } catch (err) {
+      console.error('❌ Errore recupero cronologia speed test (agent):', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // PUT /api/network-monitoring/speedtest/toggle/:agentId
   // Attiva/disattiva speed test per un agent specifico (solo tecnici)
   router.put('/speedtest/toggle/:agentId', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {

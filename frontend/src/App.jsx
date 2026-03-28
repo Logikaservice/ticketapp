@@ -3728,24 +3728,6 @@ export default function TicketApp() {
         )}
       </div>
 
-      {/* Fuori da app-zoom-wrapper: il transform scale(0.9) rompe il hit-testing dei click sulle card */}
-      {showSpeedTest && (currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin') && (
-        <div className="fixed inset-0 z-[200] overflow-y-auto">
-          <SpeedTestPage
-            currentUser={currentUser}
-            getAuthHeader={getAuthHeader}
-            onNavigateHome={() => { setShowSpeedTest(false); setShowDashboard(true); }}
-            onNavigateOffice={handleOpenOffice}
-            onNavigateEmail={handleOpenEmail}
-            onNavigateAntiVirus={handleOpenAntiVirus}
-            onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
-            onNavigateMappatura={handleOpenMappatura}
-            onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
-            selectedCompanyId={globallySelectedCompanyId}
-          />
-        </div>
-      )}
-
       <AllModals
         modalState={modalState}
         closeModal={closeModal}
@@ -3898,6 +3880,24 @@ export default function TicketApp() {
           getAuthHeader={getAuthHeader}
           notify={notify}
         />
+      )}
+
+      {/* Ultimo nel DOM, sopra modali: fuori da app-zoom-wrapper (no transform) + z-index alto */}
+      {showSpeedTest && (currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin') && (
+        <div className="fixed inset-0 z-[9999] overflow-y-auto pointer-events-auto">
+          <SpeedTestPage
+            currentUser={currentUser}
+            getAuthHeader={getAuthHeader}
+            onNavigateHome={() => { setShowSpeedTest(false); setShowDashboard(true); }}
+            onNavigateOffice={handleOpenOffice}
+            onNavigateEmail={handleOpenEmail}
+            onNavigateAntiVirus={handleOpenAntiVirus}
+            onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
+            onNavigateMappatura={handleOpenMappatura}
+            onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
+            selectedCompanyId={globallySelectedCompanyId}
+          />
+        </div>
       )}
     </div>
   );
