@@ -335,16 +335,16 @@ const SpeedTestPage = ({
       gap: 20,
       padding: '0 32px 32px'
     },
-    card: (enabled, isHovered) => ({
+    card: (clickable, speedtestOn, isHovered) => ({
       background: '#1e293b',
-      border: `1px solid ${isHovered && enabled ? '#7c3aed' : '#334155'}`,
+      border: `1px solid ${isHovered && clickable ? '#7c3aed' : '#334155'}`,
       borderRadius: 16,
       padding: 24,
-      cursor: enabled ? 'pointer' : 'default',
+      cursor: clickable ? 'pointer' : 'default',
       transition: 'all 0.3s ease',
-      opacity: enabled ? 1 : 0.5,
-      transform: isHovered && enabled ? 'translateY(-2px)' : 'none',
-      boxShadow: isHovered && enabled ? '0 8px 32px rgba(124, 58, 237, 0.15)' : 'none'
+      opacity: clickable ? (speedtestOn ? 1 : 0.88) : 0.5,
+      transform: isHovered && clickable ? 'translateY(-2px)' : 'none',
+      boxShadow: isHovered && clickable ? '0 8px 32px rgba(124, 58, 237, 0.15)' : 'none'
     }),
     toggle: (active) => ({
       width: 44, height: 24,
@@ -468,6 +468,8 @@ const SpeedTestPage = ({
   const CompanyCard = ({ company }) => {
     const [hovered, setHovered] = useState(false);
     const enabled = company.speedtest_enabled !== false;
+    const canOpenDetail =
+      company.azienda_id != null && company.azienda_id !== '' && !Number.isNaN(Number(company.azienda_id));
     const hasData = Boolean(
       company.test_date != null &&
         company.ping_ms != null &&
@@ -476,10 +478,16 @@ const SpeedTestPage = ({
 
     return (
       <div
-        style={styles.card(enabled, hovered)}
+        style={styles.card(canOpenDetail, enabled, hovered)}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        onClick={() => enabled && setSelectedCompany({ aziendaId: company.azienda_id, aziendaName: company.azienda_name })}
+        onClick={() =>
+          canOpenDetail &&
+          setSelectedCompany({
+            aziendaId: Number(company.azienda_id),
+            aziendaName: company.azienda_name || 'Azienda'
+          })
+        }
       >
         {/* Intestazione card */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
