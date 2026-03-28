@@ -7,14 +7,36 @@ import { ArrowLeft, Search, Gauge, Wifi, WifiOff, RefreshCw, Globe, Server as Se
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 
+/**
+ * L'API PostgreSQL/Express può esporre colonne in snake_case; eventuali proxy o serializzazioni
+ * possono variare. Senza un id agent valido la card non può aprire il dettaglio (nessun errore in console).
+ */
+function resolveAgentIdFromRow(row) {
+  if (!row || typeof row !== 'object') return null;
+  const candidates = [
+    row.agent_id,
+    row.agentId,
+    row.AgentId,
+    row.AGENT_ID
+  ];
+  for (const v of candidates) {
+    if (v == null || v === '') continue;
+    const n = typeof v === 'bigint' ? Number(v) : Number(v);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
+}
+
 /** Una sola riga per agent_id (evita liste raddoppiate in caso di richieste sovrapposte o dati anomali). */
 function dedupeSpeedtestOverview(rows) {
   const map = new Map();
   let fb = 0;
   for (const row of rows) {
-    const aid = row.agent_id != null ? Number(row.agent_id) : NaN;
+    const resolved = resolveAgentIdFromRow(row);
+    const aid = resolved != null ? resolved : NaN;
     const key = Number.isFinite(aid) ? aid : `__fb_${fb++}`;
-    map.set(key, row);
+    const normalized = resolved != null ? { ...row, agent_id: resolved } : row;
+    map.set(key, normalized);
   }
   return Array.from(map.values());
 }
@@ -72,13 +94,25 @@ const SpeedTestPage = ({
       const res = await fetch(buildApiUrl(`/api/network-monitoring/speedtest/agent/${agentId}/history?days=${days}`), {
         headers: getAuthHeader()
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        console.error('Speed test cronologia: risposta HTTP', res.status, data);
+        setHistory([]);
+        setCompanyInfo(null);
+        return;
+      }
       if (data.success) {
         setHistory(data.history || []);
         setCompanyInfo(data.company || null);
+      } else {
+        console.error('Speed test cronologia: success false', data);
+        setHistory([]);
+        setCompanyInfo(null);
       }
     } catch (err) {
       console.error('Errore caricamento cronologia speed test:', err);
+      setHistory([]);
+      setCompanyInfo(null);
     } finally {
       setHistoryLoading(false);
     }
@@ -363,7 +397,10 @@ const SpeedTestPage = ({
       textAlign: 'left',
       color: 'inherit',
       fontFamily: 'inherit',
-      WebkitTapHighlightColor: 'transparent'
+      WebkitTapHighlightColor: 'transparent',
+      touchAction: 'manipulation',
+      position: 'relative',
+      zIndex: 1
     }),
     toggle: (active) => ({
       width: 44, height: 24,
@@ -487,9 +524,8 @@ const SpeedTestPage = ({
   const CompanyCard = ({ company }) => {
     const [hovered, setHovered] = useState(false);
     const enabled = company.speedtest_enabled !== false;
-    const rawAgent = company.agent_id ?? company.agentId;
-    const agentIdNum = rawAgent != null ? Number(rawAgent) : NaN;
-    const canOpenDetail = Number.isFinite(agentIdNum) && agentIdNum > 0;
+    const agentIdNum = resolveAgentIdFromRow(company);
+    const canOpenDetail = agentIdNum != null;
     const hasData = Boolean(
       company.test_date != null &&
         company.ping_ms != null &&
@@ -497,7 +533,7 @@ const SpeedTestPage = ({
     );
 
     const openDetail = () => {
-      if (!canOpenDetail) return;
+      if (agentIdNum == null) return;
       setSelectedCompany({
         agentId: agentIdNum,
         aziendaName: company.azienda_name || company.aziendaName || company.agent_name || 'Agent'
@@ -514,6 +550,7 @@ const SpeedTestPage = ({
           type="button"
           style={styles.cardOpenBtn(canOpenDetail)}
           onClick={openDetail}
+          aria-label={canOpenDetail ? `Apri dettaglio speed test per ${company.azienda_name || company.agent_name || 'agent'}` : 'ID agent non disponibile'}
         >
           {/* Intestazione (spazio a destra per toggle assoluto) */}
           <div style={{ paddingRight: 100, marginBottom: 16 }}>
@@ -589,16 +626,20 @@ const SpeedTestPage = ({
             display: 'flex',
             alignItems: 'center',
             gap: 8,
-            zIndex: 2
+            zIndex: 2,
+            width: 'fit-content',
+            maxWidth: 140,
+            pointerEvents: 'auto'
           }}
           onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
         >
           {!enabled && <span style={styles.disabledBadge}>Disattivato</span>}
           <button
             type="button"
             style={styles.toggle(enabled)}
-            onClick={(e) => toggleSpeedTest(company.agent_id, !enabled, e)}
+            onClick={(e) => toggleSpeedTest(agentIdNum ?? company.agent_id, !enabled, e)}
             title={enabled ? 'Disattiva speed test' : 'Attiva speed test'}
           >
             <div style={styles.toggleDot(enabled)} />
