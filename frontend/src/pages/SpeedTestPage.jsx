@@ -116,6 +116,41 @@ function formatAgentLastSeen(isoDateStr) {
   return { line: `Last seen: ${days} days ago`, isStale: true };
 }
 
+/** Minuti trascorsi da last_heartbeat lato server (null se sconosciuto). */
+function minutesSinceServerHeartbeat(isoDateStr) {
+  if (isoDateStr == null || isoDateStr === '') return null;
+  const t = new Date(isoDateStr).getTime();
+  if (Number.isNaN(t)) return null;
+  return (Date.now() - t) / 60000;
+}
+
+/**
+ * Spiegazione quando la card non ha misure: i dati vengono dalla tabella speedtest sul server;
+ * se non c’è nessuna riga per questo agent, la dashboard è corretta nel mostrare “vuoto”.
+ */
+function SpeedtestAbsentHint({ speedtestIntervalHours, lastHeartbeatIso }) {
+  const interval = speedtestIntervalHours || 2;
+  const minAgo = minutesSinceServerHeartbeat(lastHeartbeatIso);
+  const agentSeemsRecent = minAgo != null && minAgo <= 90;
+
+  if (agentSeemsRecent) {
+    return (
+      <span style={{ display: 'block', lineHeight: 1.45 }}>
+        <strong style={{ color: '#cbd5e1' }}>Non è un problema di visualizzazione:</strong> nel database non risulta ancora nessun speed test salvato per questo agent. Il server riceve comunque attività di recente (&quot;Last seen&quot;): la causa più probabile è che il{' '}
+        <strong>test Ookla sul PC non vada a buon fine</strong> (CLI speedtest.exe assente o bloccato, firewall/proxy verso speedtest.net, permessi). Controlla sul PC i log del servizio con tag{' '}
+        <strong>[SpeedTest]</strong>.
+      </span>
+    );
+  }
+
+  return (
+    <span style={{ display: 'block', lineHeight: 1.45 }}>
+      La dashboard mostra solo test già <strong>registrati sul server</strong>. Dopo un heartbeat riuscito il primo test parte in genere entro pochi minuti, poi ogni <strong>{interval} h</strong>. Se l’agent è spesso assente (&quot;Last seen&quot; vecchio) o il test fallisce sempre, qui non comparirà nulla. Verificare PC acceso, servizio Network Monitor, uscita verso{' '}
+      <strong>speedtest.net</strong> e log <strong>[SpeedTest]</strong>.
+    </span>
+  );
+}
+
 /** Scostamento % ultimo test vs media dei test precedenti (cronologia ordinata per data). */
 function pctVsPriorAvgFromHistory(rows, key) {
   if (!rows || rows.length < 2) return null;
@@ -1013,9 +1048,10 @@ const SpeedTestPage = ({
                 </span>
               </>
             ) : enabled ? (
-              <span>
-                Nessun risultato ancora: l'agent lancia lo speed test dopo un heartbeat riuscito (in genere entro ~5–15 min dall'avvio), poi ogni {company.speedtest_interval_hours || 2} h. Se resta così, sui PC verifica firewall/out verso speedtest.net e i log [SpeedTest].
-              </span>
+              <SpeedtestAbsentHint
+                speedtestIntervalHours={company.speedtest_interval_hours}
+                lastHeartbeatIso={company.last_heartbeat ?? company.lastHeartbeat}
+              />
             ) : (
               'Speed test disattivato: attiva il toggle per raccogliere misure da questo agent.'
             )}
