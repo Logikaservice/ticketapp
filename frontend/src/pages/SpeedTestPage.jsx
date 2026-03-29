@@ -3,7 +3,6 @@
 // Visibile solo ai tecnici
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import ReactDOM from 'react-dom';
 import { ArrowLeft, Search, Gauge, Wifi, WifiOff, RefreshCw, Globe, Server as ServerIcon, Clock, Activity } from 'lucide-react';
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
@@ -28,15 +27,36 @@ function resolveAgentIdFromRow(row) {
   return null;
 }
 
+function resolveAziendaIdFromRow(row) {
+  if (!row || typeof row !== 'object') return null;
+  const candidates = [
+    row.azienda_id,
+    row.aziendaId,
+    row.AziendaId,
+    row.AZIENDA_ID
+  ];
+  for (const v of candidates) {
+    if (v == null || v === '') continue;
+    const n = typeof v === 'bigint' ? Number(v) : Number(v);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
+}
+
 /** Una sola riga per agent_id (evita liste raddoppiate in caso di richieste sovrapposte o dati anomali). */
 function dedupeSpeedtestOverview(rows) {
   const map = new Map();
   let fb = 0;
   for (const row of rows) {
-    const resolved = resolveAgentIdFromRow(row);
-    const aid = resolved != null ? resolved : NaN;
+    const resolvedAgent = resolveAgentIdFromRow(row);
+    const resolvedAzienda = resolveAziendaIdFromRow(row);
+    const aid = resolvedAgent != null ? resolvedAgent : NaN;
     const key = Number.isFinite(aid) ? aid : `__fb_${fb++}`;
-    const normalized = resolved != null ? { ...row, agent_id: resolved } : row;
+    const normalized = {
+      ...row,
+      ...(resolvedAgent != null ? { agent_id: resolvedAgent } : {}),
+      ...(resolvedAzienda != null ? { azienda_id: resolvedAzienda } : {})
+    };
     map.set(key, normalized);
   }
   return Array.from(map.values());
@@ -57,7 +77,7 @@ const SpeedTestPage = ({
   const [overview, setOverview] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCompany, setSelectedCompany] = useState(null); // { agentId, aziendaName, snapshot? } — una card = un agent
+  const [selectedCompany, setSelectedCompany] = useState(null); // { agentId?, aziendaId?, aziendaName, snapshot? }
   const [history, setHistory] = useState([]);
   const [companyInfo, setCompanyInfo] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -88,11 +108,24 @@ const SpeedTestPage = ({
     }
   }, [getAuthHeader]);
 
-  // Carica cronologia per agent (ogni card overview è un agent)
-  const fetchHistory = useCallback(async (agentId, days = 30) => {
+  // Cronologia: preferisci endpoint per agent; se agentId manca usa azienda (stesso payload)
+  const fetchHistory = useCallback(async (selection, days = 30) => {
+    const agentId = selection?.agentId != null ? selection.agentId : null;
+    const aziendaId = selection?.aziendaId != null ? selection.aziendaId : null;
+    const url =
+      agentId != null
+        ? buildApiUrl(`/api/network-monitoring/speedtest/agent/${agentId}/history?days=${days}`)
+        : aziendaId != null
+          ? buildApiUrl(`/api/network-monitoring/speedtest/company/${aziendaId}/history?days=${days}`)
+          : null;
+    if (!url) {
+      setHistory([]);
+      setCompanyInfo(null);
+      return;
+    }
     try {
       setHistoryLoading(true);
-      const res = await fetch(buildApiUrl(`/api/network-monitoring/speedtest/agent/${agentId}/history?days=${days}`), {
+      const res = await fetch(url, {
         headers: getAuthHeader()
       });
       const data = await res.json().catch(() => ({}));
@@ -148,10 +181,10 @@ const SpeedTestPage = ({
     fetchOverview();
   }, [fetchOverview]);
 
-  // Quando si seleziona un agent, carica cronologia
+  // Quando si seleziona una card, carica cronologia (agent o azienda)
   useEffect(() => {
-    if (selectedCompany?.agentId != null) {
-      fetchHistory(selectedCompany.agentId, historyDays);
+    if (selectedCompany && (selectedCompany.agentId != null || selectedCompany.aziendaId != null)) {
+      fetchHistory(selectedCompany, historyDays);
     }
   }, [selectedCompany, historyDays, fetchHistory]);
 
@@ -529,7 +562,8 @@ const SpeedTestPage = ({
     const [hovered, setHovered] = useState(false);
     const enabled = company.speedtest_enabled !== false;
     const agentIdNum = resolveAgentIdFromRow(company);
-    const canOpenDetail = agentIdNum != null;
+    const aziendaIdNum = resolveAziendaIdFromRow(company);
+    const canOpenDetail = agentIdNum != null || aziendaIdNum != null;
     const hasData = Boolean(
       company.test_date != null &&
         company.ping_ms != null &&
@@ -537,8 +571,8 @@ const SpeedTestPage = ({
     );
 
     const openDetail = () => {
-      if (agentIdNum == null) {
-        console.warn('[SpeedTest] Impossibile aprire dettaglio: agent_id non valido', company);
+      if (!canOpenDetail) {
+        console.warn('[SpeedTest] Impossibile aprire dettaglio: mancano agent_id e azienda_id', company);
         return;
       }
       const snapshot =
@@ -558,6 +592,7 @@ const SpeedTestPage = ({
           : null;
       setSelectedCompany({
         agentId: agentIdNum,
+        aziendaId: aziendaIdNum,
         aziendaName: company.azienda_name || company.aziendaName || company.agent_name || 'Agent',
         snapshot
       });
@@ -571,7 +606,6 @@ const SpeedTestPage = ({
       >
         <button
           type="button"
-          disabled={!canOpenDetail}
           style={styles.cardOpenBtn(canOpenDetail)}
           onClick={openDetail}
         >
@@ -663,7 +697,13 @@ const SpeedTestPage = ({
           <button
             type="button"
             style={styles.toggle(enabled)}
-            onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleSpeedTest(agentIdNum ?? company.agent_id, !enabled, e); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              const aid = agentIdNum ?? resolveAgentIdFromRow(company);
+              if (aid == null) return;
+              toggleSpeedTest(aid, !enabled, e);
+            }}
             title={enabled ? 'Disattiva speed test' : 'Attiva speed test'}
           >
             <div style={styles.toggleDot(enabled)} />
@@ -680,7 +720,7 @@ const SpeedTestPage = ({
     const lastResult = lastFromHistory || selectedCompany.snapshot || null;
     const enabled = companyInfo?.speedtest_enabled !== false;
 
-    return ReactDOM.createPortal(
+    return (
       <div style={styles.page}>
         {/* Intestazione */}
         <div style={styles.header}>
@@ -910,13 +950,12 @@ const SpeedTestPage = ({
 
         {/* CSS animazione spin */}
         <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-      </div>,
-      document.body
+      </div>
     );
   }
 
   // VISTA PANORAMICA
-  return ReactDOM.createPortal(
+  return (
     <div style={styles.page}>
       {/* Intestazione */}
       <div style={styles.header}>
@@ -991,16 +1030,16 @@ const SpeedTestPage = ({
         </div>
       ) : (
         <div style={styles.grid}>
-          {filteredOverview.map((company, idx) => (
-            <CompanyCard key={company.agent_id != null ? `agent-${company.agent_id}` : `row-${idx}`} company={company} />
-          ))}
+          {filteredOverview.map((company, idx) => {
+            const k = company.agent_id ?? company.azienda_id;
+            return <CompanyCard key={k != null ? `sp-${k}-${idx}` : `row-${idx}`} company={company} />;
+          })}
         </div>
       )}
 
       {/* CSS animazione spin */}
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-    </div>,
-    document.body
+    </div>
   );
 };
 
