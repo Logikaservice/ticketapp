@@ -838,20 +838,24 @@ const SpeedTestPage = ({
       justifyContent: 'center',
       zIndex: 1
     },
-    backBtn: {
+    backBtnSquare: {
+      width: 44,
+      height: 44,
+      minWidth: 44,
+      flexShrink: 0,
       background: '#334155',
       border: 'none',
       color: '#e2e8f0',
-      padding: '8px 16px',
       borderRadius: 8,
       cursor: 'pointer',
-      fontSize: 14,
-      fontFamily: 'inherit',
       display: 'flex',
       alignItems: 'center',
-      gap: 6,
-      marginBottom: 24,
-      transition: 'background 0.2s'
+      justifyContent: 'center',
+      padding: 0,
+      fontFamily: 'inherit',
+      transition: 'background 0.2s',
+      alignSelf: 'flex-start',
+      marginTop: 2
     },
     chartSection: {
       background: '#1e293b',
@@ -1191,47 +1195,51 @@ const SpeedTestPage = ({
         </div>
 
         <div style={{ padding: 32 }}>
-          {/* Pulsante Indietro */}
-          <button
-            type="button"
-            style={styles.backBtn}
-            onClick={() => { setSelectedCompany(null); setHistory([]); setCompanyInfo(null); }}
-            onMouseEnter={(e) => { e.target.style.background = '#475569'; }}
-            onMouseLeave={(e) => { e.target.style.background = '#334155'; }}
-          >
-            <ArrowLeft size={16} /> Torna alla panoramica
-          </button>
-
-          {/* Intestazione azienda */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-            <div>
-              <h2 style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9', margin: 0 }}>
-                {companyInfo?.azienda_name || selectedCompany.aziendaName}
-              </h2>
-              <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>
-                {historyDayFilter ? (
-                  <>
-                    Giorno <strong style={{ color: '#e2e8f0' }}>{ymdToItDisplay(historyDayFilter)}</strong>
-                    {' · '}
-                    ultima misura: {lastResult ? formatDate(lastResult.test_date) : '—'}
-                  </>
-                ) : (
-                  <>Ultimo test nel periodo: {lastResult ? formatDate(lastResult.test_date) : '—'}</>
-                )}
-              </div>
-              {(() => {
-                const seen = formatAgentLastSeen(
-                  companyInfo?.last_heartbeat ?? companyInfo?.lastHeartbeat ?? selectedCompany.lastHeartbeatFromOverview
-                );
-                return (
-                  <div
-                    style={{ fontSize: 12, color: seen.isStale ? '#fbbf24' : '#64748b', marginTop: 6, fontWeight: seen.isStale ? 600 : 500 }}
-                    title={seen.detailTitle ?? 'Ultimo heartbeat verso il server'}
-                  >
-                    {seen.line}
+          {/* Intestazione azienda: indietro (quadrato) + nome + toggle */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
+            <div style={{ flex: 1, minWidth: 0, marginRight: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                <button
+                  type="button"
+                  aria-label="Torna alla panoramica"
+                  title="Torna alla panoramica"
+                  style={styles.backBtnSquare}
+                  onClick={() => { setSelectedCompany(null); setHistory([]); setCompanyInfo(null); }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#475569'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = '#334155'; }}
+                >
+                  <ArrowLeft size={22} strokeWidth={2.25} />
+                </button>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h2 style={{ fontSize: 28, fontWeight: 800, color: '#f1f5f9', margin: 0, lineHeight: 1.15 }}>
+                    {companyInfo?.azienda_name || selectedCompany.aziendaName}
+                  </h2>
+                  <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>
+                    {historyDayFilter ? (
+                      <>
+                        Giorno <strong style={{ color: '#e2e8f0' }}>{ymdToItDisplay(historyDayFilter)}</strong>
+                        {' · '}
+                        ultima misura: {lastResult ? formatDate(lastResult.test_date) : '—'}
+                      </>
+                    ) : (
+                      <>Ultimo test nel periodo: {lastResult ? formatDate(lastResult.test_date) : '—'}</>
+                    )}
                   </div>
-                );
-              })()}
+                  {(() => {
+                    const seen = formatAgentLastSeen(
+                      companyInfo?.last_heartbeat ?? companyInfo?.lastHeartbeat ?? selectedCompany.lastHeartbeatFromOverview
+                    );
+                    return (
+                      <div
+                        style={{ fontSize: 12, color: seen.isStale ? '#fbbf24' : '#64748b', marginTop: 6, fontWeight: seen.isStale ? 600 : 500 }}
+                        title={seen.detailTitle ?? 'Ultimo heartbeat verso il server'}
+                      >
+                        {seen.line}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#94a3b8' }}>
               <span>Speed Test</span>
