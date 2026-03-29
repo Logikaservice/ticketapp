@@ -30,6 +30,12 @@ body {
   min-height: 111.11vh;
 }
 
+/* Con Speed Test a tutto schermo il <main> è nascosto ma il wrapper resta alto:
+   senza questo, il box trasparente intercetta i click prima del layer Speed Test. */
+.app-zoom-wrapper--speedtest-pass-through {
+  pointer-events: none;
+}
+
 /* Animazione personalizzata per messaggi non letti */
 @keyframes pulse-slow {
   0%, 100% {

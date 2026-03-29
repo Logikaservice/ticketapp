@@ -3,6 +3,7 @@
 // Visibile solo ai tecnici
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowLeft, Search, Gauge, Wifi, WifiOff, RefreshCw, Globe, Server as ServerIcon, Clock, Activity } from 'lucide-react';
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
@@ -123,6 +124,7 @@ const SpeedTestPage = ({
       setCompanyInfo(null);
       return;
     }
+    console.info('[SpeedTest] richiesta cronologia', url);
     try {
       setHistoryLoading(true);
       const res = await fetch(url, {
@@ -352,9 +354,10 @@ const SpeedTestPage = ({
       background: '#0f172a',
       color: '#e2e8f0',
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-      zIndex: 1000000,
+      zIndex: 2147483000,
       pointerEvents: 'auto',
-      overflowY: 'auto'
+      overflowY: 'auto',
+      WebkitTapHighlightColor: 'transparent'
     },
     header: {
       background: '#1e293b',
@@ -420,7 +423,7 @@ const SpeedTestPage = ({
       transform: isHovered && clickable ? 'translateY(-2px)' : 'none',
       boxShadow: isHovered && clickable ? '0 8px 32px rgba(124, 58, 237, 0.15)' : 'none'
     }),
-    cardOpenBtn: (canOpen) => ({
+    cardBody: {
       display: 'block',
       width: '100%',
       margin: 0,
@@ -428,17 +431,13 @@ const SpeedTestPage = ({
       paddingRight: 8,
       border: 'none',
       background: 'transparent',
-      cursor: canOpen ? 'pointer' : 'not-allowed',
       textAlign: 'left',
       color: 'inherit',
       fontFamily: 'inherit',
-      WebkitTapHighlightColor: 'transparent',
-      touchAction: 'manipulation',
       position: 'relative',
       zIndex: 1,
-      appearance: 'none',
-      WebkitAppearance: 'none'
-    }),
+      userSelect: 'none'
+    },
     toggle: (active) => ({
       width: 44, height: 24,
       background: active ? '#22c55e' : '#475569',
@@ -575,6 +574,11 @@ const SpeedTestPage = ({
         console.warn('[SpeedTest] Impossibile aprire dettaglio: mancano agent_id e azienda_id', company);
         return;
       }
+      console.info('[SpeedTest] apertura dettaglio', {
+        agent_id: agentIdNum,
+        azienda_id: aziendaIdNum,
+        nome: company.azienda_name || company.agent_name
+      });
       const snapshot =
         company.test_date != null &&
         company.ping_ms != null &&
@@ -600,15 +604,25 @@ const SpeedTestPage = ({
 
     return (
       <div
-        style={styles.cardOuter(canOpenDetail, enabled, hovered)}
+        style={{
+          ...styles.cardOuter(canOpenDetail, enabled, hovered),
+          cursor: canOpenDetail ? 'pointer' : 'default'
+        }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        onClick={() => { if (canOpenDetail) openDetail(); }}
+        onKeyDown={(e) => {
+          if (!canOpenDetail) return;
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openDetail();
+          }
+        }}
+        tabIndex={canOpenDetail ? 0 : -1}
+        role="group"
+        aria-label={canOpenDetail ? 'Apri cronologia speed test' : undefined}
       >
-        <button
-          type="button"
-          style={styles.cardOpenBtn(canOpenDetail)}
-          onClick={openDetail}
-        >
+        <div style={styles.cardBody}>
           {/* Intestazione (spazio a destra per toggle assoluto) */}
           <div style={{ paddingRight: 100, marginBottom: 16 }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>{company.azienda_name || company.agent_name || 'N/A'}</div>
@@ -673,7 +687,7 @@ const SpeedTestPage = ({
               <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: enabled ? '#06b6d4' : '#475569' }}>CARICA</div>
             </div>
           </div>
-        </button>
+        </div>
 
         <div
           style={{
@@ -720,7 +734,7 @@ const SpeedTestPage = ({
     const lastResult = lastFromHistory || selectedCompany.snapshot || null;
     const enabled = companyInfo?.speedtest_enabled !== false;
 
-    return (
+    return createPortal(
       <div style={styles.page}>
         {/* Intestazione */}
         <div style={styles.header}>
@@ -950,12 +964,13 @@ const SpeedTestPage = ({
 
         {/* CSS animazione spin */}
         <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-      </div>
+      </div>,
+      document.body
     );
   }
 
   // VISTA PANORAMICA
-  return (
+  return createPortal(
     <div style={styles.page}>
       {/* Intestazione */}
       <div style={styles.header}>
@@ -1039,7 +1054,8 @@ const SpeedTestPage = ({
 
       {/* CSS animazione spin */}
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-    </div>
+    </div>,
+    document.body
   );
 };
 

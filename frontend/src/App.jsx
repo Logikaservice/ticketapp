@@ -3257,7 +3257,14 @@ export default function TicketApp() {
           <Notification key={notif.id} notification={notif} handleClose={() => handleCloseNotification(notif.id)} />
         ))}
       </div>
-      <div className="app-zoom-wrapper">
+      <div
+        className={
+          'app-zoom-wrapper' +
+          (showSpeedTest && (currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin')
+            ? ' app-zoom-wrapper--speedtest-pass-through'
+            : '')
+        }
+      >
         {!showPackVision && !showNetworkMonitoring && !showEmail && !showOffice && !showAntiVirus && !showMappatura && !showSpeedTest && (
           <Header
             {...{
