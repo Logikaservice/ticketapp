@@ -90,30 +90,35 @@ function uploadQuality(mbps) {
 }
 
 /**
- * Ultimo heartbeat agent (come da server). English short text come da specifica UX.
- * @returns {{ line: string, isStale: boolean }}
+ * Ultimo heartbeat così come salvato sul server (ISO). Il testo “fa” è calcolato al render, non un contatore che ticka;
+ * al refresh può cambiare solo perché è passato tempo reale o perché il server ha un valore aggiornato.
+ * @returns {{ line: string, isStale: boolean, detailTitle: string | null }}
  */
 function formatAgentLastSeen(isoDateStr) {
   if (isoDateStr == null || isoDateStr === '') {
-    return { line: 'Last seen: —', isStale: true };
+    return { line: 'Ultimo controllo: —', isStale: true, detailTitle: null };
   }
-  const t = new Date(isoDateStr).getTime();
+  const d = new Date(isoDateStr);
+  const t = d.getTime();
   if (Number.isNaN(t)) {
-    return { line: 'Last seen: —', isStale: true };
+    return { line: 'Ultimo controllo: —', isStale: true, detailTitle: null };
   }
+  const absoluteIt = d.toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'medium' });
+  const detailTitle = `Orario sul server: ${absoluteIt}. “Fa” è rispetto all’orologio del tuo PC in questo momento (non si resetta al tasto aggiorna: il dato è sempre l’ultimo salvato nel DB).`;
+
   const sec = Math.floor((Date.now() - t) / 1000);
-  if (sec < 0) return { line: 'Last seen: just now', isStale: false };
-  if (sec < 60) return { line: 'Last seen: <1 min ago', isStale: false };
+  if (sec < 0) return { line: 'Ultimo controllo: adesso', isStale: false, detailTitle };
+  if (sec < 60) return { line: 'Ultimo controllo: meno di 1 min fa', isStale: false, detailTitle };
   const min = Math.floor(sec / 60);
   if (min < 60) {
-    return { line: `Last seen: ${min} min ago`, isStale: min > 15 };
+    return { line: `Ultimo controllo: ${min} min fa`, isStale: min > 15, detailTitle };
   }
   const h = Math.floor(min / 60);
   if (h < 48) {
-    return { line: `Last seen: ${h} h ago`, isStale: true };
+    return { line: `Ultimo controllo: ${h} h fa`, isStale: true, detailTitle };
   }
   const days = Math.floor(h / 24);
-  return { line: `Last seen: ${days} days ago`, isStale: true };
+  return { line: `Ultimo controllo: ${days} giorni fa`, isStale: true, detailTitle };
 }
 
 /** Scostamento % ultimo test vs media dei test precedenti (cronologia ordinata per data). */
@@ -333,6 +338,8 @@ const SpeedTestPage = ({
 }) => {
   const [overview, setOverview] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [overviewRefreshing, setOverviewRefreshing] = useState(false);
+  const overviewHasDataRef = useRef(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCompany, setSelectedCompany] = useState(null); // { agentId?, aziendaId?, aziendaName, snapshot?, lastHeartbeatFromOverview?, download_vs_hist_pct?, upload_vs_hist_pct? }
   const [history, setHistory] = useState([]);
@@ -349,11 +356,13 @@ const SpeedTestPage = ({
   const chartContainerRef = useRef(null);
   const overviewFetchSeqRef = useRef(0);
 
-  // Carica panoramica
+  // Carica panoramica (primo caricamento: schermo pieno; aggiornamenti: dati precedenti visibili, niente “azzeramento”)
   const fetchOverview = useCallback(async () => {
     const seq = ++overviewFetchSeqRef.current;
+    const useFullPageLoader = !overviewHasDataRef.current;
     try {
-      setLoading(true);
+      if (useFullPageLoader) setLoading(true);
+      else setOverviewRefreshing(true);
       const res = await fetch(buildApiUrl('/api/network-monitoring/speedtest/overview'), {
         headers: getAuthHeader()
       });
@@ -362,6 +371,7 @@ const SpeedTestPage = ({
       if (data.success) {
         const rows = Array.isArray(data.data) ? data.data : [];
         if (rows.length > 0) {
+          overviewHasDataRef.current = true;
           try {
             const u = resolveAgentIdFromRow(rows[0]);
             const z = resolveAziendaIdFromRow(rows[0]);
@@ -375,6 +385,7 @@ const SpeedTestPage = ({
     } finally {
       if (seq === overviewFetchSeqRef.current) {
         setLoading(false);
+        setOverviewRefreshing(false);
       }
     }
   }, [getAuthHeader]);
@@ -979,7 +990,7 @@ const SpeedTestPage = ({
                 const seen = formatAgentLastSeen(company.last_heartbeat ?? company.lastHeartbeat);
                 return (
                   <span
-                    title="Stato agent (ultimo check-in / heartbeat verso il server)"
+                    title={seen.detailTitle ?? 'Ultimo check-in dell’agent verso il server'}
                     style={{ color: seen.isStale ? '#fbbf24' : '#94a3b8', fontWeight: seen.isStale ? 600 : 500, whiteSpace: 'nowrap' }}
                   >
                     {seen.line}
@@ -1215,7 +1226,7 @@ const SpeedTestPage = ({
                 return (
                   <div
                     style={{ fontSize: 12, color: seen.isStale ? '#fbbf24' : '#64748b', marginTop: 6, fontWeight: seen.isStale ? 600 : 500 }}
-                    title="Ultimo heartbeat ricevuto dall’agent (presenza online PC/rete)"
+                    title={seen.detailTitle ?? 'Ultimo heartbeat verso il server'}
                   >
                     {seen.line}
                   </div>
@@ -1725,10 +1736,19 @@ const SpeedTestPage = ({
         <button
           type="button"
           onClick={() => fetchOverview()}
-          style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 8, borderRadius: 8 }}
-          title="Aggiorna"
+          disabled={overviewRefreshing}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#94a3b8',
+            cursor: overviewRefreshing ? 'wait' : 'pointer',
+            padding: 8,
+            borderRadius: 8,
+            opacity: overviewRefreshing ? 0.65 : 1
+          }}
+          title={overviewRefreshing ? 'Aggiornamento in corso…' : 'Aggiorna elenco (i dati restano visibili)'}
         >
-          <RefreshCw size={18} />
+          <RefreshCw size={18} style={{ animation: overviewRefreshing ? 'spin 1s linear infinite' : undefined }} />
         </button>
       </div>
 
