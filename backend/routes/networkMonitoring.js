@@ -8760,6 +8760,7 @@ pause
           sr.test_date, sr.ping_ms, sr.download_mbps, sr.upload_mbps,
           sr.isp, sr.public_ip, sr.server_name, sr.result_url,
           na.agent_name, na.status as agent_status, na.speedtest_enabled, na.speedtest_interval_hours,
+          na.last_heartbeat,
           u.azienda as azienda_name
         FROM network_agents na
         LEFT JOIN users u ON na.azienda_id = u.id
@@ -8804,7 +8805,7 @@ pause
 
       // Info azienda
       const companyInfo = await pool.query(`
-        SELECT u.id, u.azienda as azienda_name, na.speedtest_enabled, na.speedtest_interval_hours, na.agent_name, na.id as agent_id
+        SELECT u.id, u.azienda as azienda_name, na.speedtest_enabled, na.speedtest_interval_hours, na.agent_name, na.id as agent_id, na.last_heartbeat
         FROM network_agents na
         LEFT JOIN users u ON na.azienda_id = u.id
         WHERE na.azienda_id = $1 AND na.deleted_at IS NULL
@@ -8848,7 +8849,7 @@ pause
       `, [agentId, days]);
 
       const companyInfo = await pool.query(`
-        SELECT u.id, u.azienda as azienda_name, na.speedtest_enabled, na.speedtest_interval_hours, na.agent_name, na.id as agent_id
+        SELECT u.id, u.azienda as azienda_name, na.speedtest_enabled, na.speedtest_interval_hours, na.agent_name, na.id as agent_id, na.last_heartbeat
         FROM network_agents na
         LEFT JOIN users u ON na.azienda_id = u.id
         WHERE na.id = $1 AND na.deleted_at IS NULL

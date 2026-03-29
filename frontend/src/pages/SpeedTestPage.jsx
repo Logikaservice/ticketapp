@@ -75,6 +75,33 @@ function uploadQuality(mbps) {
   return { color: '#22c55e', label: 'UPLOAD (Eccellente)', pct };
 }
 
+/**
+ * Ultimo heartbeat agent (come da server). English short text come da specifica UX.
+ * @returns {{ line: string, isStale: boolean }}
+ */
+function formatAgentLastSeen(isoDateStr) {
+  if (isoDateStr == null || isoDateStr === '') {
+    return { line: 'Last seen: —', isStale: true };
+  }
+  const t = new Date(isoDateStr).getTime();
+  if (Number.isNaN(t)) {
+    return { line: 'Last seen: —', isStale: true };
+  }
+  const sec = Math.floor((Date.now() - t) / 1000);
+  if (sec < 0) return { line: 'Last seen: just now', isStale: false };
+  if (sec < 60) return { line: 'Last seen: <1 min ago', isStale: false };
+  const min = Math.floor(sec / 60);
+  if (min < 60) {
+    return { line: `Last seen: ${min} min ago`, isStale: min > 15 };
+  }
+  const h = Math.floor(min / 60);
+  if (h < 48) {
+    return { line: `Last seen: ${h} h ago`, isStale: true };
+  }
+  const days = Math.floor(h / 24);
+  return { line: `Last seen: ${days} days ago`, isStale: true };
+}
+
 function parsePositiveInt(v) {
   if (v == null || v === '') return null;
   if (typeof v === 'bigint') {
@@ -179,7 +206,7 @@ const SpeedTestPage = ({
   const [overview, setOverview] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCompany, setSelectedCompany] = useState(null); // { agentId?, aziendaId?, aziendaName, snapshot? }
+  const [selectedCompany, setSelectedCompany] = useState(null); // { agentId?, aziendaId?, aziendaName, snapshot?, lastHeartbeatFromOverview? }
   const [history, setHistory] = useState([]);
   const [companyInfo, setCompanyInfo] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -706,7 +733,8 @@ const SpeedTestPage = ({
         agentId: agentIdNum,
         aziendaId: aziendaIdNum,
         aziendaName: company.azienda_name || company.aziendaName || company.agent_name || 'Agent',
-        snapshot
+        snapshot,
+        lastHeartbeatFromOverview: company.last_heartbeat ?? company.lastHeartbeat ?? null
       });
     };
 
@@ -747,8 +775,31 @@ const SpeedTestPage = ({
           {/* Intestazione (spazio a destra per toggle assoluto) */}
           <div style={{ paddingRight: 100, marginBottom: 16 }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>{company.azienda_name || company.agent_name || 'N/A'}</div>
-            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-              {hasData ? `🕐 ${formatDate(company.test_date)}` : ''}
+            <div
+              style={{
+                marginTop: 6,
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '4px 10px',
+                fontSize: 11,
+                color: '#64748b',
+                lineHeight: 1.35
+              }}
+            >
+              <span>{hasData ? `🕐 ${formatDate(company.test_date)}` : 'Speed test: nessun dato'}</span>
+              {(() => {
+                const seen = formatAgentLastSeen(company.last_heartbeat ?? company.lastHeartbeat);
+                return (
+                  <span
+                    title="Stato agent (ultimo check-in / heartbeat verso il server)"
+                    style={{ color: seen.isStale ? '#fbbf24' : '#94a3b8', fontWeight: seen.isStale ? 600 : 500, whiteSpace: 'nowrap' }}
+                  >
+                    {seen.line}
+                  </span>
+                );
+              })()}
             </div>
           </div>
 
@@ -917,6 +968,19 @@ const SpeedTestPage = ({
               <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>
                 Ultimo test: {lastResult ? formatDate(lastResult.test_date) : '—'}
               </div>
+              {(() => {
+                const seen = formatAgentLastSeen(
+                  companyInfo?.last_heartbeat ?? companyInfo?.lastHeartbeat ?? selectedCompany.lastHeartbeatFromOverview
+                );
+                return (
+                  <div
+                    style={{ fontSize: 12, color: seen.isStale ? '#fbbf24' : '#64748b', marginTop: 6, fontWeight: seen.isStale ? 600 : 500 }}
+                    title="Ultimo heartbeat ricevuto dall’agent (presenza online PC/rete)"
+                  >
+                    {seen.line}
+                  </div>
+                );
+              })()}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#94a3b8' }}>
               <span>Speed Test</span>
