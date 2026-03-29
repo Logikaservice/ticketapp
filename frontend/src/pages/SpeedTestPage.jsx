@@ -8,9 +8,27 @@ import { ArrowLeft, Search, Gauge, Wifi, WifiOff, RefreshCw, Globe, Server as Se
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 
+function parsePositiveInt(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'bigint') {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  if (typeof v === 'number') {
+    return Number.isFinite(v) && v > 0 ? Math.trunc(v) : null;
+  }
+  if (typeof v === 'string') {
+    const t = v.trim();
+    if (!t) return null;
+    const n = parseInt(t, 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  return null;
+}
+
 /**
  * L'API PostgreSQL/Express può esporre colonne in snake_case; eventuali proxy o serializzazioni
- * possono variare. Senza un id agent valido la card non può aprire il dettaglio (nessun errore in console).
+ * possono variare. Si cercano anche tutte le chiavi che sembrano "agent id" / "azienda id".
  */
 function resolveAgentIdFromRow(row) {
   if (!row || typeof row !== 'object') return null;
@@ -18,12 +36,20 @@ function resolveAgentIdFromRow(row) {
     row.agent_id,
     row.agentId,
     row.AgentId,
-    row.AGENT_ID
+    row.AGENT_ID,
+    row.Agent_Id,
+    row.id_agent,
+    row.network_agent_id
   ];
   for (const v of candidates) {
-    if (v == null || v === '') continue;
-    const n = typeof v === 'bigint' ? Number(v) : Number(v);
-    if (Number.isFinite(n) && n > 0) return n;
+    const n = parsePositiveInt(v);
+    if (n != null) return n;
+  }
+  for (const k of Object.keys(row)) {
+    if (/^agent_?id$/i.test(k) || k === 'network_agent_id') {
+      const n = parsePositiveInt(row[k]);
+      if (n != null) return n;
+    }
   }
   return null;
 }
@@ -34,12 +60,20 @@ function resolveAziendaIdFromRow(row) {
     row.azienda_id,
     row.aziendaId,
     row.AziendaId,
-    row.AZIENDA_ID
+    row.AZIENDA_ID,
+    row.Azienda_Id,
+    row.company_id,
+    row.companyId
   ];
   for (const v of candidates) {
-    if (v == null || v === '') continue;
-    const n = typeof v === 'bigint' ? Number(v) : Number(v);
-    if (Number.isFinite(n) && n > 0) return n;
+    const n = parsePositiveInt(v);
+    if (n != null) return n;
+  }
+  for (const k of Object.keys(row)) {
+    if (/^azienda_?id$/i.test(k) || /^company_?id$/i.test(k)) {
+      const n = parsePositiveInt(row[k]);
+      if (n != null) return n;
+    }
   }
   return null;
 }
@@ -98,7 +132,15 @@ const SpeedTestPage = ({
       const data = await res.json();
       if (seq !== overviewFetchSeqRef.current) return;
       if (data.success) {
-        setOverview(dedupeSpeedtestOverview(data.data || []));
+        const rows = Array.isArray(data.data) ? data.data : [];
+        if (rows.length > 0) {
+          try {
+            const u = resolveAgentIdFromRow(rows[0]);
+            const z = resolveAziendaIdFromRow(rows[0]);
+            console.warn('[SpeedTest] overview caricata', rows.length, 'righe · primo agent_id risolto:', u, 'azienda_id:', z, 'chiavi:', Object.keys(rows[0]).join(','));
+          } catch (_) { /* ignore */ }
+        }
+        setOverview(dedupeSpeedtestOverview(rows));
       }
     } catch (err) {
       console.error('Errore caricamento panoramica speed test:', err);
@@ -602,15 +644,28 @@ const SpeedTestPage = ({
       });
     };
 
+    const onCardPointerUp = (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (typeof e.target?.closest === 'function' && e.target.closest('[data-st-toggle-wrap]')) return;
+      console.warn('[SpeedTest] interazione card (pointerup)', {
+        nome: company.azienda_name || company.agent_name,
+        canOpenDetail,
+        agentIdNum,
+        aziendaIdNum
+      });
+      if (canOpenDetail) openDetail();
+    };
+
     return (
       <div
         style={{
           ...styles.cardOuter(canOpenDetail, enabled, hovered),
-          cursor: canOpenDetail ? 'pointer' : 'default'
+          cursor: canOpenDetail ? 'pointer' : 'default',
+          touchAction: 'manipulation'
         }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        onClick={() => { if (canOpenDetail) openDetail(); }}
+        onPointerUp={onCardPointerUp}
         onKeyDown={(e) => {
           if (!canOpenDetail) return;
           if (e.key === 'Enter' || e.key === ' ') {
@@ -620,7 +675,7 @@ const SpeedTestPage = ({
         }}
         tabIndex={canOpenDetail ? 0 : -1}
         role="group"
-        aria-label={canOpenDetail ? 'Apri cronologia speed test' : undefined}
+        aria-label={canOpenDetail ? 'Apri cronologia speed test' : 'Card speed test'}
       >
         <div style={styles.cardBody}>
           {/* Intestazione (spazio a destra per toggle assoluto) */}
@@ -690,6 +745,7 @@ const SpeedTestPage = ({
         </div>
 
         <div
+          data-st-toggle-wrap
           style={{
             position: 'absolute',
             top: 20,
@@ -702,6 +758,7 @@ const SpeedTestPage = ({
             maxWidth: 140,
             pointerEvents: 'auto'
           }}
+          onPointerUp={(e) => { e.stopPropagation(); }}
           onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
           onPointerDown={(e) => { e.stopPropagation(); }}
           onMouseDown={(e) => { e.stopPropagation(); }}
