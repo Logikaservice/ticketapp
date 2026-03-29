@@ -8,6 +8,30 @@ import { ArrowLeft, Search, Gauge, Wifi, WifiOff, RefreshCw, Globe, Server as Se
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 
+/** Riempimento arco ping (indipendente dalla soglia colore). */
+function getPingPct(ping) {
+  const n = Number(ping);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.max(5, Math.min(95, 100 - (n / 50) * 100));
+}
+
+/**
+ * Qualità latenza: colore del cerchio + etichetta sotto il gauge.
+ * Gradazione: verde → giallo → arancione → rose/corallo → rosso.
+ */
+function pingQuality(ms) {
+  const n = Number(ms);
+  if (!Number.isFinite(n) || n < 0) {
+    return { color: '#475569', label: 'PING', pct: 0 };
+  }
+  const pct = getPingPct(n);
+  if (n <= 20) return { color: '#22c55e', label: 'PING (Eccellente)', pct };
+  if (n <= 40) return { color: '#eab308', label: 'PING (Ottimo)', pct };
+  if (n <= 60) return { color: '#f97316', label: 'PING (Buono)', pct };
+  if (n <= 149) return { color: '#f43f5e', label: 'PING (Sufficiente)', pct };
+  return { color: '#dc2626', label: 'PING (Pessimo)', pct };
+}
+
 function parsePositiveInt(v) {
   if (v == null || v === '') return null;
   if (typeof v === 'bigint') {
@@ -361,7 +385,6 @@ const SpeedTestPage = ({
   };
 
   // === Helpers ===
-  const getPingPct = (ping) => Math.max(5, Math.min(95, 100 - (ping / 50) * 100));
   const getDownloadPct = (d) => Math.max(5, Math.min(95, (d / 200) * 100));
   const getUploadPct = (u) => Math.max(5, Math.min(95, (u / 100) * 100));
 
@@ -610,6 +633,7 @@ const SpeedTestPage = ({
         company.ping_ms != null &&
         !Number.isNaN(Number(company.ping_ms))
     );
+    const pqPing = enabled && hasData ? pingQuality(company.ping_ms) : { color: '#475569', pct: 0, label: 'PING' };
 
     const openDetail = () => {
       if (!canOpenDetail) {
@@ -707,7 +731,7 @@ const SpeedTestPage = ({
           <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: 8 }}>
             <div style={{ textAlign: 'center', flex: 1 }}>
               <div style={styles.gaugeWrap}>
-                <div style={styles.gaugeRing(enabled && hasData ? getPingPct(company.ping_ms) : 0, enabled ? '#22c55e' : '#475569')} />
+                <div style={styles.gaugeRing(enabled && hasData ? pqPing.pct : 0, pqPing.color)} />
                 <div style={styles.gaugeInner}>
                   <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
                     {enabled && hasData ? fmtPing(company.ping_ms) : '—'}
@@ -715,7 +739,19 @@ const SpeedTestPage = ({
                   <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'ms' : ''}</span>
                 </div>
               </div>
-              <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: enabled ? '#22c55e' : '#475569' }}>PING</div>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  letterSpacing: 0.2,
+                  lineHeight: 1.25,
+                  color: pqPing.color,
+                  marginTop: 2,
+                  padding: '0 2px'
+                }}
+              >
+                {pqPing.label}
+              </div>
             </div>
             <div style={{ textAlign: 'center', flex: 1 }}>
               <div style={styles.gaugeWrap}>
@@ -865,16 +901,23 @@ const SpeedTestPage = ({
                   <div style={{ display: 'flex', justifyContent: 'center', gap: 48, marginBottom: 16, flexWrap: 'wrap' }}>
                     {/* Ping */}
                     <div style={{ textAlign: 'center' }}>
-                      <div style={styles.detailGaugeWrap}>
-                        <div style={styles.detailGaugeRing(getPingPct(lastResult.ping_ms), '#22c55e')} />
-                        <div style={styles.detailGaugeInner}>
-                          <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
-                            {fmtPing(lastResult.ping_ms)}
-                          </span>
-                          <span style={{ fontSize: 14, color: '#94a3b8' }}>ms</span>
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#22c55e', textTransform: 'uppercase' }}>PING</div>
+                      {(() => {
+                        const pq = pingQuality(lastResult.ping_ms);
+                        return (
+                          <>
+                            <div style={styles.detailGaugeWrap}>
+                              <div style={styles.detailGaugeRing(pq.pct, pq.color)} />
+                              <div style={styles.detailGaugeInner}>
+                                <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
+                                  {fmtPing(lastResult.ping_ms)}
+                                </span>
+                                <span style={{ fontSize: 14, color: '#94a3b8' }}>ms</span>
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: pq.color, lineHeight: 1.3, maxWidth: 220, margin: '0 auto' }}>{pq.label}</div>
+                          </>
+                        );
+                      })()}
                     </div>
                     {/* Download */}
                     <div style={{ textAlign: 'center' }}>
