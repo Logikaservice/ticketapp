@@ -4,7 +4,21 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, Search, Gauge, Wifi, WifiOff, RefreshCw, Globe, Server as ServerIcon, Clock, Activity } from 'lucide-react';
+import {
+  ArrowLeft,
+  Search,
+  Gauge,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  Globe,
+  Server as ServerIcon,
+  Clock,
+  Activity,
+  Calendar,
+  ChevronLeft,
+  ChevronRight
+} from 'lucide-react';
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 
@@ -137,6 +151,44 @@ const PUBLIC_IP_STABILITY_TOOLTIP =
 /** Righe massime nella tabella sotto il grafico (il periodo può contenere molte più misure). */
 const SPEEDTEST_DETAIL_TABLE_MAX_ROWS = 30;
 const SPEEDTEST_SERVER_RETENTION_DAYS = 60;
+
+function pad2(n) {
+  return n < 10 ? `0${n}` : `${n}`;
+}
+
+/** Chiave locale YYYY-MM-DD da una misura speedtest (timezone browser). */
+function ymdLocalFromTestDate(iso) {
+  if (iso == null || iso === '') return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function ymdToItDisplay(ymd) {
+  if (!ymd) return '';
+  const parts = ymd.split('-');
+  if (parts.length !== 3) return ymd;
+  const [y, m, day] = parts;
+  return `${day}/${m}/${y}`;
+}
+
+/** dd/mm/yyyy (o separatore . -) → YYYY-MM-DD se valido; se daysWithData è un Set, accetta solo giorni con dati. */
+function parseItalianDayInput(raw, daysWithData) {
+  const t = String(raw || '').trim();
+  if (!t) return null;
+  const m = t.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/);
+  if (!m) return null;
+  let dayN = parseInt(m[1], 10);
+  let mo = parseInt(m[2], 10);
+  let y = parseInt(m[3], 10);
+  if (y < 100) y += 2000;
+  if (mo < 1 || mo > 12 || dayN < 1 || dayN > 31) return null;
+  const cand = new Date(y, mo - 1, dayN);
+  if (cand.getFullYear() !== y || cand.getMonth() !== mo - 1 || cand.getDate() !== dayN) return null;
+  const ymd = `${y}-${pad2(mo)}-${pad2(dayN)}`;
+  if (daysWithData instanceof Set && !daysWithData.has(ymd)) return null;
+  return ymd;
+}
 
 function normalizeSpeedtestPublicIp(ip) {
   if (ip == null || ip === '') return '';
@@ -287,6 +339,12 @@ const SpeedTestPage = ({
   const [companyInfo, setCompanyInfo] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyDays, setHistoryDays] = useState(30);
+  /** Filtro dettaglio: una giornata (locale YYYY-MM-DD) o tutto il periodo. */
+  const [historyDayFilter, setHistoryDayFilter] = useState(null);
+  const [dayPickerOpen, setDayPickerOpen] = useState(false);
+  const [dayPickerMonth, setDayPickerMonth] = useState(() => new Date());
+  const [daySearchInput, setDaySearchInput] = useState('');
+  const dayPickerWrapRef = useRef(null);
   const chartCanvasRef = useRef(null);
   const chartContainerRef = useRef(null);
   const overviewFetchSeqRef = useRef(0);
@@ -402,27 +460,42 @@ const SpeedTestPage = ({
     }
   }, [selectedCompany, historyDays, fetchHistory]);
 
-  // Disegna il grafico quando cambiano i dati (serve almeno un segmento)
   useEffect(() => {
-    if (selectedCompany && history.length > 1 && chartCanvasRef.current && chartContainerRef.current) {
-      drawChart();
+    setHistoryDayFilter(null);
+    setDayPickerOpen(false);
+    setDaySearchInput('');
+  }, [selectedCompany, historyDays]);
+
+  const daysWithDataSet = useMemo(() => {
+    const s = new Set();
+    for (const row of history) {
+      const k = ymdLocalFromTestDate(row.test_date);
+      if (k) s.add(k);
     }
-  }, [history, selectedCompany]);
+    return s;
+  }, [history]);
 
-  // Ridisegna al resize
+  const historyFiltered = useMemo(() => {
+    if (!historyDayFilter) return history;
+    return history.filter((r) => ymdLocalFromTestDate(r.test_date) === historyDayFilter);
+  }, [history, historyDayFilter]);
+
   useEffect(() => {
-    const handleResize = () => {
-      if (selectedCompany && history.length > 1) drawChart();
+    if (!dayPickerOpen) return;
+    const onDown = (e) => {
+      if (dayPickerWrapRef.current && !dayPickerWrapRef.current.contains(e.target)) {
+        setDayPickerOpen(false);
+      }
     };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [selectedCompany, history]);
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [dayPickerOpen]);
 
-  // === Funzione disegno grafico ===
-  const drawChart = () => {
+  const drawChart = useCallback(() => {
+    const series = historyFiltered;
     const canvas = chartCanvasRef.current;
     const container = chartContainerRef.current;
-    if (!canvas || !container || history.length === 0) return;
+    if (!canvas || !container || !series || series.length === 0) return;
 
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
@@ -430,54 +503,64 @@ const SpeedTestPage = ({
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
     ctx.scale(dpr, dpr);
-    const W = rect.width, H = rect.height;
+    const W = rect.width;
+    const H = rect.height;
     ctx.clearRect(0, 0, W, H);
 
-    const padL = 55, padR = 55, padT = 15, padB = 35;
-    const cW = W - padL - padR, cH = H - padT - padB;
+    const padL = 55;
+    const padR = 55;
+    const padT = 15;
+    const padB = 35;
+    const cW = W - padL - padR;
+    const cH = H - padT - padB;
 
-    // Calcola scale
-    const downloads = history.map(d => d.download_mbps || 0);
-    const uploads = history.map(d => d.upload_mbps || 0);
-    const pings = history.map(d => d.ping_ms || 0);
+    const firstYmd = ymdLocalFromTestDate(series[0]?.test_date);
+    const sameCalendarDay =
+      firstYmd != null && series.every((r) => ymdLocalFromTestDate(r.test_date) === firstYmd);
+
+    const downloads = series.map((d) => d.download_mbps || 0);
+    const uploads = series.map((d) => d.upload_mbps || 0);
+    const pings = series.map((d) => d.ping_ms || 0);
     const maxMbps = Math.max(Math.ceil(Math.max(...downloads, ...uploads) / 10) * 10 + 10, 20);
     const maxPing = Math.max(Math.ceil(Math.max(...pings) / 5) * 5 + 5, 10);
 
-    // Griglia
     ctx.strokeStyle = '#1e293b';
     ctx.lineWidth = 1;
     const gridLines = 5;
     for (let i = 0; i <= gridLines; i++) {
       const y = padT + (cH / gridLines) * i;
-      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
-      // Etichette sinistra (Mbps)
+      ctx.beginPath();
+      ctx.moveTo(padL, y);
+      ctx.lineTo(W - padR, y);
+      ctx.stroke();
       ctx.fillStyle = '#64748b';
       ctx.font = '11px Inter, sans-serif';
       ctx.textAlign = 'right';
-      ctx.fillText(Math.round(maxMbps - (maxMbps / gridLines) * i) + '', padL - 8, y + 4);
-      // Etichette destra (ms)
+      ctx.fillText(`${Math.round(maxMbps - (maxMbps / gridLines) * i)}`, padL - 8, y + 4);
       ctx.textAlign = 'left';
-      ctx.fillText(Math.round(maxPing - (maxPing / gridLines) * i) + ' ms', W - padR + 8, y + 4);
+      ctx.fillText(`${Math.round(maxPing - (maxPing / gridLines) * i)} ms`, W - padR + 8, y + 4);
     }
 
-    // Etichette X (date)
     ctx.fillStyle = '#64748b';
     ctx.textAlign = 'center';
-    const n = history.length;
+    const n = series.length;
     const step = Math.max(1, Math.floor(n / 7));
+    const xLabel = (idx) => {
+      const d = new Date(series[idx].test_date);
+      if (sameCalendarDay) {
+        return d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+      }
+      return `${d.getDate()}/${d.getMonth() + 1}`;
+    };
     for (let i = 0; i < n; i += step) {
       const x = padL + (cW / Math.max(n - 1, 1)) * i;
-      const d = new Date(history[i].test_date);
-      ctx.fillText(d.getDate() + '/' + (d.getMonth() + 1), x, H - 8);
+      ctx.fillText(xLabel(i), x, H - 8);
     }
-    // Ultima data
     if (n > 1) {
       const xLast = padL + cW;
-      const dLast = new Date(history[n - 1].test_date);
-      ctx.fillText(dLast.getDate() + '/' + (dLast.getMonth() + 1), xLast, H - 8);
+      ctx.fillText(xLabel(n - 1), xLast, H - 8);
     }
 
-    // Disegna linea
     const drawLine = (values, maxV, color, lineW) => {
       if (values.length < 2) return;
       ctx.beginPath();
@@ -488,11 +571,11 @@ const SpeedTestPage = ({
       values.forEach((v, i) => {
         const x = padL + (cW / Math.max(values.length - 1, 1)) * i;
         const y = padT + cH - (v / maxV) * cH;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       });
       ctx.stroke();
 
-      // Effetto glow
       ctx.save();
       ctx.globalAlpha = 0.12;
       ctx.strokeStyle = color;
@@ -503,7 +586,8 @@ const SpeedTestPage = ({
       values.forEach((v, i) => {
         const x = padL + (cW / Math.max(values.length - 1, 1)) * i;
         const y = padT + cH - (v / maxV) * cH;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       });
       ctx.stroke();
       ctx.restore();
@@ -513,7 +597,6 @@ const SpeedTestPage = ({
     drawLine(uploads, maxMbps, '#06b6d4', 2.5);
     drawLine(pings, maxPing, '#22c55e', 2);
 
-    // Etichette asse
     ctx.fillStyle = '#94a3b8';
     ctx.font = '11px Inter, sans-serif';
     ctx.save();
@@ -528,7 +611,23 @@ const SpeedTestPage = ({
     ctx.textAlign = 'center';
     ctx.fillText('Ping (ms)', 0, 0);
     ctx.restore();
-  };
+  }, [historyFiltered]);
+
+  // Disegna il grafico quando cambiano i dati (serve almeno un segmento)
+  useEffect(() => {
+    if (selectedCompany && historyFiltered.length > 1 && chartCanvasRef.current && chartContainerRef.current) {
+      drawChart();
+    }
+  }, [historyFiltered, selectedCompany, drawChart]);
+
+  // Ridisegna i grafico al resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (selectedCompany && historyFiltered.length > 1) drawChart();
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [selectedCompany, historyFiltered, drawChart]);
 
   // === Helpers ===
   const formatDate = (dateStr) => {
@@ -548,8 +647,10 @@ const SpeedTestPage = ({
 
   const historyTableRows = useMemo(
     () =>
-      [...history].sort((a, b) => new Date(b.test_date) - new Date(a.test_date)).slice(0, SPEEDTEST_DETAIL_TABLE_MAX_ROWS),
-    [history]
+      [...historyFiltered]
+        .sort((a, b) => new Date(b.test_date) - new Date(a.test_date))
+        .slice(0, SPEEDTEST_DETAIL_TABLE_MAX_ROWS),
+    [historyFiltered]
   );
 
   // Filtra per ricerca
@@ -1035,9 +1136,13 @@ const SpeedTestPage = ({
 
   // === RENDER ===
   if (selectedCompany) {
-    // VISTA DETTAGLIO AZIENDA — ultimo risultato dalla cronologia API, altrimenti snapshot dalla card (panoramica)
-    const lastFromHistory = history.length > 0 ? history[history.length - 1] : null;
-    const lastResult = lastFromHistory || selectedCompany.snapshot || null;
+    // VISTA DETTAGLIO AZIENDA — con filtro giorno: ultima misura di quel giorno; senza filtro: ultimo del periodo o snapshot card
+    const lastFromHistoryFull = history.length > 0 ? history[history.length - 1] : null;
+    const lastFromDayFiltered =
+      historyFiltered.length > 0 ? historyFiltered[historyFiltered.length - 1] : null;
+    const lastResult = historyDayFilter
+      ? lastFromDayFiltered
+      : lastFromHistoryFull || selectedCompany.snapshot || null;
     const enabled = companyInfo?.speedtest_enabled !== false;
     const downloadVsHistDetail =
       pctVsPriorAvgFromHistory(history, 'download_mbps') ?? selectedCompany.download_vs_hist_pct ?? null;
@@ -1095,7 +1200,15 @@ const SpeedTestPage = ({
                 {companyInfo?.azienda_name || selectedCompany.aziendaName}
               </h2>
               <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>
-                Ultimo test: {lastResult ? formatDate(lastResult.test_date) : '—'}
+                {historyDayFilter ? (
+                  <>
+                    Giorno <strong style={{ color: '#e2e8f0' }}>{ymdToItDisplay(historyDayFilter)}</strong>
+                    {' · '}
+                    ultima misura: {lastResult ? formatDate(lastResult.test_date) : '—'}
+                  </>
+                ) : (
+                  <>Ultimo test nel periodo: {lastResult ? formatDate(lastResult.test_date) : '—'}</>
+                )}
               </div>
               {(() => {
                 const seen = formatAgentLastSeen(
@@ -1312,7 +1425,233 @@ const SpeedTestPage = ({
                     </div>
                   </div>
 
-                  {history.length > 1 ? (
+                  <div
+                    ref={dayPickerWrapRef}
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      gap: 10,
+                      marginBottom: 18,
+                      position: 'relative',
+                      zIndex: 5
+                    }}
+                  >
+                    <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>Giorno</span>
+                    <input
+                      type="text"
+                      value={daySearchInput}
+                      onChange={(e) => setDaySearchInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const ymd = parseItalianDayInput(daySearchInput, daysWithDataSet);
+                          if (ymd) {
+                            setHistoryDayFilter(ymd);
+                            setDaySearchInput(ymdToItDisplay(ymd));
+                          }
+                        }
+                      }}
+                      placeholder="gg/mm/aaaa"
+                      style={{
+                        width: 118,
+                        padding: '8px 10px',
+                        borderRadius: 8,
+                        border: '1px solid #475569',
+                        background: '#0f172a',
+                        color: '#e2e8f0',
+                        fontSize: 13,
+                        fontFamily: 'inherit'
+                      }}
+                      title="Inserisci una data con test (anche senza zeri iniziali). Solo giorni evidenziati in calendario hanno misure."
+                      aria-label="Cerca giorno per data"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const ymd = parseItalianDayInput(daySearchInput, daysWithDataSet);
+                        if (ymd) {
+                          setHistoryDayFilter(ymd);
+                          setDaySearchInput(ymdToItDisplay(ymd));
+                        }
+                      }}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: 8,
+                        border: 'none',
+                        background: '#475569',
+                        color: '#e2e8f0',
+                        fontWeight: 600,
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        fontFamily: 'inherit'
+                      }}
+                    >
+                      Vai
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (historyDayFilter) {
+                          const [yy, mm, dd] = historyDayFilter.split('-').map(Number);
+                          setDayPickerMonth(new Date(yy, mm - 1, 1));
+                        } else if (history.length > 0) {
+                          const d = new Date(history[history.length - 1].test_date);
+                          setDayPickerMonth(new Date(d.getFullYear(), d.getMonth(), 1));
+                        } else {
+                          setDayPickerMonth(new Date());
+                        }
+                        setDayPickerOpen((o) => !o);
+                      }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '8px 14px',
+                        borderRadius: 8,
+                        border: 'none',
+                        background: dayPickerOpen ? '#7c3aed' : '#334155',
+                        color: '#fff',
+                        fontWeight: 600,
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        fontFamily: 'inherit'
+                      }}
+                      title="Calendario: solo i giorni con almeno un speed test sono cliccabili"
+                    >
+                      <Calendar size={16} /> Calendario
+                    </button>
+                    {historyDayFilter ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHistoryDayFilter(null);
+                          setDaySearchInput('');
+                        }}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: 8,
+                          border: '1px solid #64748b',
+                          background: 'transparent',
+                          color: '#94a3b8',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          fontFamily: 'inherit'
+                        }}
+                      >
+                        Tutto il periodo
+                      </button>
+                    ) : null}
+
+                    {dayPickerOpen ? (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: 0,
+                          top: '100%',
+                          marginTop: 8,
+                          width: 288,
+                          background: '#1e293b',
+                          border: '1px solid #475569',
+                          borderRadius: 12,
+                          padding: 12,
+                          boxShadow: '0 12px 40px rgba(0,0,0,0.45)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                          <button
+                            type="button"
+                            onClick={() => setDayPickerMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 4 }}
+                            aria-label="Mese precedente"
+                          >
+                            <ChevronLeft size={22} />
+                          </button>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9', textTransform: 'capitalize' }}>
+                            {dayPickerMonth.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setDayPickerMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 4 }}
+                            aria-label="Mese successivo"
+                          >
+                            <ChevronRight size={22} />
+                          </button>
+                        </div>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(7, 1fr)',
+                            gap: 4,
+                            textAlign: 'center',
+                            fontSize: 10,
+                            color: '#64748b',
+                            fontWeight: 600,
+                            marginBottom: 6
+                          }}
+                        >
+                          {['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'].map((w) => (
+                            <span key={w}>{w}</span>
+                          ))}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+                          {(() => {
+                            const calY = dayPickerMonth.getFullYear();
+                            const calM = dayPickerMonth.getMonth();
+                            const first = new Date(calY, calM, 1);
+                            const startPad = (first.getDay() + 6) % 7;
+                            const dim = new Date(calY, calM + 1, 0).getDate();
+                            const cells = [];
+                            for (let i = 0; i < startPad; i++) {
+                              cells.push(<span key={`e-${i}`} />);
+                            }
+                            for (let dN = 1; dN <= dim; dN++) {
+                              const ymd = `${calY}-${pad2(calM + 1)}-${pad2(dN)}`;
+                              const hasData = daysWithDataSet.has(ymd);
+                              const isSel = historyDayFilter === ymd;
+                              cells.push(
+                                <button
+                                  key={ymd}
+                                  type="button"
+                                  disabled={!hasData}
+                                  onClick={() => {
+                                    if (!hasData) return;
+                                    setHistoryDayFilter(ymd);
+                                    setDaySearchInput(ymdToItDisplay(ymd));
+                                    setDayPickerOpen(false);
+                                  }}
+                                  style={{
+                                    height: 32,
+                                    borderRadius: 8,
+                                    border: isSel ? '2px solid #a78bfa' : '1px solid transparent',
+                                    background: !hasData ? '#0f172a' : isSel ? '#5b21b6' : '#334155',
+                                    color: !hasData ? '#475569' : '#f1f5f9',
+                                    fontSize: 13,
+                                    fontWeight: hasData ? 600 : 400,
+                                    cursor: hasData ? 'pointer' : 'not-allowed',
+                                    fontFamily: 'inherit',
+                                    padding: 0,
+                                    lineHeight: 1
+                                  }}
+                                  title={hasData ? `${ymdToItDisplay(ymd)} · clic per filtrare` : 'Nessun test in questa data'}
+                                >
+                                  {dN}
+                                </button>
+                              );
+                            }
+                            return cells;
+                          })()}
+                        </div>
+                        <p style={{ margin: '12px 0 0', fontSize: 11, color: '#64748b', lineHeight: 1.4 }}>
+                          In grigio i giorni senza misure nel periodo caricato ({historyDays}g).
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {historyFiltered.length > 1 ? (
                     <>
                       <div style={{ display: 'flex', gap: 20, marginBottom: 16, fontSize: 12, color: '#94a3b8', flexWrap: 'wrap' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1334,15 +1673,22 @@ const SpeedTestPage = ({
                     </>
                   ) : (
                     <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 20px', lineHeight: 1.5 }}>
-                      Nel periodo selezionato c’è una sola misura: il grafico richiede almeno due punti. Estendi il periodo (es. <strong>7g</strong> o <strong>60g</strong>) o attendi i prossimi test dall’agent (circa ogni {companyInfo?.speedtest_interval_hours ?? 2} h).
+                      {historyDayFilter
+                        ? `Nella giornata ${ymdToItDisplay(historyDayFilter)} c’è una sola misura: servono almeno due punti per tracciare il grafico.`
+                        : `Nel periodo selezionato c’è una sola misura: il grafico richiede almeno due punti. Estendi il periodo (es. 7g o 60g) o attendi i prossimi test dall’agent (circa ogni ${companyInfo?.speedtest_interval_hours ?? 2} h).`}
                     </p>
                   )}
 
-                  <div style={{ marginTop: history.length > 1 ? 28 : 0 }}>
+                  <div style={{ marginTop: historyFiltered.length > 1 ? 28 : 0 }}>
                     <h4 style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0', margin: '0 0 6px' }}>Ultime misure</h4>
                     <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 14px', lineHeight: 1.45 }}>
-                      Fino a <strong>{SPEEDTEST_DETAIL_TABLE_MAX_ROWS}</strong> righe (le più recenti nel periodo scelto). In database restano al massimo{' '}
-                      <strong>{SPEEDTEST_SERVER_RETENTION_DAYS} giorni</strong> di storico (~720 test a campionamento ogni 2 h); volumi così sono leggeri per PostgreSQL.
+                      Fino a <strong>{SPEEDTEST_DETAIL_TABLE_MAX_ROWS}</strong> righe
+                      {historyDayFilter ? (
+                        <> filtrate per <strong>{ymdToItDisplay(historyDayFilter)}</strong></>
+                      ) : (
+                        <> (le più recenti nel periodo scelto)</>
+                      )}
+                      . In database restano al massimo <strong>{SPEEDTEST_SERVER_RETENTION_DAYS} giorni</strong> di storico (~720 test a campionamento ogni 2 h).
                     </p>
                     <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid #334155' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
