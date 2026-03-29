@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Speed Test Dashboard - Anteprima</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-icon {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, #7c3aed, #06b6d4);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .header h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #f1f5f9;
+  }
+  .header p {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 2px;
+  }
+
+  /* Toggle */
+  .toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #94a3b8;
+  }
+  .toggle {
+    width: 44px; height: 24px;
+    background: #475569;
+    border-radius: 12px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  .toggle.active { background: #22c55e; }
+  .toggle::after {
+    content: '';
+    width: 18px; height: 18px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 3px; left: 3px;
+    transition: transform 0.3s;
+  }
+  .toggle.active::after { transform: translateX(20px); }
+
+  /* Search/Filter bar */
+  .filter-bar {
+    padding: 16px 32px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .filter-bar input {
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #e2e8f0;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    width: 280px;
+    outline: none;
+  }
+  .filter-bar input:focus { border-color: #7c3aed; }
+  .stats-bar {
+    display: flex;
+    gap: 16px;
+    margin-left: auto;
+    font-size: 13px;
+    color: #94a3b8;
+  }
+  .stats-bar span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .stats-bar .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .dot-green { background: #22c55e; }
+  .dot-red { background: #ef4444; }
+  .dot-gray { background: #64748b; }
+
+  /* Cards grid */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 20px;
+    padding: 0 32px 32px;
+  }
+
+  /* Card */
+  .card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 16px;
+    padding: 24px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .card:hover {
+    border-color: #7c3aed;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(124, 58, 237, 0.15);
+  }
+  .card.disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .card.disabled:hover {
+    border-color: #334155;
+    transform: none;
+    box-shadow: none;
+  }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+  }
+  .card-company {
+    font-size: 16px;
+    font-weight: 700;
+    color: #f1f5f9;
+  }
+  .card-date {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 4px;
+  }
+  .card-isp {
+    font-size: 12px;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+  .card-isp .ip {
+    color: #7c3aed;
+    font-family: monospace;
+    font-size: 11px;
+  }
+
+  /* Gauges row */
+  .gauges {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 8px;
+  }
+  .gauge {
+    text-align: center;
+    flex: 1;
+  }
+  .gauge-circle {
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 8px;
+    position: relative;
+  }
+  .gauge-circle::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    padding: 3px;
+    background: conic-gradient(var(--gauge-color) var(--gauge-pct), #334155 0);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  }
+  .gauge-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: #f1f5f9;
+    line-height: 1.1;
+  }
+  .gauge-unit {
+    font-size: 10px;
+    color: #94a3b8;
+    font-weight: 500;
+  }
+  .gauge-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .gauge-ping .gauge-circle { --gauge-color: #22c55e; --gauge-pct: 85%; }
+  .gauge-ping .gauge-label { color: #22c55e; }
+  .gauge-download .gauge-circle { --gauge-color: #7c3aed; --gauge-pct: 75%; }
+  .gauge-download .gauge-label { color: #7c3aed; }
+  .gauge-upload .gauge-circle { --gauge-color: #06b6d4; --gauge-pct: 60%; }
+  .gauge-upload .gauge-label { color: #06b6d4; }
+
+  .card.disabled .gauge-circle::before { background: conic-gradient(#475569 40%, #334155 0); }
+  .card.disabled .gauge-value { color: #475569; }
+  .card.disabled .gauge-label { color: #475569; }
+  .disabled-badge {
+    display: inline-block;
+    background: #7f1d1d;
+    color: #fca5a5;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 6px;
+  }
+
+  /* ========= DETAIL VIEW ========= */
+  .detail-view {
+    display: none;
+    padding: 32px;
+  }
+  .detail-view.active { display: block; }
+  .overview.hidden { display: none; }
+
+  .back-btn {
+    background: #334155;
+    border: none;
+    color: #e2e8f0;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 24px;
+    transition: background 0.2s;
+  }
+  .back-btn:hover { background: #475569; }
+
+  .detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+  }
+  .detail-header h2 {
+    font-size: 28px;
+    font-weight: 800;
+    color: #f1f5f9;
+  }
+  .detail-header .meta {
+    font-size: 13px;
+    color: #94a3b8;
+    margin-top: 4px;
+  }
+
+  .detail-gauges {
+    display: flex;
+    justify-content: center;
+    gap: 48px;
+    margin-bottom: 16px;
+  }
+  .detail-gauge {
+    text-align: center;
+  }
+  .detail-gauge-circle {
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px;
+    position: relative;
+  }
+  .detail-gauge-circle::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    padding: 5px;
+    background: conic-gradient(var(--gauge-color) var(--gauge-pct), #1e293b 0);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+  }
+  .detail-gauge .gauge-value {
+    font-size: 36px;
+    font-weight: 900;
+  }
+  .detail-gauge .gauge-unit {
+    font-size: 14px;
+  }
+  .detail-gauge .gauge-label {
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .detail-gauge.ping .detail-gauge-circle { --gauge-color: #22c55e; --gauge-pct: 85%; }
+  .detail-gauge.ping .gauge-label { color: #22c55e; }
+  .detail-gauge.download .detail-gauge-circle { --gauge-color: #7c3aed; --gauge-pct: 75%; }
+  .detail-gauge.download .gauge-label { color: #7c3aed; }
+  .detail-gauge.upload .detail-gauge-circle { --gauge-color: #06b6d4; --gauge-pct: 60%; }
+  .detail-gauge.upload .gauge-label { color: #06b6d4; }
+
+  .detail-info-bar {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 14px;
+    margin-bottom: 40px;
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .detail-info-bar span { display: flex; align-items: center; gap: 6px; }
+  .detail-info-bar .val { color: #e2e8f0; font-weight: 600; }
+
+  /* Chart section */
+  .chart-section {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 16px;
+    padding: 24px;
+  }
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .chart-header h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #f1f5f9;
+  }
+  .period-btns {
+    display: flex;
+    gap: 4px;
+  }
+  .period-btn {
+    background: #334155;
+    border: none;
+    color: #94a3b8;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .period-btn.active {
+    background: #7c3aed;
+    color: white;
+  }
+  .period-btn:hover:not(.active) { background: #475569; }
+
+  .chart-legend {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 16px;
+    font-size: 12px;
+    color: #94a3b8;
+  }
+  .chart-legend span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-line {
+    width: 20px;
+    height: 3px;
+    border-radius: 2px;
+    display: inline-block;
+  }
+
+  .chart-container {
+    width: 100%;
+    height: 280px;
+    position: relative;
+  }
+  .chart-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .cards-grid { grid-template-columns: 1fr; padding: 0 16px 16px; }
+    .header { padding: 12px 16px; }
+    .filter-bar { padding: 12px 16px; flex-wrap: wrap; }
+    .detail-gauges { gap: 20px; flex-wrap: wrap; }
+    .detail-gauge-circle { width: 120px; height: 120px; }
+    .detail-gauge .gauge-value { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="header-icon">⚡</div>
+    <div>
+      <h1>Speed Test Dashboard</h1>
+      <p>Monitoraggio velocità connessione · Solo tecnici</p>
+    </div>
+  </div>
+</div>
+
+<!-- === OVERVIEW === -->
+<div class="overview" id="overviewView">
+  <div class="filter-bar">
+    <input type="text" placeholder="🔍 Cerca azienda..." id="searchInput" oninput="filterCards()">
+    <div class="stats-bar">
+      <span><span class="dot dot-green"></span> 5 attivi</span>
+      <span><span class="dot dot-gray"></span> 1 disattivato</span>
+      <span>Test ogni 2 ore</span>
+    </div>
+  </div>
+
+  <div class="cards-grid" id="cardsGrid">
+    <!-- Cards generate dinamicamente -->
+  </div>
+</div>
+
+<!-- === DETAIL VIEW === -->
+<div class="detail-view" id="detailView">
+  <button class="back-btn" onclick="showOverview()">← Torna alla panoramica</button>
+
+  <div class="detail-header">
+    <div>
+      <h2 id="detailCompany">Studio Rossi</h2>
+      <div class="meta" id="detailMeta">Ultimo test: 27/03/2026 18:30</div>
+    </div>
+    <div class="toggle-container">
+      <span>Speed Test</span>
+      <div class="toggle active" id="detailToggle" onclick="this.classList.toggle('active')"></div>
+    </div>
+  </div>
+
+  <div class="detail-gauges">
+    <div class="detail-gauge ping">
+      <div class="detail-gauge-circle">
+        <span class="gauge-value" id="detailPing">12</span>
+        <span class="gauge-unit">ms</span>
+      </div>
+      <div class="gauge-label">PING</div>
+    </div>
+    <div class="detail-gauge download">
+      <div class="detail-gauge-circle">
+        <span class="gauge-value" id="detailDownload">94.5</span>
+        <span class="gauge-unit">Mbps</span>
+      </div>
+      <div class="gauge-label">SCARICA</div>
+    </div>
+    <div class="detail-gauge upload">
+      <div class="detail-gauge-circle">
+        <span class="gauge-value" id="detailUpload">47.2</span>
+        <span class="gauge-unit">Mbps</span>
+      </div>
+      <div class="gauge-label">CARICA</div>
+    </div>
+  </div>
+
+  <div class="detail-info-bar">
+    <span>Operatore: <span class="val" id="detailISP">Vodafone Italia</span></span>
+    <span>IP Pubblico: <span class="val" id="detailIP" style="font-family:monospace">85.42.123.45</span></span>
+    <span>Server: <span class="val" id="detailServer">Milan - Vodafone IT</span></span>
+  </div>
+
+  <!-- Chart -->
+  <div class="chart-section">
+    <div class="chart-header">
+      <h3>📈 Cronologia</h3>
+      <div class="period-btns">
+        <button class="period-btn" onclick="changePeriod(this, 7)">7g</button>
+        <button class="period-btn" onclick="changePeriod(this, 14)">14g</button>
+        <button class="period-btn active" onclick="changePeriod(this, 30)">30g</button>
+      </div>
+    </div>
+    <div class="chart-legend">
+      <span><span class="legend-line" style="background:#7c3aed"></span> Download (Mbps)</span>
+      <span><span class="legend-line" style="background:#06b6d4"></span> Upload (Mbps)</span>
+      <span><span class="legend-line" style="background:#22c55e"></span> Ping (ms)</span>
+    </div>
+    <div class="chart-container">
+      <canvas id="historyChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+// Sample data
+const companies = [
+  { name: "Studio Rossi", date: "27/03/2026 18:30", isp: "Vodafone Italia", ip: "85.42.123.45", ping: 12, download: 94.5, upload: 47.2, enabled: true, server: "Milan - Vodafone IT" },
+  { name: "Farmacia Bianchi", date: "27/03/2026 17:45", isp: "TIM Business", ip: "79.18.55.102", ping: 8, download: 186.3, upload: 92.1, enabled: true, server: "Rome - TIM SpA" },
+  { name: "Hotel Belvedere", date: "27/03/2026 16:30", isp: "Fastweb", ip: "93.62.44.78", ping: 15, download: 72.8, upload: 35.4, enabled: true, server: "Milan - Fastweb" },
+  { name: "Ristorante Da Mario", date: "27/03/2026 18:00", isp: "WindTre Business", ip: "151.47.33.90", ping: 22, download: 45.6, upload: 22.8, enabled: true, server: "Naples - WindTre" },
+  { name: "Autofficina Verdi", date: "27/03/2026 14:30", isp: "Vodafone Italia", ip: "85.42.189.210", ping: 18, download: 58.3, upload: 28.9, enabled: true, server: "Milan - Vodafone IT" },
+  { name: "Studio Legale Neri", date: "—", isp: "—", ip: "—", ping: 0, download: 0, upload: 0, enabled: false, server: "—" }
+];
+
+function getPingPct(ping) { return Math.max(10, Math.min(95, 100 - (ping / 50) * 100)); }
+function getDownloadPct(d) { return Math.max(10, Math.min(95, (d / 200) * 100)); }
+function getUploadPct(u) { return Math.max(10, Math.min(95, (u / 100) * 100)); }
+
+function renderCards(filter = '') {
+  const grid = document.getElementById('cardsGrid');
+  grid.innerHTML = '';
+  const filtered = companies.filter(c => c.name.toLowerCase().includes(filter.toLowerCase()));
+
+  filtered.forEach((c, idx) => {
+    const card = document.createElement('div');
+    card.className = `card${c.enabled ? '' : ' disabled'}`;
+    if (c.enabled) card.onclick = () => showDetail(idx);
+
+    card.innerHTML = `
+      <div class="card-header">
+        <div>
+          <div class="card-company">${c.name}</div>
+          <div class="card-date">${c.enabled ? '🕐 ' + c.date : ''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${!c.enabled ? '<span class="disabled-badge">Disattivato</span>' : ''}
+          <div class="toggle ${c.enabled ? 'active' : ''}" onclick="event.stopPropagation(); toggleCompany(${idx}, this)"></div>
+        </div>
+      </div>
+      <div class="card-isp">
+        ${c.enabled ? `🌐 ${c.isp} &nbsp;·&nbsp; <span class="ip">${c.ip}</span>` : 'Speed test non attivo per questa azienda'}
+      </div>
+      <div class="gauges">
+        <div class="gauge gauge-ping">
+          <div class="gauge-circle" style="--gauge-pct:${c.enabled ? getPingPct(c.ping) : 0}%">
+            <span class="gauge-value">${c.enabled ? c.ping : '—'}</span>
+            <span class="gauge-unit">${c.enabled ? 'ms' : ''}</span>
+          </div>
+          <div class="gauge-label">PING</div>
+        </div>
+        <div class="gauge gauge-download">
+          <div class="gauge-circle" style="--gauge-pct:${c.enabled ? getDownloadPct(c.download) : 0}%">
+            <span class="gauge-value">${c.enabled ? c.download : '—'}</span>
+            <span class="gauge-unit">${c.enabled ? 'Mbps' : ''}</span>
+          </div>
+          <div class="gauge-label">SCARICA</div>
+        </div>
+        <div class="gauge gauge-upload">
+          <div class="gauge-circle" style="--gauge-pct:${c.enabled ? getUploadPct(c.upload) : 0}%">
+            <span class="gauge-value">${c.enabled ? c.upload : '—'}</span>
+            <span class="gauge-unit">${c.enabled ? 'Mbps' : ''}</span>
+          </div>
+          <div class="gauge-label">CARICA</div>
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function toggleCompany(idx, el) {
+  companies[idx].enabled = !companies[idx].enabled;
+  renderCards(document.getElementById('searchInput').value);
+}
+
+function filterCards() {
+  renderCards(document.getElementById('searchInput').value);
+}
+
+function showDetail(idx) {
+  const c = companies[idx];
+  document.getElementById('detailCompany').textContent = c.name;
+  document.getElementById('detailMeta').textContent = 'Ultimo test: ' + c.date;
+  document.getElementById('detailPing').textContent = c.ping;
+  document.getElementById('detailDownload').textContent = c.download;
+  document.getElementById('detailUpload').textContent = c.upload;
+  document.getElementById('detailISP').textContent = c.isp;
+  document.getElementById('detailIP').textContent = c.ip;
+  document.getElementById('detailServer').textContent = c.server;
+
+  document.getElementById('overviewView').classList.add('hidden');
+  document.getElementById('detailView').classList.add('active');
+
+  drawChart(30);
+}
+
+function showOverview() {
+  document.getElementById('overviewView').classList.remove('hidden');
+  document.getElementById('detailView').classList.remove('active');
+}
+
+function changePeriod(btn, days) {
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  drawChart(days);
+}
+
+function drawChart(days) {
+  const canvas = document.getElementById('historyChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const padL = 50, padR = 50, padT = 10, padB = 30;
+  const cW = W - padL - padR, cH = H - padT - padB;
+
+  // Generate fake data
+  const data = [];
+  for (let i = 0; i < days; i++) {
+    data.push({
+      download: 80 + Math.random() * 30 + Math.sin(i / 5) * 10,
+      upload: 35 + Math.random() * 15 + Math.cos(i / 4) * 5,
+      ping: 8 + Math.random() * 8 + Math.sin(i / 3) * 3
+    });
+  }
+
+  // Y scales
+  const maxMbps = 150;
+  const maxPing = 30;
+
+  // Grid
+  ctx.strokeStyle = '#1e293b';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const y = padT + (cH / 5) * i;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    // Left labels (Mbps)
+    ctx.fillStyle = '#64748b';
+    ctx.font = '11px Inter';
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(maxMbps - (maxMbps / 5) * i) + '', padL - 8, y + 4);
+    // Right labels (ms)
+    ctx.textAlign = 'left';
+    ctx.fillText(Math.round(maxPing - (maxPing / 5) * i) + ' ms', W - padR + 8, y + 4);
+  }
+
+  // X labels
+  ctx.fillStyle = '#64748b';
+  ctx.textAlign = 'center';
+  const step = Math.max(1, Math.floor(days / 6));
+  for (let i = 0; i < days; i += step) {
+    const x = padL + (cW / (days - 1)) * i;
+    const d = new Date();
+    d.setDate(d.getDate() - (days - 1 - i));
+    ctx.fillText(d.getDate() + '/' + (d.getMonth() + 1), x, H - 5);
+  }
+
+  // Draw line
+  function drawLine(values, maxV, color, lineW) {
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineW;
+    ctx.lineJoin = 'round';
+    values.forEach((v, i) => {
+      const x = padL + (cW / (values.length - 1)) * i;
+      const y = padT + cH - (v / maxV) * cH;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Glow effect
+    ctx.save();
+    ctx.globalAlpha = 0.1;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineW + 6;
+    ctx.beginPath();
+    values.forEach((v, i) => {
+      const x = padL + (cW / (values.length - 1)) * i;
+      const y = padT + cH - (v / maxV) * cH;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawLine(data.map(d => d.download), maxMbps, '#7c3aed', 2.5);
+  drawLine(data.map(d => d.upload), maxMbps, '#06b6d4', 2.5);
+  drawLine(data.map(d => d.ping), maxPing, '#22c55e', 2);
+
+  // Axis labels
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '11px Inter';
+  ctx.save();
+  ctx.translate(12, padT + cH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.fillText('Mbps', 0, 0);
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(W - 8, padT + cH / 2);
+  ctx.rotate(Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.fillText('Ping (ms)', 0, 0);
+  ctx.restore();
+}
+
+// Init
+renderCards();
+
+// Redraw chart on resize
+window.addEventListener('resize', () => {
+  if (document.getElementById('detailView').classList.contains('active')) {
+    const active = document.querySelector('.period-btn.active');
+    drawChart(parseInt(active?.textContent) || 30);
+  }
+});
+</script>
+</body>
+</html>

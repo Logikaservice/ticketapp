@@ -3,6 +3,7 @@
 // Visibile solo ai tecnici
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { ArrowLeft, Search, Gauge, Wifi, WifiOff, RefreshCw, Globe, Server as ServerIcon, Clock, Activity } from 'lucide-react';
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
@@ -532,8 +533,14 @@ const SpeedTestPage = ({
         !Number.isNaN(Number(company.ping_ms))
     );
 
-    const openDetail = () => {
-      if (agentIdNum == null) return;
+    const openDetail = (e) => {
+      // Evita che il click sul toggle (stopPropagation) arrivi qui
+      if (e && e.defaultPrevented) return;
+      if (agentIdNum == null) {
+        console.warn('[SpeedTest] Impossibile aprire dettaglio: agent_id non valido', company);
+        return;
+      }
+      console.log('[SpeedTest] Apertura dettaglio per agent', agentIdNum, company.azienda_name || company.agent_name);
       setSelectedCompany({
         agentId: agentIdNum,
         aziendaName: company.azienda_name || company.aziendaName || company.agent_name || 'Agent'
@@ -545,12 +552,16 @@ const SpeedTestPage = ({
         style={styles.cardOuter(canOpenDetail, enabled, hovered)}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        onClick={(e) => {
+          // Fallback: se il click arriva al card-outer (non intercettato dal toggle), apri il dettaglio
+          if (canOpenDetail && !e.defaultPrevented) openDetail(e);
+        }}
+        role="button"
+        tabIndex={canOpenDetail ? 0 : -1}
+        onKeyDown={(e) => { if (canOpenDetail && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDetail(e); } }}
       >
-        <button
-          type="button"
+        <div
           style={styles.cardOpenBtn(canOpenDetail)}
-          onClick={openDetail}
-          aria-label={canOpenDetail ? `Apri dettaglio speed test per ${company.azienda_name || company.agent_name || 'agent'}` : 'ID agent non disponibile'}
         >
           {/* Intestazione (spazio a destra per toggle assoluto) */}
           <div style={{ paddingRight: 100, marginBottom: 16 }}>
@@ -570,7 +581,7 @@ const SpeedTestPage = ({
               </>
             ) : enabled ? (
               <span>
-                Nessun risultato ancora: l’agent lancia lo speed test dopo un heartbeat riuscito (in genere entro ~5–15 min dall’avvio), poi ogni {company.speedtest_interval_hours || 2} h. Se resta così, sui PC verifica firewall/out verso speedtest.net e i log [SpeedTest].
+                Nessun risultato ancora: l'agent lancia lo speed test dopo un heartbeat riuscito (in genere entro ~5–15 min dall'avvio), poi ogni {company.speedtest_interval_hours || 2} h. Se resta così, sui PC verifica firewall/out verso speedtest.net e i log [SpeedTest].
               </span>
             ) : (
               'Speed test disattivato: attiva il toggle per raccogliere misure da questo agent.'
@@ -616,7 +627,7 @@ const SpeedTestPage = ({
               <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: enabled ? '#06b6d4' : '#475569' }}>CARICA</div>
             </div>
           </div>
-        </button>
+        </div>
 
         <div
           style={{
@@ -631,15 +642,16 @@ const SpeedTestPage = ({
             maxWidth: 140,
             pointerEvents: 'auto'
           }}
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+          onPointerDown={(e) => { e.stopPropagation(); }}
+          onMouseDown={(e) => { e.stopPropagation(); }}
           onKeyDown={(e) => e.stopPropagation()}
         >
           {!enabled && <span style={styles.disabledBadge}>Disattivato</span>}
           <button
             type="button"
             style={styles.toggle(enabled)}
-            onClick={(e) => toggleSpeedTest(agentIdNum ?? company.agent_id, !enabled, e)}
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleSpeedTest(agentIdNum ?? company.agent_id, !enabled, e); }}
             title={enabled ? 'Disattiva speed test' : 'Attiva speed test'}
           >
             <div style={styles.toggleDot(enabled)} />
@@ -655,7 +667,7 @@ const SpeedTestPage = ({
     const lastResult = history.length > 0 ? history[history.length - 1] : null;
     const enabled = companyInfo?.speedtest_enabled !== false;
 
-    return (
+    return ReactDOM.createPortal(
       <div style={styles.page}>
         {/* Intestazione */}
         <div style={styles.header}>
@@ -836,12 +848,13 @@ const SpeedTestPage = ({
 
         {/* CSS animazione spin */}
         <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-      </div>
+      </div>,
+      document.body
     );
   }
 
   // VISTA PANORAMICA
-  return (
+  return ReactDOM.createPortal(
     <div style={styles.page}>
       {/* Intestazione */}
       <div style={styles.header}>
@@ -924,7 +937,8 @@ const SpeedTestPage = ({
 
       {/* CSS animazione spin */}
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-    </div>
+    </div>,
+    document.body
   );
 };
 
