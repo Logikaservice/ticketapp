@@ -32,6 +32,49 @@ function pingQuality(ms) {
   return { color: '#dc2626', label: 'PING (Pessimo)', pct };
 }
 
+function getDownloadPct(mbps) {
+  const n = Number(mbps);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.max(5, Math.min(95, (n / 200) * 100));
+}
+
+function getUploadPct(mbps) {
+  const n = Number(mbps);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.max(5, Math.min(95, (n / 100) * 100));
+}
+
+/**
+ * Qualità download (Mbps): più è alto, meglio è. Colori in linea con la scala ping.
+ * Soglie: 0–10 critica → … → >500 ultra-veloce.
+ */
+function downloadQuality(mbps) {
+  const n = Number(mbps);
+  if (!Number.isFinite(n) || n < 0) {
+    return { color: '#475569', label: 'DOWNLOAD', pct: 0 };
+  }
+  const pct = getDownloadPct(n);
+  if (n <= 10) return { color: '#dc2626', label: 'DOWNLOAD (Critica)', pct };
+  if (n <= 30) return { color: '#f97316', label: 'DOWNLOAD (Lenta)', pct };
+  if (n <= 100) return { color: '#f472b6', label: 'DOWNLOAD (Media)', pct };
+  if (n <= 500) return { color: '#eab308', label: 'DOWNLOAD (Veloce)', pct };
+  return { color: '#22c55e', label: 'DOWNLOAD (Ultra-Veloce)', pct };
+}
+
+/** Stesse soglie Mbps del download; arco scalato come prima (max 100 Mbps nel gauge). */
+function uploadQuality(mbps) {
+  const n = Number(mbps);
+  if (!Number.isFinite(n) || n < 0) {
+    return { color: '#475569', label: 'UPLOAD', pct: 0 };
+  }
+  const pct = getUploadPct(n);
+  if (n <= 10) return { color: '#dc2626', label: 'UPLOAD (Critica)', pct };
+  if (n <= 30) return { color: '#f97316', label: 'UPLOAD (Lenta)', pct };
+  if (n <= 100) return { color: '#f472b6', label: 'UPLOAD (Media)', pct };
+  if (n <= 500) return { color: '#eab308', label: 'UPLOAD (Veloce)', pct };
+  return { color: '#22c55e', label: 'UPLOAD (Ultra-Veloce)', pct };
+}
+
 function parsePositiveInt(v) {
   if (v == null || v === '') return null;
   if (typeof v === 'bigint') {
@@ -385,9 +428,6 @@ const SpeedTestPage = ({
   };
 
   // === Helpers ===
-  const getDownloadPct = (d) => Math.max(5, Math.min(95, (d / 200) * 100));
-  const getUploadPct = (u) => Math.max(5, Math.min(95, (u / 100) * 100));
-
   const formatDate = (dateStr) => {
     if (!dateStr) return '—';
     const d = new Date(dateStr);
@@ -634,6 +674,8 @@ const SpeedTestPage = ({
         !Number.isNaN(Number(company.ping_ms))
     );
     const pqPing = enabled && hasData ? pingQuality(company.ping_ms) : { color: '#475569', pct: 0, label: 'PING' };
+    const dqDown = enabled && hasData ? downloadQuality(company.download_mbps) : { color: '#475569', pct: 0, label: 'DOWNLOAD' };
+    const uqUp = enabled && hasData ? uploadQuality(company.upload_mbps) : { color: '#475569', pct: 0, label: 'UPLOAD' };
 
     const openDetail = () => {
       if (!canOpenDetail) {
@@ -755,7 +797,7 @@ const SpeedTestPage = ({
             </div>
             <div style={{ textAlign: 'center', flex: 1 }}>
               <div style={styles.gaugeWrap}>
-                <div style={styles.gaugeRing(enabled && hasData ? getDownloadPct(company.download_mbps) : 0, enabled ? '#7c3aed' : '#475569')} />
+                <div style={styles.gaugeRing(enabled && hasData ? dqDown.pct : 0, dqDown.color)} />
                 <div style={styles.gaugeInner}>
                   <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
                     {enabled && hasData ? fmtMbps(company.download_mbps) : '—'}
@@ -763,11 +805,11 @@ const SpeedTestPage = ({
                   <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'Mbps' : ''}</span>
                 </div>
               </div>
-              <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: enabled ? '#7c3aed' : '#475569' }}>SCARICA</div>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.2, lineHeight: 1.25, color: dqDown.color, marginTop: 2, padding: '0 2px' }}>{dqDown.label}</div>
             </div>
             <div style={{ textAlign: 'center', flex: 1 }}>
               <div style={styles.gaugeWrap}>
-                <div style={styles.gaugeRing(enabled && hasData ? getUploadPct(company.upload_mbps) : 0, enabled ? '#06b6d4' : '#475569')} />
+                <div style={styles.gaugeRing(enabled && hasData ? uqUp.pct : 0, uqUp.color)} />
                 <div style={styles.gaugeInner}>
                   <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
                     {enabled && hasData ? fmtMbps(company.upload_mbps) : '—'}
@@ -775,7 +817,7 @@ const SpeedTestPage = ({
                   <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'Mbps' : ''}</span>
                 </div>
               </div>
-              <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: enabled ? '#06b6d4' : '#475569' }}>CARICA</div>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.2, lineHeight: 1.25, color: uqUp.color, marginTop: 2, padding: '0 2px' }}>{uqUp.label}</div>
             </div>
           </div>
         </div>
@@ -921,29 +963,43 @@ const SpeedTestPage = ({
                     </div>
                     {/* Download */}
                     <div style={{ textAlign: 'center' }}>
-                      <div style={styles.detailGaugeWrap}>
-                        <div style={styles.detailGaugeRing(getDownloadPct(lastResult.download_mbps), '#7c3aed')} />
-                        <div style={styles.detailGaugeInner}>
-                          <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
-                            {fmtMbps(lastResult.download_mbps)}
-                          </span>
-                          <span style={{ fontSize: 14, color: '#94a3b8' }}>Mbps</span>
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase' }}>SCARICA</div>
+                      {(() => {
+                        const dq = downloadQuality(lastResult.download_mbps);
+                        return (
+                          <>
+                            <div style={styles.detailGaugeWrap}>
+                              <div style={styles.detailGaugeRing(dq.pct, dq.color)} />
+                              <div style={styles.detailGaugeInner}>
+                                <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
+                                  {fmtMbps(lastResult.download_mbps)}
+                                </span>
+                                <span style={{ fontSize: 14, color: '#94a3b8' }}>Mbps</span>
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: dq.color, lineHeight: 1.3, maxWidth: 260, margin: '0 auto' }}>{dq.label}</div>
+                          </>
+                        );
+                      })()}
                     </div>
                     {/* Upload */}
                     <div style={{ textAlign: 'center' }}>
-                      <div style={styles.detailGaugeWrap}>
-                        <div style={styles.detailGaugeRing(getUploadPct(lastResult.upload_mbps), '#06b6d4')} />
-                        <div style={styles.detailGaugeInner}>
-                          <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
-                            {fmtMbps(lastResult.upload_mbps)}
-                          </span>
-                          <span style={{ fontSize: 14, color: '#94a3b8' }}>Mbps</span>
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#06b6d4', textTransform: 'uppercase' }}>CARICA</div>
+                      {(() => {
+                        const uq = uploadQuality(lastResult.upload_mbps);
+                        return (
+                          <>
+                            <div style={styles.detailGaugeWrap}>
+                              <div style={styles.detailGaugeRing(uq.pct, uq.color)} />
+                              <div style={styles.detailGaugeInner}>
+                                <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
+                                  {fmtMbps(lastResult.upload_mbps)}
+                                </span>
+                                <span style={{ fontSize: 14, color: '#94a3b8' }}>Mbps</span>
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: uq.color, lineHeight: 1.3, maxWidth: 260, margin: '0 auto' }}>{uq.label}</div>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -1041,11 +1097,11 @@ const SpeedTestPage = ({
                   <div style={{ display: 'flex', gap: 20, marginBottom: 16, fontSize: 12, color: '#94a3b8' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ width: 20, height: 3, borderRadius: 2, background: '#7c3aed', display: 'inline-block' }} />
-                      Download (Mbps)
+                      DOWNLOAD (Mbps)
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ width: 20, height: 3, borderRadius: 2, background: '#06b6d4', display: 'inline-block' }} />
-                      Upload (Mbps)
+                      UPLOAD (Mbps)
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ width: 20, height: 3, borderRadius: 2, background: '#22c55e', display: 'inline-block' }} />
