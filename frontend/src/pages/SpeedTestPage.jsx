@@ -2,7 +2,7 @@
 // Dashboard Speed Test - Monitoraggio velocità connessione per azienda
 // Visibile solo ai tecnici
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, Search, Gauge, Wifi, WifiOff, RefreshCw, Globe, Server as ServerIcon, Clock, Activity } from 'lucide-react';
 import SectionNavMenu from '../components/SectionNavMenu';
@@ -133,6 +133,10 @@ const PUBLIC_IP_STABILITY_MIN_CONSECUTIVE = 3;
 const PUBLIC_IP_STABILITY_MIN_HOURS = 24;
 const PUBLIC_IP_STABILITY_TOOLTIP =
   'Confronto tra i test con IP registrato su questo agent: (Statico) stesso IP per almeno 3 misure o per almeno 24 ore; (Dinamico) IP diverso tra un test e il successivo. Con pochi dati l’etichetta può non comparire.';
+
+/** Righe massime nella tabella sotto il grafico (il periodo può contenere molte più misure). */
+const SPEEDTEST_DETAIL_TABLE_MAX_ROWS = 30;
+const SPEEDTEST_SERVER_RETENTION_DAYS = 60;
 
 function normalizeSpeedtestPublicIp(ip) {
   if (ip == null || ip === '') return '';
@@ -398,9 +402,9 @@ const SpeedTestPage = ({
     }
   }, [selectedCompany, historyDays, fetchHistory]);
 
-  // Disegna il grafico quando cambiano i dati
+  // Disegna il grafico quando cambiano i dati (serve almeno un segmento)
   useEffect(() => {
-    if (selectedCompany && history.length > 0 && chartCanvasRef.current && chartContainerRef.current) {
+    if (selectedCompany && history.length > 1 && chartCanvasRef.current && chartContainerRef.current) {
       drawChart();
     }
   }, [history, selectedCompany]);
@@ -408,7 +412,7 @@ const SpeedTestPage = ({
   // Ridisegna al resize
   useEffect(() => {
     const handleResize = () => {
-      if (selectedCompany && history.length > 0) drawChart();
+      if (selectedCompany && history.length > 1) drawChart();
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -541,6 +545,12 @@ const SpeedTestPage = ({
     const n = Number(v);
     return Number.isFinite(n) ? n.toFixed(1) : '—';
   };
+
+  const historyTableRows = useMemo(
+    () =>
+      [...history].sort((a, b) => new Date(b.test_date) - new Date(a.test_date)).slice(0, SPEEDTEST_DETAIL_TABLE_MAX_ROWS),
+    [history]
+  );
 
   // Filtra per ricerca
   const filteredOverview = overview.filter(c =>
@@ -947,7 +957,7 @@ const SpeedTestPage = ({
                     {enabled && hasData && company.download_vs_hist_pct != null && (
                       <span
                         style={{ fontSize: 10, fontWeight: 700, color: vsHistoricalPctColor(company.download_vs_hist_pct) }}
-                        title="Scostamento vs media storica DOWNLOAD (ultimi 90 giorni, escluso questo test). Il tier colore può restare buono anche con percentuale negativa: qui vedi il calo rispetto al solito."
+                        title="Scostamento vs media storica DOWNLOAD (ultimi 60 giorni conservati, escluso questo test). Il tier colore può restare buono anche con percentuale negativa: qui vedi il calo rispetto al solito."
                       >
                         {formatVsHistoricalPct(company.download_vs_hist_pct)}
                       </span>
@@ -969,7 +979,7 @@ const SpeedTestPage = ({
                     {enabled && hasData && company.upload_vs_hist_pct != null && (
                       <span
                         style={{ fontSize: 10, fontWeight: 700, color: vsHistoricalPctColor(company.upload_vs_hist_pct) }}
-                        title="Scostamento vs media storica UPLOAD (ultimi 90 giorni, escluso questo test)."
+                        title="Scostamento vs media storica UPLOAD (ultimi 60 giorni conservati, escluso questo test)."
                       >
                         {formatVsHistoricalPct(company.upload_vs_hist_pct)}
                       </span>
@@ -1160,7 +1170,7 @@ const SpeedTestPage = ({
                                   {downloadVsHistDetail != null && (
                                     <span
                                       style={{ fontSize: 17, fontWeight: 700, color: vsHistoricalPctColor(downloadVsHistDetail) }}
-                                      title="Vs media storica: nella panoramica usa 90 giorni (escluso ultimo test); nel dettaglio, se disponibile, la cronologia caricata."
+                                      title="Vs media storica: nella panoramica usa 60 giorni (escluso ultimo test); nel dettaglio, se disponibile, la cronologia caricata."
                                     >
                                       {formatVsHistoricalPct(downloadVsHistDetail)}
                                     </span>
@@ -1288,42 +1298,82 @@ const SpeedTestPage = ({
                 </div>
               )}
 
-              {/* Grafico cronologia */}
-              {history.length > 1 && (
+              {/* Grafico cronologia + tabella ultime misure */}
+              {!historyLoading && history.length >= 1 && (
                 <div style={styles.chartSection}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
                     <h3 style={{ fontSize: 18, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>📈 Cronologia</h3>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      {[7, 14, 30].map(d => (
-                        <button
-                          key={d}
-                          style={styles.periodBtn(historyDays === d)}
-                          onClick={() => setHistoryDays(d)}
-                        >
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {[7, 14, 30, 60].map((d) => (
+                        <button key={d} type="button" style={styles.periodBtn(historyDays === d)} onClick={() => setHistoryDays(d)}>
                           {d}g
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  {/* Legenda */}
-                  <div style={{ display: 'flex', gap: 20, marginBottom: 16, fontSize: 12, color: '#94a3b8' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 20, height: 3, borderRadius: 2, background: '#7c3aed', display: 'inline-block' }} />
-                      DOWNLOAD (Mbps)
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 20, height: 3, borderRadius: 2, background: '#06b6d4', display: 'inline-block' }} />
-                      UPLOAD (Mbps)
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 20, height: 3, borderRadius: 2, background: '#22c55e', display: 'inline-block' }} />
-                      Ping (ms)
-                    </span>
-                  </div>
+                  {history.length > 1 ? (
+                    <>
+                      <div style={{ display: 'flex', gap: 20, marginBottom: 16, fontSize: 12, color: '#94a3b8', flexWrap: 'wrap' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 20, height: 3, borderRadius: 2, background: '#7c3aed', display: 'inline-block' }} />
+                          DOWNLOAD (Mbps)
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 20, height: 3, borderRadius: 2, background: '#06b6d4', display: 'inline-block' }} />
+                          UPLOAD (Mbps)
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 20, height: 3, borderRadius: 2, background: '#22c55e', display: 'inline-block' }} />
+                          Ping (ms)
+                        </span>
+                      </div>
+                      <div ref={chartContainerRef} style={{ width: '100%', height: 280, position: 'relative' }}>
+                        <canvas ref={chartCanvasRef} style={{ width: '100%', height: '100%' }} />
+                      </div>
+                    </>
+                  ) : (
+                    <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 20px', lineHeight: 1.5 }}>
+                      Nel periodo selezionato c’è una sola misura: il grafico richiede almeno due punti. Estendi il periodo (es. <strong>7g</strong> o <strong>60g</strong>) o attendi i prossimi test dall’agent (circa ogni {companyInfo?.speedtest_interval_hours ?? 2} h).
+                    </p>
+                  )}
 
-                  <div ref={chartContainerRef} style={{ width: '100%', height: 280, position: 'relative' }}>
-                    <canvas ref={chartCanvasRef} style={{ width: '100%', height: '100%' }} />
+                  <div style={{ marginTop: history.length > 1 ? 28 : 0 }}>
+                    <h4 style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0', margin: '0 0 6px' }}>Ultime misure</h4>
+                    <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 14px', lineHeight: 1.45 }}>
+                      Fino a <strong>{SPEEDTEST_DETAIL_TABLE_MAX_ROWS}</strong> righe (le più recenti nel periodo scelto). In database restano al massimo{' '}
+                      <strong>{SPEEDTEST_SERVER_RETENTION_DAYS} giorni</strong> di storico (~720 test a campionamento ogni 2 h); volumi così sono leggeri per PostgreSQL.
+                    </p>
+                    <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid #334155' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                        <thead>
+                          <tr style={{ background: '#0f172a', color: '#94a3b8', textAlign: 'left' }}>
+                            <th style={{ padding: '10px 12px', fontWeight: 600 }}>Data / ora</th>
+                            <th style={{ padding: '10px 12px', fontWeight: 600 }}>Ping</th>
+                            <th style={{ padding: '10px 12px', fontWeight: 600 }}>↓ Mbps</th>
+                            <th style={{ padding: '10px 12px', fontWeight: 600 }}>↑ Mbps</th>
+                            <th style={{ padding: '10px 12px', fontWeight: 600 }}>IP</th>
+                            <th style={{ padding: '10px 12px', fontWeight: 600 }}>ISP</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {historyTableRows.map((row) => (
+                            <tr key={row.id} style={{ borderTop: '1px solid #334155' }}>
+                              <td style={{ padding: '10px 12px', color: '#e2e8f0', whiteSpace: 'nowrap' }}>{formatDate(row.test_date)}</td>
+                              <td style={{ padding: '10px 12px', color: '#e2e8f0' }}>{fmtPing(row.ping_ms)} ms</td>
+                              <td style={{ padding: '10px 12px', color: '#c4b5fd' }}>{fmtMbps(row.download_mbps)}</td>
+                              <td style={{ padding: '10px 12px', color: '#67e8f9' }}>{fmtMbps(row.upload_mbps)}</td>
+                              <td style={{ padding: '10px 12px', color: '#e9d5ff', fontFamily: 'monospace', fontSize: 11 }} title={row.public_ip || ''}>
+                                {row.public_ip || '—'}
+                              </td>
+                              <td style={{ padding: '10px 12px', color: '#94a3b8', maxWidth: 200 }} title={row.isp || ''}>
+                                <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.isp || '—'}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               )}

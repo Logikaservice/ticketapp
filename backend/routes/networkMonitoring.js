@@ -74,6 +74,16 @@ function inferPublicIpStabilityFromResults(rows) {
   return null;
 }
 
+/** Oltre questa finestra i record vengono rimossi (DELETE a ogni nuovo risultato). */
+const SPEEDTEST_RETENTION_DAYS = 60;
+const SPEEDTEST_HISTORY_QUERY_MAX_DAYS = 60;
+
+function clampSpeedtestHistoryDays(raw) {
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1) return 30;
+  return Math.min(n, SPEEDTEST_HISTORY_QUERY_MAX_DAYS);
+}
+
 /** Nella risposta API: se il tipo non è una chiave nota (es. titolo KeePass vecchio), ma c'è UniFi → icona WiFi/AP */
 function applyUnifiWifiDeviceTypeFallback(row) {
   if (row.is_manual_type) return;
@@ -8760,6 +8770,11 @@ pause
 
       console.log(`📊 Speed test ricevuto da agent ${agentId}: ↓${download_mbps} Mbps ↑${upload_mbps} Mbps 🏓${ping_ms} ms`);
 
+      pool.query(
+        'DELETE FROM speedtest_results WHERE test_date < NOW() - INTERVAL \'1 day\' * $1',
+        [SPEEDTEST_RETENTION_DAYS]
+      ).catch((e) => console.warn('⚠️ Speedtest retention cleanup:', e.message));
+
       // Emetti evento WebSocket per aggiornamento in tempo reale
       if (io) {
         io.to('role:tecnico').to('role:admin').emit('speedtest-update', {
@@ -8802,7 +8817,7 @@ pause
               SELECT s4.download_mbps AS dl
               FROM speedtest_results s4
               WHERE s4.agent_id = na.id
-                AND s4.test_date > NOW() - INTERVAL '90 days'
+                AND s4.test_date > NOW() - INTERVAL '60 days'
                 AND s4.download_mbps IS NOT NULL
               ORDER BY s4.test_date DESC, s4.id DESC
               OFFSET 1
@@ -8814,7 +8829,7 @@ pause
               SELECT s4.upload_mbps AS ul
               FROM speedtest_results s4
               WHERE s4.agent_id = na.id
-                AND s4.test_date > NOW() - INTERVAL '90 days'
+                AND s4.test_date > NOW() - INTERVAL '60 days'
                 AND s4.upload_mbps IS NOT NULL
               ORDER BY s4.test_date DESC, s4.id DESC
               OFFSET 1
@@ -8888,7 +8903,7 @@ pause
       await ensureTables();
 
       const { aziendaId } = req.params;
-      const days = parseInt(req.query.days) || 30;
+      const days = clampSpeedtestHistoryDays(req.query.days);
 
       const result = await pool.query(`
         SELECT sr.id, sr.agent_id, sr.azienda_id, sr.test_date, sr.ping_ms, sr.download_mbps, sr.upload_mbps,
@@ -8930,7 +8945,7 @@ pause
       await ensureTables();
 
       const agentId = parseInt(req.params.agentId, 10);
-      const days = parseInt(req.query.days) || 30;
+      const days = clampSpeedtestHistoryDays(req.query.days);
       if (!Number.isFinite(agentId) || agentId <= 0) {
         return res.status(400).json({ error: 'agentId non valido' });
       }
