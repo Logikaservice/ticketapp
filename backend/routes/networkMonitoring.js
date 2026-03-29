@@ -40,6 +40,40 @@ function mapKeepassIconIdToDeviceType(iconId) {
   }
 }
 
+/** Speed test: stesso IP per ≥N test o ≥24h → static; se l’IP cambia tra due test consecutivi → dynamic. */
+const PUBLIC_IP_STABILITY_MIN_CONSECUTIVE = 3;
+const PUBLIC_IP_STABILITY_MIN_HOURS = 24;
+
+function normalizeSpeedtestPublicIp(ip) {
+  if (ip == null || ip === '') return '';
+  return String(ip).trim();
+}
+
+/**
+ * @param {Array<{ test_date?: string|Date, public_ip?: string|null }>} rows
+ * @returns {'static'|'dynamic'|null}
+ */
+function inferPublicIpStabilityFromResults(rows) {
+  const withIp = (rows || [])
+    .map((r) => ({
+      t: r.test_date == null ? NaN : new Date(r.test_date).getTime(),
+      ip: normalizeSpeedtestPublicIp(r.public_ip),
+    }))
+    .filter((r) => r.ip !== '' && Number.isFinite(r.t));
+  if (withIp.length < 2) return null;
+  withIp.sort((a, b) => a.t - b.t);
+  for (let i = 1; i < withIp.length; i++) {
+    if (withIp[i].ip !== withIp[i - 1].ip) return 'dynamic';
+  }
+  const first = withIp[0];
+  const last = withIp[withIp.length - 1];
+  const hours = (last.t - first.t) / (3600 * 1000);
+  if (hours >= PUBLIC_IP_STABILITY_MIN_HOURS || withIp.length >= PUBLIC_IP_STABILITY_MIN_CONSECUTIVE) {
+    return 'static';
+  }
+  return null;
+}
+
 /** Nella risposta API: se il tipo non è una chiave nota (es. titolo KeePass vecchio), ma c'è UniFi → icona WiFi/AP */
 function applyUnifiWifiDeviceTypeFallback(row) {
   if (row.is_manual_type) return;
@@ -8785,9 +8819,25 @@ pause
               ORDER BY s4.test_date DESC, s4.id DESC
               OFFSET 1
             ) x
-          ) AS upload_hist_avg
+          ) AS upload_hist_avg,
+          ipstab.ip_stab_ips,
+          ipstab.ip_stab_dates
         FROM network_agents na
         LEFT JOIN users u ON na.azienda_id = u.id
+        LEFT JOIN LATERAL (
+          SELECT
+            array_agg(sub.public_ip ORDER BY sub.test_date ASC, sub.id ASC) AS ip_stab_ips,
+            array_agg(sub.test_date ORDER BY sub.test_date ASC, sub.id ASC) AS ip_stab_dates
+          FROM (
+            SELECT sr3.public_ip, sr3.test_date, sr3.id
+            FROM speedtest_results sr3
+            WHERE sr3.agent_id = na.id
+              AND sr3.public_ip IS NOT NULL
+              AND btrim(sr3.public_ip) <> ''
+            ORDER BY sr3.test_date DESC, sr3.id DESC
+            LIMIT 48
+          ) sub
+        ) ipstab ON true
         LEFT JOIN LATERAL (
           SELECT * FROM speedtest_results sr2
           WHERE sr2.agent_id = na.id
@@ -8800,6 +8850,15 @@ pause
 
       const data = result.rows.map((row) => {
         const out = { ...row };
+        delete out.ip_stab_ips;
+        delete out.ip_stab_dates;
+        const dates = row.ip_stab_dates;
+        const ips = row.ip_stab_ips;
+        const stabRows =
+          Array.isArray(dates) && Array.isArray(ips) && dates.length === ips.length
+            ? dates.map((d, i) => ({ test_date: d, public_ip: ips[i] }))
+            : [];
+        out.public_ip_stability = inferPublicIpStabilityFromResults(stabRows);
         const d = row.download_mbps != null ? Number(row.download_mbps) : null;
         const davg = row.download_hist_avg != null ? Number(row.download_hist_avg) : null;
         const u = row.upload_mbps != null ? Number(row.upload_mbps) : null;

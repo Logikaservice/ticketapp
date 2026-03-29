@@ -128,6 +128,52 @@ function vsHistoricalPctColor(pct) {
   return '#94a3b8';
 }
 
+/** Allineato al backend: stesso IP per ≥3 test o ≥24 h, su righe con IP valorizzato; altrimenti dinamico se cambia tra test consecutivi. */
+const PUBLIC_IP_STABILITY_MIN_CONSECUTIVE = 3;
+const PUBLIC_IP_STABILITY_MIN_HOURS = 24;
+const PUBLIC_IP_STABILITY_TOOLTIP =
+  'Confronto tra i test con IP registrato su questo agent: (Statico) stesso IP per almeno 3 misure o per almeno 24 ore; (Dinamico) IP diverso tra un test e il successivo. Con pochi dati l’etichetta può non comparire.';
+
+function normalizeSpeedtestPublicIp(ip) {
+  if (ip == null || ip === '') return '';
+  return String(ip).trim();
+}
+
+/** @returns {'static'|'dynamic'|null} */
+function inferPublicIpStability(rows) {
+  const withIp = (rows || [])
+    .map((r) => ({
+      t: r.test_date == null ? NaN : new Date(r.test_date).getTime(),
+      ip: normalizeSpeedtestPublicIp(r.public_ip),
+    }))
+    .filter((r) => r.ip !== '' && Number.isFinite(r.t));
+  if (withIp.length < 2) return null;
+  withIp.sort((a, b) => a.t - b.t);
+  for (let i = 1; i < withIp.length; i++) {
+    if (withIp[i].ip !== withIp[i - 1].ip) return 'dynamic';
+  }
+  const first = withIp[0];
+  const last = withIp[withIp.length - 1];
+  const hours = (last.t - first.t) / (3600 * 1000);
+  if (hours >= PUBLIC_IP_STABILITY_MIN_HOURS || withIp.length >= PUBLIC_IP_STABILITY_MIN_CONSECUTIVE) {
+    return 'static';
+  }
+  return null;
+}
+
+/** Dettaglio: cronologia caricata se disponibile; altrimenti valore panoramica. */
+function resolvePublicIpStabilityFromDetail(history, overviewStability) {
+  const fromHist = inferPublicIpStability(history);
+  if (fromHist != null) return fromHist;
+  return overviewStability ?? null;
+}
+
+function publicIpStabilityParen(code) {
+  if (code === 'static') return { text: '(Statico)', color: '#4ade80' };
+  if (code === 'dynamic') return { text: '(Dinamico)', color: '#fb923c' };
+  return null;
+}
+
 function parsePositiveInt(v) {
   if (v == null || v === '') return null;
   if (typeof v === 'bigint') {
@@ -762,7 +808,8 @@ const SpeedTestPage = ({
         snapshot,
         lastHeartbeatFromOverview: company.last_heartbeat ?? company.lastHeartbeat ?? null,
         download_vs_hist_pct: company.download_vs_hist_pct ?? company.downloadVsHistPct ?? null,
-        upload_vs_hist_pct: company.upload_vs_hist_pct ?? company.uploadVsHistPct ?? null
+        upload_vs_hist_pct: company.upload_vs_hist_pct ?? company.uploadVsHistPct ?? null,
+        public_ip_stability: company.public_ip_stability ?? company.publicIpStability ?? null
       });
     };
 
@@ -837,7 +884,22 @@ const SpeedTestPage = ({
               <>
                 <Globe size={14} />
                 {company.isp || '—'} &nbsp;·&nbsp;
-                <span style={{ color: '#7c3aed', fontFamily: 'monospace', fontSize: 11 }}>{company.public_ip || '—'}</span>
+                <span style={{ color: '#7c3aed', fontFamily: 'monospace', fontSize: 11 }}>
+                  {company.public_ip || '—'}
+                  {(() => {
+                    const p = publicIpStabilityParen(company.public_ip_stability ?? company.publicIpStability);
+                    if (!p || !(company.public_ip || '').trim()) return null;
+                    return (
+                      <span
+                        style={{ color: p.color, fontFamily: 'inherit', fontWeight: 700, fontSize: 10 }}
+                        title={PUBLIC_IP_STABILITY_TOOLTIP}
+                      >
+                        {' '}
+                        {p.text}
+                      </span>
+                    );
+                  })()}
+                </span>
               </>
             ) : enabled ? (
               <span>
@@ -971,6 +1033,11 @@ const SpeedTestPage = ({
       pctVsPriorAvgFromHistory(history, 'download_mbps') ?? selectedCompany.download_vs_hist_pct ?? null;
     const uploadVsHistDetail =
       pctVsPriorAvgFromHistory(history, 'upload_mbps') ?? selectedCompany.upload_vs_hist_pct ?? null;
+    const publicIpStabilityDetail = resolvePublicIpStabilityFromDetail(
+      history,
+      selectedCompany.public_ip_stability ?? selectedCompany.publicIpStability
+    );
+    const publicIpStabLabel = publicIpStabilityParen(publicIpStabilityDetail);
 
     return createPortal(
       <div style={styles.page}>
@@ -1144,8 +1211,18 @@ const SpeedTestPage = ({
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Globe size={14} /> Operatore: <strong style={{ color: '#e2e8f0' }}>{lastResult.isp || '—'}</strong>
                     </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Wifi size={14} /> IP Pubblico: <strong style={{ color: '#e2e8f0', fontFamily: 'monospace' }}>{lastResult.public_ip || '—'}</strong>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <Wifi size={14} /> IP Pubblico:{' '}
+                      <strong style={{ color: '#e2e8f0', fontFamily: 'monospace' }}>{lastResult.public_ip || '—'}</strong>
+                      {publicIpStabLabel && (lastResult.public_ip || '').trim() ? (
+                        <span
+                          style={{ color: publicIpStabLabel.color, fontWeight: 700, fontSize: 13 }}
+                          title={PUBLIC_IP_STABILITY_TOOLTIP}
+                        >
+                          {' '}
+                          {publicIpStabLabel.text}
+                        </span>
+                      ) : null}
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <ServerIcon size={14} /> Server: <strong style={{ color: '#e2e8f0' }}>{lastResult.server_name || '—'}</strong>
