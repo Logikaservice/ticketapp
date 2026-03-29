@@ -8791,7 +8791,7 @@ pause
 
       const result = await pool.query(`
         SELECT sr.id, sr.agent_id, sr.azienda_id, sr.test_date, sr.ping_ms, sr.download_mbps, sr.upload_mbps,
-               sr.isp, sr.public_ip, sr.server_name, sr.result_url,
+               sr.isp, sr.public_ip, sr.server_name, sr.result_url, sr.raw_json,
                na.agent_name, na.speedtest_enabled, na.speedtest_interval_hours,
                u.azienda as azienda_name
         FROM speedtest_results sr
@@ -8836,7 +8836,7 @@ pause
 
       const result = await pool.query(`
         SELECT sr.id, sr.agent_id, sr.azienda_id, sr.test_date, sr.ping_ms, sr.download_mbps, sr.upload_mbps,
-               sr.isp, sr.public_ip, sr.server_name, sr.result_url,
+               sr.isp, sr.public_ip, sr.server_name, sr.result_url, sr.raw_json,
                na.agent_name, na.speedtest_enabled, na.speedtest_interval_hours,
                u.azienda as azienda_name
         FROM speedtest_results sr

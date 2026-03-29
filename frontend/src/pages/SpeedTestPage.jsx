@@ -57,7 +57,7 @@ const SpeedTestPage = ({
   const [overview, setOverview] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCompany, setSelectedCompany] = useState(null); // { agentId, aziendaName } — una card = un agent
+  const [selectedCompany, setSelectedCompany] = useState(null); // { agentId, aziendaName, snapshot? } — una card = un agent
   const [history, setHistory] = useState([]);
   const [companyInfo, setCompanyInfo] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -402,7 +402,9 @@ const SpeedTestPage = ({
       WebkitTapHighlightColor: 'transparent',
       touchAction: 'manipulation',
       position: 'relative',
-      zIndex: 1
+      zIndex: 1,
+      appearance: 'none',
+      WebkitAppearance: 'none'
     }),
     toggle: (active) => ({
       width: 44, height: 24,
@@ -534,17 +536,30 @@ const SpeedTestPage = ({
         !Number.isNaN(Number(company.ping_ms))
     );
 
-    const openDetail = (e) => {
-      // Evita che il click sul toggle (stopPropagation) arrivi qui
-      if (e && e.defaultPrevented) return;
+    const openDetail = () => {
       if (agentIdNum == null) {
         console.warn('[SpeedTest] Impossibile aprire dettaglio: agent_id non valido', company);
         return;
       }
-      console.log('[SpeedTest] Apertura dettaglio per agent', agentIdNum, company.azienda_name || company.agent_name);
+      const snapshot =
+        company.test_date != null &&
+        company.ping_ms != null &&
+        !Number.isNaN(Number(company.ping_ms))
+          ? {
+              test_date: company.test_date,
+              ping_ms: company.ping_ms,
+              download_mbps: company.download_mbps,
+              upload_mbps: company.upload_mbps,
+              isp: company.isp,
+              public_ip: company.public_ip,
+              server_name: company.server_name,
+              result_url: company.result_url
+            }
+          : null;
       setSelectedCompany({
         agentId: agentIdNum,
-        aziendaName: company.azienda_name || company.aziendaName || company.agent_name || 'Agent'
+        aziendaName: company.azienda_name || company.aziendaName || company.agent_name || 'Agent',
+        snapshot
       });
     };
 
@@ -553,16 +568,12 @@ const SpeedTestPage = ({
         style={styles.cardOuter(canOpenDetail, enabled, hovered)}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        onClick={(e) => {
-          // Fallback: se il click arriva al card-outer (non intercettato dal toggle), apri il dettaglio
-          if (canOpenDetail && !e.defaultPrevented) openDetail(e);
-        }}
-        role="button"
-        tabIndex={canOpenDetail ? 0 : -1}
-        onKeyDown={(e) => { if (canOpenDetail && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDetail(e); } }}
       >
-        <div
+        <button
+          type="button"
+          disabled={!canOpenDetail}
           style={styles.cardOpenBtn(canOpenDetail)}
+          onClick={openDetail}
         >
           {/* Intestazione (spazio a destra per toggle assoluto) */}
           <div style={{ paddingRight: 100, marginBottom: 16 }}>
@@ -628,7 +639,7 @@ const SpeedTestPage = ({
               <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: enabled ? '#06b6d4' : '#475569' }}>CARICA</div>
             </div>
           </div>
-        </div>
+        </button>
 
         <div
           style={{
@@ -664,8 +675,9 @@ const SpeedTestPage = ({
 
   // === RENDER ===
   if (selectedCompany) {
-    // VISTA DETTAGLIO AZIENDA
-    const lastResult = history.length > 0 ? history[history.length - 1] : null;
+    // VISTA DETTAGLIO AZIENDA — ultimo risultato dalla cronologia API, altrimenti snapshot dalla card (panoramica)
+    const lastFromHistory = history.length > 0 ? history[history.length - 1] : null;
+    const lastResult = lastFromHistory || selectedCompany.snapshot || null;
     const enabled = companyInfo?.speedtest_enabled !== false;
 
     return ReactDOM.createPortal(
@@ -793,6 +805,55 @@ const SpeedTestPage = ({
                       <ServerIcon size={14} /> Server: <strong style={{ color: '#e2e8f0' }}>{lastResult.server_name || '—'}</strong>
                     </span>
                   </div>
+
+                  {lastResult.result_url ? (
+                    <div style={{ textAlign: 'center', marginBottom: 28 }}>
+                      <a
+                        href={lastResult.result_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: '#a78bfa', fontSize: 14, fontWeight: 600 }}
+                      >
+                        Apri pagina risultato speedtest.net →
+                      </a>
+                    </div>
+                  ) : null}
+
+                  {lastResult.raw_json ? (
+                    <details
+                      style={{
+                        maxWidth: 720,
+                        margin: '0 auto 32px',
+                        background: '#0f172a',
+                        border: '1px solid #334155',
+                        borderRadius: 12,
+                        padding: '12px 16px'
+                      }}
+                    >
+                      <summary style={{ cursor: 'pointer', fontWeight: 600, color: '#94a3b8', fontSize: 14 }}>
+                        Dettaglio tecnico completo (JSON)
+                      </summary>
+                      <pre
+                        style={{
+                          marginTop: 12,
+                          padding: 12,
+                          overflow: 'auto',
+                          maxHeight: 280,
+                          fontSize: 11,
+                          lineHeight: 1.4,
+                          color: '#cbd5e1',
+                          background: '#020617',
+                          borderRadius: 8,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word'
+                        }}
+                      >
+                        {typeof lastResult.raw_json === 'string'
+                          ? lastResult.raw_json
+                          : JSON.stringify(lastResult.raw_json, null, 2)}
+                      </pre>
+                    </details>
+                  ) : null}
                 </>
               )}
 

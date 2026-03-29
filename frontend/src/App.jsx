@@ -3884,20 +3884,18 @@ export default function TicketApp() {
 
       {/* Ultimo nel DOM, sopra modali: fuori da app-zoom-wrapper (no transform) + z-index alto */}
       {showSpeedTest && (currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin') && (
-        <div className="fixed inset-0 z-[9999] overflow-y-auto pointer-events-auto">
-          <SpeedTestPage
-            currentUser={currentUser}
-            getAuthHeader={getAuthHeader}
-            onNavigateHome={() => { setShowSpeedTest(false); setShowDashboard(true); }}
-            onNavigateOffice={handleOpenOffice}
-            onNavigateEmail={handleOpenEmail}
-            onNavigateAntiVirus={handleOpenAntiVirus}
-            onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
-            onNavigateMappatura={handleOpenMappatura}
-            onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
-            selectedCompanyId={globallySelectedCompanyId}
-          />
-        </div>
+        <SpeedTestPage
+          currentUser={currentUser}
+          getAuthHeader={getAuthHeader}
+          onNavigateHome={() => { setShowSpeedTest(false); setShowDashboard(true); }}
+          onNavigateOffice={handleOpenOffice}
+          onNavigateEmail={handleOpenEmail}
+          onNavigateAntiVirus={handleOpenAntiVirus}
+          onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
+          onNavigateMappatura={handleOpenMappatura}
+          onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
+          selectedCompanyId={globallySelectedCompanyId}
+        />
       )}
     </div>
   );
