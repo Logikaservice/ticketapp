@@ -61,18 +61,18 @@ function downloadQuality(mbps) {
   return { color: '#22c55e', label: 'DOWNLOAD (Ultra-Veloce)', pct };
 }
 
-/** Stesse soglie Mbps del download; arco scalato come prima (max 100 Mbps nel gauge). */
+/** Upload: soglie Mbps dedicate; colori allineati a ping/download. */
 function uploadQuality(mbps) {
   const n = Number(mbps);
   if (!Number.isFinite(n) || n < 0) {
     return { color: '#475569', label: 'UPLOAD', pct: 0 };
   }
   const pct = getUploadPct(n);
-  if (n <= 10) return { color: '#dc2626', label: 'UPLOAD (Critica)', pct };
-  if (n <= 30) return { color: '#f97316', label: 'UPLOAD (Lenta)', pct };
-  if (n <= 100) return { color: '#f472b6', label: 'UPLOAD (Media)', pct };
-  if (n <= 500) return { color: '#eab308', label: 'UPLOAD (Veloce)', pct };
-  return { color: '#22c55e', label: 'UPLOAD (Ultra-Veloce)', pct };
+  if (n <= 3) return { color: '#dc2626', label: 'UPLOAD (Critica)', pct };
+  if (n <= 10) return { color: '#f97316', label: 'UPLOAD (Sufficiente)', pct };
+  if (n <= 20) return { color: '#f472b6', label: 'UPLOAD (Buona)', pct };
+  if (n <= 100) return { color: '#eab308', label: 'UPLOAD (Ottima)', pct };
+  return { color: '#22c55e', label: 'UPLOAD (Eccellente)', pct };
 }
 
 function parsePositiveInt(v) {
