@@ -1364,42 +1364,6 @@ const SpeedTestPage = ({
                       </a>
                     </div>
                   ) : null}
-
-                  {lastResult.raw_json ? (
-                    <details
-                      style={{
-                        maxWidth: 720,
-                        margin: '0 auto 32px',
-                        background: '#0f172a',
-                        border: '1px solid #334155',
-                        borderRadius: 12,
-                        padding: '12px 16px'
-                      }}
-                    >
-                      <summary style={{ cursor: 'pointer', fontWeight: 600, color: '#94a3b8', fontSize: 14 }}>
-                        Dettaglio tecnico completo (JSON)
-                      </summary>
-                      <pre
-                        style={{
-                          marginTop: 12,
-                          padding: 12,
-                          overflow: 'auto',
-                          maxHeight: 280,
-                          fontSize: 11,
-                          lineHeight: 1.4,
-                          color: '#cbd5e1',
-                          background: '#020617',
-                          borderRadius: 8,
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word'
-                        }}
-                      >
-                        {typeof lastResult.raw_json === 'string'
-                          ? lastResult.raw_json
-                          : JSON.stringify(lastResult.raw_json, null, 2)}
-                      </pre>
-                    </details>
-                  ) : null}
                 </>
               )}
 
