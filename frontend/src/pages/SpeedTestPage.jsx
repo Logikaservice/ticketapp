@@ -752,8 +752,8 @@ const SpeedTestPage = ({
     },
     grid: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))',
-      gap: 20,
+      gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 270px), 1fr))',
+      gap: 16,
       padding: '0 32px 32px',
       position: 'relative',
       zIndex: 1
@@ -762,8 +762,8 @@ const SpeedTestPage = ({
       position: 'relative',
       background: '#1e293b',
       border: `1px solid ${isHovered && clickable ? '#7c3aed' : '#334155'}`,
-      borderRadius: 16,
-      padding: 24,
+      borderRadius: 14,
+      padding: 18,
       transition: 'all 0.3s ease',
       opacity: clickable ? (speedtestOn ? 1 : 0.88) : 0.5,
       transform: isHovered && clickable ? 'translateY(-2px)' : 'none',
@@ -805,9 +805,9 @@ const SpeedTestPage = ({
       transition: 'left 0.3s'
     }),
     gaugeWrap: {
-      width: 100,
-      height: 100,
-      margin: '0 auto 8px',
+      width: 86,
+      height: 86,
+      margin: '0 auto 6px',
       position: 'relative'
     },
     gaugeRing: (pct, colorVar) => ({
@@ -822,7 +822,7 @@ const SpeedTestPage = ({
     }),
     gaugeInner: {
       position: 'absolute',
-      inset: 4,
+      inset: 3,
       borderRadius: '50%',
       background: '#1e293b',
       display: 'flex',
@@ -994,8 +994,10 @@ const SpeedTestPage = ({
       >
         <div style={styles.cardBody}>
           {/* Intestazione (spazio a destra per toggle assoluto) */}
-          <div style={{ paddingRight: 100, marginBottom: 16 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>{company.azienda_name || company.agent_name || 'N/A'}</div>
+          <div style={{ paddingRight: 88, marginBottom: 14 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', lineHeight: 1.25 }}>
+              {company.azienda_name || company.agent_name || 'N/A'}
+            </div>
             <div
               style={{
                 marginTop: 6,
@@ -1015,7 +1017,13 @@ const SpeedTestPage = ({
                 return (
                   <span
                     title={seen.detailTitle ?? 'Ultimo check-in dell’agent verso il server'}
-                    style={{ color: seen.isStale ? '#fbbf24' : '#94a3b8', fontWeight: seen.isStale ? 600 : 500, whiteSpace: 'nowrap' }}
+                    style={{
+                      color: seen.isStale ? '#fbbf24' : '#94a3b8',
+                      fontWeight: seen.isStale ? 600 : 500,
+                      textAlign: 'right',
+                      maxWidth: '100%',
+                      whiteSpace: 'normal'
+                    }}
                   >
                     {seen.line}
                     {seen.absoluteShort ? (
@@ -1028,7 +1036,7 @@ const SpeedTestPage = ({
           </div>
 
           {/* Info ISP */}
-          <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 16, lineHeight: 1.35 }}>
             {enabled && hasData ? (
               <>
                 <Globe size={14} />
@@ -1058,12 +1066,12 @@ const SpeedTestPage = ({
           </div>
 
           {/* Gauge */}
-          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-start', gap: 4 }}>
             <div style={{ textAlign: 'center', flex: 1 }}>
               <div style={styles.gaugeWrap}>
                 <div style={styles.gaugeRing(enabled && hasData ? pqPing.pct : 0, pqPing.color)} />
                 <div style={styles.gaugeInner}>
-                  <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
                     {enabled && hasData ? fmtPing(company.ping_ms) : '—'}
                   </span>
                   <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'ms' : ''}</span>
@@ -1088,7 +1096,7 @@ const SpeedTestPage = ({
                 <div style={styles.gaugeRing(enabled && hasData ? dqDown.pct : 0, dqDown.color)} />
                 <div style={styles.gaugeInner}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '2px 4px' }}>
-                    <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
                       {enabled && hasData ? fmtMbps(company.download_mbps) : '—'}
                     </span>
                     {enabled && hasData && company.download_vs_hist_pct != null && (
@@ -1110,7 +1118,7 @@ const SpeedTestPage = ({
                 <div style={styles.gaugeRing(enabled && hasData ? uqUp.pct : 0, uqUp.color)} />
                 <div style={styles.gaugeInner}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '2px 4px' }}>
-                    <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
                       {enabled && hasData ? fmtMbps(company.upload_mbps) : '—'}
                     </span>
                     {enabled && hasData && company.upload_vs_hist_pct != null && (
@@ -1134,8 +1142,8 @@ const SpeedTestPage = ({
           data-st-toggle-wrap
           style={{
             position: 'absolute',
-            top: 20,
-            right: 20,
+            top: 16,
+            right: 16,
             display: 'flex',
             alignItems: 'center',
             gap: 8,
