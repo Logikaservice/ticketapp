@@ -314,13 +314,14 @@ const SpeedTestPage = ({
   // === STILE INLINE (tema scuro speedtest.net) ===
   const styles = {
     page: {
+      position: 'fixed',
+      inset: 0,
       background: '#0f172a',
-      minHeight: '100vh',
       color: '#e2e8f0',
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-      position: 'relative',
-      zIndex: 1,
-      pointerEvents: 'auto'
+      zIndex: 1000000,
+      pointerEvents: 'auto',
+      overflowY: 'auto'
     },
     header: {
       background: '#1e293b',
