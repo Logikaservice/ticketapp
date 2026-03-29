@@ -90,35 +90,46 @@ function uploadQuality(mbps) {
 }
 
 /**
- * Ultimo heartbeat così come salvato sul server (ISO). Il testo “fa” è calcolato al render, non un contatore che ticka;
- * al refresh può cambiare solo perché è passato tempo reale o perché il server ha un valore aggiornato.
- * @returns {{ line: string, isStale: boolean, detailTitle: string | null }}
+ * Ultimo heartbeat così come salvato sul server (ISO). “X min fa” è calcolato con `now` al momento del render:
+ * senza re-render periodico il testo resta fermo; cambiando pagina si forza un nuovo calcolo e può sembrare un “reset”.
+ * @returns {{ line: string, isStale: boolean, detailTitle: string | null, absoluteShort: string | null }}
  */
-function formatAgentLastSeen(isoDateStr) {
+function formatAgentLastSeen(isoDateStr, nowMs = Date.now()) {
   if (isoDateStr == null || isoDateStr === '') {
-    return { line: 'Ultimo controllo: —', isStale: true, detailTitle: null };
+    return { line: 'Ultimo controllo: —', isStale: true, detailTitle: null, absoluteShort: null };
   }
   const d = new Date(isoDateStr);
   const t = d.getTime();
   if (Number.isNaN(t)) {
-    return { line: 'Ultimo controllo: —', isStale: true, detailTitle: null };
+    return { line: 'Ultimo controllo: —', isStale: true, detailTitle: null, absoluteShort: null };
   }
   const absoluteIt = d.toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'medium' });
-  const detailTitle = `Orario sul server: ${absoluteIt}. “Fa” è rispetto all’orologio del tuo PC in questo momento (non si resetta al tasto aggiorna: il dato è sempre l’ultimo salvato nel DB).`;
+  const absoluteShort = d.toLocaleString('it-IT', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  const detailTitle = `Registrato sul server alle ${absoluteIt}. Il valore “fa” si aggiorna mentre resti su questa pagina; non è un contatore dal tuo ultimo click.`;
 
-  const sec = Math.floor((Date.now() - t) / 1000);
-  if (sec < 0) return { line: 'Ultimo controllo: adesso', isStale: false, detailTitle };
-  if (sec < 60) return { line: 'Ultimo controllo: meno di 1 min fa', isStale: false, detailTitle };
+  const sec = Math.floor((nowMs - t) / 1000);
+  if (sec < 0) {
+    return { line: 'Ultimo controllo: adesso', isStale: false, detailTitle, absoluteShort };
+  }
+  if (sec < 60) {
+    return { line: 'Ultimo controllo: meno di 1 min fa', isStale: false, detailTitle, absoluteShort };
+  }
   const min = Math.floor(sec / 60);
   if (min < 60) {
-    return { line: `Ultimo controllo: ${min} min fa`, isStale: min > 15, detailTitle };
+    return { line: `Ultimo controllo: ${min} min fa`, isStale: min > 15, detailTitle, absoluteShort };
   }
   const h = Math.floor(min / 60);
   if (h < 48) {
-    return { line: `Ultimo controllo: ${h} h fa`, isStale: true, detailTitle };
+    return { line: `Ultimo controllo: ${h} h fa`, isStale: true, detailTitle, absoluteShort };
   }
   const days = Math.floor(h / 24);
-  return { line: `Ultimo controllo: ${days} giorni fa`, isStale: true, detailTitle };
+  return { line: `Ultimo controllo: ${days} giorni fa`, isStale: true, detailTitle, absoluteShort };
 }
 
 /** Scostamento % ultimo test vs media dei test precedenti (cronologia ordinata per data). */
@@ -355,6 +366,12 @@ const SpeedTestPage = ({
   const chartCanvasRef = useRef(null);
   const chartContainerRef = useRef(null);
   const overviewFetchSeqRef = useRef(0);
+  /** Aggiorna il calcolo di “X min fa” senza cambiare i dati API (evita testo congelato vs rientro pagina). */
+  const [heartbeatTick, setHeartbeatTick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setHeartbeatTick((n) => n + 1), 30000);
+    return () => window.clearInterval(id);
+  }, []);
 
   // Carica panoramica (primo caricamento: schermo pieno; aggiornamenti: dati precedenti visibili, niente “azzeramento”)
   const fetchOverview = useCallback(async () => {
@@ -671,6 +688,9 @@ const SpeedTestPage = ({
 
   const activeCount = overview.filter(c => c.speedtest_enabled !== false).length;
   const disabledCount = overview.filter(c => c.speedtest_enabled === false).length;
+
+  /** Base tempo per “Ultimo controllo: X fa” (si aggiorna ogni 30s insieme a heartbeatTick). */
+  const lastSeenNowMs = useMemo(() => Date.now(), [heartbeatTick]);
 
   // === STILE INLINE (tema scuro speedtest.net) ===
   const styles = {
@@ -991,13 +1011,16 @@ const SpeedTestPage = ({
             >
               <span>{hasData ? `🕐 ${formatDate(company.test_date)}` : 'Speed test: nessun dato'}</span>
               {(() => {
-                const seen = formatAgentLastSeen(company.last_heartbeat ?? company.lastHeartbeat);
+                const seen = formatAgentLastSeen(company.last_heartbeat ?? company.lastHeartbeat, lastSeenNowMs);
                 return (
                   <span
                     title={seen.detailTitle ?? 'Ultimo check-in dell’agent verso il server'}
                     style={{ color: seen.isStale ? '#fbbf24' : '#94a3b8', fontWeight: seen.isStale ? 600 : 500, whiteSpace: 'nowrap' }}
                   >
                     {seen.line}
+                    {seen.absoluteShort ? (
+                      <span style={{ opacity: 0.82, fontWeight: 500 }}>{' · '}{seen.absoluteShort}</span>
+                    ) : null}
                   </span>
                 );
               })()}
@@ -1226,17 +1249,21 @@ const SpeedTestPage = ({
                     )}
                   </div>
                   {(() => {
-                    const seen = formatAgentLastSeen(
-                      companyInfo?.last_heartbeat ?? companyInfo?.lastHeartbeat ?? selectedCompany.lastHeartbeatFromOverview
-                    );
-                    return (
-                      <div
-                        style={{ fontSize: 12, color: seen.isStale ? '#fbbf24' : '#64748b', marginTop: 6, fontWeight: seen.isStale ? 600 : 500 }}
-                        title={seen.detailTitle ?? 'Ultimo heartbeat verso il server'}
-                      >
-                        {seen.line}
-                      </div>
-                    );
+                const seen = formatAgentLastSeen(
+                  companyInfo?.last_heartbeat ?? companyInfo?.lastHeartbeat ?? selectedCompany.lastHeartbeatFromOverview,
+                  lastSeenNowMs
+                );
+                return (
+                  <div
+                    style={{ fontSize: 12, color: seen.isStale ? '#fbbf24' : '#64748b', marginTop: 6, fontWeight: seen.isStale ? 600 : 500 }}
+                    title={seen.detailTitle ?? 'Ultimo heartbeat verso il server'}
+                  >
+                    {seen.line}
+                    {seen.absoluteShort ? (
+                      <span style={{ opacity: 0.85, fontWeight: 500 }}>{' · '}{seen.absoluteShort}</span>
+                    ) : null}
+                  </div>
+                );
                   })()}
                 </div>
               </div>
