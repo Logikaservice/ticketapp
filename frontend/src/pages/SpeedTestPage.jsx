@@ -102,6 +102,32 @@ function formatAgentLastSeen(isoDateStr) {
   return { line: `Last seen: ${days} days ago`, isStale: true };
 }
 
+/** Scostamento % ultimo test vs media dei test precedenti (cronologia ordinata per data). */
+function pctVsPriorAvgFromHistory(rows, key) {
+  if (!rows || rows.length < 2) return null;
+  const sorted = [...rows].sort((a, b) => new Date(a.test_date) - new Date(b.test_date));
+  const cur = Number(sorted[sorted.length - 1][key]);
+  const prev = sorted.slice(0, -1);
+  const sum = prev.reduce((s, r) => s + (Number(r[key]) || 0), 0);
+  const avg = sum / prev.length;
+  if (!(avg > 0) || !Number.isFinite(cur)) return null;
+  return Math.round((100 * (cur - avg)) / avg);
+}
+
+function formatVsHistoricalPct(pct) {
+  if (pct == null || !Number.isFinite(pct)) return null;
+  const body = pct > 0 ? `+${pct}` : `${pct}`;
+  return `(${body}%)`;
+}
+
+function vsHistoricalPctColor(pct) {
+  if (pct == null || !Number.isFinite(pct)) return '#94a3b8';
+  if (pct <= -15) return '#f87171';
+  if (pct < 0) return '#fbbf24';
+  if (pct >= 15) return '#4ade80';
+  return '#94a3b8';
+}
+
 function parsePositiveInt(v) {
   if (v == null || v === '') return null;
   if (typeof v === 'bigint') {
@@ -206,7 +232,7 @@ const SpeedTestPage = ({
   const [overview, setOverview] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCompany, setSelectedCompany] = useState(null); // { agentId?, aziendaId?, aziendaName, snapshot?, lastHeartbeatFromOverview? }
+  const [selectedCompany, setSelectedCompany] = useState(null); // { agentId?, aziendaId?, aziendaName, snapshot?, lastHeartbeatFromOverview?, download_vs_hist_pct?, upload_vs_hist_pct? }
   const [history, setHistory] = useState([]);
   const [companyInfo, setCompanyInfo] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -734,7 +760,9 @@ const SpeedTestPage = ({
         aziendaId: aziendaIdNum,
         aziendaName: company.azienda_name || company.aziendaName || company.agent_name || 'Agent',
         snapshot,
-        lastHeartbeatFromOverview: company.last_heartbeat ?? company.lastHeartbeat ?? null
+        lastHeartbeatFromOverview: company.last_heartbeat ?? company.lastHeartbeat ?? null,
+        download_vs_hist_pct: company.download_vs_hist_pct ?? company.downloadVsHistPct ?? null,
+        upload_vs_hist_pct: company.upload_vs_hist_pct ?? company.uploadVsHistPct ?? null
       });
     };
 
@@ -850,9 +878,19 @@ const SpeedTestPage = ({
               <div style={styles.gaugeWrap}>
                 <div style={styles.gaugeRing(enabled && hasData ? dqDown.pct : 0, dqDown.color)} />
                 <div style={styles.gaugeInner}>
-                  <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
-                    {enabled && hasData ? fmtMbps(company.download_mbps) : '—'}
-                  </span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '2px 4px' }}>
+                    <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
+                      {enabled && hasData ? fmtMbps(company.download_mbps) : '—'}
+                    </span>
+                    {enabled && hasData && company.download_vs_hist_pct != null && (
+                      <span
+                        style={{ fontSize: 10, fontWeight: 700, color: vsHistoricalPctColor(company.download_vs_hist_pct) }}
+                        title="Scostamento vs media storica DOWNLOAD (ultimi 90 giorni, escluso questo test). Il tier colore può restare buono anche con percentuale negativa: qui vedi il calo rispetto al solito."
+                      >
+                        {formatVsHistoricalPct(company.download_vs_hist_pct)}
+                      </span>
+                    )}
+                  </div>
                   <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'Mbps' : ''}</span>
                 </div>
               </div>
@@ -862,9 +900,19 @@ const SpeedTestPage = ({
               <div style={styles.gaugeWrap}>
                 <div style={styles.gaugeRing(enabled && hasData ? uqUp.pct : 0, uqUp.color)} />
                 <div style={styles.gaugeInner}>
-                  <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
-                    {enabled && hasData ? fmtMbps(company.upload_mbps) : '—'}
-                  </span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '2px 4px' }}>
+                    <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
+                      {enabled && hasData ? fmtMbps(company.upload_mbps) : '—'}
+                    </span>
+                    {enabled && hasData && company.upload_vs_hist_pct != null && (
+                      <span
+                        style={{ fontSize: 10, fontWeight: 700, color: vsHistoricalPctColor(company.upload_vs_hist_pct) }}
+                        title="Scostamento vs media storica UPLOAD (ultimi 90 giorni, escluso questo test)."
+                      >
+                        {formatVsHistoricalPct(company.upload_vs_hist_pct)}
+                      </span>
+                    )}
+                  </div>
                   <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'Mbps' : ''}</span>
                 </div>
               </div>
@@ -919,6 +967,10 @@ const SpeedTestPage = ({
     const lastFromHistory = history.length > 0 ? history[history.length - 1] : null;
     const lastResult = lastFromHistory || selectedCompany.snapshot || null;
     const enabled = companyInfo?.speedtest_enabled !== false;
+    const downloadVsHistDetail =
+      pctVsPriorAvgFromHistory(history, 'download_mbps') ?? selectedCompany.download_vs_hist_pct ?? null;
+    const uploadVsHistDetail =
+      pctVsPriorAvgFromHistory(history, 'upload_mbps') ?? selectedCompany.upload_vs_hist_pct ?? null;
 
     return createPortal(
       <div style={styles.page}>
@@ -1034,9 +1086,19 @@ const SpeedTestPage = ({
                             <div style={styles.detailGaugeWrap}>
                               <div style={styles.detailGaugeRing(dq.pct, dq.color)} />
                               <div style={styles.detailGaugeInner}>
-                                <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
-                                  {fmtMbps(lastResult.download_mbps)}
-                                </span>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '4px 8px' }}>
+                                  <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
+                                    {fmtMbps(lastResult.download_mbps)}
+                                  </span>
+                                  {downloadVsHistDetail != null && (
+                                    <span
+                                      style={{ fontSize: 17, fontWeight: 700, color: vsHistoricalPctColor(downloadVsHistDetail) }}
+                                      title="Vs media storica: nella panoramica usa 90 giorni (escluso ultimo test); nel dettaglio, se disponibile, la cronologia caricata."
+                                    >
+                                      {formatVsHistoricalPct(downloadVsHistDetail)}
+                                    </span>
+                                  )}
+                                </div>
                                 <span style={{ fontSize: 14, color: '#94a3b8' }}>Mbps</span>
                               </div>
                             </div>
@@ -1054,9 +1116,19 @@ const SpeedTestPage = ({
                             <div style={styles.detailGaugeWrap}>
                               <div style={styles.detailGaugeRing(uq.pct, uq.color)} />
                               <div style={styles.detailGaugeInner}>
-                                <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
-                                  {fmtMbps(lastResult.upload_mbps)}
-                                </span>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '4px 8px' }}>
+                                  <span style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9', lineHeight: 1.1 }}>
+                                    {fmtMbps(lastResult.upload_mbps)}
+                                  </span>
+                                  {uploadVsHistDetail != null && (
+                                    <span
+                                      style={{ fontSize: 17, fontWeight: 700, color: vsHistoricalPctColor(uploadVsHistDetail) }}
+                                      title="Vs media storica UPLOAD (stessa logica del download)."
+                                    >
+                                      {formatVsHistoricalPct(uploadVsHistDetail)}
+                                    </span>
+                                  )}
+                                </div>
                                 <span style={{ fontSize: 14, color: '#94a3b8' }}>Mbps</span>
                               </div>
                             </div>

@@ -8761,7 +8761,31 @@ pause
           sr.isp, sr.public_ip, sr.server_name, sr.result_url,
           na.agent_name, na.status as agent_status, na.speedtest_enabled, na.speedtest_interval_hours,
           na.last_heartbeat,
-          u.azienda as azienda_name
+          u.azienda as azienda_name,
+          (
+            SELECT AVG(x.dl)::float8
+            FROM (
+              SELECT s4.download_mbps AS dl
+              FROM speedtest_results s4
+              WHERE s4.agent_id = na.id
+                AND s4.test_date > NOW() - INTERVAL '90 days'
+                AND s4.download_mbps IS NOT NULL
+              ORDER BY s4.test_date DESC, s4.id DESC
+              OFFSET 1
+            ) x
+          ) AS download_hist_avg,
+          (
+            SELECT AVG(x.ul)::float8
+            FROM (
+              SELECT s4.upload_mbps AS ul
+              FROM speedtest_results s4
+              WHERE s4.agent_id = na.id
+                AND s4.test_date > NOW() - INTERVAL '90 days'
+                AND s4.upload_mbps IS NOT NULL
+              ORDER BY s4.test_date DESC, s4.id DESC
+              OFFSET 1
+            ) x
+          ) AS upload_hist_avg
         FROM network_agents na
         LEFT JOIN users u ON na.azienda_id = u.id
         LEFT JOIN LATERAL (
@@ -8774,7 +8798,24 @@ pause
         ORDER BY u.azienda ASC NULLS LAST, na.agent_name ASC NULLS LAST, na.id ASC
       `);
 
-      res.json({ success: true, data: result.rows });
+      const data = result.rows.map((row) => {
+        const out = { ...row };
+        const d = row.download_mbps != null ? Number(row.download_mbps) : null;
+        const davg = row.download_hist_avg != null ? Number(row.download_hist_avg) : null;
+        const u = row.upload_mbps != null ? Number(row.upload_mbps) : null;
+        const uavg = row.upload_hist_avg != null ? Number(row.upload_hist_avg) : null;
+        out.download_vs_hist_pct =
+          d != null && davg != null && davg > 0 && Number.isFinite(d)
+            ? Math.round((100 * (d - davg)) / davg)
+            : null;
+        out.upload_vs_hist_pct =
+          u != null && uavg != null && uavg > 0 && Number.isFinite(u)
+            ? Math.round((100 * (u - uavg)) / uavg)
+            : null;
+        return out;
+      });
+
+      res.json({ success: true, data });
     } catch (err) {
       console.error('❌ Errore recupero panoramica speed test:', err);
       res.status(500).json({ error: 'Errore interno del server' });
