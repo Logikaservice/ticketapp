@@ -2446,16 +2446,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             <td className="py-1 px-4 text-sm font-mono text-gray-900 whitespace-nowrap">
                               <div className="flex flex-col gap-1">
                                 <div className="flex items-center gap-2">
-                                  {device.has_ping_failures && (
-                                    <div className="relative group flex items-center">
-                                      <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
-                                        <span className="text-white text-xs font-bold leading-none">+</span>
-                                      </div>
-                                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
-                                        Disconnessioni rilevate
-                                      </div>
-                                    </div>
-                                  )}
+
                                   {device.previous_ip && (
                                     <div className="flex items-center gap-1">
                                       <div className="relative group">
