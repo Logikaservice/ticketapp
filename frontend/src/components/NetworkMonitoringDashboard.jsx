@@ -23,7 +23,7 @@ import MonitoraggioIntroCard from './MonitoraggioIntroCard';
 import SectionNavMenu from './SectionNavMenu';
 import DeviceAnalysisModal from './Modals/DeviceAnalysisModal';
 
-const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, onCompanyChange = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura, onOpenTicket = null }) => {
+const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, onCompanyChange = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura, onNavigateSpeedTest, onNavigateHome, onOpenTicket = null }) => {
   const updateTimeoutRef = useRef(null);
   const [devices, setDevices] = useState([]);
   const [changes, setChanges] = useState([]);
@@ -1629,13 +1629,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           <div className="flex items-center gap-4">
             <SectionNavMenu
               currentPage="network"
-              onNavigateHome={onClose}
+              onNavigateHome={onNavigateHome || onClose}
               onNavigateOffice={onNavigateOffice}
               onNavigateEmail={onNavigateEmail}
               onNavigateAntiVirus={onNavigateAntiVirus}
               onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
               onNavigateNetworkMonitoring={null}
               onNavigateMappatura={onNavigateMappatura}
+              onNavigateSpeedTest={onNavigateSpeedTest}
               currentUser={currentUser}
               selectedCompanyId={selectedCompanyId}
             />
