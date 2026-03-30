@@ -429,7 +429,7 @@ module.exports = (pool, io) => {
           id SERIAL PRIMARY KEY,
           device_id INTEGER REFERENCES network_devices(id) ON DELETE CASCADE,
           agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
-          change_type VARCHAR(50) NOT NULL CHECK (change_type IN ('new_device', 'device_offline', 'device_online', 'ip_changed', 'mac_changed', 'hostname_changed', 'vendor_changed')),
+          change_type VARCHAR(50) NOT NULL CHECK (change_type IN ('new_device', 'device_offline', 'device_online', 'ip_changed', 'mac_changed', 'hostname_changed', 'vendor_changed', 'frequent_disconnections')),
           old_value TEXT,
           new_value TEXT,
           detected_at TIMESTAMP DEFAULT NOW(),
@@ -438,6 +438,18 @@ module.exports = (pool, io) => {
           ticket_id INTEGER REFERENCES tickets(id) ON DELETE SET NULL
         );
       `);
+
+      // Migrazione per aggiungere 'frequent_disconnections' al check constraint se esiste
+      try {
+        // Rimuove il vecchio constraint e lo ricrea (più semplice che alter check)
+        await pool.query(`
+          ALTER TABLE network_changes DROP CONSTRAINT IF EXISTS network_changes_change_type_check;
+          ALTER TABLE network_changes ADD CONSTRAINT network_changes_change_type_check 
+          CHECK (change_type IN ('new_device', 'device_offline', 'device_online', 'ip_changed', 'mac_changed', 'hostname_changed', 'vendor_changed', 'frequent_disconnections'));
+        `);
+      } catch (err) {
+        console.warn('⚠️ Migrazione network_changes frequent_disconnections:', err.message);
+      }
 
       // Crea tabella network_notification_config
       await pool.query(`
@@ -1415,7 +1427,7 @@ module.exports = (pool, io) => {
               CREATE TABLE IF NOT EXISTS network_agent_events (
                 id SERIAL PRIMARY KEY,
                 agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
-                event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('offline', 'online', 'reboot', 'network_issue')),
+                event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('offline', 'online', 'reboot', 'network_issue', 'frequent_disconnections')),
                 event_data JSONB,
                 detected_at TIMESTAMP DEFAULT NOW(),
                 resolved_at TIMESTAMP,
@@ -1424,6 +1436,16 @@ module.exports = (pool, io) => {
                 created_at TIMESTAMP DEFAULT NOW()
               );
             `);
+            // Migrazione per aggiungere 'frequent_disconnections' all'event_type della tabella agent_events
+            try {
+              await pool.query(`
+                ALTER TABLE network_agent_events DROP CONSTRAINT IF EXISTS network_agent_events_event_type_check;
+                ALTER TABLE network_agent_events ADD CONSTRAINT network_agent_events_event_type_check 
+                CHECK (event_type IN ('offline', 'online', 'reboot', 'network_issue', 'frequent_disconnections'));
+              `);
+            } catch (err) {
+              console.warn('⚠️ Migrazione network_agent_events frequent_disconnections:', err.message);
+            }
             console.log(`✅ Heartbeat: tabella network_agent_events creata con successo`);
             // Resetta il flag per forzare la ricreazione al prossimo heartbeat
             tablesCheckDone = false;
@@ -2086,6 +2108,13 @@ module.exports = (pool, io) => {
           }
           break;
 
+        case 'frequent_disconnections':
+          shouldNotify = config.notify_status_changes; // Usa lo stesso setting per ora
+          if (shouldNotify) {
+            message = telegramService.formatFrequentDisconnectionsMessage(data);
+          }
+          break;
+
         default:
           return false;
       }
@@ -2497,12 +2526,47 @@ module.exports = (pool, io) => {
           }
         } else {
           // INSERT
+          // Prima di inserire, verifica se questo MAC è MAI stato visto prima su questa rete (anche se il record è stato cancellato)
+          let isForeverNew = true;
+          if (normalizedMac) {
+            try {
+              const macHistoryCheck = await pool.query(
+                `SELECT COUNT(*) as count 
+                 FROM network_changes nc
+                 INNER JOIN network_devices nd ON nc.device_id = nd.id
+                 WHERE nd.agent_id = $1 
+                   AND REPLACE(REPLACE(UPPER(nd.mac_address), ':', ''), '-', '') = REPLACE(REPLACE(UPPER($2), ':', ''), '-', '')
+                   AND nc.change_type IN ('new_device', 'device_online')`,
+                [agentId, normalizedMac]
+              );
+              isForeverNew = parseInt(macHistoryCheck.rows[0].count) === 0;
+            } catch (historyErr) {
+              console.error('❌ Errore verifica storico MAC:', historyErr);
+            }
+          }
+
           const res = await pool.query(`INSERT INTO network_devices
                  (agent_id, ip_address, mac_address, hostname, vendor, status, ping_responsive, upgrade_available, device_type, device_path, additional_ips, is_new_device, unifi_name)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, $12) RETURNING id`,
-            [agentId, ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, effectiveDeviceType, devicePathFromKeepass, JSON.stringify(additional_ips || []), (unifi_name && String(unifi_name).trim()) ? String(unifi_name).trim() : null]
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+            [agentId, ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, effectiveDeviceType, devicePathFromKeepass, JSON.stringify(additional_ips || []), isForeverNew, (unifi_name && String(unifi_name).trim()) ? String(unifi_name).trim() : null]
           );
           deviceResults.push({ action: 'created', id: res.rows[0].id, ip: ip_address });
+
+          // Se è "Forever New", registra l'evento new_device
+          if (isForeverNew) {
+            await pool.query(
+              `INSERT INTO network_changes (device_id, agent_id, change_type, new_value)
+               VALUES ($1, $2, 'new_device', 'online')`,
+              [res.rows[0].id, agentId]
+            );
+          } else {
+            // Altrimenti registra come online normale
+            await pool.query(
+              `INSERT INTO network_changes (device_id, agent_id, change_type, old_value, new_value)
+               VALUES ($1, $2, 'device_online', 'offline', 'online')`,
+              [res.rows[0].id, agentId]
+            );
+          }
 
           // DEBUG: Track 192.168.100.200
           if (ip_address === '192.168.100.200') {
@@ -2722,6 +2786,34 @@ module.exports = (pool, io) => {
                 if (offlineCount >= 5) {
                   await pool.query('UPDATE network_devices SET has_ping_failures = true WHERE id = $1', [deviceId]);
                   console.log(`⚠️ Dispositivo ${deviceId} instabile: ${offlineCount} disconnessioni in 24h. Flag has_ping_failures attivato.`);
+
+                  // Crea un evento specifico per disconnessioni frequenti (se non già presente oggi)
+                  const recentFrequentAlert = await pool.query(
+                    `SELECT id FROM network_changes 
+                     WHERE device_id = $1 
+                       AND change_type = 'frequent_disconnections' 
+                       AND detected_at > NOW() - INTERVAL '12 hours'
+                     LIMIT 1`,
+                    [deviceId]
+                  );
+
+                  if (recentFrequentAlert.rows.length === 0) {
+                    await pool.query(
+                      `INSERT INTO network_changes (device_id, agent_id, change_type, old_value, new_value)
+                       VALUES ($1, $2, 'frequent_disconnections', $3, $4)`,
+                      [deviceId, agentId, null, `${offlineCount} disconnessioni nelle ultime 24 ore`]
+                    );
+
+                    // Notifica Telegram specifica per instabilità
+                    sendTelegramNotification(agentId, req.agent.azienda_id, 'frequent_disconnections', {
+                      hostname: effectiveHostname || device_ip,
+                      ip: device_ip,
+                      mac: normalizedMac || 'N/A',
+                      offlineCount: offlineCount,
+                      agentName,
+                      aziendaName
+                    }).catch(e => console.error('Telegram freq error:', e));
+                  }
                 }
               } catch (e) {
                 console.error('Errore check flapping offline:', e);

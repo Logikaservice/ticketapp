@@ -130,6 +130,20 @@ class TelegramService {
 <b>Stato Precedente:</b> ${deviceInfo.oldStatus || 'N/A'}
 <b>Timestamp:</b> ${new Date().toLocaleString('it-IT')}`;
   }
+
+  // Formatta messaggio per disconnessioni frequenti (instabilità)
+  formatFrequentDisconnectionsMessage(deviceInfo) {
+    return `⚠️ <b>Instabilità Rilevata</b> ⚠️
+
+Il dispositivo ha avuto <b>${deviceInfo.offlineCount}</b> disconnessioni nelle ultime 24 ore.
+
+<b>Azienda:</b> ${deviceInfo.aziendaName || 'N/A'}
+<b>Agent:</b> ${deviceInfo.agentName || 'N/A'}
+<b>Dispositivo:</b> ${deviceInfo.hostname || 'Sconosciuto'}
+<b>IP:</b> ${deviceInfo.ip || 'N/A'}
+<b>MAC:</b> ${deviceInfo.mac || 'N/A'}
+<b>Timestamp:</b> ${new Date().toLocaleString('it-IT')}`;
+  }
 }
 
 // Esporta singleton

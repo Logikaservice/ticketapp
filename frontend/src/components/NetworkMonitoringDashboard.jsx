@@ -2519,6 +2519,21 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                     </div>
                                   )}
 
+                                   {/* Indicatore Disconnessioni Frequenti (Flapping/Instabilità) */}
+                                  {device.has_ping_failures && (
+                                    <div className="relative group shrink-0">
+                                      <div 
+                                        className="w-4 h-4 bg-red-600 rounded-full flex items-center justify-center text-white font-bold text-[10px] shadow-sm cursor-help animate-pulse"
+                                        title="Instabilità: Rilevate più di 5 disconnessioni in 24h"
+                                      >
+                                        +
+                                      </div>
+                                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-30 bg-red-900 text-white text-[10px] rounded py-1 px-2 whitespace-nowrap shadow-xl border border-red-400">
+                                        Instabilità: Rilevate più di 5 disconnessioni in 24h
+                                      </div>
+                                    </div>
+                                  )}
+
                                   <span
                                     onClick={(e) => handleIpClick(e, device.ip_address, device)}
                                     className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
