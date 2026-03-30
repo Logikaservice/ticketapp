@@ -690,18 +690,19 @@ module.exports = (pool, io) => {
   let tablesCheckDone = false;
   let tablesCheckInProgress = false;
   const ensureTables = async () => {
+    // Se già fatto, torna subito (MASSIMA EFFICIENZA)
+    if (tablesCheckDone) return;
+
     // Se una verifica è già in corso, aspetta
     if (tablesCheckInProgress) {
-      // Aspetta fino a 5 secondi che la verifica finisca
+      // Aspetta fino a 10 secondi che la verifica finisca
       let waitCount = 0;
-      while (tablesCheckInProgress && waitCount < 50) {
+      while (tablesCheckInProgress && waitCount < 100) {
         await new Promise(resolve => setTimeout(resolve, 100));
         waitCount++;
       }
-      // Dopo l'attesa, ricontrolla se le tabelle esistono (potrebbero essere state create)
-      if (tablesCheckDone) {
-        return;
-      }
+      // Dopo l'attesa, ricontrolla se le tabelle esistono
+      if (tablesCheckDone) return;
     }
 
     tablesCheckInProgress = true;
@@ -729,10 +730,33 @@ module.exports = (pool, io) => {
           await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_config JSONB;`);
           await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_ok BOOLEAN;`);
           await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_check_at TIMESTAMPTZ;`);
+          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS speedtest_enabled BOOLEAN DEFAULT true;`);
+          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS speedtest_interval_hours INTEGER DEFAULT 2;`);
+          
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS notes TEXT;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS device_path TEXT;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS previous_ip VARCHAR(45);`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS previous_mac VARCHAR(17);`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS has_ping_failures BOOLEAN DEFAULT false;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS device_username TEXT;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS keepass_path TEXT;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS accepted_ip VARCHAR(45);`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS accepted_mac VARCHAR(17);`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_gateway BOOLEAN DEFAULT false;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS port INTEGER;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS router_model VARCHAR(100);`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS unifi_name VARCHAR(255);`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_manual_type BOOLEAN DEFAULT false;`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_manual_parent BOOLEAN DEFAULT false;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS notify_telegram BOOLEAN DEFAULT false;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS monitoring_schedule JSONB;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS snmp_version VARCHAR(10) DEFAULT '2c';`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS parent_device_id INTEGER REFERENCES network_devices(id) ON DELETE SET NULL;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS additional_ips JSONB DEFAULT '[]'::jsonb;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_new_device BOOLEAN DEFAULT false;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_managed_switch BOOLEAN DEFAULT false;`);
           // Migrazione dati: unifica tipo 'virtualization' -> 'virtual' (stessa icona, un solo tipo)
           try {
             const upd = await pool.query(`UPDATE network_devices SET device_type = 'virtual' WHERE device_type = 'virtualization'`);
@@ -3031,78 +3055,6 @@ module.exports = (pool, io) => {
     try {
       await ensureTables();
 
-      // Assicurati che le colonne is_static, device_path, previous_ip, previous_mac, device_username esistano (migrazione)
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS device_path TEXT;
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS previous_ip VARCHAR(45);
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS previous_mac VARCHAR(17);
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS device_username TEXT;
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS accepted_ip VARCHAR(45);
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS accepted_mac VARCHAR(17);
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS is_gateway BOOLEAN DEFAULT false;
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS parent_device_id INTEGER REFERENCES network_devices(id) ON DELETE SET NULL;
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS port INTEGER;
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS notes TEXT;
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS is_manual_type BOOLEAN DEFAULT false;
-        `);
-      } catch (migrationErr) {
-        // Ignora errore se colonna esiste già
-        if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonne in clients/:aziendaId/devices:', migrationErr.message);
-        }
-      }
-
-      // MIGRATION: Supporto per IP multipli sullo stesso MAC
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS additional_ips JSONB DEFAULT '[]'::jsonb;
-        `);
-      } catch (e) { console.warn('Warning adding additional_ips column:', e.message); }
-
-      // MIGRATION: Flag per nuovi dispositivi
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS is_new_device BOOLEAN DEFAULT false;
-        `);
-      } catch (e) { console.warn('Warning adding is_new_device column:', e.message); }
 
       // Migrazione: pulisci IP nel formato JSON errato e rimuovi duplicati
       try {
@@ -3986,61 +3938,7 @@ module.exports = (pool, io) => {
       await ensureTables();
 
       // Assicurati che le colonne device_path, is_static, previous_ip, previous_mac esistano (migrazione)
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS device_path TEXT;
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS previous_ip VARCHAR(45);
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS previous_mac VARCHAR(17);
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS has_ping_failures BOOLEAN DEFAULT false;
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS device_username TEXT;
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS accepted_ip VARCHAR(45);
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS accepted_mac VARCHAR(17);
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS is_gateway BOOLEAN DEFAULT false;
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS port INTEGER;
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS router_model VARCHAR(100);
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices
-          ADD COLUMN IF NOT EXISTS unifi_name VARCHAR(255);
-        `);
-      } catch (migrationErr) {
-        // Ignora errore se colonna esiste già
-        if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonne in all/devices:', migrationErr.message);
-        }
-      }
+
 
       const result = await pool.query(
         `SELECT 
@@ -4173,18 +4071,7 @@ module.exports = (pool, io) => {
       const searchTerm = req.query.search ? req.query.search.trim() : '';
       const aziendaId = req.query.azienda_id ? parseInt(req.query.azienda_id) : null;
 
-      // Assicurati che la colonna is_static esista (migrazione)
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;
-        `);
-      } catch (migrationErr) {
-        // Ignora errore se colonna esiste già
-        if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonna is_static in all/changes:', migrationErr.message);
-        }
-      }
+
 
       // Costruisci condizioni di ricerca
       let searchConditions = '';
@@ -5701,22 +5588,7 @@ pause
     try {
       await ensureTables();
 
-      // Assicurati che le colonne is_static e notify_telegram esistano (migrazione)
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS notify_telegram BOOLEAN DEFAULT false;
-        `);
-      } catch (migrationErr) {
-        // Ignora errore se colonna esiste già
-        if (!migrationErr.message.includes('already exists') && !migrationErr.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonne in PATCH static:', migrationErr.message);
-        }
-      }
+
 
       const { id } = req.params;
       const { is_static, notify_telegram, monitoring_schedule } = req.body;
