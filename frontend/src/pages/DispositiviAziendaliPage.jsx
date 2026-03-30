@@ -61,6 +61,8 @@ const DispositiviAziendaliPage = ({
   onNavigateMappatura,
   onNavigateCommAgent = null,
   onNavigateCommAgentManager = null,
+  onNavigateSpeedTest,
+  onNavigateHome,
   highlightMac = null
 }) => {
   const [companies, setCompanies] = useState([]);
@@ -245,12 +247,13 @@ const DispositiviAziendaliPage = ({
         <div className="flex items-center gap-3">
           <SectionNavMenu
             currentPage="dispositivi-aziendali"
-            onNavigateHome={onClose}
+            onNavigateHome={onNavigateHome || onClose}
             onNavigateOffice={onNavigateOffice}
             onNavigateEmail={onNavigateEmail}
             onNavigateAntiVirus={onNavigateAntiVirus}
             onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
             onNavigateMappatura={onNavigateMappatura}
+            onNavigateSpeedTest={onNavigateSpeedTest}
             onNavigateDispositiviAziendali={null}
             currentUser={currentUser}
             selectedCompanyId={selectedCompanyId}

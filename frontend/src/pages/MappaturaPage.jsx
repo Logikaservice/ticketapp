@@ -236,7 +236,7 @@ const RefreshTimer = () => {
     return <span>{seconds < 10 ? `0${seconds}` : seconds}s</span>;
 };
 
-const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onCompanyChange = null, onNavigateToMonitoring = null, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateMappatura }) => {
+const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onCompanyChange = null, onNavigateToMonitoring = null, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateMappatura, onNavigateSpeedTest, onNavigateHome }) => {
     const isCliente = currentUser?.ruolo === 'cliente';
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId ? String(initialCompanyId) : '');
@@ -1732,13 +1732,14 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                     <div className="flex items-center gap-4">
                         <SectionNavMenu
                             currentPage="mappatura"
-                            onNavigateHome={() => { saveLayoutRef.current?.(); onClose(); }}
+                            onNavigateHome={onNavigateHome || (() => { saveLayoutRef.current?.(); onClose(); })}
                             onNavigateOffice={onNavigateOffice}
                             onNavigateEmail={onNavigateEmail}
                             onNavigateAntiVirus={onNavigateAntiVirus}
                             onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
                             onNavigateNetworkMonitoring={onNavigateToMonitoring ? () => onNavigateToMonitoring(selectedCompanyId ? parseInt(selectedCompanyId) : null) : null}
                             onNavigateMappatura={null}
+                            onNavigateSpeedTest={onNavigateSpeedTest}
                             currentUser={currentUser}
                             selectedCompanyId={selectedCompanyId}
                         />

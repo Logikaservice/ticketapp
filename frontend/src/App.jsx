@@ -3367,6 +3367,8 @@ export default function TicketApp() {
             onNavigateAntiVirus={handleOpenAntiVirus}
             onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
             onNavigateMappatura={handleOpenMappatura}
+            onNavigateSpeedTest={handleOpenSpeedTest}
+            onNavigateHome={() => { setShowDashboard(true); setShowFlottaPC(false); }}
             onNavigateCommAgent={handleOpenCommAgent}
             onNavigateCommAgentManager={handleOpenCommAgentManager}
             highlightMac={dispositiviAziendaliHighlightMac}
@@ -3406,6 +3408,8 @@ export default function TicketApp() {
                 onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
                 onNavigateNetworkMonitoring={null}
                 onNavigateMappatura={() => { setShowMappatura(true); setShowNetworkMonitoring(false); setShowDashboard(false); }}
+                onNavigateSpeedTest={handleOpenSpeedTest}
+                onNavigateHome={() => { setShowDashboard(true); setShowNetworkMonitoring(false); }}
                 onOpenTicket={openNewTicketWithData}
               />
             ) : (
@@ -3459,6 +3463,8 @@ export default function TicketApp() {
             onNavigateAntiVirus={handleOpenAntiVirus}
             onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
             onNavigateMappatura={null}
+            onNavigateSpeedTest={handleOpenSpeedTest}
+            onNavigateHome={() => { setShowDashboard(true); setShowMappatura(false); }}
           />
         )}
 
@@ -3475,6 +3481,8 @@ export default function TicketApp() {
             onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
             onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
             onNavigateMappatura={handleOpenMappatura}
+            onNavigateSpeedTest={handleOpenSpeedTest}
+            onNavigateHome={() => { setShowDashboard(true); setShowOffice(false); }}
           />
         )}
 
@@ -3492,6 +3500,8 @@ export default function TicketApp() {
             onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
             onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
             onNavigateMappatura={handleOpenMappatura}
+            onNavigateSpeedTest={handleOpenSpeedTest}
+            onNavigateHome={() => { setShowDashboard(true); setShowAntiVirus(false); }}
           />
         )}
 
@@ -3508,6 +3518,8 @@ export default function TicketApp() {
             onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
             onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
             onNavigateMappatura={handleOpenMappatura}
+            onNavigateSpeedTest={handleOpenSpeedTest}
+            onNavigateHome={() => { setShowDashboard(true); setShowEmail(false); }}
           />
         )}
 
