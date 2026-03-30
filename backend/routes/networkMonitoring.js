@@ -429,7 +429,7 @@ module.exports = (pool, io) => {
           id SERIAL PRIMARY KEY,
           device_id INTEGER REFERENCES network_devices(id) ON DELETE CASCADE,
           agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
-          change_type VARCHAR(50) NOT NULL CHECK (change_type IN ('new_device', 'device_offline', 'device_online', 'ip_changed', 'mac_changed', 'hostname_changed', 'vendor_changed', 'frequent_disconnections')),
+          change_type VARCHAR(50) NOT NULL CHECK (change_type IN ('new_device', 'device_offline', 'device_online', 'ip_changed', 'mac_changed', 'hostname_changed', 'vendor_changed', 'ip_conflict', 'frequent_disconnections')),
           old_value TEXT,
           new_value TEXT,
           detected_at TIMESTAMP DEFAULT NOW(),
@@ -439,16 +439,16 @@ module.exports = (pool, io) => {
         );
       `);
 
-      // Migrazione per aggiungere 'frequent_disconnections' al check constraint se esiste
+      // Migrazione per aggiungere 'frequent_disconnections' e 'ip_conflict' al check constraint se esiste
       try {
         // Rimuove il vecchio constraint e lo ricrea (più semplice che alter check)
         await pool.query(`
           ALTER TABLE network_changes DROP CONSTRAINT IF EXISTS network_changes_change_type_check;
           ALTER TABLE network_changes ADD CONSTRAINT network_changes_change_type_check 
-          CHECK (change_type IN ('new_device', 'device_offline', 'device_online', 'ip_changed', 'mac_changed', 'hostname_changed', 'vendor_changed', 'frequent_disconnections'));
+          CHECK (change_type IN ('new_device', 'device_offline', 'device_online', 'ip_changed', 'mac_changed', 'hostname_changed', 'vendor_changed', 'ip_conflict', 'frequent_disconnections'));
         `);
       } catch (err) {
-        console.warn('⚠️ Migrazione network_changes frequent_disconnections:', err.message);
+        console.warn('⚠️ Migrazione network_changes (consensualizzata):', err.message);
       }
 
       // Crea tabella network_notification_config
@@ -558,7 +558,7 @@ module.exports = (pool, io) => {
         CREATE TABLE IF NOT EXISTS network_agent_events (
           id SERIAL PRIMARY KEY,
           agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
-          event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('offline', 'online', 'reboot', 'network_issue')),
+          event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('offline', 'online', 'reboot', 'network_issue', 'frequent_disconnections')),
           event_data JSONB,
           detected_at TIMESTAMP DEFAULT NOW(),
           resolved_at TIMESTAMP,
@@ -622,18 +622,18 @@ module.exports = (pool, io) => {
         }
       }
 
-      // Migrazione: aggiungi change_type 'ip_conflict' alla tabella network_changes (per Eventi di Rete)
+      // Migrazione: aggiungi change_type 'ip_conflict' e altri tipi alla tabella network_changes
       try {
         await pool.query(`
           ALTER TABLE network_changes DROP CONSTRAINT IF EXISTS network_changes_change_type_check;
         `);
         await pool.query(`
           ALTER TABLE network_changes ADD CONSTRAINT network_changes_change_type_check
-          CHECK (change_type IN ('new_device', 'device_offline', 'device_online', 'ip_changed', 'mac_changed', 'hostname_changed', 'vendor_changed', 'ip_conflict'));
+          CHECK (change_type IN ('new_device', 'device_offline', 'device_online', 'ip_changed', 'mac_changed', 'hostname_changed', 'vendor_changed', 'ip_conflict', 'frequent_disconnections'));
         `);
       } catch (migrErr) {
         if (!migrErr.message.includes('already exists') && !migrErr.message.includes('duplicate')) {
-          console.warn('⚠️ Migrazione ip_conflict network_changes:', migrErr.message);
+          console.warn('⚠️ Migrazione network_changes (632):', migrErr.message);
         }
       }
 
@@ -6811,7 +6811,7 @@ pause
                 CREATE TABLE IF NOT EXISTS network_agent_events (
                   id SERIAL PRIMARY KEY,
                   agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
-                  event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('offline', 'online', 'reboot', 'network_issue')),
+                  event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('offline', 'online', 'reboot', 'network_issue', 'frequent_disconnections')),
                   event_data JSONB,
                   detected_at TIMESTAMP DEFAULT NOW(),
                   resolved_at TIMESTAMP,
