@@ -442,7 +442,16 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         <div className="fixed inset-0 bg-gray-100 z-50 flex flex-col">
             {/* Header */}
             <div className="bg-white border-b px-6 py-4 flex items-center justify-between shadow-sm">
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
+                            <Shield size={24} />
+                        </div>
+                        <div>
+                            <h1 className="text-xl font-bold text-gray-800">Gestione Anti-Virus</h1>
+                            {readOnly && <p className="text-sm text-gray-500 mt-0.5">Sola consultazione</p>}
+                        </div>
+                    </div>
                     <SectionNavMenu
                         currentPage="antivirus"
                         onNavigateHome={onNavigateHome || onClose}
@@ -456,13 +465,6 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         currentUser={currentUser}
                         selectedCompanyId={selectedCompanyId}
                     />
-                    <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
-                        <Shield size={24} />
-                    </div>
-                    <div>
-                        <h1 className="text-xl font-bold text-gray-800">Gestione Anti-Virus</h1>
-                        {readOnly && <p className="text-sm text-gray-500 mt-0.5">Sola consultazione</p>}
-                    </div>
                 </div>
 
                 <div className="flex items-center gap-4">

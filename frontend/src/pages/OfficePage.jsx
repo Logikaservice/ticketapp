@@ -244,7 +244,11 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
     <div className="fixed inset-0 bg-gray-50 z-[100] flex flex-col font-sans w-full h-full overflow-hidden">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-gray-900">Office</h1>
+            <p className="text-sm text-gray-600">{companyName || 'Seleziona un\'azienda'}</p>
+          </div>
           <SectionNavMenu
             currentPage="office"
             onNavigateHome={onNavigateHome || onClose}
@@ -258,10 +262,6 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
             currentUser={currentUser}
             selectedCompanyId={selectedCompanyId}
           />
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Office</h1>
-            <p className="text-sm text-gray-600">{companyName || 'Seleziona un\'azienda'}</p>
-          </div>
         </div>
         <div className="flex items-center gap-4">
           {!loadingCompanies && (isCliente ? !!selectedCompanyId : true) && (

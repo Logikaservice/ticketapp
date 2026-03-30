@@ -38,20 +38,20 @@ const SectionNavMenu = ({
   ].filter(item => item.visible);
 
   return (
-    <nav className="flex items-center gap-1 sm:gap-2">
+    <nav className="flex items-center gap-1 sm:gap-1.5 py-1 px-1 bg-gray-50/50 rounded-xl border border-gray-100/50 w-fit">
       {allItems.map(({ id, label, icon: Icon, onClick, color }) => {
         const isActive = id === currentPage;
-        if (isActive) return null; // Nascondi la pagina corrente come richiesto
+        if (isActive) return null;
 
         return (
           <button
             key={id}
             onClick={() => onClick?.(selectedCompanyId)}
-            className={`group flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all hover:bg-gray-100 ${color} whitespace-nowrap`}
+            className={`group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all hover:bg-white hover:shadow-sm ${color} whitespace-nowrap`}
             title={label}
           >
-            <Icon size={18} className="group-hover:scale-110 transition-transform" />
-            <span className="hidden lg:inline text-xs font-semibold">{label}</span>
+            <Icon size={16} className="group-hover:scale-110 transition-transform" />
+            <span className="text-[11px] font-bold uppercase tracking-wider">{label}</span>
           </button>
         );
       })}

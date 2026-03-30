@@ -1747,7 +1747,16 @@ const SpeedTestPage = ({
     <div style={styles.page}>
       {/* Intestazione */}
       <div style={styles.header}>
-        <div style={styles.headerLeft}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={styles.headerIcon}>
+              <Gauge size={20} color="white" />
+            </div>
+            <div>
+              <h1 style={{ fontSize: 20, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>Speed Test Dashboard</h1>
+              <p style={{ fontSize: 12, color: '#94a3b8', margin: '2px 0 0' }}>Monitoraggio velocità connessione · Solo tecnici</p>
+            </div>
+          </div>
           <SectionNavMenu
             currentPage="speedtest"
             onNavigateHome={onNavigateHome}
@@ -1760,13 +1769,6 @@ const SpeedTestPage = ({
             currentUser={currentUser}
             selectedCompanyId={selectedCompanyId}
           />
-          <div style={styles.headerIcon}>
-            <Gauge size={20} color="white" />
-          </div>
-          <div>
-            <h1 style={{ fontSize: 20, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>Speed Test Dashboard</h1>
-            <p style={{ fontSize: 12, color: '#94a3b8', margin: '2px 0 0' }}>Monitoraggio velocità connessione · Solo tecnici</p>
-          </div>
         </div>
         <button
           type="button"

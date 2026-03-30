@@ -1729,7 +1729,11 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
             <div className="fixed inset-0 bg-gray-50 z-[100] flex flex-col font-sans w-full h-full overflow-hidden">
                 {/* Header */}
                 <div className="mappatura-header bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-[100] shrink-0">
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-xl font-bold text-gray-900">Mappatura</h1>
+                            <p className="text-sm text-gray-600">Mappa manuale senza SNMP · IP individuati</p>
+                        </div>
                         <SectionNavMenu
                             currentPage="mappatura"
                             onNavigateHome={onNavigateHome || (() => { saveLayoutRef.current?.(); onClose(); })}
@@ -1743,10 +1747,6 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             currentUser={currentUser}
                             selectedCompanyId={selectedCompanyId}
                         />
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900">Mappatura</h1>
-                            <p className="text-sm text-gray-600">Mappa manuale senza SNMP · IP individuati</p>
-                        </div>
                     </div>
                     <div className="flex items-center gap-4">
                         <select

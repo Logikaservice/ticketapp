@@ -1626,7 +1626,23 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       {/* Header Navigazione */}
       {onClose && (
         <div className="bg-white border-b px-6 py-3 flex justify-between items-center sticky top-0 z-40 shadow-sm">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <h1 className="font-bold text-xl text-gray-800">Monitoraggio Rete</h1>
+              {getAuthHeader && socket && (
+                <AgentNotifications
+                  getAuthHeader={getAuthHeader}
+                  socket={socket}
+                  onOpenNetworkMonitoring={null}
+                />
+              )}
+              {readOnly && (
+                <div className="ml-2 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-medium flex items-center gap-2">
+                  <Eye size={16} />
+                  Modalità Visualizzazione
+                </div>
+              )}
+            </div>
             <SectionNavMenu
               currentPage="network"
               onNavigateHome={onNavigateHome || onClose}
@@ -1640,22 +1656,6 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               currentUser={currentUser}
               selectedCompanyId={selectedCompanyId}
             />
-            <div className="h-6 w-px bg-gray-300"></div>
-            <h1 className="font-bold text-xl text-gray-800">Monitoraggio Rete</h1>
-            {/* Notifiche Agent - spostato a destra del titolo */}
-            {getAuthHeader && socket && (
-              <AgentNotifications
-                getAuthHeader={getAuthHeader}
-                socket={socket}
-                onOpenNetworkMonitoring={null}
-              />
-            )}
-            {readOnly && (
-              <div className="ml-4 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-sm font-medium flex items-center gap-2">
-                <Eye size={16} />
-                Modalità Visualizzazione
-              </div>
-            )}
           </div>
           <div className="flex items-center gap-3">
             {controlsSection}
