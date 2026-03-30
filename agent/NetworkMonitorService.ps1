@@ -5,15 +5,15 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.7.3
-# Data ultima modifica: 2026-03-27
+# Versione: 2.7.4
+# Data ultima modifica: 2026-03-30
 
 param(
     [string]$ConfigPath = "config.json"
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.7.3"
+$SCRIPT_VERSION = "2.7.4"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -1863,6 +1863,7 @@ function Send-ScanResults {
     )
     
     try {
+        Enable-Tls12
         # Carica ultimo scan per confronto (se esiste)
         $lastScan = $null
         if (Test-Path $script:lastScanPath) {
@@ -2070,6 +2071,7 @@ function Get-ServerConfig {
     )
     
     try {
+        Enable-Tls12
         $headers = @{
             "X-API-Key" = $ApiKey
         }
@@ -2168,6 +2170,7 @@ function Invoke-SpeedTest {
         [string]$ApiKey
     )
     try {
+        Enable-Tls12
         Write-Log "[SpeedTest] Avvio speed test..." "INFO"
         $speedtestDir = Join-Path $script:scriptDir "speedtest"
         $speedtestExe = Join-Path $speedtestDir "speedtest.exe"
@@ -2306,6 +2309,7 @@ function Send-Heartbeat {
     )
     
     try {
+        Enable-Tls12
         $headers = @{
             "Content-Type" = "application/json"
             "X-API-Key"    = $ApiKey
