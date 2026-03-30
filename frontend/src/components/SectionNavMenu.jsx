@@ -1,8 +1,8 @@
-// Menu sandwich per navigazione tra sezioni (Email, Office, Anti-Virus, Monitoraggio Rete, Mappatura)
-// Esclude sempre "Nuove funzionalità" e "Impostazioni"
+// Menu di navigazione tra sezioni (Email, Office, Anti-Virus, Monitoraggio Rete, Mappatura)
+// Mostra icone orizzontali per navigazione rapida se c'è spazio, altrimenti sandwich su mobile
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Menu, Building2, Mail, Shield, Wifi, MapPin, Home, Monitor, Gauge } from 'lucide-react';
+import React from 'react';
+import { Building2, Mail, Shield, Wifi, MapPin, Home, Monitor, Gauge } from 'lucide-react';
 
 const SectionNavMenu = ({
   currentPage,
@@ -17,9 +17,6 @@ const SectionNavMenu = ({
   currentUser,
   selectedCompanyId = null
 }) => {
-  const [open, setOpen] = useState(false);
-  const menuRef = useRef(null);
-
   const isCompanyAdmin = currentUser?.ruolo === 'cliente' &&
     currentUser?.admin_companies &&
     Array.isArray(currentUser.admin_companies) &&
@@ -27,58 +24,40 @@ const SectionNavMenu = ({
   const isTecnicoOrAdmin = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
   const hasAccess = isTecnicoOrAdmin || isCompanyAdmin;
 
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   if (!hasAccess) return null;
 
-  const homeItem = onNavigateHome ? [{ id: 'home', label: 'Home', icon: Home, onClick: onNavigateHome }] : [];
-  const sectionItems = [
-    { id: 'office', label: 'Office', icon: Building2, onClick: onNavigateOffice, visible: !!onNavigateOffice },
-    { id: 'email', label: 'Email', icon: Mail, onClick: onNavigateEmail, visible: !!onNavigateEmail },
-    { id: 'antivirus', label: 'Anti-Virus', icon: Shield, onClick: onNavigateAntiVirus, visible: !!onNavigateAntiVirus },
-    { id: 'dispositivi-aziendali', label: 'Dispositivi aziendali', icon: Monitor, onClick: onNavigateDispositiviAziendali, visible: !!onNavigateDispositiviAziendali },
-    { id: 'speedtest', label: 'Speed Test', icon: Gauge, onClick: onNavigateSpeedTest, visible: isTecnicoOrAdmin && !!onNavigateSpeedTest },
-    { id: 'network', label: 'Monitoraggio Rete', icon: Wifi, onClick: onNavigateNetworkMonitoring, visible: !!onNavigateNetworkMonitoring },
-    { id: 'mappatura', label: 'Mappatura', icon: MapPin, onClick: onNavigateMappatura, visible: !!onNavigateMappatura }
-  ].filter(item => item.visible && item.id !== currentPage);
-  const items = [...homeItem, ...sectionItems];
-
-  if (items.length === 0) return null;
+  const allItems = [
+    { id: 'home', label: 'Home', icon: Home, onClick: onNavigateHome, visible: !!onNavigateHome, color: 'text-gray-500' },
+    { id: 'office', label: 'Office', icon: Building2, onClick: onNavigateOffice, visible: !!onNavigateOffice, color: 'text-slate-600' },
+    { id: 'email', label: 'Email', icon: Mail, onClick: onNavigateEmail, visible: !!onNavigateEmail, color: 'text-blue-600' },
+    { id: 'antivirus', label: 'Anti-Virus', icon: Shield, onClick: onNavigateAntiVirus, visible: !!onNavigateAntiVirus, color: 'text-red-600' },
+    { id: 'dispositivi-aziendali', label: 'Dispositivi', icon: Monitor, onClick: onNavigateDispositiviAziendali, visible: !!onNavigateDispositiviAziendali, color: 'text-teal-600' },
+    { id: 'speedtest', label: 'Speed Test', icon: Gauge, onClick: onNavigateSpeedTest, visible: isTecnicoOrAdmin && !!onNavigateSpeedTest, color: 'text-purple-600' },
+    { id: 'network', label: 'Monitoraggio', icon: Wifi, onClick: onNavigateNetworkMonitoring, visible: !!onNavigateNetworkMonitoring, color: 'text-emerald-600' },
+    { id: 'mappatura', label: 'Mappatura', icon: MapPin, onClick: onNavigateMappatura, visible: !!onNavigateMappatura, color: 'text-indigo-600' }
+  ].filter(item => item.visible);
 
   return (
-    <div className="relative" ref={menuRef}>
-      <button
-        onClick={() => setOpen(!open)}
-        className="p-2 hover:bg-gray-100 rounded-lg text-gray-600"
-        title="Menu di navigazione"
-      >
-        <Menu size={20} />
-      </button>
-      {open && (
-        <div className="absolute left-0 top-full mt-1 w-52 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-[10000]">
-          {items.map(({ id, label, icon: Icon, onClick }) => (
-            <button
-              key={id}
-              onClick={() => {
-                onClick?.(selectedCompanyId);
-                setOpen(false);
-              }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-700 hover:bg-gray-50 transition"
-            >
-              <Icon size={18} className="text-gray-500" />
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <nav className="flex items-center gap-1 sm:gap-2">
+      {allItems.map(({ id, label, icon: Icon, onClick, color }) => {
+        const isActive = id === currentPage;
+        if (isActive) return null; // Nascondi la pagina corrente come richiesto
+
+        return (
+          <button
+            key={id}
+            onClick={() => onClick?.(selectedCompanyId)}
+            className={`group flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all hover:bg-gray-100 ${color} whitespace-nowrap`}
+            title={label}
+          >
+            <Icon size={18} className="group-hover:scale-110 transition-transform" />
+            <span className="hidden lg:inline text-xs font-semibold">{label}</span>
+          </button>
+        );
+      })}
+    </nav>
   );
 };
 
 export default SectionNavMenu;
+
