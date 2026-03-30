@@ -740,6 +740,7 @@ module.exports = (pool, io) => {
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS previous_ip VARCHAR(45);`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS previous_mac VARCHAR(17);`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS has_ping_failures BOOLEAN DEFAULT false;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS ping_responsive BOOLEAN DEFAULT true;`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS device_username TEXT;`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS keepass_path TEXT;`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS accepted_ip VARCHAR(45);`);
@@ -755,8 +756,40 @@ module.exports = (pool, io) => {
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS snmp_version VARCHAR(10) DEFAULT '2c';`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS parent_device_id INTEGER REFERENCES network_devices(id) ON DELETE SET NULL;`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS additional_ips JSONB DEFAULT '[]'::jsonb;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS ip_history JSONB DEFAULT '[]'::jsonb;`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_new_device BOOLEAN DEFAULT false;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS wifi_sync_status VARCHAR(50);`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS wifi_sync_msg TEXT;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS wifi_sync_last_at TIMESTAMPTZ;`);
+          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS switch_profile_id INTEGER;`);
           await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_managed_switch BOOLEAN DEFAULT false;`);
+
+          // 3. PULIZIA DATI (Una sola volta all'avvio sessione)
+          try {
+            console.log('🧹 Pulizia dati duplicati network_devices...');
+            await pool.query(`
+              UPDATE network_devices 
+              SET ip_address = REGEXP_REPLACE(ip_address, '[{}"]', '', 'g')
+              WHERE ip_address ~ '[{}"]';
+            `);
+            await pool.query(`
+              DELETE FROM network_devices nd1
+              WHERE EXISTS (
+                SELECT 1 FROM network_devices nd2
+                WHERE nd2.agent_id = nd1.agent_id
+                  AND REGEXP_REPLACE(nd2.ip_address, '[{}"]', '', 'g') = REGEXP_REPLACE(nd1.ip_address, '[{}"]', '', 'g')
+                  AND nd2.id > nd1.id
+                  AND (
+                    nd2.last_seen > nd1.last_seen
+                    OR (nd2.last_seen = nd1.last_seen AND nd2.id > nd1.id)
+                    OR (nd2.mac_address IS NOT NULL AND nd1.mac_address IS NULL)
+                    OR (nd2.hostname IS NOT NULL AND nd1.hostname IS NULL)
+                  )
+              );
+            `);
+          } catch (cleanErr) { 
+            console.warn('⚠️ Errore pulizia iniziale duplicati:', cleanErr.message);
+          }
           // Migrazione dati: unifica tipo 'virtualization' -> 'virtual' (stessa icona, un solo tipo)
           try {
             const upd = await pool.query(`UPDATE network_devices SET device_type = 'virtual' WHERE device_type = 'virtualization'`);
@@ -3055,47 +3088,6 @@ module.exports = (pool, io) => {
     try {
       await ensureTables();
 
-
-      // Migrazione: pulisci IP nel formato JSON errato e rimuovi duplicati
-      try {
-        // 1. Pulisci IP nel formato errato {"192.168.100.2"} -> 192.168.100.2
-        await pool.query(`
-          UPDATE network_devices 
-          SET ip_address = REGEXP_REPLACE(ip_address, '[{}"]', '', 'g')
-          WHERE ip_address ~ '[{}"]';
-        `);
-
-        // 2. Rimuovi duplicati: mantieni il dispositivo più recente o quello con più dati
-        await pool.query(`
-          DELETE FROM network_devices nd1
-          WHERE EXISTS (
-            SELECT 1 FROM network_devices nd2
-            WHERE nd2.agent_id = nd1.agent_id
-              AND REGEXP_REPLACE(nd2.ip_address, '[{}"]', '', 'g') = REGEXP_REPLACE(nd1.ip_address, '[{}"]', '', 'g')
-              AND nd2.id > nd1.id
-              AND (
-                nd2.last_seen > nd1.last_seen
-                OR (nd2.last_seen = nd1.last_seen AND nd2.id > nd1.id)
-                OR (nd2.mac_address IS NOT NULL AND nd1.mac_address IS NULL)
-                OR (nd2.hostname IS NOT NULL AND nd1.hostname IS NULL)
-              )
-          );
-        `);
-
-        // 3. Rimuovi eventuali duplicati rimanenti mantenendo solo quello con ID maggiore
-        await pool.query(`
-          DELETE FROM network_devices nd1
-          WHERE EXISTS (
-            SELECT 1 FROM network_devices nd2
-            WHERE nd2.agent_id = nd1.agent_id
-              AND nd2.ip_address = nd1.ip_address
-              AND nd2.id > nd1.id
-          );
-        `);
-      } catch (migrationErr) {
-        console.warn('⚠️ Avviso pulizia IP duplicati:', migrationErr.message);
-      }
-
       const aziendaIdParam = req.params.aziendaId;
       console.log('🔍 Route /clients/:aziendaId/devices - aziendaIdParam:', aziendaIdParam, 'type:', typeof aziendaIdParam);
       const aziendaId = parseInt(aziendaIdParam, 10);
@@ -3106,45 +3098,9 @@ module.exports = (pool, io) => {
         return res.status(400).json({ error: 'ID azienda non valido' });
       }
 
-      // Filtro dispositivi: usa direttamente aziendaId (stesso id del dropdown /companies).
-      // Gli agent sono legati a users.id (azienda_id), quindi na.azienda_id = aziendaId restituisce
-      // tutti i dispositivi degli agent di quell'azienda, come per le altre aziende.
       const whereAzienda = 'na.azienda_id = $1';
       const devicesParams = [aziendaId];
 
-      console.log('🔍 [clients/devices] aziendaId:', aziendaId, 'where: na.azienda_id = aziendaId');
-
-      // MIGRATION (AUTO-FIX): Assicura che la colonna ip_history esista (per evitare crash su SELECT)
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS ip_history JSONB DEFAULT '[]'::jsonb
-        `);
-      } catch (e) { console.warn('Warning adding ip_history column:', e.message); }
-
-      // MIGRATION (AUTO-FIX): Assicura che la colonna router_model esista (modello router/Cloud Key)
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS router_model VARCHAR(100)
-        `);
-      } catch (e) { console.warn('Warning adding router_model column:', e.message); }
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices
-          ADD COLUMN IF NOT EXISTS unifi_name VARCHAR(255)
-        `);
-      } catch (e) { console.warn('Warning adding unifi_name column:', e.message); }
-
-      // MIGRATION (AUTO-FIX): Normalizza MAC address nel DB (da - a :) per coerenza immediata
-      try {
-        await pool.query(`
-          UPDATE network_devices 
-          SET mac_address = REPLACE(mac_address, '-', ':') 
-          WHERE mac_address LIKE '%-%' 
-          AND agent_id IN (SELECT id FROM network_agents WHERE azienda_id = $1)
-        `, [aziendaId]);
-      } catch (e) { console.error('Error normalizing MACs:', e); }
 
       const result = await pool.query(
         `SELECT 
