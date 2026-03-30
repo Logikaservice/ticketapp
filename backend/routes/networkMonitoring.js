@@ -96,8 +96,12 @@ function applyUnifiWifiDeviceTypeFallback(row) {
 }
 
 module.exports = (pool, io) => {
-  // Mappe in-memory per test Unifi delegato all'agent (IP privati: VPS non raggiunge 192.168.x.x)
-  const pendingUnifiTests = new Map(); // agentId -> { test_id, url, username, password, created_at }
+  // Mappa per test Unifi delegato
+  const pendingUnifiTests = new Map();
+
+  // Flag globale per evitare inizializzazioni tabelle concorrenti (CAUSA DEI CRASH 502)
+  let tablesCheckDone = false;
+  let tablesCheckInProgress = false;
   const unifiTestResults = new Map();  // test_id -> { success, message, at }
 
   // Mappe per richiesta dispositivi WiFi da router (AGCOMBO etc.) - delegata all'agent
@@ -148,7 +152,19 @@ module.exports = (pool, io) => {
 
   // Funzione helper per inizializzare le tabelle se non esistono
   const initTables = async () => {
+    if (tablesCheckDone) return;
+    if (tablesCheckInProgress) {
+        let waitCount = 0;
+        while (tablesCheckInProgress && waitCount < 100) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            waitCount++;
+        }
+        if (tablesCheckDone) return;
+    }
+
+    tablesCheckInProgress = true;
     try {
+      console.log('🔄 Avvio inizializzazione tabelle network monitoring...');
       // Verifica se le tabelle esistono già
       const checkResult = await pool.query(`
         SELECT EXISTS (
@@ -441,14 +457,13 @@ module.exports = (pool, io) => {
 
       // Migrazione per aggiungere 'frequent_disconnections' e 'ip_conflict' al check constraint se esiste
       try {
-        // Rimuove il vecchio constraint e lo ricrea (più semplice che alter check)
         await pool.query(`
           ALTER TABLE network_changes DROP CONSTRAINT IF EXISTS network_changes_change_type_check;
           ALTER TABLE network_changes ADD CONSTRAINT network_changes_change_type_check 
           CHECK (change_type IN ('new_device', 'device_offline', 'device_online', 'ip_changed', 'mac_changed', 'hostname_changed', 'vendor_changed', 'ip_conflict', 'frequent_disconnections'));
         `);
       } catch (err) {
-        console.warn('⚠️ Migrazione network_changes (consensualizzata):', err.message);
+        console.warn('⚠️ Migrazione network_changes (initTables):', err.message);
       }
 
       // Crea tabella network_notification_config
@@ -622,18 +637,16 @@ module.exports = (pool, io) => {
         }
       }
 
-      // Migrazione: aggiungi change_type 'ip_conflict' e altri tipi alla tabella network_changes
+      // Migrazione: sincronizzazione change_type
       try {
         await pool.query(`
           ALTER TABLE network_changes DROP CONSTRAINT IF EXISTS network_changes_change_type_check;
-        `);
-        await pool.query(`
           ALTER TABLE network_changes ADD CONSTRAINT network_changes_change_type_check
           CHECK (change_type IN ('new_device', 'device_offline', 'device_online', 'ip_changed', 'mac_changed', 'hostname_changed', 'vendor_changed', 'ip_conflict', 'frequent_disconnections'));
         `);
       } catch (migrErr) {
         if (!migrErr.message.includes('already exists') && !migrErr.message.includes('duplicate')) {
-          console.warn('⚠️ Migrazione network_changes (632):', migrErr.message);
+          console.warn('⚠️ Migrazione network_changes (632 sync):', migrErr.message);
         }
       }
 
@@ -689,320 +702,34 @@ module.exports = (pool, io) => {
           PRIMARY KEY (azienda_id, device_id)
         );
       `);
+      // Altri indici
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_azienda ON mappatura_nodes(azienda_id);`);
 
-      console.log('✅ Tabelle network monitoring inizializzate');
-    } catch (err) {
-      console.error('❌ Errore inizializzazione tabelle network monitoring:', err.message);
-      // Non bloccare l'esecuzione se le tabelle esistono già
-    }
-  };
+      // Migrazioni finali (Speed Test, ecc. se non già fatte)
+      try {
+        await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS speedtest_enabled BOOLEAN DEFAULT true;`);
+        await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS speedtest_interval_hours INTEGER DEFAULT 2;`);
+        await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;`);
+        await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS has_ping_failures BOOLEAN DEFAULT false;`);
+        await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;`);
+        await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS device_path TEXT;`);
+        await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_new_device BOOLEAN DEFAULT false;`);
+      } catch (err) { }
 
-  // Inizializza tabelle al primo accesso (cache per evitare chiamate multiple)
-  let tablesCheckDone = false;
-  let tablesCheckInProgress = false;
-  const ensureTables = async () => {
-    // Se già fatto, torna subito (MASSIMA EFFICIENZA)
-    if (tablesCheckDone) return;
-
-    // Se una verifica è già in corso, aspetta
-    if (tablesCheckInProgress) {
-      // Aspetta fino a 10 secondi che la verifica finisca
-      let waitCount = 0;
-      while (tablesCheckInProgress && waitCount < 100) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        waitCount++;
-      }
-      // Dopo l'attesa, ricontrolla se le tabelle esistono
-      if (tablesCheckDone) return;
-    }
-
-    tablesCheckInProgress = true;
-    try {
-      // Verifica rapida se le tabelle principali esistono già (più veloce che eseguire initTables)
-      const checkResult = await pool.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = 'network_agents'
-        ) as agents_exists,
-        EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = 'network_agent_events'
-        ) as events_exists;
-      `);
-
-      const agentsExists = checkResult.rows && checkResult.rows[0] && checkResult.rows[0].agents_exists;
-      const eventsExists = checkResult.rows && checkResult.rows[0] && checkResult.rows[0].events_exists;
-
-      if (agentsExists && eventsExists) {
-        // Tutte le tabelle necessarie esistono; esegui solo migrazioni colonne (unifi_config, upgrade_available)
-        try {
-          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_config JSONB;`);
-          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_ok BOOLEAN;`);
-          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_check_at TIMESTAMPTZ;`);
-          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS speedtest_enabled BOOLEAN DEFAULT true;`);
-          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS speedtest_interval_hours INTEGER DEFAULT 2;`);
-          
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS notes TEXT;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS device_path TEXT;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS previous_ip VARCHAR(45);`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS previous_mac VARCHAR(17);`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS has_ping_failures BOOLEAN DEFAULT false;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS ping_responsive BOOLEAN DEFAULT true;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS device_username TEXT;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS keepass_path TEXT;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS accepted_ip VARCHAR(45);`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS accepted_mac VARCHAR(17);`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_gateway BOOLEAN DEFAULT false;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS port INTEGER;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS router_model VARCHAR(100);`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS unifi_name VARCHAR(255);`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_manual_type BOOLEAN DEFAULT false;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_manual_parent BOOLEAN DEFAULT false;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS notify_telegram BOOLEAN DEFAULT false;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS monitoring_schedule JSONB;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS snmp_version VARCHAR(10) DEFAULT '2c';`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS parent_device_id INTEGER REFERENCES network_devices(id) ON DELETE SET NULL;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS additional_ips JSONB DEFAULT '[]'::jsonb;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS ip_history JSONB DEFAULT '[]'::jsonb;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_new_device BOOLEAN DEFAULT false;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS wifi_sync_status VARCHAR(50);`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS wifi_sync_msg TEXT;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS wifi_sync_last_at TIMESTAMPTZ;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS switch_profile_id INTEGER;`);
-          await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_managed_switch BOOLEAN DEFAULT false;`);
-
-          // 3. PULIZIA DATI (Una sola volta all'avvio sessione)
-          try {
-            console.log('🧹 Pulizia dati duplicati network_devices...');
-            await pool.query(`
-              UPDATE network_devices 
-              SET ip_address = REGEXP_REPLACE(ip_address, '[{}"]', '', 'g')
-              WHERE ip_address ~ '[{}"]';
-            `);
-            await pool.query(`
-              DELETE FROM network_devices nd1
-              WHERE EXISTS (
-                SELECT 1 FROM network_devices nd2
-                WHERE nd2.agent_id = nd1.agent_id
-                  AND REGEXP_REPLACE(nd2.ip_address, '[{}"]', '', 'g') = REGEXP_REPLACE(nd1.ip_address, '[{}"]', '', 'g')
-                  AND nd2.id > nd1.id
-                  AND (
-                    nd2.last_seen > nd1.last_seen
-                    OR (nd2.last_seen = nd1.last_seen AND nd2.id > nd1.id)
-                    OR (nd2.mac_address IS NOT NULL AND nd1.mac_address IS NULL)
-                    OR (nd2.hostname IS NOT NULL AND nd1.hostname IS NULL)
-                  )
-              );
-            `);
-          } catch (cleanErr) { 
-            console.warn('⚠️ Errore pulizia iniziale duplicati:', cleanErr.message);
-          }
-          // Migrazione dati: unifica tipo 'virtualization' -> 'virtual' (stessa icona, un solo tipo)
-          try {
-            const upd = await pool.query(`UPDATE network_devices SET device_type = 'virtual' WHERE device_type = 'virtualization'`);
-            if (upd.rowCount > 0) {
-              console.log(`✅ Migrazione: ${upd.rowCount} dispositivo/i da 'virtualization' a 'virtual'`);
-            }
-          } catch (migErr) {
-            if (!migErr.message.includes('does not exist')) console.warn('⚠️ Migrazione virtualization->virtual:', migErr.message);
-          }
-          await pool.query(`
-            CREATE TABLE IF NOT EXISTS managed_switches (
-              id SERIAL PRIMARY KEY,
-              azienda_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-              ip VARCHAR(45) NOT NULL,
-              snmp_community VARCHAR(128) DEFAULT 'public',
-              snmp_version VARCHAR(10) DEFAULT '2c',
-              name VARCHAR(255),
-              created_at TIMESTAMPTZ DEFAULT NOW(),
-              UNIQUE(azienda_id, ip)
-            );
-          `);
-          await pool.query(`CREATE INDEX IF NOT EXISTS idx_managed_switches_azienda ON managed_switches(azienda_id);`);
-          // Tabella per cache MAC→porta degli switch (per analisi switch collegati)
-          await pool.query(`
-            CREATE TABLE IF NOT EXISTS switch_mac_port_cache (
-              id SERIAL PRIMARY KEY,
-              managed_switch_id INTEGER NOT NULL REFERENCES managed_switches(id) ON DELETE CASCADE,
-              switch_device_id INTEGER REFERENCES network_devices(id) ON DELETE CASCADE,
-              mac_address VARCHAR(17) NOT NULL,
-              port INTEGER NOT NULL,
-              updated_at TIMESTAMPTZ DEFAULT NOW(),
-              UNIQUE(managed_switch_id, mac_address)
-            );
-          `);
-          await pool.query(`CREATE INDEX IF NOT EXISTS idx_switch_mac_port_cache_switch ON switch_mac_port_cache(managed_switch_id);`);
-          await pool.query(`CREATE INDEX IF NOT EXISTS idx_switch_mac_port_cache_device ON switch_mac_port_cache(switch_device_id);`);
-          await pool.query(`CREATE INDEX IF NOT EXISTS idx_switch_mac_port_cache_mac ON switch_mac_port_cache(mac_address);`);
-
-          // MIGRATION: Rimuovi FK su managed_switch_id e rendilo nullabile (per supportare switch gestiti direttamente da network_devices)
-          try {
-            await pool.query(`ALTER TABLE switch_mac_port_cache ALTER COLUMN managed_switch_id DROP NOT NULL;`);
-            await pool.query(`ALTER TABLE switch_mac_port_cache DROP CONSTRAINT IF EXISTS switch_mac_port_cache_managed_switch_id_fkey;`);
-
-            // Aggiorna vincolo UNIQUE: usa switch_device_id invece di managed_switch_id
-            // Prima pulisci eventuali duplicati su switch_device_id
-            await pool.query(`
-              DELETE FROM switch_mac_port_cache a 
-              USING switch_mac_port_cache b 
-              WHERE a.id < b.id 
-              AND a.switch_device_id = b.switch_device_id 
-              AND a.mac_address = b.mac_address;
-            `);
-
-            // Rimuovi vecchio vincolo unique se esiste
-            await pool.query(`ALTER TABLE switch_mac_port_cache DROP CONSTRAINT IF EXISTS switch_mac_port_cache_managed_switch_id_mac_address_key;`);
-
-            // Crea indice unique se non esiste (evita warning "already exists" nei log)
-            const idxExists = await pool.query(`
-              SELECT 1 FROM pg_indexes WHERE indexname = 'switch_mac_port_cache_device_mac_idx' LIMIT 1
-            `);
-            if (idxExists.rows.length === 0) {
-              await pool.query(`
-                CREATE UNIQUE INDEX switch_mac_port_cache_device_mac_idx
-                ON switch_mac_port_cache (switch_device_id, mac_address)
-                WHERE switch_device_id IS NOT NULL;
-              `);
-            }
-          } catch (migErr) {
-            if (!/already exists|duplicate/i.test(migErr.message)) {
-              console.warn('⚠️ Migrazione switch_mac_port_cache:', migErr.message);
-            }
-          }
-
-          // Nuova tablla Profili Switch (Modelli)
-          await pool.query(`
-            CREATE TABLE IF NOT EXISTS network_switch_profiles (
-              id SERIAL PRIMARY KEY,
-              name VARCHAR(255) UNIQUE NOT NULL,
-              description TEXT,
-              default_community VARCHAR(128) DEFAULT 'public',
-              default_version VARCHAR(10) DEFAULT '2c',
-              created_at TIMESTAMPTZ DEFAULT NOW()
-            );
-          `);
-
-          // Seed default profiles if empty
-          const profilesCount = await pool.query('SELECT COUNT(*) FROM network_switch_profiles');
-          if (parseInt(profilesCount.rows[0].count) === 0) {
-            await pool.query(`
-              INSERT INTO network_switch_profiles (name, description) VALUES 
-              ('Netgear GS724TPv3', 'Smart Managed Pro Switch 24 Port'),
-              ('Netgear GS728TPv3', 'Smart Managed Pro Switch 28 Port'),
-              ('Ubiquiti UniFi Switch', 'Ubiquiti Managed Switch'),
-              ('Cisco Catalyst', 'Cisco Enterprise Switch'),
-              ('HP ProCurve', 'HP Enterprise Switch'),
-              ('Generic Managed Switch', 'Generic SNMP Switch')
-            `);
-            console.log('✅ Profili switch di default inseriti');
-          }
-
-          // Aggiungi colonne per gestione switch su network_devices
-          try {
-            await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS switch_profile_id INTEGER REFERENCES network_switch_profiles(id) ON DELETE SET NULL;`);
-            await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS snmp_community VARCHAR(128);`);
-            await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS snmp_version VARCHAR(10) DEFAULT '2c';`);
-            await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_managed_switch BOOLEAN DEFAULT false;`);
-          } catch (err) {
-            console.warn('⚠️ Avviso aggiunta colonne switch su network_devices:', err.message);
-          }
-          await pool.query(`CREATE INDEX IF NOT EXISTS idx_switch_mac_port_cache_port ON switch_mac_port_cache(managed_switch_id, port);`);
-          await pool.query(`
-            CREATE TABLE IF NOT EXISTS mappatura_nodes (
-              azienda_id INTEGER NOT NULL,
-              device_id INTEGER NOT NULL,
-              x DOUBLE PRECISION,
-              y DOUBLE PRECISION,
-              is_locked BOOLEAN DEFAULT false,
-              PRIMARY KEY (azienda_id, device_id)
-            );
-          `);
-          try { await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false;`); } catch (e) { }
-          await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_azienda ON mappatura_nodes(azienda_id);`);
-
-          // Tabella per Anti-Virus info (richiesta feature Anti-Virus menu)
-          await pool.query(`
-            CREATE TABLE IF NOT EXISTS antivirus_info (
-              id SERIAL PRIMARY KEY,
-              device_id INTEGER NOT NULL REFERENCES network_devices(id) ON DELETE CASCADE,
-              is_active BOOLEAN DEFAULT false,
-              product_name VARCHAR(255),
-              expiration_date DATE,
-              device_type VARCHAR(50), -- 'pc', 'server', 'virtual'
-              sort_order INTEGER DEFAULT 0,
-              updated_at TIMESTAMPTZ DEFAULT NOW(),
-              UNIQUE(device_id)
-            );
-          `);
-          // Migration
-          try {
-            await pool.query(`ALTER TABLE antivirus_info ADD COLUMN IF NOT EXISTS device_type VARCHAR(50);`);
-            await pool.query(`ALTER TABLE antivirus_info ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;`);
-          } catch (e) { console.warn('AV Migration:', e.message); }
-          // Dispositivi che l'utente ha rimosso dalla lista Anti-Virus: la sync CommAgent non li riscrive
-          await pool.query(`
-            CREATE TABLE IF NOT EXISTS antivirus_sync_ignored (
-              device_id INTEGER NOT NULL PRIMARY KEY REFERENCES network_devices(id) ON DELETE CASCADE
-            );
-          `);
-
-          // Tabella Speed Test Results
-          await pool.query(`
-            CREATE TABLE IF NOT EXISTS speedtest_results (
-              id SERIAL PRIMARY KEY,
-              agent_id INTEGER NOT NULL REFERENCES network_agents(id) ON DELETE CASCADE,
-              azienda_id INTEGER,
-              test_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-              ping_ms REAL,
-              download_mbps REAL,
-              upload_mbps REAL,
-              isp TEXT,
-              public_ip TEXT,
-              server_name TEXT,
-              result_url TEXT,
-              raw_json TEXT,
-              created_at TIMESTAMPTZ DEFAULT NOW()
-            );
-          `);
-          await pool.query(`CREATE INDEX IF NOT EXISTS idx_speedtest_results_agent ON speedtest_results(agent_id);`);
-          await pool.query(`CREATE INDEX IF NOT EXISTS idx_speedtest_results_azienda ON speedtest_results(azienda_id);`);
-          await pool.query(`CREATE INDEX IF NOT EXISTS idx_speedtest_results_test_date ON speedtest_results(test_date DESC);`);
-
-          // Colonna speedtest_enabled su network_agents (default true)
-          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS speedtest_enabled BOOLEAN DEFAULT true;`);
-          // Colonna speedtest_interval_hours (default 2 ore)
-          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS speedtest_interval_hours INTEGER DEFAULT 2;`);
-
-        } catch (migErr) {
-          if (!migErr.message?.includes('does not exist')) {
-            console.warn('⚠️ Migrazione colonne network_*:', migErr.message);
-          }
-        }
-        tablesCheckDone = true;
-        tablesCheckInProgress = false;
-        return;
-      }
-
-      // Se manca almeno una tabella, resetta il flag e inizializza (creerà tutte le tabelle necessarie)
-      tablesCheckDone = false; // Reset per forzare la ricreazione
-      await initTables();
       tablesCheckDone = true;
+      console.log('✅ Tabelle network monitoring inizializzate con successo');
     } catch (err) {
-      // Ignora errori di verifica - le tabelle verranno create al primo accesso
-      // Non loggare come errore se è solo un problema di verifica
-      if (!err.message.includes('network_agents')) {
-        console.warn('⚠️ Verifica tabelle network monitoring fallita:', err.message);
-      }
-      tablesCheckDone = true; // Evita loop infiniti
+      console.error('❌ Errore critico inizializzazione tabelle network monitoring:', err.message);
     } finally {
       tablesCheckInProgress = false;
     }
   };
+
+  const ensureTables = async () => {
+    if (tablesCheckDone) return;
+    return initTables();
+  };
+
 
   // Middleware per autenticazione agent via API Key
   const authenticateAgent = async (req, res, next) => {
@@ -3477,120 +3204,12 @@ module.exports = (pool, io) => {
   });
 
   // --- Mappatura: nodi sulla mappa (persistenza) ---
-  const ensureMappaturaNodesTable = async () => {
-    try {
-      // Prima verifica se la tabella esiste
-      const tableExists = await pool.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = 'mappatura_nodes'
-        );
-      `);
-
-      const exists = tableExists.rows[0]?.exists;
-
-      if (!exists) {
-        // Crea tabella nuova con mac_address come chiave
-        await pool.query(`
-          CREATE TABLE mappatura_nodes (
-            azienda_id INTEGER NOT NULL,
-            mac_address VARCHAR(17) NOT NULL,
-            x DOUBLE PRECISION,
-            y DOUBLE PRECISION,
-            is_locked BOOLEAN DEFAULT false,
-            PRIMARY KEY (azienda_id, mac_address)
-          );
-        `);
-      } else {
-        // Tabella esiste: migra da device_id a mac_address se necessario
-        try {
-          // Verifica se esiste colonna mac_address
-          const macColumnExists = await pool.query(`
-            SELECT EXISTS (
-              SELECT FROM information_schema.columns 
-              WHERE table_schema = 'public' 
-              AND table_name = 'mappatura_nodes' 
-              AND column_name = 'mac_address'
-            );
-          `);
-
-          if (!macColumnExists.rows[0]?.exists) {
-            console.log('🔄 Migrazione mappatura_nodes: aggiungo colonna mac_address...');
-
-            // Aggiungi colonna mac_address
-            await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN mac_address VARCHAR(17)`);
-
-            // Migra i dati: popola mac_address dai device_id esistenti
-            await pool.query(`
-              UPDATE mappatura_nodes mn
-              SET mac_address = COALESCE(nd.mac_address, '')
-              FROM network_devices nd
-              WHERE mn.device_id = nd.id
-                AND mn.mac_address IS NULL
-            `);
-
-            // Rimuovi righe senza MAC (non possono essere identificate)
-            await pool.query(`
-              DELETE FROM mappatura_nodes 
-              WHERE mac_address IS NULL OR mac_address = ''
-            `);
-
-            // Imposta NOT NULL dopo aver popolato i dati
-            await pool.query(`ALTER TABLE mappatura_nodes ALTER COLUMN mac_address SET NOT NULL`);
-
-            // Rimuovi vecchia PRIMARY KEY se esiste
-            try {
-              await pool.query(`ALTER TABLE mappatura_nodes DROP CONSTRAINT IF EXISTS mappatura_nodes_pkey`);
-            } catch (e) {
-              // Ignora se non esiste
-            }
-
-            // Crea nuova PRIMARY KEY con mac_address
-            await pool.query(`
-              ALTER TABLE mappatura_nodes 
-              ADD PRIMARY KEY (azienda_id, mac_address)
-            `);
-
-            // Rimuovi colonna device_id (non più necessaria)
-            try {
-              await pool.query(`ALTER TABLE mappatura_nodes DROP COLUMN IF EXISTS device_id`);
-            } catch (e) {
-              console.warn('⚠️ Impossibile rimuovere colonna device_id:', e.message);
-            }
-
-            console.log('✅ Migrazione mappatura_nodes completata: ora usa mac_address come chiave');
-          }
-        } catch (migrateErr) {
-          console.warn('⚠️ Errore migrazione mappatura_nodes:', migrateErr.message);
-        }
-      }
-
-      // Self-healing: ensure columns exist
-      try {
-        await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS azienda_id INTEGER`);
-        await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS mac_address VARCHAR(17)`);
-        await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS x DOUBLE PRECISION`);
-        await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS y DOUBLE PRECISION`);
-        await pool.query(`ALTER TABLE mappatura_nodes ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false`);
-      } catch (alterErr) {
-        console.warn('⚠️ ensureMappaturaNodesTable (alter):', alterErr.message);
-      }
-
-      await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_azienda ON mappatura_nodes(azienda_id);`);
-      await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_mac ON mappatura_nodes(mac_address);`);
-    } catch (e) {
-      if (!e.message?.includes('already exists') && !e.message?.includes('duplicate')) {
-        console.warn('⚠️ ensureMappaturaNodesTable:', e.message, 'code:', e.code);
-      }
-    }
-  };
+  // Table initialization consolidated in ensureTables()
 
   // GET /api/network-monitoring/clients/:aziendaId/mappatura-nodes
   router.get('/clients/:aziendaId/mappatura-nodes', authenticateToken, checkCompanyAccess, async (req, res) => {
     try {
       await ensureTables();
-      await ensureMappaturaNodesTable();
       const aziendaId = parseInt(req.params.aziendaId, 10);
       if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
 
@@ -3637,7 +3256,6 @@ module.exports = (pool, io) => {
   router.post('/clients/:aziendaId/mappatura-nodes', authenticateToken, async (req, res) => {
     try {
       await ensureTables();
-      await ensureMappaturaNodesTable();
       const aziendaId = parseInt(req.params.aziendaId, 10);
       if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
 
@@ -3724,7 +3342,6 @@ module.exports = (pool, io) => {
   router.delete('/clients/:aziendaId/mappatura-nodes/:macAddress', authenticateToken, async (req, res) => {
     try {
       await ensureTables();
-      await ensureMappaturaNodesTable();
       const aziendaId = parseInt(req.params.aziendaId, 10);
       let macAddress = req.params.macAddress;
       if (isNaN(aziendaId) || !macAddress) return res.status(400).json({ error: 'Parametri non validi' });
@@ -3773,7 +3390,6 @@ module.exports = (pool, io) => {
   router.put('/clients/:aziendaId/mappatura-nodes/layout', authenticateToken, async (req, res) => {
     try {
       await ensureTables();
-      await ensureMappaturaNodesTable();
       const aziendaId = parseInt(req.params.aziendaId, 10);
       if (isNaN(aziendaId) || aziendaId <= 0) return res.status(400).json({ error: 'ID azienda non valido' });
 
@@ -7793,7 +7409,7 @@ pause
     if (success && Array.isArray(devices) && devices.length > 0 && routerDeviceId) {
       try {
         await ensureTables();
-        await ensureMappaturaNodesTable();
+        await ensureTables();
         const routerRes = await pool.query(
           'SELECT nd.id, nd.agent_id, nd.mac_address, na.azienda_id FROM network_devices nd INNER JOIN network_agents na ON nd.agent_id = na.id WHERE nd.id = $1',
           [routerDeviceId]
