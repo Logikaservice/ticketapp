@@ -151,111 +151,60 @@ module.exports = (pool, io) => {
   };
 
   // Funzione helper per inizializzare le tabelle se non esistono
+  // Inizializzazione asincrona dello schema
   const initTables = async () => {
     if (tablesCheckDone) return;
-    if (tablesCheckInProgress) {
-        let waitCount = 0;
-        while (tablesCheckInProgress && waitCount < 100) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-            waitCount++;
-        }
-        if (tablesCheckDone) return;
-    }
-
+    if (tablesCheckInProgress) return;
     tablesCheckInProgress = true;
+
     try {
       console.log('🔄 Avvio inizializzazione tabelle network monitoring...');
-      // Verifica se le tabelle esistono già
       const checkResult = await pool.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = 'network_agents'
-        );
+        SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'network_agents');
       `);
 
       if (checkResult.rows[0].exists) {
-        // Tabelle già esistenti: esegui solo migrazioni (nuove colonne, nuove tabelle)
-        try {
-          const deviceTypesCheck = await pool.query(`
-            SELECT EXISTS (
-              SELECT FROM information_schema.tables 
-              WHERE table_schema = 'public' 
-              AND table_name = 'network_device_types'
-            );
-          `);
-          if (!deviceTypesCheck.rows[0].exists) {
-            // Crea solo network_device_types se non esiste
-            await pool.query(`
-              CREATE TABLE IF NOT EXISTS network_device_types (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(100) UNIQUE NOT NULL,
-                description TEXT,
-                created_at TIMESTAMP DEFAULT NOW(),
-                updated_at TIMESTAMP DEFAULT NOW()
-              );
-            `);
-            // Inserisci tipi di default
-            const defaultTypes = [
-              { name: 'workstation', description: 'Computer desktop o laptop' },
-              { name: 'server', description: 'Server' },
-              { name: 'router', description: 'Router o gateway' },
-              { name: 'switch', description: 'Switch di rete' },
-              { name: 'printer', description: 'Stampante di rete' },
-              { name: 'camera', description: 'Telecamera IP' },
-              { name: 'unknown', description: 'Tipo sconosciuto' }
-            ];
-            for (const type of defaultTypes) {
-              await pool.query(
-                'INSERT INTO network_device_types (name, description) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING',
-                [type.name, type.description]
-              );
-            }
-            console.log('✅ Tabella network_device_types creata (migrazione)');
-          }
-        } catch (migrationErr) {
-          console.warn('⚠️ Errore migrazione network_device_types:', migrationErr.message);
-        }
+        tablesCheckDone = true; // Sblocca subito le API
+        tablesCheckInProgress = false;
+        console.log('✅ Verificate tabelle esistenti (API abilitate)');
 
-        // Migrazione: aggiungi unifi_config a network_agents se non esiste (evita "column unifi_config does not exist")
-        try {
-          await pool.query(`
-            ALTER TABLE network_agents 
-            ADD COLUMN IF NOT EXISTS unifi_config JSONB;
-          `);
-        } catch (err) {
-          if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-            console.warn('⚠️ Avviso aggiunta colonna unifi_config (migrazione):', err.message);
-          }
-        }
-        try {
-          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_ok BOOLEAN;`);
-          await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_check_at TIMESTAMPTZ;`);
-        } catch (err) {
-          if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-            console.warn('⚠️ Avviso aggiunta colonne unifi_last_* (migrazione):', err.message);
-          }
-        }
+        // Migrazioni secondarie in background (silenziosamente)
+        (async () => {
+          try {
+             // 1. Device Types
+             await pool.query(`CREATE TABLE IF NOT EXISTS network_device_types (id SERIAL PRIMARY KEY, name VARCHAR(100) UNIQUE NOT NULL, description TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW());`);
+             
+             // 2. Colonne Agent
+             await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_config JSONB;`);
+             await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_ok BOOLEAN;`);
+             await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_check_at TIMESTAMPTZ;`);
+             await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS speedtest_enabled BOOLEAN DEFAULT true;`);
+             await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS speedtest_interval_hours INTEGER DEFAULT 2;`);
+             
+             // 3. Colonne Devices
+             await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;`);
+             await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS has_ping_failures BOOLEAN DEFAULT false;`);
+             await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;`);
+             await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS device_path TEXT;`);
+             await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_new_device BOOLEAN DEFAULT false;`);
 
-        // Migrazione: aggiungi upgrade_available a network_devices se non esiste
-        try {
-          await pool.query(`
-            ALTER TABLE network_devices 
-            ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;
-          `);
-        } catch (err) {
-          if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-            console.warn('⚠️ Avviso aggiunta colonna upgrade_available (migrazione):', err.message);
-          }
-        }
+             // 4. Mappatura
+             await pool.query(`CREATE TABLE IF NOT EXISTS mappatura_nodes (azienda_id INTEGER NOT NULL, device_id INTEGER NOT NULL, x DOUBLE PRECISION, y DOUBLE PRECISION, PRIMARY KEY (azienda_id, device_id));`);
+             await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_azienda ON mappatura_nodes(azienda_id);`);
 
+             console.log('✅ Migrazioni in background completate con successo');
+          } catch (migErr) {
+            console.warn('⚠️ Avviso migrazioni non completate (silenziosamente):', migErr.message);
+          }
+        })();
         return;
       }
 
-      // Se le tabelle non esistono, creale usando query dirette (più affidabile)
-      // Crea tabella network_agents
+      // --- CREAZIONE TABELLE NUOVE (Prima volta assoluta) ---
+      console.log('🆕 Creazione schema network monitoring completo...');
+      
       await pool.query(`
-        CREATE TABLE IF NOT EXISTS network_agents (
+        CREATE TABLE network_agents (
           id SERIAL PRIMARY KEY,
           azienda_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
           api_key VARCHAR(255) UNIQUE NOT NULL,
@@ -265,43 +214,22 @@ module.exports = (pool, io) => {
           status VARCHAR(20) DEFAULT 'offline' CHECK (status IN ('online', 'offline', 'error')),
           version VARCHAR(50),
           network_ranges TEXT[],
+          network_ranges_config JSONB,
           scan_interval_minutes INTEGER DEFAULT 2,
           enabled BOOLEAN DEFAULT true,
           deleted_at TIMESTAMP,
+          unifi_config JSONB,
+          unifi_last_ok BOOLEAN,
+          unifi_last_check_at TIMESTAMPTZ,
+          speedtest_enabled BOOLEAN DEFAULT true,
+          speedtest_interval_hours INTEGER DEFAULT 2,
           created_at TIMESTAMP DEFAULT NOW(),
           updated_at TIMESTAMP DEFAULT NOW()
         );
       `);
 
-      // Aggiungi colonna deleted_at se non esiste (migrazione)
-      try {
-        await pool.query(`
-          ALTER TABLE network_agents 
-          ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
-        `);
-      } catch (err) {
-        // Ignora errore se colonna esiste già
-        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonna deleted_at:', err.message);
-        }
-      }
-
-      // Aggiungi colonna network_ranges_config per nomi delle reti (migrazione)
-      try {
-        await pool.query(`
-          ALTER TABLE network_agents 
-          ADD COLUMN IF NOT EXISTS network_ranges_config JSONB;
-        `);
-      } catch (err) {
-        // Ignora errore se colonna esiste già
-        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonna network_ranges_config:', err.message);
-        }
-      }
-
-      // Crea tabella network_devices
       await pool.query(`
-        CREATE TABLE IF NOT EXISTS network_devices (
+        CREATE TABLE network_devices (
           id SERIAL PRIMARY KEY,
           agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
           ip_address VARCHAR(45) NOT NULL,
@@ -311,137 +239,25 @@ module.exports = (pool, io) => {
           device_type VARCHAR(100),
           status VARCHAR(20) DEFAULT 'online' CHECK (status IN ('online', 'offline')),
           is_static BOOLEAN DEFAULT false,
+          has_ping_failures BOOLEAN DEFAULT false,
+          upgrade_available BOOLEAN DEFAULT false,
+          device_username TEXT,
+          keepass_path TEXT,
+          accepted_ip VARCHAR(45),
+          accepted_mac VARCHAR(17),
+          notes TEXT,
+          router_model VARCHAR(100),
+          unifi_name VARCHAR(255),
+          device_path TEXT,
+          is_new_device BOOLEAN DEFAULT false,
           first_seen TIMESTAMP DEFAULT NOW(),
           last_seen TIMESTAMP DEFAULT NOW(),
           UNIQUE(agent_id, ip_address, mac_address)
         );
       `);
 
-      // Aggiungi colonna is_static se non esiste (migrazione)
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;
-        `);
-      } catch (err) {
-        // Ignora errore se colonna esiste già
-        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonna is_static:', err.message);
-        }
-      }
-
-      // Aggiungi colonne previous_ip e previous_mac per tracciare cambiamenti su dispositivi statici
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS previous_ip VARCHAR(45);
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS previous_mac VARCHAR(17);
-        `);
-      } catch (err) {
-        // Ignora errore se colonna esiste già
-        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonne previous_ip/previous_mac:', err.message);
-        }
-      }
-
-      // Aggiungi colonna has_ping_failures per tracciare dispositivi con ping intermittenti
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS has_ping_failures BOOLEAN DEFAULT false;
-        `);
-      } catch (err) {
-        // Ignora errore se colonna esiste già
-        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonna has_ping_failures:', err.message);
-        }
-      }
-
-      // Aggiungi colonna device_username per memorizzare il Nome Utente da KeePass
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS device_username TEXT;
-        `);
-      } catch (err) {
-        // Ignora errore se colonna esiste già
-        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonna device_username:', err.message);
-        }
-      }
-
-      // Aggiungi colonna keepass_path per il percorso gruppo KeePass
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS keepass_path TEXT;
-        `);
-      } catch (err) {
-        // Ignora errore se colonna esiste già
-        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonna keepass_path:', err.message);
-        }
-      }
-
-      // Aggiungi colonne accepted_ip e accepted_mac per tracciare IP/MAC accettati dall'utente
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS accepted_ip VARCHAR(45);
-        `);
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS accepted_mac VARCHAR(17);
-        `);
-      } catch (err) {
-        // Ignora errore se colonna esiste già
-        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonne accepted_ip/accepted_mac:', err.message);
-        }
-      }
-
-      // Aggiungi colonna notes per note utente (es. per switch virtuali)
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS notes TEXT;
-        `);
-      } catch (err) {
-        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonna notes:', err.message);
-        }
-      }
-
-      // Aggiungi colonna router_model per modello router (es. AGCOMBO, Fritz!Box)
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS router_model VARCHAR(100);
-        `);
-      } catch (err) {
-        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonna router_model:', err.message);
-        }
-      }
-
-      // Aggiungi colonna unifi_name per memorizzare il nome rilevato da UniFi
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices
-          ADD COLUMN IF NOT EXISTS unifi_name VARCHAR(255);
-        `);
-      } catch (err) {
-        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonna unifi_name:', err.message);
-        }
-      }
-
-      // Crea tabella network_changes
       await pool.query(`
-        CREATE TABLE IF NOT EXISTS network_changes (
+        CREATE TABLE network_changes (
           id SERIAL PRIMARY KEY,
           device_id INTEGER REFERENCES network_devices(id) ON DELETE CASCADE,
           agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
@@ -450,127 +266,12 @@ module.exports = (pool, io) => {
           new_value TEXT,
           detected_at TIMESTAMP DEFAULT NOW(),
           notified BOOLEAN DEFAULT false,
-          notification_ip VARCHAR(45),
           ticket_id INTEGER REFERENCES tickets(id) ON DELETE SET NULL
         );
       `);
 
-      // Migrazione per aggiungere 'frequent_disconnections' e 'ip_conflict' al check constraint se esiste
-      try {
-        await pool.query(`
-          ALTER TABLE network_changes DROP CONSTRAINT IF EXISTS network_changes_change_type_check;
-          ALTER TABLE network_changes ADD CONSTRAINT network_changes_change_type_check 
-          CHECK (change_type IN ('new_device', 'device_offline', 'device_online', 'ip_changed', 'mac_changed', 'hostname_changed', 'vendor_changed', 'ip_conflict', 'frequent_disconnections'));
-        `);
-      } catch (err) {
-        console.warn('⚠️ Migrazione network_changes (initTables):', err.message);
-      }
-
-      // Crea tabella network_notification_config
       await pool.query(`
-        CREATE TABLE IF NOT EXISTS network_notification_config (
-          id SERIAL PRIMARY KEY,
-          agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
-          ip_address VARCHAR(45) NOT NULL,
-          enabled BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          UNIQUE(agent_id, ip_address)
-        );
-      `);
-
-      // Crea tabella network_telegram_config (configurazione notifiche Telegram)
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS network_telegram_config (
-          id SERIAL PRIMARY KEY,
-          azienda_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-          agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
-          bot_token VARCHAR(255) NOT NULL,
-          chat_id VARCHAR(50) NOT NULL,
-          enabled BOOLEAN DEFAULT true,
-          notify_agent_offline BOOLEAN DEFAULT true,
-          notify_ip_changes BOOLEAN DEFAULT true,
-          notify_mac_changes BOOLEAN DEFAULT true,
-          notify_status_changes BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW(),
-          UNIQUE(azienda_id, agent_id)
-        );
-      `);
-
-      // Aggiungi colonna unifi_config a network_agents (migrazione)
-      try {
-        await pool.query(`
-          ALTER TABLE network_agents 
-          ADD COLUMN IF NOT EXISTS unifi_config JSONB;
-        `);
-      } catch (err) {
-        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonna unifi_config:', err.message);
-        }
-      }
-
-      // Aggiungi colonna upgrade_available a network_devices (migrazione)
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;
-        `);
-      } catch (err) {
-        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonna upgrade_available:', err.message);
-        }
-      }
-
-      // Aggiungi colonna unifi_config a network_agents (migrazione)
-      try {
-        await pool.query(`
-          ALTER TABLE network_agents 
-          ADD COLUMN IF NOT EXISTS unifi_config JSONB;
-        `);
-      } catch (err) {
-        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonna unifi_config:', err.message);
-        }
-      }
-
-      // Aggiungi colonna upgrade_available a network_devices (migrazione)
-      try {
-        await pool.query(`
-          ALTER TABLE network_devices 
-          ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;
-        `);
-      } catch (err) {
-        if (!err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-          console.warn('⚠️ Avviso aggiunta colonna upgrade_available:', err.message);
-        }
-      }
-
-      await pool.query(`
-        CREATE INDEX IF NOT EXISTS idx_network_telegram_config_azienda 
-        ON network_telegram_config(azienda_id);
-      `);
-
-      await pool.query(`
-        CREATE INDEX IF NOT EXISTS idx_network_telegram_config_agent 
-        ON network_telegram_config(agent_id);
-      `);
-
-      // Crea tabella network_device_types (tipi personalizzati dispositivi)
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS network_device_types (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(100) UNIQUE NOT NULL,
-          description TEXT,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-      `);
-
-      // Crea tabella network_agent_events per tracciare eventi agent (offline, online, riavvio, problemi rete)
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS network_agent_events (
+        CREATE TABLE network_agent_events (
           id SERIAL PRIMARY KEY,
           agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
           event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('offline', 'online', 'reboot', 'network_issue', 'frequent_disconnections')),
@@ -583,143 +284,19 @@ module.exports = (pool, io) => {
         );
       `);
 
-      // Inserisci tipi di default se la tabella è vuota
-      const typesCheck = await pool.query('SELECT COUNT(*) FROM network_device_types');
-      if (parseInt(typesCheck.rows[0].count) === 0) {
-        const defaultTypes = [
-          { name: 'workstation', description: 'Computer desktop o laptop' },
-          { name: 'server', description: 'Server' },
-          { name: 'router', description: 'Router o gateway' },
-          { name: 'switch', description: 'Switch di rete' },
-          { name: 'printer', description: 'Stampante di rete' },
-          { name: 'camera', description: 'Telecamera IP' },
-          { name: 'unknown', description: 'Tipo sconosciuto' }
-        ];
-        for (const type of defaultTypes) {
-          await pool.query(
-            'INSERT INTO network_device_types (name, description) VALUES ($1, $2)',
-            [type.name, type.description]
-          );
-        }
-      }
+      // Altre tabelle accessorie
+      await pool.query(`CREATE TABLE IF NOT EXISTS network_notification_config (id SERIAL PRIMARY KEY, agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE, ip_address VARCHAR(45) NOT NULL, enabled BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(agent_id, ip_address));`);
+      await pool.query(`CREATE TABLE IF NOT EXISTS network_telegram_config (id SERIAL PRIMARY KEY, azienda_id INTEGER REFERENCES users(id) ON DELETE CASCADE, agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE, bot_token VARCHAR(255) NOT NULL, chat_id VARCHAR(50) NOT NULL, enabled BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(azienda_id, agent_id));`);
 
-      // Crea indici
-      const indexes = [
-        'CREATE INDEX IF NOT EXISTS idx_network_agents_azienda ON network_agents(azienda_id);',
-        'CREATE INDEX IF NOT EXISTS idx_network_agents_api_key ON network_agents(api_key);',
-        'CREATE INDEX IF NOT EXISTS idx_network_agents_status ON network_agents(status);',
-        'CREATE INDEX IF NOT EXISTS idx_network_devices_agent ON network_devices(agent_id);',
-        'CREATE INDEX IF NOT EXISTS idx_network_devices_ip ON network_devices(ip_address);',
-        'CREATE INDEX IF NOT EXISTS idx_network_devices_mac ON network_devices(mac_address);',
-        'CREATE INDEX IF NOT EXISTS idx_network_devices_last_seen ON network_devices(last_seen);',
-        'CREATE INDEX IF NOT EXISTS idx_network_devices_status ON network_devices(status);',
-        'CREATE INDEX IF NOT EXISTS idx_network_changes_agent ON network_changes(agent_id);',
-        'CREATE INDEX IF NOT EXISTS idx_network_changes_detected ON network_changes(detected_at DESC);',
-        'CREATE INDEX IF NOT EXISTS idx_network_changes_notified ON network_changes(notified);',
-        'CREATE INDEX IF NOT EXISTS idx_network_changes_change_type ON network_changes(change_type);',
-        'CREATE INDEX IF NOT EXISTS idx_network_notification_config_agent ON network_notification_config(agent_id);',
-        'CREATE INDEX IF NOT EXISTS idx_network_notification_config_ip ON network_notification_config(ip_address);',
-        'CREATE INDEX IF NOT EXISTS idx_network_device_types_name ON network_device_types(name);',
-        'CREATE INDEX IF NOT EXISTS idx_network_agent_events_agent_id ON network_agent_events(agent_id);',
-        'CREATE INDEX IF NOT EXISTS idx_network_agent_events_detected_at ON network_agent_events(detected_at DESC);',
-        'CREATE INDEX IF NOT EXISTS idx_network_agent_events_notified ON network_agent_events(notified) WHERE notified = FALSE;',
-        'CREATE INDEX IF NOT EXISTS idx_network_agent_events_type ON network_agent_events(event_type);'
-      ];
-
-      for (const indexSql of indexes) {
-        try {
-          await pool.query(indexSql);
-        } catch (err) {
-          // Ignora errori "already exists"
-          if (!err.message.includes('already exists') && !err.message.includes('duplicate')) {
-            console.warn('⚠️ Errore creazione indice:', err.message);
-          }
-        }
-      }
-
-      // Migrazione: sincronizzazione change_type
-      try {
-        await pool.query(`
-          ALTER TABLE network_changes DROP CONSTRAINT IF EXISTS network_changes_change_type_check;
-          ALTER TABLE network_changes ADD CONSTRAINT network_changes_change_type_check
-          CHECK (change_type IN ('new_device', 'device_offline', 'device_online', 'ip_changed', 'mac_changed', 'hostname_changed', 'vendor_changed', 'ip_conflict', 'frequent_disconnections'));
-        `);
-      } catch (migrErr) {
-        if (!migrErr.message.includes('already exists') && !migrErr.message.includes('duplicate')) {
-          console.warn('⚠️ Migrazione network_changes (632 sync):', migrErr.message);
-        }
-      }
-
-      // Crea funzione e trigger (solo se non esistono)
-      // Prima verifica se la funzione esiste già
-      try {
-        const functionExists = await pool.query(`
-          SELECT EXISTS (
-            SELECT FROM pg_proc p
-            JOIN pg_namespace n ON p.pronamespace = n.oid
-            WHERE n.nspname = 'public'
-            AND p.proname = 'update_network_agents_updated_at'
-          );
-        `);
-
-        if (!functionExists.rows[0].exists) {
-          // Solo se la funzione non esiste, creala
-          await pool.query(`
-            CREATE FUNCTION update_network_agents_updated_at()
-            RETURNS TRIGGER AS $func$
-            BEGIN
-              NEW.updated_at = NOW();
-              RETURN NEW;
-            END;
-            $func$ LANGUAGE plpgsql;
-          `);
-        }
-
-        // Crea trigger (sempre con IF NOT EXISTS equivalente)
-        await pool.query(`
-          DROP TRIGGER IF EXISTS trigger_update_network_agents_updated_at ON network_agents;
-          CREATE TRIGGER trigger_update_network_agents_updated_at
-            BEFORE UPDATE ON network_agents
-            FOR EACH ROW
-            EXECUTE FUNCTION update_network_agents_updated_at();
-        `);
-      } catch (err) {
-        // Ignora errori se funzione/trigger esistono già o altri errori non critici
-        if (!err.message.includes('already exists') &&
-          !err.message.includes('duplicate') &&
-          !err.message.includes('does not exist')) {
-          console.warn('⚠️ Errore creazione funzione/trigger:', err.message);
-        }
-      }
-
-      // Crea tabella mappatura_nodes se non esiste (persisistenza layout mappe)
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS mappatura_nodes (
-          azienda_id INTEGER NOT NULL,
-          device_id INTEGER NOT NULL,
-          x DOUBLE PRECISION,
-          y DOUBLE PRECISION,
-          PRIMARY KEY (azienda_id, device_id)
-        );
-      `);
-      // Altri indici
-      await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_azienda ON mappatura_nodes(azienda_id);`);
-
-      // Migrazioni finali (Speed Test, ecc. se non già fatte)
-      try {
-        await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS speedtest_enabled BOOLEAN DEFAULT true;`);
-        await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS speedtest_interval_hours INTEGER DEFAULT 2;`);
-        await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;`);
-        await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS has_ping_failures BOOLEAN DEFAULT false;`);
-        await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;`);
-        await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS device_path TEXT;`);
-        await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_new_device BOOLEAN DEFAULT false;`);
-      } catch (err) { }
+      // Indici
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_agents_azienda ON network_agents(azienda_id);`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_devices_agent ON network_devices(agent_id);`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_devices_status ON network_devices(status);`);
 
       tablesCheckDone = true;
-      console.log('✅ Tabelle network monitoring inizializzate con successo');
+      console.log('✅ Tabelle network monitoring create con successo');
     } catch (err) {
-      console.error('❌ Errore critico inizializzazione tabelle network monitoring:', err.message);
+      console.error('❌ Errore critico inizializzazione tabelle:', err.message);
     } finally {
       tablesCheckInProgress = false;
     }
@@ -8548,6 +8125,9 @@ pause
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });
+
+  // Avvia l'inizializzazione asincrona all'accensione del server
+  initTables().catch(err => console.error('❌ Errore avvio initTables:', err.message));
 
   return router;
 };
