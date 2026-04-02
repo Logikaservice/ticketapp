@@ -394,45 +394,6 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
               )}
             </div>
 
-            {/* Navigazione Rapida Diretta (visibile su desktop) */}
-            <div className="hidden lg:flex items-center gap-1 border-l pl-3 ml-1 mr-3 h-10 border-gray-100">
-              {openOffice && (
-                <button onClick={openOffice} className="p-2.5 text-slate-600 hover:bg-slate-50 rounded-lg transition" title="Office">
-                  <Building2 size={20} />
-                </button>
-              )}
-              {openEmail && (
-                <button onClick={openEmail} className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Email">
-                  <Mail size={20} />
-                </button>
-              )}
-              {openAntiVirus && (
-                <button onClick={openAntiVirus} className="p-2.5 text-red-600 hover:bg-red-50 rounded-lg transition" title="Anti-Virus">
-                  <Shield size={20} />
-                </button>
-              )}
-              {openFlottaPC && (
-                <button onClick={openFlottaPC} className="p-2.5 text-teal-600 hover:bg-teal-50 rounded-lg transition" title="Dispositivi">
-                  <Monitor size={20} />
-                </button>
-              )}
-              {openSpeedTest && (currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin') && (
-                <button onClick={openSpeedTest} className="p-2.5 text-purple-600 hover:bg-purple-50 rounded-lg transition" title="Speed Test">
-                  <Gauge size={20} />
-                </button>
-              )}
-              {openNetworkMonitoring && (
-                <button onClick={openNetworkMonitoring} className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Monitoraggio">
-                  <Wifi size={20} />
-                </button>
-              )}
-              {openMappatura && (
-                <button onClick={openMappatura} className="p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition" title="Mappatura">
-                  <MapPin size={20} />
-                </button>
-              )}
-            </div>
-
             <div>
               <h1 className="text-2xl font-bold">{isOrariDomain ? 'Gestione Orari e Turni' : 'Sistema Gestione Ticket'}</h1>
               <p className="text-sm text-gray-600 mt-1">

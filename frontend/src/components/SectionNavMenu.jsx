@@ -1,8 +1,8 @@
-// Menu di navigazione tra sezioni (Email, Office, Anti-Virus, Monitoraggio Rete, Mappatura)
-// Mostra icone orizzontali per navigazione rapida se c'è spazio, altrimenti sandwich su mobile
+// Menu sandwich per navigazione tra sezioni (Email, Office, Anti-Virus, Monitoraggio Rete, Mappatura)
+// Esclude sempre "Nuove funzionalità" e "Impostazioni"
 
-import React from 'react';
-import { Building2, Mail, Shield, Wifi, MapPin, Home, Monitor, Gauge } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Menu, Building2, Mail, Shield, Wifi, MapPin, Home, Monitor, Gauge } from 'lucide-react';
 
 const SectionNavMenu = ({
   currentPage,
@@ -17,6 +17,9 @@ const SectionNavMenu = ({
   currentUser,
   selectedCompanyId = null
 }) => {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef(null);
+
   const isCompanyAdmin = currentUser?.ruolo === 'cliente' &&
     currentUser?.admin_companies &&
     Array.isArray(currentUser.admin_companies) &&
@@ -24,38 +27,60 @@ const SectionNavMenu = ({
   const isTecnicoOrAdmin = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
   const hasAccess = isTecnicoOrAdmin || isCompanyAdmin;
 
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   if (!hasAccess) return null;
 
-  const allItems = [
-    { id: 'home', label: 'Home', icon: Home, onClick: onNavigateHome, visible: !!onNavigateHome, color: 'text-gray-500' },
-    { id: 'office', label: 'Office', icon: Building2, onClick: onNavigateOffice, visible: !!onNavigateOffice, color: 'text-slate-600' },
-    { id: 'email', label: 'Email', icon: Mail, onClick: onNavigateEmail, visible: !!onNavigateEmail, color: 'text-blue-600' },
-    { id: 'antivirus', label: 'Anti-Virus', icon: Shield, onClick: onNavigateAntiVirus, visible: !!onNavigateAntiVirus, color: 'text-red-600' },
-    { id: 'dispositivi-aziendali', label: 'Dispositivi', icon: Monitor, onClick: onNavigateDispositiviAziendali, visible: !!onNavigateDispositiviAziendali, color: 'text-teal-600' },
-    { id: 'speedtest', label: 'Speed Test', icon: Gauge, onClick: onNavigateSpeedTest, visible: isTecnicoOrAdmin && !!onNavigateSpeedTest, color: 'text-purple-600' },
-    { id: 'network', label: 'Monitoraggio', icon: Wifi, onClick: onNavigateNetworkMonitoring, visible: !!onNavigateNetworkMonitoring, color: 'text-emerald-600' },
-    { id: 'mappatura', label: 'Mappatura', icon: MapPin, onClick: onNavigateMappatura, visible: !!onNavigateMappatura, color: 'text-indigo-600' }
-  ].filter(item => item.visible);
+  const homeItem = onNavigateHome ? [{ id: 'home', label: 'Home', icon: Home, onClick: onNavigateHome }] : [];
+  const sectionItems = [
+    { id: 'office', label: 'Office', icon: Building2, onClick: onNavigateOffice, visible: !!onNavigateOffice },
+    { id: 'email', label: 'Email', icon: Mail, onClick: onNavigateEmail, visible: !!onNavigateEmail },
+    { id: 'antivirus', label: 'Anti-Virus', icon: Shield, onClick: onNavigateAntiVirus, visible: !!onNavigateAntiVirus },
+    { id: 'dispositivi-aziendali', label: 'Dispositivi aziendali', icon: Monitor, onClick: onNavigateDispositiviAziendali, visible: !!onNavigateDispositiviAziendali },
+    { id: 'speedtest', label: 'Speed Test', icon: Gauge, onClick: onNavigateSpeedTest, visible: isTecnicoOrAdmin && !!onNavigateSpeedTest },
+    { id: 'network', label: 'Monitoraggio Rete', icon: Wifi, onClick: onNavigateNetworkMonitoring, visible: !!onNavigateNetworkMonitoring },
+    { id: 'mappatura', label: 'Mappatura', icon: MapPin, onClick: onNavigateMappatura, visible: !!onNavigateMappatura }
+  ].filter(item => item.visible && item.id !== currentPage);
+  const items = [...homeItem, ...sectionItems];
+
+  if (items.length === 0) return null;
 
   return (
-    <nav className="flex items-center gap-1 sm:gap-1.5 py-1 px-1 bg-gray-50/50 rounded-xl border border-gray-100/50 w-fit">
-      {allItems.map(({ id, label, icon: Icon, onClick, color }) => {
-        const isActive = id === currentPage;
-        if (isActive) return null;
-
-        return (
-          <button
-            key={id}
-            onClick={() => onClick?.(selectedCompanyId)}
-            className={`group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all hover:bg-white hover:shadow-sm ${color} whitespace-nowrap`}
-            title={label}
-          >
-            <Icon size={16} className="group-hover:scale-110 transition-transform" />
-            <span className="text-[11px] font-bold uppercase tracking-wider">{label}</span>
-          </button>
-        );
-      })}
-    </nav>
+    <div className="relative inline-block text-left mr-2" ref={menuRef}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors flex items-center justify-center border border-transparent hover:border-gray-200"
+        title="Menu di navigazione"
+      >
+        <Menu size={22} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-[99999]">
+          <div className="px-3 py-1.5 mb-1 border-b border-gray-100">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Navigazione</span>
+          </div>
+          {items.map(({ id, label, icon: Icon, onClick }) => (
+            <button
+              key={id}
+              onClick={() => {
+                onClick?.(selectedCompanyId);
+                setOpen(false);
+              }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-all font-medium text-sm"
+            >
+              <Icon size={18} className="text-gray-400 group-hover:text-blue-500" />
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 };
 
