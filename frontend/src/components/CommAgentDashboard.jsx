@@ -7,8 +7,14 @@ import {
 } from 'lucide-react';
 
 import { buildApiUrl } from '../utils/apiConfig';
+import SectionNavMenu from './SectionNavMenu';
 
-const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
+const CommAgentDashboard = ({ 
+    currentUser, closeModal, notify,
+    selectedCompanyId, onNavigateHome, onNavigateOffice, onNavigateEmail, 
+    onNavigateAntiVirus, onNavigateNetworkMonitoring, onNavigateMappatura, 
+    onNavigateSpeedTest, onNavigateDispositiviAziendali, onNavigateCommAgentManager
+}) => {
     // State
     const [activeTab, setActiveTab] = useState('send');
     const [agents, setAgents] = useState([]);
@@ -191,38 +197,40 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
                 {/* Header */}
                 <div style={{
                     padding: '20px 28px',
-                    background: 'linear-gradient(135deg, #667EEA 0%, #764BA2 100%)',
+                    background: 'white',
+                    borderBottom: '1px solid #E2E8F0',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <SectionNavMenu
+                            currentPage="comm-agent"
+                            onNavigateHome={onNavigateHome || closeModal}
+                            onNavigateOffice={onNavigateOffice}
+                            onNavigateEmail={onNavigateEmail}
+                            onNavigateAntiVirus={onNavigateAntiVirus}
+                            onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
+                            onNavigateMappatura={onNavigateMappatura}
+                            onNavigateSpeedTest={onNavigateSpeedTest}
+                            onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
+                            currentUser={currentUser}
+                            selectedCompanyId={selectedCompanyId}
+                        />
                         <div style={{
                             width: 44, height: 44, borderRadius: 14,
-                            background: 'rgba(255,255,255,0.2)', display: 'flex',
+                            background: '#EDE9FE', display: 'flex',
                             alignItems: 'center', justifyContent: 'center'
                         }}>
-                            <Bell size={24} color="white" />
+                            <Bell size={24} color="#7C3AED" />
                         </div>
                         <div>
-                            <h2 style={{ margin: 0, color: 'white', fontSize: 20, fontWeight: 700 }}>
+                            <h2 style={{ margin: 0, color: '#1F2937', fontSize: 20, fontWeight: 700 }}>
                                 Centro Comunicazioni
                             </h2>
-                            <p style={{ margin: '2px 0 0', color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>
+                            <p style={{ margin: '2px 0 0', color: '#6B7280', fontSize: 12 }}>
                                 Invia notifiche ai PC dei clienti • {agents.length} agent registrati • {onlineCount} online
                             </p>
                         </div>
                     </div>
-
-                    <button onClick={closeModal} style={{
-                        width: 36, height: 36, borderRadius: 12,
-                        background: 'rgba(255,255,255,0.15)', border: 'none',
-                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'background 0.2s'
-                    }}
-                        onMouseEnter={e => e.target.style.background = 'rgba(255,255,255,0.3)'}
-                        onMouseLeave={e => e.target.style.background = 'rgba(255,255,255,0.15)'}
-                    >
-                        <X size={18} color="white" />
-                    </button>
                 </div>
 
                 {/* Tab Bar */}

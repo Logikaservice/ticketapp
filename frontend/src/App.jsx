@@ -3341,16 +3341,34 @@ export default function TicketApp() {
         {showCommAgent && (
           <CommAgentDashboard
             currentUser={currentUser}
-            closeModal={() => setShowCommAgent(false)}
+            closeModal={() => { setShowCommAgent(false); setShowDashboard(true); }}
             notify={notify}
+            selectedCompanyId={globallySelectedCompanyId}
+            onNavigateHome={() => { setShowDashboard(true); setShowCommAgent(false); }}
+            onNavigateOffice={handleOpenOffice}
+            onNavigateEmail={handleOpenEmail}
+            onNavigateAntiVirus={handleOpenAntiVirus}
+            onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
+            onNavigateMappatura={handleOpenMappatura}
+            onNavigateSpeedTest={handleOpenSpeedTest}
+            onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
           />
         )}
 
         {showCommAgentManager && (
           <CommAgentManager
             currentUser={currentUser}
-            closeModal={() => setShowCommAgentManager(false)}
+            closeModal={() => { setShowCommAgentManager(false); setShowDashboard(true); }}
             notify={notify}
+            selectedCompanyId={globallySelectedCompanyId}
+            onNavigateHome={() => { setShowDashboard(true); setShowCommAgentManager(false); }}
+            onNavigateOffice={handleOpenOffice}
+            onNavigateEmail={handleOpenEmail}
+            onNavigateAntiVirus={handleOpenAntiVirus}
+            onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
+            onNavigateMappatura={handleOpenMappatura}
+            onNavigateSpeedTest={handleOpenSpeedTest}
+            onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
           />
         )}
 

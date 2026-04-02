@@ -4,8 +4,14 @@ import {
     Trash2, Bell, Plus, Search, CheckCircle, Clock, WifiOff
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
+import SectionNavMenu from './SectionNavMenu';
 
-const CommAgentManager = ({ currentUser, closeModal, notify }) => {
+const CommAgentManager = ({ 
+    currentUser, closeModal, notify,
+    selectedCompanyId, onNavigateHome, onNavigateOffice, onNavigateEmail, 
+    onNavigateAntiVirus, onNavigateNetworkMonitoring, onNavigateMappatura, 
+    onNavigateSpeedTest, onNavigateDispositiviAziendali
+}) => {
     const [activeTab, setActiveTab] = useState('agents');
     const [agents, setAgents] = useState([]);
     const [clients, setClients] = useState([]);
@@ -102,19 +108,29 @@ const CommAgentManager = ({ currentUser, closeModal, notify }) => {
             <div className="bg-white w-full h-full flex flex-col overflow-hidden">
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-violet-600 to-indigo-600">
+                <div className="flex items-center justify-between px-6 py-4 border-b bg-white shadow-sm">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white/20 rounded-lg">
-                            <Bell size={20} className="text-white" />
+                        <SectionNavMenu
+                            currentPage="comm-agent-manager"
+                            onNavigateHome={onNavigateHome || closeModal}
+                            onNavigateOffice={onNavigateOffice}
+                            onNavigateEmail={onNavigateEmail}
+                            onNavigateAntiVirus={onNavigateAntiVirus}
+                            onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
+                            onNavigateMappatura={onNavigateMappatura}
+                            onNavigateSpeedTest={onNavigateSpeedTest}
+                            onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
+                            currentUser={currentUser}
+                            selectedCompanyId={selectedCompanyId}
+                        />
+                        <div className="p-2 bg-violet-100 rounded-lg">
+                            <Monitor size={24} className="text-violet-600" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-bold text-white">Agent Comunicazioni</h2>
-                            <p className="text-violet-200 text-xs">{agents.length} agent registrati • {onlineCount} online</p>
+                            <h2 className="text-xl font-bold text-gray-800">Crea / Visualizza Agent</h2>
+                            <p className="text-gray-500 text-xs">{agents.length} agent registrati • {onlineCount} online</p>
                         </div>
                     </div>
-                    <button onClick={closeModal} className="p-2 hover:bg-white/20 rounded-lg transition">
-                        <X size={20} className="text-white" />
-                    </button>
                 </div>
 
                 {/* Tabs */}
