@@ -1995,16 +1995,11 @@ module.exports = (pool, io) => {
           const routerModel = unifiDev.router_model || 'Unifi';
           const unifiConfig = unifiDev.unifi_config;
 
-          // Prova unifi_config
+          // Prova unifi_config (usa per TUTTI i dispositivi UniFi se configurata nell'Agent)
           if (unifiConfig && unifiConfig.url && unifiConfig.username && unifiConfig.password) {
-            const uUrl = String(unifiConfig.url).trim().replace(/\/$/, '');
-            const uHost = uUrl.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
-            const ipHost = String(ip).split(':')[0].trim();
-            if (uHost === ipHost || uHost === ip) {
-              username = String(unifiConfig.username).trim();
-              password = String(unifiConfig.password);
-              controllerUrl = uUrl;
-            }
+            username = String(unifiConfig.username).trim();
+            password = String(unifiConfig.password);
+            controllerUrl = String(unifiConfig.url).trim().replace(/\/$/, '');
           }
 
           // Fallback KeePass
@@ -6917,29 +6912,14 @@ pause
       const unifiConfig = dev.rows[0].unifi_config;
       console.log(`📡 Router WiFi request: device_id=${device_id}, mac=${mac}, ip=${ip}, router_model=${routerModel}`);
 
-      // Per Cloud Key/UniFi: usa unifi_config dell'agent (come per controllo firmware) se disponibile
-      let controllerUrl = null; // URL completo con porta (es. https://192.168.1.156:8443) per l'agent
+      // Per Cloud Key/UniFi: usa unifi_config dell'agent (come per controllo firmware) se disponibile per TUTTI i device UniFi
+      let controllerUrl = null; 
       const isUnifi = /^Unifi|^Ubiquiti|^UCK/i.test(routerModel);
       if ((!username || !password) && isUnifi && unifiConfig && unifiConfig.url && unifiConfig.username && unifiConfig.password) {
-        const uUrl = String(unifiConfig.url).trim().replace(/\/$/, '');
-        // Estrai host: "https://192.168.1.156" -> "192.168.1.156", "https://192.168.1.156:8443" -> "192.168.1.156"
-        const uHost = uUrl.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
-        const ipHost = String(ip).split(':')[0].trim();
-        const match = uHost === ipHost || uHost === ip;
-        console.log(`📡 UniFi: unifi_config host="${uHost}", device ip="${ipHost}", match=${match}`);
-        if (match) {
-          username = String(unifiConfig.username).trim();
-          password = String(unifiConfig.password);
-          controllerUrl = uUrl; // l'agent userà questo URL (con porta 8443) invece di solo IP
-          console.log(`✅ Credenziali da unifi_config agent (come firmware): host=${uHost}, username=${username}, controller_url=${controllerUrl}`);
-        }
-      }
-      // Se UniFi e abbiamo URL da unifi_config (stesso host), passalo all'agent per usare la porta 8443
-      if (isUnifi && !controllerUrl && unifiConfig && unifiConfig.url) {
-        const uUrl = String(unifiConfig.url).trim().replace(/\/$/, '');
-        const uHost = uUrl.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
-        const ipHost = String(ip).split(':')[0].trim();
-        if (uHost === ipHost || uHost === ip) controllerUrl = uUrl;
+        username = String(unifiConfig.username).trim();
+        password = String(unifiConfig.password);
+        controllerUrl = String(unifiConfig.url).trim().replace(/\/$/, ''); 
+        console.log(`✅ Credenziali da unifi_config agent (come firmware) applicate al device UniFi. controller_url=${controllerUrl}`);
       }
 
       if (!username || !password) {
