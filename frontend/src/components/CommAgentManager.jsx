@@ -98,8 +98,8 @@ const CommAgentManager = ({ currentUser, closeModal, notify }) => {
     const onlineCount = agents.filter(a => a.status === 'online' || a.real_status === 'online').length;
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/60 backdrop-blur-sm" style={{ padding: '40px 20px 20px' }}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-[60] flex flex-col bg-gray-100 overflow-hidden">
+            <div className="bg-white w-full h-full flex flex-col overflow-hidden">
 
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-violet-600 to-indigo-600">

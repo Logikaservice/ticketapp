@@ -179,15 +179,13 @@ const CommAgentDashboard = ({ currentUser, closeModal, notify }) => {
     return (
         <div style={{
             position: 'fixed', inset: 0, zIndex: 60, display: 'flex',
-            alignItems: 'flex-start', justifyContent: 'center',
-            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
-            padding: '40px 20px 20px'
+            flexDirection: 'column',
+            background: '#0f172a',
+            overflow: 'hidden'
         }}>
             <div style={{
-                width: '100%', maxWidth: 1100, maxHeight: '90vh',
-                background: '#0f172a', borderRadius: 20, overflow: 'hidden',
-                display: 'flex', flexDirection: 'column',
-                boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 80px rgba(99,102,241,0.1)'
+                width: '100%', height: '100%',
+                display: 'flex', flexDirection: 'column'
             }}>
 
                 {/* Header */}
