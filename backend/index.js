@@ -109,6 +109,9 @@ console.log('🔍 Creazione Pool con config:', {
 });
 
 const pool = new Pool(poolConfig);
+pool.on('error', (err, client) => {
+  console.error('❌ Errore inatteso sul client database principale:', err.message);
+});
 
 // --- CONFIGURAZIONE DATABASE VIVALDI (separato) ---
 let vivaldiDbUrl = process.env.DATABASE_URL_VIVALDI ||
@@ -147,6 +150,9 @@ if (vivaldiDbUrl) {
   }
 
   poolVivaldi = new Pool(vivaldiConfig);
+  poolVivaldi.on('error', (err, client) => {
+    console.error('❌ Errore inatteso sul client Vivaldi:', err.message);
+  });
 } else {
   console.warn('⚠️ DATABASE_URL_VIVALDI non configurato! Vivaldi non sarà disponibile.');
   poolVivaldi = null;
