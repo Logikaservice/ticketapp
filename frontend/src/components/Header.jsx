@@ -297,7 +297,10 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                           className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition group ${colorClasses[action.color]}`}
                         >
                           <Icon size={18} className={getIconBgClass(action.color)} />
-                          <span className="text-sm font-medium">{action.label}</span>
+                          <span className="text-sm font-medium flex-1">{action.label}</span>
+                          {action.hasSubActions && (
+                            <ChevronRight size={14} className={`text-gray-300 transition-transform ${expandedAction === action.id ? 'rotate-90' : ''}`} />
+                          )}
                         </button>
 
                         {/* Sotto-azioni */}
