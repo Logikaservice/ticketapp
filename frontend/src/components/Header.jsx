@@ -243,54 +243,26 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
   ].filter(action => action.visible);
 
   const colorClasses = {
-    emerald: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
-    cyan: 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100',
-    indigo: 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100',
-    purple: 'bg-purple-50 text-purple-700 hover:bg-purple-100',
-    amber: 'bg-amber-50 text-amber-700 hover:bg-amber-100',
-    orange: 'bg-orange-50 text-orange-700 hover:bg-orange-100',
-    sky: 'bg-sky-50 text-sky-700 hover:bg-sky-100',
-    blue: 'bg-blue-50 text-blue-700 hover:bg-blue-100',
-    violet: 'bg-violet-50 text-violet-700 hover:bg-violet-100',
-    teal: 'bg-teal-50 text-teal-700 hover:bg-teal-100',
-    rose: 'bg-rose-50 text-rose-700 hover:bg-rose-100',
-    slate: 'bg-slate-50 text-slate-700 hover:bg-slate-100'
+    emerald: 'hover:bg-gray-50 text-gray-700',
+    cyan: 'hover:bg-gray-50 text-gray-700',
+    indigo: 'hover:bg-gray-50 text-gray-700',
+    purple: 'hover:bg-gray-50 text-gray-700',
+    amber: 'hover:bg-gray-50 text-gray-700',
+    orange: 'hover:bg-gray-50 text-gray-700',
+    sky: 'hover:bg-gray-50 text-gray-700',
+    blue: 'hover:bg-gray-50 text-gray-700',
+    violet: 'hover:bg-gray-50 text-gray-700',
+    teal: 'hover:bg-gray-50 text-gray-700',
+    rose: 'hover:bg-gray-50 text-gray-700',
+    slate: 'hover:bg-gray-50 text-gray-700'
   };
 
   const getIconBgClass = (color) => {
-    const classes = {
-      emerald: 'bg-emerald-100 text-emerald-600',
-      cyan: 'bg-cyan-100 text-cyan-600',
-      indigo: 'bg-indigo-100 text-indigo-600',
-      purple: 'bg-purple-100 text-purple-600',
-      amber: 'bg-amber-100 text-amber-600',
-      orange: 'bg-orange-100 text-orange-600',
-      sky: 'bg-sky-100 text-sky-600',
-      blue: 'bg-blue-100 text-blue-600',
-      violet: 'bg-violet-100 text-violet-600',
-      teal: 'bg-teal-100 text-teal-600',
-      rose: 'bg-rose-100 text-rose-600',
-      slate: 'bg-slate-100 text-slate-600'
-    };
-    return classes[color] || 'bg-gray-100 text-gray-600';
+    return 'text-gray-400 group-hover:text-gray-600 transition-colors';
   };
 
   const getIconTextClass = (color) => {
-    const classes = {
-      emerald: 'text-emerald-600',
-      cyan: 'text-cyan-600',
-      indigo: 'text-indigo-600',
-      purple: 'text-purple-600',
-      amber: 'text-amber-600',
-      orange: 'text-orange-600',
-      sky: 'text-sky-600',
-      blue: 'text-blue-600',
-      violet: 'text-violet-600',
-      teal: 'text-teal-600',
-      rose: 'text-rose-600',
-      slate: 'text-slate-600'
-    };
-    return classes[color] || 'text-gray-600';
+    return 'text-gray-400 group-hover:text-gray-600 transition-colors';
   };
 
   return (
@@ -307,29 +279,30 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                 className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
                 title="Pannello rapido"
               >
-                <List size={20} />
+                <List size={22} />
               </button>
 
               {/* Pannello Rapido a discesa, sempre sotto il pulsante */}
               {showQuickActions && (
-                <div className="absolute left-0 top-full mt-2 w-64 bg-white rounded-lg shadow-2xl border border-gray-200 py-2 z-50">
+                <div className="absolute left-0 top-full mt-1 w-60 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-[99999]">
+                  <div className="px-3 py-1.5 mb-1 border-b border-gray-100">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Dashboard</span>
+                  </div>
                   {quickActions.map((action) => {
                     const Icon = action.icon;
                     return (
                       <div key={action.id}>
                         <button
                           onClick={() => action.onClick ? action.onClick() : handleQuickActionClick(action.id, action.hasSubActions)}
-                          className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${colorClasses[action.color]}`}
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition group ${colorClasses[action.color]}`}
                         >
-                          <div className={`p-2 rounded-lg ${getIconBgClass(action.color)}`}>
-                            <Icon size={18} />
-                          </div>
-                          <span className="font-medium">{action.label}</span>
+                          <Icon size={18} className={getIconBgClass(action.color)} />
+                          <span className="text-sm font-medium">{action.label}</span>
                         </button>
 
                         {/* Sotto-azioni */}
                         {action.hasSubActions && expandedAction === action.id && (
-                          <div className="ml-4 border-l-2 border-gray-200 pl-2">
+                          <div className="bg-gray-50/50 py-1">
                             {action.subActions.map((subAction, idx) => {
                               const SubIcon = subAction.icon;
                               const subActionKey = `${action.id}-${idx}`;
@@ -348,10 +321,10 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                                         setExpandedSubAction(null);
                                       }
                                     }}
-                                    className={`w-full flex items-center gap-3 px-4 py-2 text-left transition ${colorClasses[subAction.color]}`}
+                                    className={`w-full flex items-center gap-3 px-5 py-2 text-left transition group ${colorClasses[subAction.color]}`}
                                   >
-                                    <SubIcon size={16} className={getIconTextClass(subAction.color)} />
-                                    <span className="text-sm flex-1">{subAction.label}</span>
+                                    <SubIcon size={16} className={getIconTextClass(subAction.color || 'slate')} />
+                                    <span className="text-[13px] flex-1">{subAction.label}</span>
                                     {subAction.hasSubActions && (
                                       <ChevronRight size={14} className={`transition-transform ${isSubActionExpanded ? 'rotate-90' : ''}`} />
                                     )}
@@ -359,7 +332,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
 
                                   {/* Sottomenù annidati */}
                                   {subAction.hasSubActions && isSubActionExpanded && subAction.subActions && (
-                                    <div className="ml-4 border-l-2 border-gray-300 pl-2">
+                                    <div className="pl-8 py-1">
                                       {subAction.subActions.map((nestedAction, nestedIdx) => {
                                         const NestedIcon = nestedAction.icon;
                                         return (
@@ -373,10 +346,10 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                                                 setExpandedSubAction(null);
                                               }
                                             }}
-                                            className={`w-full flex items-center gap-3 px-4 py-2 text-left transition ${colorClasses[nestedAction.color]}`}
+                                            className={`w-full flex items-center gap-3 py-1.5 text-left transition group ${colorClasses[nestedAction.color]}`}
                                           >
-                                            <NestedIcon size={14} className={getIconTextClass(nestedAction.color)} />
-                                            <span className="text-sm">{nestedAction.label}</span>
+                                            <NestedIcon size={14} className={getIconTextClass(nestedAction.color || 'slate')} />
+                                            <span className="text-[12px]">{nestedAction.label}</span>
                                           </button>
                                         );
                                       })}
