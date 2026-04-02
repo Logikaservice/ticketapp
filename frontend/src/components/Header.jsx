@@ -291,28 +291,28 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                   {quickActions.map((action) => {
                     const Icon = action.icon;
                     return (
-                      <div key={action.id}>
+                      <div key={action.id} className="relative">
                         <button
                           onClick={() => action.onClick ? action.onClick() : handleQuickActionClick(action.id, action.hasSubActions)}
-                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition group ${colorClasses[action.color]}`}
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition group ${expandedAction === action.id ? 'bg-gray-50' : ''} ${colorClasses[action.color]}`}
                         >
                           <Icon size={18} className={getIconBgClass(action.color)} />
                           <span className="text-sm font-medium flex-1">{action.label}</span>
                           {action.hasSubActions && (
-                            <ChevronRight size={14} className={`text-gray-300 transition-transform ${expandedAction === action.id ? 'rotate-90' : ''}`} />
+                            <ChevronRight size={14} className={`text-gray-300 transition-colors ${expandedAction === action.id ? 'text-blue-500' : ''}`} />
                           )}
                         </button>
 
                         {/* Sotto-azioni */}
                         {action.hasSubActions && expandedAction === action.id && (
-                          <div className="bg-gray-50/50 py-1">
+                          <div className="absolute left-[calc(100%+0.25rem)] top-0 w-60 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-[100000]">
                             {action.subActions.map((subAction, idx) => {
                               const SubIcon = subAction.icon;
                               const subActionKey = `${action.id}-${idx}`;
                               const isSubActionExpanded = expandedSubAction === subActionKey;
 
                               return (
-                                <div key={idx}>
+                                <div key={idx} className="relative">
                                   <button
                                     onClick={() => {
                                       if (subAction.hasSubActions) {
@@ -324,18 +324,18 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                                         setExpandedSubAction(null);
                                       }
                                     }}
-                                    className={`w-full flex items-center gap-3 px-5 py-2 text-left transition group ${colorClasses[subAction.color]}`}
+                                    className={`w-full flex items-center gap-3 px-4 py-2 text-left transition group ${isSubActionExpanded ? 'bg-gray-50' : ''} ${colorClasses[subAction.color]}`}
                                   >
                                     <SubIcon size={16} className={getIconTextClass(subAction.color || 'slate')} />
                                     <span className="text-[13px] flex-1">{subAction.label}</span>
                                     {subAction.hasSubActions && (
-                                      <ChevronRight size={14} className={`transition-transform ${isSubActionExpanded ? 'rotate-90' : ''}`} />
+                                      <ChevronRight size={14} className={`text-gray-300 transition-colors ${isSubActionExpanded ? 'text-blue-500' : ''}`} />
                                     )}
                                   </button>
 
                                   {/* Sottomenù annidati */}
                                   {subAction.hasSubActions && isSubActionExpanded && subAction.subActions && (
-                                    <div className="pl-8 py-1">
+                                    <div className="absolute left-[calc(100%+0.25rem)] top-0 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-[100001]">
                                       {subAction.subActions.map((nestedAction, nestedIdx) => {
                                         const NestedIcon = nestedAction.icon;
                                         return (
@@ -349,10 +349,10 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                                                 setExpandedSubAction(null);
                                               }
                                             }}
-                                            className={`w-full flex items-center gap-3 py-1.5 text-left transition group ${colorClasses[nestedAction.color]}`}
+                                            className={`w-full flex items-center gap-3 px-4 py-2 text-left transition group ${colorClasses[nestedAction.color]}`}
                                           >
                                             <NestedIcon size={14} className={getIconTextClass(nestedAction.color || 'slate')} />
-                                            <span className="text-[12px]">{nestedAction.label}</span>
+                                            <span className="text-[13px]">{nestedAction.label}</span>
                                           </button>
                                         );
                                       })}
