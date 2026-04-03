@@ -91,14 +91,16 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [newDevicesInList, setNewDevicesInList] = useState(new Set());
   const pendingUpdatesRef = useRef({}); // { [deviceId]: { [field]: { value, timestamp } } }
   
-  // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
+  // Sincronizza lo stato locale con initialCompanyId SOLO se cambia la prop esterna
+  // NON includere selectedCompanyId nelle dipendenze: altrimenti ogni click interno
+  // sull'azienda (che cambia selectedCompanyId) triggera questo effect che resetta a null
   useEffect(() => {
     const numericId = initialCompanyId ? Number(initialCompanyId) : null;
-    if (numericId !== selectedCompanyId) {
-      setCompanyDevices([]); // Pulisci la lista quando cambia dall'esterno
-      setSelectedCompanyId(numericId);
-    }
-  }, [initialCompanyId, selectedCompanyId]);
+    setCompanyDevices([]); // Pulisci la lista quando cambia dall'esterno
+    setSelectedCompanyId(numericId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCompanyId]); // ← solo la prop esterna, non selectedCompanyId!
+
 
   // Applica gli aggiornamenti pendenti ai dati ricevuti dal server
   const applyPendingUpdates = useCallback((items) => {
