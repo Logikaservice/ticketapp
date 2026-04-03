@@ -15,6 +15,31 @@ const telegramService = require('../services/TelegramService');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const https = require('https');
 
+// ─── Cache KeePass in-memory (evita chiamate Google Drive ad ogni richiesta) ───
+// TTL 5 minuti - si rinnova automaticamente quando scade
+let _keepassMapCache = null;
+let _keepassMapCacheAt = 0;
+const KEEPASS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minuti
+
+async function getCachedKeepassMap(password) {
+  if (!password) return null;
+  const now = Date.now();
+  if (_keepassMapCache && (now - _keepassMapCacheAt) < KEEPASS_CACHE_TTL_MS) {
+    return _keepassMapCache;
+  }
+  try {
+    const map = await keepassDriveService.getMacToTitleMap(password);
+    _keepassMapCache = map;
+    _keepassMapCacheAt = now;
+    return map;
+  } catch (err) {
+    console.warn('⚠️ [KeePass cache] Errore caricamento mappa:', err.message);
+    // Restituisce la cache scaduta se disponibile, meglio di niente
+    return _keepassMapCache || null;
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Chiavi allineate a frontend/src/utils/deviceTypeIcons.js (AVAILABLE_ICONS)
 const VALID_DEVICE_TYPE_KEYS = new Set([
   'pc', 'server', 'virtual', 'virtualization', 'nas', 'router', 'firewall', 'unmanaged_switch', 'wifi',
@@ -2559,14 +2584,12 @@ module.exports = (pool, io) => {
       }
 
       if (keepassPassword) {
-        try {
-          console.log('📥 Caricamento mappa KeePass (una volta per tutti i dispositivi)...');
-          keepassMap = await keepassDriveService.getMacToTitleMap(keepassPassword);
-          console.log(`✅ Mappa KeePass caricata: ${keepassMap.size} MAC address disponibili`);
-        } catch (keepassErr) {
-          console.warn('⚠️ Errore caricamento mappa KeePass:', keepassErr.message);
+        keepassMap = await getCachedKeepassMap(keepassPassword);
+        if (keepassMap) {
+          console.log(`✅ Mappa KeePass (da cache): ${keepassMap.size} MAC address disponibili`);
         }
       }
+
 
       // Crea mappa MAC -> IP da tabella KeePass (solo se keepass_entries ha colonne mac_address e ip)
       try {
@@ -3651,15 +3674,11 @@ module.exports = (pool, io) => {
       // Esegui query
       const result = await pool.query(unifiedQuery, params);
 
-      // Arricchisci gli eventi DISPOSITIVO con KeePass (stessa logica di /all/devices) così hostname e Titolo coincidono con la lista dispositivi per lo stesso MAC
+      // Arricchisci gli eventi DISPOSITIVO con KeePass (cache 5 min per evitare 504)
       const keepassPassword = process.env.KEEPASS_PASSWORD;
       let keepassMap = null;
       if (keepassPassword && result.rows.length > 0) {
-        try {
-          keepassMap = await keepassDriveService.getMacToTitleMap(keepassPassword);
-        } catch (keepassErr) {
-          console.warn('⚠️ Eventi unificati: errore caricamento KeePass:', keepassErr.message);
-        }
+        keepassMap = await getCachedKeepassMap(keepassPassword);
       }
       if (keepassMap) {
         for (const row of result.rows) {
