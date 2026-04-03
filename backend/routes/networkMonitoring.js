@@ -192,6 +192,13 @@ module.exports = (pool, io) => {
              await pool.query(`CREATE TABLE IF NOT EXISTS mappatura_nodes (azienda_id INTEGER NOT NULL, device_id INTEGER NOT NULL, x DOUBLE PRECISION, y DOUBLE PRECISION, PRIMARY KEY (azienda_id, device_id));`);
              await pool.query(`CREATE INDEX IF NOT EXISTS idx_mappatura_nodes_azienda ON mappatura_nodes(azienda_id);`);
 
+             // 5. Indici di performance per caricamento eventi e relazioni
+             await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_changes_detected_at ON network_changes(detected_at DESC);`);
+             await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_agent_events_detected_at ON network_agent_events(detected_at DESC);`);
+             await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_changes_device_id ON network_changes(device_id);`);
+             await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_changes_agent_id ON network_changes(agent_id);`);
+             await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_agent_events_agent_id ON network_agent_events(agent_id);`);
+
              console.log('✅ Migrazioni in background completate con successo');
           } catch (migErr) {
             console.warn('⚠️ Avviso migrazioni non completate (silenziosamente):', migErr.message);
@@ -292,6 +299,11 @@ module.exports = (pool, io) => {
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_agents_azienda ON network_agents(azienda_id);`);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_devices_agent ON network_devices(agent_id);`);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_devices_status ON network_devices(status);`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_changes_detected_at ON network_changes(detected_at DESC);`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_agent_events_detected_at ON network_agent_events(detected_at DESC);`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_changes_device_id ON network_changes(device_id);`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_changes_agent_id ON network_changes(agent_id);`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_agent_events_agent_id ON network_agent_events(agent_id);`);
 
       tablesCheckDone = true;
       console.log('✅ Tabelle network monitoring create con successo');
