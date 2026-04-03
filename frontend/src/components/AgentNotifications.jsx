@@ -9,34 +9,47 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
   const [unreadCount, setUnreadCount] = useState(0);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
+  const wsDebounceRef = useRef(null); // Debounce per eventi WebSocket
 
   // Carica eventi dal backend
   const loadEvents = async () => {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
       const response = await fetch(buildApiUrl('/api/network-monitoring/agent-events?limit=20'), {
-        headers: getAuthHeader()
+        headers: getAuthHeader(),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       if (response.ok) {
         const data = await response.json();
         setEvents(data);
       }
     } catch (err) {
-      console.error('Errore caricamento eventi agent:', err);
+      if (err.name !== 'AbortError') {
+        console.error('Errore caricamento eventi agent:', err);
+      }
     }
   };
 
   // Carica conteggio non letti
   const loadUnreadCount = async () => {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
       const response = await fetch(buildApiUrl('/api/network-monitoring/agent-events/unread-count'), {
-        headers: getAuthHeader()
+        headers: getAuthHeader(),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       if (response.ok) {
         const data = await response.json();
         setUnreadCount(data.count || 0);
       }
     } catch (err) {
-      console.error('Errore caricamento conteggio non letti:', err);
+      if (err.name !== 'AbortError') {
+        console.error('Errore caricamento conteggio non letti:', err);
+      }
     }
   };
 
@@ -158,16 +171,21 @@ const AgentNotifications = ({ getAuthHeader, socket, onOpenNetworkMonitoring }) 
     return () => clearInterval(interval);
   }, []);
 
-  // Ascolta eventi WebSocket
+  // Ascolta eventi WebSocket (con debounce 2s per evitare raffica di chiamate API)
   useEffect(() => {
     if (socket) {
-      const handleAgentEvent = (data) => {
-        loadEvents();
-        loadUnreadCount();
+      const handleAgentEvent = () => {
+        // Debounce: aspetta 2 secondi dall'ultimo evento prima di ricaricare
+        if (wsDebounceRef.current) clearTimeout(wsDebounceRef.current);
+        wsDebounceRef.current = setTimeout(() => {
+          loadEvents();
+          loadUnreadCount();
+        }, 2000);
       };
       socket.on('agent-event', handleAgentEvent);
       return () => {
         socket.off('agent-event', handleAgentEvent);
+        if (wsDebounceRef.current) clearTimeout(wsDebounceRef.current);
       };
     }
   }, [socket]);
