@@ -3146,11 +3146,21 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
                               {change.azienda ? (
                                 <span
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    // Previene propagazione e aziona lo scroll/selezione
+                                    e.preventDefault();
+                                    e.stopPropagation();
                                     if (change.azienda_id) {
+                                      const numericId = parseInt(change.azienda_id, 10);
                                       setCompanyDevices([]); // Svuota immediatamente
-                                      setSelectedCompanyId(change.azienda_id);
+                                      setSelectedCompanyId(numericId);
                                       window.scrollTo({ top: 0, behavior: 'smooth' });
+                                      
+                                      // Prova a scrollare vari container tipici
+                                      document.documentElement.scrollTo({ top: 0, behavior: 'smooth' });
+                                      document.body.scrollTo({ top: 0, behavior: 'smooth' });
+                                      const containers = document.querySelectorAll('.overflow-y-auto, main');
+                                      containers.forEach(c => c.scrollTo({ top: 0, behavior: 'smooth' }));
                                     }
                                   }}
                                   className="cursor-pointer hover:text-blue-600 hover:underline transition-colors"
