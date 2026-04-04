@@ -1488,6 +1488,26 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     };
   }, [agentStatPopoverMode]);
 
+  /** Scroll fino al titolo "Eventi di Rete" lasciandolo sotto l'header sticky del pannello (stesso scrollport `overflow-y-auto`). */
+  const scrollToEventiReteSection = useCallback(() => {
+    const el = eventiReteSectionRef.current;
+    if (!el) return;
+    const scrollRoot = el.closest('.overflow-y-auto');
+    if (!scrollRoot) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    let offsetBelowHeader = 12;
+    const stickyHeader = scrollRoot.querySelector('.sticky');
+    if (stickyHeader) {
+      offsetBelowHeader = stickyHeader.getBoundingClientRect().height + 12;
+    }
+    const rootRect = scrollRoot.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const nextTop = elRect.top - rootRect.top + scrollRoot.scrollTop - offsetBelowHeader;
+    scrollRoot.scrollTo({ top: Math.max(0, nextTop), behavior: 'smooth' });
+  }, []);
+
   // Eventi di Rete: nascosti ai clienti (readOnly) che non hanno agent per l'azienda selezionata
   const selectedCompany = companies.find(c => c.id === selectedCompanyId);
   const selectedCompanyAgentsCount = selectedCompany?.agents_count ?? selectedCompany?.agent_count ?? 0;
@@ -2222,9 +2242,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           </button>
           <button
             type="button"
-            onClick={() => {
-              eventiReteSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
+            onClick={scrollToEventiReteSection}
             className="bg-white rounded-lg shadow p-4 text-left w-full transition hover:shadow-md hover:ring-2 hover:ring-blue-200/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer"
             title="Vai alla sezione Eventi di Rete"
           >
@@ -3032,9 +3050,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
         {/* Sezione eventi unificati (dispositivi + agent): nascosta se cliente senza agent */}
         {showEventiDiRete && (
-          <div ref={eventiReteSectionRef} className="bg-white rounded-lg shadow scroll-mt-6">
+          <div className="bg-white rounded-lg shadow">
             <div className="px-6 py-4 border-b border-gray-200">
-              <div className="flex items-center justify-between mb-4">
+              <div
+                ref={eventiReteSectionRef}
+                className="flex items-center justify-between mb-4"
+              >
                 <h2 className="text-xl font-semibold text-gray-900">Eventi di Rete</h2>
                 <span className="text-sm text-gray-500">{changes.length} totali</span>
               </div>
