@@ -1,0 +1,21 @@
+---
+description: Dopo modifiche al codice, commit e push automatici su origin
+alwaysApply: true
+---
+
+# Push automatico dopo le modifiche (TicketApp)
+
+Quando completi **modifiche al codice o alla configurazione** in `c:\TicketApp` che l’utente vorrebbe versionare:
+
+1. Esegui da **PowerShell** nella root del repo (usa `;` come separatore, non `&&` se la shell non lo supporta):
+   - `cd c:\TicketApp`
+   - `git status`
+   - `git add` sui file pertinenti (o `git add .` se appropriato)
+   - `git commit -m "tipo: messaggio chiaro in italiano o inglese coerente col progetto"`
+   - `git push`
+
+2. **Non** aspettare che l’utente chieda il push, salvo se dice esplicitamente di non committare o non pushare.
+
+3. Se non ci sono cambiamenti da committare, non creare commit vuoti.
+
+4. Se `git push` fallisce (rete, auth), riporta l’errore e cosa ha funzionato fino a quel punto.

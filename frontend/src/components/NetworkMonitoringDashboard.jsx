@@ -2105,30 +2105,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           </div>
         )}
 
-        {/* Statistiche */}
+        {/* Statistiche: prima lo stato degli agent (salute del monitoraggio), poi attività, poi dispositivi */}
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
-              <CheckCircle size={16} className="text-green-600" />
-              Online
-            </div>
-            <div className="text-3xl font-bold text-green-600">{stats.online}</div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
-              <WifiOff size={16} className="text-red-600" />
-              Offline
-            </div>
-            <div className="text-3xl font-bold text-red-600">{stats.offline}</div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
-              <Activity size={16} className="text-blue-600" />
-              Cambiamenti (Oggi)
-            </div>
-            <div className="text-3xl font-bold text-blue-600">{stats.recentChanges}</div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
+          <div
+            className="bg-white rounded-lg shadow p-4"
+            title="Agent di monitoraggio connessi al server (heartbeat recente)"
+          >
             <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
               <ServerIcon size={16} className="text-blue-600" />
               Agent Online
@@ -2136,13 +2118,46 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             <div className="text-3xl font-bold text-blue-600">{stats.agentsOnline}</div>
             <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
           </div>
-          <div className="bg-white rounded-lg shadow p-4">
+          <div
+            className="bg-white rounded-lg shadow p-4"
+            title="Agent senza contatto recente: i dati dispositivi di quella sede possono non essere aggiornati"
+          >
             <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
               <WifiOff size={16} className="text-orange-600" />
               Agent Offline
             </div>
             <div className="text-3xl font-bold text-orange-600">{stats.agentsOffline}</div>
             <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
+          </div>
+          <div
+            className="bg-white rounded-lg shadow p-4"
+            title="Eventi di cambio stato registrati oggi (online/offline/nuovi, ecc.)"
+          >
+            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+              <Activity size={16} className="text-blue-600" />
+              Cambiamenti (Oggi)
+            </div>
+            <div className="text-3xl font-bold text-blue-600">{stats.recentChanges}</div>
+          </div>
+          <div
+            className="bg-white rounded-lg shadow p-4"
+            title="Dispositivi di rete rilevati come raggiungibili"
+          >
+            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+              <CheckCircle size={16} className="text-green-600" />
+              Dispositivi Online
+            </div>
+            <div className="text-3xl font-bold text-green-600">{stats.online}</div>
+          </div>
+          <div
+            className="bg-white rounded-lg shadow p-4"
+            title="Dispositivi di rete non raggiungibili o segnalati offline"
+          >
+            <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
+              <WifiOff size={16} className="text-red-600" />
+              Dispositivi Offline
+            </div>
+            <div className="text-3xl font-bold text-red-600">{stats.offline}</div>
           </div>
         </div>
 
