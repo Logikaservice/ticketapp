@@ -2461,7 +2461,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                         {routerWifiLoading ? <Loader size={16} className="animate-spin" /> : <RefreshCw size={16} />}
                                                         Carica AP collegati
                                                     </button>
-                                                    <p className="text-xs text-gray-400">Serve: credenziali UniFi (agent o KeePass) e agent sulla stessa rete del Cloud Key.</p>
+                                                    <p className="text-xs text-gray-400">Serve: configurazione Controller UniFi nell&apos;agent (URL, utente, password) e agent sulla stessa rete del Cloud Key.</p>
                                                 </div>
                                             )}
 

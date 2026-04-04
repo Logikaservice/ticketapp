@@ -846,24 +846,28 @@ module.exports = (pool, io) => {
           [agentId, excludeSql]
         );
 
+        const agentUnifiRow = await pool.query('SELECT unifi_config FROM network_agents WHERE id = $1', [agentId]);
+        const unifiConfigHeartbeat = agentUnifiRow.rows[0]?.unifi_config;
+
         for (const dev of candidates.rows) {
           const keepassPassword = process.env.KEEPASS_PASSWORD;
           let username = '', password = '', controllerUrl = '';
 
-          // Unifi Config
-          const agentInfo = await pool.query('SELECT unifi_config FROM network_agents WHERE id = $1', [agentId]);
-          const unifiConfig = agentInfo.rows[0]?.unifi_config;
           const isUnifi = dev.router_model.toLowerCase().includes('unifi') || dev.router_model.toLowerCase().includes('uck');
-          if (isUnifi && unifiConfig && unifiConfig.url) {
-            const uUrl = String(unifiConfig.url).trim().replace(/\/$/, '');
+          // UniFi: solo unifi_config (niente KeePass). Altri router: KeePass come prima.
+          if (isUnifi && unifiConfigHeartbeat && unifiConfigHeartbeat.url && unifiConfigHeartbeat.username && unifiConfigHeartbeat.password) {
+            username = String(unifiConfigHeartbeat.username).trim();
+            password = String(unifiConfigHeartbeat.password);
+            controllerUrl = String(unifiConfigHeartbeat.url).trim().replace(/\/$/, '');
+          } else if (isUnifi && unifiConfigHeartbeat && unifiConfigHeartbeat.url) {
+            const uUrl = String(unifiConfigHeartbeat.url).trim().replace(/\/$/, '');
             const uHost = uUrl.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
             const ipHost = String(dev.ip_address).split(':')[0].trim();
             if (uHost === ipHost || uHost === dev.ip_address) controllerUrl = uUrl;
           }
 
-          // KeePass
           const mac = (dev.mac_address || '').trim().replace(/-/g, ':').toUpperCase();
-          if (keepassPassword && mac) {
+          if ((!username || !password) && !isUnifi && keepassPassword && mac) {
             try {
               const creds = await keepassDriveService.getCredentialsByMac(mac, keepassPassword);
               if (creds) { username = creds.username || ''; password = creds.password || ''; }
@@ -2028,7 +2032,6 @@ module.exports = (pool, io) => {
           let password = '';
           let controllerUrl = null;
           const ip = unifiDev.ip_address;
-          const mac = unifiDev.mac_address;
           const routerModel = unifiDev.router_model || 'Unifi';
           const unifiConfig = unifiDev.unifi_config;
 
@@ -2039,19 +2042,7 @@ module.exports = (pool, io) => {
             controllerUrl = String(unifiConfig.url).trim().replace(/\/$/, '');
           }
 
-          // Fallback KeePass
-          if (!username || !password) {
-            if (mac && process.env.KEEPASS_PASSWORD) {
-              try {
-                const creds = await keepassDriveService.getCredentialsByMac(mac, process.env.KEEPASS_PASSWORD);
-                if (creds && (creds.username || creds.password)) {
-                  username = creds.username || '';
-                  password = creds.password || '';
-                }
-              } catch (e) { /* ignore */ }
-            }
-          }
-
+          // UniFi: nessun fallback KeePass — solo configurazione Controller nell'agent
           if (username && password) {
             const taskId = 'rw-auto-' + Date.now() + '-' + unifiDev.id;
             pendingRouterWifiTasks.set(agentId, {
@@ -6918,7 +6909,7 @@ pause
 
   // POST /api/network-monitoring/router-wifi-devices/request
   // Richiede all'agent di leggere solo i dispositivi WiFi dal router (AGCOMBO, Fritz, access point, cloud key).
-  // Se username/password non inviati, le credenziali vengono recuperate da KeePass tramite MAC del dispositivo.
+  // UniFi: solo unifi_config nell'agent (o credenziali nel body). Altri router: KeePass se mancano user/pass nel body.
   router.post('/router-wifi-devices/request', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       const { device_id, agent_id, router_ip, username: bodyUsername, password: bodyPassword } = req.body;
@@ -6954,14 +6945,19 @@ pause
       }
 
       if (!username || !password) {
-        if (!mac) return res.status(400).json({ error: 'Dispositivo senza MAC: impossibile recuperare credenziali. Configura UniFi nell\'agent (come per firmware) o inserisci manualmente.' });
+        if (isUnifi) {
+          return res.status(400).json({
+            error: 'Per UniFi servono URL, utente e password nella configurazione "Controller UniFi" dell\'agent (o inviali nel corpo della richiesta). KeePass non viene più usato per UniFi.'
+          });
+        }
+        if (!mac) return res.status(400).json({ error: 'Dispositivo senza MAC: impossibile recuperare credenziali da KeePass. Inserisci username e password nel body oppure aggiungi il MAC in KeePass.' });
         const keepassPassword = process.env.KEEPASS_PASSWORD;
-        if (!keepassPassword) return res.status(400).json({ error: 'KEEPASS_PASSWORD non configurata. Configura UniFi nell\'agent (modifica agent > Controller UniFi) o invia credenziali nel body.' });
+        if (!keepassPassword) return res.status(400).json({ error: 'KEEPASS_PASSWORD non configurata. Inserisci credenziali nel body o configura KeePass.' });
         console.log(`🔑 KeePass: ricerca credenziali per MAC ${mac}...`);
         const creds = await keepassDriveService.getCredentialsByMac(mac, keepassPassword);
         if (!creds || (!creds.username && !creds.password)) {
           console.log(`❌ KeePass: credenziali NON trovate per MAC ${mac}`);
-          return res.status(400).json({ error: 'Credenziali non trovate. Configura UniFi nell\'agent (modifica agent > Controller UniFi) come per il controllo firmware, o aggiungi entry in KeePass.' });
+          return res.status(400).json({ error: 'Credenziali non trovate in KeePass per questo MAC. Inseriscile manualmente nella richiesta.' });
         }
         console.log(`✅ KeePass: credenziali trovate per MAC ${mac} -> username="${creds.username}", password=${creds.password ? '***' : '(vuota)'}`);
         username = creds.username || '';

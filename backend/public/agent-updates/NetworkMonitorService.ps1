@@ -365,7 +365,7 @@ function Invoke-RouterWifiFetchAndReport {
                         Write-Log "Controller WiFi: login fallito su $loginPath - status=$statusCode, errore: $($_.Exception.Message)" "WARN"
                         if ($statusCode -eq 401 -or $statusCode -eq 403) {
                             # Credenziali errate - non provare altri endpoint
-                            $errMsg = "Credenziali errate (401/403). Verifica username e password in KeePass."
+                            $errMsg = "Credenziali errate (401/403). Verifica utente e password nella configurazione Controller UniFi dell'agent."
                             throw $errMsg
                         }
                     }
