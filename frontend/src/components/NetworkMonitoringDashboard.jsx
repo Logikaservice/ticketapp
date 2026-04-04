@@ -2617,6 +2617,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   
                                   if (!entries || entries.length === 0) return null;
                                   const info = entries.find(e => e.azienda_id === device.azienda_id) || entries[0];
+                                  const daAgentOnline = String(info?.real_status || '').toLowerCase() === 'online';
                                   return (
                                     <button
                                       type="button"
@@ -2625,8 +2626,16 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                         const rect = e.currentTarget.getBoundingClientRect();
                                         setDispositivoAziendaliPopover({ show: true, left: rect.left, top: rect.bottom + 6, device, info });
                                       }}
-                                      className="p-1 rounded hover:bg-teal-100 transition-colors inline-flex items-center justify-center min-w-[24px] min-h-[24px] text-teal-600"
-                                      title="Dati da Dispositivi aziendali"
+                                      className={`p-1 rounded transition-colors inline-flex items-center justify-center min-w-[24px] min-h-[24px] ${
+                                        daAgentOnline
+                                          ? 'text-teal-600 hover:bg-teal-100'
+                                          : 'text-gray-400 hover:bg-gray-100'
+                                      }`}
+                                      title={
+                                        daAgentOnline
+                                          ? 'Dispositivi aziendali: agent online (heartbeat recente)'
+                                          : 'Dispositivi aziendali: agent offline o senza heartbeat recente (il PC può risultare online in monitoraggio rete)'
+                                      }
                                     >
                                       <MonitorSmartphone className="w-4 h-4" />
                                     </button>
