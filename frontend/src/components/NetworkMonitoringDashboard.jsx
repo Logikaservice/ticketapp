@@ -1488,24 +1488,27 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     };
   }, [agentStatPopoverMode]);
 
-  /** Scroll fino al titolo "Eventi di Rete" lasciandolo sotto l'header sticky del pannello (stesso scrollport `overflow-y-auto`). */
+  /**
+   * Porta in vista il titolo "Eventi di Rete" sotto l'header sticky.
+   * Usa scroll-margin + scrollIntoView così il browser applica lo scroll sul contenitore giusto
+   * (il calcolo manuale con scrollTop poteva sottostimare lo scroll e fermarsi troppo in alto).
+   */
   const scrollToEventiReteSection = useCallback(() => {
     const el = eventiReteSectionRef.current;
     if (!el) return;
-    const scrollRoot = el.closest('.overflow-y-auto');
-    if (!scrollRoot) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      return;
+    const panel = el.closest('[data-network-monitor-root]');
+    let marginPx = 12;
+    if (panel) {
+      const stickyHeader = panel.querySelector('.sticky.top-0') || panel.querySelector('.sticky');
+      if (stickyHeader) {
+        marginPx = Math.ceil(stickyHeader.getBoundingClientRect().height) + 12;
+      }
     }
-    let offsetBelowHeader = 12;
-    const stickyHeader = scrollRoot.querySelector('.sticky');
-    if (stickyHeader) {
-      offsetBelowHeader = stickyHeader.getBoundingClientRect().height + 12;
-    }
-    const rootRect = scrollRoot.getBoundingClientRect();
-    const elRect = el.getBoundingClientRect();
-    const nextTop = elRect.top - rootRect.top + scrollRoot.scrollTop - offsetBelowHeader;
-    scrollRoot.scrollTo({ top: Math.max(0, nextTop), behavior: 'smooth' });
+    el.style.scrollMarginTop = `${marginPx}px`;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.setTimeout(() => {
+      el.style.scrollMarginTop = '';
+    }, 1200);
   }, []);
 
   // Eventi di Rete: nascosti ai clienti (readOnly) che non hanno agent per l'azienda selezionata
@@ -1713,7 +1716,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
   if (loading && devices.length === 0) {
     return (
-      <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto">
+      <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto" data-network-monitor-root>
         <div className="p-8 flex items-center justify-center min-h-screen">
           <Loader className="w-8 h-8 animate-spin text-blue-600" />
           <span className="ml-3 text-gray-600">Caricamento dispositivi...</span>
@@ -1723,7 +1726,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   }
 
   return (
-    <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto">
+    <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto" data-network-monitor-root>
       {/* Header Navigazione */}
       {onClose && (
         <div className="bg-white border-b px-6 py-3 flex justify-between items-center sticky top-0 z-40 shadow-sm">
