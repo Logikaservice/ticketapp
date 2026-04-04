@@ -2987,11 +2987,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                     const id = ipContextMenu.device?.device_id ?? ipContextMenu.device?.id;
                     const label = ipContextMenu.device?.hostname || ipContextMenu.device?.ip_address || ipContextMenu.ip;
                     const deviceLabel = label ? `${label} (${ipContextMenu.ip})` : ipContextMenu.ip;
-                    const params = new URLSearchParams();
+                    const params = new URLSearchParams(window.location.search);
                     params.set('deviceId', String(id));
                     params.set('deviceLabel', deviceLabel);
-                    const url = `${window.location.origin}${window.location.pathname}?${params.toString()}#device-analysis`;
-                    window.open(url, '_blank', 'noopener,noreferrer');
+                    params.set('returnView', 'network-monitoring');
+                    const nextUrl = `${window.location.pathname}?${params.toString()}#device-analysis`;
+                    window.history.pushState(null, '', nextUrl);
+                    window.dispatchEvent(new Event('ticketapp-sync-hash'));
                     closeIpContextMenu();
                   }}
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors"

@@ -354,6 +354,15 @@ export default function TicketApp() {
     }
   };
 
+  const applyHashToStateRef = useRef(applyHashToState);
+  applyHashToStateRef.current = applyHashToState;
+
+  useEffect(() => {
+    const onSync = () => applyHashToStateRef.current(window.location.hash);
+    window.addEventListener('ticketapp-sync-hash', onSync);
+    return () => window.removeEventListener('ticketapp-sync-hash', onSync);
+  }, []);
+
   useEffect(() => {
     applyHashToState(window.location.hash);
     const onHashChange = () => applyHashToState(window.location.hash);
@@ -3240,7 +3249,32 @@ export default function TicketApp() {
           setShowDeviceAnalysisStandalone(false);
           setStandaloneDeviceId(null);
           setStandaloneDeviceLabel('');
-          try { if (window.opener) window.close(); } catch (_) { window.history.back(); }
+          // Scheda aperta da Monitoraggio Rete con window.open: chiudi e torna alla scheda origine
+          if (window.opener && !window.opener.closed) {
+            try { window.opener.focus(); } catch (_) { /* ignore */ }
+            try { window.close(); } catch (_) { /* ignore */ }
+            return;
+          }
+          const sp = new URLSearchParams(window.location.search);
+          const returnView = (sp.get('returnView') || 'network-monitoring').toLowerCase().replace(/^#/, '');
+          sp.delete('deviceId');
+          sp.delete('deviceLabel');
+          sp.delete('returnView');
+          const qs = sp.toString();
+          const base = window.location.pathname + (qs ? `?${qs}` : '');
+          const returnHashes = {
+            'network-monitoring': '#network-monitoring',
+            mappatura: '#mappatura',
+            antivirus: '#antivirus',
+            'dispositivi-aziendali': '#dispositivi-aziendali',
+            speedtest: '#speedtest',
+            email: '#email',
+            office: '#office',
+            dashboard: ''
+          };
+          const nextHash = returnHashes[returnView] !== undefined ? returnHashes[returnView] : '#network-monitoring';
+          window.history.replaceState(null, '', base + (nextHash || ''));
+          applyHashToState(window.location.hash);
         }}
         deviceId={standaloneDeviceId}
         deviceLabel={standaloneDeviceLabel}
