@@ -93,6 +93,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const agentStatOnlineCardRef = useRef(null);
   const agentStatOfflineCardRef = useRef(null);
   const agentStatPopoverRef = useRef(null);
+  const eventiReteSectionRef = useRef(null);
   const [agentStatPopoverMode, setAgentStatPopoverMode] = useState(null); // 'online' | 'offline' | null
   const [agentStatPopoverBox, setAgentStatPopoverBox] = useState({ top: 0, left: 0, width: 280, maxHeight: 320 });
 
@@ -2219,16 +2220,20 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             <div className="text-3xl font-bold text-orange-600">{stats.agentsOffline}</div>
             <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
           </button>
-          <div
-            className="bg-white rounded-lg shadow p-4"
-            title="Eventi di cambio stato registrati oggi (online/offline/nuovi, ecc.)"
+          <button
+            type="button"
+            onClick={() => {
+              eventiReteSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+            className="bg-white rounded-lg shadow p-4 text-left w-full transition hover:shadow-md hover:ring-2 hover:ring-blue-200/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer"
+            title="Vai alla sezione Eventi di Rete"
           >
             <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
               <Activity size={16} className="text-blue-600" />
               Cambiamenti (Oggi)
             </div>
             <div className="text-3xl font-bold text-blue-600">{stats.recentChanges}</div>
-          </div>
+          </button>
           <div
             className="bg-white rounded-lg shadow p-4"
             title="Dispositivi di rete rilevati come raggiungibili"
@@ -3027,7 +3032,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
         {/* Sezione eventi unificati (dispositivi + agent): nascosta se cliente senza agent */}
         {showEventiDiRete && (
-          <div className="bg-white rounded-lg shadow">
+          <div ref={eventiReteSectionRef} className="bg-white rounded-lg shadow scroll-mt-6">
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-900">Eventi di Rete</h2>
