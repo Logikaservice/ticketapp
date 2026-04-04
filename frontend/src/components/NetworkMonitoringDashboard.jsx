@@ -1457,12 +1457,21 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       if (agentStatOfflineCardRef.current?.contains(target)) return true;
       return false;
     };
+    // La scrollbar nativa non è sempre nel DOM come figlio: il target del click può essere "sbagliato".
+    // Usiamo il rettangolo del popover così scroll e trascinamento barra restano dentro.
+    const isPointInsidePopover = (clientX, clientY) => {
+      const el = agentStatPopoverRef.current;
+      if (!el || clientX == null || clientY == null) return false;
+      const r = el.getBoundingClientRect();
+      return clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom;
+    };
     const onPointerDown = (e) => {
       if (isInsideSafeZone(e.target)) return;
-      close();
-    };
-    const onWheel = (e) => {
-      if (agentStatPopoverRef.current?.contains(e.target)) return;
+      if (e.type === 'mousedown' && isPointInsidePopover(e.clientX, e.clientY)) return;
+      if (e.type === 'touchstart' && e.touches?.length > 0) {
+        const t = e.touches[0];
+        if (isPointInsidePopover(t.clientX, t.clientY)) return;
+      }
       close();
     };
     const onKey = (e) => {
@@ -1470,15 +1479,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     };
     document.addEventListener('mousedown', onPointerDown, true);
     document.addEventListener('touchstart', onPointerDown, true);
-    document.addEventListener('wheel', onWheel, { capture: true, passive: true });
     document.addEventListener('keydown', onKey);
-    window.addEventListener('scroll', close, true);
     return () => {
       document.removeEventListener('mousedown', onPointerDown, true);
       document.removeEventListener('touchstart', onPointerDown, true);
-      document.removeEventListener('wheel', onWheel, { capture: true });
       document.removeEventListener('keydown', onKey);
-      window.removeEventListener('scroll', close, true);
     };
   }, [agentStatPopoverMode]);
 
@@ -2298,7 +2303,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               )}
             </ul>
             <p className="px-3 py-1.5 text-[10px] text-gray-400 border-t border-gray-50 bg-gray-50/50 shrink-0">
-              Chiudi: clic fuori, scroll o Esc
+              Chiudi: clic fuori o Esc
             </p>
           </div>,
           document.body
