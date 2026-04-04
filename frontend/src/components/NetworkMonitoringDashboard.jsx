@@ -1,6 +1,6 @@
 // src/components/NetworkMonitoringDashboard.jsx
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Wifi, WifiOff, Monitor, Server, Printer, Router,
@@ -90,7 +90,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const seenMacAddressesRef = useRef(new Set());
   const [newDevicesInList, setNewDevicesInList] = useState(new Set());
   const pendingUpdatesRef = useRef({}); // { [deviceId]: { [field]: { value, timestamp } } }
-  
+  const agentStatOnlineCardRef = useRef(null);
+  const agentStatOfflineCardRef = useRef(null);
+  const agentStatPopoverRef = useRef(null);
+  const [agentStatPopoverMode, setAgentStatPopoverMode] = useState(null); // 'online' | 'offline' | null
+  const [agentStatPopoverBox, setAgentStatPopoverBox] = useState({ top: 0, left: 0, width: 280, maxHeight: 320 });
+
   // Sincronizza lo stato locale con initialCompanyId SOLO se cambia la prop esterna
   // NON includere selectedCompanyId nelle dipendenze: altrimenti ogni click interno
   // sull'azienda (che cambia selectedCompanyId) triggera questo effect che resetta a null
@@ -1409,6 +1414,74 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     agentsOffline: agents.filter(a => a.status === 'offline').length
   };
 
+  const agentsForStatPopover = useMemo(() => {
+    if (!agentStatPopoverMode) return [];
+    return agents.filter((a) => a.status === agentStatPopoverMode);
+  }, [agents, agentStatPopoverMode]);
+
+  const updateAgentStatPopoverPosition = useCallback(() => {
+    if (!agentStatPopoverMode) return;
+    const ref = agentStatPopoverMode === 'online' ? agentStatOnlineCardRef : agentStatOfflineCardRef;
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const minW = 280;
+    const maxH = Math.min(320, Math.max(160, window.innerHeight - 32));
+    const gap = 8;
+    let width = Math.min(Math.max(minW, r.width), window.innerWidth - 16);
+    let left = r.left;
+    if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8;
+    if (left < 8) left = 8;
+    let top = r.bottom + gap;
+    if (top + maxH > window.innerHeight - 8) {
+      top = r.top - maxH - gap;
+    }
+    if (top < 8) top = 8;
+    setAgentStatPopoverBox({ top, left, width, maxHeight: maxH });
+  }, [agentStatPopoverMode]);
+
+  useLayoutEffect(() => {
+    if (!agentStatPopoverMode) return;
+    updateAgentStatPopoverPosition();
+    window.addEventListener('resize', updateAgentStatPopoverPosition);
+    return () => window.removeEventListener('resize', updateAgentStatPopoverPosition);
+  }, [agentStatPopoverMode, updateAgentStatPopoverPosition]);
+
+  useEffect(() => {
+    if (!agentStatPopoverMode) return;
+    const close = () => setAgentStatPopoverMode(null);
+    const isInsideSafeZone = (target) => {
+      if (!(target instanceof Node)) return false;
+      if (agentStatPopoverRef.current?.contains(target)) return true;
+      if (agentStatOnlineCardRef.current?.contains(target)) return true;
+      if (agentStatOfflineCardRef.current?.contains(target)) return true;
+      return false;
+    };
+    const onPointerDown = (e) => {
+      if (isInsideSafeZone(e.target)) return;
+      close();
+    };
+    const onWheel = (e) => {
+      if (agentStatPopoverRef.current?.contains(e.target)) return;
+      close();
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') close();
+    };
+    document.addEventListener('mousedown', onPointerDown, true);
+    document.addEventListener('touchstart', onPointerDown, true);
+    document.addEventListener('wheel', onWheel, { capture: true, passive: true });
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown, true);
+      document.removeEventListener('touchstart', onPointerDown, true);
+      document.removeEventListener('wheel', onWheel, { capture: true });
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', close, true);
+    };
+  }, [agentStatPopoverMode]);
+
   // Eventi di Rete: nascosti ai clienti (readOnly) che non hanno agent per l'azienda selezionata
   const selectedCompany = companies.find(c => c.id === selectedCompanyId);
   const selectedCompanyAgentsCount = selectedCompany?.agents_count ?? selectedCompany?.agent_count ?? 0;
@@ -2107,9 +2180,15 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
         {/* Statistiche: prima lo stato degli agent (salute del monitoraggio), poi attività, poi dispositivi */}
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-          <div
-            className="bg-white rounded-lg shadow p-4"
-            title="Agent di monitoraggio connessi al server (heartbeat recente)"
+          <button
+            type="button"
+            ref={agentStatOnlineCardRef}
+            onClick={(e) => {
+              e.stopPropagation();
+              setAgentStatPopoverMode((prev) => (prev === 'online' ? null : 'online'));
+            }}
+            className="bg-white rounded-lg shadow p-4 text-left w-full transition hover:shadow-md hover:ring-2 hover:ring-blue-200/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer"
+            title="Agent connessi — clic per l'elenco"
           >
             <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
               <ServerIcon size={16} className="text-blue-600" />
@@ -2117,10 +2196,16 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             </div>
             <div className="text-3xl font-bold text-blue-600">{stats.agentsOnline}</div>
             <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
-          </div>
-          <div
-            className="bg-white rounded-lg shadow p-4"
-            title="Agent senza contatto recente: i dati dispositivi di quella sede possono non essere aggiornati"
+          </button>
+          <button
+            type="button"
+            ref={agentStatOfflineCardRef}
+            onClick={(e) => {
+              e.stopPropagation();
+              setAgentStatPopoverMode((prev) => (prev === 'offline' ? null : 'offline'));
+            }}
+            className="bg-white rounded-lg shadow p-4 text-left w-full transition hover:shadow-md hover:ring-2 hover:ring-orange-200/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 cursor-pointer"
+            title="Agent non in contatto — clic per l'elenco"
           >
             <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
               <WifiOff size={16} className="text-orange-600" />
@@ -2128,7 +2213,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             </div>
             <div className="text-3xl font-bold text-orange-600">{stats.agentsOffline}</div>
             <div className="text-xs text-gray-500 mt-1">di {stats.agentsTotal} totali</div>
-          </div>
+          </button>
           <div
             className="bg-white rounded-lg shadow p-4"
             title="Eventi di cambio stato registrati oggi (online/offline/nuovi, ecc.)"
@@ -2160,6 +2245,64 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
             <div className="text-3xl font-bold text-red-600">{stats.offline}</div>
           </div>
         </div>
+
+        {agentStatPopoverMode && createPortal(
+          <div
+            ref={agentStatPopoverRef}
+            role="dialog"
+            aria-label={agentStatPopoverMode === 'online' ? 'Elenco agent online' : 'Elenco agent offline'}
+            className="rounded-xl border border-gray-200/90 bg-white shadow-2xl shadow-gray-400/20 ring-1 ring-black/[0.04] flex flex-col animate-in fade-in zoom-in-95 duration-150"
+            style={{
+              position: 'fixed',
+              top: agentStatPopoverBox.top,
+              left: agentStatPopoverBox.left,
+              width: agentStatPopoverBox.width,
+              maxHeight: agentStatPopoverBox.maxHeight,
+              zIndex: 10060
+            }}
+          >
+            <div
+              className={`px-3 py-2.5 border-b border-gray-100/80 flex items-center justify-between shrink-0 ${
+                agentStatPopoverMode === 'online' ? 'bg-gradient-to-r from-blue-50 to-white' : 'bg-gradient-to-r from-orange-50 to-white'
+              }`}
+            >
+              <span className="text-sm font-semibold text-gray-800">
+                {agentStatPopoverMode === 'online' ? 'Agent online' : 'Agent offline'}
+              </span>
+              <span className="text-xs font-medium tabular-nums text-gray-500 bg-white/80 px-2 py-0.5 rounded-full border border-gray-100">
+                {agentsForStatPopover.length}
+              </span>
+            </div>
+            <ul className="overflow-y-auto overscroll-contain py-1 flex-1 min-h-0">
+              {agentsForStatPopover.length === 0 ? (
+                <li className="px-3 py-6 text-sm text-gray-500 text-center">Nessun agent in questo stato</li>
+              ) : (
+                agentsForStatPopover.map((agent) => (
+                  <li
+                    key={agent.id}
+                    className="px-3 py-2.5 hover:bg-gray-50/80 border-b border-gray-50 last:border-0 transition-colors"
+                  >
+                    <div className="font-medium text-gray-900 text-sm leading-snug">
+                      {agent.agent_name || `Agent #${agent.id}`}
+                    </div>
+                    {agent.azienda && (
+                      <div className="text-xs text-gray-500 mt-1 truncate" title={agent.azienda}>
+                        {agent.azienda}
+                      </div>
+                    )}
+                    <div className="text-[11px] text-gray-400 mt-1">
+                      Heartbeat: {agent.last_heartbeat ? formatDate(new Date(agent.last_heartbeat)) : 'Mai'}
+                    </div>
+                  </li>
+                ))
+              )}
+            </ul>
+            <p className="px-3 py-1.5 text-[10px] text-gray-400 border-t border-gray-50 bg-gray-50/50 shrink-0">
+              Chiudi: clic fuori, scroll o Esc
+            </p>
+          </div>,
+          document.body
+        )}
 
         {/* Intro per clienti (readOnly): sotto le 5 card, solo se nessuna azienda selezionata; quando selezioni l'azienda scompare e lascia spazio alla lista */}
         {readOnly && !selectedCompanyId && (
