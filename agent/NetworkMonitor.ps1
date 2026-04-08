@@ -975,15 +975,15 @@ if ($TestMode) {
         Write-Log "  - $($device.ip_address) | MAC: $($device.mac_address) | Hostname: $($device.hostname) | Vendor: $($device.vendor)"
     }
     
-    # Invio dati
+    # Invio dati (anche lista vuota per aggiornare offline sul server)
     if ($devices.Count -gt 0) {
-        Write-Log "Invio dati al server..."
-        $result = Send-ScanResults -Devices $devices -ServerUrl $config.server_url -ApiKey $config.api_key
-        Write-Log "Invio completato!"
+        Write-Log "Invio dati al server ($($devices.Count) dispositivi)..."
     }
     else {
-        Write-Log "Nessun dispositivo trovato, skip invio"
+        Write-Log "Nessun dispositivo: invio comunque esito scansione (lista vuota)" "WARN"
     }
+    $result = Send-ScanResults -Devices $devices -ServerUrl $config.server_url -ApiKey $config.api_key
+    Write-Log "Invio completato!"
     
     # Heartbeat
     Send-Heartbeat -ServerUrl $config.server_url -ApiKey $config.api_key -Version $config.version
@@ -1054,15 +1054,15 @@ try {
     $devices = Get-NetworkDevices -NetworkRanges $config.network_ranges -UnifiConfig $unifiConfig
     Write-Log "Trovati $($devices.Count) dispositivi"
     
-    # 3. Invio dati se ci sono dispositivi
+    # 3. Invio dati al server (anche lista vuota per aggiornare offline sul server)
     if ($devices.Count -gt 0) {
-        Write-Log "Invio dati al server..."
-        $result = Send-ScanResults -Devices $devices -ServerUrl $config.server_url -ApiKey $config.api_key
-        Write-Log "Dati inviati con successo!"
+        Write-Log "Invio dati al server ($($devices.Count) dispositivi)..."
     }
     else {
-        Write-Log "Nessun dispositivo trovato, skip invio"
+        Write-Log "Nessun dispositivo: invio comunque esito scansione (lista vuota)" "WARN"
     }
+    $result = Send-ScanResults -Devices $devices -ServerUrl $config.server_url -ApiKey $config.api_key
+    Write-Log "Dati inviati con successo!"
     
     Write-Log "=== Scansione completata ==="
     exit 0
