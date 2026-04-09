@@ -16,6 +16,7 @@ export const AVAILABLE_ICONS = [
   { type: 'nas', icon: HardDrive, label: 'NAS / Storage' },
   { type: 'router', icon: Router, label: 'Router' },
   { type: 'firewall', icon: Shield, label: 'Firewall' },
+  { type: 'managed_switch', icon: Database, label: 'Managed Switch' },
   { type: 'unmanaged_switch', icon: Network, label: 'Unmanaged Switch' },
   { type: 'wifi', icon: Wifi, label: 'WiFi / AP' },
   { type: 'cloud_key', icon: Key, label: 'Cloud Key / Controller WiFi' },
