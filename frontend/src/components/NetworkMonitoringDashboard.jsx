@@ -23,6 +23,12 @@ import MonitoraggioIntroCard from './MonitoraggioIntroCard';
 import SectionNavMenu from './SectionNavMenu';
 import DeviceAnalysisModal from './Modals/DeviceAnalysisModal';
 
+/** Switch virtuali (mappatura UniFi): IP fittizio `virtual-…`. Nascosti in Monitoraggio Rete; i record restano in DB. */
+function isVirtualSwitchMonitorRow(device) {
+  const ip = String(device?.ip_address ?? '').toLowerCase();
+  return ip.startsWith('virtual-');
+}
+
 const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, onCompanyChange = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura, onNavigateSpeedTest, onNavigateHome, onOpenTicket = null }) => {
   const updateTimeoutRef = useRef(null);
   const [devices, setDevices] = useState([]);
@@ -823,7 +829,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       const data = await response.json();
 
       // 1. Applica subito gli aggiornamenti pendenti ai dati ricevuti (per is_static, notify_telegram, device_type, is_new_device)
-      const updatedData = applyPendingUpdates(data);
+      // Escludi switch virtuali (virtual-…) dalla vista: non eliminati dal DB
+      const updatedData = applyPendingUpdates(data).filter(d => !isVirtualSwitchMonitorRow(d));
 
       // 2. Rileva nuovi dispositivi usando il flag (ora aggiornato optimisticamente)
       const newlyDetected = new Set();
@@ -1371,6 +1378,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   // Filtra e ordina dispositivi
   const filteredDevices = devices
     .filter(device => {
+      if (isVirtualSwitchMonitorRow(device)) return false;
       // Filtro ricerca
       const matchesSearch = !searchTerm ||
         device.ip_address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1398,7 +1406,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   // Statistiche
   // Se un'azienda è selezionata, usa companyDevices (se disponibili), altrimenti usa devices
   // Usa companyDevices solo se selectedCompanyId è impostato E companyDevices ha elementi
-  const devicesForStats = (selectedCompanyId && companyDevices.length > 0) ? companyDevices : devices;
+  const devicesForStatsRaw = (selectedCompanyId && companyDevices.length > 0) ? companyDevices : devices;
+  const devicesForStats = devicesForStatsRaw.filter(d => !isVirtualSwitchMonitorRow(d));
   const stats = {
     total: devicesForStats.length,
     online: devicesForStats.filter(d => d.status === 'online').length,
@@ -2431,8 +2440,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 <span className="ml-3 text-gray-600">Caricamento dispositivi...</span>
               </div>
             ) : (() => {
-              // Filtra i dispositivi in base al toggle
+              // Filtra i dispositivi in base al toggle (switch virtuali già esclusi da loadCompanyDevices)
               const filteredDevices = companyDevices.filter(device =>
+                !isVirtualSwitchMonitorRow(device) &&
                 (showOfflineDevices || device.status === 'online') &&
                 (!showPingFailuresOnly || device.has_ping_failures)
               );
