@@ -17,7 +17,8 @@ import {
   Activity,
   Calendar,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  AlertTriangle
 } from 'lucide-react';
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
@@ -167,6 +168,9 @@ const PUBLIC_IP_STABILITY_TOOLTIP =
 /** Righe massime nella tabella sotto il grafico (il periodo può contenere molte più misure). */
 const SPEEDTEST_DETAIL_TABLE_MAX_ROWS = 30;
 const SPEEDTEST_SERVER_RETENTION_DAYS = 60;
+
+/** Aziende con speedtest attivo ma senza nuovo rilevamento da più di questa soglia → elenco “senza aggiornamenti”. */
+const SPEEDTEST_STALE_AFTER_MS = 2 * 60 * 60 * 1000;
 
 function pad2(n) {
   return n < 10 ? `0${n}` : `${n}`;
@@ -372,6 +376,19 @@ const SpeedTestPage = ({
     const id = window.setInterval(() => setHeartbeatTick((n) => n + 1), 30000);
     return () => window.clearInterval(id);
   }, []);
+
+  const [staleListOpen, setStaleListOpen] = useState(false);
+  const stalePopoverRef = useRef(null);
+  useEffect(() => {
+    if (!staleListOpen) return;
+    const onDown = (e) => {
+      if (stalePopoverRef.current && !stalePopoverRef.current.contains(e.target)) {
+        setStaleListOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [staleListOpen]);
 
   // Carica panoramica (primo caricamento: schermo pieno; aggiornamenti: dati precedenti visibili, niente “azzeramento”)
   const fetchOverview = useCallback(async () => {
@@ -691,6 +708,18 @@ const SpeedTestPage = ({
 
   /** Base tempo per “Ultimo controllo: X fa” (si aggiorna ogni 30s insieme a heartbeatTick). */
   const lastSeenNowMs = useMemo(() => Date.now(), [heartbeatTick]);
+
+  /** Speedtest attivo ma nessun rilevamento da >2h (o mai ricevuto). */
+  const staleSpeedtestRows = useMemo(() => {
+    const now = lastSeenNowMs;
+    return overview.filter((c) => {
+      if (c.speedtest_enabled === false) return false;
+      if (c.test_date == null || c.test_date === '') return true;
+      const t = new Date(c.test_date).getTime();
+      if (Number.isNaN(t)) return true;
+      return now - t > SPEEDTEST_STALE_AFTER_MS;
+    });
+  }, [overview, lastSeenNowMs]);
 
   // === STILE INLINE (tema scuro speedtest.net) ===
   const styles = {
@@ -1799,18 +1828,87 @@ const SpeedTestPage = ({
             style={{ ...styles.searchInput, paddingLeft: 34 }}
           />
         </div>
-        <div style={styles.statsBar}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
-            {activeCount} attivi
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#64748b', display: 'inline-block' }} />
-            {disabledCount} disattivati
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Clock size={14} /> Test ogni 2 ore
-          </span>
+        <div style={{ position: 'relative', marginLeft: 'auto' }} ref={stalePopoverRef}>
+          <div style={{ ...styles.statsBar, marginLeft: 0 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+              {activeCount} attivi
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#64748b', display: 'inline-block' }} />
+              {disabledCount} disattivati
+            </span>
+            <button
+              type="button"
+              onClick={() => setStaleListOpen((o) => !o)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                background: 'none',
+                border: 'none',
+                color: staleSpeedtestRows.length > 0 ? '#fb923c' : '#64748b',
+                cursor: 'pointer',
+                padding: 0,
+                fontSize: 13
+              }}
+              title="Speedtest attivo ma nessun nuovo rilevamento da più di 2 ore (o mai arrivato). Clic per l’elenco."
+            >
+              <AlertTriangle size={14} />
+              {staleSpeedtestRows.length} senza aggiorn. (&gt;2h)
+            </button>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Clock size={14} /> Test ogni 2 ore
+            </span>
+          </div>
+          {staleListOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                right: 0,
+                top: '100%',
+                marginTop: 8,
+                minWidth: 300,
+                maxWidth: 440,
+                maxHeight: 340,
+                overflowY: 'auto',
+                background: '#1e293b',
+                border: '1px solid #334155',
+                borderRadius: 12,
+                padding: 12,
+                boxShadow: '0 16px 40px rgba(0,0,0,0.45)',
+                zIndex: 50
+              }}
+            >
+              {staleSpeedtestRows.length === 0 ? (
+                <p style={{ margin: 0, fontSize: 13, color: '#94a3b8', lineHeight: 1.45 }}>
+                  Nessuna azienda in ritardo: con speedtest attivo tutte hanno inviato almeno un rilevamento nelle ultime 2 ore.
+                </p>
+              ) : (
+                <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                  {staleSpeedtestRows.map((row) => {
+                    const id = row.agent_id ?? row.azienda_id;
+                    return (
+                      <li
+                        key={id != null ? `stale-${id}` : `stale-${row.azienda_name}`}
+                        style={{
+                          padding: '10px 0',
+                          borderBottom: '1px solid #334155',
+                          fontSize: 13
+                        }}
+                      >
+                        <div style={{ fontWeight: 600, color: '#f1f5f9' }}>{row.azienda_name || '—'}</div>
+                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4, lineHeight: 1.35 }}>
+                          {(row.agent_name && String(row.agent_name).trim()) ? `${row.agent_name} · ` : ''}
+                          Ultimo rilevamento: {row.test_date ? formatDate(row.test_date) : 'nessuno'}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
