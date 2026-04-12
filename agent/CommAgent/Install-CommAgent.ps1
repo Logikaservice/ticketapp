@@ -51,7 +51,12 @@ if (Test-Path $preConfigPath) {
         $preConfig = Get-Content $preConfigPath -Raw | ConvertFrom-Json
         if ($preConfig.server_url) { $ServerUrl = $preConfig.server_url }
         if ($preConfig.email) { $Email = $preConfig.email }
-        if ($preConfig.password) { $Password = $preConfig.password }
+        # Non usare mai hash bcrypt come password: il server si aspetta la password in chiaro alla registrazione
+        if ($preConfig.password -match '^\$2[aby]\$') {
+            Write-Host "ATTENZIONE: install_config contiene un hash password (vecchio pacchetto). Verra' chiesta la password in chiaro." -ForegroundColor Yellow
+        } elseif ($preConfig.password) {
+            $Password = $preConfig.password
+        }
         Write-Host "Configurazione caricata: Email = $Email" -ForegroundColor Green
     }
     catch {

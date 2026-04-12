@@ -806,7 +806,7 @@ module.exports = (pool, io) => {
                         );
                         if (userResult.rows.length > 0) {
                             userEmail = userResult.rows[0].email;
-                            userPassword = userResult.rows[0].password; // Password in chiaro nel sistema attuale
+                            userPassword = userResult.rows[0].password;
                         }
                     }
                 } catch (err) {
@@ -866,16 +866,22 @@ module.exports = (pool, io) => {
 WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File ""CommAgentService.ps1""", 0, False`;
             archive.append(vbsContent, { name: 'Start-CommAgent-Hidden.vbs' });
 
-            // Se abbiamo email e password dal token, crea install_config.json precompilato
-            if (userEmail && userPassword) {
+            // install_config: password solo se ancora in chiaro nel DB; se è bcrypt non è reversibile → campo vuoto e l'installer chiede la password
+            if (userEmail) {
                 const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
+                const rawPassword = userPassword || '';
+                const installPasswordPlain =
+                    rawPassword && !isPasswordHashed(rawPassword) ? rawPassword : '';
+                if (rawPassword && isPasswordHashed(rawPassword)) {
+                    console.log(`⚠️ CommAgent zip: password utente in DB è hashata — install_config senza password (installer la chiederà): ${userEmail}`);
+                }
                 const installConfig = {
                     server_url: baseUrl,
                     email: userEmail,
-                    password: userPassword
+                    password: installPasswordPlain
                 };
                 archive.append(JSON.stringify(installConfig, null, 2), { name: 'install_config.json' });
-                console.log(`✅ Package agent con credenziali precompilate per: ${userEmail}`);
+                console.log(`✅ Package agent con install_config per: ${userEmail}${installPasswordPlain ? ' (password precompilata)' : ' (password da inserire all\'installazione)'}`);
             }
 
             await archive.finalize();
@@ -946,6 +952,12 @@ WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File "
                 return res.status(404).json({ error: 'Utente non trovato' });
             }
             const { email: userEmail, password: userPassword } = userResult.rows[0];
+            const rawPassword = userPassword || '';
+            const installPasswordPlain =
+                rawPassword && !isPasswordHashed(rawPassword) ? rawPassword : '';
+            if (rawPassword && isPasswordHashed(rawPassword)) {
+                console.log(`⚠️ CommAgent zip (tecnico): password in DB è hashata — install_config senza password (installer la chiederà): ${userEmail}`);
+            }
 
             const agentDir = path.join(__dirname, '..', '..', 'agent', 'CommAgent');
             if (!fs.existsSync(agentDir)) {
@@ -977,7 +989,10 @@ WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File "
             archive.append(vbsContent, { name: 'Start-CommAgent-Hidden.vbs' });
 
             const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
-            archive.append(JSON.stringify({ server_url: baseUrl, email: userEmail, password: userPassword }, null, 2), { name: 'install_config.json' });
+            archive.append(
+                JSON.stringify({ server_url: baseUrl, email: userEmail, password: installPasswordPlain }, null, 2),
+                { name: 'install_config.json' }
+            );
 
             console.log(`✅ Tecnico ha scaricato CommAgent per utente: ${userEmail}`);
             await archive.finalize();
