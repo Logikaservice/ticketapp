@@ -664,6 +664,11 @@ function Get-ConfigOrRegister {
             Write-Log "install_config.json senza email/password. Reinstallare." "ERROR"
             return $null
         }
+        # Il server confronta la password in CHIARO con l'hash nel DB (bcrypt). Se qui c'è copiato l'hash dal database, la registrazione darà sempre 401.
+        if ($password -match '^\$2[aby]\$') {
+            Write-Log "ERRORE: in install_config.json il campo password contiene un hash bcrypt (inizia con `$2...). Inserire la password in chiaro usata per il login al portale TicketApp, non l'hash dal database. Poi eliminare config.json se presente e riavviare l'agent." "ERROR"
+            return $null
+        }
         Write-Log "Prima esecuzione: registrazione in corso..." "INFO"
         $cfg = Register-Agent -ServerUrl $serverUrl -Email $email -Password $password
         if ($cfg) {
