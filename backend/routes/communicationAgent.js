@@ -8,10 +8,16 @@ const crypto = require('crypto');
 const archiver = require('archiver');
 const path = require('path');
 const fs = require('fs');
+const jwt = require('jsonwebtoken');
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
 const { verifyPassword, isPasswordHashed } = require('../utils/passwordUtils');
 
 module.exports = (pool, io) => {
+    const jwtSecret = () => process.env.JWT_SECRET || 'logika-secret-key';
+
+    /** JWT monouso per registrazione agent senza password in chiaro nello zip (password DB hashata). */
+    const signCommAgentInstallToken = (userId) =>
+        jwt.sign({ sub: userId, typ: 'comm_agent_install' }, jwtSecret(), { expiresIn: '7d' });
 
     // Log dedicato comunicazioni agent: prefisso unico [COMM-MSG] + file per facile diagnosi
     const COMM_MSG_PREFIX = '[COMM-MSG]';
@@ -205,32 +211,52 @@ module.exports = (pool, io) => {
     router.post('/agent/register', async (req, res) => {
         try {
             await ensureTables();
-            let { email, password, machine_name, machine_id, os_info } = req.body;
-            email = (email || '').trim().toLowerCase();
+            let { email, password, machine_name, machine_id, os_info, install_token } = req.body;
 
-            if (!email || !password) {
-                return res.status(400).json({ error: 'Email e password richiesti' });
+            let user = null;
+
+            if (install_token && String(install_token).trim()) {
+                try {
+                    const decoded = jwt.verify(String(install_token).trim(), jwtSecret());
+                    if (decoded.typ !== 'comm_agent_install' || !decoded.sub) {
+                        return res.status(401).json({ error: 'Token di installazione non valido' });
+                    }
+                    const userResult = await pool.query(
+                        'SELECT id, email, password, nome, cognome, azienda, ruolo FROM users WHERE id = $1',
+                        [decoded.sub]
+                    );
+                    if (userResult.rows.length === 0) {
+                        return res.status(401).json({ error: 'Utente non trovato' });
+                    }
+                    user = userResult.rows[0];
+                } catch (e) {
+                    return res.status(401).json({ error: 'Token di installazione non valido o scaduto' });
+                }
+            } else {
+                email = (email || '').trim().toLowerCase();
+
+                if (!email || !password) {
+                    return res.status(400).json({ error: 'Email e password richiesti (oppure install_token)' });
+                }
+
+                const userResult = await pool.query(
+                    'SELECT id, email, password, nome, cognome, azienda, ruolo FROM users WHERE email = $1',
+                    [email]
+                );
+
+                if (userResult.rows.length === 0) {
+                    return res.status(401).json({ error: 'Email non trovata' });
+                }
+                user = userResult.rows[0];
+
+                const isPasswordValid = isPasswordHashed(user.password)
+                    ? await verifyPassword(password, user.password)
+                    : (password === user.password);
+
+                if (!isPasswordValid) {
+                    return res.status(401).json({ error: 'Credenziali non valide' });
+                }
             }
-
-            // Verifica credenziali utente
-            const userResult = await pool.query(
-                'SELECT id, email, password, nome, cognome, azienda, ruolo FROM users WHERE email = $1',
-                [email]
-            );
-
-            if (userResult.rows.length === 0) {
-                return res.status(401).json({ error: 'Email non trovata' });
-            }
-            const user = userResult.rows[0];
-            
-            const isPasswordValid = isPasswordHashed(user.password) 
-                ? await verifyPassword(password, user.password)
-                : (password === user.password);
-
-            if (!isPasswordValid) {
-                return res.status(401).json({ error: 'Credenziali non valide' });
-            }
-   
 
             // Genera API key unica
             const apiKey = 'COMM-' + crypto.randomBytes(32).toString('hex');
@@ -260,7 +286,7 @@ module.exports = (pool, io) => {
                 agentId = insertResult.rows[0].id;
             }
 
-            console.log(`✅ Comm Agent registrato: ${email} su ${machine_name || 'N/A'} (ID: ${agentId})`);
+            console.log(`✅ Comm Agent registrato: ${user.email} su ${machine_name || 'N/A'} (ID: ${agentId})`);
 
             res.json({
                 success: true,
@@ -792,19 +818,19 @@ module.exports = (pool, io) => {
 
             let userEmail = null;
             let userPassword = null;
+            let userIdForInstallToken = null;
 
             if (token) {
-                const jwt = require('jsonwebtoken');
                 try {
-                    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'logika-secret-key');
-                    // Se il token è valido, estrai email e password dell'utente per precompilare install_config.json
-                    if (decoded.email) {
+                    const decoded = jwt.verify(token, jwtSecret());
+                    if (decoded.email || decoded.id) {
                         await ensureTables();
                         const userResult = await pool.query(
-                            'SELECT email, password FROM users WHERE id = $1',
+                            'SELECT id, email, password FROM users WHERE id = $1',
                             [decoded.id]
                         );
                         if (userResult.rows.length > 0) {
+                            userIdForInstallToken = userResult.rows[0].id;
                             userEmail = userResult.rows[0].email;
                             userPassword = userResult.rows[0].password;
                         }
@@ -813,7 +839,6 @@ module.exports = (pool, io) => {
                     return res.status(401).json({ error: 'Token non valido' });
                 }
             } else if (apiKey) {
-                // Verifica API Key nel DB e estrai email/password dell'utente associato
                 await ensureTables();
                 const agentResult = await pool.query(
                     'SELECT ca.user_id, u.email, u.password FROM comm_agents ca JOIN users u ON ca.user_id = u.id WHERE ca.api_key = $1',
@@ -821,11 +846,11 @@ module.exports = (pool, io) => {
                 );
                 if (agentResult.rows.length === 0) {
                     console.log(`⚠️ Richiesta download package con API Key non valida: ${apiKey}. Invio package pulito.`);
-                } else if (agentResult.rows[0].email && agentResult.rows[0].password) {
-                    // Estrai email e password per includere install_config.json anche durante aggiornamento automatico
+                } else if (agentResult.rows[0].email) {
+                    userIdForInstallToken = agentResult.rows[0].user_id;
                     userEmail = agentResult.rows[0].email;
                     userPassword = agentResult.rows[0].password;
-                    console.log(`✅ Package agent con credenziali precompilate per aggiornamento automatico: ${userEmail}`);
+                    console.log(`✅ Package agent con install_config per API key: ${userEmail}`);
                 }
             }
 
@@ -866,22 +891,21 @@ module.exports = (pool, io) => {
 WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File ""CommAgentService.ps1""", 0, False`;
             archive.append(vbsContent, { name: 'Start-CommAgent-Hidden.vbs' });
 
-            // install_config: password solo se ancora in chiaro nel DB; se è bcrypt non è reversibile → campo vuoto e l'installer chiede la password
-            if (userEmail) {
+            // install_token: registrazione senza password in chiaro; password nel JSON solo se ancora legacy in chiaro nel DB
+            if (userEmail && userIdForInstallToken) {
                 const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
                 const rawPassword = userPassword || '';
                 const installPasswordPlain =
                     rawPassword && !isPasswordHashed(rawPassword) ? rawPassword : '';
-                if (rawPassword && isPasswordHashed(rawPassword)) {
-                    console.log(`⚠️ CommAgent zip: password utente in DB è hashata — install_config senza password (installer la chiederà): ${userEmail}`);
-                }
+                const install_token = signCommAgentInstallToken(userIdForInstallToken);
                 const installConfig = {
                     server_url: baseUrl,
                     email: userEmail,
-                    password: installPasswordPlain
+                    password: installPasswordPlain,
+                    install_token
                 };
                 archive.append(JSON.stringify(installConfig, null, 2), { name: 'install_config.json' });
-                console.log(`✅ Package agent con install_config per: ${userEmail}${installPasswordPlain ? ' (password precompilata)' : ' (password da inserire all\'installazione)'}`);
+                console.log(`✅ Package agent install_config per: ${userEmail} (token installazione incluso)`);
             }
 
             await archive.finalize();
@@ -932,10 +956,9 @@ WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File "
             // Verifica token (header o query string)
             const token = req.query.token || (req.headers.authorization && req.headers.authorization.replace('Bearer ', ''));
             if (!token) return res.status(401).json({ error: 'Token di autenticazione richiesto', code: 'MISSING_TOKEN' });
-            const jwt = require('jsonwebtoken');
             let decoded;
             try {
-                decoded = jwt.verify(token, process.env.JWT_SECRET || 'logika-secret-key');
+                decoded = jwt.verify(token, jwtSecret());
             } catch (e) {
                 return res.status(401).json({ error: 'Token non valido' });
             }
@@ -945,19 +968,17 @@ WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File "
 
             const { userId } = req.params;
             const userResult = await pool.query(
-                'SELECT email, password FROM users WHERE id = $1',
+                'SELECT id, email, password FROM users WHERE id = $1',
                 [userId]
             );
             if (userResult.rows.length === 0) {
                 return res.status(404).json({ error: 'Utente non trovato' });
             }
-            const { email: userEmail, password: userPassword } = userResult.rows[0];
+            const { id: targetUserId, email: userEmail, password: userPassword } = userResult.rows[0];
             const rawPassword = userPassword || '';
             const installPasswordPlain =
                 rawPassword && !isPasswordHashed(rawPassword) ? rawPassword : '';
-            if (rawPassword && isPasswordHashed(rawPassword)) {
-                console.log(`⚠️ CommAgent zip (tecnico): password in DB è hashata — install_config senza password (installer la chiederà): ${userEmail}`);
-            }
+            const install_token = signCommAgentInstallToken(targetUserId);
 
             const agentDir = path.join(__dirname, '..', '..', 'agent', 'CommAgent');
             if (!fs.existsSync(agentDir)) {
@@ -990,11 +1011,16 @@ WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File "
 
             const baseUrl = process.env.BASE_URL || 'https://ticket.logikaservice.it';
             archive.append(
-                JSON.stringify({ server_url: baseUrl, email: userEmail, password: installPasswordPlain }, null, 2),
+                JSON.stringify({
+                    server_url: baseUrl,
+                    email: userEmail,
+                    password: installPasswordPlain,
+                    install_token
+                }, null, 2),
                 { name: 'install_config.json' }
             );
 
-            console.log(`✅ Tecnico ha scaricato CommAgent per utente: ${userEmail}`);
+            console.log(`✅ Tecnico ha scaricato CommAgent per utente: ${userEmail} (install_token incluso)`);
             await archive.finalize();
 
         } catch (err) {

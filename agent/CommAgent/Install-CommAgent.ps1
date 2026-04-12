@@ -11,6 +11,7 @@ param(
 $INSTALL_DIR = "C:\ProgramData\LogikaCommAgent"
 $STARTUP_NAME = "LogikaCommAgent"
 $SCRIPT_DIR = $PSScriptRoot
+$script:preInstallToken = $null
 
 # Richiedi elevation se necessario
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -52,7 +53,11 @@ if (Test-Path $preConfigPath) {
         if ($preConfig.server_url) { $ServerUrl = $preConfig.server_url }
         if ($preConfig.email) { $Email = $preConfig.email }
         # Non usare mai hash bcrypt come password: il server si aspetta la password in chiaro alla registrazione
-        if ($preConfig.password -match '^\$2[aby]\$') {
+        if ($preConfig.install_token) {
+            $script:preInstallToken = $preConfig.install_token
+            Write-Host "Token di installazione presente: nessuna password richiesta." -ForegroundColor Green
+        }
+        elseif ($preConfig.password -match '^\$2[aby]\$') {
             Write-Host "ATTENZIONE: install_config contiene un hash password (vecchio pacchetto). Verra' chiesta la password in chiaro." -ForegroundColor Yellow
         } elseif ($preConfig.password) {
             $Password = $preConfig.password
@@ -74,7 +79,7 @@ $ServerUrl = $ServerUrl.TrimEnd('/')
 if (-not $Email) {
     $Email = Read-Host "Email"
 }
-if (-not $Password) {
+if (-not $Password -and -not $script:preInstallToken) {
     $Password = Read-Host "Password"
 }
 
@@ -93,7 +98,7 @@ if (Test-Path (Join-Path $SCRIPT_DIR "Uninstall-CommAgent.ps1")) {
     Write-Host "  Uninstall-CommAgent.ps1 copiato (per disinstallare: eseguire da $INSTALL_DIR)" -ForegroundColor Gray
 }
 
-# Copia install_config.json se presente (precompilato dal download)
+# Copia install_config.json se presente (verra' aggiornato sotto con token/password)
 if (Test-Path $preConfigPath) {
     Copy-Item -Path $preConfigPath -Destination (Join-Path $INSTALL_DIR "install_config.json") -Force
     Write-Host "File di configurazione precompilato copiato." -ForegroundColor Green
@@ -107,14 +112,17 @@ WshShell.Run "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File "
 $vbsPath = Join-Path $INSTALL_DIR "Start-CommAgent-Hidden.vbs"
 $vbsContent | Out-File -FilePath $vbsPath -Encoding ASCII -Force
 
-# Crea Config
-$installConfig = @{
+# Config finale (mantieni install_token dal pacchetto scaricato dal portale)
+$installConfigPath = Join-Path $INSTALL_DIR "install_config.json"
+$cfgObj = @{
     server_url = $ServerUrl
     email      = $Email
-    password   = $Password
-} | ConvertTo-Json
-$installConfigPath = Join-Path $INSTALL_DIR "install_config.json"
-$installConfig | Out-File -FilePath $installConfigPath -Encoding UTF8 -Force
+    password   = $(if ($null -eq $Password) { "" } else { $Password })
+}
+if ($script:preInstallToken) {
+    $cfgObj.install_token = $script:preInstallToken
+}
+($cfgObj | ConvertTo-Json) | Out-File -FilePath $installConfigPath -Encoding UTF8 -Force
 
 # Task Scheduler
 Write-Host "Configurazione avvio automatico..."

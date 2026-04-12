@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.32"
+$SCRIPT_VERSION = "1.2.33"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 
@@ -614,12 +614,18 @@ function Check-Update {
 }
 
 function Register-Agent {
-    param($ServerUrl, $Email, $Password)
+    param($ServerUrl, $Email, $Password, $InstallToken)
     try {
-        $body = @{ email = $Email; password = $Password; machine_name = $env:COMPUTERNAME; machine_id = $env:COMPUTERNAME; os_info = "Windows" } | ConvertTo-Json
+        if ($InstallToken) {
+            $body = @{ install_token = $InstallToken; machine_name = $env:COMPUTERNAME; machine_id = $env:COMPUTERNAME; os_info = "Windows" } | ConvertTo-Json
+        }
+        else {
+            $body = @{ email = $Email; password = $Password; machine_name = $env:COMPUTERNAME; machine_id = $env:COMPUTERNAME; os_info = "Windows" } | ConvertTo-Json
+        }
         $resp = Invoke-RestMethod -Uri "$ServerUrl/api/comm-agent/agent/register" -Method POST -Body $body -ContentType "application/json" -ErrorAction Stop
         if ($resp.api_key) {
-            $newCfg = @{ server_url = $ServerUrl; api_key = $resp.api_key; agent_id = $resp.agent_id; email = $Email }
+            $em = if ($resp.user -and $resp.user.email) { $resp.user.email } else { $Email }
+            $newCfg = @{ server_url = $ServerUrl; api_key = $resp.api_key; agent_id = $resp.agent_id; email = $em }
             Save-Config $newCfg
             return $newCfg
         }
@@ -659,18 +665,24 @@ function Get-ConfigOrRegister {
         $serverUrl = $install.server_url
         $email = $install.email
         $password = $install.password
+        $installToken = $install.install_token
         if (-not $serverUrl) { $serverUrl = "https://ticket.logikaservice.it" }
-        if (-not $email -or -not $password) {
-            Write-Log "install_config.json senza email/password. Reinstallare." "ERROR"
+        if ($installToken) {
+            Write-Log "Prima esecuzione: registrazione con token di installazione..." "INFO"
+            $cfg = Register-Agent -ServerUrl $serverUrl -Email $email -InstallToken $installToken
+        }
+        elseif ($email -and $password) {
+            if ($password -match '^\$2[aby]\$') {
+                Write-Log "ERRORE: password in install_config sembra un hash bcrypt. Scaricare di nuovo il pacchetto dal portale (include install_token) oppure inserire la password in chiaro." "ERROR"
+                return $null
+            }
+            Write-Log "Prima esecuzione: registrazione in corso..." "INFO"
+            $cfg = Register-Agent -ServerUrl $serverUrl -Email $email -Password $password
+        }
+        else {
+            Write-Log "install_config.json senza install_token né email/password completi. Reinstallare o scaricare il pacchetto dal portale." "ERROR"
             return $null
         }
-        # Il server confronta la password in CHIARO con l'hash nel DB (bcrypt). Se qui c'è copiato l'hash dal database, la registrazione darà sempre 401.
-        if ($password -match '^\$2[aby]\$') {
-            Write-Log "ERRORE: in install_config.json il campo password contiene un hash bcrypt (inizia con `$2...). Inserire la password in chiaro usata per il login al portale TicketApp, non l'hash dal database. Poi eliminare config.json se presente e riavviare l'agent." "ERROR"
-            return $null
-        }
-        Write-Log "Prima esecuzione: registrazione in corso..." "INFO"
-        $cfg = Register-Agent -ServerUrl $serverUrl -Email $email -Password $password
         if ($cfg) {
             Write-Log "Registrazione completata. Agent ID: $($cfg.agent_id)" "INFO"
             return $cfg
