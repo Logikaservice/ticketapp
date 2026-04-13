@@ -124,6 +124,28 @@ module.exports = (pool, io) => {
   // Mappa per test Unifi delegato
   const pendingUnifiTests = new Map();
 
+  // ============================================================
+  // Migrazioni leggere (safe): colonne Telegram config
+  // Evita 500 quando il backend viene aggiornato ma la tabella esiste già.
+  // ============================================================
+  let telegramConfigColumnsEnsured = false;
+  const ensureTelegramConfigColumns = async () => {
+    if (telegramConfigColumnsEnsured) return;
+    try {
+      await pool.query(`ALTER TABLE network_telegram_config ADD COLUMN IF NOT EXISTS notify_agent_offline BOOLEAN DEFAULT true;`);
+      await pool.query(`ALTER TABLE network_telegram_config ADD COLUMN IF NOT EXISTS notify_agent_online BOOLEAN DEFAULT true;`);
+      await pool.query(`ALTER TABLE network_telegram_config ADD COLUMN IF NOT EXISTS notify_ip_changes BOOLEAN DEFAULT true;`);
+      await pool.query(`ALTER TABLE network_telegram_config ADD COLUMN IF NOT EXISTS notify_mac_changes BOOLEAN DEFAULT true;`);
+      await pool.query(`ALTER TABLE network_telegram_config ADD COLUMN IF NOT EXISTS notify_status_changes BOOLEAN DEFAULT true;`);
+      await pool.query(`ALTER TABLE network_telegram_config ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();`);
+      telegramConfigColumnsEnsured = true;
+    } catch (e) {
+      // Se la tabella non esiste ancora, la creeremo in ensureTables e riproveremo più tardi.
+      if (e && e.code === '42P01') return;
+      console.warn('⚠️ ensureTelegramConfigColumns fallito:', e?.message || e);
+    }
+  };
+
   // Flag globale per evitare inizializzazioni tabelle concorrenti (CAUSA DEI CRASH 502)
   let tablesCheckDone = false;
   let tablesCheckInProgress = false;
@@ -1391,6 +1413,7 @@ module.exports = (pool, io) => {
   // Funzione helper per inviare notifiche Telegram
   async function sendTelegramNotification(agentId, aziendaId, messageType, data) {
     try {
+      await ensureTelegramConfigColumns();
       // Ottieni configurazione Telegram per questo agent/azienda
       // Cerca prima una configurazione specifica, poi una globale (NULL)
       const configResult = await pool.query(
@@ -6217,6 +6240,7 @@ pause
   router.post('/telegram/config', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       await ensureTables();
+      await ensureTelegramConfigColumns();
 
       const { azienda_id, agent_id, bot_token, chat_id, enabled,
         notify_agent_offline, notify_agent_online, notify_ip_changes,
@@ -6345,6 +6369,7 @@ pause
   router.get('/telegram/config', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       await ensureTables();
+      await ensureTelegramConfigColumns();
 
       const { azienda_id, agent_id } = req.query;
 
@@ -6388,6 +6413,7 @@ pause
       }
 
       await ensureTables();
+      await ensureTelegramConfigColumns();
 
       const { id } = req.params;
       const { notification_type } = req.body; // 'agent_offline', 'agent_online', 'ip_changed', 'mac_changed', 'status_changed_online', 'status_changed_offline'
