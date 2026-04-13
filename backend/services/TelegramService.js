@@ -72,6 +72,15 @@ class TelegramService {
 <b>Timestamp:</b> ${new Date().toLocaleString('it-IT')}`;
   }
 
+  // Formatta messaggio per agent online (tornato operativo)
+  formatAgentOnlineMessage(agentName, aziendaName) {
+    return `🟢 <b>Agent Online</b>
+
+<b>Azienda:</b> ${aziendaName || 'N/A'}
+<b>Agent:</b> ${agentName}
+<b>Timestamp:</b> ${new Date().toLocaleString('it-IT')}`;
+  }
+
   // Formatta messaggio per cambio IP (dispositivo statico)
   formatIPChangedMessage(deviceInfo) {
     return `⚠️ <b>IP Cambiato</b>

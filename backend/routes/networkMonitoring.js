@@ -318,7 +318,31 @@ module.exports = (pool, io) => {
 
       // Altre tabelle accessorie
       await pool.query(`CREATE TABLE IF NOT EXISTS network_notification_config (id SERIAL PRIMARY KEY, agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE, ip_address VARCHAR(45) NOT NULL, enabled BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(agent_id, ip_address));`);
-      await pool.query(`CREATE TABLE IF NOT EXISTS network_telegram_config (id SERIAL PRIMARY KEY, azienda_id INTEGER REFERENCES users(id) ON DELETE CASCADE, agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE, bot_token VARCHAR(255) NOT NULL, chat_id VARCHAR(50) NOT NULL, enabled BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(azienda_id, agent_id));`);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS network_telegram_config (
+          id SERIAL PRIMARY KEY,
+          azienda_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE,
+          bot_token VARCHAR(255) NOT NULL,
+          chat_id VARCHAR(50) NOT NULL,
+          enabled BOOLEAN DEFAULT true,
+          notify_agent_offline BOOLEAN DEFAULT true,
+          notify_agent_online BOOLEAN DEFAULT true,
+          notify_ip_changes BOOLEAN DEFAULT true,
+          notify_mac_changes BOOLEAN DEFAULT true,
+          notify_status_changes BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW(),
+          UNIQUE(azienda_id, agent_id)
+        );
+      `);
+      // Migrazione soft (se tabella esiste già senza colonne nuove)
+      await pool.query(`ALTER TABLE network_telegram_config ADD COLUMN IF NOT EXISTS notify_agent_offline BOOLEAN DEFAULT true;`);
+      await pool.query(`ALTER TABLE network_telegram_config ADD COLUMN IF NOT EXISTS notify_agent_online BOOLEAN DEFAULT true;`);
+      await pool.query(`ALTER TABLE network_telegram_config ADD COLUMN IF NOT EXISTS notify_ip_changes BOOLEAN DEFAULT true;`);
+      await pool.query(`ALTER TABLE network_telegram_config ADD COLUMN IF NOT EXISTS notify_mac_changes BOOLEAN DEFAULT true;`);
+      await pool.query(`ALTER TABLE network_telegram_config ADD COLUMN IF NOT EXISTS notify_status_changes BOOLEAN DEFAULT true;`);
+      await pool.query(`ALTER TABLE network_telegram_config ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();`);
 
       // Indici
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_agents_azienda ON network_agents(azienda_id);`);
@@ -619,13 +643,8 @@ module.exports = (pool, io) => {
             await sendTelegramNotification(
               agentId,
               agentInfo.rows[0].azienda_id,
-              'status_changed',
+              'agent_online',
               {
-                hostname: agentInfo.rows[0].agent_name,
-                deviceType: 'Agent',
-                ip: 'N/A',
-                mac: 'N/A',
-                status: 'online',
                 agentName: agentInfo.rows[0].agent_name,
                 aziendaName: agentInfo.rows[0].azienda_name
               }
@@ -1376,8 +1395,8 @@ module.exports = (pool, io) => {
       // Cerca prima una configurazione specifica, poi una globale (NULL)
       const configResult = await pool.query(
         `SELECT bot_token, chat_id, enabled, 
-                notify_agent_offline, notify_ip_changes, 
-                notify_mac_changes, notify_status_changes
+                notify_agent_offline, notify_agent_online,
+                notify_ip_changes, notify_mac_changes, notify_status_changes
          FROM network_telegram_config
          WHERE enabled = true
            AND (
@@ -1405,6 +1424,7 @@ module.exports = (pool, io) => {
       console.log(`📋 Configurazione Telegram trovata per agent ${agentId}, azienda ${aziendaId}:`, {
         enabled: config.enabled,
         notify_agent_offline: config.notify_agent_offline,
+        notify_agent_online: config.notify_agent_online,
         notify_ip_changes: config.notify_ip_changes,
         notify_mac_changes: config.notify_mac_changes,
         notify_status_changes: config.notify_status_changes,
@@ -1423,6 +1443,16 @@ module.exports = (pool, io) => {
             message = telegramService.formatAgentOfflineMessage(
               data.agentName,
               data.lastHeartbeat,
+              data.aziendaName
+            );
+          }
+          break;
+
+        case 'agent_online':
+          shouldNotify = config.notify_agent_online;
+          if (shouldNotify) {
+            message = telegramService.formatAgentOnlineMessage(
+              data.agentName,
               data.aziendaName
             );
           }
@@ -6189,7 +6219,7 @@ pause
       await ensureTables();
 
       const { azienda_id, agent_id, bot_token, chat_id, enabled,
-        notify_agent_offline, notify_ip_changes,
+        notify_agent_offline, notify_agent_online, notify_ip_changes,
         notify_mac_changes, notify_status_changes } = req.body;
 
       if (!bot_token || !chat_id) {
@@ -6215,6 +6245,7 @@ pause
             chat_id VARCHAR(50) NOT NULL,
             enabled BOOLEAN DEFAULT true,
             notify_agent_offline BOOLEAN DEFAULT true,
+            notify_agent_online BOOLEAN DEFAULT true,
             notify_ip_changes BOOLEAN DEFAULT true,
             notify_mac_changes BOOLEAN DEFAULT true,
             notify_status_changes BOOLEAN DEFAULT true,
@@ -6250,13 +6281,14 @@ pause
                chat_id = $2,
                enabled = $3,
                notify_agent_offline = $4,
-               notify_ip_changes = $5,
-               notify_mac_changes = $6,
-               notify_status_changes = $7,
+               notify_agent_online = $5,
+               notify_ip_changes = $6,
+               notify_mac_changes = $7,
+               notify_status_changes = $8,
                updated_at = NOW()
-           WHERE id = $8
+           WHERE id = $9
            RETURNING id, azienda_id, agent_id, bot_token, chat_id, enabled, 
-                     notify_agent_offline, notify_ip_changes, 
+                     notify_agent_offline, notify_agent_online, notify_ip_changes, 
                      notify_mac_changes, notify_status_changes, 
                      created_at, updated_at`,
           [
@@ -6264,6 +6296,7 @@ pause
             chat_id,
             enabled !== false,
             notify_agent_offline !== false,
+            notify_agent_online !== false,
             notify_ip_changes !== false,
             notify_mac_changes !== false,
             notify_status_changes !== false,
@@ -6275,10 +6308,10 @@ pause
         result = await pool.query(
           `INSERT INTO network_telegram_config 
            (azienda_id, agent_id, bot_token, chat_id, enabled,
-            notify_agent_offline, notify_ip_changes, notify_mac_changes, notify_status_changes)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            notify_agent_offline, notify_agent_online, notify_ip_changes, notify_mac_changes, notify_status_changes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
            RETURNING id, azienda_id, agent_id, bot_token, chat_id, enabled, 
-                     notify_agent_offline, notify_ip_changes, 
+                     notify_agent_offline, notify_agent_online, notify_ip_changes, 
                      notify_mac_changes, notify_status_changes, 
                      created_at, updated_at`,
           [
@@ -6288,6 +6321,7 @@ pause
             chat_id,
             enabled !== false,
             notify_agent_offline !== false,
+            notify_agent_online !== false,
             notify_ip_changes !== false,
             notify_mac_changes !== false,
             notify_status_changes !== false
@@ -6356,7 +6390,7 @@ pause
       await ensureTables();
 
       const { id } = req.params;
-      const { notification_type } = req.body; // 'agent_offline', 'ip_changed', 'mac_changed', 'status_changed_online', 'status_changed_offline'
+      const { notification_type } = req.body; // 'agent_offline', 'agent_online', 'ip_changed', 'mac_changed', 'status_changed_online', 'status_changed_offline'
 
       if (!notification_type) {
         return res.status(400).json({ error: 'notification_type è obbligatorio' });
@@ -6408,6 +6442,14 @@ pause
             lastHeartbeat: new Date(Date.now() - 10 * 60 * 1000).toISOString() // 10 minuti fa
           };
           message = telegramService.formatAgentOfflineMessage(testData.agentName, testData.lastHeartbeat);
+          break;
+
+        case 'agent_online':
+          if (config.notify_agent_online === false) {
+            return res.status(400).json({ error: 'Notifica agent online non abilitata' });
+          }
+          testData = { agentName: 'Agent di Test' };
+          message = telegramService.formatAgentOnlineMessage(testData.agentName);
           break;
 
         case 'ip_changed':

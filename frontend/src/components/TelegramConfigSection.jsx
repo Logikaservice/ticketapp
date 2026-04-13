@@ -22,6 +22,7 @@ const TelegramConfigSection = ({
     chat_id: '',
     enabled: true,
     notify_agent_offline: true,
+    notify_agent_online: true,
     notify_ip_changes: true,
     notify_mac_changes: true,
     notify_status_changes: true
@@ -41,6 +42,7 @@ const TelegramConfigSection = ({
       chat_id: config.chat_id || '',
       enabled: config.enabled !== false,
       notify_agent_offline: config.notify_agent_offline !== false,
+      notify_agent_online: config.notify_agent_online !== false,
       notify_ip_changes: config.notify_ip_changes !== false,
       notify_mac_changes: config.notify_mac_changes !== false,
       notify_status_changes: config.notify_status_changes !== false
@@ -58,6 +60,7 @@ const TelegramConfigSection = ({
       chat_id: '',
       enabled: true,
       notify_agent_offline: true,
+      notify_agent_online: true,
       notify_ip_changes: true,
       notify_mac_changes: true,
       notify_status_changes: true
@@ -328,6 +331,15 @@ const TelegramConfigSection = ({
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
+                    checked={formData.notify_agent_online}
+                    onChange={(e) => setFormData({ ...formData, notify_agent_online: e.target.checked })}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Agent online</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
                     checked={formData.notify_ip_changes}
                     onChange={(e) => setFormData({ ...formData, notify_ip_changes: e.target.checked })}
                     className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
@@ -437,6 +449,9 @@ const TelegramConfigSection = ({
                       <div className="flex flex-wrap gap-2 mt-1">
                         {config.notify_agent_offline && (
                           <span className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-800">Agent Offline</span>
+                        )}
+                        {config.notify_agent_online && (
+                          <span className="px-2 py-1 text-xs rounded bg-emerald-100 text-emerald-800">Agent Online</span>
                         )}
                         {config.notify_ip_changes && (
                           <span className="px-2 py-1 text-xs rounded bg-yellow-100 text-yellow-800">Cambio IP</span>
