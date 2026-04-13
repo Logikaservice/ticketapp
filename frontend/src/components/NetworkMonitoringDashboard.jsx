@@ -96,6 +96,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const seenMacAddressesRef = useRef(new Set());
   const [newDevicesInList, setNewDevicesInList] = useState(new Set());
   const pendingUpdatesRef = useRef({}); // { [deviceId]: { [field]: { value, timestamp } } }
+  const companyDevicesFetchSeqRef = useRef(0);
+  const companyDevicesAbortRef = useRef(null);
+  const selectedCompanyIdRef = useRef(null);
   const agentStatOnlineCardRef = useRef(null);
   const agentStatOfflineCardRef = useRef(null);
   const agentStatPopoverRef = useRef(null);
@@ -112,6 +115,11 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     setSelectedCompanyId(numericId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialCompanyId]); // ← solo la prop esterna, non selectedCompanyId!
+
+  // Traccia sempre l'azienda selezionata per evitare race tra fetch concorrenti
+  useEffect(() => {
+    selectedCompanyIdRef.current = selectedCompanyId;
+  }, [selectedCompanyId]);
 
 
   // Applica gli aggiornamenti pendenti ai dati ricevuti dal server
@@ -815,18 +823,32 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
 
   // Carica dispositivi per un'azienda specifica
   const loadCompanyDevices = useCallback(async (aziendaId, silent = false) => {
+    const seq = ++companyDevicesFetchSeqRef.current;
     try {
       if (!silent) {
         setLoadingCompanyDevices(true);
       }
+      // Annulla eventuale richiesta precedente: evita che una risposta "vecchia" sovrascriva la lista
+      try {
+        if (companyDevicesAbortRef.current) {
+          companyDevicesAbortRef.current.abort();
+        }
+      } catch { /* ignore */ }
+      const controller = new AbortController();
+      companyDevicesAbortRef.current = controller;
+
       const response = await fetch(buildApiUrl(`/api/network-monitoring/clients/${aziendaId}/devices`), {
-        headers: getAuthHeader()
+        headers: getAuthHeader(),
+        signal: controller.signal
       });
 
       if (!response.ok) {
         throw new Error('Errore caricamento dispositivi azienda');
       }
       const data = await response.json();
+      // Se nel frattempo l'utente ha cambiato azienda (o è partita un'altra fetch), ignora questa risposta
+      if (seq !== companyDevicesFetchSeqRef.current) return;
+      if (selectedCompanyIdRef.current !== aziendaId) return;
 
       // 1. Applica subito gli aggiornamenti pendenti ai dati ricevuti (per is_static, notify_telegram, device_type, is_new_device)
       // Escludi switch virtuali (virtual-…) dalla vista: non eliminati dal DB
@@ -856,6 +878,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       setCompanyDevices(updatedData);
 
     } catch (err) {
+      if (err?.name === 'AbortError') {
+        return;
+      }
       console.error('Errore caricamento dispositivi azienda:', err);
       if (!silent) {
         setError(err.message);
@@ -865,7 +890,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         setLoadingCompanyDevices(false);
       }
     }
-  }, [getAuthHeader]);
+  }, [applyPendingUpdates, getAuthHeader]);
 
   // Aggiorna dati da Keepass e ricarica tutto
   const handleRefresh = useCallback(async () => {
