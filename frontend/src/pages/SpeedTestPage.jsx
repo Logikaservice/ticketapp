@@ -172,6 +172,16 @@ const SPEEDTEST_SERVER_RETENTION_DAYS = 60;
 /** Aziende con speedtest attivo ma senza nuovo rilevamento da più di questa soglia → elenco “senza aggiornamenti”. */
 const SPEEDTEST_STALE_AFTER_MS = 2 * 60 * 60 * 1000;
 
+// Chiave stabile per evitare mismatch di card/click dopo refresh (no idx: React deve riusare correttamente i nodi)
+function speedtestRowKey(row) {
+  const agentId = resolveAgentIdFromRow(row);
+  const aziendaId = resolveAziendaIdFromRow(row);
+  if (agentId != null) return `st-agent-${agentId}`;
+  if (aziendaId != null) return `st-azienda-${aziendaId}`;
+  const name = (row?.azienda_name || row?.agent_name || '').toString().trim().toLowerCase();
+  return `st-name-${name || 'unknown'}`;
+}
+
 function pad2(n) {
   return n < 10 ? `0${n}` : `${n}`;
 }
@@ -1926,8 +1936,7 @@ const SpeedTestPage = ({
       ) : (
         <div style={styles.grid}>
           {filteredOverview.map((company, idx) => {
-            const k = company.agent_id ?? company.azienda_id;
-            return <CompanyCard key={k != null ? `sp-${k}-${idx}` : `row-${idx}`} company={company} />;
+            return <CompanyCard key={speedtestRowKey(company)} company={company} />;
           })}
         </div>
       )}
