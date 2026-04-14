@@ -382,6 +382,7 @@ const SpeedTestPage = ({
   const overviewFetchSeqRef = useRef(0);
   /** Aggiorna il calcolo di “X min fa” senza cambiare i dati API (evita testo congelato vs rientro pagina). */
   const [heartbeatTick, setHeartbeatTick] = useState(0);
+  const pageScrollRef = useRef(null);
   useEffect(() => {
     const id = window.setInterval(() => setHeartbeatTick((n) => n + 1), 30000);
     return () => window.clearInterval(id);
@@ -996,6 +997,14 @@ const SpeedTestPage = ({
         upload_vs_hist_pct: company.upload_vs_hist_pct ?? company.uploadVsHistPct ?? null,
         public_ip_stability: company.public_ip_stability ?? company.publicIpStability ?? null
       });
+      // Se l'utente era molto in basso nella griglia, al passaggio alla vista dettaglio
+      // l'altezza contenuti cambia e il browser può "clampare" lo scroll in modo brusco.
+      // Portiamo intenzionalmente la vista in alto così l'intestazione del dettaglio è sempre visibile.
+      window.requestAnimationFrame(() => {
+        try {
+          if (pageScrollRef.current) pageScrollRef.current.scrollTop = 0;
+        } catch { /* ignore */ }
+      });
     };
 
     const onCardPointerUp = (e) => {
@@ -1230,7 +1239,7 @@ const SpeedTestPage = ({
     const publicIpStabLabel = publicIpStabilityParen(publicIpStabilityDetail);
 
     return createPortal(
-      <div style={styles.page}>
+      <div style={styles.page} ref={pageScrollRef}>
         {/* Intestazione */}
         <div style={styles.header}>
           <div style={styles.headerLeft}>
@@ -1783,7 +1792,7 @@ const SpeedTestPage = ({
 
   // VISTA PANORAMICA
   return createPortal(
-    <div style={styles.page}>
+    <div style={styles.page} ref={pageScrollRef}>
       {/* Intestazione */}
       <div style={styles.header}>
         <div style={styles.headerLeft}>
