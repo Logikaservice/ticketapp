@@ -413,6 +413,7 @@ export default function TicketApp() {
     setShowMappatura(false);
     setShowAntiVirus(false);
     setShowEmail(false);
+    setShowSpeedTest(false);
     setShowCommAgent(false);
     setShowCommAgentManager(false);
   };
@@ -429,6 +430,7 @@ export default function TicketApp() {
     setShowPackVision(false);
     setShowEmail(false);
     setShowFlottaPC(false);
+    setShowSpeedTest(false);
     setShowCommAgent(false);
     setShowCommAgentManager(false);
   };
@@ -478,6 +480,7 @@ export default function TicketApp() {
     setShowAntiVirus(false);
     setShowOffice(false);
     setShowPackVision(false);
+    setShowSpeedTest(false);
     setShowCommAgent(false);
     setShowCommAgentManager(false);
   };
@@ -494,6 +497,7 @@ export default function TicketApp() {
     setShowFlottaPC(false);
     setShowMappatura(false);
     setShowPackVision(false);
+    setShowSpeedTest(false);
     setShowCommAgent(false);
     setShowCommAgentManager(false);
     // Se viene passata una view specifica, impostala
