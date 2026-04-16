@@ -370,7 +370,9 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader }) => 
       {showAdminModal && isTecnico && (
         <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#111827] border border-slate-800 rounded-2xl w-full max-w-5xl max-h-[88vh] flex flex-col shadow-2xl">
-            <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+
+            {/* Titolo modale — fisso */}
+            <div className="flex-none p-6 border-b border-slate-800 flex items-center justify-between">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <ShieldCheck className="text-indigo-500" /> Pannello Assegnazioni L-Sight
               </h2>
@@ -379,102 +381,102 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader }) => 
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto flex-1 space-y-8">
+            {/* Form nuova assegnazione — fisso, sempre visibile */}
+            <div className="flex-none p-6 border-b border-slate-800 bg-[#0D131F]">
+              <h3 className="text-xs font-semibold text-white mb-4 uppercase tracking-widest flex items-center gap-2">
+                <Plus size={13} className="text-indigo-400" /> Nuova assegnazione · Utente → PC
+              </h3>
               {adminLoading ? (
-                <div className="text-center py-12 text-slate-400 font-mono text-sm animate-pulse">SINCRONIZZAZIONE DATI...</div>
+                <div className="text-slate-400 font-mono text-sm animate-pulse py-2">SINCRONIZZAZIONE DATI...</div>
               ) : (
-                <>
-                  {/* Nuova assegnazione */}
-                  <div className="bg-slate-900/50 rounded-xl p-5 border border-slate-800">
-                    <h3 className="text-xs font-semibold text-white mb-4 uppercase tracking-widest">Nuova assegnazione · Utente → PC</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                      <div className="md:col-span-5">
-                        <label className="block text-xs font-medium text-slate-400 mb-1.5">Utente Cliente</label>
-                        <select
-                          className="w-full bg-[#0A0E17] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                          value={selectedUserForAssign}
-                          onChange={e => setSelectedUserForAssign(e.target.value)}
-                        >
-                          <option value="">-- Seleziona Utente --</option>
-                          {allUsers.filter(u => u.ruolo !== 'tecnico').map(u => (
-                            <option key={u.id} value={u.id}>{u.nome} {u.cognome} ({u.azienda})</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="md:col-span-5">
-                        <label className="block text-xs font-medium text-slate-400 mb-1.5">Agent / PC da assegnare</label>
-                        <select
-                          className="w-full bg-[#0A0E17] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                          value={selectedAgentForAssign}
-                          onChange={e => setSelectedAgentForAssign(e.target.value)}
-                        >
-                          <option value="">-- Seleziona PC --</option>
-                          {agents.map(a => (
-                            <option key={a.agent_id} value={a.agent_id}>[{a.azienda}] {a.machine_name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="md:col-span-2">
-                        <button
-                          onClick={handleAssignAgent}
-                          disabled={!selectedUserForAssign || !selectedAgentForAssign}
-                          className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-lg font-semibold flex items-center justify-center gap-1.5 transition-all text-sm"
-                        >
-                          <Plus size={15} /> Abbina
-                        </button>
-                      </div>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                  <div className="md:col-span-5">
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">Utente Cliente</label>
+                    <select
+                      className="w-full bg-[#0A0E17] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                      value={selectedUserForAssign}
+                      onChange={e => setSelectedUserForAssign(e.target.value)}
+                    >
+                      <option value="">-- Seleziona Utente --</option>
+                      {allUsers.filter(u => u.ruolo !== 'tecnico').map(u => (
+                        <option key={u.id} value={u.id}>{u.nome} {u.cognome} ({u.azienda})</option>
+                      ))}
+                    </select>
                   </div>
-
-                  {/* Tabella matrice */}
-                  <div>
-                    <h3 className="text-xs font-semibold text-white mb-4 uppercase tracking-widest">Matrice Permessi Attivi</h3>
-                    <div className="bg-[#0A0E17] border border-slate-800 rounded-xl overflow-hidden">
-                      <table className="w-full text-left text-sm text-slate-300">
-                        <thead className="bg-[#111827] border-b border-slate-800 text-[10px] uppercase text-slate-500 font-semibold tracking-wider">
-                          <tr>
-                            <th className="px-4 py-3">Utente</th>
-                            <th className="px-4 py-3">Azienda</th>
-                            <th className="px-4 py-3">PC Autorizzato</th>
-                            <th className="px-4 py-3 text-right">Revoca</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-800/50">
-                          {assignments.filter(a => a.user_id).length === 0 ? (
-                            <tr>
-                              <td colSpan="4" className="px-4 py-8 text-center text-slate-500 italic text-sm">Nessun permesso configurato</td>
-                            </tr>
-                          ) : assignments.filter(a => a.user_id).map((a, i) => (
-                            <tr key={i} className="hover:bg-white/[0.02] transition-colors">
-                              <td className="px-4 py-3 font-medium text-white flex items-center gap-2">
-                                <div className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center border border-slate-700">
-                                  <User size={11} className="text-indigo-400" />
-                                </div>
-                                {a.nome} {a.cognome}
-                              </td>
-                              <td className="px-4 py-3 text-slate-400">{a.azienda || '—'}</td>
-                              <td className="px-4 py-3 font-mono text-indigo-300 text-xs">{a.machine_name}</td>
-                              <td className="px-4 py-3 text-right">
-                                <button
-                                  onClick={() => handleRemoveAssignment(a.user_id, a.agent_id)}
-                                  className="p-1.5 text-slate-500 hover:bg-rose-500/10 hover:text-rose-400 rounded transition-colors"
-                                  title="Revoca permesso"
-                                >
-                                  <Trash2 size={15} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                  <div className="md:col-span-5">
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">Agent / PC da assegnare</label>
+                    <select
+                      className="w-full bg-[#0A0E17] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                      value={selectedAgentForAssign}
+                      onChange={e => setSelectedAgentForAssign(e.target.value)}
+                    >
+                      <option value="">-- Seleziona PC --</option>
+                      {agents.map(a => (
+                        <option key={a.agent_id} value={a.agent_id}>[{a.azienda}] {a.machine_name}</option>
+                      ))}
+                    </select>
                   </div>
-                </>
+                  <div className="md:col-span-2">
+                    <button
+                      onClick={handleAssignAgent}
+                      disabled={!selectedUserForAssign || !selectedAgentForAssign}
+                      className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-lg font-semibold flex items-center justify-center gap-1.5 transition-all text-sm"
+                    >
+                      <Plus size={15} /> Abbina
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
+
+            {/* Tabella matrice — unica parte scrollabile */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <h3 className="text-xs font-semibold text-white mb-4 uppercase tracking-widest">Matrice Permessi Attivi</h3>
+              <div className="bg-[#0A0E17] border border-slate-800 rounded-xl overflow-hidden">
+                <table className="w-full text-left text-sm text-slate-300">
+                  <thead className="bg-[#111827] border-b border-slate-800 text-[10px] uppercase text-slate-500 font-semibold tracking-wider sticky top-0">
+                    <tr>
+                      <th className="px-4 py-3">Utente</th>
+                      <th className="px-4 py-3">Azienda</th>
+                      <th className="px-4 py-3">PC Autorizzato</th>
+                      <th className="px-4 py-3 text-right">Revoca</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/50">
+                    {adminLoading ? (
+                      <tr><td colSpan="4" className="px-4 py-8 text-center text-slate-500 font-mono text-xs animate-pulse">Caricamento...</td></tr>
+                    ) : assignments.filter(a => a.user_id).length === 0 ? (
+                      <tr><td colSpan="4" className="px-4 py-8 text-center text-slate-500 italic text-sm">Nessun permesso configurato</td></tr>
+                    ) : assignments.filter(a => a.user_id).map((a, i) => (
+                      <tr key={i} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="px-4 py-3 font-medium text-white">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center border border-slate-700 flex-shrink-0">
+                              <User size={11} className="text-indigo-400" />
+                            </div>
+                            {a.nome} {a.cognome}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-slate-400">{a.azienda || '—'}</td>
+                        <td className="px-4 py-3 font-mono text-indigo-300 text-xs">{a.machine_name}</td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={() => handleRemoveAssignment(a.user_id, a.agent_id)}
+                            className="p-1.5 text-slate-500 hover:bg-rose-500/10 hover:text-rose-400 rounded transition-colors"
+                            title="Revoca permesso"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
           </div>
         </div>
-      )}
     </div>
   );
 };
