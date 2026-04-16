@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.35"
+$SCRIPT_VERSION = "1.2.36"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 
@@ -613,33 +613,96 @@ function Send-Heartbeat {
     return $true
 }
 
+# Evita doppio aggiornamento ravvicinato (timer 30s + 120s possono chiamare Check-Update entrambi)
+$script:lastCommAgentUpdateAttempt = $null
+
+function Get-CommAgentFileVersion {
+    try {
+        $p = Join-Path $script:scriptDir "CommAgentService.ps1"
+        if (-not (Test-Path $p)) { return $SCRIPT_VERSION }
+        $raw = [System.IO.File]::ReadAllText($p)
+        if ($raw -match '\$SCRIPT_VERSION\s*=\s*"([^"]+)"') { return [string]$matches[1].Trim() }
+    } catch {}
+    return $SCRIPT_VERSION
+}
+
+function Stop-OtherCommAgentProcesses {
+    param([int]$ExceptPid)
+    try {
+        $filter = "Name = 'powershell.exe' OR Name = 'powershell_ise.exe' OR Name = 'wscript.exe'"
+        $procs = $null
+        try { $procs = Get-CimInstance -ClassName Win32_Process -Filter $filter -ErrorAction SilentlyContinue } catch {
+            $procs = Get-WmiObject Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'powershell|wscript' }
+        }
+        foreach ($p in @($procs)) {
+            if ([int]$p.ProcessId -eq $ExceptPid) { continue }
+            $cl = [string]$p.CommandLine
+            if ([string]::IsNullOrWhiteSpace($cl)) { continue }
+            if ($cl -like '*CommAgentService.ps1*' -and ($cl -like '*LogikaCommAgent*' -or $cl -like '*ProgramData*LogikaCommAgent*')) {
+                Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
+            }
+            if ($cl -like '*Start-CommAgent-Hidden.vbs*' -and $cl -like '*LogikaCommAgent*') {
+                Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
+            }
+        }
+    } catch {}
+}
+
 function Check-Update {
     param([switch]$Force)
     $config = Load-Config
     try {
         $vUrl = "$($config.server_url)/api/comm-agent/agent-version"
         $vData = Invoke-RestMethod -Uri $vUrl -Method GET -TimeoutSec 10 -ErrorAction Stop
-        if ($vData.version -ne $SCRIPT_VERSION) {
-            Write-Log "Aggiornamento rilevato: $SCRIPT_VERSION -> $($vData.version). Download e riavvio..." "INFO"
-            $zipPath = Join-Path $env:TEMP "LogikaCommAgent_Update.zip"
-            $extractPath = Join-Path $env:TEMP "LogikaCommAgent_Update"
-            $dlUrl = "$($config.server_url)/api/comm-agent/download-agent"
-            $headers = @{ "X-Comm-API-Key" = $config.api_key }
-            Invoke-WebRequest -Uri $dlUrl -Headers $headers -OutFile $zipPath -TimeoutSec 30 -ErrorAction Stop
-            if (Test-Path $extractPath) { Remove-Item $extractPath -Recurse -Force }
-            Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force -ErrorAction Stop
-            $updaterBat = Join-Path $env:TEMP "LogikaUpdate.bat"
-            $myPath = $script:scriptDir
-            $vbsLauncher = Join-Path $myPath "Start-CommAgent-Hidden.vbs"
-            $vbsContent = "Set WshShell = CreateObject(""WScript.Shell"")" + "`r`n" + "WshShell.Run ""powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File """"$myPath\CommAgentService.ps1"""""", 0, False" + "`r`n" + "Set WshShell = Nothing"
-            $vbsContent | Out-File -FilePath $vbsLauncher -Encoding ASCII -Force
+        $serverVer = if ($vData.version) { [string]$vData.version.Trim() } else { '' }
+        if (-not $serverVer) { return }
 
-            $batContent = "@echo off`r`ntimeout /t 2 /nobreak >nul`r`ntaskkill /F /PID $PID >nul 2>&1`r`ntimeout /t 1 /nobreak >nul`r`nrobocopy `"$extractPath`" `"$myPath`" /E /IS /IT /NP /XF *.log /XF config.json /XF install_config.json /XF Start-CommAgent-Hidden.vbs`r`nwscript.exe `"$vbsLauncher`"`r`ndel `"%~f0`""
-            $batContent | Out-File -FilePath $updaterBat -Encoding ASCII -Force
-            Start-Process -FilePath $updaterBat -WindowStyle Hidden
-            [System.Windows.Forms.Application]::Exit()
-            Stop-Process -Id $PID -Force
+        # Se i file su disco sono gia' alla versione server, non riscaricare (evita doppio log/icone)
+        $fileVer = Get-CommAgentFileVersion
+        if ($fileVer -eq $serverVer -and $SCRIPT_VERSION -ne $serverVer) {
+            Write-Log "Versione server $serverVer gia' presente su disco (file=$fileVer); attesa riavvio processo." "INFO"
+            return
         }
+
+        if ($serverVer -eq $SCRIPT_VERSION) { return }
+
+        # Debounce: non ripetere download se un update e' partito da meno di 90 secondi
+        if (-not $Force) {
+            try {
+                if ($script:lastCommAgentUpdateAttempt) {
+                    $dt = [datetime]$script:lastCommAgentUpdateAttempt
+                    if (((Get-Date) - $dt).TotalSeconds -lt 90) {
+                        Write-Log "Aggiornamento ignorato (debounce 90s)." "INFO"
+                        return
+                    }
+                }
+            } catch {}
+        }
+
+        $script:lastCommAgentUpdateAttempt = Get-Date
+        Write-Log "Aggiornamento rilevato: $SCRIPT_VERSION -> $serverVer. Download e riavvio..." "INFO"
+        # Chiude altre istanze duplicate prima di aggiornare (meno icone tray doppie)
+        Stop-OtherCommAgentProcesses -ExceptPid $PID
+        Start-Sleep -Milliseconds 400
+
+        $zipPath = Join-Path $env:TEMP "LogikaCommAgent_Update.zip"
+        $extractPath = Join-Path $env:TEMP "LogikaCommAgent_Update"
+        $dlUrl = "$($config.server_url)/api/comm-agent/download-agent"
+        $headers = @{ "X-Comm-API-Key" = $config.api_key }
+        Invoke-WebRequest -Uri $dlUrl -Headers $headers -OutFile $zipPath -TimeoutSec 30 -ErrorAction Stop
+        if (Test-Path $extractPath) { Remove-Item $extractPath -Recurse -Force }
+        Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force -ErrorAction Stop
+        $updaterBat = Join-Path $env:TEMP "LogikaUpdate.bat"
+        $myPath = $script:scriptDir
+        $vbsLauncher = Join-Path $myPath "Start-CommAgent-Hidden.vbs"
+        $vbsContent = "Set WshShell = CreateObject(""WScript.Shell"")" + "`r`n" + "WshShell.Run ""powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File """"$myPath\CommAgentService.ps1"""""", 0, False" + "`r`n" + "Set WshShell = Nothing"
+        $vbsContent | Out-File -FilePath $vbsLauncher -Encoding ASCII -Force
+
+        $batContent = "@echo off`r`ntimeout /t 2 /nobreak >nul`r`ntaskkill /F /PID $PID >nul 2>&1`r`ntimeout /t 1 /nobreak >nul`r`nrobocopy `"$extractPath`" `"$myPath`" /E /IS /IT /NP /XF *.log /XF config.json /XF install_config.json /XF Start-CommAgent-Hidden.vbs`r`nwscript.exe `"$vbsLauncher`"`r`ndel `"%~f0`""
+        $batContent | Out-File -FilePath $updaterBat -Encoding ASCII -Force
+        Start-Process -FilePath $updaterBat -WindowStyle Hidden
+        [System.Windows.Forms.Application]::Exit()
+        Stop-Process -Id $PID -Force
     }
     catch {
         Write-Log "Controllo aggiornamenti fallito: $_" "WARN"
