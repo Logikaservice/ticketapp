@@ -30,7 +30,7 @@ if (process.env.DATABASE_URL) {
 
 const pool = new Pool(poolConfig);
 
-const { authenticateToken } = require('../utils/jwtUtils');
+const { authenticateToken } = require('../middleware/authMiddleware');
 
 // Initialize new tables
 const ensureLSightTables = async () => {
