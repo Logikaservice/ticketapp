@@ -232,19 +232,22 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
 
   const CompanyCard = ({ company }) => {
     const color = getCompanyColor(company.name);
+    const goCompany = (source) => {
+      try {
+        if (window?.localStorage?.getItem('debug_lsight') === '1') {
+          console.log('[L-Sight] select company:', company.name, 'via', source);
+        }
+      } catch (_) {}
+      setSelectedCompany(company.name);
+      setPcSearch('');
+    };
     return (
       <button
         type="button"
-        onClick={() => {
-          try {
-            if (window?.localStorage?.getItem('debug_lsight') === '1') {
-              console.log('[L-Sight] click company:', company.name);
-            }
-          } catch (_) {}
-          setSelectedCompany(company.name);
-          setPcSearch('');
-        }}
-        className={`group relative z-20 pointer-events-auto text-left w-full rounded-2xl border bg-gradient-to-br p-5 transition-all shadow-lg hover:scale-[1.02] active:scale-[0.99] overflow-hidden ${color.bg} ${color.border}`}
+        onMouseDown={(e) => { e.preventDefault(); goCompany('mousedown'); }}
+        onTouchStart={(e) => { e.preventDefault(); goCompany('touchstart'); }}
+        onClick={(e) => { e.preventDefault(); goCompany('click'); }}
+        className={`group relative z-20 pointer-events-auto cursor-pointer select-none text-left w-full rounded-2xl border bg-gradient-to-br p-5 transition-all shadow-lg hover:scale-[1.02] active:scale-[0.99] overflow-hidden ${color.bg} ${color.border}`}
       >
         <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-white/5 rounded-full" />
         <div className="flex items-start gap-3">
