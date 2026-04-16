@@ -1325,6 +1325,21 @@ app.get('/clients', async (req, res) => {
 // Rotte protette con autenticazione JWT
 const lsightRoutes = require('./routes/lsight');
 app.use('/api/lsight', lsightRoutes);
+
+// L-Sight RTC (WebRTC engine) — modulo isolato e disattivato di default
+// Abilita impostando: LSIGHT_RTC_ENABLED=1
+if (String(process.env.LSIGHT_RTC_ENABLED || '').trim() === '1') {
+  try {
+    const lsightRtcRoutes = require('./routes/lsightRtc');
+    app.use('/api/lsight-rtc', lsightRtcRoutes);
+    console.log('✅ L-Sight RTC abilitato su /api/lsight-rtc');
+  } catch (e) {
+    console.error('❌ Errore caricamento L-Sight RTC routes:', e.message);
+  }
+} else {
+  console.log('ℹ️ L-Sight RTC disabilitato (LSIGHT_RTC_ENABLED!=1)');
+}
+
 app.use('/api/users', authenticateToken, usersRoutes);
 app.use('/api/tickets', authenticateToken, ticketsRoutes);
 app.use('/api/alerts', authenticateToken, alertsRoutes);
