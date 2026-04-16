@@ -185,13 +185,14 @@ module.exports = (pool, io) => {
     // ============================================
     const authenticateCommAgent = async (req, res, next) => {
         try {
-            const apiKey = req.headers['x-comm-api-key'];
+            const rawKey = req.headers['x-comm-api-key'];
+            const apiKey = rawKey != null ? String(rawKey).trim() : '';
             if (!apiKey) {
                 return res.status(401).json({ error: 'API Key comunicazione richiesta' });
             }
             await ensureTables();
             const result = await pool.query(
-                'SELECT ca.id, ca.user_id, ca.machine_name, ca.machine_id, ca.status, u.email, u.nome, u.cognome, u.azienda FROM comm_agents ca JOIN users u ON ca.user_id = u.id WHERE ca.api_key = $1',
+                'SELECT ca.id, ca.user_id, ca.machine_name, ca.machine_id, ca.status, u.email, u.nome, u.cognome, u.azienda FROM comm_agents ca JOIN users u ON ca.user_id = u.id WHERE TRIM(ca.api_key) = $1',
                 [apiKey]
             );
             if (result.rows.length === 0) {

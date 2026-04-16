@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.33"
+$SCRIPT_VERSION = "1.2.34"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 
@@ -49,14 +49,47 @@ function Write-Log {
 }
 try { Write-Log "Avvio script, versione $SCRIPT_VERSION" "INFO" } catch {}
 
+function Normalize-ConfigObj {
+    param($o)
+    if (-not $o) { return $null }
+    try {
+        if ($o -is [hashtable]) {
+            if ($o['api_key']) { $o['api_key'] = [string]$o['api_key'].Trim() }
+            if ($o['server_url']) { $o['server_url'] = [string]$o['server_url'].Trim().TrimEnd('/') }
+        } else {
+            if ($null -ne $o.PSObject.Properties['api_key'] -and $o.api_key) {
+                $o.api_key = [string]$o.api_key.Trim()
+            }
+            if ($null -ne $o.PSObject.Properties['server_url'] -and $o.server_url) {
+                $o.server_url = [string]$o.server_url.Trim().TrimEnd('/')
+            }
+        }
+    } catch {}
+    return $o
+}
+
 function Load-Config {
-    if (Test-Path $script:configFile) { try { return Get-Content $script:configFile -Raw | ConvertFrom-Json } catch {} }
-    return $null
+    if (-not (Test-Path $script:configFile)) { return $null }
+    try {
+        # UTF8 senza BOM: Out-File -Encoding UTF8 in PS 5.1 aggiunge BOM e può rompere ConvertFrom-Json
+        $raw = [System.IO.File]::ReadAllText($script:configFile)
+        if ($raw.Length -gt 0 -and [int][char]$raw[0] -eq 0xFEFF) {
+            $raw = $raw.Substring(1)
+        }
+        $obj = $raw | ConvertFrom-Json
+        return (Normalize-ConfigObj $obj)
+    } catch {
+        return $null
+    }
 }
 
 function Save-Config {
     param($Config)
-    try { $Config | ConvertTo-Json -Depth 4 | Out-File -FilePath $script:configFile -Encoding UTF8 -Force } catch {}
+    try {
+        $json = $Config | ConvertTo-Json -Depth 6
+        $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+        [System.IO.File]::WriteAllText($script:configFile, $json, $utf8NoBom)
+    } catch {}
 }
 
 # ============================================
@@ -625,7 +658,7 @@ function Register-Agent {
         $resp = Invoke-RestMethod -Uri "$ServerUrl/api/comm-agent/agent/register" -Method POST -Body $body -ContentType "application/json" -ErrorAction Stop
         if ($resp.api_key) {
             $em = if ($resp.user -and $resp.user.email) { $resp.user.email } else { $Email }
-            $newCfg = @{ server_url = $ServerUrl; api_key = $resp.api_key; agent_id = $resp.agent_id; email = $em }
+            $newCfg = @{ server_url = $ServerUrl; api_key = [string]$resp.api_key.Trim(); agent_id = $resp.agent_id; email = $em }
             Save-Config $newCfg
             return $newCfg
         }
@@ -654,7 +687,7 @@ function Register-Agent {
 # ============================================
 function Get-ConfigOrRegister {
     $cfg = Load-Config
-    if ($cfg -and $cfg.api_key) { return $cfg }
+    if ($cfg -and $cfg.api_key) { return (Normalize-ConfigObj $cfg) }
     $installConfigPath = Join-Path $script:scriptDir "install_config.json"
     if (-not (Test-Path $installConfigPath)) {
         Write-Log "Mancano config.json e install_config.json. Eseguire l'installer." "ERROR"
@@ -791,6 +824,9 @@ if ($cfg) {
                 if ($script:bgState.InvalidApiKey) {
                     $script:bgState.InvalidApiKey = $false
                     Write-Log "Rilevata API Key non valida. Tentativo di ri-registrazione..." "WARN"
+                    # Conserva flag opzionali (es. pilot L-Sight) prima di cancellare config.json
+                    $keepLsightRtc = $false
+                    try { if ($cfg.lsight_rtc_enabled -eq $true) { $keepLsightRtc = $true } } catch {}
                     if (Test-Path $script:configFile) { Remove-Item $script:configFile -Force }
                     
                     # Ricarichiamo la config (che forzerà Get-ConfigOrRegister a riprovare)
@@ -798,6 +834,12 @@ if ($cfg) {
                     if ($newCfg) {
                         $cfg.api_key = $newCfg.api_key
                         $cfg.agent_id = $newCfg.agent_id
+                        try {
+                            if ($keepLsightRtc) {
+                                $cfg | Add-Member -NotePropertyName lsight_rtc_enabled -NotePropertyValue $true -Force
+                                Save-Config $cfg
+                            }
+                        } catch {}
                         Write-Log "Ri-registrazione completata con successo." "INFO"
                     } else {
                         Write-Log "Ri-registrazione fallita. L'agent si fermerà." "ERROR"
