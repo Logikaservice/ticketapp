@@ -196,8 +196,21 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
           }
         } catch (_) {}
 
-        if (typeof onOpenSession === 'function') onOpenSession(data.session.id);
-        else openSessionFallback(data.session.id);
+        if (typeof onOpenSession === 'function') {
+          onOpenSession(data.session.id);
+          // Fallback: se per qualche motivo lo stato non cambia hash subito, forziamo la navigazione.
+          setTimeout(() => {
+            try {
+              if (window.location.hash !== '#lsight-session') {
+                openSessionFallback(data.session.id);
+              }
+            } catch (_) {
+              openSessionFallback(data.session.id);
+            }
+          }, 300);
+        } else {
+          openSessionFallback(data.session.id);
+        }
       } catch (e) {
         console.error('Errore avvio sessione L-Sight RTC:', e);
         alert('Errore di rete durante l’avvio della sessione.');
