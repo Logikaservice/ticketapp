@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.37"
+$SCRIPT_VERSION = "1.2.38"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 
@@ -29,6 +29,7 @@ $script:configFile = Join-Path $script:scriptDir "config.json"
 $script:logFile = Join-Path $script:scriptDir "CommAgent.log"
 
 $script:isRunning = $true
+$script:commAgentMutex = $null
 $script:trayIcon = $null
 $script:activeNotificationForm = $null 
 $script:lastUpdateCheck = [DateTime]::MinValue
@@ -626,26 +627,51 @@ function Get-CommAgentFileVersion {
     return $SCRIPT_VERSION
 }
 
+function Test-IsCommAgentProcessCommandLine {
+    param([string]$CommandLine, [string]$InstallDir)
+    if ([string]::IsNullOrWhiteSpace($CommandLine)) { return $false }
+    $cl = $CommandLine
+    $dirOk = ($null -ne $InstallDir -and $InstallDir.Length -gt 0 -and $cl.IndexOf($InstallDir, [StringComparison]::OrdinalIgnoreCase) -ge 0)
+    if (-not $dirOk) {
+        $dirOk = ($cl -like '*LogikaCommAgent*' -or $cl -like '*ProgramData*LogikaCommAgent*')
+    }
+    if (-not $dirOk) { return $false }
+    if ($cl -like '*CommAgentService.ps1*') { return $true }
+    if ($cl -like '*Start-CommAgent-Hidden.vbs*') { return $true }
+    return $false
+}
+
 function Stop-OtherCommAgentProcesses {
-    param([int]$ExceptPid)
+    param([int]$ExceptPid, [string]$InstallDir)
+    if (-not $InstallDir) { $InstallDir = $script:scriptDir }
     try {
-        $filter = "Name = 'powershell.exe' OR Name = 'powershell_ise.exe' OR Name = 'wscript.exe'"
+        $filter = "Name = 'powershell.exe' OR Name = 'powershell_ise.exe' OR Name = 'pwsh.exe' OR Name = 'wscript.exe' OR Name = 'cscript.exe'"
         $procs = $null
         try { $procs = Get-CimInstance -ClassName Win32_Process -Filter $filter -ErrorAction SilentlyContinue } catch {
-            $procs = Get-WmiObject Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'powershell|wscript' }
+            $procs = Get-WmiObject Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'powershell|pwsh|wscript|cscript' }
         }
         foreach ($p in @($procs)) {
             if ([int]$p.ProcessId -eq $ExceptPid) { continue }
             $cl = [string]$p.CommandLine
-            if ([string]::IsNullOrWhiteSpace($cl)) { continue }
-            if ($cl -like '*CommAgentService.ps1*' -and ($cl -like '*LogikaCommAgent*' -or $cl -like '*ProgramData*LogikaCommAgent*')) {
-                Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
-            }
-            if ($cl -like '*Start-CommAgent-Hidden.vbs*' -and $cl -like '*LogikaCommAgent*') {
+            if (Test-IsCommAgentProcessCommandLine -CommandLine $cl -InstallDir $InstallDir) {
                 Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
             }
         }
     } catch {}
+}
+
+function Ensure-CommAgentSingleInstance {
+    try {
+        $created = $false
+        $script:commAgentMutex = New-Object System.Threading.Mutex($true, 'Global\LogikaCommAgentService', [ref]$created)
+        if (-not $created) {
+            Write-Log "CommAgent: istanza gia' in esecuzione (mutex); uscita senza tray." "INFO"
+            exit 0
+        }
+    }
+    catch {
+        Write-Log "CommAgent: impossibile acquisire mutex singola istanza: $_" "WARN"
+    }
 }
 
 function Stop-CommAgentUiTimers {
@@ -721,7 +747,26 @@ function Check-Update {
         $vbsContent = "Set WshShell = CreateObject(""WScript.Shell"")" + "`r`n" + "WshShell.Run ""powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File """"$myPath\CommAgentService.ps1"""""", 0, False" + "`r`n" + "Set WshShell = Nothing"
         $vbsContent | Out-File -FilePath $vbsLauncher -Encoding ASCII -Force
 
-        $batContent = "@echo off`r`ntimeout /t 2 /nobreak >nul`r`ntaskkill /F /PID $PID >nul 2>&1`r`ntimeout /t 1 /nobreak >nul`r`nrobocopy `"$extractPath`" `"$myPath`" /E /IS /IT /NP /XF *.log /XF config.json /XF install_config.json /XF Start-CommAgent-Hidden.vbs`r`nwscript.exe `"$vbsLauncher`"`r`ndel `"%~f0`""
+        # Script usato dal batch: termina ogni istanza residua (stesso percorso) dopo robocopy, prima del wscript
+        $killHelperPath = Join-Path $env:TEMP "LogikaCommAgent_UpdateKill.ps1"
+        $killHelperBody = @'
+param([Parameter(Mandatory=$true)][string]$InstallDir)
+$InstallDir = $InstallDir.TrimEnd('\')
+$filter = "Name = 'powershell.exe' OR Name = 'powershell_ise.exe' OR Name = 'pwsh.exe' OR Name = 'wscript.exe' OR Name = 'cscript.exe'"
+try { $procs = Get-CimInstance Win32_Process -Filter $filter -ErrorAction SilentlyContinue } catch { $procs = $null }
+foreach ($p in @($procs)) {
+    $cl = [string]$p.CommandLine
+    if ([string]::IsNullOrWhiteSpace($cl)) { continue }
+    $dirOk = ($InstallDir.Length -gt 0 -and $cl.IndexOf($InstallDir, [StringComparison]::OrdinalIgnoreCase) -ge 0)
+    if (-not $dirOk) { $dirOk = ($cl -like '*LogikaCommAgent*' -or $cl -like '*ProgramData*LogikaCommAgent*') }
+    if (-not $dirOk) { continue }
+    if ($cl -notlike '*CommAgentService.ps1*' -and $cl -notlike '*Start-CommAgent-Hidden.vbs*') { continue }
+    Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
+}
+'@
+        try { $killHelperBody | Set-Content -Path $killHelperPath -Encoding UTF8 -Force } catch { Write-Log "Impossibile scrivere UpdateKill helper: $_" "WARN" }
+
+        $batContent = "@echo off`r`ntimeout /t 2 /nobreak >nul`r`ntaskkill /F /PID $PID >nul 2>&1`r`ntimeout /t 1 /nobreak >nul`r`nrobocopy `"$extractPath`" `"$myPath`" /E /IS /IT /NP /XF *.log /XF config.json /XF install_config.json /XF Start-CommAgent-Hidden.vbs`r`npowershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"%TEMP%\LogikaCommAgent_UpdateKill.ps1`" -InstallDir `"$myPath`"`r`ndel `"%TEMP%\LogikaCommAgent_UpdateKill.ps1`" >nul 2>&1`r`ntimeout /t 1 /nobreak >nul`r`nwscript.exe `"$vbsLauncher`"`r`ndel `"%~f0`""
         $batContent | Out-File -FilePath $updaterBat -Encoding ASCII -Force
         # Prima di taskkill esterno: ferma timer e rimuovi tray (evita icona vecchia "appesa")
         Stop-CommAgentUiTimers
@@ -880,6 +925,9 @@ function LSightRtc-Poll {
 $cfg = Get-ConfigOrRegister
 if ($cfg) {
     try {
+        Ensure-CommAgentSingleInstance
+        Stop-OtherCommAgentProcesses -ExceptPid $PID
+        Start-Sleep -Milliseconds 500
         Initialize-TrayIcon
         $script:heartbeatTimer = New-Object System.Windows.Forms.Timer
         $script:heartbeatTimer.Interval = [int]($HEARTBEAT_INTERVAL_SECONDS * 1000)
