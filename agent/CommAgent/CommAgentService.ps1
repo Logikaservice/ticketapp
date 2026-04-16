@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.36"
+$SCRIPT_VERSION = "1.2.37"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 
@@ -648,6 +648,29 @@ function Stop-OtherCommAgentProcesses {
     } catch {}
 }
 
+function Stop-CommAgentUiTimers {
+    foreach ($n in @('heartbeatTimer', 'updateTimer', 'updateCheckOnce', 'lsightRtcTimer', 'toastCheckTimer')) {
+        try {
+            $t = (Get-Variable -Name $n -Scope Script -ErrorAction SilentlyContinue).Value
+            if ($null -ne $t) {
+                $t.Stop()
+                $t.Dispose()
+                Set-Variable -Name $n -Scope Script -Value $null
+            }
+        } catch {}
+    }
+}
+
+function Remove-CommAgentTrayIconSafely {
+    try {
+        if ($script:trayIcon) {
+            $script:trayIcon.Visible = $false
+            $script:trayIcon.Dispose()
+            $script:trayIcon = $null
+        }
+    } catch {}
+}
+
 function Check-Update {
     param([switch]$Force)
     $config = Load-Config
@@ -700,6 +723,10 @@ function Check-Update {
 
         $batContent = "@echo off`r`ntimeout /t 2 /nobreak >nul`r`ntaskkill /F /PID $PID >nul 2>&1`r`ntimeout /t 1 /nobreak >nul`r`nrobocopy `"$extractPath`" `"$myPath`" /E /IS /IT /NP /XF *.log /XF config.json /XF install_config.json /XF Start-CommAgent-Hidden.vbs`r`nwscript.exe `"$vbsLauncher`"`r`ndel `"%~f0`""
         $batContent | Out-File -FilePath $updaterBat -Encoding ASCII -Force
+        # Prima di taskkill esterno: ferma timer e rimuovi tray (evita icona vecchia "appesa")
+        Stop-CommAgentUiTimers
+        Remove-CommAgentTrayIconSafely
+        try { [System.Windows.Forms.Application]::DoEvents() } catch {}
         Start-Process -FilePath $updaterBat -WindowStyle Hidden
         [System.Windows.Forms.Application]::Exit()
         Stop-Process -Id $PID -Force
