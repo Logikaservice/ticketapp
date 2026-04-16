@@ -6,7 +6,7 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [closing, setClosing] = useState(false);
-  const [rtcStatus, setRtcStatus] = useState('idle'); // idle | offering | waiting-answer | connected | failed
+  const [rtcStatus, setRtcStatus] = useState('idle'); // idle | offering | waiting-answer | connected | failed | agent-ready
   const [rtcError, setRtcError] = useState(null);
   const [remoteVideoReady, setRemoteVideoReady] = useState(false);
 
@@ -83,6 +83,9 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
           setRtcStatus('failed');
           setRtcError(`Errore setRemoteDescription(answer): ${e.message}`);
         }
+      } else if (s.type === 'agent-ready') {
+        // Segnale leggero per confermare che l'agent pilota vede la sessione.
+        if (rtcStatus !== 'connected') setRtcStatus('agent-ready');
       } else if (s.type === 'ice') {
         try {
           await pc.addIceCandidate(s.payload);
@@ -330,6 +333,7 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
                 {rtcStatus === 'idle' ? 'pronto' :
                   rtcStatus === 'offering' ? 'creo offer...' :
                     rtcStatus === 'waiting-answer' ? 'in attesa di answer...' :
+                      rtcStatus === 'agent-ready' ? 'agent pronto (pilot)' :
                       rtcStatus === 'connected' ? 'connesso' :
                         'errore'}
               </div>

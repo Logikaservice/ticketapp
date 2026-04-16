@@ -696,6 +696,62 @@ function Get-ConfigOrRegister {
 }
 
 # ============================================
+# L-SIGHT RTC (PILOT) - SOLO PER TEST
+# ============================================
+function Get-LSightRtcEnabled {
+    param($Config)
+    try {
+        if (-not $Config) { return $false }
+        # Opt-in esplicito da config.json
+        if ($Config.lsight_rtc_enabled -ne $true) { return $false }
+        # Guardrail: abilitiamo solo sulla macchina pilota SRV
+        if ($env:COMPUTERNAME -ne "SRV") { return $false }
+        return $true
+    }
+    catch { return $false }
+}
+
+function LSightRtc-AgentReady {
+    param($Config, [int]$SessionId)
+    try {
+        $url = "$($Config.server_url)/api/lsight-rtc/agent/sessions/$SessionId/signal"
+        $headers = @{ 'X-Agent-Key' = $Config.api_key; 'Content-Type' = 'application/json' }
+        $body = @{ type = 'agent-ready'; payload = @{ machine = $env:COMPUTERNAME; ts = (Get-Date).ToString("o") } } | ConvertTo-Json -Depth 4 -Compress
+        Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $body -TimeoutSec 8 -ErrorAction Stop | Out-Null
+        return $true
+    }
+    catch {
+        Write-Log "LSightRtc: errore invio agent-ready (session $SessionId): $_" "WARN"
+        return $false
+    }
+}
+
+function LSightRtc-Poll {
+    param($Config)
+    try {
+        if (-not (Get-LSightRtcEnabled -Config $Config)) { return }
+
+        # Lista sessioni attive per questo agent
+        $listUrl = "$($Config.server_url)/api/lsight-rtc/agent/sessions?limit=5"
+        $headers = @{ 'X-Agent-Key' = $Config.api_key }
+        $resp = Invoke-RestMethod -Uri $listUrl -Method GET -Headers $headers -TimeoutSec 8 -ErrorAction Stop
+        $sessions = @($resp.sessions)
+        if ($sessions.Count -le 0) { return }
+
+        # Prendiamo la più recente
+        $sid = [int]$sessions[0].id
+        if ($sid -le 0) { return }
+
+        # In questa fase facciamo solo un segnale di "presenza" per validare la catena end-to-end.
+        # Il motore WebRTC vero (video/input) verrà agganciato nei prossimi step.
+        LSightRtc-AgentReady -Config $Config -SessionId $sid | Out-Null
+    }
+    catch {
+        Write-Log "LSightRtc: poll fallito: $_" "WARN"
+    }
+}
+
+# ============================================
 # MAIN
 # ============================================
 $cfg = Get-ConfigOrRegister
@@ -719,6 +775,12 @@ if ($cfg) {
                 Check-Update
             })
         $script:updateCheckOnce.Start()
+
+        # L-Sight RTC (pilot) - polling leggero, opt-in da config e solo macchina SRV
+        $script:lsightRtcTimer = New-Object System.Windows.Forms.Timer
+        $script:lsightRtcTimer.Interval = 1500
+        $script:lsightRtcTimer.Add_Tick({ LSightRtc-Poll -Config $cfg })
+        $script:lsightRtcTimer.Start()
 
         # Timer UI che processa i toast accodati dal runspace heartbeat (ogni 500ms sul thread UI)
         $script:toastCheckTimer = New-Object System.Windows.Forms.Timer

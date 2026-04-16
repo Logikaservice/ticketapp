@@ -341,6 +341,33 @@ router.get('/sessions/:id/signals', async (req, res) => {
 // -------------------------------
 // Signaling lato agent (api_key)
 // -------------------------------
+router.get('/agent/sessions', requireAgentKey, authenticateAgentKey, async (req, res) => {
+  try {
+    await ensureTables();
+
+    const limit = Math.max(1, Math.min(50, Number(req.query?.limit || 10)));
+    const { rows } = await pool.query(
+      `SELECT id, session_token, user_id, agent_id, status, created_at, expires_at
+       FROM lsight_rtc_sessions
+       WHERE agent_id = $1
+         AND status IN ('created','connecting','active')
+         AND expires_at > NOW()
+       ORDER BY id DESC
+       LIMIT $2`,
+      [req.commAgent.id, limit]
+    );
+
+    return res.json({ success: true, sessions: rows });
+  } catch (e) {
+    console.error('lsight-rtc: errore agent list sessions:', e);
+    return res.status(500).json({
+      success: false,
+      error: 'Errore interno',
+      ...(verboseErrors ? { details: toErrPayload(e) } : {})
+    });
+  }
+});
+
 router.get('/agent/sessions/:id', requireAgentKey, authenticateAgentKey, async (req, res) => {
   try {
     await ensureTables();
