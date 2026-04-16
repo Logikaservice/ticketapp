@@ -152,10 +152,30 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
     const isOnline = ag.status === 'online';
     const isStarting = startingSessionAgentId === ag.agent_id;
 
-    const startSession = async () => {
+    const openSessionFallback = (sessionId) => {
+      const id = Number(sessionId);
+      if (!id || Number.isNaN(id)) return;
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('lsightSessionId', String(id));
+        window.history.replaceState({}, '', url.toString());
+        window.location.hash = '#lsight-session';
+        window.dispatchEvent(new Event('ticketapp-sync-hash'));
+      } catch (_) {
+        window.location.hash = '#lsight-session';
+      }
+    };
+
+    const startSession = async (source = 'click') => {
       if (!isOnline || isStarting) return;
       setStartingSessionAgentId(ag.agent_id);
       try {
+        try {
+          if (window?.localStorage?.getItem('debug_lsight') === '1') {
+            console.log('[L-Sight] startSession', { source, agent_id: ag.agent_id, machine: ag.machine_name });
+          }
+        } catch (_) {}
+
         const res = await fetch('/api/lsight-rtc/sessions', {
           method: 'POST',
           headers: {
@@ -170,11 +190,14 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
           alert(msg);
           return;
         }
-        if (typeof onOpenSession === 'function') {
-          onOpenSession(data.session.id);
-        } else {
-          alert(`Sessione creata: ${data.session.id}`);
-        }
+        try {
+          if (window?.localStorage?.getItem('debug_lsight') === '1') {
+            console.log('[L-Sight] session created', data.session);
+          }
+        } catch (_) {}
+
+        if (typeof onOpenSession === 'function') onOpenSession(data.session.id);
+        else openSessionFallback(data.session.id);
       } catch (e) {
         console.error('Errore avvio sessione L-Sight RTC:', e);
         alert('Errore di rete durante l’avvio della sessione.');
@@ -215,7 +238,9 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
         <div className="p-5 pt-3 flex-1 flex flex-col justify-between">
           <p className="text-xs text-slate-500 mb-4 truncate">{ag.os_info || 'Sistema Sconosciuto'}</p>
           <button
-            onClick={startSession}
+            onMouseDown={(e) => { e.preventDefault(); startSession('mousedown'); }}
+            onTouchStart={(e) => { e.preventDefault(); startSession('touchstart'); }}
+            onClick={(e) => { e.preventDefault(); startSession('click'); }}
             disabled={!isOnline || isStarting}
             className={`w-full py-2 rounded-lg flex items-center justify-center gap-2 font-bold text-xs transition-all focus:outline-none ${
               isOnline
