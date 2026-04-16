@@ -1767,7 +1767,13 @@ export default function TicketApp() {
 
   // Callback per network monitoring updates
   const handleNetworkMonitoringUpdate = React.useCallback((data) => {
-    console.log('📡 Network monitoring update ricevuto:', data);
+    try {
+      if (localStorage.getItem('debug_ws') === '1') {
+        console.log('📡 Network monitoring update ricevuto:', data);
+      }
+    } catch (_) {
+      // ignore
+    }
     // La dashboard gestirà il refresh dei dati tramite WebSocket
   }, []);
 

@@ -20,6 +20,17 @@ export const useWebSocket = ({
   const maxReconnectAttempts = 5;
   const isConnectingRef = useRef(false);
   const pingIntervalRef = useRef(null);
+  const isDebugEnabledRef = useRef(false);
+
+  const wsLog = useCallback((...args) => {
+    if (isDebugEnabledRef.current) console.log(...args);
+  }, []);
+  const wsWarn = useCallback((...args) => {
+    if (isDebugEnabledRef.current) console.warn(...args);
+  }, []);
+  const wsError = useCallback((...args) => {
+    if (isDebugEnabledRef.current) console.error(...args);
+  }, []);
   
   // Usa useRef per le callback per evitare ri-render
   const callbacksRef = useRef({
@@ -77,6 +88,14 @@ export const useWebSocket = ({
 
     try {
       const apiBase = getApiBase() || window.location.origin;
+
+      // Debug logs: disattivati di default per evitare spam console in produzione.
+      // Abilita con: localStorage.setItem('debug_ws','1')
+      try {
+        isDebugEnabledRef.current = localStorage.getItem('debug_ws') === '1';
+      } catch (_) {
+        isDebugEnabledRef.current = false;
+      }
       
       // Ottieni token - non usare getAuthHeader nelle dipendenze
       const authHeader = getAuthHeader();
@@ -87,22 +106,22 @@ export const useWebSocket = ({
       }
       
       if (!token) {
-        console.warn('⚠️ WebSocket: Token non disponibile, connessione non possibile');
-        console.warn('⚠️ authHeader:', authHeader);
-        console.warn('⚠️ localStorage authToken:', localStorage.getItem('authToken'));
+        wsWarn('⚠️ WebSocket: Token non disponibile, connessione non possibile');
+        wsWarn('⚠️ authHeader:', authHeader);
+        wsWarn('⚠️ localStorage authToken:', localStorage.getItem('authToken'));
         isConnectingRef.current = false;
         return;
       }
 
       // Verifica che il token sia valido (almeno ha la struttura JWT)
       if (!token.includes('.')) {
-        console.error('❌ WebSocket: Token malformato (non è un JWT valido)');
+        wsError('❌ WebSocket: Token malformato (non è un JWT valido)');
         isConnectingRef.current = false;
         return;
       }
 
-      console.log('🔌 WebSocket: Tentativo di connessione a', apiBase);
-      console.log('🔌 WebSocket: Token presente (lunghezza:', token.length, 'caratteri)');
+      wsLog('🔌 WebSocket: Tentativo di connessione a', apiBase);
+      wsLog('🔌 WebSocket: Token presente (lunghezza:', token.length, 'caratteri)');
       
       const socket = io(apiBase, {
         auth: {
@@ -123,14 +142,14 @@ export const useWebSocket = ({
       socketRef.current = socket;
 
       socket.on('connect', () => {
-        console.log('✅ WebSocket: Connesso con successo');
+        wsLog('✅ WebSocket: Connesso con successo');
         setIsConnected(true);
         reconnectAttemptsRef.current = 0;
         isConnectingRef.current = false;
       });
 
       socket.on('disconnect', (reason) => {
-        console.log('❌ WebSocket: Disconnesso -', reason);
+        wsLog('❌ WebSocket: Disconnesso -', reason);
         setIsConnected(false);
         isConnectingRef.current = false;
       });
@@ -143,9 +162,9 @@ export const useWebSocket = ({
         
         if (isNetworkError && reconnectAttemptsRef.current < 3) {
           // Log solo come warning per i primi tentativi
-          console.warn('⚠️ WebSocket: Tentativo di connessione...', reconnectAttemptsRef.current + 1);
+          wsWarn('⚠️ WebSocket: Tentativo di connessione...', reconnectAttemptsRef.current + 1);
         } else {
-          console.error('❌ WebSocket: Errore connessione -', error.message);
+          wsError('❌ WebSocket: Errore connessione -', error.message);
         }
         
         setIsConnected(false);
@@ -159,35 +178,35 @@ export const useWebSocket = ({
 
       // Eventi ticket - usa callbacksRef per evitare dipendenze
       socket.on('ticket:created', (ticket) => {
-        console.log('📨 WebSocket: Nuovo ticket creato', ticket.id);
+        wsLog('📨 WebSocket: Nuovo ticket creato', ticket.id);
         if (callbacksRef.current.onTicketCreated) {
           callbacksRef.current.onTicketCreated(ticket);
         }
       });
 
       socket.on('ticket:updated', (ticket) => {
-        console.log('📨 WebSocket: Ticket aggiornato', ticket.id);
+        wsLog('📨 WebSocket: Ticket aggiornato', ticket.id);
         if (callbacksRef.current.onTicketUpdated) {
           callbacksRef.current.onTicketUpdated(ticket);
         }
       });
 
       socket.on('ticket:status-changed', (data) => {
-        console.log('📨 WebSocket: Stato ticket cambiato', data.ticketId, data.oldStatus, '→', data.newStatus);
+        wsLog('📨 WebSocket: Stato ticket cambiato', data.ticketId, data.oldStatus, '→', data.newStatus);
         if (callbacksRef.current.onTicketStatusChanged) {
           callbacksRef.current.onTicketStatusChanged(data);
         }
       });
 
       socket.on('message:new', (data) => {
-        console.log('📨 WebSocket: Nuovo messaggio', data.ticketId);
+        wsLog('📨 WebSocket: Nuovo messaggio', data.ticketId);
         if (callbacksRef.current.onNewMessage) {
           callbacksRef.current.onNewMessage(data);
         }
       });
 
       socket.on('ticket:deleted', (data) => {
-        console.log('📨 WebSocket: Ticket cancellato', data.ticketId);
+        wsLog('📨 WebSocket: Ticket cancellato', data.ticketId);
         if (callbacksRef.current.onTicketDeleted) {
           callbacksRef.current.onTicketDeleted(data);
         }
@@ -195,7 +214,7 @@ export const useWebSocket = ({
 
       // Eventi network monitoring
       socket.on('network-monitoring-update', (data) => {
-        console.log('📡 WebSocket: Network monitoring update', data);
+        wsLog('📡 WebSocket: Network monitoring update', data);
         if (callbacksRef.current.onNetworkMonitoringUpdate) {
           callbacksRef.current.onNetworkMonitoringUpdate(data);
         }
@@ -209,7 +228,7 @@ export const useWebSocket = ({
       }, 30000); // Ogni 30 secondi
 
     } catch (error) {
-      console.error('❌ WebSocket: Errore inizializzazione -', error);
+      wsError('❌ WebSocket: Errore inizializzazione -', error);
       setIsConnected(false);
       isConnectingRef.current = false;
     }
@@ -217,7 +236,7 @@ export const useWebSocket = ({
     return () => {
       // Cleanup solo se l'utente è cambiato o il componente viene smontato
       if (socketRef.current && socketRef.current.userId !== userId) {
-        console.log('🔌 WebSocket: Disconnessione cleanup (utente cambiato)');
+        wsLog('🔌 WebSocket: Disconnessione cleanup (utente cambiato)');
         socketRef.current.disconnect();
         socketRef.current = null;
         setIsConnected(false);

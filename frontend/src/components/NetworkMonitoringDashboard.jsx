@@ -1129,7 +1129,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     if (!socket || showCreateAgentModal) return; // Non aggiornare se il modal è aperto
 
     const handleNetworkUpdate = (data) => {
-      console.log('📡 Network monitoring update ricevuto:', data);
+      try {
+        if (localStorage.getItem('debug_ws') === '1') {
+          console.log('📡 Network monitoring update ricevuto:', data);
+        }
+      } catch (_) {
+        // ignore
+      }
 
       if (updateTimeoutRef.current) {
         clearTimeout(updateTimeoutRef.current);
@@ -1156,7 +1162,13 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     };
 
     const handleAgentEvent = (data) => {
-      console.log('🔔 Agent event ricevuto:', data);
+      try {
+        if (localStorage.getItem('debug_ws') === '1') {
+          console.log('🔔 Agent event ricevuto:', data);
+        }
+      } catch (_) {
+        // ignore
+      }
 
       // Quando arriva un evento agent (offline, online, reboot, network_issue)
       // ricarica la lista agenti per aggiornare lo status in tempo reale
