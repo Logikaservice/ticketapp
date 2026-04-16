@@ -83,6 +83,50 @@ if (-not $Password -and -not $script:preInstallToken) {
     $Password = Read-Host "Password"
 }
 
+# Chiude istanze precedenti (evita piu' icone tray / processi duplicati dopo reinstall manuale)
+function Stop-ExistingCommAgentInstances {
+    param([string]$TaskName)
+    Write-Host ""
+    Write-Host "Chiusura eventuali istanze precedenti (icona vicino all'orologio)..." -ForegroundColor Yellow
+    try {
+        schtasks /End /TN $TaskName /F 2>$null | Out-Null
+    } catch { }
+    Start-Sleep -Milliseconds 600
+    $killed = 0
+    try {
+        $filter = "Name = 'powershell.exe' OR Name = 'powershell_ise.exe' OR Name = 'wscript.exe' OR Name = 'cscript.exe'"
+        $procs = $null
+        try {
+            $procs = Get-CimInstance -ClassName Win32_Process -Filter $filter -ErrorAction SilentlyContinue
+        } catch {
+            $procs = Get-WmiObject Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+                $_.Name -match '^(powershell|powershell_ise|wscript|cscript)\.exe$'
+            }
+        }
+        foreach ($p in @($procs)) {
+            $cl = [string]$p.CommandLine
+            if ([string]::IsNullOrWhiteSpace($cl)) { continue }
+            $hit = $false
+            if ($cl -like '*CommAgentService.ps1*' -and ($cl -like '*LogikaCommAgent*' -or $cl -like '*ProgramData*LogikaCommAgent*')) { $hit = $true }
+            if ($cl -like '*Start-CommAgent-Hidden.vbs*' -and $cl -like '*LogikaCommAgent*') { $hit = $true }
+            if ($hit) {
+                try {
+                    Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
+                    $killed++
+                } catch { }
+            }
+        }
+    } catch { }
+    if ($killed -gt 0) {
+        Write-Host "  OK: terminati $killed processo/i del vecchio agent." -ForegroundColor Green
+        Start-Sleep -Seconds 1
+    } else {
+        Write-Host "  (nessun processo CommAgent precedente trovato)" -ForegroundColor Gray
+    }
+}
+
+Stop-ExistingCommAgentInstances -TaskName $STARTUP_NAME
+
 # Crea Cartella
 Write-Host "Creazione cartella $INSTALL_DIR..."
 if (-not (Test-Path $INSTALL_DIR)) {
