@@ -1,4 +1,4 @@
-// index.js - Deploy test 2025-12-05 00:25
+﻿// index.js - Deploy test 2025-12-05 00:25
 
 // Carica variabili d'ambiente da .env
 // Specifica il percorso esplicito per funzionare anche con PM2
@@ -1323,6 +1323,8 @@ app.get('/clients', async (req, res) => {
 // ✅ Endpoint /api/health è già definito sopra (linea 846) - RIMOSSO DUPLICATO
 
 // Rotte protette con autenticazione JWT
+const lsightRoutes = require('./routes/lsight');
+app.use('/api/lsight', lsightRoutes);
 app.use('/api/users', authenticateToken, usersRoutes);
 app.use('/api/tickets', authenticateToken, ticketsRoutes);
 app.use('/api/alerts', authenticateToken, alertsRoutes);
