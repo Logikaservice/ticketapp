@@ -48,6 +48,19 @@ function toErrPayload(e) {
 const ensureTables = async () => {
   if (tablesReady) return;
   try {
+    // Permessi L-Sight: necessari per validare l'accesso alle postazioni (clienti)
+    // Vengono creati anche da routes/lsight.js, ma qui li garantiamo per evitare dipendenze dall'ordine di avvio/uso.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS lsight_assignments (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        agent_id INTEGER REFERENCES comm_agents(id) ON DELETE CASCADE,
+        assigned_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(user_id, agent_id)
+      )
+    `);
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS lsight_rtc_sessions (
         id SERIAL PRIMARY KEY,
