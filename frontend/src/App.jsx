@@ -247,6 +247,26 @@ export default function TicketApp() {
     return false;
   });
 
+  // ====================================================================
+  // FLAGS DI VISTA (per evitare fetch inutili in full-screen)
+  // ====================================================================
+  const isFullScreenViewActive =
+    showLSight ||
+    showLSightSession ||
+    showOffice ||
+    showMappatura ||
+    showNetworkMonitoring ||
+    showAntiVirus ||
+    showEmail ||
+    showSpeedTest ||
+    showFlottaPC ||
+    showDeviceAnalysisStandalone ||
+    showPackVision ||
+    showVivaldi ||
+    showOrariTurni;
+
+  const shouldLoadFornitureCounts = showDashboard && !isFullScreenViewActive;
+
 
 
 
@@ -717,23 +737,7 @@ export default function TicketApp() {
     loading: temporarySuppliesLoading,
     removeTemporarySupply,
     refreshTemporarySupplies
-  } = useTemporarySuppliesFromTickets(
-    getAuthHeader,
-    showDashboard &&
-      !showLSight &&
-      !showLSightSession &&
-      !showOffice &&
-      !showMappatura &&
-      !showNetworkMonitoring &&
-      !showAntiVirus &&
-      !showEmail &&
-      !showSpeedTest &&
-      !showFlottaPC &&
-      !showDeviceAnalysisStandalone &&
-      !showPackVision &&
-      !showVivaldi &&
-      !showOrariTurni
-  );
+  } = useTemporarySuppliesFromTickets(getAuthHeader, shouldLoadFornitureCounts);
 
   // Funzione per ricaricare le forniture temporanee manualmente
   const refreshTemporarySuppliesManual = () => {
@@ -1115,59 +1119,51 @@ export default function TicketApp() {
         // Imposta i ticket nello stato immediatamente (le card si popolano subito)
         setTickets(filteredTicketsInitial);
 
-        // Carica il conteggio forniture in background e aggiorna i ticket man mano
-        const BATCH_SIZE = 5;
-        const ticketsWithForniture = [];
+        let filteredTicketsWithForniture = filteredTicketsInitial;
 
-        for (let i = 0; i < ticketsData.length; i += BATCH_SIZE) {
-          const batch = ticketsData.slice(i, i + BATCH_SIZE);
-          const batchResults = await Promise.all(
-            batch.map(async (ticket) => {
-              try {
-                const fornitureResponse = await fetch(buildApiUrl(`/api/tickets/${ticket.id}/forniture`), {
-                  headers: getAuthHeader()
-                });
-                if (fornitureResponse.ok) {
-                  const forniture = await fornitureResponse.json();
-                  return { ...ticket, fornitureCount: forniture.length };
+        // Carica il conteggio forniture solo quando serve (Dashboard, no viste full-screen)
+        if (shouldLoadFornitureCounts) {
+          const BATCH_SIZE = 5;
+          const ticketsWithForniture = [];
+
+          for (let i = 0; i < ticketsData.length; i += BATCH_SIZE) {
+            const batch = ticketsData.slice(i, i + BATCH_SIZE);
+            const batchResults = await Promise.all(
+              batch.map(async (ticket) => {
+                try {
+                  const fornitureResponse = await fetch(buildApiUrl(`/api/tickets/${ticket.id}/forniture`), {
+                    headers: getAuthHeader()
+                  });
+                  if (fornitureResponse.ok) {
+                    const forniture = await fornitureResponse.json();
+                    return { ...ticket, fornitureCount: forniture.length };
+                  }
+                } catch (err) {
+                  // Silenzia ERR_INSUFFICIENT_RESOURCES per forniture
+                  if (!err.message?.includes('ERR_INSUFFICIENT_RESOURCES')) {
+                    console.error(`Errore nel caricare forniture per ticket ${ticket.id}:`, err);
+                  }
                 }
-              } catch (err) {
-                // Silenzia ERR_INSUFFICIENT_RESOURCES per forniture
-                if (!err.message?.includes('ERR_INSUFFICIENT_RESOURCES')) {
-                  console.error(`Errore nel caricare forniture per ticket ${ticket.id}:`, err);
-                }
-              }
-              return { ...ticket, fornitureCount: 0 };
-            })
-          );
-          ticketsWithForniture.push(...batchResults);
+                return { ...ticket, fornitureCount: 0 };
+              })
+            );
+            ticketsWithForniture.push(...batchResults);
 
-          // Aggiorna i ticket nello stato man mano che arrivano le forniture
-          setTickets(prev => {
-            const prevMap = new Map(prev.map(t => [t.id, t]));
-            const updatedMap = new Map();
-
-            // Mantieni tutti i ticket esistenti
-            prev.forEach(t => {
-              updatedMap.set(t.id, t);
+            // Aggiorna i ticket nello stato man mano che arrivano le forniture
+            setTickets(prev => {
+              const updatedMap = new Map(prev.map(t => [t.id, t]));
+              batchResults.forEach(t => updatedMap.set(t.id, t));
+              return Array.from(updatedMap.values());
             });
 
-            // Aggiorna con i nuovi dati delle forniture
-            batchResults.forEach(t => {
-              updatedMap.set(t.id, t);
-            });
-
-            return Array.from(updatedMap.values());
-          });
-
-          // Delay tra batch per evitare sovraccarico
-          if (i + BATCH_SIZE < ticketsData.length) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+            // Delay tra batch per evitare sovraccarico
+            if (i + BATCH_SIZE < ticketsData.length) {
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
           }
-        }
 
-        // Filtra i ticket cancellati per il resto della logica
-        const filteredTicketsWithForniture = ticketsWithForniture.filter(t => !deletedTicketIdsRef.current.has(t.id));
+          filteredTicketsWithForniture = ticketsWithForniture.filter(t => !deletedTicketIdsRef.current.has(t.id));
+        }
 
         // Evidenzia nuovi ticket (persistente finché non aperto) - baseline al primo login
         // Usa filteredTicketsWithForniture che ha i conteggi completi
@@ -1812,41 +1808,44 @@ export default function TicketApp() {
 
         const updatedTickets = await response.json();
 
-        // Carica forniture in batch per evitare ERR_INSUFFICIENT_RESOURCES
-        const BATCH_SIZE = 5;
-        const ticketsWithForniture = [];
+        // Carica forniture (conteggio) solo quando serve (Dashboard, no viste full-screen)
+        let filteredTickets = updatedTickets
+          .map(t => ({ ...t, fornitureCount: 0 }))
+          .filter(t => !deletedTicketIdsRef.current.has(t.id));
 
-        for (let i = 0; i < updatedTickets.length; i += BATCH_SIZE) {
-          const batch = updatedTickets.slice(i, i + BATCH_SIZE);
-          const batchResults = await Promise.all(
-            batch.map(async (ticket) => {
-              try {
-                const fornitureResponse = await fetch(buildApiUrl(`/api/tickets/${ticket.id}/forniture`), {
-                  headers: getAuthHeader()
-                });
-                if (fornitureResponse.ok) {
-                  const forniture = await fornitureResponse.json();
-                  return { ...ticket, fornitureCount: forniture.length };
-                }
-              } catch (err) {
-                // Silenzia ERR_INSUFFICIENT_RESOURCES per forniture
-                if (!err.message?.includes('ERR_INSUFFICIENT_RESOURCES')) {
-                  console.error(`Errore forniture ticket ${ticket.id}:`, err);
-                }
-              }
-              return { ...ticket, fornitureCount: 0 };
-            })
-          );
-          ticketsWithForniture.push(...batchResults);
+        if (shouldLoadFornitureCounts) {
+          const BATCH_SIZE = 5;
+          const ticketsWithForniture = [];
 
-          // Delay tra batch per evitare sovraccarico
-          if (i + BATCH_SIZE < updatedTickets.length) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+          for (let i = 0; i < updatedTickets.length; i += BATCH_SIZE) {
+            const batch = updatedTickets.slice(i, i + BATCH_SIZE);
+            const batchResults = await Promise.all(
+              batch.map(async (ticket) => {
+                try {
+                  const fornitureResponse = await fetch(buildApiUrl(`/api/tickets/${ticket.id}/forniture`), {
+                    headers: getAuthHeader()
+                  });
+                  if (fornitureResponse.ok) {
+                    const forniture = await fornitureResponse.json();
+                    return { ...ticket, fornitureCount: forniture.length };
+                  }
+                } catch (err) {
+                  if (!err.message?.includes('ERR_INSUFFICIENT_RESOURCES')) {
+                    console.error(`Errore forniture ticket ${ticket.id}:`, err);
+                  }
+                }
+                return { ...ticket, fornitureCount: 0 };
+              })
+            );
+            ticketsWithForniture.push(...batchResults);
+
+            if (i + BATCH_SIZE < updatedTickets.length) {
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
           }
-        }
 
-        // Filtra i ticket cancellati (anche se il backend li restituisce per cache/delay)
-        const filteredTickets = ticketsWithForniture.filter(t => !deletedTicketIdsRef.current.has(t.id));
+          filteredTickets = ticketsWithForniture.filter(t => !deletedTicketIdsRef.current.has(t.id));
+        }
 
         // Evidenzia nuovi ticket rispetto al polling precedente (cliente e tecnico) - persiste finché non aperto
         let polled = filteredTickets;
