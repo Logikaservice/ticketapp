@@ -717,7 +717,23 @@ export default function TicketApp() {
     loading: temporarySuppliesLoading,
     removeTemporarySupply,
     refreshTemporarySupplies
-  } = useTemporarySuppliesFromTickets(getAuthHeader, showDashboard);
+  } = useTemporarySuppliesFromTickets(
+    getAuthHeader,
+    showDashboard &&
+      !showLSight &&
+      !showLSightSession &&
+      !showOffice &&
+      !showMappatura &&
+      !showNetworkMonitoring &&
+      !showAntiVirus &&
+      !showEmail &&
+      !showSpeedTest &&
+      !showFlottaPC &&
+      !showDeviceAnalysisStandalone &&
+      !showPackVision &&
+      !showVivaldi &&
+      !showOrariTurni
+  );
 
   // Funzione per ricaricare le forniture temporanee manualmente
   const refreshTemporarySuppliesManual = () => {
