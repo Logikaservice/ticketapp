@@ -41,6 +41,7 @@ import DispositiviAziendaliPage from './pages/DispositiviAziendaliPage';
 import PingTerminalPage from './pages/PingTerminalPage';
 import OfficePage from './pages/OfficePage';
 import LSightPage from './pages/LSightPage';
+import LSightSessionPage from './pages/LSightSessionPage';
 import EmailPage from './pages/EmailPage';
 import SpeedTestPage from './pages/SpeedTestPage';
 import { buildApiUrl } from './utils/apiConfig';
@@ -166,6 +167,19 @@ export default function TicketApp() {
   const [showEmail, setShowEmail] = useState(false);
   const [showOffice, setShowOffice] = useState(false);
   const [showLSight, setShowLSight] = useState(false);
+  const [showLSightSession, setShowLSightSession] = useState(() => {
+    const h = (typeof window !== 'undefined' && window.location.hash ? window.location.hash : '').replace(/^#/, '').toLowerCase();
+    return h === 'lsight-session';
+  });
+  const [lsightSessionId, setLsightSessionId] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const raw = params.get('lsightSessionId');
+      return raw ? Number(raw) : null;
+    } catch (_) {
+      return null;
+    }
+  });
   const [networkMonitoringInitialView, setNetworkMonitoringInitialView] = useState(null); // 'agents' o 'create'
   const [globallySelectedCompanyId, setGloballySelectedCompanyId] = useState(() => {
     return localStorage.getItem('globallySelectedCompanyId') || null;
@@ -211,7 +225,7 @@ export default function TicketApp() {
   const [showDashboard, setShowDashboard] = useState(() => {
     if (isOrariDomain) return false;
     const h = (typeof window !== 'undefined' && window.location.hash ? window.location.hash : '').replace(/^#/, '').toLowerCase();
-    const fullHashViews = ['mappatura', 'network-monitoring', 'antivirus', 'dispositivi-aziendali', 'speedtest', 'email', 'office', 'lsight', 'device-analysis'];
+    const fullHashViews = ['mappatura', 'network-monitoring', 'antivirus', 'dispositivi-aziendali', 'speedtest', 'email', 'office', 'lsight', 'lsight-session', 'device-analysis'];
     if (h && (fullHashViews.includes(h) || h.startsWith('device-analysis'))) return false;
     return true;
   });
@@ -304,7 +318,7 @@ export default function TicketApp() {
     } else {
       // Non forzare la dashboard ticket se l'hash URL è una vista a schermo intero (es. #speedtest)
       const h = (typeof window !== 'undefined' && window.location.hash ? window.location.hash : '').replace(/^#/, '').toLowerCase();
-      const fullHashViews = ['mappatura', 'network-monitoring', 'antivirus', 'dispositivi-aziendali', 'speedtest', 'email', 'office', 'lsight', 'device-analysis'];
+      const fullHashViews = ['mappatura', 'network-monitoring', 'antivirus', 'dispositivi-aziendali', 'speedtest', 'email', 'office', 'lsight', 'lsight-session', 'device-analysis'];
       const hashIsFullView = h && (fullHashViews.includes(h) || h.startsWith('device-analysis'));
       if (!hashIsFullView) {
         setShowDashboard(true);
@@ -347,15 +361,27 @@ export default function TicketApp() {
       setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowOffice(false); setShowFlottaPC(false);
     } else if (view === 'lsight') {
       setShowLSight(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
+      setShowLSightSession(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowFlottaPC(false); setShowOffice(false); setShowSpeedTest(false);
+    } else if (view === 'lsight-session') {
+      const params = new URLSearchParams(window.location.search);
+      const rawId = params.get('lsightSessionId');
+      const id = rawId ? Number(rawId) : null;
+      setLsightSessionId(id && !Number.isNaN(id) ? id : null);
+      setShowLSightSession(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
+      setShowLSight(false);
       setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowFlottaPC(false); setShowOffice(false); setShowSpeedTest(false);
     } else if (view === 'office') {
       setShowOffice(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
+      setShowLSightSession(false);
       setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowFlottaPC(false);
     } else if (view !== 'device-analysis') {
       setShowDeviceAnalysisStandalone(false);
       setShowDashboard(true); setShowMappatura(false); setShowNetworkMonitoring(false);
       setShowAntiVirus(false); setShowEmail(false); setShowOffice(false); setShowFlottaPC(false);
       setShowSpeedTest(false);
+      setShowLSight(false);
+      setShowLSightSession(false);
     }
   };
 
@@ -378,12 +404,12 @@ export default function TicketApp() {
   useEffect(() => {
     if (showDeviceAnalysisStandalone) return;
     const base = window.location.pathname + window.location.search;
-    const h = showLSight ? 'lsight' : showOffice ? 'office' : showMappatura ? 'mappatura' : showNetworkMonitoring ? 'network-monitoring' : showAntiVirus ? 'antivirus' : showFlottaPC ? 'dispositivi-aziendali' : showSpeedTest ? 'speedtest' : showEmail ? 'email' : '';
+    const h = showLSightSession ? 'lsight-session' : showLSight ? 'lsight' : showOffice ? 'office' : showMappatura ? 'mappatura' : showNetworkMonitoring ? 'network-monitoring' : showAntiVirus ? 'antivirus' : showFlottaPC ? 'dispositivi-aziendali' : showSpeedTest ? 'speedtest' : showEmail ? 'email' : '';
     const newHash = h ? '#' + h : '';
     if (window.location.hash !== newHash) {
       window.history.replaceState(null, '', base + newHash);
     }
-  }, [showDeviceAnalysisStandalone, showOffice, showMappatura, showNetworkMonitoring, showAntiVirus, showEmail, showFlottaPC, showSpeedTest, showLSight]);
+  }, [showDeviceAnalysisStandalone, showOffice, showMappatura, showNetworkMonitoring, showAntiVirus, showEmail, showFlottaPC, showSpeedTest, showLSight, showLSightSession]);
 
   const handleOpenMappatura = (companyId) => {
     if (companyId !== undefined && companyId !== null && typeof companyId !== 'object') setShowGloballySelectedCompanyId(companyId);
@@ -413,6 +439,7 @@ export default function TicketApp() {
   const handleOpenLSight = (companyId) => {
     if (companyId) setShowGloballySelectedCompanyId(companyId);
     setShowLSight(true);
+    setShowLSightSession(false);
     setShowOffice(false);
     setShowDashboard(false);
     setShowNetworkMonitoring(false);
@@ -425,6 +452,34 @@ export default function TicketApp() {
     setShowFlottaPC(false);
     setShowOrariTurni(false);
     setShowVivaldi(false);
+  };
+
+  const handleOpenLSightSession = (sessionId) => {
+    const id = Number(sessionId);
+    if (!id || Number.isNaN(id)) return;
+    setLsightSessionId(id);
+    setShowLSightSession(true);
+    setShowLSight(false);
+    setShowOffice(false);
+    setShowDashboard(false);
+    setShowNetworkMonitoring(false);
+    setShowMappatura(false);
+    setShowAntiVirus(false);
+    setShowEmail(false);
+    setShowSpeedTest(false);
+    setShowCommAgent(false);
+    setShowCommAgentManager(false);
+    setShowFlottaPC(false);
+    setShowOrariTurni(false);
+    setShowVivaldi(false);
+
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('lsightSessionId', String(id));
+      window.history.replaceState({}, '', url.toString());
+      window.dispatchEvent(new Event('ticketapp-sync-hash'));
+    } catch (_) {
+    }
   };
 
   const handleOpenOffice = (companyId) => {
@@ -3559,6 +3614,36 @@ export default function TicketApp() {
             currentUser={currentUser}
             selectedCompanyId={globallySelectedCompanyId}
             getAuthHeader={getAuthHeader}
+            onOpenSession={handleOpenLSightSession}
+          />
+        )}
+
+        {showLSightSession && (
+          <LSightSessionPage
+            sessionId={lsightSessionId}
+            getAuthHeader={getAuthHeader}
+            onClose={() => {
+              setShowLSightSession(false);
+              setLsightSessionId(null);
+              try {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('lsightSessionId');
+                window.history.replaceState({}, '', url.toString());
+              } catch (_) {
+              }
+              setShowLSight(true);
+            }}
+            onNavigateLSight={() => {
+              setShowLSightSession(false);
+              setLsightSessionId(null);
+              try {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('lsightSessionId');
+                window.history.replaceState({}, '', url.toString());
+              } catch (_) {
+              }
+              setShowLSight(true);
+            }}
           />
         )}
 

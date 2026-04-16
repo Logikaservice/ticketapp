@@ -29,12 +29,13 @@ const getInitials = (name) => {
 };
 
 // ── Componente principale ──────────────────────────────────────────────────────
-const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader }) => {
+const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpenSession }) => {
   const [isScanning, setIsScanning]           = useState(true);
   const [agents, setAgents]                   = useState([]);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [companySearch, setCompanySearch]     = useState('');
   const [pcSearch, setPcSearch]               = useState('');
+  const [startingSessionAgentId, setStartingSessionAgentId] = useState(null);
 
   // Admin state
   const [showAdminModal, setShowAdminModal]               = useState(false);
@@ -149,6 +150,39 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader }) => 
 
   const PcCard = ({ ag }) => {
     const isOnline = ag.status === 'online';
+    const isStarting = startingSessionAgentId === ag.agent_id;
+
+    const startSession = async () => {
+      if (!isOnline || isStarting) return;
+      setStartingSessionAgentId(ag.agent_id);
+      try {
+        const res = await fetch('/api/lsight-rtc/sessions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader()
+          },
+          body: JSON.stringify({ agent_id: ag.agent_id })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success || !data.session?.id) {
+          const msg = data?.error || 'Impossibile avviare la sessione (modulo RTC disabilitato o errore server).';
+          alert(msg);
+          return;
+        }
+        if (typeof onOpenSession === 'function') {
+          onOpenSession(data.session.id);
+        } else {
+          alert(`Sessione creata: ${data.session.id}`);
+        }
+      } catch (e) {
+        console.error('Errore avvio sessione L-Sight RTC:', e);
+        alert('Errore di rete durante l’avvio della sessione.');
+      } finally {
+        setStartingSessionAgentId(null);
+      }
+    };
+
     return (
       <div className={`group relative bg-[#111827] rounded-2xl border transition-all overflow-hidden flex flex-col shadow-lg ${isOnline ? 'border-indigo-500/30 hover:border-indigo-400/60' : 'border-slate-800 hover:border-slate-700'}`}>
         {isOnline && (
@@ -181,14 +215,15 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader }) => 
         <div className="p-5 pt-3 flex-1 flex flex-col justify-between">
           <p className="text-xs text-slate-500 mb-4 truncate">{ag.os_info || 'Sistema Sconosciuto'}</p>
           <button
-            disabled={!isOnline}
+            onClick={startSession}
+            disabled={!isOnline || isStarting}
             className={`w-full py-2 rounded-lg flex items-center justify-center gap-2 font-bold text-xs transition-all focus:outline-none ${
               isOnline
                 ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.35)]'
                 : 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700'
             }`}
           >
-            {isOnline ? '⚡ CONNETTI ORA' : '— NON DISPONIBILE'}
+            {isOnline ? (isStarting ? '⏳ AVVIO...' : '⚡ CONNETTI ORA') : '— NON DISPONIBILE'}
           </button>
         </div>
       </div>
