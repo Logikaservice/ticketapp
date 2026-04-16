@@ -33,6 +33,18 @@ const pool = new Pool(poolConfig);
  
 let tablesReady = false;
 let tableInitError = null;
+const verboseErrors = String(process.env.LSIGHT_RTC_VERBOSE_ERRORS || '').trim() === '1';
+
+function toErrPayload(e) {
+  if (!e) return undefined;
+  return {
+    message: e.message,
+    code: e.code,
+    detail: e.detail,
+    hint: e.hint,
+    where: e.where
+  };
+}
 const ensureTables = async () => {
   if (tablesReady) return;
   try {
@@ -114,7 +126,11 @@ router.post('/sessions', async (req, res) => {
     return res.json({ success: true, session: rows[0] });
   } catch (e) {
     console.error('lsight-rtc: errore creazione sessione:', e);
-    return res.status(500).json({ success: false, error: 'Errore interno', details: process.env.NODE_ENV === 'development' ? e.message : undefined });
+    return res.status(500).json({
+      success: false,
+      error: 'Errore interno',
+      ...(verboseErrors ? { details: toErrPayload(e) } : {})
+    });
   }
 });
  
@@ -153,7 +169,11 @@ router.get('/sessions/:id', async (req, res) => {
     return res.json({ success: true, session: s });
   } catch (e) {
     console.error('lsight-rtc: errore get session:', e);
-    return res.status(500).json({ success: false, error: 'Errore interno' });
+    return res.status(500).json({
+      success: false,
+      error: 'Errore interno',
+      ...(verboseErrors ? { details: toErrPayload(e) } : {})
+    });
   }
 });
  
@@ -185,7 +205,11 @@ router.post('/sessions/:id/close', async (req, res) => {
     return res.json({ success: true, session: upd[0] });
   } catch (e) {
     console.error('lsight-rtc: errore close session:', e);
-    return res.status(500).json({ success: false, error: 'Errore interno' });
+    return res.status(500).json({
+      success: false,
+      error: 'Errore interno',
+      ...(verboseErrors ? { details: toErrPayload(e) } : {})
+    });
   }
 });
  
