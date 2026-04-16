@@ -1,4 +1,4 @@
-// src/App.jsx
+﻿// src/App.jsx
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Notification from './components/AppNotification';
@@ -40,6 +40,7 @@ import AntiVirusPage from './pages/AntiVirusPage';
 import DispositiviAziendaliPage from './pages/DispositiviAziendaliPage';
 import PingTerminalPage from './pages/PingTerminalPage';
 import OfficePage from './pages/OfficePage';
+import LSightPage from './pages/LSightPage';
 import EmailPage from './pages/EmailPage';
 import SpeedTestPage from './pages/SpeedTestPage';
 import { buildApiUrl } from './utils/apiConfig';
@@ -164,6 +165,7 @@ export default function TicketApp() {
   const [showAntiVirus, setShowAntiVirus] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
   const [showOffice, setShowOffice] = useState(false);
+  const [showLSight, setShowLSight] = useState(false);
   const [networkMonitoringInitialView, setNetworkMonitoringInitialView] = useState(null); // 'agents' o 'create'
   const [globallySelectedCompanyId, setGloballySelectedCompanyId] = useState(() => {
     return localStorage.getItem('globallySelectedCompanyId') || null;
@@ -209,7 +211,7 @@ export default function TicketApp() {
   const [showDashboard, setShowDashboard] = useState(() => {
     if (isOrariDomain) return false;
     const h = (typeof window !== 'undefined' && window.location.hash ? window.location.hash : '').replace(/^#/, '').toLowerCase();
-    const fullHashViews = ['mappatura', 'network-monitoring', 'antivirus', 'dispositivi-aziendali', 'speedtest', 'email', 'office', 'device-analysis'];
+    const fullHashViews = ['mappatura', 'network-monitoring', 'antivirus', 'dispositivi-aziendali', 'speedtest', 'email', 'office', 'lsight', 'device-analysis'];
     if (h && (fullHashViews.includes(h) || h.startsWith('device-analysis'))) return false;
     return true;
   });
@@ -302,7 +304,7 @@ export default function TicketApp() {
     } else {
       // Non forzare la dashboard ticket se l'hash URL è una vista a schermo intero (es. #speedtest)
       const h = (typeof window !== 'undefined' && window.location.hash ? window.location.hash : '').replace(/^#/, '').toLowerCase();
-      const fullHashViews = ['mappatura', 'network-monitoring', 'antivirus', 'dispositivi-aziendali', 'speedtest', 'email', 'office', 'device-analysis'];
+      const fullHashViews = ['mappatura', 'network-monitoring', 'antivirus', 'dispositivi-aziendali', 'speedtest', 'email', 'office', 'lsight', 'device-analysis'];
       const hashIsFullView = h && (fullHashViews.includes(h) || h.startsWith('device-analysis'));
       if (!hashIsFullView) {
         setShowDashboard(true);
@@ -343,6 +345,9 @@ export default function TicketApp() {
     } else if (view === 'email') {
       setShowEmail(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
       setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowOffice(false); setShowFlottaPC(false);
+    } else if (view === 'lsight') {
+      setShowLSight(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
+      setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowFlottaPC(false); setShowOffice(false); setShowSpeedTest(false);
     } else if (view === 'office') {
       setShowOffice(true); setShowDashboard(false); setShowMappatura(false); setShowNetworkMonitoring(false);
       setShowOrariTurni(false); setShowVivaldi(false); setShowPackVision(false); setShowAntiVirus(false); setShowEmail(false); setShowFlottaPC(false);
@@ -373,12 +378,12 @@ export default function TicketApp() {
   useEffect(() => {
     if (showDeviceAnalysisStandalone) return;
     const base = window.location.pathname + window.location.search;
-    const h = showOffice ? 'office' : showMappatura ? 'mappatura' : showNetworkMonitoring ? 'network-monitoring' : showAntiVirus ? 'antivirus' : showFlottaPC ? 'dispositivi-aziendali' : showSpeedTest ? 'speedtest' : showEmail ? 'email' : '';
+    const h = showLSight ? 'lsight' : showOffice ? 'office' : showMappatura ? 'mappatura' : showNetworkMonitoring ? 'network-monitoring' : showAntiVirus ? 'antivirus' : showFlottaPC ? 'dispositivi-aziendali' : showSpeedTest ? 'speedtest' : showEmail ? 'email' : '';
     const newHash = h ? '#' + h : '';
     if (window.location.hash !== newHash) {
       window.history.replaceState(null, '', base + newHash);
     }
-  }, [showDeviceAnalysisStandalone, showOffice, showMappatura, showNetworkMonitoring, showAntiVirus, showEmail, showFlottaPC, showSpeedTest]);
+  }, [showDeviceAnalysisStandalone, showOffice, showMappatura, showNetworkMonitoring, showAntiVirus, showEmail, showFlottaPC, showSpeedTest, showLSight]);
 
   const handleOpenMappatura = (companyId) => {
     if (companyId !== undefined && companyId !== null && typeof companyId !== 'object') setShowGloballySelectedCompanyId(companyId);
@@ -404,6 +409,23 @@ export default function TicketApp() {
       window.removeEventListener('open-mappatura', onOpenMappatura);
     };
   }, []);
+
+  const handleOpenLSight = (companyId) => {
+    if (companyId) setShowGloballySelectedCompanyId(companyId);
+    setShowLSight(true);
+    setShowOffice(false);
+    setShowDashboard(false);
+    setShowNetworkMonitoring(false);
+    setShowMappatura(false);
+    setShowAntiVirus(false);
+    setShowEmail(false);
+    setShowSpeedTest(false);
+    setShowCommAgent(false);
+    setShowCommAgentManager(false);
+    setShowFlottaPC(false);
+    setShowOrariTurni(false);
+    setShowVivaldi(false);
+  };
 
   const handleOpenOffice = (companyId) => {
     if (companyId) setShowGloballySelectedCompanyId(companyId);
@@ -3303,7 +3325,7 @@ export default function TicketApp() {
             : '')
         }
       >
-        {!showPackVision && !showNetworkMonitoring && !showEmail && !showOffice && !showAntiVirus && !showMappatura && !showSpeedTest && (
+        {!showPackVision && !showNetworkMonitoring && !showLSight && !showEmail && !showOffice && !showAntiVirus && !showMappatura && !showSpeedTest && (
           <Header
             {...{
               currentUser,
@@ -3327,6 +3349,7 @@ export default function TicketApp() {
               openNetworkMonitoringTelegram: () => { setShowNetworkMonitoring(true); setShowDashboard(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowEmail(false); setNetworkMonitoringInitialView('telegram'); },
               openMappatura: () => { setShowMappatura(true); setShowDashboard(false); setShowNetworkMonitoring(false); setShowOrariTurni(false); setShowVivaldi(false); setShowAntiVirus(false); setShowOffice(false); setShowEmail(false); },
               openOffice: handleOpenOffice,
+              openLSight: handleOpenLSight,
               openAntiVirus: handleOpenAntiVirus,
               openEmail: handleOpenEmail,
               openCommAgent: () => setShowCommAgent(true),
@@ -3363,10 +3386,10 @@ export default function TicketApp() {
           </div>
         )}
 
-        {!showDashboard && !showOrariTurni && !showVivaldi && !showPackVision && !showNetworkMonitoring && !showNetworkMap && !showMappatura && !showAntiVirus && !showEmail && !showFlottaPC && !showSpeedTest && (
+        {!showDashboard && !showOrariTurni && !showVivaldi && !showPackVision && !showNetworkMonitoring && !showNetworkMap && !showMappatura && !showAntiVirus && !showEmail && !showFlottaPC && !showSpeedTest && !showLSight && (
           <div
             className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200"
-            onClick={() => { setShowDashboard(true); setShowNetworkMap(false); setShowMappatura(false); setShowAntiVirus(false); setShowEmail(false); setShowFlottaPC(false); setShowSpeedTest(false); }}
+            onClick={() => { setShowDashboard(true); setShowNetworkMap(false); setShowMappatura(false); setShowAntiVirus(false); setShowEmail(false); setShowFlottaPC(false); setShowSpeedTest(false); setShowLSight(false); }}
           >
             Torna alla Dashboard
           </div>
@@ -3384,6 +3407,7 @@ export default function TicketApp() {
             selectedCompanyId={globallySelectedCompanyId}
             onNavigateHome={() => { setShowDashboard(true); setShowCommAgent(false); }}
             onNavigateOffice={handleOpenOffice}
+            onNavigateLSight={handleOpenLSight}
             onNavigateEmail={handleOpenEmail}
             onNavigateAntiVirus={handleOpenAntiVirus}
             onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
@@ -3401,6 +3425,7 @@ export default function TicketApp() {
             selectedCompanyId={globallySelectedCompanyId}
             onNavigateHome={() => { setShowDashboard(true); setShowCommAgentManager(false); }}
             onNavigateOffice={handleOpenOffice}
+            onNavigateLSight={handleOpenLSight}
             onNavigateEmail={handleOpenEmail}
             onNavigateAntiVirus={handleOpenAntiVirus}
             onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
@@ -3419,6 +3444,7 @@ export default function TicketApp() {
             readOnly={currentUser?.ruolo === 'cliente' && !!(currentUser?.admin_companies && currentUser.admin_companies.length > 0)}
             currentUser={currentUser}
             onNavigateOffice={handleOpenOffice}
+            onNavigateLSight={handleOpenLSight}
             onNavigateEmail={handleOpenEmail}
             onNavigateAntiVirus={handleOpenAntiVirus}
             onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
@@ -3459,6 +3485,7 @@ export default function TicketApp() {
                 readOnly={isReadOnly}
                 currentUser={currentUser}
                 onNavigateOffice={handleOpenOffice}
+            onNavigateLSight={handleOpenLSight}
                 onNavigateEmail={handleOpenEmail}
                 onNavigateAntiVirus={handleOpenAntiVirus}
                 onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
@@ -3515,12 +3542,22 @@ export default function TicketApp() {
             onNavigateToMonitoring={handleOpenNetworkMonitoring}
             currentUser={currentUser}
             onNavigateOffice={handleOpenOffice}
+            onNavigateLSight={handleOpenLSight}
             onNavigateEmail={handleOpenEmail}
             onNavigateAntiVirus={handleOpenAntiVirus}
             onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
             onNavigateMappatura={null}
             onNavigateSpeedTest={handleOpenSpeedTest}
             onNavigateHome={() => { setShowDashboard(true); setShowMappatura(false); }}
+          />
+        )}
+
+        {showLSight && (
+          <LSightPage
+            onClose={() => { setShowLSight(false); setShowDashboard(true); }}
+            onNavigateHome={() => { setShowDashboard(true); setShowLSight(false); }}
+            currentUser={currentUser}
+            selectedCompanyId={globallySelectedCompanyId}
           />
         )}
 
@@ -3552,6 +3589,7 @@ export default function TicketApp() {
             currentUser={currentUser}
             onOpenTicket={openNewTicketWithData}
             onNavigateOffice={handleOpenOffice}
+            onNavigateLSight={handleOpenLSight}
             onNavigateEmail={handleOpenEmail}
             onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
             onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
@@ -3570,6 +3608,7 @@ export default function TicketApp() {
             currentUser={currentUser}
             onOpenTicket={openNewTicketWithData}
             onNavigateOffice={handleOpenOffice}
+            onNavigateLSight={handleOpenLSight}
             onNavigateAntiVirus={handleOpenAntiVirus}
             onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
             onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
@@ -3964,6 +4003,7 @@ export default function TicketApp() {
           getAuthHeader={getAuthHeader}
           onNavigateHome={() => { setShowSpeedTest(false); setShowDashboard(true); }}
           onNavigateOffice={handleOpenOffice}
+            onNavigateLSight={handleOpenLSight}
           onNavigateEmail={handleOpenEmail}
           onNavigateAntiVirus={handleOpenAntiVirus}
           onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
