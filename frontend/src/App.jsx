@@ -1,4 +1,4 @@
-﻿// src/App.jsx
+// src/App.jsx
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Notification from './components/AppNotification';
@@ -3558,6 +3558,7 @@ export default function TicketApp() {
             onNavigateHome={() => { setShowDashboard(true); setShowLSight(false); }}
             currentUser={currentUser}
             selectedCompanyId={globallySelectedCompanyId}
+            getAuthHeader={getAuthHeader}
           />
         )}
 
