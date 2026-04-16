@@ -235,7 +235,15 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
     return (
       <button
         type="button"
-        onClick={() => { setSelectedCompany(company.name); setPcSearch(''); }}
+        onClick={() => {
+          try {
+            if (window?.localStorage?.getItem('debug_lsight') === '1') {
+              console.log('[L-Sight] click company:', company.name);
+            }
+          } catch (_) {}
+          setSelectedCompany(company.name);
+          setPcSearch('');
+        }}
         className={`group relative z-20 pointer-events-auto text-left w-full rounded-2xl border bg-gradient-to-br p-5 transition-all shadow-lg hover:scale-[1.02] active:scale-[0.99] overflow-hidden ${color.bg} ${color.border}`}
       >
         <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-white/5 rounded-full" />

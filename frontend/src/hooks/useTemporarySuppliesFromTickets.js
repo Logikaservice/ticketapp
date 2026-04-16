@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { buildApiUrl } from '../utils/apiConfig';
 
-export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
+export const useTemporarySuppliesFromTickets = (getAuthHeader, enabled = true) => {
   const [temporarySupplies, setTemporarySupplies] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -80,6 +80,10 @@ export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
 
   // Carica le forniture al mount e quando getAuthHeader diventa disponibile
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     if (!getAuthHeader) return;
 
     // Evita loop: in alcune parti dell'app getAuthHeader può cambiare riferimento a ogni render.
@@ -100,7 +104,7 @@ export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
 
     fetchTemporarySupplies();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getAuthHeader]);
+  }, [getAuthHeader, enabled]);
 
   return {
     temporarySupplies,
