@@ -234,8 +234,9 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
     const color = getCompanyColor(company.name);
     return (
       <button
+        type="button"
         onClick={() => { setSelectedCompany(company.name); setPcSearch(''); }}
-        className={`group relative text-left w-full rounded-2xl border bg-gradient-to-br p-5 transition-all shadow-lg hover:scale-[1.02] active:scale-[0.99] overflow-hidden ${color.bg} ${color.border}`}
+        className={`group relative z-20 pointer-events-auto text-left w-full rounded-2xl border bg-gradient-to-br p-5 transition-all shadow-lg hover:scale-[1.02] active:scale-[0.99] overflow-hidden ${color.bg} ${color.border}`}
       >
         <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-white/5 rounded-full" />
         <div className="flex items-start gap-3">
@@ -381,7 +382,7 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-20 pointer-events-auto">
                   {companies.map(co => (
                     <CompanyCard key={co.name} company={co} />
                   ))}
