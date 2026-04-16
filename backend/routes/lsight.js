@@ -150,22 +150,27 @@ router.get('/my-agents', async (req, res) => {
         let query;
         let params = [];
         
-        // Se l'utente è tecnico, vede tutto
         if (req.user.ruolo === 'tecnico') {
             query = `
-                SELECT ca.id as agent_id, ca.machine_name, ca.os_info, ca.status, ca.last_heartbeat, lc.enabled, lc.remote_passwd
+                SELECT ca.id as agent_id, ca.machine_name, ca.os_info, ca.status, ca.last_heartbeat,
+                       u.azienda, u.nome as user_nome, u.cognome as user_cognome,
+                       lc.enabled, lc.remote_passwd
                 FROM comm_agents ca
+                JOIN users u ON ca.user_id = u.id
                 LEFT JOIN lsight_agent_config lc ON ca.id = lc.agent_id
-                ORDER BY ca.status, ca.machine_name
+                ORDER BY u.azienda, ca.machine_name
             `;
         } else {
             query = `
-                SELECT ca.id as agent_id, ca.machine_name, ca.os_info, ca.status, ca.last_heartbeat, lc.enabled, lc.remote_passwd
+                SELECT ca.id as agent_id, ca.machine_name, ca.os_info, ca.status, ca.last_heartbeat,
+                       u.azienda, u.nome as user_nome, u.cognome as user_cognome,
+                       lc.enabled, lc.remote_passwd
                 FROM lsight_assignments la
                 JOIN comm_agents ca ON la.agent_id = ca.id
+                JOIN users u ON ca.user_id = u.id
                 LEFT JOIN lsight_agent_config lc ON ca.id = lc.agent_id
                 WHERE la.user_id = $1
-                ORDER BY ca.status, ca.machine_name
+                ORDER BY u.azienda, ca.machine_name
             `;
             params = [req.user.id];
         }
