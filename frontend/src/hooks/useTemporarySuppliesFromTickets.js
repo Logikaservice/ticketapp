@@ -9,6 +9,7 @@ export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
 
   // ✅ LOCK per evitare chiamate simultanee
   const fetchingRef = useRef(false);
+  const lastAuthKeyRef = useRef(null);
 
   // Carica tutte le forniture temporanee dai ticket
   const fetchTemporarySupplies = async () => {
@@ -34,8 +35,8 @@ export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
         const data = await response.json();
         setTemporarySupplies(data);
       } else {
-        // Non loggare errori CORS o di rete come errori critici
-        if (response.status !== 0 && response.status !== 403) {
+        // Evita spam console: 502 può capitare durante deploy/riavvii backend
+        if (response.status !== 0 && response.status !== 403 && response.status !== 502) {
           console.error('Errore nel caricare le forniture temporanee:', response.status);
         }
       }
@@ -79,10 +80,25 @@ export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
 
   // Carica le forniture al mount e quando getAuthHeader diventa disponibile
   useEffect(() => {
-    // Carica solo quando getAuthHeader è disponibile
-    if (getAuthHeader) {
-      fetchTemporarySupplies();
+    if (!getAuthHeader) return;
+
+    // Evita loop: in alcune parti dell'app getAuthHeader può cambiare riferimento a ogni render.
+    // Qui triggeriamo il fetch solo quando cambiano davvero i dati di auth (es. token).
+    let authKey = null;
+    try {
+      const h = getAuthHeader();
+      authKey = (h && (h.Authorization || h.authorization))
+        ? String(h.Authorization || h.authorization)
+        : JSON.stringify(h || {});
+    } catch (_) {
+      authKey = null;
     }
+
+    if (!authKey) return;
+    if (lastAuthKeyRef.current === authKey) return;
+    lastAuthKeyRef.current = authKey;
+
+    fetchTemporarySupplies();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getAuthHeader]);
 
