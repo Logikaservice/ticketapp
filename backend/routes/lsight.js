@@ -156,7 +156,7 @@ router.get('/my-agents', async (req, res) => {
                        u.azienda, u.nome as user_nome, u.cognome as user_cognome,
                        lc.enabled, lc.remote_passwd
                 FROM comm_agents ca
-                JOIN users u ON ca.user_id = u.id
+                LEFT JOIN users u ON ca.user_id = u.id
                 LEFT JOIN lsight_agent_config lc ON ca.id = lc.agent_id
                 ORDER BY u.azienda, ca.machine_name
             `;
@@ -167,7 +167,7 @@ router.get('/my-agents', async (req, res) => {
                        lc.enabled, lc.remote_passwd
                 FROM lsight_assignments la
                 JOIN comm_agents ca ON la.agent_id = ca.id
-                JOIN users u ON ca.user_id = u.id
+                LEFT JOIN users u ON ca.user_id = u.id
                 LEFT JOIN lsight_agent_config lc ON ca.id = lc.agent_id
                 WHERE la.user_id = $1
                 ORDER BY u.azienda, ca.machine_name

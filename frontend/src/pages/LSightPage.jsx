@@ -69,7 +69,9 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader }) => 
       ]);
       const usersData = await usersRes.json();
       const asgnData = await asgnRes.json();
-      if (usersData.success) setAllUsers(usersData.users || []);
+      // /api/users restituisce direttamente un array, non { success, users }
+      if (Array.isArray(usersData)) setAllUsers(usersData);
+      else if (usersData.success) setAllUsers(usersData.users || []);
       if (asgnData.success) setAssignments(asgnData.assignments || []);
     } catch (e) {
       console.error('Errore fetch admin:', e);
