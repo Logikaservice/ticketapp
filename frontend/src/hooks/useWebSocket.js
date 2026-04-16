@@ -5,6 +5,7 @@ import { io } from 'socket.io-client';
 import { getApiBase } from '../utils/apiConfig';
 
 export const useWebSocket = ({
+  enabled = true,
   getAuthHeader,
   currentUser,
   onTicketCreated,
@@ -55,6 +56,25 @@ export const useWebSocket = ({
   }, [onTicketCreated, onTicketUpdated, onTicketStatusChanged, onNewMessage, onTicketDeleted, onNetworkMonitoringUpdate]);
 
   useEffect(() => {
+    // Se disabilitato, assicura disconnessione e non tentare connessioni.
+    if (!enabled) {
+      if (socketRef.current) {
+        try {
+          socketRef.current.disconnect();
+        } catch (_) {
+          // ignore
+        }
+        socketRef.current = null;
+      }
+      setIsConnected(false);
+      isConnectingRef.current = false;
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = null;
+      }
+      return;
+    }
+
     // Controlla se dobbiamo connettere
     if (!currentUser?.id) {
       // Se non c'è utente, disconnetti se presente
@@ -247,7 +267,7 @@ export const useWebSocket = ({
         pingIntervalRef.current = null;
       }
     };
-  }, [currentUser?.id]); // SOLO currentUser.id come dipendenza - getAuthHeader viene chiamato dentro
+  }, [enabled, currentUser?.id]); // SOLO flags + currentUser.id come dipendenza
 
   return { isConnected, socket: socketRef.current };
 };

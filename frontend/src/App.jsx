@@ -1779,6 +1779,7 @@ export default function TicketApp() {
 
   // Hook WebSocket
   const { isConnected, socket } = useWebSocket({
+    enabled: !!(showDashboard || showNetworkMonitoring),
     getAuthHeader,
     currentUser,
     onTicketCreated: handleTicketCreated,
