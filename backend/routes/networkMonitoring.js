@@ -2217,10 +2217,19 @@ module.exports = (pool, io) => {
                     );
 
                     // Notifica Telegram specifica per instabilità
+                    let alertHostname = device_ip;
+                    let alertMac = 'N/A';
+                    try {
+                      const devInfo = await pool.query('SELECT hostname, mac_address FROM network_devices WHERE id = $1', [deviceId]);
+                      if (devInfo.rows.length > 0) {
+                        alertHostname = devInfo.rows[0].hostname || device_ip;
+                        alertMac = devInfo.rows[0].mac_address || 'N/A';
+                      }
+                    } catch (_) { /* best-effort */ }
                     sendTelegramNotification(agentId, req.agent.azienda_id, 'frequent_disconnections', {
-                      hostname: effectiveHostname || device_ip,
+                      hostname: alertHostname,
                       ip: device_ip,
-                      mac: normalizedMac || 'N/A',
+                      mac: alertMac,
                       offlineCount: offlineCount,
                       agentName,
                       aziendaName
