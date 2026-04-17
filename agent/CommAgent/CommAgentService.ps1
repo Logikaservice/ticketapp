@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.43"
+$SCRIPT_VERSION = "1.2.44"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 
@@ -35,6 +35,7 @@ $script:trayIcon = $null
 $script:activeNotificationForm = $null 
 $script:lastUpdateCheck = [DateTime]::MinValue
 $script:rtcWorkerProcess = $null
+$script:rtcWorkerPid = $null
 
 # ============================================
 # ASSEMBLIES
@@ -111,7 +112,12 @@ function Save-LocalConfig {
 function Start-LSightRtcWorker {
     param($Config)
     try {
-        if ($script:rtcWorkerProcess -and -not $script:rtcWorkerProcess.HasExited) { return $true }
+        try {
+            if ($script:rtcWorkerPid) {
+                $p = Get-Process -Id $script:rtcWorkerPid -ErrorAction SilentlyContinue
+                if ($p) { return $true }
+            }
+        } catch {}
 
         $workerExe = Join-Path $script:scriptDir "LogikaRtcWorker.exe"
         $workerDll = Join-Path $script:scriptDir "LogikaRtcWorker.dll"
@@ -129,32 +135,25 @@ function Start-LSightRtcWorker {
             return $false
         }
 
+        $outLog = Join-Path $script:scriptDir "LsightRtcWorker.out.log"
+        $errLog = Join-Path $script:scriptDir "LsightRtcWorker.err.log"
+
         $args = @(
             '--serverUrl', $Config.server_url,
             '--agentKey',  $Config.api_key,
             '--pollSeconds','2'
         )
 
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
         if ($useDotnet) {
-            $psi.FileName = "dotnet"
             $allArgs = @($fileToRun) + $args
-            $psi.Arguments = ($allArgs | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
+            $argStr = ($allArgs | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
+            $p = Start-Process -FilePath "dotnet" -ArgumentList $argStr -WorkingDirectory $script:scriptDir -WindowStyle Hidden -RedirectStandardOutput $outLog -RedirectStandardError $errLog -PassThru
         } else {
-            $psi.FileName = $fileToRun
-            $psi.Arguments = ($args | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
+            $argStr = ($args | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
+            $p = Start-Process -FilePath $fileToRun -ArgumentList $argStr -WorkingDirectory $script:scriptDir -WindowStyle Hidden -RedirectStandardOutput $outLog -RedirectStandardError $errLog -PassThru
         }
-        $psi.WorkingDirectory = $script:scriptDir
-        $psi.UseShellExecute = $false
-        $psi.CreateNoWindow = $true
-        $psi.RedirectStandardOutput = $true
-        $psi.RedirectStandardError = $true
-
-        $p = New-Object System.Diagnostics.Process
-        $p.StartInfo = $psi
-        $null = $p.Start()
-        $script:rtcWorkerProcess = $p
-        Write-Log "LSightRtc: worker avviato (pid=$($p.Id)) file=$fileToRun dotnet=$useDotnet." "INFO"
+        $script:rtcWorkerPid = $p.Id
+        Write-Log "LSightRtc: worker avviato (pid=$($p.Id)) file=$fileToRun dotnet=$useDotnet. out=$outLog err=$errLog" "INFO"
         return $true
     } catch {
         Write-Log "LSightRtc: errore avvio worker: $_" "WARN"
@@ -1037,8 +1036,9 @@ function LSightRtc-Poll {
     try {
         if (-not (Get-LSightRtcEnabled -Config $Config)) { return }
 
-        # Avvia il worker (gestisce offer/answer/ice). Manteniamo comunque agent-ready come fallback.
-        Start-LSightRtcWorker -Config $Config | Out-Null
+        # Avvia il worker (gestisce offer/answer/ice). Se è in esecuzione evitiamo chiamate extra
+        # che possono generare rumore (502 temporanei) e duplicare agent-ready.
+        if (Start-LSightRtcWorker -Config $Config) { return }
 
         # Lista sessioni attive per questo agent
         $listUrl = "$($Config.server_url)/api/lsight-rtc/agent/sessions?limit=5"
