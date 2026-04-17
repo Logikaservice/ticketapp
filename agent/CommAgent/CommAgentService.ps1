@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.39"
+$SCRIPT_VERSION = "1.2.40"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 
@@ -87,7 +87,38 @@ function Load-Config {
 function Save-Config {
     param($Config)
     try {
-        $json = $Config | ConvertTo-Json -Depth 6
+        # Merge-safe: preserva campi locali anche quando la config viene rigenerata con un oggetto minimo.
+        # In particolare: lsight_rtc_enabled deve rimanere true se già impostato.
+        $merged = $Config
+        try {
+            $existing = Load-Config
+            if ($existing) {
+                # Normalizza in hashtable per merge semplice
+                $tmp = @{}
+                foreach ($p in $existing.PSObject.Properties) { $tmp[$p.Name] = $p.Value }
+                foreach ($k in $tmp.Keys) {
+                    if ($null -eq $merged) { break }
+                    $hasKey = $false
+                    try {
+                        if ($merged -is [hashtable]) { $hasKey = $merged.ContainsKey($k) }
+                        else { $hasKey = ($null -ne $merged.PSObject.Properties[$k]) }
+                    } catch { $hasKey = $false }
+                    if (-not $hasKey) {
+                        if ($merged -is [hashtable]) { $merged[$k] = $tmp[$k] }
+                        else { $merged | Add-Member -NotePropertyName $k -NotePropertyValue $tmp[$k] -Force }
+                    }
+                }
+            }
+        } catch {}
+        # Extra safety: se nel file raw c'era lsight_rtc_enabled:true, non perderlo.
+        try {
+            if (Get-CommAgentFlagFromConfigFileRaw -FlagName 'lsight_rtc_enabled') {
+                if ($merged -is [hashtable]) { $merged['lsight_rtc_enabled'] = $true }
+                else { $merged | Add-Member -NotePropertyName 'lsight_rtc_enabled' -NotePropertyValue $true -Force }
+            }
+        } catch {}
+
+        $json = $merged | ConvertTo-Json -Depth 6
         $utf8NoBom = New-Object System.Text.UTF8Encoding $false
         [System.IO.File]::WriteAllText($script:configFile, $json, $utf8NoBom)
     } catch {}
