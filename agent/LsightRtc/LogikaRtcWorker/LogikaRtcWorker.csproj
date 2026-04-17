@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WebRTC stack (datachannel/SDP/ICE). Video capture/encoding verrà aggiunto successivamente. -->
+    <PackageReference Include="SIPSorcery" Version="6.0.18" />
+  </ItemGroup>
+</Project>
+

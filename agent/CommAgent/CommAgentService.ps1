@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.41"
+$SCRIPT_VERSION = "1.2.42"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 
@@ -34,6 +34,7 @@ $script:commAgentMutex = $null
 $script:trayIcon = $null
 $script:activeNotificationForm = $null 
 $script:lastUpdateCheck = [DateTime]::MinValue
+$script:rtcWorkerProcess = $null
 
 # ============================================
 # ASSEMBLIES
@@ -105,6 +106,44 @@ function Save-LocalConfig {
         $utf8NoBom = New-Object System.Text.UTF8Encoding $false
         [System.IO.File]::WriteAllText($script:localConfigFile, $json, $utf8NoBom)
     } catch {}
+}
+
+function Start-LSightRtcWorker {
+    param($Config)
+    try {
+        if ($script:rtcWorkerProcess -and -not $script:rtcWorkerProcess.HasExited) { return $true }
+
+        $workerExe = Join-Path $script:scriptDir "LogikaRtcWorker.exe"
+        if (-not (Test-Path $workerExe)) {
+            Write-Log "LSightRtc: worker non trovato: $workerExe (build/publish richiesto)" "WARN"
+            return $false
+        }
+
+        $args = @(
+            '--serverUrl', $Config.server_url,
+            '--agentKey',  $Config.api_key,
+            '--pollSeconds','2'
+        )
+
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $workerExe
+        $psi.Arguments = ($args | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
+        $psi.WorkingDirectory = $script:scriptDir
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+
+        $p = New-Object System.Diagnostics.Process
+        $p.StartInfo = $psi
+        $null = $p.Start()
+        $script:rtcWorkerProcess = $p
+        Write-Log "LSightRtc: worker avviato (pid=$($p.Id))." "INFO"
+        return $true
+    } catch {
+        Write-Log "LSightRtc: errore avvio worker: $_" "WARN"
+        return $false
+    }
 }
 
 function Save-Config {
@@ -981,6 +1020,9 @@ function LSightRtc-Poll {
     param($Config)
     try {
         if (-not (Get-LSightRtcEnabled -Config $Config)) { return }
+
+        # Avvia il worker (gestisce offer/answer/ice). Manteniamo comunque agent-ready come fallback.
+        Start-LSightRtcWorker -Config $Config | Out-Null
 
         # Lista sessioni attive per questo agent
         $listUrl = "$($Config.server_url)/api/lsight-rtc/agent/sessions?limit=5"
