@@ -40,6 +40,36 @@ long lastSignalId = 0;
 int? activeSessionId = null;
 RTCPeerConnection? pc = null;
 
+static long GetJsonLong(JsonElement el)
+{
+    if (el.ValueKind == JsonValueKind.Number)
+    {
+        if (el.TryGetInt64(out var v)) return v;
+        if (el.TryGetInt32(out var i)) return i;
+    }
+    if (el.ValueKind == JsonValueKind.String)
+    {
+        var s = el.GetString();
+        if (!string.IsNullOrWhiteSpace(s) && long.TryParse(s, out var v)) return v;
+    }
+    return 0;
+}
+
+static int GetJsonInt(JsonElement el)
+{
+    if (el.ValueKind == JsonValueKind.Number)
+    {
+        if (el.TryGetInt32(out var v)) return v;
+        if (el.TryGetInt64(out var l)) return (int)l;
+    }
+    if (el.ValueKind == JsonValueKind.String)
+    {
+        var s = el.GetString();
+        if (!string.IsNullOrWhiteSpace(s) && int.TryParse(s, out var v)) return v;
+    }
+    return 0;
+}
+
 async Task<JsonDocument?> GetJson(string url)
 {
     using var res = await http.GetAsync(url);
@@ -71,7 +101,7 @@ async Task SendAgentSignal(int sessionId, string type, object payload)
     await PostJson(url, new { type, payload });
 }
 
-async Task EnsurePc(int sessionId)
+void EnsurePc(int sessionId)
 {
     if (pc != null) return;
 
@@ -102,7 +132,7 @@ async Task EnsurePc(int sessionId)
 
 async Task HandleViewerOffer(int sessionId, JsonElement payload)
 {
-    await EnsurePc(sessionId);
+    EnsurePc(sessionId);
     if (pc == null) return;
 
     var sdp = payload.GetProperty("sdp").GetString() ?? "";
@@ -113,31 +143,39 @@ async Task HandleViewerOffer(int sessionId, JsonElement payload)
         type = RTCSdpType.offer
     };
 
-    var setOk = pc.setRemoteDescription(desc);
-    if (!setOk)
+    var setRes = pc.setRemoteDescription(desc);
+    if (setRes != SetDescriptionResultEnum.OK)
     {
-        Console.Error.WriteLine("[rtc-worker] setRemoteDescription failed");
+        Console.Error.WriteLine($"[rtc-worker] setRemoteDescription failed: {setRes}");
         return;
     }
 
     var answer = pc.createAnswer(null);
-    await pc.setLocalDescription(answer);
+    try
+    {
+        await pc.setLocalDescription(answer);
+    }
+    catch (Exception e)
+    {
+        Console.Error.WriteLine($"[rtc-worker] setLocalDescription error: {e.Message}");
+        return;
+    }
 
     // Invia answer
     await SendAgentSignal(sessionId, "answer", new { type = "answer", sdp = answer.sdp });
     Console.WriteLine("[rtc-worker] answer sent");
 }
 
-async Task HandleViewerIce(int sessionId, JsonElement payload)
+Task HandleViewerIce(int sessionId, JsonElement payload)
 {
-    if (pc == null) return;
+    if (pc == null) return Task.CompletedTask;
     try
     {
         var cand = new RTCIceCandidateInit
         {
             candidate = payload.GetProperty("candidate").GetString(),
             sdpMid = payload.TryGetProperty("sdpMid", out var mid) ? mid.GetString() : null,
-            sdpMLineIndex = payload.TryGetProperty("sdpMLineIndex", out var mli) ? mli.GetInt32() : (int?)null
+            sdpMLineIndex = payload.TryGetProperty("sdpMLineIndex", out var mli) ? (ushort)mli.GetInt32() : (ushort)0
         };
         pc.addIceCandidate(cand);
     }
@@ -145,6 +183,7 @@ async Task HandleViewerIce(int sessionId, JsonElement payload)
     {
         Console.Error.WriteLine($"[rtc-worker] addIceCandidate error: {e.Message}");
     }
+    return Task.CompletedTask;
 }
 
 while (true)
@@ -163,12 +202,12 @@ while (true)
             continue;
         }
 
-        var sid = sessionsEl[0].GetProperty("id").GetInt32();
+        var sid = GetJsonInt(sessionsEl[0].GetProperty("id"));
         if (activeSessionId != sid)
         {
             activeSessionId = sid;
             lastSignalId = 0;
-            pc?.close("switch-session");
+            try { pc?.close(); } catch { /* ignore */ }
             pc = null;
             Console.WriteLine($"[rtc-worker] activeSession={sid}");
             await SendAgentSignal(sid, "agent-ready", new { machine = Environment.MachineName, ts = DateTimeOffset.UtcNow.ToString("o") });
@@ -181,7 +220,7 @@ while (true)
         var arr = sig.RootElement.GetProperty("signals");
         foreach (var s in arr.EnumerateArray())
         {
-            var id = s.GetProperty("id").GetInt64();
+            var id = GetJsonLong(s.GetProperty("id"));
             if (id > lastSignalId) lastSignalId = id;
             var type = s.GetProperty("type").GetString() ?? "";
             var payload = s.GetProperty("payload");
