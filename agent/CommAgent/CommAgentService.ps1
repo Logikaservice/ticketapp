@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.44"
+$SCRIPT_VERSION = "1.3.0"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 
@@ -34,8 +34,7 @@ $script:commAgentMutex = $null
 $script:trayIcon = $null
 $script:activeNotificationForm = $null 
 $script:lastUpdateCheck = [DateTime]::MinValue
-$script:rtcWorkerProcess = $null
-$script:rtcWorkerPid = $null
+$script:rdpTunnelPid = $null
 
 # ============================================
 # ASSEMBLIES
@@ -109,63 +108,124 @@ function Save-LocalConfig {
     } catch {}
 }
 
-function Start-LSightRtcWorker {
+function Get-LSightRdpEnabled {
     param($Config)
     try {
+        $local = Load-LocalConfig
+        if ($local -and $local.lsight_rdp_enabled -eq $true) { return $true }
+        return $false
+    } catch { return $false }
+}
+
+function Stop-LSightRdpTunnel {
+    try {
+        if ($script:rdpTunnelPid) {
+            try { Stop-Process -Id $script:rdpTunnelPid -Force -ErrorAction SilentlyContinue } catch {}
+            $script:rdpTunnelPid = $null
+        }
+    } catch {}
+}
+
+function Start-LSightRdpTunnel {
+    param($Config, [int]$GwPort)
+    try {
+        if ($script:rdpTunnelPid) {
+            $p = Get-Process -Id $script:rdpTunnelPid -ErrorAction SilentlyContinue
+            if ($p) { return $true }
+            $script:rdpTunnelPid = $null
+        }
+
+        $local = Load-LocalConfig
+        if (-not $local) { Write-Log "LSightRdp: local_config mancante." "WARN"; return $false }
+
+        $sshHost = [string]$local.rdg_ssh_host
+        $sshUser = [string]$local.rdg_ssh_user
+        $sshPort = 22
         try {
-            if ($script:rtcWorkerPid) {
-                $p = Get-Process -Id $script:rtcWorkerPid -ErrorAction SilentlyContinue
-                if ($p) { return $true }
+            if ($null -ne $local.PSObject.Properties['rdg_ssh_port'] -and $local.rdg_ssh_port) {
+                $sshPort = [int]$local.rdg_ssh_port
             }
         } catch {}
+        $keyPath = [string]$local.rdg_ssh_key_path
 
-        $workerExe = Join-Path $script:scriptDir "LogikaRtcWorker.exe"
-        $workerDll = Join-Path $script:scriptDir "LogikaRtcWorker.dll"
-        $workerDll2 = Join-Path $script:scriptDir "rtc-worker\LogikaRtcWorker.dll"
-        $workerExe2 = Join-Path $script:scriptDir "rtc-worker\LogikaRtcWorker.exe"
-
-        $useDotnet = $false
-        $fileToRun = $workerExe
-        if (Test-Path $workerExe2) { $fileToRun = $workerExe2 }
-        elseif (Test-Path $workerExe) { $fileToRun = $workerExe }
-        elseif (Test-Path $workerDll2) { $fileToRun = $workerDll2; $useDotnet = $true }
-        elseif (Test-Path $workerDll) { $fileToRun = $workerDll; $useDotnet = $true }
-        else {
-            Write-Log "LSightRtc: worker non trovato (exe/dll). Metti LogikaRtcWorker.exe o LogikaRtcWorker.dll in $script:scriptDir (o sottocartella rtc-worker)." "WARN"
+        if (-not $sshHost -or -not $sshUser) {
+            Write-Log "LSightRdp: rdg_ssh_host/rdg_ssh_user mancanti in local_config.json" "WARN"
             return $false
         }
 
-        $outLog = Join-Path $script:scriptDir "LsightRtcWorker.out.log"
-        $errLog = Join-Path $script:scriptDir "LsightRtcWorker.err.log"
-
+        $sshExe = "ssh.exe"
         $args = @(
-            '--serverUrl', $Config.server_url,
-            '--agentKey',  $Config.api_key,
-            '--pollSeconds','2'
+            "-N", "-T",
+            "-o", "ExitOnForwardFailure=yes",
+            "-o", "ServerAliveInterval=15",
+            "-o", "ServerAliveCountMax=3",
+            "-R", "$GwPort`:127.0.0.1`:3389",
+            "$sshUser@$sshHost",
+            "-p", "$sshPort"
         )
-
-        if ($useDotnet) {
-            $allArgs = @($fileToRun) + $args
-            $argStr = ($allArgs | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
-            $p = Start-Process -FilePath "dotnet" -ArgumentList $argStr -WorkingDirectory $script:scriptDir -WindowStyle Hidden -RedirectStandardOutput $outLog -RedirectStandardError $errLog -PassThru
-        } else {
-            $argStr = ($args | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
-            $p = Start-Process -FilePath $fileToRun -ArgumentList $argStr -WorkingDirectory $script:scriptDir -WindowStyle Hidden -RedirectStandardOutput $outLog -RedirectStandardError $errLog -PassThru
+        if ($keyPath) {
+            $args = @("-i", $keyPath) + $args
         }
-        $script:rtcWorkerPid = $p.Id
-        Write-Log "LSightRtc: worker avviato (pid=$($p.Id)) file=$fileToRun dotnet=$useDotnet. out=$outLog err=$errLog" "INFO"
+
+        $outLog = Join-Path $script:scriptDir "LsightRdpTunnel.out.log"
+        $errLog = Join-Path $script:scriptDir "LsightRdpTunnel.err.log"
+
+        $argStr = ($args | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
+        $p = Start-Process -FilePath $sshExe -ArgumentList $argStr -WorkingDirectory $script:scriptDir -WindowStyle Hidden -RedirectStandardOutput $outLog -RedirectStandardError $errLog -PassThru
+        $script:rdpTunnelPid = $p.Id
+        Write-Log "LSightRdp: tunnel avviato (pid=$($p.Id)) port=$GwPort host=$sshHost user=$sshUser." "INFO"
         return $true
     } catch {
-        Write-Log "LSightRtc: errore avvio worker: $_" "WARN"
+        Write-Log "LSightRdp: errore avvio tunnel: $_" "WARN"
         return $false
     }
 }
+
+function LSightRdp-MarkReady {
+    param($Config, [int]$SessionId)
+    try {
+        $url = "$($Config.server_url)/api/lsight-rdp/agent/sessions/$SessionId/ready"
+        $headers = @{ 'X-Agent-Key' = $Config.api_key; 'Content-Type' = 'application/json' }
+        Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body '{}' -TimeoutSec 8 -ErrorAction Stop | Out-Null
+        return $true
+    } catch {
+        Write-Log "LSightRdp: errore mark ready (session $SessionId): $_" "WARN"
+        return $false
+    }
+}
+
+function LSightRdp-Poll {
+    param($Config)
+    try {
+        if (-not (Get-LSightRdpEnabled -Config $Config)) { return }
+
+        $listUrl = "$($Config.server_url)/api/lsight-rdp/agent/sessions?limit=1"
+        $headers = @{ 'X-Agent-Key' = $Config.api_key }
+        $resp = Invoke-RestMethod -Uri $listUrl -Method GET -Headers $headers -TimeoutSec 8 -ErrorAction Stop
+        $sessions = @($resp.sessions)
+        if ($sessions.Count -le 0) {
+            Stop-LSightRdpTunnel
+            return
+        }
+
+        $sid = [int]$sessions[0].id
+        $gwPort = [int]$sessions[0].gw_port
+        if ($sid -le 0 -or $gwPort -le 0) { return }
+
+        if (Start-LSightRdpTunnel -Config $Config -GwPort $gwPort) {
+            LSightRdp-MarkReady -Config $Config -SessionId $sid | Out-Null
+        }
+    } catch {
+        Write-Log "LSightRdp: poll fallito: $_" "WARN"
+    }
+}
+
+## (RTC/WebRTC rimosso)
 
 function Save-Config {
     param($Config)
     try {
         # Merge-safe: preserva campi locali anche quando la config viene rigenerata con un oggetto minimo.
-        # In particolare: lsight_rtc_enabled deve rimanere true se già impostato.
         $merged = $Config
         try {
             $existing = Load-Config
@@ -187,14 +247,6 @@ function Save-Config {
                 }
             }
         } catch {}
-        # Extra safety: se nel file raw c'era lsight_rtc_enabled:true, non perderlo.
-        try {
-            if (Get-CommAgentFlagFromConfigFileRaw -FlagName 'lsight_rtc_enabled') {
-                if ($merged -is [hashtable]) { $merged['lsight_rtc_enabled'] = $true }
-                else { $merged | Add-Member -NotePropertyName 'lsight_rtc_enabled' -NotePropertyValue $true -Force }
-            }
-        } catch {}
-
         $json = $merged | ConvertTo-Json -Depth 6
         $utf8NoBom = New-Object System.Text.UTF8Encoding $false
         [System.IO.File]::WriteAllText($script:configFile, $json, $utf8NoBom)
@@ -796,7 +848,7 @@ function Ensure-CommAgentSingleInstance {
 }
 
 function Stop-CommAgentUiTimers {
-    foreach ($n in @('heartbeatTimer', 'updateTimer', 'updateCheckOnce', 'lsightRtcTimer', 'toastCheckTimer')) {
+    foreach ($n in @('heartbeatTimer', 'updateTimer', 'updateCheckOnce', 'lsightRdpTimer', 'toastCheckTimer')) {
         try {
             $t = (Get-Variable -Name $n -Scope Script -ErrorAction SilentlyContinue).Value
             if ($null -ne $t) {
@@ -914,18 +966,7 @@ function Register-Agent {
         $resp = Invoke-RestMethod -Uri "$ServerUrl/api/comm-agent/agent/register" -Method POST -Body $body -ContentType "application/json" -ErrorAction Stop
         if ($resp.api_key) {
             $em = if ($resp.user -and $resp.user.email) { $resp.user.email } else { $Email }
-            # Preserva flag locali (es. lsight_rtc_enabled) se config viene rigenerata
-            $keepLsightRtc = $false
-            try {
-                $oldCfg = Load-Config
-                if ($oldCfg -and $oldCfg.lsight_rtc_enabled -eq $true) { $keepLsightRtc = $true }
-            } catch {}
-            if (-not $keepLsightRtc) {
-                try { if (Get-CommAgentFlagFromConfigFileRaw -FlagName 'lsight_rtc_enabled') { $keepLsightRtc = $true } } catch {}
-            }
-
             $newCfg = @{ server_url = $ServerUrl; api_key = [string]$resp.api_key.Trim(); agent_id = $resp.agent_id; email = $em }
-            if ($keepLsightRtc) { $newCfg['lsight_rtc_enabled'] = $true }
             Save-Config $newCfg
             return $newCfg
         }
@@ -998,67 +1039,7 @@ function Get-ConfigOrRegister {
 # ============================================
 # L-SIGHT RTC (PILOT) - SOLO PER TEST
 # ============================================
-function Get-LSightRtcEnabled {
-    param($Config)
-    try {
-        if (-not $Config) { return $false }
-        # Opt-in locale persistente (non viene rigenerato da update/registrazione)
-        try {
-            $local = Load-LocalConfig
-            if ($local -and $local.lsight_rtc_enabled -eq $true) { return $true }
-        } catch {}
-        # Opt-in esplicito da config.json
-        if ($Config.lsight_rtc_enabled -ne $true) { return $false }
-        # Guardrail: abilitiamo solo sulla macchina pilota SRV
-        if ($env:COMPUTERNAME -ne "SRV") { return $false }
-        return $true
-    }
-    catch { return $false }
-}
-
-function LSightRtc-AgentReady {
-    param($Config, [int]$SessionId)
-    try {
-        $url = "$($Config.server_url)/api/lsight-rtc/agent/sessions/$SessionId/signal"
-        $headers = @{ 'X-Agent-Key' = $Config.api_key; 'Content-Type' = 'application/json' }
-        $body = @{ type = 'agent-ready'; payload = @{ machine = $env:COMPUTERNAME; ts = (Get-Date).ToString("o") } } | ConvertTo-Json -Depth 4 -Compress
-        Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $body -TimeoutSec 8 -ErrorAction Stop | Out-Null
-        return $true
-    }
-    catch {
-        Write-Log "LSightRtc: errore invio agent-ready (session $SessionId): $_" "WARN"
-        return $false
-    }
-}
-
-function LSightRtc-Poll {
-    param($Config)
-    try {
-        if (-not (Get-LSightRtcEnabled -Config $Config)) { return }
-
-        # Avvia il worker (gestisce offer/answer/ice). Se è in esecuzione evitiamo chiamate extra
-        # che possono generare rumore (502 temporanei) e duplicare agent-ready.
-        if (Start-LSightRtcWorker -Config $Config) { return }
-
-        # Lista sessioni attive per questo agent
-        $listUrl = "$($Config.server_url)/api/lsight-rtc/agent/sessions?limit=5"
-        $headers = @{ 'X-Agent-Key' = $Config.api_key }
-        $resp = Invoke-RestMethod -Uri $listUrl -Method GET -Headers $headers -TimeoutSec 8 -ErrorAction Stop
-        $sessions = @($resp.sessions)
-        if ($sessions.Count -le 0) { return }
-
-        # Prendiamo la più recente
-        $sid = [int]$sessions[0].id
-        if ($sid -le 0) { return }
-
-        # In questa fase facciamo solo un segnale di "presenza" per validare la catena end-to-end.
-        # Il motore WebRTC vero (video/input) verrà agganciato nei prossimi step.
-        LSightRtc-AgentReady -Config $Config -SessionId $sid | Out-Null
-    }
-    catch {
-        Write-Log "LSightRtc: poll fallito: $_" "WARN"
-    }
-}
+## (RTC/WebRTC rimosso)
 
 # ============================================
 # MAIN
@@ -1088,11 +1069,11 @@ if ($cfg) {
             })
         $script:updateCheckOnce.Start()
 
-        # L-Sight RTC (pilot) - polling leggero, opt-in da config e solo macchina SRV
-        $script:lsightRtcTimer = New-Object System.Windows.Forms.Timer
-        $script:lsightRtcTimer.Interval = 1500
-        $script:lsightRtcTimer.Add_Tick({ LSightRtc-Poll -Config $cfg })
-        $script:lsightRtcTimer.Start()
+        # L-Sight RDP - reverse tunnel verso RD Gateway (opt-in da local_config)
+        $script:lsightRdpTimer = New-Object System.Windows.Forms.Timer
+        $script:lsightRdpTimer.Interval = 2000
+        $script:lsightRdpTimer.Add_Tick({ LSightRdp-Poll -Config $cfg })
+        $script:lsightRdpTimer.Start()
 
         # Timer UI che processa i toast accodati dal runspace heartbeat (ogni 500ms sul thread UI)
         $script:toastCheckTimer = New-Object System.Windows.Forms.Timer
@@ -1103,9 +1084,6 @@ if ($cfg) {
                 if ($script:bgState.InvalidApiKey) {
                     $script:bgState.InvalidApiKey = $false
                     Write-Log "Rilevata API Key non valida. Tentativo di ri-registrazione..." "WARN"
-                    # Conserva flag opzionali (es. pilot L-Sight) prima di cancellare config.json
-                    $keepLsightRtc = $false
-                    try { if ($cfg.lsight_rtc_enabled -eq $true) { $keepLsightRtc = $true } } catch {}
                     if (Test-Path $script:configFile) { Remove-Item $script:configFile -Force }
                     
                     # Ricarichiamo la config (che forzerà Get-ConfigOrRegister a riprovare)
@@ -1113,12 +1091,6 @@ if ($cfg) {
                     if ($newCfg) {
                         $cfg.api_key = $newCfg.api_key
                         $cfg.agent_id = $newCfg.agent_id
-                        try {
-                            if ($keepLsightRtc) {
-                                $cfg | Add-Member -NotePropertyName lsight_rtc_enabled -NotePropertyValue $true -Force
-                                Save-Config $cfg
-                            }
-                        } catch {}
                         Write-Log "Ri-registrazione completata con successo." "INFO"
                     } else {
                         Write-Log "Ri-registrazione fallita. L'agent si fermerà." "ERROR"

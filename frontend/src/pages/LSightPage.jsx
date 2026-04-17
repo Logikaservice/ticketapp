@@ -176,7 +176,7 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
           }
         } catch (_) {}
 
-        const res = await fetch('/api/lsight-rtc/sessions', {
+        const res = await fetch('/api/lsight-rdp/sessions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -186,7 +186,7 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.success || !data.session?.id) {
-          const msg = data?.error || 'Impossibile avviare la sessione (modulo RTC disabilitato o errore server).';
+          const msg = data?.error || 'Impossibile avviare la sessione RDP (modulo RDP disabilitato o errore server).';
           alert(msg);
           return;
         }
@@ -212,7 +212,7 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
           openSessionFallback(data.session.id);
         }
       } catch (e) {
-        console.error('Errore avvio sessione L-Sight RTC:', e);
+        console.error('Errore avvio sessione L-Sight RDP:', e);
         alert('Errore di rete durante l’avvio della sessione.');
       } finally {
         setStartingSessionAgentId(null);

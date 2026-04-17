@@ -1,21 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ShieldCheck, X, RefreshCcw, Circle, Clock, KeyRound, PlugZap } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, ShieldCheck, X, RefreshCcw, Circle, Clock, KeyRound, Plug } from 'lucide-react';
 
 const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight }) => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [closing, setClosing] = useState(false);
-  const [rtcStatus, setRtcStatus] = useState('idle'); // idle | offering | waiting-answer | connected | failed | agent-ready
-  const [rtcError, setRtcError] = useState(null);
-  const [remoteVideoReady, setRemoteVideoReady] = useState(false);
-
-  const pcRef = useRef(null);
-  const remoteStreamRef = useRef(null);
-  const remoteVideoRef = useRef(null);
-  const lastAgentSignalIdRef = useRef(0);
-  const pollTimerRef = useRef(null);
-  const offerSentRef = useRef(false);
+  const [downloading, setDownloading] = useState(false);
 
   const canLoad = useMemo(() => !!sessionId && !Number.isNaN(Number(sessionId)), [sessionId]);
 
@@ -23,7 +14,7 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
     if (!canLoad) return;
     setError(null);
     try {
-      const res = await fetch(`/api/lsight-rtc/sessions/${Number(sessionId)}`, { headers: getAuthHeader() });
+      const res = await fetch(`/api/lsight-rdp/sessions/${Number(sessionId)}`, { headers: getAuthHeader() });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
         setError(data?.error || 'Errore nel recupero sessione');
@@ -32,7 +23,7 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
       }
       setSession(data.session || null);
     } catch (e) {
-      console.error('Errore fetch sessione L-Sight RTC:', e);
+      console.error('Errore fetch sessione L-Sight RDP:', e);
       setError('Errore di rete');
       setSession(null);
     } finally {
@@ -40,151 +31,29 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
     }
   };
 
-  const sendViewerSignal = async (type, payload) => {
-    const res = await fetch(`/api/lsight-rtc/sessions/${Number(sessionId)}/signal`, {
-      method: 'POST',
-      headers: {
-        ...getAuthHeader(),
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ type, payload })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.success) {
-      throw new Error(data?.error || 'Errore signaling');
-    }
-    return data;
-  };
-
-  const pollAgentSignals = async () => {
-    if (!sessionId) return;
-    const after = lastAgentSignalIdRef.current || 0;
-    const res = await fetch(`/api/lsight-rtc/sessions/${Number(sessionId)}/signals?after=${after}&limit=50`, {
-      headers: getAuthHeader()
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.success) {
-      return;
-    }
-    const signals = Array.isArray(data.signals) ? data.signals : [];
-    if (signals.length) {
-      lastAgentSignalIdRef.current = signals[signals.length - 1].id;
-    }
-    const pc = pcRef.current;
-    if (!pc) return;
-
-    for (const s of signals) {
-      if (s.type === 'answer') {
-        try {
-          await pc.setRemoteDescription(new RTCSessionDescription(s.payload));
-          setRtcStatus('connected');
-          setRtcError(null);
-        } catch (e) {
-          setRtcStatus('failed');
-          setRtcError(`Errore setRemoteDescription(answer): ${e.message}`);
-        }
-      } else if (s.type === 'agent-ready') {
-        // Segnale leggero per confermare che l'agent pilota vede la sessione.
-        if (rtcStatus !== 'connected') setRtcStatus('agent-ready');
-      } else if (s.type === 'ice') {
-        try {
-          await pc.addIceCandidate(s.payload);
-        } catch (_) {
-          // alcuni browser lanciano errori se arriva ICE prima della remoteDescription; ignoriamo e riproveremo con i successivi
-        }
+  const downloadRdp = async () => {
+    if (!canLoad || downloading) return;
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/lsight-rdp/sessions/${Number(sessionId)}/rdp-file`, { headers: getAuthHeader() });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        alert(txt || 'Errore download file RDP');
+        return;
       }
-    }
-  };
-
-  const stopRtc = () => {
-    if (pollTimerRef.current) {
-      clearInterval(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
-    offerSentRef.current = false;
-    lastAgentSignalIdRef.current = 0;
-    try {
-      pcRef.current?.close?.();
-    } catch (_) {
-      // ignore
-    }
-    pcRef.current = null;
-    try {
-      remoteStreamRef.current?.getTracks?.().forEach(t => t.stop());
-    } catch (_) {
-      // ignore
-    }
-    remoteStreamRef.current = null;
-    setRemoteVideoReady(false);
-    setRtcStatus('idle');
-    setRtcError(null);
-  };
-
-  const startRtc = async () => {
-    if (!canLoad) return;
-    if (offerSentRef.current) return;
-    setRtcError(null);
-    setRtcStatus('offering');
-
-    // Prepara stream remoto (solo ricezione)
-    remoteStreamRef.current = new MediaStream();
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = remoteStreamRef.current;
-    }
-
-    let iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
-    try {
-      const iceRes = await fetch(`/api/lsight-rtc/sessions/${Number(sessionId)}/ice-servers`, { headers: getAuthHeader() });
-      const iceData = await iceRes.json().catch(() => ({}));
-      if (iceRes.ok && iceData?.success && Array.isArray(iceData.iceServers) && iceData.iceServers.length) {
-        iceServers = iceData.iceServers;
-      }
-    } catch (_) {
-      // fallback su STUN pubblico
-    }
-
-    const pc = new RTCPeerConnection({ iceServers });
-    pcRef.current = pc;
-
-    pc.onicecandidate = (ev) => {
-      if (!ev.candidate) return;
-      sendViewerSignal('ice', ev.candidate).catch(() => {});
-    };
-
-    pc.ontrack = (ev) => {
-      try {
-        ev.streams?.[0]?.getTracks?.().forEach(t => remoteStreamRef.current.addTrack(t));
-        setRemoteVideoReady(true);
-      } catch (_) {
-        // ignore
-      }
-    };
-
-    pc.onconnectionstatechange = () => {
-      const st = pc.connectionState;
-      if (st === 'connected') setRtcStatus('connected');
-      if (st === 'failed' || st === 'disconnected') setRtcStatus('failed');
-    };
-
-    try {
-      // “viewer”: vogliamo SOLO ricevere video (e in futuro datachannel per input).
-      pc.addTransceiver('video', { direction: 'recvonly' });
-      pc.addTransceiver('audio', { direction: 'recvonly' });
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      await sendViewerSignal('offer', pc.localDescription);
-      offerSentRef.current = true;
-      setRtcStatus('waiting-answer');
-
-      // Polling segnali agent (answer/ice)
-      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-      pollTimerRef.current = setInterval(pollAgentSignals, 700);
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `lsight-${Number(sessionId)}.rdp`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
     } catch (e) {
-      setRtcStatus('failed');
-      setRtcError(e.message || 'Errore WebRTC');
-      stopRtc();
+      alert('Errore di rete durante il download RDP');
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -192,7 +61,7 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
     if (!canLoad || closing) return;
     setClosing(true);
     try {
-      const res = await fetch(`/api/lsight-rtc/sessions/${Number(sessionId)}/close`, {
+      const res = await fetch(`/api/lsight-rdp/sessions/${Number(sessionId)}/close`, {
         method: 'POST',
         headers: getAuthHeader()
       });
@@ -212,15 +81,9 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
   useEffect(() => {
     setLoading(true);
     fetchSession();
-    // Poll leggero: per ora solo per vedere lo stato cambiare
+    // Poll stato sessione (tunnel pronto)
     const t = setInterval(fetchSession, 2000);
     return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
-
-  useEffect(() => {
-    // Cleanup RTC quando si esce pagina o cambia sessione
-    return () => stopRtc();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
@@ -230,6 +93,8 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
         return 'text-emerald-400';
       case 'connecting':
         return 'text-indigo-300';
+      case 'ready':
+        return 'text-emerald-400';
       case 'expired':
         return 'text-amber-400';
       case 'closed':
@@ -249,7 +114,7 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
           <div>
             <h1 className="text-xl font-black text-white tracking-tight">L-Sight Session</h1>
             <p className="text-xs text-indigo-300/70 uppercase tracking-widest font-semibold mt-0.5">
-              Control-plane · RTC Engine
+              Control-plane · RDP Gateway
             </p>
           </div>
         </div>
@@ -284,12 +149,13 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={startRtc}
-                  className="px-4 py-2 rounded-lg bg-indigo-600/80 hover:bg-indigo-600 border border-indigo-500/30 text-sm font-black flex items-center gap-2"
-                  title="Avvia handshake WebRTC (offer/answer/ICE)"
+                  onClick={downloadRdp}
+                  disabled={downloading || (session?.status && session.status !== 'ready' && session.status !== 'active' && session.status !== 'connecting')}
+                  className="px-4 py-2 rounded-lg bg-indigo-600/80 hover:bg-indigo-600 disabled:opacity-60 border border-indigo-500/30 text-sm font-black flex items-center gap-2"
+                  title="Scarica il file .rdp e aprilo con mstsc"
                 >
-                  <PlugZap size={16} />
-                  Connetti (RTC)
+                  <Plug size={16} />
+                  Apri Desktop Remoto
                 </button>
                 <button
                   onClick={fetchSession}
@@ -319,6 +185,12 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
                 {loading ? 'Caricamento...' : (error ? 'Errore' : (session?.status || '—'))}
               </div>
               {error && <div className="mt-2 text-sm text-rose-400">{error}</div>}
+              <div className="mt-2 text-xs text-slate-500">
+                {session?.status === 'created' ? 'Sessione creata: in attesa tunnel...' :
+                  session?.status === 'tunneling' ? 'Tunnel in avvio...' :
+                    session?.status === 'ready' ? 'Tunnel pronto: puoi aprire mstsc.' :
+                      ''}
+              </div>
             </div>
 
             <div className="rounded-2xl bg-[#0D131F] border border-slate-800 p-5">
@@ -335,33 +207,14 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
 
           <div className="rounded-2xl bg-[#0D131F] border border-slate-800 p-5">
             <div className="text-slate-400 text-xs uppercase tracking-widest font-bold">
-              WebRTC
+              Desktop Remoto (RDP)
             </div>
-            <div className="mt-2 flex items-center gap-3 flex-wrap">
-              <div className="text-white font-black">
-                {rtcStatus === 'idle' ? 'pronto' :
-                  rtcStatus === 'offering' ? 'creo offer...' :
-                    rtcStatus === 'waiting-answer' ? 'in attesa di answer...' :
-                      rtcStatus === 'agent-ready' ? 'agent pronto (pilot)' :
-                      rtcStatus === 'connected' ? 'connesso' :
-                        'errore'}
-              </div>
-              {rtcError && <div className="text-rose-400 text-sm">{rtcError}</div>}
-            </div>
-
-            <div className="mt-4 rounded-xl bg-black/30 border border-white/5 overflow-hidden">
-              <video
-                ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-[280px] object-contain bg-black/40"
-                onCanPlay={() => setRemoteVideoReady(true)}
-              />
+            <div className="mt-2 text-white font-black">
+              {session?.status === 'ready' ? 'pronto' : 'in preparazione...'}
             </div>
             <div className="mt-2 text-xs text-slate-500">
-              In questo step facciamo solo signaling (offer/answer/ICE). Il video apparirà quando l’agent invierà un track.
-              {remoteVideoReady ? '' : ' (per ora nessun frame)'}
+              Clicca <span className="font-semibold">Apri Desktop Remoto</span> per scaricare il file <span className="font-mono">.rdp</span>.
+              Verrà aperto con <span className="font-mono">mstsc</span> e passerà dal tuo RD Gateway (senza VPN).
             </div>
           </div>
 
@@ -374,15 +227,15 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
               {session?.session_token || '—'}
             </div>
             <div className="mt-2 text-xs text-slate-500">
-              Questo token verrà usato nei prossimi step per handshake/signaling WebRTC.
+              Questo token identifica la sessione lato server (TTL breve).
             </div>
           </div>
 
           <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 p-5">
             <div className="text-amber-300 font-black text-sm">Nota</div>
             <div className="text-slate-300 text-sm mt-1">
-              In questa fase abbiamo aggiunto il <span className="font-semibold">signaling WebRTC</span> (offer/answer/ICE). Il motore video/input completo
-              verrà aggiunto nei prossimi step.
+              Questo flusso usa <span className="font-semibold">RDP vero</span> (clipboard, drive mapping, stampanti) tramite <span className="font-semibold">RD Gateway</span>.
+              Non serve OpenVPN sul PC del tecnico.
             </div>
           </div>
         </div>

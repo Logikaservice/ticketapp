@@ -1326,19 +1326,21 @@ app.get('/clients', async (req, res) => {
 const lsightRoutes = require('./routes/lsight');
 app.use('/api/lsight', lsightRoutes);
 
-// L-Sight RTC (WebRTC engine) — modulo isolato e disattivato di default
-// Abilita impostando: LSIGHT_RTC_ENABLED=1
-if (String(process.env.LSIGHT_RTC_ENABLED || '').trim() === '1') {
+// L-Sight RDP (mstsc + RD Gateway) — disattivato di default
+// Abilita impostando: LSIGHT_RDP_ENABLED=1
+if (String(process.env.LSIGHT_RDP_ENABLED || '').trim() === '1') {
   try {
-    const lsightRtcRoutes = require('./routes/lsightRtc')(pool);
-    app.use('/api/lsight-rtc', lsightRtcRoutes);
-    console.log('✅ L-Sight RTC abilitato su /api/lsight-rtc');
+    const lsightRdpRoutes = require('./routes/lsightRdp')(pool);
+    app.use('/api/lsight-rdp', lsightRdpRoutes);
+    console.log('✅ L-Sight RDP abilitato su /api/lsight-rdp');
   } catch (e) {
-    console.error('❌ Errore caricamento L-Sight RTC routes:', e.message);
+    console.error('❌ Errore caricamento L-Sight RDP routes:', e.message);
   }
 } else {
-  console.log('ℹ️ L-Sight RTC disabilitato (LSIGHT_RTC_ENABLED!=1)');
+  console.log('ℹ️ L-Sight RDP disabilitato (LSIGHT_RDP_ENABLED!=1)');
 }
+
+// (RTC/WebRTC rimosso: usiamo RDP via RD Gateway)
 
 app.use('/api/users', authenticateToken, usersRoutes);
 app.use('/api/tickets', authenticateToken, ticketsRoutes);

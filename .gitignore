@@ -5,6 +5,10 @@ node_modules/
 build/
 dist/
 
+# Build artifacts .NET / agent
+**/bin/
+**/obj/
+
 # Log
 npm-debug.log*
 yarn-debug.log*
