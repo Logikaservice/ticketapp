@@ -1620,51 +1620,102 @@ module.exports = (pool, io) => {
       }
 
 
-      const receivedIPs = new Set(); // Traccia gli IP ricevuti in questa scansione
+      // ─────────────────────────────────────────────────────────────────────
+      // STEP 1: Costruisci la lista degli IP ricevuti PRIMA di qualsiasi altra
+      // operazione. Questo garantisce che il mark-offline funzioni sempre,
+      // anche se l'upsert di un singolo dispositivo dovesse fallire.
+      // ─────────────────────────────────────────────────────────────────────
+      const receivedIPs = new Set();
+      for (const dev of devices) {
+        if (dev.ip_address) {
+          const ip = String(dev.ip_address).trim().replace(/[{}"]/g, '');
+          if (ip) receivedIPs.add(ip);
+        }
+      }
+      console.log(`📋 [STEP 1] IP ricevuti dall'agent: ${receivedIPs.size} → [${Array.from(receivedIPs).join(', ')}]`);
 
-      // DEBUG: Log all IPs received
-      const allIPs = devices.map(d => d.ip_address).filter(Boolean);
-      console.log(`🔍 DEBUG - Total devices received: ${devices.length}, IPs: ${allIPs.join(', ')}`);
-      console.log(`🔍 DEBUG - Contains .200? ${allIPs.includes('192.168.100.200') ? 'YES' : 'NO'}`);
+      // ─────────────────────────────────────────────────────────────────────
+      // STEP 2: Marca SUBITO come offline tutti i dispositivi NON nella lista.
+      // Lo facciamo prima dell'upsert per evitare race conditions.
+      // ─────────────────────────────────────────────────────────────────────
+      const receivedList = Array.from(receivedIPs);
+      try {
+        if (receivedList.length > 0) {
+          const offlineRes = await pool.query(
+            `UPDATE network_devices
+             SET status = 'offline'
+             WHERE agent_id = $1
+               AND status = 'online'
+               AND NOT (ip_address = ANY($2::text[]))
+               AND ip_address NOT LIKE 'virtual-%'
+             RETURNING id, hostname, ip_address, mac_address, device_type, notify_telegram`,
+            [agentId, receivedList]
+          );
+          if (offlineRes.rows.length > 0) {
+            console.log(`⚠️ [STEP 2] Marcati offline ${offlineRes.rows.length} dispositivi non rilevati in questa scan.`);
+            // Telegram offline notifications (fire-and-forget, non blocca)
+            for (const dev of offlineRes.rows) {
+              if (dev.notify_telegram === true) {
+                sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
+                  hostname: dev.hostname, deviceType: dev.device_type,
+                  ip: dev.ip_address, mac: dev.mac_address,
+                  status: 'offline', oldStatus: 'online', agentName, aziendaName
+                }).catch(e => console.error('❌ Telegram offline error:', e));
+              }
+            }
+          } else {
+            console.log(`✅ [STEP 2] Nessun dispositivo da marcare offline.`);
+          }
+        } else {
+          // Nessun dispositivo ricevuto: metti tutto offline
+          const offlineAllRes = await pool.query(
+            `UPDATE network_devices
+             SET status = 'offline'
+             WHERE agent_id = $1 AND status = 'online' AND ip_address NOT LIKE 'virtual-%'
+             RETURNING id, ip_address, notify_telegram, hostname, mac_address, device_type`,
+            [agentId]
+          );
+          if (offlineAllRes.rows.length > 0) {
+            console.log(`⚠️ [STEP 2] Nessun dispositivo ricevuto. Marcati offline TUTTI i ${offlineAllRes.rows.length} dispositivi.`);
+            for (const dev of offlineAllRes.rows) {
+              if (dev.notify_telegram === true) {
+                sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
+                  hostname: dev.hostname, deviceType: dev.device_type,
+                  ip: dev.ip_address, mac: dev.mac_address,
+                  status: 'offline', oldStatus: 'online', agentName, aziendaName
+                }).catch(e => console.error('❌ Telegram offline error:', e));
+              }
+            }
+          }
+        }
+      } catch (offlineErr) {
+        console.error('❌ [STEP 2] Errore critico nel mark-offline:', offlineErr);
+      }
 
+      // ─────────────────────────────────────────────────────────────────────
+      // STEP 3: Upsert dispositivi ricevuti (online)
+      // Ogni dispositivo è in un try-catch isolato: un fallimento singolo
+      // non blocca gli altri.
+      // ─────────────────────────────────────────────────────────────────────
 
-
-      // PRE-PROCESSING: Raggruppa dispositivi per MAC address per gestire multihoming (stesso MAC, più IP)
-      // Esempio: 192.168.100.17 e 192.168.100.200 hanno lo stesso MAC. Li uniamo in un unico record.
+      // PRE-PROCESSING: Raggruppa per MAC (gestione multi-homing)
       const devicesByMac = new Map();
       const devicesWithoutMac = [];
-
       for (const dev of devices) {
-        // Normalizza MAC per raggruppamento
         let macKey = null;
         if (dev.mac_address) {
           macKey = String(dev.mac_address).trim().toUpperCase().replace(/-/g, ':').substring(0, 17);
         }
-
         if (macKey) {
           if (!devicesByMac.has(macKey)) {
-            // Primo dispositivo con questo MAC
             devicesByMac.set(macKey, { ...dev, additional_ips: [] });
           } else {
-            // Duplicato! Uniamo i dati
             const existing = devicesByMac.get(macKey);
-
-            // Se l'IP è diverso, aggiungilo agli additional_ips (o metti l'esistente in additional e il nuovo come main)
-            // Preferiamo mantenere come IP principale quello più "basso" o il primo arrivato, ma salviamo tutti gli altri
             const existingIp = String(existing.ip_address).trim().replace(/[{}"]/g, '');
-            const newIp = String(dev.ip_address).trim().replace(/[{}"]/g, '');
-
-            if (existingIp !== newIp) {
-              // Aggiungi all'elenco se non c'è già
-              if (!existing.additional_ips.includes(newIp)) {
-                existing.additional_ips.push(newIp);
-              }
-              // Nota: potremmo voler scambiare IP principale con secondario in base a qualche logica, 
-              // ma per ora manteniamo il primo processato come principale e gli altri come secondari.
-              // Se il .200 arriva prima del .17, il .200 sarà principale.
+            const newIp = String(dev.ip_address || '').trim().replace(/[{}"]/g, '');
+            if (newIp && existingIp !== newIp && !existing.additional_ips.includes(newIp)) {
+              existing.additional_ips.push(newIp);
             }
-
-            // Merge altri campi se il nuovo ha info che il vecchio non ha
             if (!existing.hostname && dev.hostname) existing.hostname = dev.hostname;
             if (!existing.vendor && dev.vendor) existing.vendor = dev.vendor;
             if (!existing.unifi_name && dev.unifi_name) existing.unifi_name = dev.unifi_name;
@@ -1674,12 +1725,8 @@ module.exports = (pool, io) => {
           devicesWithoutMac.push(dev);
         }
       }
-
-      // Ricostruisci la lista devices piatta
       const uniqueDevices = [...devicesByMac.values(), ...devicesWithoutMac];
-
-      console.log(`🔍 DEBUG - Raggruppamento MAC: Iniziali ${devices.length} -> Unici ${uniqueDevices.length}`);
-
+      console.log(`🔍 [STEP 3] Upsert: ${uniqueDevices.length} dispositivi unici (da ${devices.length} ricevuti).`);
 
       for (const device of uniqueDevices) {
         try {
@@ -2007,93 +2054,6 @@ module.exports = (pool, io) => {
         
         } catch (deviceOpErr) {
           console.error(`❌ [AGENT ${agentId}] Errore critico nel salvataggio del dispositivo ${device.ip_address || 'Sconosciuto'}:`, deviceOpErr);
-        }
-      }
-
-      // Mark offline logic
-      const receivedList = Array.from(receivedIPs);
-      if (receivedList.length > 0) {
-        try {
-          // Use '!= ALL' which is more robust than 'NOT IN' with arrays in Postgres
-          // RETURNING per notifiche offline (include notify_telegram per filtrare)
-          const offlineRes = await pool.query(`UPDATE network_devices SET status = 'offline'
-                WHERE agent_id = $1 AND status = 'online' AND NOT (ip_address = ANY($2::text[])) AND ip_address NOT LIKE 'virtual-%'
-                RETURNING id, hostname, ip_address, mac_address, device_type, notify_telegram`,
-            [agentId, receivedList]
-          );
-
-          if (offlineRes.rows.length > 0) {
-            console.log(`⚠️ Marcati offline ${offlineRes.rows.length} dispositivi per Agent ${agentId} che non sono stati visti in questa scan.`);
-            for (const dev of offlineRes.rows) {
-              // Invia notifica SOLO se notify_telegram è true
-              if (dev.notify_telegram === true) {
-                console.log(`📤 [OFFLINE] Tentativo invio notifica Telegram per dispositivo offline: MAC=${dev.mac_address}, IP=${dev.ip_address}, Hostname=${dev.hostname}, AgentID=${agentId}, AziendaID=${req.agent.azienda_id}`);
-                sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
-                  hostname: dev.hostname,
-                  deviceType: dev.device_type,
-                  ip: dev.ip_address,
-                  mac: dev.mac_address,
-                  status: 'offline',
-                  oldStatus: 'online',
-                  agentName,
-                  aziendaName
-                }).then(result => {
-                  if (result) {
-                    console.log(`✅ [OFFLINE] Notifica Telegram inviata con successo per MAC=${dev.mac_address}`);
-                  } else {
-                    console.log(`⚠️ [OFFLINE] Notifica Telegram NON inviata (ritornato false) per MAC=${dev.mac_address} - verifica config.notify_status_changes`);
-                  }
-                }).catch(e => {
-                  console.error('❌ [OFFLINE] Telegram notification error (Device Offline):', e);
-                  console.error('❌ [OFFLINE] Stack trace:', e.stack);
-                });
-              } else {
-                console.log(`⏭️ [OFFLINE] Notifica Telegram saltata: notify_telegram=false per MAC=${dev.mac_address}`);
-              }
-            }
-          }
-
-        } catch (offlineErr) {
-          console.error('❌ Error marking offline devices:', offlineErr);
-        }
-      } else {
-        try {
-          const offlineAllRes = await pool.query(`UPDATE network_devices SET status = 'offline' 
-                WHERE agent_id = $1 AND status = 'online' AND ip_address NOT LIKE 'virtual-%'
-                RETURNING id, hostname, ip_address, mac_address, device_type, notify_telegram`, [agentId]);
-
-          if (offlineAllRes.rows.length > 0) {
-            console.log(`⚠️ Marcati offline TUTTI i ${offlineAllRes.rows.length} dispositivi per Agent ${agentId} (nessun dispositivo rilevato).`);
-            for (const dev of offlineAllRes.rows) {
-              // Invia notifica SOLO se notify_telegram è true
-              if (dev.notify_telegram === true) {
-                console.log(`📤 [OFFLINE-ALL] Tentativo invio notifica Telegram per dispositivo offline: MAC=${dev.mac_address}, IP=${dev.ip_address}, Hostname=${dev.hostname}, AgentID=${agentId}, AziendaID=${req.agent.azienda_id}`);
-                sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
-                  hostname: dev.hostname,
-                  deviceType: dev.device_type,
-                  ip: dev.ip_address,
-                  mac: dev.mac_address,
-                  status: 'offline',
-                  oldStatus: 'online',
-                  agentName,
-                  aziendaName
-                }).then(result => {
-                  if (result) {
-                    console.log(`✅ [OFFLINE-ALL] Notifica Telegram inviata con successo per MAC=${dev.mac_address}`);
-                  } else {
-                    console.log(`⚠️ [OFFLINE-ALL] Notifica Telegram NON inviata (ritornato false) per MAC=${dev.mac_address} - verifica config.notify_status_changes`);
-                  }
-                }).catch(e => {
-                  console.error('❌ [OFFLINE-ALL] Telegram notification error (All Devices Offline):', e);
-                  console.error('❌ [OFFLINE-ALL] Stack trace:', e.stack);
-                });
-              } else {
-                console.log(`⏭️ [OFFLINE-ALL] Notifica Telegram saltata: notify_telegram=false per MAC=${dev.mac_address}`);
-              }
-            }
-          }
-        } catch (offlineAllErr) {
-          console.error('❌ Error marking all offline:', offlineAllErr);
         }
       }
 
