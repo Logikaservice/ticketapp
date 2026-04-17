@@ -132,9 +132,18 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
       remoteVideoRef.current.srcObject = remoteStreamRef.current;
     }
 
-    const pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-    });
+    let iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+    try {
+      const iceRes = await fetch(`/api/lsight-rtc/sessions/${Number(sessionId)}/ice-servers`, { headers: getAuthHeader() });
+      const iceData = await iceRes.json().catch(() => ({}));
+      if (iceRes.ok && iceData?.success && Array.isArray(iceData.iceServers) && iceData.iceServers.length) {
+        iceServers = iceData.iceServers;
+      }
+    } catch (_) {
+      // fallback su STUN pubblico
+    }
+
+    const pc = new RTCPeerConnection({ iceServers });
     pcRef.current = pc;
 
     pc.onicecandidate = (ev) => {

@@ -264,6 +264,43 @@ router.get('/sessions/:id', async (req, res) => {
   }
 });
  
+// -----------------------------------------
+// ICE servers (viewer JWT) - STUN/TURN
+// -----------------------------------------
+function buildIceServersForSession() {
+  // MVP: STUN pubblico + TURN opzionale da env.
+  // Per una soluzione "migliore", usare coturn con auth secret e credenziali temporanee.
+  const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+  const turnUrls = String(process.env.LSIGHT_TURN_URLS || '').trim();
+  const turnUser = String(process.env.LSIGHT_TURN_USERNAME || '').trim();
+  const turnPass = String(process.env.LSIGHT_TURN_PASSWORD || '').trim();
+  if (turnUrls && turnUser && turnPass) {
+    iceServers.push({
+      urls: turnUrls.split(',').map(s => s.trim()).filter(Boolean),
+      username: turnUser,
+      credential: turnPass
+    });
+  }
+  return iceServers;
+}
+
+router.get('/sessions/:id/ice-servers', async (req, res) => {
+  try {
+    await ensureTables();
+    const id = Number(req.params.id);
+    if (!id || Number.isNaN(id)) return res.status(400).json({ success: false, error: 'id non valido' });
+    const s = await getSessionById(id);
+    if (!s) return res.status(404).json({ success: false, error: 'Sessione non trovata' });
+    if (!isTecnico(req) && Number(s.user_id) !== Number(req.user.id)) {
+      return res.status(403).json({ success: false, error: 'Accesso negato' });
+    }
+    return res.json({ success: true, iceServers: buildIceServersForSession() });
+  } catch (e) {
+    console.error('lsight-rtc: errore ice-servers:', e);
+    return res.status(500).json({ success: false, error: 'Errore interno' });
+  }
+});
+
 // -------------------------------
 // Signaling lato viewer (JWT)
 // -------------------------------
