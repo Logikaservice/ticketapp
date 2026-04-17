@@ -2012,7 +2012,7 @@ module.exports = (pool, io) => {
           // Use '!= ALL' which is more robust than 'NOT IN' with arrays in Postgres
           // RETURNING per notifiche offline (include notify_telegram per filtrare)
           const offlineRes = await pool.query(`UPDATE network_devices SET status = 'offline'
-                WHERE agent_id = $1 AND status = 'online' AND ip_address != ALL($2::text[]) AND ip_address NOT LIKE 'virtual-%'
+                WHERE agent_id = $1 AND status = 'online' AND NOT (ip_address = ANY($2::text[])) AND ip_address NOT LIKE 'virtual-%'
                 RETURNING id, hostname, ip_address, mac_address, device_type, notify_telegram`,
             [agentId, receivedList]
           );
@@ -2635,7 +2635,9 @@ module.exports = (pool, io) => {
             ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '') 
           END as hostname,
           nd.vendor, 
-          nd.device_type, nd.device_path, nd.device_username, nd.unifi_name, nd.status, nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
+          nd.device_type, nd.device_path, nd.device_username, nd.unifi_name, 
+          CASE WHEN na.status = 'offline' THEN 'offline' ELSE nd.status END as status, 
+          nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
           nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port, nd.notes, nd.is_manual_type, nd.ip_history, nd.additional_ips, nd.is_new_device, nd.router_model, nd.wifi_sync_status, nd.wifi_sync_msg, nd.wifi_sync_last_at,
           nd.switch_profile_id, nd.snmp_community, nd.is_managed_switch,
           nd.agent_id, na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
@@ -6033,7 +6035,13 @@ pause
           [agent.id]
         );
 
-        console.log(`✅ checkOfflineAgents: agent ${agent.id} aggiornato a offline nel database`);
+        // PROPAGATE OFFLINE STATUS TO ALL DEVICES MONITORED BY THIS AGENT
+        await pool.query(
+          `UPDATE network_devices SET status = 'offline' WHERE agent_id = $1 AND status = 'online'`,
+          [agent.id]
+        );
+
+        console.log(`✅ checkOfflineAgents: agent ${agent.id} e i suoi dispositivi aggiornati a offline nel database`);
 
         // Invia notifica Telegram
         try {
