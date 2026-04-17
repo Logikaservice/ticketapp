@@ -98,8 +98,14 @@ const ensureTables = async () => {
   }
 };
  
-// Tutte le route richiedono JWT
-router.use(authenticateToken);
+// Viewer: JWT. Agent: api_key.
+// IMPORTANTE: le route /agent/* non devono richiedere JWT (altrimenti l'agent ottiene MISSING_TOKEN).
+router.use((req, res, next) => {
+  try {
+    if (typeof req.path === 'string' && req.path.startsWith('/agent/')) return next();
+  } catch (_) { /* ignore */ }
+  return authenticateToken(req, res, next);
+});
  
 const isTecnico = (req) => req.user?.ruolo === 'tecnico';
  
