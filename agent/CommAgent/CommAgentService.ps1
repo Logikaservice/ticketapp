@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.38"
+$SCRIPT_VERSION = "1.2.39"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 
@@ -91,6 +91,19 @@ function Save-Config {
         $utf8NoBom = New-Object System.Text.UTF8Encoding $false
         [System.IO.File]::WriteAllText($script:configFile, $json, $utf8NoBom)
     } catch {}
+}
+
+function Get-CommAgentFlagFromConfigFileRaw {
+    param([string]$FlagName)
+    try {
+        if (-not (Test-Path $script:configFile)) { return $false }
+        $raw = [System.IO.File]::ReadAllText($script:configFile)
+        if ($raw.Length -gt 0 -and [int][char]$raw[0] -eq 0xFEFF) { $raw = $raw.Substring(1) }
+        # Best-effort: anche se il JSON è invalido, preserviamo il flag se compare come true
+        $pattern = '"' + [regex]::Escape($FlagName) + '"\s*:\s*true'
+        return ([regex]::IsMatch($raw, $pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase))
+    } catch {}
+    return $false
 }
 
 # ============================================
@@ -793,7 +806,18 @@ function Register-Agent {
         $resp = Invoke-RestMethod -Uri "$ServerUrl/api/comm-agent/agent/register" -Method POST -Body $body -ContentType "application/json" -ErrorAction Stop
         if ($resp.api_key) {
             $em = if ($resp.user -and $resp.user.email) { $resp.user.email } else { $Email }
+            # Preserva flag locali (es. lsight_rtc_enabled) se config viene rigenerata
+            $keepLsightRtc = $false
+            try {
+                $oldCfg = Load-Config
+                if ($oldCfg -and $oldCfg.lsight_rtc_enabled -eq $true) { $keepLsightRtc = $true }
+            } catch {}
+            if (-not $keepLsightRtc) {
+                try { if (Get-CommAgentFlagFromConfigFileRaw -FlagName 'lsight_rtc_enabled') { $keepLsightRtc = $true } } catch {}
+            }
+
             $newCfg = @{ server_url = $ServerUrl; api_key = [string]$resp.api_key.Trim(); agent_id = $resp.agent_id; email = $em }
+            if ($keepLsightRtc) { $newCfg['lsight_rtc_enabled'] = $true }
             Save-Config $newCfg
             return $newCfg
         }
