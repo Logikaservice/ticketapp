@@ -1330,7 +1330,7 @@ app.use('/api/lsight', lsightRoutes);
 // Abilita impostando: LSIGHT_RTC_ENABLED=1
 if (String(process.env.LSIGHT_RTC_ENABLED || '').trim() === '1') {
   try {
-    const lsightRtcRoutes = require('./routes/lsightRtc');
+    const lsightRtcRoutes = require('./routes/lsightRtc')(pool);
     app.use('/api/lsight-rtc', lsightRtcRoutes);
     console.log('✅ L-Sight RTC abilitato su /api/lsight-rtc');
   } catch (e) {

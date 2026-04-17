@@ -1,35 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { Pool } = require('pg');
 const crypto = require('crypto');
 const { authenticateToken } = require('../middleware/authMiddleware');
  
-// Nota: questo modulo è volutamente isolato (feature flag in backend/index.js).
-// Usa un pool dedicato come backend/routes/lsight.js per minimizzare accoppiamenti iniziali.
-let poolConfig = {};
-if (process.env.DATABASE_URL) {
-  try {
-    const dbUrl = process.env.DATABASE_URL;
-    const match = dbUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
-    if (match) {
-      poolConfig.user = decodeURIComponent(match[1]);
-      poolConfig.password = decodeURIComponent(match[2]);
-      if (typeof poolConfig.password !== 'string') poolConfig.password = String(poolConfig.password);
-      poolConfig.host = match[3];
-      poolConfig.port = parseInt(match[4], 10);
-      poolConfig.database = match[5];
-      poolConfig.ssl = (poolConfig.host === 'localhost' || poolConfig.host === '127.0.0.1')
-        ? false
-        : { rejectUnauthorized: false };
-    } else {
-      poolConfig.connectionString = process.env.DATABASE_URL;
-    }
-  } catch (e) {
-    poolConfig.connectionString = process.env.DATABASE_URL;
-  }
-}
- 
-const pool = new Pool(poolConfig);
+// Questo modulo deve usare lo stesso pool del backend principale per evitare
+// mismatch di DB/credenziali (e quindi "Agent key non valida").
+let pool = null;
  
 let tablesReady = false;
 let tableInitError = null;
@@ -49,6 +25,7 @@ function toErrPayload(e) {
 const ensureTables = async () => {
   if (tablesReady) return;
   try {
+    assertPoolReady();
     // Permessi L-Sight: necessari per validare l'accesso alle postazioni (clienti)
     // Vengono creati anche da routes/lsight.js, ma qui li garantiamo per evitare dipendenze dall'ordine di avvio/uso.
     await pool.query(`
@@ -98,6 +75,10 @@ const ensureTables = async () => {
   }
 };
  
+function assertPoolReady() {
+  if (!pool) throw new Error('lsight-rtc: pool non inizializzato (passare pool condiviso da index.js)');
+}
+
 // Viewer: JWT. Agent: api_key.
 // IMPORTANTE: le route /agent/* non devono richiedere JWT (altrimenti l'agent ottiene MISSING_TOKEN).
 router.use((req, res, next) => {
@@ -555,5 +536,8 @@ router.get('/debug/state', async (req, res) => {
   }
 });
  
-module.exports = router;
+module.exports = (sharedPool) => {
+  pool = sharedPool;
+  return router;
+};
 
