@@ -1069,7 +1069,7 @@ function Get-NetworkDevices {
                         # Se il ping fallisce, proviamo le porte pi├╣ comuni.
                         # Molti PC Windows bloccano il ping ma hanno la 445 (SMB) o 135 (RPC) aperta.
                         # Stampanti e Router hanno spesso la 80 o 443.
-                        $portsToCheck = @(445, 135, 80, 443, 3389, 22) 
+                        $portsToCheck = @(445, 80, 443)
                         
                         foreach ($port in $portsToCheck) {
                             $tcp = $null
@@ -1077,7 +1077,7 @@ function Get-NetworkDevices {
                                 $tcp = New-Object System.Net.Sockets.TcpClient
                                 # Timeout leggermente aumentato (500ms) per affidabilità
                                 $connect = $tcp.BeginConnect($targetIP, $port, $null, $null)
-                                if ($connect.AsyncWaitHandle.WaitOne(500, $false)) {
+                                if ($connect.AsyncWaitHandle.WaitOne(200, $false)) {
                                     try {
                                         $tcp.EndConnect($connect)
                                         # VERIFICA CRITICA: Controlla che la connessione sia realmente attiva
@@ -1128,7 +1128,7 @@ function Get-NetworkDevices {
                         try {
                             $job = [System.Management.Automation.PowerShell]::Create()
                             $job.RunspacePool = $runspacePool
-                            $job.AddScript($discoveryScriptBlock).AddArgument($ip).AddArgument(300) | Out-Null
+                            $job.AddScript($discoveryScriptBlock).AddArgument($ip).AddArgument(200) | Out-Null
                             $asyncResult = $job.BeginInvoke()
                         }
                         catch {
@@ -1137,7 +1137,7 @@ function Get-NetworkDevices {
                                 $runspace = $runspacePool.AcquireRunspace()
                                 $job = [System.Management.Automation.PowerShell]::Create()
                                 $job.Runspace = $runspace
-                                $job.AddScript($discoveryScriptBlock).AddArgument($ip).AddArgument(300) | Out-Null
+                                $job.AddScript($discoveryScriptBlock).AddArgument($ip).AddArgument(200) | Out-Null
                                 $asyncResult = $job.BeginInvoke()
                             }
                             catch {
@@ -1155,7 +1155,7 @@ function Get-NetworkDevices {
                     # Raccogli risultati con timeout per evitare blocchi
                     # FIX: Timeout aumentato a 30s per dare tempo ai job, ma con watchdog anti-hang
                     $activeIPs = New-Object System.Collections.ArrayList
-                    $pingTimeout = 30  # Timeout 30 secondi per raccolta risultati ping (era 10)
+                    $pingTimeout = 15  # Timeout 15 secondi per raccolta risultati ping
                     $pingStartTime = Get-Date
                     
                     Write-Log "Raccolta risultati scansione ibrida (Ping+TCP) per $($jobs.Count) job..." "INFO"
