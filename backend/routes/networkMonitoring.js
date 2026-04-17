@@ -1979,24 +1979,82 @@ module.exports = (pool, io) => {
             }
           }
 
-          await pool.query(`UPDATE network_devices SET
-                 ip_address = $1,
-                 mac_address = COALESCE($2, mac_address),
-                 hostname = $3,
-                 vendor = COALESCE($4, vendor),
-                 last_seen = NOW(),
-                 status = $5,
-                 ping_responsive = $6,
-                 upgrade_available = $7,
-                 device_type = CASE WHEN is_manual_type THEN device_type ELSE COALESCE($8, device_type) END,
-                 device_path = COALESCE($9, device_path),
-                 additional_ips = $11,
-                 previous_ip = CASE WHEN $12 THEN $13 ELSE previous_ip END,
-                 unifi_name = COALESCE($14, unifi_name)
-                 WHERE id = $10`,
-            [ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, effectiveDeviceType, devicePathFromKeepass, existingDevice.id, JSON.stringify(additional_ips || []), isStaticIPChange, isStaticIPChange ? oldIp : null, (unifi_name && String(unifi_name).trim()) ? String(unifi_name).trim() : null]
+          // ── UPSERT CORE (immediato, nessuna dipendenza esterna) ──────────
+          // Aggiorna SUBITO ip, mac, last_seen e status. Questo deve avvenire
+          // indipendentemente da KeePass, Telegram, ecc.
+          await pool.query(
+            `UPDATE network_devices SET
+               ip_address       = $1,
+               mac_address      = COALESCE($2, mac_address),
+               vendor           = COALESCE($3, vendor),
+               last_seen        = NOW(),
+               status           = $4,
+               ping_responsive  = $5,
+               upgrade_available= $6,
+               additional_ips   = $7,
+               previous_ip      = CASE WHEN $8 THEN $9 ELSE previous_ip END,
+               unifi_name       = COALESCE($10, unifi_name)
+             WHERE id = $11`,
+            [
+              ip_address,
+              normalizedMac,
+              vendor,
+              status || 'online',
+              ping_responsive === true,
+              upgrade_available === true,
+              JSON.stringify(additional_ips || []),
+              isStaticIPChange,
+              isStaticIPChange ? oldIp : null,
+              (unifi_name && String(unifi_name).trim()) ? String(unifi_name).trim() : null,
+              existingDevice.id
+            ]
           );
           deviceResults.push({ action: 'updated', id: existingDevice.id, ip: ip_address });
+
+          // ── ENRICHIMENTO KeePass (non critico, fatto dopo) ────────────────
+          // Aggiorna hostname e device_type solo se KeePass restituisce dati.
+          // Un eventuale errore/lentezza di KeePass NON impatta last_seen.
+          if (normalizedMac && process.env.KEEPASS_PASSWORD) {
+            try {
+              const keepassResult = await keepassDriveService.findMacTitle(normalizedMac, process.env.KEEPASS_PASSWORD);
+              if (keepassResult) {
+                let kpHostname = keepassResult.title?.trim() || null;
+                let kpDeviceType = null;
+                switch (Number(keepassResult.iconId)) {
+                  case 3: kpDeviceType = 'server'; break;
+                  case 4: kpDeviceType = 'pc'; break;
+                  case 18: kpDeviceType = 'printer'; break;
+                  case 19: case 22: kpDeviceType = 'nas'; break;
+                  case 27: kpDeviceType = 'laptop'; break;
+                  case 28: kpDeviceType = 'smartphone'; break;
+                  case 29: kpDeviceType = 'firewall'; break;
+                  case 34: kpDeviceType = 'wifi'; break;
+                  case 61: kpDeviceType = 'switch'; break;
+                }
+                let kpPath = keepassResult.path ? keepassResult.path.split(' > ').pop() : null;
+                if (kpPath && kpPath.length > 255) kpPath = kpPath.substring(0, 255);
+
+                await pool.query(
+                  `UPDATE network_devices SET
+                     hostname    = COALESCE($1, hostname),
+                     device_type = CASE WHEN is_manual_type THEN device_type ELSE COALESCE($2, device_type) END,
+                     device_path = COALESCE($3, device_path)
+                   WHERE id = $4`,
+                  [kpHostname, kpDeviceType, kpPath, existingDevice.id]
+                );
+              }
+            } catch (kpErr) { /* KeePass non critico, ignora */ }
+          } else {
+            // Nessun KeePass: aggiorna hostname/device_type con i dati dell'agent
+            await pool.query(
+              `UPDATE network_devices SET
+                 hostname    = $1,
+                 device_type = CASE WHEN is_manual_type THEN device_type ELSE COALESCE($2, device_type) END,
+                 device_path = COALESCE($3, device_path)
+               WHERE id = $4`,
+              [effectiveHostname, effectiveDeviceType, devicePathFromKeepass, existingDevice.id]
+            );
+          }
 
           // DEBUG: Track 192.168.100.200
           if (ip_address === '192.168.100.200') {
