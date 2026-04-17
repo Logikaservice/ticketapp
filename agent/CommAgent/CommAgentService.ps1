@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.42"
+$SCRIPT_VERSION = "1.2.43"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 
@@ -114,8 +114,18 @@ function Start-LSightRtcWorker {
         if ($script:rtcWorkerProcess -and -not $script:rtcWorkerProcess.HasExited) { return $true }
 
         $workerExe = Join-Path $script:scriptDir "LogikaRtcWorker.exe"
-        if (-not (Test-Path $workerExe)) {
-            Write-Log "LSightRtc: worker non trovato: $workerExe (build/publish richiesto)" "WARN"
+        $workerDll = Join-Path $script:scriptDir "LogikaRtcWorker.dll"
+        $workerDll2 = Join-Path $script:scriptDir "rtc-worker\LogikaRtcWorker.dll"
+        $workerExe2 = Join-Path $script:scriptDir "rtc-worker\LogikaRtcWorker.exe"
+
+        $useDotnet = $false
+        $fileToRun = $workerExe
+        if (Test-Path $workerExe2) { $fileToRun = $workerExe2 }
+        elseif (Test-Path $workerExe) { $fileToRun = $workerExe }
+        elseif (Test-Path $workerDll2) { $fileToRun = $workerDll2; $useDotnet = $true }
+        elseif (Test-Path $workerDll) { $fileToRun = $workerDll; $useDotnet = $true }
+        else {
+            Write-Log "LSightRtc: worker non trovato (exe/dll). Metti LogikaRtcWorker.exe o LogikaRtcWorker.dll in $script:scriptDir (o sottocartella rtc-worker)." "WARN"
             return $false
         }
 
@@ -126,8 +136,14 @@ function Start-LSightRtcWorker {
         )
 
         $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = $workerExe
-        $psi.Arguments = ($args | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
+        if ($useDotnet) {
+            $psi.FileName = "dotnet"
+            $allArgs = @($fileToRun) + $args
+            $psi.Arguments = ($allArgs | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
+        } else {
+            $psi.FileName = $fileToRun
+            $psi.Arguments = ($args | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
+        }
         $psi.WorkingDirectory = $script:scriptDir
         $psi.UseShellExecute = $false
         $psi.CreateNoWindow = $true
@@ -138,7 +154,7 @@ function Start-LSightRtcWorker {
         $p.StartInfo = $psi
         $null = $p.Start()
         $script:rtcWorkerProcess = $p
-        Write-Log "LSightRtc: worker avviato (pid=$($p.Id))." "INFO"
+        Write-Log "LSightRtc: worker avviato (pid=$($p.Id)) file=$fileToRun dotnet=$useDotnet." "INFO"
         return $true
     } catch {
         Write-Log "LSightRtc: errore avvio worker: $_" "WARN"
