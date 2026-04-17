@@ -338,6 +338,28 @@ module.exports = (pool, io) => {
         );
       `);
 
+      // Migrazioni "safe" per vincoli CHECK (DB pre-esistenti possono avere constraint vecchi)
+      // Se il constraint non include 'frequent_disconnections' il backend genera errori Postgres (23514)
+      // e, a cascata, lato frontend si vedono 502/WS retry.
+      try {
+        await pool.query(`
+          ALTER TABLE network_changes DROP CONSTRAINT IF EXISTS network_changes_change_type_check;
+          ALTER TABLE network_changes ADD CONSTRAINT network_changes_change_type_check
+          CHECK (change_type IN ('new_device', 'device_offline', 'device_online', 'ip_changed', 'mac_changed', 'hostname_changed', 'vendor_changed', 'ip_conflict', 'frequent_disconnections'));
+        `);
+      } catch (e) {
+        console.warn('⚠️ Migrazione network_changes_change_type_check:', e.message);
+      }
+      try {
+        await pool.query(`
+          ALTER TABLE network_agent_events DROP CONSTRAINT IF EXISTS network_agent_events_event_type_check;
+          ALTER TABLE network_agent_events ADD CONSTRAINT network_agent_events_event_type_check
+          CHECK (event_type IN ('offline', 'online', 'reboot', 'network_issue', 'frequent_disconnections'));
+        `);
+      } catch (e) {
+        console.warn('⚠️ Migrazione network_agent_events_event_type_check:', e.message);
+      }
+
       // Altre tabelle accessorie
       await pool.query(`CREATE TABLE IF NOT EXISTS network_notification_config (id SERIAL PRIMARY KEY, agent_id INTEGER REFERENCES network_agents(id) ON DELETE CASCADE, ip_address VARCHAR(45) NOT NULL, enabled BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(agent_id, ip_address));`);
       await pool.query(`
