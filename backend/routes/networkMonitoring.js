@@ -1682,10 +1682,11 @@ module.exports = (pool, io) => {
 
 
       for (const device of uniqueDevices) {
-        let { ip_address, mac_address, hostname, vendor, status, ping_responsive, upgrade_available, unifi_name, additional_ips } = device;
+        try {
+          let { ip_address, mac_address, hostname, vendor, status, ping_responsive, upgrade_available, unifi_name, additional_ips } = device;
 
-        // 1. Normalizzazione basilare IP
-        if (ip_address) ip_address = String(ip_address).trim().replace(/[{}"]/g, '');
+          // 1. Normalizzazione basilare IP
+          if (ip_address) ip_address = String(ip_address).trim().replace(/[{}"]/g, '');
 
         // DEBUG: Track 192.168.100.200
         if (ip_address === '192.168.100.200') {
@@ -2002,6 +2003,10 @@ module.exports = (pool, io) => {
           if (ip_address === '192.168.100.200') {
             console.log('🔍 DEBUG .200 - CREATED device ID:', res.rows[0].id);
           }
+        }
+        
+        } catch (deviceOpErr) {
+          console.error(`❌ [AGENT ${agentId}] Errore critico nel salvataggio del dispositivo ${device.ip_address || 'Sconosciuto'}:`, deviceOpErr);
         }
       }
 
