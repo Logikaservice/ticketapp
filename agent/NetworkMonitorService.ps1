@@ -867,7 +867,10 @@ function Get-NetworkDevices {
                 $ipListToScan = @()
                 
                 # Prepara lista IP da scansionare (escludendo IP locale)
-                for ($i = 1; $i -le $maxIP; $i++) {
+                # Nota: supporta range tipo "192.168.1.50/24" (start da .50) oltre al classico ".0/24".
+                $scanStart = [Math]::Max(1, [int]$startIP)
+                $scanEnd = [Math]::Max($scanStart, [int]$maxIP)
+                for ($i = $scanStart; $i -le $scanEnd; $i++) {
                     $ip = "$baseIP.$i"
                     
                     # Se ├¿ l'IP locale, aggiungilo sempre (anche se il ping fallisce)
