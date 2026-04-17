@@ -1629,10 +1629,17 @@ module.exports = (pool, io) => {
       for (const dev of devices) {
         if (dev.ip_address) {
           const ip = String(dev.ip_address).trim().replace(/[{}"]/g, '');
-          if (ip) receivedIPs.add(ip);
+          // Solo i dispositivi che hanno risposto al ping contano come "visti".
+          // I dispositivi Trust ARP (ping_responsive=false) non aggiornano last_seen
+          // e non proteggono il dispositivo dall'essere marcato offline.
+          if (ip && dev.ping_responsive !== false) {
+            receivedIPs.add(ip);
+          }
         }
       }
-      console.log(`📋 [STEP 1] IP ricevuti dall'agent: ${receivedIPs.size} → [${Array.from(receivedIPs).join(', ')}]`);
+      console.log(`📋 [STEP 1] IP ricevuti dall'agent (solo ping): ${receivedIPs.size}`);
+      const trustArpCount = devices.filter(d => d.ping_responsive === false && d.ip_address).length;
+      if (trustArpCount > 0) console.log(`ℹ️ [STEP 1] ${trustArpCount} dispositivi Trust ARP ignorati dal mark-offline (ping_responsive=false).`);
 
       // ─────────────────────────────────────────────────────────────────────
       // STEP 2: Marca SUBITO come offline tutti i dispositivi NON nella lista.
@@ -1944,7 +1951,8 @@ module.exports = (pool, io) => {
           }
 
           // Se il dispositivo passa da OFFLINE a ONLINE, registra SEMPRE un evento nel DB
-          if (existingDevice.status === 'offline' && (status || 'online') === 'online') {
+          // IMPORTANTE: Solo se ha risposto al ping (non Trust ARP)
+          if (existingDevice.status === 'offline' && (status || 'online') === 'online' && ping_responsive !== false) {
             try {
               await pool.query(
                 `INSERT INTO network_changes (device_id, agent_id, change_type, old_value, new_value)
@@ -1982,18 +1990,21 @@ module.exports = (pool, io) => {
           // ── UPSERT CORE (immediato, nessuna dipendenza esterna) ──────────
           // Aggiorna SUBITO ip, mac, last_seen e status. Questo deve avvenire
           // indipendentemente da KeePass, Telegram, ecc.
+          // NOTA: I dispositivi Trust ARP (ping_responsive=false) non aggiornano
+          // last_seen né status — solo mac/vendor/additional_ips.
+          const isTrustArp = ping_responsive === false;
           await pool.query(
             `UPDATE network_devices SET
-               ip_address       = $1,
-               mac_address      = COALESCE($2, mac_address),
-               vendor           = COALESCE($3, vendor),
-               last_seen        = NOW(),
-               status           = $4,
-               ping_responsive  = $5,
-               upgrade_available= $6,
-               additional_ips   = $7,
-               previous_ip      = CASE WHEN $8 THEN $9 ELSE previous_ip END,
-               unifi_name       = COALESCE($10, unifi_name)
+               ip_address        = $1,
+               mac_address       = COALESCE($2, mac_address),
+               vendor            = COALESCE($3, vendor),
+               last_seen         = CASE WHEN $12 THEN last_seen ELSE NOW() END,
+               status            = CASE WHEN $12 THEN status ELSE $4 END,
+               ping_responsive   = $5,
+               upgrade_available = $6,
+               additional_ips    = $7,
+               previous_ip       = CASE WHEN $8 THEN $9 ELSE previous_ip END,
+               unifi_name        = COALESCE($10, unifi_name)
              WHERE id = $11`,
             [
               ip_address,
@@ -2006,7 +2017,8 @@ module.exports = (pool, io) => {
               isStaticIPChange,
               isStaticIPChange ? oldIp : null,
               (unifi_name && String(unifi_name).trim()) ? String(unifi_name).trim() : null,
-              existingDevice.id
+              existingDevice.id,
+              isTrustArp  // $12: se true, last_seen e status non vengono toccati
             ]
           );
           deviceResults.push({ action: 'updated', id: existingDevice.id, ip: ip_address });
