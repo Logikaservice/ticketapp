@@ -2219,21 +2219,27 @@ module.exports = (pool, io) => {
                     // Notifica Telegram specifica per instabilità
                     let alertHostname = device_ip;
                     let alertMac = 'N/A';
+                    let alertNotifyTelegram = false;
                     try {
-                      const devInfo = await pool.query('SELECT hostname, mac_address FROM network_devices WHERE id = $1', [deviceId]);
+                      const devInfo = await pool.query('SELECT hostname, mac_address, notify_telegram FROM network_devices WHERE id = $1', [deviceId]);
                       if (devInfo.rows.length > 0) {
                         alertHostname = devInfo.rows[0].hostname || device_ip;
                         alertMac = devInfo.rows[0].mac_address || 'N/A';
+                        alertNotifyTelegram = devInfo.rows[0].notify_telegram === true;
                       }
                     } catch (_) { /* best-effort */ }
-                    sendTelegramNotification(agentId, req.agent.azienda_id, 'frequent_disconnections', {
-                      hostname: alertHostname,
-                      ip: device_ip,
-                      mac: alertMac,
-                      offlineCount: offlineCount,
-                      agentName,
-                      aziendaName
-                    }).catch(e => console.error('Telegram freq error:', e));
+                    if (alertNotifyTelegram) {
+                      sendTelegramNotification(agentId, req.agent.azienda_id, 'frequent_disconnections', {
+                        hostname: alertHostname,
+                        ip: device_ip,
+                        mac: alertMac,
+                        offlineCount: offlineCount,
+                        agentName,
+                        aziendaName
+                      }).catch(e => console.error('Telegram freq error:', e));
+                    } else {
+                      console.log(`⏭️ [FREQ-DISCONNECTIONS] Notifica Telegram saltata: notify_telegram=false per device_id=${deviceId} IP=${device_ip}`);
+                    }
                   }
                 }
               } catch (e) {
