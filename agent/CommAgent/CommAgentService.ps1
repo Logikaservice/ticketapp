@@ -1,4 +1,4 @@
-$SCRIPT_VERSION = "1.2.40"
+$SCRIPT_VERSION = "1.2.41"
 $HEARTBEAT_INTERVAL_SECONDS = 10
 $UPDATE_CHECK_INTERVAL_SECONDS = 300
 
@@ -26,6 +26,7 @@ $script:scriptDir = "C:\ProgramData\LogikaCommAgent"
 if ($PSScriptRoot) { $script:scriptDir = $PSScriptRoot }
 
 $script:configFile = Join-Path $script:scriptDir "config.json"
+$script:localConfigFile = Join-Path $script:scriptDir "local_config.json"
 $script:logFile = Join-Path $script:scriptDir "CommAgent.log"
 
 $script:isRunning = $true
@@ -82,6 +83,28 @@ function Load-Config {
     } catch {
         return $null
     }
+}
+
+function Load-LocalConfig {
+    if (-not (Test-Path $script:localConfigFile)) { return $null }
+    try {
+        $raw = [System.IO.File]::ReadAllText($script:localConfigFile)
+        if ($raw.Length -gt 0 -and [int][char]$raw[0] -eq 0xFEFF) {
+            $raw = $raw.Substring(1)
+        }
+        return ($raw | ConvertFrom-Json)
+    } catch {
+        return $null
+    }
+}
+
+function Save-LocalConfig {
+    param($Config)
+    try {
+        $json = $Config | ConvertTo-Json -Depth 6
+        $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+        [System.IO.File]::WriteAllText($script:localConfigFile, $json, $utf8NoBom)
+    } catch {}
 }
 
 function Save-Config {
@@ -925,6 +948,11 @@ function Get-LSightRtcEnabled {
     param($Config)
     try {
         if (-not $Config) { return $false }
+        # Opt-in locale persistente (non viene rigenerato da update/registrazione)
+        try {
+            $local = Load-LocalConfig
+            if ($local -and $local.lsight_rtc_enabled -eq $true) { return $true }
+        } catch {}
         # Opt-in esplicito da config.json
         if ($Config.lsight_rtc_enabled -ne $true) { return $false }
         # Guardrail: abilitiamo solo sulla macchina pilota SRV
