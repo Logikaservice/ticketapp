@@ -5,15 +5,15 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.7.3
-# Data ultima modifica: 2026-03-27
+# Versione: 2.7.6
+# Data ultima modifica: 2026-04-18
 
 param(
     [string]$ConfigPath = "config.json"
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.7.3"
+$SCRIPT_VERSION = "2.7.6"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -867,7 +867,10 @@ function Get-NetworkDevices {
                 $ipListToScan = @()
                 
                 # Prepara lista IP da scansionare (escludendo IP locale)
-                for ($i = 1; $i -le $maxIP; $i++) {
+                # Nota: supporta range tipo "192.168.1.50/24" (start da .50) oltre al classico ".0/24".
+                $scanStart = [Math]::Max(1, [int]$startIP)
+                $scanEnd = [Math]::Max($scanStart, [int]$maxIP)
+                for ($i = $scanStart; $i -le $scanEnd; $i++) {
                     $ip = "$baseIP.$i"
                     
                     # Se ├¿ l'IP locale, aggiungilo sempre (anche se il ping fallisce)
@@ -1069,7 +1072,7 @@ function Get-NetworkDevices {
                         # Se il ping fallisce, proviamo le porte pi├╣ comuni.
                         # Molti PC Windows bloccano il ping ma hanno la 445 (SMB) o 135 (RPC) aperta.
                         # Stampanti e Router hanno spesso la 80 o 443.
-                        $portsToCheck = @(445, 80, 443)
+                        $portsToCheck = @(445, 135, 80, 443, 3389, 22) 
                         
                         foreach ($port in $portsToCheck) {
                             $tcp = $null
@@ -1077,7 +1080,7 @@ function Get-NetworkDevices {
                                 $tcp = New-Object System.Net.Sockets.TcpClient
                                 # Timeout leggermente aumentato (500ms) per affidabilità
                                 $connect = $tcp.BeginConnect($targetIP, $port, $null, $null)
-                                if ($connect.AsyncWaitHandle.WaitOne(200, $false)) {
+                                if ($connect.AsyncWaitHandle.WaitOne(500, $false)) {
                                     try {
                                         $tcp.EndConnect($connect)
                                         # VERIFICA CRITICA: Controlla che la connessione sia realmente attiva
@@ -1128,7 +1131,7 @@ function Get-NetworkDevices {
                         try {
                             $job = [System.Management.Automation.PowerShell]::Create()
                             $job.RunspacePool = $runspacePool
-                            $job.AddScript($discoveryScriptBlock).AddArgument($ip).AddArgument(200) | Out-Null
+                            $job.AddScript($discoveryScriptBlock).AddArgument($ip).AddArgument(300) | Out-Null
                             $asyncResult = $job.BeginInvoke()
                         }
                         catch {
@@ -1137,7 +1140,7 @@ function Get-NetworkDevices {
                                 $runspace = $runspacePool.AcquireRunspace()
                                 $job = [System.Management.Automation.PowerShell]::Create()
                                 $job.Runspace = $runspace
-                                $job.AddScript($discoveryScriptBlock).AddArgument($ip).AddArgument(200) | Out-Null
+                                $job.AddScript($discoveryScriptBlock).AddArgument($ip).AddArgument(300) | Out-Null
                                 $asyncResult = $job.BeginInvoke()
                             }
                             catch {
@@ -1152,110 +1155,77 @@ function Get-NetworkDevices {
                             })
                     }
                     
-                    # Raccogli risultati con timeout per evitare blocchi
-                    # FIX: Timeout aumentato a 30s per dare tempo ai job, ma con watchdog anti-hang
+                    # Raccogli risultati con timeout per evitare blocchi.
+                    # Importante: evitare WaitOne sequenziale per job, perché con molte IP si tronca sempre "in fondo"
+                    # e i device risultano aggiornati a frequenze diverse (sembra che "legga solo i primi").
                     $activeIPs = New-Object System.Collections.ArrayList
-                    $pingTimeout = 15  # Timeout 15 secondi per raccolta risultati ping
                     $pingStartTime = Get-Date
-                    
+                    # Timeout totale (secondi) per completare la raccolta: sufficiente per subnet /24.
+                    # Se la rete è lenta, aumentare qui è meglio che troncare sempre gli ultimi IP.
+                    $pingTimeout = 90
+
                     Write-Log "Raccolta risultati scansione ibrida (Ping+TCP) per $($jobs.Count) job..." "INFO"
-                    $jobIndex = 0
-                    foreach ($jobInfo in $jobs) {
-                        $jobIndex++
-                        try {
-                            # Verifica timeout totale
-                            $elapsed = ((Get-Date) - $pingStartTime).TotalSeconds
-                            if ($elapsed -gt $pingTimeout) {
-                                Write-Log "Timeout raccolta ping raggiunto dopo $pingTimeout secondi, interrompendo job rimanenti..." "WARN"
-                                # Interrompi tutti i job rimanenti
-                                for ($i = $jobIndex; $i -lt $jobs.Count; $i++) {
-                                    try {
-                                        if ($jobs[$i].AsyncResult -and -not $jobs[$i].AsyncResult.IsCompleted) {
-                                            $jobs[$i].Job.Stop()
-                                        }
-                                    }
-                                    catch { }
-                                }
-                                break
-                            }
-                            
-                            # Attendi risultato con timeout ridotto per evitare hang
-                            if ($jobInfo.AsyncResult) {
-                                $asyncWait = $jobInfo.AsyncResult.AsyncWaitHandle
-                                # FIX: Ridotto a 1500ms per evitare che job bloccati congelino l'intero agent
-                                if ($asyncWait -and $asyncWait.WaitOne(1500)) {
-                                    try {
-                                        $result = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
-                                        if ($result) {
-                                            # Gestisci sia formato vecchio (stringa IP) che nuovo (oggetto con has_ping_failures)
-                                            if ($result -is [string]) {
-                                                [void]$activeIPs.Add($result)
-                                            }
-                                            elseif ($result -is [hashtable] -or $result -is [PSCustomObject]) {
-                                                [void]$activeIPs.Add($result.ip)
-                                                # Salva info ping failures per uso successivo
-                                                if ($result.has_ping_failures) {
-                                                    if (-not $script:pingFailures) {
-                                                        $script:pingFailures = @{}
-                                                    }
-                                                    $script:pingFailures[$result.ip] = $true
-                                                }
-                                            }
-                                            else {
-                                                # Fallback: se ├¿ un oggetto con propriet├á ip
-                                                $ipValue = if ($result.ip) { $result.ip } else { $result }
-                                                if ($ipValue) {
-                                                    [void]$activeIPs.Add($ipValue)
-                                                    if ($result.has_ping_failures) {
-                                                        if (-not $script:pingFailures) {
-                                                            $script:pingFailures = @{}
-                                                        }
-                                                        $script:pingFailures[$ipValue] = $true
-                                                    }
-                                                }
-                                            }
-                                            
-                                            # FIX: Non salviamo pi├╣ su disco dentro il loop hot dei 253 job
-                                            # I/O su file dentro questo loop causava deadlock quando
-                                            # Synology Active Backup o AVG bloccavano i file
-                                            # Il salvataggio viene fatto in batch DOPO la raccolta
-                                        }
-                                    }
-                                    catch {
+                    $pending = New-Object System.Collections.ArrayList
+                    foreach ($j in $jobs) { [void]$pending.Add($j) }
+
+                    while ($pending.Count -gt 0) {
+                        $elapsed = ((Get-Date) - $pingStartTime).TotalSeconds
+                        if ($elapsed -gt $pingTimeout) {
+                            Write-Log "Timeout raccolta ping raggiunto dopo $pingTimeout secondi, interrompendo $($pending.Count) job rimanenti..." "WARN"
+                            break
+                        }
+
+                        $progress = $false
+                        for ($idx = $pending.Count - 1; $idx -ge 0; $idx--) {
+                            $jobInfo = $pending[$idx]
+                            try {
+                                if ($jobInfo.AsyncResult -and $jobInfo.AsyncResult.IsCompleted) {
+                                    $result = $null
+                                    try { $result = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult) } catch {
                                         $ipStr = if ($jobInfo.IP) { $jobInfo.IP } else { "sconosciuto" }
                                         Write-Log "Errore EndInvoke ping per $ipStr : $_" "WARN"
                                     }
-                                }
-                                else {
-                                    $ipStr = if ($jobInfo.IP) { $jobInfo.IP } else { "sconosciuto" }
-                                    Write-Log "Timeout ping per $ipStr , continuo..." "WARN"
-                                    try {
-                                        $jobInfo.Job.Stop()
+
+                                    if ($result) {
+                                        if ($result -is [string]) {
+                                            [void]$activeIPs.Add($result)
+                                        }
+                                        elseif ($result -is [hashtable] -or $result -is [PSCustomObject]) {
+                                            [void]$activeIPs.Add($result.ip)
+                                            if ($result.has_ping_failures) {
+                                                if (-not $script:pingFailures) { $script:pingFailures = @{} }
+                                                $script:pingFailures[$result.ip] = $true
+                                            }
+                                        }
+                                        else {
+                                            $ipValue = if ($result.ip) { $result.ip } else { $result }
+                                            if ($ipValue) {
+                                                [void]$activeIPs.Add($ipValue)
+                                                if ($result.has_ping_failures) {
+                                                    if (-not $script:pingFailures) { $script:pingFailures = @{} }
+                                                    $script:pingFailures[$ipValue] = $true
+                                                }
+                                            }
+                                        }
                                     }
-                                    catch { }
+                                    $progress = $true
+                                    $pending.RemoveAt($idx)
+                                    try { if ($jobInfo.Job) { $jobInfo.Job.Dispose() } } catch { }
                                 }
-                            }
-                            else {
-                                Write-Log "AsyncResult nullo per job $jobIndex, salto..." "WARN"
+                            } catch {
+                                $ipStr = if ($jobInfo.IP) { $jobInfo.IP } else { "sconosciuto" }
+                                Write-Log "Errore raccolta ping per $ipStr : $_" "WARN"
+                                $pending.RemoveAt($idx)
+                                try { if ($jobInfo.Job) { $jobInfo.Job.Dispose() } } catch { }
                             }
                         }
-                        catch {
-                            $ipStr = if ($jobInfo.IP) { $jobInfo.IP } else { "sconosciuto" }
-                            Write-Log "Errore raccolta ping per $ipStr : $_" "WARN"
-                        }
-                        finally {
-                            try {
-                                if ($jobInfo.Job) {
-                                    $jobInfo.Job.Dispose()
-                                }
-                            }
-                            catch { }
-                        }
+
+                        if (-not $progress) { Start-Sleep -Milliseconds 50 }
                     }
                     
                     Write-Log "Raccolta ping completata: $($activeIPs.Count) IP attivi trovati su $($jobs.Count) job processati" "INFO"
                     
-                    # FIX: Watchdog - forza chiusura di TUTTI i job rimasti aperti
+                    # Watchdog - forza chiusura di TUTTI i job rimasti aperti
                     try {
                         foreach ($jobInfo in $jobs) {
                             try {
@@ -1387,68 +1357,42 @@ function Get-NetworkDevices {
                                     })
                             }
                     
-                            # Raccogli risultati MAC con timeout per evitare blocchi
+                            # Raccogli risultati MAC con timeout per evitare blocchi (no WaitOne sequenziale).
                             $macResults = @{}
-                            $maxWaitTime = 15  # Timeout massimo 15 secondi per recupero MAC (ridotto ulteriormente)
                             $startTime = Get-Date
-                            
-                            
-                            $processedJobs = 0
-                            foreach ($jobInfo in $macJobs) {
-                                try {
-                                    # Verifica timeout totale
-                                    $elapsed = ((Get-Date) - $startTime).TotalSeconds
-                                    if ($elapsed -gt $maxWaitTime) {
-                                        Write-Log "Timeout recupero MAC raggiunto dopo $maxWaitTime secondi, interrompendo job rimanenti..." "WARN"
-                                        # Interrompi tutti i job rimanenti
-                                        foreach ($remainingJob in $macJobs) {
-                                            if ($remainingJob -ne $jobInfo) {
-                                                try {
-                                                    if ($remainingJob.AsyncResult -and -not $remainingJob.AsyncResult.IsCompleted) {
-                                                        $remainingJob.Job.Stop()
-                                                    }
-                                                }
-                                                catch { }
-                                            }
-                                        }
-                                        break
-                                    }
-                                    
-                                    # Attendi risultato con timeout per singolo job (ridotto a 1.5 secondi per velocit├á)
-                                    $asyncWait = $jobInfo.AsyncResult.AsyncWaitHandle
-                                    if ($asyncWait.WaitOne(1500)) {
-                                        # Timeout 1.5 secondi per job
-                                        try {
-                                            $result = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult)
-                                            if ($result) {
-                                                $macResults[$result.ip] = $result.mac
-                                            }
-                                            $processedJobs++
-                                        }
-                                        catch {
-                                            Write-Log "Errore EndInvoke per $($jobInfo.IP): $_" "WARN"
-                                        }
-                                    }
-                                    else {
-                                        Write-Log "Timeout per recupero MAC di $($jobInfo.IP), continuo con altri..." "WARN"
-                                        # Interrompi job in timeout
-                                        try {
-                                            $jobInfo.Job.Stop()
-                                        }
-                                        catch { }
-                                    }
+                            $maxWaitTime = 25
+                            $pendingMac = New-Object System.Collections.ArrayList
+                            foreach ($j in $macJobs) { [void]$pendingMac.Add($j) }
+
+                            while ($pendingMac.Count -gt 0) {
+                                $elapsed = ((Get-Date) - $startTime).TotalSeconds
+                                if ($elapsed -gt $maxWaitTime) {
+                                    Write-Log "Timeout recupero MAC raggiunto dopo $maxWaitTime secondi, interrompendo $($pendingMac.Count) job rimanenti..." "WARN"
+                                    break
                                 }
-                                catch {
-                                    Write-Log "Errore recupero MAC per $($jobInfo.IP): $_" "WARN"
-                                }
-                                finally {
+
+                                $progress = $false
+                                for ($idx = $pendingMac.Count - 1; $idx -ge 0; $idx--) {
+                                    $jobInfo = $pendingMac[$idx]
                                     try {
-                                        if ($jobInfo.Job) {
-                                            $jobInfo.Job.Dispose()
+                                        if ($jobInfo.AsyncResult -and $jobInfo.AsyncResult.IsCompleted) {
+                                            $result = $null
+                                            try { $result = $jobInfo.Job.EndInvoke($jobInfo.AsyncResult) } catch {
+                                                Write-Log "Errore EndInvoke per $($jobInfo.IP): $_" "WARN"
+                                            }
+                                            if ($result) { $macResults[$result.ip] = $result.mac }
+                                            $progress = $true
+                                            $pendingMac.RemoveAt($idx)
+                                            try { if ($jobInfo.Job) { $jobInfo.Job.Dispose() } } catch { }
                                         }
+                                    } catch {
+                                        Write-Log "Errore recupero MAC per $($jobInfo.IP): $_" "WARN"
+                                        $pendingMac.RemoveAt($idx)
+                                        try { if ($jobInfo.Job) { $jobInfo.Job.Dispose() } } catch { }
                                     }
-                                    catch { }
                                 }
+
+                                if (-not $progress) { Start-Sleep -Milliseconds 50 }
                             }
                             
                             # Chiudi runspace pool
@@ -1863,6 +1807,7 @@ function Send-ScanResults {
     )
     
     try {
+        Enable-Tls12
         # Carica ultimo scan per confronto (se esiste)
         $lastScan = $null
         if (Test-Path $script:lastScanPath) {
@@ -2070,6 +2015,7 @@ function Get-ServerConfig {
     )
     
     try {
+        Enable-Tls12
         $headers = @{
             "X-API-Key" = $ApiKey
         }
@@ -2168,6 +2114,7 @@ function Invoke-SpeedTest {
         [string]$ApiKey
     )
     try {
+        Enable-Tls12
         Write-Log "[SpeedTest] Avvio speed test..." "INFO"
         $speedtestDir = Join-Path $script:scriptDir "speedtest"
         $speedtestExe = Join-Path $speedtestDir "speedtest.exe"
@@ -2306,6 +2253,7 @@ function Send-Heartbeat {
     )
     
     try {
+        Enable-Tls12
         $headers = @{
             "Content-Type" = "application/json"
             "X-API-Key"    = $ApiKey
@@ -2935,10 +2883,7 @@ while ($script:isRunning) {
                 else {
                     Write-Log "Nessun dispositivo rilevato: invio comunque esito scansione (lista vuota) per aggiornare stato offline sul server" "WARN"
                 }
-                $result = Send-ScanResults -Devices $devices -ServerUrl $config.server_url -ApiKey $config.api_key
-                Write-Log "Dati inviati con successo!"
-
-                # IMPORTANTE: Salva IP trovati nel file per la tray icon (dopo invio dati)
+                # PRIMA dell'invio (così anche se scan-results fallisce con 502/500 la tray mostra conteggio e IP corretti)
                 try {
                     $ipDataArray = @()
                     foreach ($device in $devices) {
@@ -2948,11 +2893,14 @@ while ($script:isRunning) {
                         }
                     }
                     $ipDataArray | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
-                    Write-Log "IP salvati per tray icon: $($ipDataArray.Count) dispositivi" "INFO"
+                    Write-Log "IP salvati per tray icon (pre-invio): $($ipDataArray.Count) dispositivi" "INFO"
                 }
                 catch {
-                    Write-Log "Errore salvataggio IP finali per tray icon: $_" "WARN"
+                    Write-Log "Errore salvataggio IP per tray icon: $_" "WARN"
                 }
+
+                $result = Send-ScanResults -Devices $devices -ServerUrl $config.server_url -ApiKey $config.api_key
+                Write-Log "Dati inviati con successo!"
 
                 # Sync switch gestiti (SNMP in locale: agent sulla stessa LAN dello switch)
                 try {
@@ -2990,6 +2938,8 @@ while ($script:isRunning) {
                 Write-Log "Errore durante scansione: $_" "ERROR"
                 Write-Log "Stack trace: $($_.Exception.StackTrace)" "ERROR"
                 $df = if ($null -ne $script:lastScanDevices) { $script:lastScanDevices } else { 0 }
+                # last_scan serve alla tray per il conto alla rovescia: se non lo aggiorniamo in errore (es. 502),
+                # resta vecchio → nextScan nel passato → "In attesa..." senza MM:SS. Allineiamo all'ultimo tentativo.
                 Update-StatusFile -Status "error" -Message "Errore: $_" -DevicesFound $df -LastScan (Get-Date)
                 
                 # Anche in caso di errore, ricalcola nextScanTime per evitare loop infiniti
