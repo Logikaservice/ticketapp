@@ -1534,6 +1534,14 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     return agents.filter((a) => a.status === agentStatPopoverMode);
   }, [agents, agentStatPopoverMode]);
 
+  /** Agent di questa azienda con scan batch oltre soglia (stesso criterio API GET /agents). */
+  const scanLateAgentsForSelectedCompany = useMemo(() => {
+    if (!selectedCompanyId) return [];
+    return agents.filter(
+      (a) => Number(a.azienda_id) === Number(selectedCompanyId) && a.scan_schedule_status === 'late'
+    );
+  }, [agents, selectedCompanyId]);
+
   const updateAgentStatPopoverPosition = useCallback(() => {
     if (!agentStatPopoverMode) return;
     const ref = agentStatPopoverMode === 'online' ? agentStatOnlineCardRef : agentStatOfflineCardRef;
@@ -1927,6 +1935,22 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               </button>
             </div>
 
+            {(() => {
+              const lateAgents = agents.filter((a) => a.scan_schedule_status === 'late');
+              if (lateAgents.length === 0) return null;
+              return (
+                <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-900 flex flex-wrap items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Scan in ritardo:</strong> {lateAgents.length}{' '}
+                    {lateAgents.length === 1 ? 'agent non rispetta' : 'agent non rispettano'} la pianificazione attesa
+                    (ultimo batch sulla VPS oltre la soglia: intervallo scan × tolleranza, default ×3). Verifica PC
+                    agent, rete e versione backend.
+                  </div>
+                </div>
+              );
+            })()}
+
             {agents.length === 0 ? (
               <p className="text-gray-500 text-center py-4">Nessun agent registrato</p>
             ) : (
@@ -2026,7 +2050,62 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 return (agent.network_ranges || []).join(', ') || 'Nessuna';
                               })()}</p>
                               <p><strong>Intervallo:</strong> {agent.scan_interval_minutes || 15} minuti</p>
-                              <p><strong>Ultimo heartbeat:</strong> {agent.last_heartbeat ? formatDate(new Date(agent.last_heartbeat)) : 'Mai'}</p>
+                              {agent.last_scan_processed_at && (
+                                <p>
+                                  <strong>Ultimo batch scan (VPS):</strong>{' '}
+                                  {formatDate(new Date(agent.last_scan_processed_at))}
+                                  {agent.minutes_since_scan_batch != null && (
+                                    <span className="text-gray-500"> (≈ {agent.minutes_since_scan_batch} min fa)</span>
+                                  )}
+                                </p>
+                              )}
+                              <p>
+                                <strong>Ultimo heartbeat:</strong>{' '}
+                                {agent.last_heartbeat ? formatDate(new Date(agent.last_heartbeat)) : 'Mai'}
+                                {agent.minutes_since_heartbeat != null && (
+                                  <span className="text-gray-500"> (≈ {agent.minutes_since_heartbeat} min fa)</span>
+                                )}
+                              </p>
+                              {agent.scan_schedule_status && (
+                                <p className="flex flex-wrap items-center gap-2 mt-1">
+                                  <span className="font-semibold text-gray-800">Pianificazione scan:</span>
+                                  <span
+                                    title={agent.scan_schedule_detail || ''}
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
+                                      agent.scan_schedule_status === 'ok'
+                                        ? 'bg-green-100 text-green-800'
+                                        : agent.scan_schedule_status === 'late'
+                                          ? 'bg-orange-100 text-orange-800'
+                                          : agent.scan_schedule_status === 'warn'
+                                            ? 'bg-amber-100 text-amber-900'
+                                            : agent.scan_schedule_status === 'agent_offline'
+                                              ? 'bg-gray-100 text-gray-600'
+                                              : agent.scan_schedule_status === 'disabled'
+                                                ? 'bg-gray-100 text-gray-500'
+                                                : 'bg-gray-100 text-gray-700'
+                                    }`}
+                                  >
+                                    {agent.scan_schedule_status === 'ok' && 'Rispettata (entro soglia)'}
+                                    {agent.scan_schedule_status === 'late' && (
+                                      <>
+                                        In ritardo <Clock size={12} className="inline" />
+                                      </>
+                                    )}
+                                    {agent.scan_schedule_status === 'warn' && 'Da verificare (batch non tracciato)'}
+                                    {agent.scan_schedule_status === 'agent_offline' && 'N/D — agent offline'}
+                                    {agent.scan_schedule_status === 'disabled' && 'N/D — agent disabilitato'}
+                                    {agent.scan_schedule_status === 'unknown' && 'Dati insufficienti'}
+                                  </span>
+                                  {agent.scan_late_threshold_minutes != null && agent.scan_schedule_status !== 'disabled' && agent.scan_schedule_status !== 'agent_offline' && (
+                                    <span className="text-xs text-gray-500">
+                                      soglia {agent.scan_late_threshold_minutes} min
+                                      {agent.scan_schedule_tolerance_multiplier != null
+                                        ? ` (${agent.scan_schedule_tolerance_multiplier}× intervallo)`
+                                        : ''}
+                                    </span>
+                                  )}
+                                </p>
+                              )}
                             </>
                           )}
                         </div>
@@ -2539,6 +2618,17 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                 </button>
               </div>
             </div>
+            {scanLateAgentsForSelectedCompany.length > 0 && (
+              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-900 flex flex-wrap items-start gap-2">
+                <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong>Agent in ritardo su questa azienda:</strong>{' '}
+                  {scanLateAgentsForSelectedCompany.map((a) => a.agent_name || `#${a.id}`).join(', ')}.
+                  L&apos;ultimo batch scan sulla VPS supera la soglia (intervallo × tolleranza, default ×3). Apri la
+                  lista <strong>Agent registrati</strong> per i dettagli o verifica PC agent e rete.
+                </div>
+              </div>
+            )}
             {loadingCompanyDevices ? (
               <div className="p-8 flex items-center justify-center">
                 <Loader className="w-8 h-8 animate-spin text-blue-600" />

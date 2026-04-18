@@ -173,6 +173,79 @@ module.exports = (pool, io) => {
     }
   };
 
+  /**
+   * Confronta ultimo batch scan (VPS) con scan_interval_minutes × tolleranza (default env NETWORK_SCAN_OVERDUE_TOLERANCE_MULT=3).
+   * Esiti: ok | late | warn | agent_offline | disabled | unknown
+   */
+  const computeAgentScanScheduleHealth = (row, toleranceMult) => {
+    const mult = Number.isFinite(toleranceMult) && toleranceMult > 0 ? toleranceMult : 3;
+    const intervalMin = Math.max(1, parseInt(row.scan_interval_minutes, 10) || 2);
+    const thresholdMin = Math.ceil(intervalMin * mult);
+    const enabled = row.enabled !== false;
+    const online = String(row.status || '').toLowerCase() === 'online';
+
+    const out = {
+      ...row,
+      minutes_since_scan_batch: null,
+      minutes_since_heartbeat: null,
+      scan_late_threshold_minutes: thresholdMin,
+      scan_schedule_tolerance_multiplier: mult,
+      scan_schedule_status: 'ok',
+      scan_schedule_detail: ''
+    };
+
+    if (!enabled) {
+      out.scan_schedule_status = 'disabled';
+      out.scan_schedule_detail = 'Agent disabilitato: il controllo pianificazione non si applica.';
+      return out;
+    }
+    if (!online) {
+      out.scan_schedule_status = 'agent_offline';
+      out.scan_schedule_detail = 'Agent offline: nessun invio scan atteso finché non torna online.';
+      if (row.last_heartbeat) {
+        const hb = new Date(row.last_heartbeat).getTime();
+        if (!isNaN(hb)) out.minutes_since_heartbeat = Math.floor((Date.now() - hb) / 60000);
+      }
+      return out;
+    }
+
+    if (row.last_heartbeat) {
+      const hb = new Date(row.last_heartbeat).getTime();
+      if (!isNaN(hb)) out.minutes_since_heartbeat = Math.floor((Date.now() - hb) / 60000);
+    }
+
+    if (row.last_scan_processed_at) {
+      const t = new Date(row.last_scan_processed_at).getTime();
+      if (!isNaN(t)) {
+        out.minutes_since_scan_batch = Math.floor((Date.now() - t) / 60000);
+        if (out.minutes_since_scan_batch > thresholdMin) {
+          out.scan_schedule_status = 'late';
+          out.scan_schedule_detail =
+            `Ultimo batch scan sulla VPS ${out.minutes_since_scan_batch} min fa: supera la soglia ${thresholdMin} min (${mult}× intervallo ${intervalMin} min). I dati in tabella possono essere obsoleti.`;
+        } else {
+          out.scan_schedule_status = 'ok';
+          out.scan_schedule_detail = `Ultimo batch scan ${out.minutes_since_scan_batch} min fa (soglia ${thresholdMin} min, ${mult}× ${intervalMin} min).`;
+        }
+        return out;
+      }
+    }
+
+    const hbMins = out.minutes_since_heartbeat;
+    if (hbMins != null) {
+      if (hbMins > thresholdMin) {
+        out.scan_schedule_status = 'late';
+        out.scan_schedule_detail = `last_scan_processed_at non disponibile; heartbeat ${hbMins} min fa (soglia ${thresholdMin} min). Possibile agent/backend non aggiornato o errore prima dell'UPDATE batch.`;
+      } else {
+        out.scan_schedule_status = 'warn';
+        out.scan_schedule_detail = `last_scan_processed_at non valorizzato; heartbeat recente (${hbMins} min). Verifica versione agent e deploy VPS.`;
+      }
+    } else {
+      out.scan_schedule_status = 'unknown';
+      out.scan_schedule_detail = 'Dati insufficienti (né batch né heartbeat).';
+    }
+    return out;
+  };
+
   // Copia eventi dispositivo prima della purge offline (FK CASCADE su network_changes)
   let networkChangesArchiveEnsured = false;
   const ensureNetworkChangesArchiveTable = async () => {
@@ -4268,6 +4341,10 @@ module.exports = (pool, io) => {
   router.get('/agents', authenticateToken, requireRole('tecnico'), async (req, res) => {
     try {
       await ensureTables();
+      await ensureNetworkAgentScanColumns();
+
+      const tol = parseFloat(process.env.NETWORK_SCAN_OVERDUE_TOLERANCE_MULT || '3');
+      const toleranceMult = Number.isFinite(tol) && tol > 0 ? tol : 3;
 
       let result;
       try {
@@ -4279,6 +4356,7 @@ module.exports = (pool, io) => {
       CASE WHEN na.last_heartbeat IS NOT NULL AND na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online' ELSE 'offline' END
     ) as status,
     na.last_heartbeat,
+    na.last_scan_processed_at,
     na.version, na.network_ranges, na.network_ranges_config, na.scan_interval_minutes, na.unifi_config, na.enabled,
     na.unifi_last_ok, na.unifi_last_check_at,
     na.created_at, na.azienda_id, na.api_key,
@@ -4300,6 +4378,7 @@ module.exports = (pool, io) => {
       CASE WHEN na.last_heartbeat IS NOT NULL AND na.last_heartbeat > NOW() - INTERVAL '10 minutes' THEN 'online' ELSE 'offline' END
     ) as status,
     na.last_heartbeat,
+    na.last_scan_processed_at,
     na.version, na.network_ranges, na.scan_interval_minutes, na.enabled,
     na.unifi_last_ok, na.unifi_last_check_at,
     na.created_at, na.azienda_id, na.api_key,
@@ -4315,7 +4394,8 @@ module.exports = (pool, io) => {
         }
       }
 
-      res.json(result.rows);
+      const enriched = result.rows.map((row) => computeAgentScanScheduleHealth(row, toleranceMult));
+      res.json(enriched);
     } catch (err) {
       console.error('❌ Errore recupero agent:', err);
       console.error('❌ Stack trace:', err.stack);
