@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.7.7
+# Versione: 2.7.8
 # Data ultima modifica: 2026-04-18
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.7.7"
+$SCRIPT_VERSION = "2.7.8"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2364,14 +2364,231 @@ function Ensure-TrayFiles {
     }
 }
 
-# Avvia la tray nella sessione utente (area notifiche). Il servizio gira in Session 0: wscript lanciato da qui
-# non mostra l'icona. Usiamo un'attività pianificata una tantum con InteractiveToken + schtasks /Run /I.
+# Avvio tray nella sessione utente: WTSQueryUserToken + CreateProcessAsUser (servizio LocalSystem).
+# schtasks/InteractiveToken da SYSTEM spesso non mostra la tray; wscript da Session 0 no.
+$script:LogikaTrayUserSessionCs = @'
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+
+namespace LogikaNM {
+    public static class TrayUserSessionLauncher {
+        [DllImport("kernel32.dll")]
+        public static extern uint WTSGetActiveConsoleSessionId();
+
+        [DllImport("wtsapi32.dll", SetLastError = true)]
+        public static extern bool WTSQueryUserToken(uint SessionId, out IntPtr phToken);
+
+        [DllImport("wtsapi32.dll")]
+        public static extern void WTSFreeMemory(IntPtr pMemory);
+
+        [DllImport("wtsapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        public static extern bool WTSEnumerateSessions(IntPtr hServer, int Reserved, int Version, ref IntPtr ppSessionInfo, ref int pCount);
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        public struct WTS_SESSION_INFO {
+            public uint SessionId;
+            public IntPtr pWinStationName;
+            public int State;
+        }
+
+        [DllImport("userenv.dll", SetLastError = true)]
+        public static extern bool CreateEnvironmentBlock(out IntPtr lpEnvironment, IntPtr hToken, bool bInherit);
+
+        [DllImport("userenv.dll", SetLastError = true)]
+        public static extern bool DestroyEnvironmentBlock(IntPtr lpEnvironment);
+
+        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        public static extern bool CreateProcessAsUser(
+            IntPtr hToken,
+            string lpApplicationName,
+            StringBuilder lpCommandLine,
+            IntPtr lpProcessAttributes,
+            IntPtr lpThreadAttributes,
+            bool bInheritHandles,
+            uint dwCreationFlags,
+            IntPtr lpEnvironment,
+            string lpCurrentDirectory,
+            ref STARTUPINFO lpStartupInfo,
+            out PROCESS_INFORMATION lpProcessInformation);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool CloseHandle(IntPtr hObject);
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        public struct STARTUPINFO {
+            public int cb;
+            public string lpReserved;
+            public string lpDesktop;
+            public string lpTitle;
+            public int dwX;
+            public int dwY;
+            public int dwXSize;
+            public int dwYSize;
+            public int dwXCountChars;
+            public int dwYCountChars;
+            public int dwFillAttribute;
+            public int dwFlags;
+            public short wShowWindow;
+            public short cbReserved2;
+            public IntPtr lpReserved2;
+            public IntPtr hStdInput;
+            public IntPtr hStdOutput;
+            public IntPtr hStdError;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct PROCESS_INFORMATION {
+            public IntPtr hProcess;
+            public IntPtr hThread;
+            public int dwProcessId;
+            public int dwThreadId;
+        }
+
+        const uint CREATE_UNICODE_ENVIRONMENT = 0x00000400;
+        const int NORMAL_PRIORITY_CLASS = 0x20;
+
+        static bool TryTokenForSession(uint sessionId, out IntPtr hToken, out int err) {
+            hToken = IntPtr.Zero;
+            err = 0;
+            if (sessionId == 0xFFFFFFFFu) return false;
+            if (WTSQueryUserToken(sessionId, out hToken)) return true;
+            err = Marshal.GetLastWin32Error();
+            return false;
+        }
+
+        static IntPtr TryEnumerateUserToken(out int lastErr) {
+            lastErr = 0;
+            IntPtr pInfo = IntPtr.Zero;
+            int count = 0;
+            if (!WTSEnumerateSessions(IntPtr.Zero, 0, 1, ref pInfo, ref count) || count == 0) {
+                lastErr = Marshal.GetLastWin32Error();
+                return IntPtr.Zero;
+            }
+            try {
+                int size = Marshal.SizeOf(typeof(WTS_SESSION_INFO));
+                for (int i = 0; i < count; i++) {
+                    var row = (WTS_SESSION_INFO)Marshal.PtrToStructure(IntPtr.Add(pInfo, i * size), typeof(WTS_SESSION_INFO));
+                    if (row.SessionId == 0) continue;
+                    if (row.State != 0 && row.State != 1) continue; // WTSActive, WTSConnected
+                    IntPtr tok;
+                    if (WTSQueryUserToken(row.SessionId, out tok)) return tok;
+                    lastErr = Marshal.GetLastWin32Error();
+                }
+            }
+            finally {
+                if (pInfo != IntPtr.Zero) WTSFreeMemory(pInfo);
+            }
+            return IntPtr.Zero;
+        }
+
+        public static bool TryLaunch(string vbsPath, ref int pidOut, ref int lastWin32) {
+            pidOut = 0;
+            lastWin32 = 0;
+            if (string.IsNullOrEmpty(vbsPath)) return false;
+
+            IntPtr hUser = IntPtr.Zero;
+            uint sid = WTSGetActiveConsoleSessionId();
+            int e;
+            if (!TryTokenForSession(sid, out hUser, out e)) {
+                hUser = TryEnumerateUserToken(out e);
+                if (hUser == IntPtr.Zero) {
+                    lastWin32 = e != 0 ? e : -2;
+                    return false;
+                }
+            }
+
+            IntPtr env = IntPtr.Zero;
+            try {
+                if (!CreateEnvironmentBlock(out env, hUser, false)) {
+                    lastWin32 = Marshal.GetLastWin32Error();
+                    return false;
+                }
+                var cmd = new StringBuilder(4096);
+                cmd.Append("wscript.exe //B //Nologo \"");
+                cmd.Append(vbsPath.Replace("\"", "\\\""));
+                cmd.Append("\"");
+
+                var si = new STARTUPINFO();
+                si.cb = Marshal.SizeOf(si);
+                si.lpDesktop = "winsta0\\default";
+
+                string workDir = System.IO.Path.GetDirectoryName(vbsPath);
+                if (string.IsNullOrEmpty(workDir)) workDir = null;
+
+                PROCESS_INFORMATION pi;
+                bool ok = CreateProcessAsUser(
+                    hUser,
+                    null,
+                    cmd,
+                    IntPtr.Zero,
+                    IntPtr.Zero,
+                    false,
+                    CREATE_UNICODE_ENVIRONMENT | (uint)NORMAL_PRIORITY_CLASS,
+                    env,
+                    workDir,
+                    ref si,
+                    out pi);
+                if (!ok) {
+                    lastWin32 = Marshal.GetLastWin32Error();
+                    return false;
+                }
+                pidOut = pi.dwProcessId;
+                if (pi.hThread != IntPtr.Zero) CloseHandle(pi.hThread);
+                if (pi.hProcess != IntPtr.Zero) CloseHandle(pi.hProcess);
+                return true;
+            }
+            finally {
+                if (env != IntPtr.Zero) DestroyEnvironmentBlock(env);
+                if (hUser != IntPtr.Zero) CloseHandle(hUser);
+            }
+        }
+    }
+}
+'@
+
+$script:LogikaTrayUserSessionTypeOk = $false
+function Ensure-TrayUserSessionLauncherType {
+    if ($script:LogikaTrayUserSessionTypeOk) { return }
+    try {
+        Add-Type -TypeDefinition $script:LogikaTrayUserSessionCs -ErrorAction Stop
+        $script:LogikaTrayUserSessionTypeOk = $true
+    }
+    catch {
+        if ($_.Exception.Message -match 'already exists|already been added') {
+            $script:LogikaTrayUserSessionTypeOk = $true
+        }
+        else {
+            Write-Log "[WARN] Ensure-TrayUserSessionLauncherType: Add-Type fallito: $_" "WARN"
+        }
+    }
+}
+
+# Avvia la tray nella sessione utente (area notifiche). Prima WTS+CreateProcessAsUser, poi task pianificato, poi wscript Session 0.
 function Start-TrayIconInInteractiveSession {
     param([string]$VbsPath)
     if (-not (Test-Path $VbsPath)) {
         Write-Log "[WARN] Start-TrayIconInInteractiveSession: VBS mancante: $VbsPath" "WARN"
         return $false
     }
+
+    $trayPid = 0
+    $win32 = 0
+    try {
+        Ensure-TrayUserSessionLauncherType
+        if ($script:LogikaTrayUserSessionTypeOk) {
+            $ok = [LogikaNM.TrayUserSessionLauncher]::TryLaunch($VbsPath, [ref]$trayPid, [ref]$win32)
+            if ($ok) {
+                Write-Log "[OK] Tray: CreateProcessAsUser sessione utente (PID=$trayPid)" "INFO"
+                return $true
+            }
+            Write-Log "[WARN] Tray CreateProcessAsUser fallita (Win32=$win32), provo task pianificato..." "WARN"
+        }
+    }
+    catch {
+        Write-Log "[WARN] Tray WTS launcher: $_" "WARN"
+    }
+
     $taskName = "LogikaNM_TrayRelaunch"
     $xmlPath = Join-Path $env:TEMP "LogikaNM_TrayRelaunch_$([guid]::NewGuid().ToString('N').Substring(0,8)).xml"
     $vbsEsc = [System.Security.SecurityElement]::Escape($VbsPath)
