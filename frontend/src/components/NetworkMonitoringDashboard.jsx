@@ -1273,6 +1273,27 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     });
   };
 
+  /** Colonna Scan: online = ultimo rilevamento; offline = da quanto è offline; ⚠ = errore ultimo salvataggio su VPS */
+  const formatScanCell = (device) => {
+    if (device.status === 'offline') {
+      if (device.offline_since) {
+        return `Offline da ${formatDate(device.offline_since)}`;
+      }
+      return device.last_seen ? `Offline (ultimo visto ${formatDate(device.last_seen)})` : 'Offline';
+    }
+    return formatDate(device.last_seen);
+  };
+
+  const scanCellTitle = (device) => {
+    if (device.last_scan_error) {
+      return `Errore ultimo salvataggio: ${device.last_scan_error}${device.last_scan_error_at ? ` (${new Date(device.last_scan_error_at).toLocaleString('it-IT')})` : ''}`;
+    }
+    if (device.status === 'offline' && device.offline_since) {
+      return 'Tempo da quando il dispositivo risulta offline';
+    }
+    return 'Ultimo aggiornamento rilevamento (online)';
+  };
+
   // Titolo da mostrare in tabella: accorciato per switch virtuali per evitare overflow e barra di scroll orizzontale
   const MAX_TITLE_LENGTH_VIRTUAL = 18;
   const getDisplayTitle = (device) => {
@@ -2509,7 +2530,12 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         <th className="text-left py-2 px-3 text-sm font-semibold text-gray-700 whitespace-nowrap">Utente</th>
                         <th className="text-left py-2 px-3 text-sm font-semibold text-gray-700 whitespace-nowrap">Percorso</th>
                         <th className="text-center py-2 px-2 text-sm font-semibold text-gray-700 w-10 whitespace-nowrap" title="Aggiornamento firmware disponibile (UniFi)">FW</th>
-                        <th className="text-left py-2 px-3 text-sm font-semibold text-gray-700 whitespace-nowrap min-w-[5.5rem]">Scan</th>
+                        <th
+                          className="text-left py-2 px-3 text-sm font-semibold text-gray-700 whitespace-nowrap min-w-[5.5rem]"
+                          title="Online: ultimo rilevamento. Offline: da quanto è offline. Icona ⚠ se l’ultimo salvataggio su VPS per quell’IP è fallito."
+                        >
+                          Scan
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2985,7 +3011,17 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                 </div>
                               )}
                             </td>
-                            <td className="py-1 px-3 text-sm text-gray-500 whitespace-nowrap min-w-[5.5rem]">{formatDate(device.last_seen)}</td>
+                            <td
+                              className="py-1 px-3 text-sm text-gray-500 whitespace-nowrap min-w-[5.5rem]"
+                              title={scanCellTitle(device)}
+                            >
+                              <span className="inline-flex items-center gap-1">
+                                {formatScanCell(device)}
+                                {device.last_scan_error && (
+                                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" aria-hidden />
+                                )}
+                              </span>
+                            </td>
                           </tr>
                         );
                       })}

@@ -146,6 +146,21 @@ module.exports = (pool, io) => {
     }
   };
 
+  // Colonne: offline da (timestamp), ultimo errore salvataggio scan
+  let networkDeviceScanColumnsEnsured = false;
+  const ensureNetworkDeviceScanColumns = async () => {
+    if (networkDeviceScanColumnsEnsured) return;
+    try {
+      await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS offline_since TIMESTAMPTZ;`);
+      await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS last_scan_error TEXT;`);
+      await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS last_scan_error_at TIMESTAMPTZ;`);
+      networkDeviceScanColumnsEnsured = true;
+    } catch (e) {
+      if (e && e.code === '42P01') return;
+      console.warn('⚠️ ensureNetworkDeviceScanColumns fallito:', e?.message || e);
+    }
+  };
+
   // Flag globale per evitare inizializzazioni tabelle concorrenti (CAUSA DEI CRASH 502)
   let tablesCheckDone = false;
   let tablesCheckInProgress = false;
@@ -263,6 +278,9 @@ module.exports = (pool, io) => {
              await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_static BOOLEAN DEFAULT false;`);
              await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS device_path TEXT;`);
              await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS is_new_device BOOLEAN DEFAULT false;`);
+             await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS offline_since TIMESTAMPTZ;`);
+             await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS last_scan_error TEXT;`);
+             await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS last_scan_error_at TIMESTAMPTZ;`);
 
              // 4. Mappatura
              await pool.query(`CREATE TABLE IF NOT EXISTS mappatura_nodes (azienda_id INTEGER NOT NULL, device_id INTEGER NOT NULL, x DOUBLE PRECISION, y DOUBLE PRECISION, PRIMARY KEY (azienda_id, device_id));`);
@@ -1604,6 +1622,7 @@ module.exports = (pool, io) => {
         return res.status(400).json({ error: 'devices deve essere un array' });
       }
 
+      await ensureNetworkDeviceScanColumns();
 
       // Aggiorna/inserisci dispositivi
       const deviceResults = [];
@@ -1629,17 +1648,14 @@ module.exports = (pool, io) => {
       for (const dev of devices) {
         if (dev.ip_address) {
           const ip = String(dev.ip_address).trim().replace(/[{}"]/g, '');
-          // Solo i dispositivi che hanno risposto al ping contano come "visti".
-          // I dispositivi Trust ARP (ping_responsive=false) non aggiornano last_seen
-          // e non proteggono il dispositivo dall'essere marcato offline.
-          if (ip && dev.ping_responsive !== false) {
-            receivedIPs.add(ip);
-          }
+          // Tutti gli IP inviati dall'agent (ping + Trust ARP) contano come "visti" per mark-offline
+          // e per il refresh last_seen (Trust ARP incluso).
+          if (ip) receivedIPs.add(ip);
         }
       }
-      console.log(`📋 [STEP 1] IP ricevuti dall'agent (solo ping): ${receivedIPs.size}`);
+      console.log(`📋 [STEP 1] IP ricevuti dall'agent (ping + Trust ARP): ${receivedIPs.size}`);
       const trustArpCount = devices.filter(d => d.ping_responsive === false && d.ip_address).length;
-      if (trustArpCount > 0) console.log(`ℹ️ [STEP 1] ${trustArpCount} dispositivi Trust ARP ignorati dal mark-offline (ping_responsive=false).`);
+      if (trustArpCount > 0) console.log(`ℹ️ [STEP 1] ${trustArpCount} dispositivi Trust ARP inclusi nel set IP visti.`);
 
       // ─────────────────────────────────────────────────────────────────────
       // STEP 2: Marca SUBITO come offline tutti i dispositivi NON nella lista.
@@ -1650,7 +1666,8 @@ module.exports = (pool, io) => {
         if (receivedList.length > 0) {
           const offlineRes = await pool.query(
             `UPDATE network_devices
-             SET status = 'offline'
+             SET status = 'offline',
+                 offline_since = CASE WHEN status = 'online' THEN NOW() ELSE offline_since END
              WHERE agent_id = $1
                AND status = 'online'
                AND NOT (ip_address = ANY($2::text[]))
@@ -1677,7 +1694,8 @@ module.exports = (pool, io) => {
           // Nessun dispositivo ricevuto: metti tutto offline
           const offlineAllRes = await pool.query(
             `UPDATE network_devices
-             SET status = 'offline'
+             SET status = 'offline',
+                 offline_since = CASE WHEN status = 'online' THEN NOW() ELSE offline_since END
              WHERE agent_id = $1 AND status = 'online' AND ip_address NOT LIKE 'virtual-%'
              RETURNING id, ip_address, notify_telegram, hostname, mac_address, device_type`,
             [agentId]
@@ -1816,7 +1834,13 @@ module.exports = (pool, io) => {
 
               // Mandiamo offline il vecchio dispositivo
               if (matchingByIp.status === 'online') {
-                await pool.query(`UPDATE network_devices SET status = 'offline' WHERE id = $1`, [matchingByIp.id]);
+                await pool.query(
+                  `UPDATE network_devices SET
+                     status = 'offline',
+                     offline_since = CASE WHEN status = 'online' THEN NOW() ELSE offline_since END
+                   WHERE id = $1`,
+                  [matchingByIp.id]
+                );
 
                 // Notifica offline per il vecchio dispositivo
                 if (matchingByIp.notify_telegram === true) {
@@ -1935,19 +1959,21 @@ module.exports = (pool, io) => {
             }
           }
 
-          const isTrustArp = ping_responsive === false;
           await pool.query(
             `UPDATE network_devices SET
                ip_address        = $1,
                mac_address       = COALESCE($2, mac_address),
                vendor            = COALESCE($3, vendor),
-               last_seen         = CASE WHEN $12 THEN last_seen ELSE NOW() END,
-               status            = CASE WHEN $12 THEN status ELSE $4 END,
+               last_seen         = NOW(),
+               status            = $4,
                ping_responsive   = $5,
                upgrade_available = $6,
                additional_ips    = $7,
                previous_ip       = CASE WHEN $8 THEN $9 ELSE previous_ip END,
-               unifi_name        = COALESCE($10, unifi_name)
+               unifi_name        = COALESCE($10, unifi_name),
+               offline_since     = NULL,
+               last_scan_error   = NULL,
+               last_scan_error_at = NULL
              WHERE id = $11`,
             [
               ip_address,
@@ -1960,8 +1986,7 @@ module.exports = (pool, io) => {
               isStaticIPChange,
               isStaticIPChange ? oldIp : null,
               (unifi_name && String(unifi_name).trim()) ? String(unifi_name).trim() : null,
-              existingDevice.id,
-              isTrustArp
+              existingDevice.id
             ]
           );
           deviceResults.push({ action: 'updated', id: existingDevice.id, ip: ip_address });
@@ -2130,7 +2155,8 @@ module.exports = (pool, io) => {
             const macNormPayload = String(normalizedMac).replace(/[:-]/g, '').toUpperCase();
             const dupOff = await pool.query(
               `UPDATE network_devices
-               SET status = 'offline'
+               SET status = 'offline',
+                   offline_since = CASE WHEN status = 'online' THEN NOW() ELSE offline_since END
                WHERE agent_id = $1
                  AND ip_address = $2
                  AND id <> $3
@@ -2155,6 +2181,20 @@ module.exports = (pool, io) => {
         
         } catch (deviceOpErr) {
           console.error(`❌ [AGENT ${agentId}] Errore critico nel salvataggio del dispositivo ${device.ip_address || 'Sconosciuto'}:`, deviceOpErr);
+          try {
+            await ensureNetworkDeviceScanColumns();
+            const rawIp = device && device.ip_address;
+            const ipClean = rawIp && String(rawIp).trim().replace(/[{}"]/g, '');
+            if (ipClean) {
+              const msg = String(deviceOpErr && deviceOpErr.message ? deviceOpErr.message : deviceOpErr).slice(0, 500);
+              await pool.query(
+                `UPDATE network_devices SET last_scan_error = $1, last_scan_error_at = NOW() WHERE agent_id = $2 AND ip_address = $3`,
+                [msg, agentId, ipClean]
+              );
+            }
+          } catch (markErr) {
+            console.warn('⚠️ Impossibile salvare last_scan_error:', markErr.message);
+          }
         }
       }
 
@@ -2672,6 +2712,7 @@ module.exports = (pool, io) => {
   router.get('/clients/:aziendaId/devices', authenticateToken, checkCompanyAccess, async (req, res) => {
     try {
       await ensureTables();
+      await ensureNetworkDeviceScanColumns();
 
       const aziendaIdParam = req.params.aziendaId;
       console.log('🔍 Route /clients/:aziendaId/devices - aziendaIdParam:', aziendaIdParam, 'type:', typeof aziendaIdParam);
@@ -2704,6 +2745,7 @@ module.exports = (pool, io) => {
           nd.device_type, nd.device_path, nd.device_username, nd.unifi_name, 
           CASE WHEN na.status = 'offline' THEN 'offline' ELSE nd.status END as status, 
           nd.is_static, nd.notify_telegram, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
+          nd.offline_since, nd.last_scan_error, nd.last_scan_error_at,
           nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port, nd.notes, nd.is_manual_type, nd.ip_history, nd.additional_ips, nd.is_new_device, nd.router_model, nd.wifi_sync_status, nd.wifi_sync_msg, nd.wifi_sync_last_at,
           nd.switch_profile_id, nd.snmp_community, nd.is_managed_switch,
           nd.agent_id, na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
@@ -3366,6 +3408,7 @@ module.exports = (pool, io) => {
   router.get('/all/devices', async (req, res) => {
     try {
       await ensureTables();
+      await ensureNetworkDeviceScanColumns();
 
       // Assicurati che le colonne device_path, is_static, previous_ip, previous_mac esistano (migrazione)
 
@@ -3386,6 +3429,7 @@ module.exports = (pool, io) => {
           END as hostname,
           nd.vendor, 
           nd.device_type, nd.device_path, nd.device_username, nd.unifi_name, nd.status, nd.is_static, nd.notify_telegram, nd.is_manual_type, nd.monitoring_schedule, nd.first_seen, nd.last_seen,
+          nd.offline_since, nd.last_scan_error, nd.last_scan_error_at,
           nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.notes, nd.router_model,
           na.agent_name, na.azienda_id, na.last_heartbeat as agent_last_seen, na.status as agent_status,
           u.azienda
@@ -5970,6 +6014,8 @@ pause
         return;
       }
 
+      await ensureNetworkDeviceScanColumns();
+
       // Verifica se la tabella network_agent_events esiste, se non esiste la crea
       try {
         const tableCheck = await pool.query(`
@@ -6103,7 +6149,10 @@ pause
 
         // PROPAGATE OFFLINE STATUS TO ALL DEVICES MONITORED BY THIS AGENT
         await pool.query(
-          `UPDATE network_devices SET status = 'offline' WHERE agent_id = $1 AND status = 'online'`,
+          `UPDATE network_devices SET
+             status = 'offline',
+             offline_since = CASE WHEN status = 'online' THEN NOW() ELSE offline_since END
+           WHERE agent_id = $1 AND status = 'online'`,
           [agent.id]
         );
 
