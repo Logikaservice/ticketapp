@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.7.10
+# Versione: 2.7.11
 # Data ultima modifica: 2026-04-18
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.7.10"
+$SCRIPT_VERSION = "2.7.11"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2342,8 +2342,11 @@ function Send-Heartbeat {
         
         # Sincronizza configurazione (include intervallo e range reti)
         $serverConfigResult = Sync-ConfigFromServer -ServerUrl $ServerUrl -ApiKey $ApiKey
+
+        $forceUp = $false
+        if ($null -ne $response.force_agent_update) { $forceUp = [bool]$response.force_agent_update }
         
-        return @{ success = $true; uninstall = $false; config = $serverConfigResult.config; pending_unifi_test = $pendingUnifi; pending_router_wifi_task = $response.pending_router_wifi_task; pending_device_test_task = $response.pending_device_test_task; speedtest_enabled = $response.speedtest_enabled; speedtest_interval_hours = $response.speedtest_interval_hours }
+        return @{ success = $true; uninstall = $false; config = $serverConfigResult.config; pending_unifi_test = $pendingUnifi; pending_router_wifi_task = $response.pending_router_wifi_task; pending_device_test_task = $response.pending_device_test_task; speedtest_enabled = $response.speedtest_enabled; speedtest_interval_hours = $response.speedtest_interval_hours; force_agent_update = $forceUp }
     }
     catch {
         Write-Log "Errore heartbeat: $_" "WARN"
@@ -3109,6 +3112,16 @@ while ($script:isRunning) {
                 if ($null -ne $heartbeatResult.speedtest_interval_hours) {
                     $ih = [int]$heartbeatResult.speedtest_interval_hours
                     if ($ih -gt 0) { $script:speedtestIntervalHours = $ih }
+                }
+
+                if ($heartbeatResult.success -and $heartbeatResult.force_agent_update) {
+                    Write-Log "[INFO] Aggiornamento agent richiesto dal server (comando remoto), avvio download..." "INFO"
+                    try {
+                        Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion "0.0.0"
+                    }
+                    catch {
+                        Write-Log "[WARN] Aggiornamento forzato da server: $_" "WARN"
+                    }
                 }
             }
             catch {

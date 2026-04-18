@@ -44,6 +44,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   const [showCreateAgentModal, setShowCreateAgentModal] = useState(false);
   const [agents, setAgents] = useState([]);
   const [showAgentsList, setShowAgentsList] = useState(false);
+  /** Versione letta da GET /agent-version (pacchetto sul VPS), non dalla colonna DB */
+  const [serverPackageVersion, setServerPackageVersion] = useState(null);
   const [showAgentNotificationsList, setShowAgentNotificationsList] = useState(false);
   const [showTelegramConfig, setShowTelegramConfig] = useState(false);
   const [showAgentControlsMenu, setShowAgentControlsMenu] = useState(false);
@@ -339,6 +341,20 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   });
 
   // Carica lista agent (definito prima per essere usato in useEffect)
+  useEffect(() => {
+    if (!showAgentsList) return undefined;
+    let cancelled = false;
+    fetch(buildApiUrl('/api/network-monitoring/agent-version'))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && d && d.version) setServerPackageVersion(String(d.version));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [showAgentsList]);
+
   const loadAgents = useCallback(async () => {
     try {
       const response = await fetch(buildApiUrl('/api/network-monitoring/agents'), {
@@ -980,6 +996,37 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       alert(`Errore eliminazione agent: ${err.message}`);
     }
   }, [getAuthHeader, loadAgents]);
+
+  /** Richiede aggiornamento OTA: flag DB → prossimo heartbeat agent ≥ 2.7.11 scarica dal server */
+  const forceAgentUpdate = useCallback(
+    async (agentId, agentName) => {
+      if (
+        !confirm(
+          `Richiedere aggiornamento automatico per l'agent "${agentName}"?\n\n` +
+            'Al prossimo heartbeat (di solito entro 5 minuti) l’agent scaricherà l’ultimo script dal VPS. ' +
+            'Non serve reinstallare manualmente. Agent molto vecchi potrebbero richiedere un aggiornamento una tantum con il pacchetto ZIP.'
+        )
+      ) {
+        return;
+      }
+      try {
+        const response = await fetch(buildApiUrl(`/api/network-monitoring/agent/${agentId}/force-update`), {
+          method: 'POST',
+          headers: getAuthHeader()
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || 'Errore richiesta aggiornamento');
+        }
+        alert(data.message || 'Richiesta registrata.');
+        loadAgents();
+      } catch (err) {
+        console.error('forceAgentUpdate:', err);
+        alert(`Errore: ${err.message}`);
+      }
+    },
+    [getAuthHeader, loadAgents]
+  );
 
   // Scarica pacchetto completo agent (ZIP con tutti i file)
   const downloadAgentPackage = async (agentId, agentName) => {
@@ -1747,7 +1794,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         </div>
       )}
 
-      {/* Versione agent più alta */}
+      {/* Versione: pacchetto VPS vs massimo segnalato dagli agent (heartbeat → DB) */}
       {agents.length > 0 && (() => {
         // Trova la versione più alta tra tutti gli agent
         const compareVersions = (v1, v2) => {
@@ -1771,15 +1818,22 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
           return compareVersions(agent.version, highest.version) < 0 ? agent : highest;
         }, null);
 
-        if (highestVersionAgent && highestVersionAgent.version) {
-          return (
-            <div className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex items-center gap-2 min-w-[140px]">
-              <span className="text-xs text-gray-500">Versione:</span>
-              <span className="font-mono font-semibold text-blue-600">{highestVersionAgent.version}</span>
-            </div>
-          );
-        }
-        return null;
+        return (
+          <div className="px-4 py-2 bg-white border border-gray-300 rounded-lg flex flex-col gap-1 min-w-[200px]">
+            {serverPackageVersion && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-gray-500">Pacchetto sul server:</span>
+                <span className="font-mono font-semibold text-emerald-700">{serverPackageVersion}</span>
+              </div>
+            )}
+            {highestVersionAgent && highestVersionAgent.version && (
+              <div className="flex items-center gap-2 text-xs" title="Ultima versione inviata via heartbeat (salvata nel DB per ogni agent)">
+                <span className="text-gray-500">Max da agent (DB):</span>
+                <span className="font-mono font-semibold text-blue-600">{highestVersionAgent.version}</span>
+              </div>
+            )}
+          </div>
+        );
       })()}
     </>
   );
@@ -2038,7 +2092,15 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                             </div>
                           ) : (
                             <>
-                              <p><strong>Versione:</strong> <span className="font-mono text-blue-600 font-semibold">{agent.version || 'N/A'}</span></p>
+                              <p>
+                                <strong>Versione (heartbeat → DB):</strong>{' '}
+                                <span className="font-mono text-blue-600 font-semibold">{agent.version || 'N/A'}</span>
+                                {agent.pending_agent_update && (
+                                  <span className="ml-2 text-[10px] uppercase font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                                    aggiornamento richiesto
+                                  </span>
+                                )}
+                              </p>
                               <p><strong>Reti:</strong> {(() => {
                                 // Se abbiamo network_ranges_config con nomi, mostrali
                                 if (agent.network_ranges_config && Array.isArray(agent.network_ranges_config)) {
@@ -2189,8 +2251,22 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                               </button>
                             </div>
 
-                            {/* Fila 2: Scarica Pacchetto, Diagnostica */}
+                            {/* Fila 2: Aggiorna da server, Pacchetto, Diagnostica */}
                             <div className="flex flex-row gap-1">
+                              <button
+                                type="button"
+                                onClick={() => forceAgentUpdate(agent.id, agent.agent_name)}
+                                disabled={readOnly}
+                                className={`flex-1 py-1.5 rounded flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-wider transition-all shadow-sm ${
+                                  readOnly
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    : 'bg-teal-600 text-white hover:bg-teal-700'
+                                }`}
+                                title="Chiede all'agent di scaricare l'ultima versione dal VPS al prossimo heartbeat (senza reinstallare)"
+                              >
+                                <RefreshCw size={13} />
+                                Agg. OTA
+                              </button>
                               <button
                                 onClick={() => downloadAgentPackage(agent.id, agent.agent_name)}
                                 className="flex-1 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-wider transition-all shadow-sm"

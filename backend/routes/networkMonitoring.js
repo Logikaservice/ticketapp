@@ -163,6 +163,12 @@ module.exports = (pool, io) => {
 
   let networkAgentScanColumnsEnsured = false;
   const ensureNetworkAgentScanColumns = async () => {
+    // Sempre idempotente (anche se last_scan gia' migrato in deploy precedenti)
+    try {
+      await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS pending_agent_update BOOLEAN DEFAULT FALSE;`);
+    } catch (e) {
+      if (e && e.code !== '42P01') console.warn('⚠️ pending_agent_update column:', e?.message || e);
+    }
     if (networkAgentScanColumnsEnsured) return;
     try {
       await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS last_scan_processed_at TIMESTAMPTZ;`);
@@ -316,7 +322,7 @@ module.exports = (pool, io) => {
   const routerWifiResults = new Map();      // task_id -> { success, devices: [], error, at }
   const pendingDeviceTestTasks = new Map(); // agentId -> { task_id, device_id, ip, ports, profile, profileLabel, device_type }
   const deviceTestResults = new Map();     // task_id -> { status: 'ok'|'error', ping, ports, profile, profileLabel, device_type, error?, at }
-  const AGENT_VERSION_FALLBACK = '2.7.10';
+  const AGENT_VERSION_FALLBACK = '2.7.11';
   const AGENT_SERVICE_SOURCE_PATH = path.resolve(__dirname, '..', '..', 'agent', 'NetworkMonitorService.ps1');
   const AGENT_SERVICE_PUBLIC_PATH = path.resolve(__dirname, '..', 'public', 'agent-updates', 'NetworkMonitorService.ps1');
   let warnedMissingAgentServiceFile = false;
@@ -742,6 +748,7 @@ module.exports = (pool, io) => {
   // Se l'agent è solo disabilitato (enabled=false), rifiuta i dati ma non disinstalla
   router.post('/agent/heartbeat', authenticateAgent, async (req, res) => {
     try {
+      await ensureNetworkAgentScanColumns();
       const agentId = req.agent.id;
       const { version, system_uptime, network_issue_detected, network_issue_duration, unifi_last_ok, unifi_last_check_at } = req.body;
 
@@ -824,6 +831,17 @@ module.exports = (pool, io) => {
          RETURNING version`,
         [versionToSave, agentId]
       );
+
+      // Se l'agent ha raggiunto la versione pacchetto sul server, azzera richiesta aggiornamento forzato
+      try {
+        const pkgVer = getCurrentAgentVersion();
+        const vTrim = version != null && version !== undefined ? String(version).trim() : '';
+        if (vTrim && vTrim === pkgVer) {
+          await pool.query(`UPDATE network_agents SET pending_agent_update = FALSE WHERE id = $1`, [agentId]);
+        }
+      } catch (e) {
+        /* colonna assente finché migrazione non applicata */
+      }
 
       // Log versione salvata per debug
       const savedVersion = updateResult.rows[0]?.version;
@@ -1058,6 +1076,13 @@ module.exports = (pool, io) => {
         resp.agent_service_file_on_server = fs.existsSync(AGENT_SERVICE_SOURCE_PATH);
       } catch (e) {
         /* ignore */
+      }
+
+      try {
+        const pr = await pool.query('SELECT pending_agent_update FROM network_agents WHERE id = $1', [agentId]);
+        resp.force_agent_update = pr.rows[0]?.pending_agent_update === true;
+      } catch (e) {
+        resp.force_agent_update = false;
       }
 
       // Speedtest config per l'agent
@@ -4399,7 +4424,7 @@ module.exports = (pool, io) => {
     ) as status,
     na.last_heartbeat,
     na.last_scan_processed_at,
-    na.version, na.network_ranges, na.network_ranges_config, na.scan_interval_minutes, na.unifi_config, na.enabled,
+    na.version, na.pending_agent_update, na.network_ranges, na.network_ranges_config, na.scan_interval_minutes, na.unifi_config, na.enabled,
     na.unifi_last_ok, na.unifi_last_check_at,
     na.created_at, na.azienda_id, na.api_key,
     u.azienda,
@@ -4421,7 +4446,7 @@ module.exports = (pool, io) => {
     ) as status,
     na.last_heartbeat,
     na.last_scan_processed_at,
-    na.version, na.network_ranges, na.scan_interval_minutes, na.enabled,
+    na.version, na.pending_agent_update, na.network_ranges, na.scan_interval_minutes, na.enabled,
     na.unifi_last_ok, na.unifi_last_check_at,
     na.created_at, na.azienda_id, na.api_key,
     u.azienda,
@@ -5205,6 +5230,40 @@ pause
       res.json({ success: true, agent: result.rows[0], message: 'Agent riabilitato. I dati verranno nuovamente accettati.' });
     } catch (err) {
       console.error('❌ Errore riabilitazione agent:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // POST /api/network-monitoring/agent/:id/force-update
+  // Imposta flag DB: al prossimo heartbeat l'agent (>= 2.7.11) scarica l'ultimo NetworkMonitorService.ps1 dal server senza reinstallare.
+  router.post('/agent/:id/force-update', authenticateToken, requireRole('tecnico'), async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id, 10);
+      if (!agentId) {
+        return res.status(400).json({ error: 'ID agent richiesto' });
+      }
+      await ensureTables();
+      await ensureNetworkAgentScanColumns();
+      const r = await pool.query(
+        `UPDATE network_agents SET pending_agent_update = TRUE, updated_at = NOW()
+         WHERE id = $1 AND deleted_at IS NULL
+         RETURNING id, agent_name, pending_agent_update`,
+        [agentId]
+      );
+      if (r.rows.length === 0) {
+        return res.status(404).json({ error: 'Agent non trovato' });
+      }
+      const latest = getCurrentAgentVersion();
+      console.log(`📥 Richiesta aggiornamento agent forzato: id=${agentId}, pacchetto server=${latest}`);
+      res.json({
+        success: true,
+        agent: r.rows[0],
+        latest_agent_version: latest,
+        message:
+          'Al prossimo heartbeat (max ~5 min) gli agent aggiornati scaricheranno la versione dal server. Agent molto vecchi (< 2.7.11) vanno aggiornati una volta con pacchetto ZIP o file .force_update.trigger su ProgramData.'
+      });
+    } catch (err) {
+      console.error('❌ Errore force-update agent:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });
