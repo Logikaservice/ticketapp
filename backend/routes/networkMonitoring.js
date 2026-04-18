@@ -316,9 +316,10 @@ module.exports = (pool, io) => {
   const routerWifiResults = new Map();      // task_id -> { success, devices: [], error, at }
   const pendingDeviceTestTasks = new Map(); // agentId -> { task_id, device_id, ip, ports, profile, profileLabel, device_type }
   const deviceTestResults = new Map();     // task_id -> { status: 'ok'|'error', ping, ports, profile, profileLabel, device_type, error?, at }
-  const AGENT_VERSION_FALLBACK = '2.7.9';
+  const AGENT_VERSION_FALLBACK = '2.7.10';
   const AGENT_SERVICE_SOURCE_PATH = path.resolve(__dirname, '..', '..', 'agent', 'NetworkMonitorService.ps1');
   const AGENT_SERVICE_PUBLIC_PATH = path.resolve(__dirname, '..', 'public', 'agent-updates', 'NetworkMonitorService.ps1');
+  let warnedMissingAgentServiceFile = false;
 
   const extractAgentVersionFromContent = (content) => {
     const versionPatterns = [
@@ -336,7 +337,19 @@ module.exports = (pool, io) => {
 
   const getCurrentAgentVersion = () => {
     try {
-      if (!fs.existsSync(AGENT_SERVICE_SOURCE_PATH)) return AGENT_VERSION_FALLBACK;
+      if (!fs.existsSync(AGENT_SERVICE_SOURCE_PATH)) {
+        if (!warnedMissingAgentServiceFile) {
+          warnedMissingAgentServiceFile = true;
+          console.warn(
+            '⚠️ Auto-update: su questo server manca agent/NetworkMonitorService.ps1 in:',
+            AGENT_SERVICE_SOURCE_PATH,
+            '- /agent-version e il download useranno solo il fallback',
+            AGENT_VERSION_FALLBACK,
+            '(deploy incompleto: copia la cartella agent/ dal repo).'
+          );
+        }
+        return AGENT_VERSION_FALLBACK;
+      }
       let serviceContent = fs.readFileSync(AGENT_SERVICE_SOURCE_PATH, 'utf8');
       if (serviceContent.charCodeAt(0) === 0xFEFF) serviceContent = serviceContent.slice(1); // strip BOM
       return extractAgentVersionFromContent(serviceContent) || AGENT_VERSION_FALLBACK;
@@ -1038,6 +1051,14 @@ module.exports = (pool, io) => {
       }
 
       const resp = { success: true, timestamp: new Date().toISOString(), uninstall: false };
+
+      // Diagnostica auto-update: l'agent puo' confrontare con la propria $SCRIPT_VERSION senza chiamare /agent-version
+      try {
+        resp.latest_agent_version = getCurrentAgentVersion();
+        resp.agent_service_file_on_server = fs.existsSync(AGENT_SERVICE_SOURCE_PATH);
+      } catch (e) {
+        /* ignore */
+      }
 
       // Speedtest config per l'agent
       try {
@@ -7177,6 +7198,7 @@ pause
 
       res.json({
         version: CURRENT_AGENT_VERSION,
+        service_script_present: fs.existsSync(AGENT_SERVICE_SOURCE_PATH),
         download_url: `${baseUrl}/api/network-monitoring/download/agent/NetworkMonitorService.ps1`,
         release_date: '2026-03-27',
         features: [

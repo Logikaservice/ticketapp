@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.7.9
+# Versione: 2.7.10
 # Data ultima modifica: 2026-04-18
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.7.9"
+$SCRIPT_VERSION = "2.7.10"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -112,6 +112,8 @@ $script:speedtestIntervalHours = 2
 $script:lastSpeedTestTime = $null
 
 $script:forceScanTriggerFile = Join-Path $script:scriptDir ".force_scan.trigger"
+# Evita spam log: una riga INFO quando il server offre una versione nuova rispetto a questa copia
+$script:lastNotifiedServerAgentVersion = $null
 # Unifi: in memoria da /agent/config, mai su config.json o disco
 $script:unifiConfig = $null
 # Ultimo esito check Unifi (login+stat/device) in scansione, inviato al server in heartbeat
@@ -2305,6 +2307,25 @@ function Send-Heartbeat {
         $url = "$ServerUrl/api/network-monitoring/agent/heartbeat"
         # Timeout di 30 secondi per evitare che la richiesta si blocchi troppo a lungo
         $response = Invoke-RestMethod -Uri $url -Method POST -Headers $headers -Body $payloadJson -TimeoutSec 30 -ErrorAction Stop
+
+        # Diagnostica auto-update (stessi dati di GET /agent-version, senza richiesta extra)
+        try {
+            if ($null -ne $response.agent_service_file_on_server -and -not [bool]$response.agent_service_file_on_server) {
+                Write-Log "[WARN] Heartbeat: sul VPS manca il file pacchetto agent — auto-update e download possono fallire. Verifica che la cartella agent/ sia deployata." "WARN"
+            }
+            $srvVer = $response.latest_agent_version
+            if ($null -ne $srvVer -and "$srvVer".Trim() -ne "$Version".Trim()) {
+                $sk = "$srvVer"
+                if ($script:lastNotifiedServerAgentVersion -ne $sk) {
+                    $script:lastNotifiedServerAgentVersion = $sk
+                    Write-Log "[INFO] Sul server e' disponibile l'agent $srvVer; questa copia e' $Version — se la rete e' ok, l'aggiornamento automatico parte al prossimo controllo (circa 2-5 min)." "INFO"
+                }
+            }
+            elseif ($null -ne $srvVer -and "$srvVer".Trim() -eq "$Version".Trim()) {
+                $script:lastNotifiedServerAgentVersion = $null
+            }
+        }
+        catch { }
         
         # Heartbeat riuscito - reset contatori problemi rete
         $script:lastSuccessfulHeartbeat = Get-Date
