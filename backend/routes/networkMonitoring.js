@@ -1737,6 +1737,7 @@ module.exports = (pool, io) => {
 
       for (const device of uniqueDevices) {
         try {
+          let canonicalDeviceIdForDedup = null;
           let { ip_address, mac_address, hostname, vendor, status, ping_responsive, upgrade_available, unifi_name, additional_ips } = device;
 
           // 1. Normalizzazione basilare IP
@@ -1866,6 +1867,107 @@ module.exports = (pool, io) => {
           }
         }
 
+        // ── UPDATE core PRIMA di KeePass: last_seen/status non devono attendere Google Drive ──
+        if (existingDevice) {
+          const hostnameForNotify =
+            (unifi_name && String(unifi_name).trim()) ||
+            (hostname && typeof hostname === 'string' ? hostname.replace(/[{}"]/g, '').trim() : null) ||
+            existingDevice.hostname;
+          const typeForNotify =
+            ((unifi_name && String(unifi_name).trim()) ? 'wifi' : null) || existingDevice.device_type;
+
+          const oldIp = (existingDevice.ip_address || '').trim();
+          const newIp = (ip_address || '').trim();
+          const isStaticIPChange = existingDevice.is_static === true && oldIp !== '' && newIp !== '' && oldIp !== newIp;
+
+          if (isStaticIPChange) {
+            await pool.query(
+              `INSERT INTO network_changes (device_id, agent_id, change_type, old_value, new_value)
+               VALUES ($1, $2, 'ip_changed', $3, $4)`,
+              [existingDevice.id, agentId, oldIp, newIp]
+            );
+            sendTelegramNotification(agentId, req.agent.azienda_id, 'ip_changed', {
+              hostname: hostnameForNotify || existingDevice.hostname,
+              deviceType: typeForNotify || existingDevice.device_type,
+              oldIP: oldIp,
+              newIP: newIp,
+              mac: normalizedMac || existingDevice.mac_address,
+              agentName,
+              aziendaName
+            }).then(result => {
+              if (result) {
+                console.log(`✅ [IP_CHANGED] Notifica Telegram inviata per dispositivo statico MAC=${normalizedMac || existingDevice.mac_address} ${oldIp} → ${newIp}`);
+              }
+            }).catch(e => console.error('❌ [IP_CHANGED] Telegram notification error:', e));
+          }
+
+          if (existingDevice.status === 'offline' && (status || 'online') === 'online' && ping_responsive !== false) {
+            try {
+              await pool.query(
+                `INSERT INTO network_changes (device_id, agent_id, change_type, old_value, new_value)
+                 VALUES ($1, $2, 'device_online', 'offline', 'online')`,
+                [existingDevice.id, agentId]
+              );
+            } catch (e) {
+              console.error('❌ Errore salvataggio evento device_online in network_changes:', e);
+            }
+
+            if (existingDevice.notify_telegram === true) {
+              console.log(`📤 [ONLINE] Tentativo invio notifica Telegram per dispositivo online: MAC=${normalizedMac || existingDevice.mac_address}, IP=${ip_address}, Hostname=${hostnameForNotify || existingDevice.hostname}, Stato Precedente=offline`);
+              sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
+                hostname: hostnameForNotify || existingDevice.hostname,
+                deviceType: typeForNotify || existingDevice.device_type,
+                ip: ip_address,
+                mac: normalizedMac || existingDevice.mac_address,
+                status: 'online',
+                oldStatus: 'offline',
+                agentName,
+                aziendaName
+              }).then(result => {
+                if (result) {
+                  console.log(`✅ [ONLINE] Notifica Telegram inviata con successo per MAC=${normalizedMac || existingDevice.mac_address}`);
+                } else {
+                  console.log(`⚠️ [ONLINE] Notifica Telegram NON inviata (ritornato false) per MAC=${normalizedMac || existingDevice.mac_address} - verifica config.notify_status_changes`);
+                }
+              }).catch(e => console.error('❌ [ONLINE] Telegram notification error (Device Online):', e));
+            } else {
+              console.log(`⏭️ [ONLINE] Notifica Telegram saltata: notify_telegram=${existingDevice.notify_telegram} per MAC=${normalizedMac || existingDevice.mac_address}`);
+            }
+          }
+
+          const isTrustArp = ping_responsive === false;
+          await pool.query(
+            `UPDATE network_devices SET
+               ip_address        = $1,
+               mac_address       = COALESCE($2, mac_address),
+               vendor            = COALESCE($3, vendor),
+               last_seen         = CASE WHEN $12 THEN last_seen ELSE NOW() END,
+               status            = CASE WHEN $12 THEN status ELSE $4 END,
+               ping_responsive   = $5,
+               upgrade_available = $6,
+               additional_ips    = $7,
+               previous_ip       = CASE WHEN $8 THEN $9 ELSE previous_ip END,
+               unifi_name        = COALESCE($10, unifi_name)
+             WHERE id = $11`,
+            [
+              ip_address,
+              normalizedMac,
+              vendor,
+              status || 'online',
+              ping_responsive === true,
+              upgrade_available === true,
+              JSON.stringify(additional_ips || []),
+              isStaticIPChange,
+              isStaticIPChange ? oldIp : null,
+              (unifi_name && String(unifi_name).trim()) ? String(unifi_name).trim() : null,
+              existingDevice.id,
+              isTrustArp
+            ]
+          );
+          deviceResults.push({ action: 'updated', id: existingDevice.id, ip: ip_address });
+          canonicalDeviceIdForDedup = existingDevice.id;
+        }
+
         // KeePass Lookup (Enrichment ONLY source of truth for Title/Hostname)
         let deviceTypeFromKeepass = null;
         let devicePathFromKeepass = null;
@@ -1920,109 +2022,8 @@ module.exports = (pool, io) => {
 
         if (effectiveHostname && effectiveHostname.length > 250) effectiveHostname = effectiveHostname.substring(0, 250);
 
-        // 5. Upsert
+        // 5. Upsert — arricchimento hostname dopo UPDATE core (dispositivo già esistente)
         if (existingDevice) {
-          // UPDATE
-
-          // Rilevamento cambio IP per dispositivo statico: imposta previous_ip, inserisce in network_changes, notifica Telegram
-          const oldIp = (existingDevice.ip_address || '').trim();
-          const newIp = (ip_address || '').trim();
-          const isStaticIPChange = existingDevice.is_static === true && oldIp !== '' && newIp !== '' && oldIp !== newIp;
-
-          if (isStaticIPChange) {
-            await pool.query(
-              `INSERT INTO network_changes (device_id, agent_id, change_type, old_value, new_value)
-               VALUES ($1, $2, 'ip_changed', $3, $4)`,
-              [existingDevice.id, agentId, oldIp, newIp]
-            );
-            sendTelegramNotification(agentId, req.agent.azienda_id, 'ip_changed', {
-              hostname: effectiveHostname || existingDevice.hostname,
-              deviceType: effectiveDeviceType || existingDevice.device_type,
-              oldIP: oldIp,
-              newIP: newIp,
-              mac: normalizedMac || existingDevice.mac_address,
-              agentName,
-              aziendaName
-            }).then(result => {
-              if (result) {
-                console.log(`✅ [IP_CHANGED] Notifica Telegram inviata per dispositivo statico MAC=${normalizedMac || existingDevice.mac_address} ${oldIp} → ${newIp}`);
-              }
-            }).catch(e => console.error('❌ [IP_CHANGED] Telegram notification error:', e));
-          }
-
-          // Se il dispositivo passa da OFFLINE a ONLINE, registra SEMPRE un evento nel DB
-          // IMPORTANTE: Solo se ha risposto al ping (non Trust ARP)
-          if (existingDevice.status === 'offline' && (status || 'online') === 'online' && ping_responsive !== false) {
-            try {
-              await pool.query(
-                `INSERT INTO network_changes (device_id, agent_id, change_type, old_value, new_value)
-                 VALUES ($1, $2, 'device_online', 'offline', 'online')`,
-                [existingDevice.id, agentId]
-              );
-            } catch (e) {
-              console.error('❌ Errore salvataggio evento device_online in network_changes:', e);
-            }
-
-            // Notifica Telegram solo se abilitata
-            if (existingDevice.notify_telegram === true) {
-              console.log(`📤 [ONLINE] Tentativo invio notifica Telegram per dispositivo online: MAC=${normalizedMac || existingDevice.mac_address}, IP=${ip_address}, Hostname=${effectiveHostname || existingDevice.hostname}, Stato Precedente=offline`);
-              sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
-                hostname: effectiveHostname || existingDevice.hostname,
-                deviceType: effectiveDeviceType || existingDevice.device_type,
-                ip: ip_address,
-                mac: normalizedMac || existingDevice.mac_address,
-                status: 'online',
-                oldStatus: 'offline',
-                agentName,
-                aziendaName
-              }).then(result => {
-                if (result) {
-                  console.log(`✅ [ONLINE] Notifica Telegram inviata con successo per MAC=${normalizedMac || existingDevice.mac_address}`);
-                } else {
-                  console.log(`⚠️ [ONLINE] Notifica Telegram NON inviata (ritornato false) per MAC=${normalizedMac || existingDevice.mac_address} - verifica config.notify_status_changes`);
-                }
-              }).catch(e => console.error('❌ [ONLINE] Telegram notification error (Device Online):', e));
-            } else {
-              console.log(`⏭️ [ONLINE] Notifica Telegram saltata: notify_telegram=${existingDevice.notify_telegram} per MAC=${normalizedMac || existingDevice.mac_address}`);
-            }
-          }
-
-          // ── UPSERT CORE (immediato, nessuna dipendenza esterna) ──────────
-          // Aggiorna SUBITO ip, mac, last_seen e status. Questo deve avvenire
-          // indipendentemente da KeePass, Telegram, ecc.
-          // NOTA: I dispositivi Trust ARP (ping_responsive=false) non aggiornano
-          // last_seen né status — solo mac/vendor/additional_ips.
-          const isTrustArp = ping_responsive === false;
-          await pool.query(
-            `UPDATE network_devices SET
-               ip_address        = $1,
-               mac_address       = COALESCE($2, mac_address),
-               vendor            = COALESCE($3, vendor),
-               last_seen         = CASE WHEN $12 THEN last_seen ELSE NOW() END,
-               status            = CASE WHEN $12 THEN status ELSE $4 END,
-               ping_responsive   = $5,
-               upgrade_available = $6,
-               additional_ips    = $7,
-               previous_ip       = CASE WHEN $8 THEN $9 ELSE previous_ip END,
-               unifi_name        = COALESCE($10, unifi_name)
-             WHERE id = $11`,
-            [
-              ip_address,
-              normalizedMac,
-              vendor,
-              status || 'online',
-              ping_responsive === true,
-              upgrade_available === true,
-              JSON.stringify(additional_ips || []),
-              isStaticIPChange,
-              isStaticIPChange ? oldIp : null,
-              (unifi_name && String(unifi_name).trim()) ? String(unifi_name).trim() : null,
-              existingDevice.id,
-              isTrustArp  // $12: se true, last_seen e status non vengono toccati
-            ]
-          );
-          deviceResults.push({ action: 'updated', id: existingDevice.id, ip: ip_address });
-
           // ── ENRICHIMENTO KeePass (non critico, fatto dopo) ────────────────
           // Aggiorna hostname e device_type solo se KeePass restituisce dati.
           // Un eventuale errore/lentezza di KeePass NON impatta last_seen.
@@ -2099,6 +2100,7 @@ module.exports = (pool, io) => {
             [agentId, ip_address, normalizedMac, effectiveHostname, vendor, status || 'online', ping_responsive === true, upgrade_available === true, effectiveDeviceType, devicePathFromKeepass, JSON.stringify(additional_ips || []), isForeverNew, (unifi_name && String(unifi_name).trim()) ? String(unifi_name).trim() : null]
           );
           deviceResults.push({ action: 'created', id: res.rows[0].id, ip: ip_address });
+          canonicalDeviceIdForDedup = res.rows[0].id;
 
           // Se è "Forever New", registra l'evento new_device
           if (isForeverNew) {
@@ -2119,6 +2121,35 @@ module.exports = (pool, io) => {
           // DEBUG: Track 192.168.100.200
           if (ip_address === '192.168.100.200') {
             console.log('🔍 DEBUG .200 - CREATED device ID:', res.rows[0].id);
+          }
+        }
+
+        // Stesso agent + stesso IP, MAC diverso dal payload: altre righe (es. telefono vs DECT) → offline
+        if (canonicalDeviceIdForDedup && ip_address && normalizedMac) {
+          try {
+            const macNormPayload = String(normalizedMac).replace(/[:-]/g, '').toUpperCase();
+            const dupOff = await pool.query(
+              `UPDATE network_devices
+               SET status = 'offline'
+               WHERE agent_id = $1
+                 AND ip_address = $2
+                 AND id <> $3
+                 AND ip_address NOT LIKE 'virtual-%'
+                 AND status = 'online'
+                 AND (
+                   mac_address IS NULL
+                   OR REPLACE(REPLACE(UPPER(mac_address), ':', ''), '-', '') <> $4
+                 )
+               RETURNING id, mac_address`,
+              [agentId, ip_address, canonicalDeviceIdForDedup, macNormPayload]
+            );
+            if (dupOff.rows.length > 0) {
+              console.log(
+                `🔄 [IP dedup] Stesso IP ${ip_address}, MAC payload=${normalizedMac}: marcati offline ${dupOff.rows.length} record duplicati (IDs: ${dupOff.rows.map((r) => r.id).join(', ')})`
+              );
+            }
+          } catch (dedupErr) {
+            console.warn(`⚠️ [IP dedup] Errore deduplica IP ${ip_address}:`, dedupErr.message);
           }
         }
         
