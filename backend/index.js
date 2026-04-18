@@ -366,7 +366,8 @@ app.use(cors({
   },
   credentials: true
 }));
-app.use(express.json());
+// Limite default express.json (~100kb) troppo basso per POST /agent/scan-results con molti dispositivi → 413/connessione chiusa/502 da nginx
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '15mb' }));
 
 // --- CONFIGURAZIONE SOCKET.IO ---
 const io = new Server(server, {
