@@ -2666,6 +2666,7 @@ function Start-TrayIconInInteractiveSession {
 function Check-AgentUpdate {
     param(
         [string]$ServerUrl,
+        # Versione dello script in esecuzione ($SCRIPT_VERSION), non solo config.json (evita loop update/exit senza heartbeat).
         [string]$CurrentVersion
     )
     
