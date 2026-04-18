@@ -183,16 +183,33 @@ module.exports = (pool, io) => {
     const thresholdMin = Math.ceil(intervalMin * mult);
     const enabled = row.enabled !== false;
     const online = String(row.status || '').toLowerCase() === 'online';
+    /** Se heartbeat è più recente del batch scan di più di N minuti → heartbeat ok ma scan-results non aggiornano last_scan_processed_at. */
+    const SKEW_WARN_MIN = Math.max(3, parseInt(process.env.NETWORK_SCAN_HEARTBEAT_SKEW_MIN || '5', 10) || 5);
 
     const out = {
       ...row,
       minutes_since_scan_batch: null,
       minutes_since_heartbeat: null,
+      /** Minuti: (last_heartbeat - last_scan_processed_at). Valori positivi = heartbeat più nuovo del batch (sospetto pipeline scan-results). */
+      heartbeat_newer_than_scan_minutes: null,
+      /** true se heartbeat e batch sono sfasati oltre soglia: tipico di POST /heartbeat ok e scan-results in errore/timeout. */
+      scan_pipeline_suspect: false,
       scan_late_threshold_minutes: thresholdMin,
       scan_schedule_tolerance_multiplier: mult,
       scan_schedule_status: 'ok',
       scan_schedule_detail: ''
     };
+
+    if (row.last_heartbeat && row.last_scan_processed_at) {
+      const hbT = new Date(row.last_heartbeat).getTime();
+      const scT = new Date(row.last_scan_processed_at).getTime();
+      if (!isNaN(hbT) && !isNaN(scT)) {
+        out.heartbeat_newer_than_scan_minutes = Math.round((hbT - scT) / 60000);
+        if (online && enabled && out.heartbeat_newer_than_scan_minutes >= SKEW_WARN_MIN) {
+          out.scan_pipeline_suspect = true;
+        }
+      }
+    }
 
     if (!enabled) {
       out.scan_schedule_status = 'disabled';
@@ -225,6 +242,10 @@ module.exports = (pool, io) => {
         } else {
           out.scan_schedule_status = 'ok';
           out.scan_schedule_detail = `Ultimo batch scan ${out.minutes_since_scan_batch} min fa (soglia ${thresholdMin} min, ${mult}× ${intervalMin} min).`;
+        }
+        if (out.scan_pipeline_suspect) {
+          out.scan_schedule_detail += ` Sfasa heartbeat vs batch: +${out.heartbeat_newer_than_scan_minutes} min — probabile errore/timeout su scan-results o payload troppo grande; controlla log agent e VPS (nginx, 500).`;
+          if (out.scan_schedule_status === 'ok') out.scan_schedule_status = 'warn';
         }
         return out;
       }

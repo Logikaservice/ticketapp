@@ -2106,6 +2106,20 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                                   )}
                                 </p>
                               )}
+                              {agent.scan_pipeline_suspect && (
+                                <p className="mt-2 text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 leading-snug">
+                                  <strong>Diagnosi:</strong> l&apos;heartbeat è più recente dell&apos;ultimo batch scan di{' '}
+                                  {agent.heartbeat_newer_than_scan_minutes != null
+                                    ? `~${agent.heartbeat_newer_than_scan_minutes} min`
+                                    : 'diversi minuti'}
+                                  . È probabile che <span className="font-mono text-[11px]">POST scan-results</span> non
+                                  completi (timeout 30s, 413, 502/500) o che il backend si fermi prima dell&apos;UPDATE del
+                                  batch. Controllare sul PC il log del servizio e sulla VPS{' '}
+                                  <span className="font-mono text-[11px]">journalctl / pm2</span> per{' '}
+                                  <span className="font-mono text-[11px]">Errore ricezione scan results</span> e nginx{' '}
+                                  <span className="font-mono text-[11px]">client_max_body_size</span>.
+                                </p>
+                              )}
                             </>
                           )}
                         </div>
