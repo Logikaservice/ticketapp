@@ -1305,8 +1305,10 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       }
       return device.last_seen ? `Offline (ultimo visto ${formatDate(device.last_seen)})` : 'Offline';
     }
-    const batchAt = device.last_scan_processed_at || device.last_seen;
-    return formatOnlineScanAge(batchAt) || formatDate(device.last_seen) || 'N/A';
+    // Stesso agent => stesso riferimento temporale: prima colonna dedicata, poi heartbeat agent (uguale per tutte le righe), MAI solo last_seen per device (sarebbero minuti diversi senza motivo)
+    const batchAt = device.last_scan_processed_at || device.agent_last_seen;
+    if (!batchAt) return formatDate(device.last_seen) || 'N/A';
+    return formatOnlineScanAge(batchAt) || 'N/A';
   };
 
   const scanCellTitle = (device) => {
@@ -1317,7 +1319,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       return 'Tempo da quando il dispositivo risulta offline';
     }
     const interval = device.scan_interval_minutes != null ? device.scan_interval_minutes : '—';
-    return `Tempo trascorso dall'ultimo scan elaborato sulla VPS per questo agent (stesso valore per tutti i device online dell'agent). Intervallo scan impostato: ${interval} min. «Ora» = entro ~90 secondi da quell'elaborazione.`;
+    return `Riferimento unico per tutti i device di questo agent: ultimo scan elaborato sulla VPS (last_scan_processed_at), oppure heartbeat agent se la colonna non è ancora valorizzata. Intervallo scan: ${interval} min. «Ora» = entro ~90s da quell’istante. Non usa last_seen per device (evita minuti falsamente diversi).`;
   };
 
   // Titolo da mostrare in tabella: accorciato per switch virtuali per evitare overflow e barra di scroll orizzontale

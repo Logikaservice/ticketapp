@@ -2422,6 +2422,18 @@ module.exports = (pool, io) => {
         }
       }
 
+      // Istante unico "elaborazione scan sulla VPS" (dopo device + changes): stesso valore per tutti i device dell'agent in UI
+      try {
+        await ensureNetworkAgentScanColumns();
+        await pool.query(
+          `UPDATE network_agents SET last_scan_processed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+          [agentId]
+        );
+        console.log(`⏱️ last_scan_processed_at batch agent ${agentId} (dopo payload scan-results, ${devices.length} device nel body)`);
+      } catch (batchScanErr) {
+        console.error('❌ Errore last_scan_processed_at batch:', batchScanErr.message);
+      }
+
       // Aggiorna sempre last_heartbeat quando arrivano scan-results (l'agent è attivo)
       // Se l'agent può inviare dati, significa che è online
       try {
@@ -2440,7 +2452,7 @@ module.exports = (pool, io) => {
           if (wasOffline) {
             await pool.query(
               `UPDATE network_agents 
-               SET status = 'online', last_heartbeat = NOW(), last_scan_processed_at = NOW(), updated_at = NOW()
+               SET status = 'online', last_heartbeat = NOW(), updated_at = NOW()
                WHERE id = $1`,
               [agentId]
             );
@@ -2456,10 +2468,10 @@ module.exports = (pool, io) => {
               });
             }
           } else {
-            // Se era già online, aggiorna last_heartbeat e timestamp elaborazione scan (stesso istante per tutti i device dell'agent)
+            // Se era già online, aggiorna solo last_heartbeat (last_scan_processed_at già impostato sopra)
             await pool.query(
               `UPDATE network_agents 
-               SET last_heartbeat = NOW(), last_scan_processed_at = NOW(), updated_at = NOW()
+               SET last_heartbeat = NOW(), updated_at = NOW()
                WHERE id = $1`,
               [agentId]
             );
