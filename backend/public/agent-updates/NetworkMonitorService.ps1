@@ -1,4 +1,4 @@
-# NetworkMonitorService.ps1
+﻿# NetworkMonitorService.ps1
 # Servizio Windows permanente per Network Monitor Agent
 # Rimane sempre attivo e esegue scansioni periodicamente
 # Gestisce tutto internamente senza dipendere da Scheduled Task
