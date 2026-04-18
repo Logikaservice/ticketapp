@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.7.13
+# Versione: 2.7.14
 # Data ultima modifica: 2026-04-18
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.7.13"
+$SCRIPT_VERSION = "2.7.14"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2696,6 +2696,24 @@ function Start-TrayIconInInteractiveSession {
     }
 }
 
+# Confronto semver a segmenti (solo numeri iniziali per segmento). True se $Server e' strettamente piu' recente di $Client.
+function Test-ServerAgentVersionNewer {
+    param([string]$Server, [string]$Client)
+    if (-not $Server) { return $false }
+    if (-not $Client) { return $true }
+    $sp = @($Server.Trim() -split '\.')
+    $cp = @($Client.Trim() -split '\.')
+    $n = [Math]::Max($sp.Count, $cp.Count)
+    for ($i = 0; $i -lt $n; $i++) {
+        $si = 0; $ci = 0
+        if ($i -lt $sp.Count -and $sp[$i] -match '^(\d+)') { $si = [int]$matches[1] }
+        if ($i -lt $cp.Count -and $cp[$i] -match '^(\d+)') { $ci = [int]$matches[1] }
+        if ($si -gt $ci) { return $true }
+        if ($si -lt $ci) { return $false }
+    }
+    return $false
+}
+
 function Check-AgentUpdate {
     param(
         [string]$ServerUrl,
@@ -2703,6 +2721,7 @@ function Check-AgentUpdate {
         [string]$CurrentVersion
     )
     
+    $versionUrl = $null
     try {
         # Forza TLS 1.2 (in alcuni contesti servizio puo non ereditare Enable-Tls12)
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -2711,10 +2730,11 @@ function Check-AgentUpdate {
         # Normalizza base URL (evita doppio /api se server_url contiene gia /api)
         $serverBase = $ServerUrl -replace '/api.*', '' -replace '/$', ''
         $versionUrl = "$serverBase/api/network-monitoring/agent-version"
-        Write-Log "[INFO] URL check versione: $versionUrl" "DEBUG"
+        Write-Log "[INFO] URL check versione: $versionUrl" "INFO"
         
-        # Richiedi informazioni versione
-        $response = Invoke-RestMethod -Uri $versionUrl -Method Get -TimeoutSec 10 -ErrorAction Stop
+        # PS 5.1: Invoke-RestMethod spesso NON supporta -TimeoutSec -> uso WebRequest + timeout esplicito
+        $wr = Invoke-WebRequest -Uri $versionUrl -Method GET -TimeoutSec 15 -UseBasicParsing -ErrorAction Stop
+        $response = $wr.Content | ConvertFrom-Json
         
         $serverVersion = ($response.version -as [string])
         if (-not $serverVersion) {
@@ -2725,9 +2745,9 @@ function Check-AgentUpdate {
         $CurrentVersion = if ($CurrentVersion) { ($CurrentVersion -as [string]).Trim() } else { "" }
         Write-Log "[INFO] Versione server: $serverVersion, agent: $CurrentVersion" "INFO"
         
-        # Confronta versioni (confronto stringa)
-        if ($serverVersion -ne $CurrentVersion) {
-            Write-Log "[INFO] Nuova versione disponibile! Avvio aggiornamento..." "INFO"
+        # Solo se il server espone una versione PIU' NUOVA (confronto semver), non semplice stringa -ne
+        if (Test-ServerAgentVersionNewer -Server $serverVersion -Client $CurrentVersion) {
+            Write-Log "[INFO] Nuova versione disponibile (server piu' recente)! Avvio aggiornamento..." "INFO"
             
             # Directory installazione (stessa del servizio)
             $installDir = $script:scriptDir
@@ -2885,7 +2905,7 @@ function Check-AgentUpdate {
             
         }
         else {
-            Write-Log ('[OK] Agent gia'' aggiornato: server=' + $serverVersion + ' client=' + $CurrentVersion) 'INFO'
+            Write-Log "[OK] Nessun aggiornamento da scaricare (server=$serverVersion, agent=$CurrentVersion)" "INFO"
         }
     }
     catch {
