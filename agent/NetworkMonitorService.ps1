@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.7.12
+# Versione: 2.7.13
 # Data ultima modifica: 2026-04-18
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.7.12"
+$SCRIPT_VERSION = "2.7.13"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2028,7 +2028,10 @@ function Get-ServerConfig {
         }
         
         $url = "$ServerUrl/api/network-monitoring/agent/config?api_key=$ApiKey"
-        $response = Invoke-RestMethod -Uri $url -Method GET -Headers $headers -ErrorAction Stop
+        # Invoke-RestMethod su PS 5.1 spesso non supporta -TimeoutSec: una GET bloccata qui impedisce
+        # qualsiasi scansione (Sync-ConfigFromServer prima di ogni scan resta in attesa indefinita).
+        $wr = Invoke-WebRequest -Uri $url -Method GET -Headers $headers -TimeoutSec 15 -UseBasicParsing -ErrorAction Stop
+        $response = $wr.Content | ConvertFrom-Json
         
         return @{
             success = $true
