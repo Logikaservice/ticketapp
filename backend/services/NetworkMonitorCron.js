@@ -8,6 +8,104 @@ class NetworkMonitorCron {
         this.AGENT_OFFLINE_THRESHOLD_MINUTES = 10; // Soglia per considerare agent offline
     }
 
+    async ensureNetworkChangesArchiveTable() {
+        await this.pool.query(`ALTER TABLE network_changes ADD COLUMN IF NOT EXISTS notification_ip VARCHAR(45);`);
+        await this.pool.query(`
+            CREATE TABLE IF NOT EXISTS network_changes_archive (
+              id SERIAL PRIMARY KEY,
+              source_change_id INTEGER,
+              agent_id INTEGER NOT NULL REFERENCES network_agents(id) ON DELETE CASCADE,
+              change_type VARCHAR(50) NOT NULL,
+              old_value TEXT,
+              new_value TEXT,
+              detected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+              notified BOOLEAN DEFAULT false,
+              notification_ip VARCHAR(45),
+              device_id_snapshot INTEGER,
+              ip_address VARCHAR(45),
+              mac_address VARCHAR(17),
+              hostname TEXT,
+              vendor TEXT,
+              device_type VARCHAR(100),
+              device_path TEXT,
+              device_username TEXT,
+              is_static BOOLEAN DEFAULT false,
+              has_ping_failures BOOLEAN DEFAULT false,
+              archived_at TIMESTAMPTZ DEFAULT NOW()
+            );
+        `);
+        await this.pool.query(`CREATE INDEX IF NOT EXISTS idx_network_changes_archive_detected_at ON network_changes_archive(detected_at DESC);`);
+        await this.pool.query(`CREATE INDEX IF NOT EXISTS idx_network_changes_archive_agent_id ON network_changes_archive(agent_id);`);
+    }
+
+    /**
+     * Elimina dispositivi offline da > N giorni (default 7), dopo aver copiato gli eventi in network_changes_archive
+     * così restano visibili in Eventi di rete. Dispositivi is_static esclusi.
+     */
+    async purgeStaleOfflineDevices() {
+        const enabled = String(process.env.NETWORK_OFFLINE_PURGE_ENABLED || 'true').toLowerCase() !== 'false';
+        if (!enabled) return;
+
+        const days = Math.max(1, parseInt(process.env.NETWORK_OFFLINE_PURGE_DAYS || '7', 10) || 7);
+
+        try {
+            await this.ensureNetworkChangesArchiveTable();
+
+            const sel = await this.pool.query(
+                `
+                SELECT id FROM network_devices
+                WHERE status = 'offline'
+                  AND COALESCE(is_static, false) = false
+                  AND COALESCE(offline_since, last_seen) < NOW() - ($1::int * INTERVAL '1 day')
+                `,
+                [days]
+            );
+
+            const ids = sel.rows.map((r) => r.id);
+            if (ids.length === 0) return;
+
+            const client = await this.pool.connect();
+            try {
+                await client.query('BEGIN');
+
+                await client.query(
+                    `
+                    INSERT INTO network_changes_archive (
+                      source_change_id, agent_id, change_type, old_value, new_value,
+                      detected_at, notified, notification_ip,
+                      device_id_snapshot, ip_address, mac_address, hostname, vendor, device_type,
+                      device_path, device_username, is_static, has_ping_failures
+                    )
+                    SELECT
+                      nc.id, nc.agent_id, nc.change_type, nc.old_value, nc.new_value,
+                      nc.detected_at, nc.notified, nc.notification_ip,
+                      nd.id, nd.ip_address, nd.mac_address, nd.hostname, nd.vendor, nd.device_type,
+                      nd.device_path, nd.device_username, COALESCE(nd.is_static, false), COALESCE(nd.has_ping_failures, false)
+                    FROM network_changes nc
+                    INNER JOIN network_devices nd ON nc.device_id = nd.id
+                    WHERE nd.id = ANY($1::int[])
+                    `,
+                    [ids]
+                );
+
+                const del = await client.query('DELETE FROM network_devices WHERE id = ANY($1::int[])', [ids]);
+                await client.query('COMMIT');
+
+                console.log(
+                    `🧹 NetworkMonitorCron: purge offline > ${days}g — eliminati ${del.rowCount} dispositivi, ` +
+                        `eventi archiviati per ${ids.length} device`
+                );
+            } catch (e) {
+                await client.query('ROLLBACK');
+                throw e;
+            } finally {
+                client.release();
+            }
+        } catch (err) {
+            console.error('❌ NetworkMonitorCron: Errore purgeStaleOfflineDevices:', err.message);
+        }
+    }
+
     // Avvia i cron jobs
     start() {
         console.log('🕒 NetworkMonitorCron: Avvio cron jobs...');
@@ -21,6 +119,17 @@ class NetworkMonitorCron {
         this.jobs.push(cron.schedule('*/5 * * * *', async () => {
             await this.checkIPConflicts();
         }));
+
+        // 3. Purge dispositivi offline vecchi (settimanale, domenica 03:15 — storico eventi in network_changes_archive)
+        this.jobs.push(
+            cron.schedule(
+                '15 3 * * 0',
+                async () => {
+                    await this.purgeStaleOfflineDevices();
+                },
+                { timezone: process.env.TZ || 'Europe/Rome' }
+            )
+        );
 
         console.log('✅ NetworkMonitorCron: Cron jobs avviati');
     }

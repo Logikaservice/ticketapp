@@ -173,6 +173,45 @@ module.exports = (pool, io) => {
     }
   };
 
+  // Copia eventi dispositivo prima della purge offline (FK CASCADE su network_changes)
+  let networkChangesArchiveEnsured = false;
+  const ensureNetworkChangesArchiveTable = async () => {
+    if (networkChangesArchiveEnsured) return;
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS network_changes_archive (
+          id SERIAL PRIMARY KEY,
+          source_change_id INTEGER,
+          agent_id INTEGER NOT NULL REFERENCES network_agents(id) ON DELETE CASCADE,
+          change_type VARCHAR(50) NOT NULL,
+          old_value TEXT,
+          new_value TEXT,
+          detected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          notified BOOLEAN DEFAULT false,
+          notification_ip VARCHAR(45),
+          device_id_snapshot INTEGER,
+          ip_address VARCHAR(45),
+          mac_address VARCHAR(17),
+          hostname TEXT,
+          vendor TEXT,
+          device_type VARCHAR(100),
+          device_path TEXT,
+          device_username TEXT,
+          is_static BOOLEAN DEFAULT false,
+          has_ping_failures BOOLEAN DEFAULT false,
+          archived_at TIMESTAMPTZ DEFAULT NOW()
+        );
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_changes_archive_detected_at ON network_changes_archive(detected_at DESC);`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_changes_archive_agent_id ON network_changes_archive(agent_id);`);
+      await pool.query(`ALTER TABLE network_changes ADD COLUMN IF NOT EXISTS notification_ip VARCHAR(45);`);
+      networkChangesArchiveEnsured = true;
+    } catch (e) {
+      if (e && e.code === '42P01') return;
+      console.warn('⚠️ ensureNetworkChangesArchiveTable fallito:', e?.message || e);
+    }
+  };
+
   // Flag globale per evitare inizializzazioni tabelle concorrenti (CAUSA DEI CRASH 502)
   let tablesCheckDone = false;
   let tablesCheckInProgress = false;
@@ -305,6 +344,8 @@ module.exports = (pool, io) => {
              await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_changes_device_id ON network_changes(device_id);`);
              await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_changes_agent_id ON network_changes(agent_id);`);
              await pool.query(`CREATE INDEX IF NOT EXISTS idx_network_agent_events_agent_id ON network_agent_events(agent_id);`);
+
+             await ensureNetworkChangesArchiveTable();
 
              console.log('✅ Migrazioni in background completate con successo');
           } catch (migErr) {
@@ -3570,6 +3611,7 @@ module.exports = (pool, io) => {
   router.get('/all/changes', async (req, res) => {
     try {
       await ensureTables();
+      await ensureNetworkChangesArchiveTable();
 
       const limit = parseInt(req.query.limit) || 200;
       const searchTerm = req.query.search ? req.query.search.trim() : '';
@@ -3632,6 +3674,10 @@ module.exports = (pool, io) => {
         }
       }
 
+      const searchConditionsArchive = searchConditions
+        ? searchConditions.replace(/\bnd\./g, 'nca.').replace(/\bnc\./g, 'nca.')
+        : '';
+
       // Se richiesto, conta i cambiamenti delle ultime 24 ore
       // IMPORTANTE: Esegui questa query PRIMA della query principale per evitare timeout
       let count24h = null;
@@ -3659,15 +3705,32 @@ module.exports = (pool, io) => {
             count24hCondition = `WHERE ${conditions.join(' AND ')}`;
           }
 
+          let count24hConditionArchive = '';
+          if (searchConditionsArchive) {
+            count24hConditionArchive = searchConditionsArchive + ` AND nca.detected_at >= NOW() - INTERVAL '24 hours'`;
+          } else if (aziendaId) {
+            count24hConditionArchive = `WHERE na.azienda_id = $1 AND nca.detected_at >= NOW() - INTERVAL '24 hours'`;
+          } else {
+            count24hConditionArchive = `WHERE nca.detected_at >= NOW() - INTERVAL '24 hours'`;
+          }
+
           // Query semplificata e veloce con COUNT DISTINCT per evitare duplicati
           // Conta solo cambiamenti unici basati su id, device_id, change_type e detected_at
           const countQuery = `
-          SELECT COUNT(DISTINCT nc.id) as count
-          FROM network_changes nc
-          INNER JOIN network_devices nd ON nc.device_id = nd.id
-          INNER JOIN network_agents na ON nc.agent_id = na.id
-          LEFT JOIN users u ON na.azienda_id = u.id
-          ${count24hCondition}
+          SELECT COALESCE((
+            SELECT COUNT(DISTINCT nc.id)
+            FROM network_changes nc
+            INNER JOIN network_devices nd ON nc.device_id = nd.id
+            INNER JOIN network_agents na ON nc.agent_id = na.id
+            LEFT JOIN users u ON na.azienda_id = u.id
+            ${count24hCondition}
+          ), 0) + COALESCE((
+            SELECT COUNT(DISTINCT nca.id)
+            FROM network_changes_archive nca
+            INNER JOIN network_agents na ON nca.agent_id = na.id
+            LEFT JOIN users u ON na.azienda_id = u.id
+            ${count24hConditionArchive}
+          ), 0) AS count
         `;
 
           // Timeout di 5 secondi per evitare 502
@@ -3687,21 +3750,24 @@ module.exports = (pool, io) => {
         }
       }
 
-      const result = await pool.query(
-        `SELECT 
-          nc.id, nc.change_type, nc.old_value, nc.new_value, nc.detected_at, nc.notified,
-          nd.ip_address, nd.mac_address, 
+      const hostnameExpr = (alias) => `
           CASE 
-            WHEN nd.hostname IS NULL OR nd.hostname = '' THEN NULL
-            WHEN nd.hostname LIKE '{%' THEN 
-              -- Estrae il primo valore da array JSON come stringa (es: {"Android_RPRTJQAR.local", ...})
+            WHEN ${alias}.hostname IS NULL OR ${alias}.hostname = '' THEN NULL
+            WHEN ${alias}.hostname LIKE '{%' THEN 
               REGEXP_REPLACE(
-                SPLIT_PART(REGEXP_REPLACE(nd.hostname, '^[{\s"]+', ''), '",', 1),
+                SPLIT_PART(REGEXP_REPLACE(${alias}.hostname, '^[{\s"]+', ''), '",', 1),
                 '["\\s]+$', ''
               )
-            WHEN LENGTH(nd.hostname) > 100 THEN LEFT(nd.hostname, 97) || '...'
-            ELSE REGEXP_REPLACE(nd.hostname, '^[{\s"]+', '')  -- Rimuovi caratteri JSON iniziali
-          END as hostname,
+            WHEN LENGTH(${alias}.hostname) > 100 THEN LEFT(${alias}.hostname, 97) || '...'
+            ELSE REGEXP_REPLACE(${alias}.hostname, '^[{\s"]+', '')
+          END`;
+
+      const result = await pool.query(
+        `SELECT * FROM (
+         SELECT 
+          nc.id, nc.change_type, nc.old_value, nc.new_value, nc.detected_at, nc.notified,
+          nd.ip_address, nd.mac_address, 
+          ${hostnameExpr('nd')} as hostname,
           nd.vendor, nd.device_type, nd.is_static,
           nd.device_path, nd.device_username,
           nd.device_type as keepass_title,
@@ -3713,7 +3779,23 @@ module.exports = (pool, io) => {
          INNER JOIN network_agents na ON nc.agent_id = na.id
          LEFT JOIN users u ON na.azienda_id = u.id
          ${searchConditions}
-         ORDER BY nc.detected_at DESC
+         UNION ALL
+         SELECT 
+          (-nca.id) AS id, nca.change_type, nca.old_value, nca.new_value, nca.detected_at, nca.notified,
+          nca.ip_address, nca.mac_address,
+          ${hostnameExpr('nca')} as hostname,
+          nca.vendor, nca.device_type, nca.is_static,
+          nca.device_path, nca.device_username,
+          nca.device_type as keepass_title,
+          nca.device_username as keepass_username,
+          na.agent_name, na.azienda_id,
+          u.azienda
+         FROM network_changes_archive nca
+         INNER JOIN network_agents na ON nca.agent_id = na.id
+         LEFT JOIN users u ON na.azienda_id = u.id
+         ${searchConditionsArchive}
+        ) combined
+         ORDER BY detected_at DESC
          LIMIT $${queryParams.length + 1}`,
         [...queryParams, limit]
       );
@@ -3736,6 +3818,7 @@ module.exports = (pool, io) => {
   router.get('/all/events', authenticateToken, requireRole(['tecnico', 'admin', 'cliente']), async (req, res) => {
     try {
       await ensureTables();
+      await ensureNetworkChangesArchiveTable();
 
       const limit = parseInt(req.query.limit) || 200;
       const searchTerm = req.query.search ? req.query.search.trim() : '';
@@ -3794,6 +3877,42 @@ module.exports = (pool, io) => {
         INNER JOIN network_agents na ON nc.agent_id = na.id
         LEFT JOIN users u ON na.azienda_id = u.id
         WHERE 1=1
+      `;
+
+      const deviceArchivedEventsQuery = `
+        SELECT 
+          'device' as event_category,
+          (-nca.id) AS id,
+          nca.change_type as event_type,
+          nca.detected_at,
+          nca.device_id_snapshot as device_id,
+          nca.ip_address,
+          nca.mac_address,
+          nca.hostname,
+          nca.vendor,
+          nca.device_type,
+          nca.device_path,
+          nca.device_username,
+          nca.is_static,
+          nca.has_ping_failures,
+          nca.device_type as keepass_title,
+          nca.device_username as keepass_username,
+          nca.old_value,
+          nca.new_value,
+          na.agent_name,
+          na.azienda_id,
+          u.azienda,
+          CASE 
+            WHEN nca.change_type = 'new_device' THEN 'info'
+            WHEN nca.change_type IN ('device_offline', 'mac_changed', 'ip_changed', 'ip_conflict') THEN 'warning'
+            WHEN nca.change_type = 'device_online' THEN 'info'
+            ELSE 'info'
+          END as severity,
+          false as is_new_device
+        FROM network_changes_archive nca
+        INNER JOIN network_agents na ON nca.agent_id = na.id
+        LEFT JOIN users u ON na.azienda_id = u.id
+        WHERE na.deleted_at IS NULL
       `;
 
       // Query per eventi agent (network_agent_events) - stesse colonne della query device (incluso device_id per UNION)
@@ -3880,17 +3999,27 @@ module.exports = (pool, io) => {
         paramIndex++;
       }
 
+      const deviceArchivedFilters = deviceFilters
+        .replace(/\bnd\./g, 'nca.')
+        .replace(/\bnc\./g, 'nca.');
+
       // Query unificata
       let unifiedQuery = '';
 
       if (eventType === 'device') {
-        unifiedQuery = deviceEventsQuery + deviceFilters;
+        unifiedQuery = `
+          (${deviceEventsQuery}${deviceFilters})
+          UNION ALL
+          (${deviceArchivedEventsQuery}${deviceArchivedFilters})
+        `;
       } else if (eventType === 'agent') {
         unifiedQuery = agentEventsQuery + agentFilters;
       } else {
-        // Unisci entrambi
+        // Unisci dispositivi (live + archivio) e agent
         unifiedQuery = `
           (${deviceEventsQuery}${deviceFilters})
+          UNION ALL
+          (${deviceArchivedEventsQuery}${deviceArchivedFilters})
           UNION ALL
           (${agentEventsQuery}${agentFilters})
         `;
@@ -3941,12 +4070,28 @@ module.exports = (pool, io) => {
       let count24hResult = null;
       if (count24h) {
         try {
-          const count24hQuery = `
-            SELECT COUNT(*) as count FROM (
+          let count24hInner = '';
+          if (eventType === 'device') {
+            count24hInner = `
               (${deviceEventsQuery}${deviceFilters} AND nc.detected_at >= CURRENT_DATE)
               UNION ALL
+              (${deviceArchivedEventsQuery}${deviceArchivedFilters} AND nca.detected_at >= CURRENT_DATE)
+            `;
+          } else if (eventType === 'agent') {
+            count24hInner = `
               (${agentEventsQuery}${agentFilters} AND nae.detected_at >= CURRENT_DATE)
-            ) as recent_events
+            `;
+          } else {
+            count24hInner = `
+              (${deviceEventsQuery}${deviceFilters} AND nc.detected_at >= CURRENT_DATE)
+              UNION ALL
+              (${deviceArchivedEventsQuery}${deviceArchivedFilters} AND nca.detected_at >= CURRENT_DATE)
+              UNION ALL
+              (${agentEventsQuery}${agentFilters} AND nae.detected_at >= CURRENT_DATE)
+            `;
+          }
+          const count24hQuery = `
+            SELECT COUNT(*) as count FROM (${count24hInner}) as recent_events
           `;
           const countResult = await pool.query(count24hQuery, params.slice(0, -1)); // Rimuovi limit
           count24hResult = parseInt(countResult.rows[0].count, 10);
