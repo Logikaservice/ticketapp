@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.7.8
+# Versione: 2.7.9
 # Data ultima modifica: 2026-04-18
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.7.8"
+$SCRIPT_VERSION = "2.7.9"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2945,6 +2945,21 @@ if (-not $config.server_url -or -not $config.api_key -or -not $config.network_ra
 # Senza questo, Sync scriveva network_ranges su disco ma $config in memoria restava vecchio -> scansioni vuote e niente dati al server.
 $script:config = $config
 
+# Allinea config.version alla versione reale dello script. Se dopo un auto-update la scrittura su config.json fallisce,
+# config resta vecchio ma $SCRIPT_VERSION e' gia' nuova: Check-AgentUpdate vedrebbe ancora mismatch -> exit 0 in loop -> mai heartbeat (agent sempre offline).
+try {
+    $cv = if ($null -ne $config.version) { ($config.version -as [string]).Trim() } else { "" }
+    if ($cv -ne $SCRIPT_VERSION) {
+        $config.version = $SCRIPT_VERSION
+        $script:config.version = $SCRIPT_VERSION
+        $config | ConvertTo-Json -Depth 10 | Out-File -FilePath $ConfigPath -Encoding UTF8 -Force
+        Write-Log "[INFO] config.version allineato a $SCRIPT_VERSION (evita loop update senza heartbeat)" "INFO"
+    }
+}
+catch {
+    Write-Log "[WARN] Allineamento config.version a $SCRIPT_VERSION fallito: $_ — per gli update si usa comunque `$SCRIPT_VERSION" "WARN"
+}
+
 # Inizializza intervallo scansione
 $script:scanIntervalMinutes = $config.scan_interval_minutes
 if (-not $script:scanIntervalMinutes) { $script:scanIntervalMinutes = 15 }
@@ -2956,11 +2971,11 @@ Write-Log "Scan interval: $script:scanIntervalMinutes minuti"
 # Inizializza status
 Update-StatusFile -Status "running" -Message "Servizio avviato"
 
-# Controlla aggiornamenti agent (all'avvio)
-$version = if ($config.version) { $config.version } else { $SCRIPT_VERSION }
+# Controlla aggiornamenti agent (all'avvio). Versione confrontata = script in esecuzione ($SCRIPT_VERSION), mai solo config.version (puo' restare indietro).
+$versionForUpdate = $SCRIPT_VERSION
 $forcePath = Join-Path $script:scriptDir ".force_update.trigger"
-if (Test-Path $forcePath) { Remove-Item $forcePath -Force -ErrorAction SilentlyContinue; $version = "0.0.0"; Write-Log "[INFO] Forzatura update (.force_update.trigger)" "INFO" }
-Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $version
+if (Test-Path $forcePath) { Remove-Item $forcePath -Force -ErrorAction SilentlyContinue; $versionForUpdate = "0.0.0"; Write-Log "[INFO] Forzatura update (.force_update.trigger)" "INFO" }
+Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $versionForUpdate
 
 # Assicura file tray (se mancanti: download da server). Poi tenta avvio tray.
 # In try/catch: un errore qui non deve bloccare il servizio (loop e invio dati devono partire).
@@ -3011,8 +3026,7 @@ while ($script:isRunning) {
         if ($now -ge $nextHeartbeatTime) {
             Write-Log "Invio heartbeat..."
             try {
-                $version = if ($config.version) { $config.version } else { $SCRIPT_VERSION }
-                $heartbeatResult = Send-Heartbeat -ServerUrl $config.server_url -ApiKey $config.api_key -Version $version
+                $heartbeatResult = Send-Heartbeat -ServerUrl $config.server_url -ApiKey $config.api_key -Version $SCRIPT_VERSION
                 
                 # Verifica se il server ha richiesto la disinstallazione
                 if ($heartbeatResult.uninstall -eq $true) {
@@ -3095,10 +3109,10 @@ while ($script:isRunning) {
 
             # Controlla aggiornamenti agent (ogni heartbeat)
             try {
-                $version = if ($config.version) { $config.version } else { $SCRIPT_VERSION }
+                $vUp = $SCRIPT_VERSION
                 $fp = Join-Path $script:scriptDir ".force_update.trigger"
-                if (Test-Path $fp) { Remove-Item $fp -Force -ErrorAction SilentlyContinue; $version = "0.0.0"; Write-Log "[INFO] Forzatura update (.force_update.trigger)" "INFO" }
-                Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $version
+                if (Test-Path $fp) { Remove-Item $fp -Force -ErrorAction SilentlyContinue; $vUp = "0.0.0"; Write-Log "[INFO] Forzatura update (.force_update.trigger)" "INFO" }
+                Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $vUp
             }
             catch {
                 Write-Log "Errore controllo aggiornamenti: $_" "WARN"
@@ -3108,10 +3122,10 @@ while ($script:isRunning) {
             # Controlla aggiornamenti ogni 2 min (oltre a heartbeat e post-scan)
             $script:nextUpdateCheckTime = $now.AddMinutes(2)
             try {
-                $version = if ($config.version) { $config.version } else { $SCRIPT_VERSION }
+                $vUp = $SCRIPT_VERSION
                 $fp = Join-Path $script:scriptDir ".force_update.trigger"
-                if (Test-Path $fp) { Remove-Item $fp -Force -ErrorAction SilentlyContinue; $version = "0.0.0"; Write-Log "[INFO] Forzatura update (.force_update.trigger)" "INFO" }
-                Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $version
+                if (Test-Path $fp) { Remove-Item $fp -Force -ErrorAction SilentlyContinue; $vUp = "0.0.0"; Write-Log "[INFO] Forzatura update (.force_update.trigger)" "INFO" }
+                Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $vUp
             }
             catch { Write-Log "Errore controllo aggiornamenti (2min): $_" "WARN" }
         }
@@ -3223,10 +3237,10 @@ while ($script:isRunning) {
                 
                 # Controlla aggiornamenti anche dopo scansione (oltre che a ogni heartbeat)
                 try {
-                    $v = if ($config.version) { $config.version.ToString().Trim() } else { $SCRIPT_VERSION }
+                    $vUp = $SCRIPT_VERSION
                     $fp = Join-Path $script:scriptDir ".force_update.trigger"
-                    if (Test-Path $fp) { Remove-Item $fp -Force -ErrorAction SilentlyContinue; $v = "0.0.0"; Write-Log "[INFO] Forzatura update (.force_update.trigger)" "INFO" }
-                    Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $v
+                    if (Test-Path $fp) { Remove-Item $fp -Force -ErrorAction SilentlyContinue; $vUp = "0.0.0"; Write-Log "[INFO] Forzatura update (.force_update.trigger)" "INFO" }
+                    Check-AgentUpdate -ServerUrl $config.server_url -CurrentVersion $vUp
                 }
                 catch { Write-Log "Errore controllo aggiornamenti (post-scan): $_" "WARN" }
             }
