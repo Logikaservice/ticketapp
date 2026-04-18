@@ -5,7 +5,7 @@
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
 #
-# Versione: 2.7.6
+# Versione: 2.7.7
 # Data ultima modifica: 2026-04-18
 
 param(
@@ -13,7 +13,7 @@ param(
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.7.6"
+$SCRIPT_VERSION = "2.7.7"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
@@ -2364,6 +2364,88 @@ function Ensure-TrayFiles {
     }
 }
 
+# Avvia la tray nella sessione utente (area notifiche). Il servizio gira in Session 0: wscript lanciato da qui
+# non mostra l'icona. Usiamo un'attività pianificata una tantum con InteractiveToken + schtasks /Run /I.
+function Start-TrayIconInInteractiveSession {
+    param([string]$VbsPath)
+    if (-not (Test-Path $VbsPath)) {
+        Write-Log "[WARN] Start-TrayIconInInteractiveSession: VBS mancante: $VbsPath" "WARN"
+        return $false
+    }
+    $taskName = "LogikaNM_TrayRelaunch"
+    $xmlPath = Join-Path $env:TEMP "LogikaNM_TrayRelaunch_$([guid]::NewGuid().ToString('N').Substring(0,8)).xml"
+    $vbsEsc = [System.Security.SecurityElement]::Escape($VbsPath)
+    $startBoundary = (Get-Date).AddSeconds(12).ToString("yyyy-MM-dd'T'HH:mm:ss")
+    $xml = @"
+<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Logika Network Monitor - tray in sessione interattiva (dopo update servizio)</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <TimeTrigger>
+      <StartBoundary>$startBoundary</StartBoundary>
+      <Enabled>true</Enabled>
+    </TimeTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <ExecutionTimeLimit>PT5M</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>wscript.exe</Command>
+      <Arguments>//B //Nologo &quot;$vbsEsc&quot;</Arguments>
+    </Exec>
+  </Actions>
+</Task>
+"@
+    try {
+        [System.IO.File]::WriteAllText($xmlPath, $xml, [System.Text.Encoding]::Unicode)
+        schtasks /Delete /TN $taskName /F 2>$null | Out-Null
+        $createOut = schtasks /Create /F /TN $taskName /XML $xmlPath 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log "[WARN] schtasks Create tray fallito ($createOut), fallback wscript da Session 0" "WARN"
+            Remove-Item $xmlPath -Force -ErrorAction SilentlyContinue
+            try {
+                Start-Process wscript.exe -ArgumentList "`"$VbsPath`"" -WindowStyle Hidden -ErrorAction Stop
+                Write-Log "[INFO] Tray avviata (fallback wscript Session 0)" "INFO"
+            }
+            catch { Write-Log "[WARN] Fallback wscript fallito: $_" "WARN" }
+            return $false
+        }
+        schtasks /Run /TN $taskName /I 2>&1 | Out-Null
+        Write-Log "[OK] Tray: task InteractiveToken eseguito ($taskName)" "INFO"
+        Start-Sleep -Seconds 2
+        schtasks /Delete /TN $taskName /F 2>$null | Out-Null
+        Remove-Item $xmlPath -Force -ErrorAction SilentlyContinue
+        return $true
+    }
+    catch {
+        Write-Log "[WARN] Start-TrayIconInInteractiveSession: $_ — fallback wscript" "WARN"
+        try {
+            Start-Process wscript.exe -ArgumentList "`"$VbsPath`"" -WindowStyle Hidden -ErrorAction Stop
+        }
+        catch { }
+        return $false
+    }
+}
+
 function Check-AgentUpdate {
     param(
         [string]$ServerUrl,
@@ -2533,12 +2615,8 @@ function Check-AgentUpdate {
             # subito in session utente; Run o Avvia-TrayIcon al logon la avviera se serve)
             $vbsPath = Join-Path $installDir "Start-TrayIcon-Hidden.vbs"
             if (Test-Path $vbsPath) {
-                try {
-                    Start-Process wscript.exe -ArgumentList "`"$vbsPath`"" -WindowStyle Hidden -ErrorAction Stop
-                    Write-Log "[OK] Avvio tray (Start-TrayIcon-Hidden.vbs) eseguito" "INFO"
-                }
-                catch {
-                    Write-Log "[WARN] Avvio tray non riuscito: $_" "WARN"
+                if (-not (Start-TrayIconInInteractiveSession -VbsPath $vbsPath)) {
+                    Write-Log "[INFO] Tray: usato fallback Session 0 o task non disponibile; icona potrebbe richiedere Avvia-TrayIcon" "INFO"
                 }
             }
             else {
@@ -2677,11 +2755,12 @@ try {
             $_.CommandLine -like "*NetworkMonitorTrayIcon.ps1*" -or $_.CommandLine -like "*Start-TrayIcon-Hidden.vbs*"
         }
         if (-not $trayAlready) {
-            try {
-                Start-Process wscript.exe -ArgumentList "`"$vbsTray`"" -WindowStyle Hidden -ErrorAction Stop
-                Write-Log "[OK] Avvio tray all'avvio servizio (Start-TrayIcon-Hidden.vbs)" "INFO"
+            if (Start-TrayIconInInteractiveSession -VbsPath $vbsTray) {
+                Write-Log "[OK] Avvio tray all'avvio (sessione interattiva)" "INFO"
             }
-            catch { Write-Log "[WARN] Avvio tray all'avvio non riuscito: $_" "WARN" }
+            else {
+                Write-Log "[WARN] Avvio tray all'avvio: task fallito o fallback Session 0" "WARN"
+            }
         }
         else { Write-Log "[INFO] Tray gia in esecuzione, skip avvio" "INFO" }
     }
