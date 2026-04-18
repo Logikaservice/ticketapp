@@ -161,6 +161,18 @@ module.exports = (pool, io) => {
     }
   };
 
+  let networkAgentScanColumnsEnsured = false;
+  const ensureNetworkAgentScanColumns = async () => {
+    if (networkAgentScanColumnsEnsured) return;
+    try {
+      await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS last_scan_processed_at TIMESTAMPTZ;`);
+      networkAgentScanColumnsEnsured = true;
+    } catch (e) {
+      if (e && e.code === '42P01') return;
+      console.warn('⚠️ ensureNetworkAgentScanColumns fallito:', e?.message || e);
+    }
+  };
+
   // Flag globale per evitare inizializzazioni tabelle concorrenti (CAUSA DEI CRASH 502)
   let tablesCheckDone = false;
   let tablesCheckInProgress = false;
@@ -271,6 +283,7 @@ module.exports = (pool, io) => {
              await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS unifi_last_check_at TIMESTAMPTZ;`);
              await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS speedtest_enabled BOOLEAN DEFAULT true;`);
              await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS speedtest_interval_hours INTEGER DEFAULT 2;`);
+             await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS last_scan_processed_at TIMESTAMPTZ;`);
              
              // 3. Colonne Devices
              await pool.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS upgrade_available BOOLEAN DEFAULT false;`);
@@ -1623,6 +1636,7 @@ module.exports = (pool, io) => {
       }
 
       await ensureNetworkDeviceScanColumns();
+      await ensureNetworkAgentScanColumns();
 
       // Aggiorna/inserisci dispositivi
       const deviceResults = [];
@@ -2426,7 +2440,7 @@ module.exports = (pool, io) => {
           if (wasOffline) {
             await pool.query(
               `UPDATE network_agents 
-               SET status = 'online', last_heartbeat = NOW(), updated_at = NOW()
+               SET status = 'online', last_heartbeat = NOW(), last_scan_processed_at = NOW(), updated_at = NOW()
                WHERE id = $1`,
               [agentId]
             );
@@ -2442,10 +2456,10 @@ module.exports = (pool, io) => {
               });
             }
           } else {
-            // Se era già online, aggiorna solo last_heartbeat (per evitare che checkOfflineAgents lo marchi come offline)
+            // Se era già online, aggiorna last_heartbeat e timestamp elaborazione scan (stesso istante per tutti i device dell'agent)
             await pool.query(
               `UPDATE network_agents 
-               SET last_heartbeat = NOW(), updated_at = NOW()
+               SET last_heartbeat = NOW(), last_scan_processed_at = NOW(), updated_at = NOW()
                WHERE id = $1`,
               [agentId]
             );
@@ -2713,6 +2727,7 @@ module.exports = (pool, io) => {
     try {
       await ensureTables();
       await ensureNetworkDeviceScanColumns();
+      await ensureNetworkAgentScanColumns();
 
       const aziendaIdParam = req.params.aziendaId;
       console.log('🔍 Route /clients/:aziendaId/devices - aziendaIdParam:', aziendaIdParam, 'type:', typeof aziendaIdParam);
@@ -2748,7 +2763,8 @@ module.exports = (pool, io) => {
           nd.offline_since, nd.last_scan_error, nd.last_scan_error_at,
           nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.is_gateway, nd.parent_device_id, nd.port, nd.notes, nd.is_manual_type, nd.ip_history, nd.additional_ips, nd.is_new_device, nd.router_model, nd.wifi_sync_status, nd.wifi_sync_msg, nd.wifi_sync_last_at,
           nd.switch_profile_id, nd.snmp_community, nd.is_managed_switch,
-          nd.agent_id, na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status
+          nd.agent_id, na.agent_name, na.last_heartbeat as agent_last_seen, na.status as agent_status,
+          na.last_scan_processed_at, na.scan_interval_minutes
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id
          WHERE ${whereAzienda}
@@ -3409,6 +3425,7 @@ module.exports = (pool, io) => {
     try {
       await ensureTables();
       await ensureNetworkDeviceScanColumns();
+      await ensureNetworkAgentScanColumns();
 
       // Assicurati che le colonne device_path, is_static, previous_ip, previous_mac esistano (migrazione)
 
@@ -3432,6 +3449,7 @@ module.exports = (pool, io) => {
           nd.offline_since, nd.last_scan_error, nd.last_scan_error_at,
           nd.previous_ip, nd.previous_mac, nd.has_ping_failures, nd.ping_responsive, nd.upgrade_available, nd.notes, nd.router_model,
           na.agent_name, na.azienda_id, na.last_heartbeat as agent_last_seen, na.status as agent_status,
+          na.last_scan_processed_at, na.scan_interval_minutes,
           u.azienda
          FROM network_devices nd
          INNER JOIN network_agents na ON nd.agent_id = na.id

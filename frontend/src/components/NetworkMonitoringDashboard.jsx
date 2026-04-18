@@ -1273,7 +1273,31 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     });
   };
 
-  /** Colonna Scan: online = ultimo rilevamento; offline = da quanto è offline; ⚠ = errore ultimo salvataggio su VPS */
+  /** Online: tempo dall'ultimo scan-results elaborato sulla VPS (timestamp agente, uguale per tutti gli IP di quell'agent). "Ora" = entro ~90s da quell'istante. */
+  const formatOnlineScanAge = (batchAt) => {
+    if (!batchAt) return null;
+    const date = new Date(batchAt);
+    if (isNaN(date.getTime())) return null;
+    const diffMs = Date.now() - date.getTime();
+    if (diffMs < 0) return 'Ora';
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffSecs = Math.floor(diffMs / 1000);
+    if (diffSecs < 90) return 'Ora';
+    if (diffMins < 60) return `${diffMins} min`;
+    const diffHours = Math.floor(diffMs / 3600000);
+    if (diffHours < 24) return `${diffHours} ore`;
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffDays < 7) return `${diffDays} giorni`;
+    return date.toLocaleDateString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  /** Colonna Scan: online = età dall'ultimo batch scan sulla VPS; offline = da quanto è offline; ⚠ = errore salvataggio */
   const formatScanCell = (device) => {
     if (device.status === 'offline') {
       if (device.offline_since) {
@@ -1281,7 +1305,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
       }
       return device.last_seen ? `Offline (ultimo visto ${formatDate(device.last_seen)})` : 'Offline';
     }
-    return formatDate(device.last_seen);
+    const batchAt = device.last_scan_processed_at || device.last_seen;
+    return formatOnlineScanAge(batchAt) || formatDate(device.last_seen) || 'N/A';
   };
 
   const scanCellTitle = (device) => {
@@ -1291,7 +1316,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     if (device.status === 'offline' && device.offline_since) {
       return 'Tempo da quando il dispositivo risulta offline';
     }
-    return 'Ultimo aggiornamento rilevamento (online)';
+    const interval = device.scan_interval_minutes != null ? device.scan_interval_minutes : '—';
+    return `Tempo trascorso dall'ultimo scan elaborato sulla VPS per questo agent (stesso valore per tutti i device online dell'agent). Intervallo scan impostato: ${interval} min. «Ora» = entro ~90 secondi da quell'elaborazione.`;
   };
 
   // Titolo da mostrare in tabella: accorciato per switch virtuali per evitare overflow e barra di scroll orizzontale
@@ -2532,7 +2558,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
                         <th className="text-center py-2 px-2 text-sm font-semibold text-gray-700 w-10 whitespace-nowrap" title="Aggiornamento firmware disponibile (UniFi)">FW</th>
                         <th
                           className="text-left py-2 px-3 text-sm font-semibold text-gray-700 whitespace-nowrap min-w-[5.5rem]"
-                          title="Online: ultimo rilevamento. Offline: da quanto è offline. Icona ⚠ se l’ultimo salvataggio su VPS per quell’IP è fallito."
+                          title="Online: minuti dall’ultimo scan elaborato sulla VPS (uguale per tutti gli IP dello stesso agent). Offline: da quanto è offline. ⚠ = errore salvataggio."
                         >
                           Scan
                         </th>
