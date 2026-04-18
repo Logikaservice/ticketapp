@@ -4,16 +4,16 @@
 # Gestisce tutto internamente senza dipendere da Scheduled Task
 # Nota: Questo script viene eseguito SOLO come servizio Windows (senza GUI)
 # Per la GUI tray icon, usare NetworkMonitorTrayIcon.ps1
-#
-# Versione: 2.7.14
-# Data ultima modifica: 2026-04-18
+# Author: Logika Service
+# Versione: 2.7.15
+# Data: 2026-04-19
 
 param(
     [string]$ConfigPath = "config.json"
 )
 
 # Versione dell'agent (usata se non specificata nel config.json)
-$SCRIPT_VERSION = "2.7.14"
+$SCRIPT_VERSION = "2.7.15"
 
 # Forza TLS 1.2 per Invoke-RestMethod (evita "Impossibile creare un canale sicuro SSL/TLS")
 function Enable-Tls12 {
