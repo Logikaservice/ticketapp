@@ -96,8 +96,8 @@ echo 3. DISATTIVAZIONE AGENT ESISTENTE
 
 REM 3.0 TERMINA TRAY ICON E PROCESSI VECCHI (PRIMA DI TUTTO!)
 echo    Chiusura tray icon e processi vecchi...
-REM Termina processi PowerShell e NSSM (potrebbero bloccare il servizio)
-powershell -NoProfile -Command "Get-Process | Where-Object { $_.ProcessName -eq 'powershell' -or $_.ProcessName -eq 'nssm' } | Stop-Process -Force -ErrorAction SilentlyContinue" >nul 2>&1
+REM Termina processi PowerShell e NSSM (Disabilitato per non chiudere agent comunicazione e altri terminali)
+REM powershell -NoProfile -Command "Get-Process | Where-Object { $_.ProcessName -eq 'powershell' -or $_.ProcessName -eq 'nssm' } | Stop-Process -Force -ErrorAction SilentlyContinue" >nul 2>&1
 REM Termina processi specifici agent
 powershell -NoProfile -Command "$trayProcesses = Get-WmiObject Win32_Process | Where-Object { $_.CommandLine -like '*NetworkMonitorTrayIcon.ps1*' -or $_.CommandLine -like '*Start-TrayIcon-Hidden.vbs*' }; foreach ($proc in $trayProcesses) { try { Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue } catch {} }" >nul 2>&1
 powershell -NoProfile -Command "$monitorProcesses = Get-WmiObject Win32_Process | Where-Object { $_.CommandLine -like '*NetworkMonitor.ps1*' -and $_.CommandLine -notlike '*Installa-Agent*' }; foreach ($proc in $monitorProcesses) { try { Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue } catch {} }" >nul 2>&1
