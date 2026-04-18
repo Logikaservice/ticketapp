@@ -1297,13 +1297,32 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     });
   };
 
-  /** Colonna Scan: online = età dall'ultimo batch scan sulla VPS; offline = da quanto è offline; ⚠ = errore salvataggio */
+  /** Offline: solo tempo (la colonna Stato indica già offline). Relativo se recente, altrimenti "dalle HH:mm del gg/mm/aaaa". */
+  const formatOfflineScanOnly = (ts) => {
+    if (!ts) return '—';
+    const date = new Date(ts);
+    if (isNaN(date.getTime())) return '—';
+    const diffMs = Date.now() - date.getTime();
+    if (diffMs < 0) return '—';
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffMins < 1) return '< 1 min';
+    if (diffMins < 60) return `${diffMins} min`;
+    if (diffHours < 24) return `${diffHours} ore`;
+    if (diffDays < 7) return `${diffDays} giorni`;
+    const hhmm = date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    const dmy = date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return `dalle ${hhmm} del ${dmy}`;
+  };
+
+  /** Colonna Scan: online = età dall'ultimo batch scan sulla VPS; offline = solo durata/data (no ripetizione "Offline"); ⚠ = errore salvataggio */
   const formatScanCell = (device) => {
     if (device.status === 'offline') {
       if (device.offline_since) {
-        return `Offline da ${formatDate(device.offline_since)}`;
+        return formatOfflineScanOnly(device.offline_since);
       }
-      return device.last_seen ? `Offline (ultimo visto ${formatDate(device.last_seen)})` : 'Offline';
+      return device.last_seen ? formatOfflineScanOnly(device.last_seen) : '—';
     }
     // Stesso agent => stesso riferimento temporale: prima colonna dedicata, poi heartbeat agent (uguale per tutte le righe), MAI solo last_seen per device (sarebbero minuti diversi senza motivo)
     const batchAt = device.last_scan_processed_at || device.agent_last_seen;
@@ -1315,8 +1334,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
     if (device.last_scan_error) {
       return `Errore ultimo salvataggio: ${device.last_scan_error}${device.last_scan_error_at ? ` (${new Date(device.last_scan_error_at).toLocaleString('it-IT')})` : ''}`;
     }
-    if (device.status === 'offline' && device.offline_since) {
-      return 'Tempo da quando il dispositivo risulta offline';
+    if (device.status === 'offline') {
+      return 'Quanto tempo è offline (da offline_since), oppure ultimo visto se manca offline_since';
     }
     const interval = device.scan_interval_minutes != null ? device.scan_interval_minutes : '—';
     return `Riferimento unico per tutti i device di questo agent: ultimo scan elaborato sulla VPS (last_scan_processed_at), oppure heartbeat agent se la colonna non è ancora valorizzata. Intervallo scan: ${interval} min. «Ora» = entro ~90s da quell’istante. Non usa last_seen per device (evita minuti falsamente diversi).`;
