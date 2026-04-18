@@ -2938,7 +2938,9 @@ while ($script:isRunning) {
                 Write-Log "Errore durante scansione: $_" "ERROR"
                 Write-Log "Stack trace: $($_.Exception.StackTrace)" "ERROR"
                 $df = if ($null -ne $script:lastScanDevices) { $script:lastScanDevices } else { 0 }
-                Update-StatusFile -Status "error" -Message "Errore: $_" -DevicesFound $df
+                # last_scan serve alla tray per il conto alla rovescia: se non lo aggiorniamo in errore (es. 502),
+                # resta vecchio → nextScan nel passato → "In attesa..." senza MM:SS. Allineiamo all'ultimo tentativo.
+                Update-StatusFile -Status "error" -Message "Errore: $_" -DevicesFound $df -LastScan (Get-Date)
                 
                 # Anche in caso di errore, ricalcola nextScanTime per evitare loop infiniti
                 if ($forceScan) {

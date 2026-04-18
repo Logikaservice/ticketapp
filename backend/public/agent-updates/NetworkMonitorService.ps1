@@ -2989,7 +2989,8 @@ while ($script:isRunning) {
             catch {
                 Write-Log "Errore durante scansione: $_" "ERROR"
                 Write-Log "Stack trace: $($_.Exception.StackTrace)" "ERROR"
-                Update-StatusFile -Status "error" -Message "Errore: $_"
+                $df = if ($null -ne $script:lastScanDevices) { $script:lastScanDevices } else { 0 }
+                Update-StatusFile -Status "error" -Message "Errore: $_" -DevicesFound $df -LastScan (Get-Date)
                 
                 # Anche in caso di errore, ricalcola nextScanTime per evitare loop infiniti
                 if ($forceScan) {
