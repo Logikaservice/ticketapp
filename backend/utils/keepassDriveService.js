@@ -1212,6 +1212,11 @@ class KeepassDriveService {
     const now = Date.now();
     let fileModified = false;
 
+    // Se la cache è valida, restituiscila SUBITO senza interrogare Google Drive
+    if (this.macToTitleMap && this.lastCacheUpdate && (now - this.lastCacheUpdate) < this.cacheTimeout) {
+      return this.macToTitleMap;
+    }
+
     // Controlla se il file è stato modificato su Google Drive
     const currentModifiedTime = await this.checkFileModified(password);
     if (currentModifiedTime) {
@@ -1224,12 +1229,6 @@ class KeepassDriveService {
         this.lastFileModifiedTime = null;
         fileModified = true;
       }
-    }
-
-    // Se la cache è valida E il file non è stato modificato, restituiscila
-    if (!fileModified && this.macToTitleMap && this.lastCacheUpdate &&
-      (now - this.lastCacheUpdate) < this.cacheTimeout) {
-      return this.macToTitleMap;
     }
 
     // Se c'è già un caricamento in corso, aspetta che finisca

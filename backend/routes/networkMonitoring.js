@@ -163,14 +163,9 @@ module.exports = (pool, io) => {
 
   let networkAgentScanColumnsEnsured = false;
   const ensureNetworkAgentScanColumns = async () => {
-    // Sempre idempotente (anche se last_scan gia' migrato in deploy precedenti)
-    try {
-      await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS pending_agent_update BOOLEAN DEFAULT FALSE;`);
-    } catch (e) {
-      if (e && e.code !== '42P01') console.warn('⚠️ pending_agent_update column:', e?.message || e);
-    }
     if (networkAgentScanColumnsEnsured) return;
     try {
+      await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS pending_agent_update BOOLEAN DEFAULT FALSE;`);
       await pool.query(`ALTER TABLE network_agents ADD COLUMN IF NOT EXISTS last_scan_processed_at TIMESTAMPTZ;`);
       networkAgentScanColumnsEnsured = true;
     } catch (e) {
