@@ -2883,10 +2883,7 @@ while ($script:isRunning) {
                 else {
                     Write-Log "Nessun dispositivo rilevato: invio comunque esito scansione (lista vuota) per aggiornare stato offline sul server" "WARN"
                 }
-                $result = Send-ScanResults -Devices $devices -ServerUrl $config.server_url -ApiKey $config.api_key
-                Write-Log "Dati inviati con successo!"
-
-                # IMPORTANTE: Salva IP trovati nel file per la tray icon (dopo invio dati)
+                # PRIMA dell'invio (così anche se scan-results fallisce con 502/500 la tray mostra conteggio e IP corretti)
                 try {
                     $ipDataArray = @()
                     foreach ($device in $devices) {
@@ -2896,11 +2893,14 @@ while ($script:isRunning) {
                         }
                     }
                     $ipDataArray | ConvertTo-Json -Compress | Out-File -FilePath $script:currentScanIPsFile -Encoding UTF8 -Force
-                    Write-Log "IP salvati per tray icon: $($ipDataArray.Count) dispositivi" "INFO"
+                    Write-Log "IP salvati per tray icon (pre-invio): $($ipDataArray.Count) dispositivi" "INFO"
                 }
                 catch {
-                    Write-Log "Errore salvataggio IP finali per tray icon: $_" "WARN"
+                    Write-Log "Errore salvataggio IP per tray icon: $_" "WARN"
                 }
+
+                $result = Send-ScanResults -Devices $devices -ServerUrl $config.server_url -ApiKey $config.api_key
+                Write-Log "Dati inviati con successo!"
 
                 # Sync switch gestiti (SNMP in locale: agent sulla stessa LAN dello switch)
                 try {
@@ -2937,7 +2937,8 @@ while ($script:isRunning) {
             catch {
                 Write-Log "Errore durante scansione: $_" "ERROR"
                 Write-Log "Stack trace: $($_.Exception.StackTrace)" "ERROR"
-                Update-StatusFile -Status "error" -Message "Errore: $_"
+                $df = if ($null -ne $script:lastScanDevices) { $script:lastScanDevices } else { 0 }
+                Update-StatusFile -Status "error" -Message "Errore: $_" -DevicesFound $df
                 
                 # Anche in caso di errore, ricalcola nextScanTime per evitare loop infiniti
                 if ($forceScan) {
