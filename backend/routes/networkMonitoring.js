@@ -322,10 +322,30 @@ module.exports = (pool, io) => {
   const routerWifiResults = new Map();      // task_id -> { success, devices: [], error, at }
   const pendingDeviceTestTasks = new Map(); // agentId -> { task_id, device_id, ip, ports, profile, profileLabel, device_type }
   const deviceTestResults = new Map();     // task_id -> { status: 'ok'|'error', ping, ports, profile, profileLabel, device_type, error?, at }
-  const AGENT_VERSION_FALLBACK = '2.7.11';
+  const AGENT_VERSION_FALLBACK = '2.7.12';
   const AGENT_SERVICE_SOURCE_PATH = path.resolve(__dirname, '..', '..', 'agent', 'NetworkMonitorService.ps1');
   const AGENT_SERVICE_PUBLIC_PATH = path.resolve(__dirname, '..', 'public', 'agent-updates', 'NetworkMonitorService.ps1');
   let warnedMissingAgentServiceFile = false;
+
+  /** Confronto semver semplice (solo segmenti numerici). Ritorna 1 se a>b, -1 se a<b, 0 se uguali. */
+  const compareSemverStrings = (a, b) => {
+    const pa = String(a || '')
+      .trim()
+      .split('.')
+      .map((x) => parseInt(x, 10));
+    const pb = String(b || '')
+      .trim()
+      .split('.')
+      .map((x) => parseInt(x, 10));
+    const n = Math.max(pa.length, pb.length);
+    for (let i = 0; i < n; i++) {
+      const da = Number.isFinite(pa[i]) ? pa[i] : 0;
+      const db = Number.isFinite(pb[i]) ? pb[i] : 0;
+      if (da > db) return 1;
+      if (da < db) return -1;
+    }
+    return 0;
+  };
 
   const extractAgentVersionFromContent = (content) => {
     const versionPatterns = [
@@ -832,11 +852,12 @@ module.exports = (pool, io) => {
         [versionToSave, agentId]
       );
 
-      // Se l'agent ha raggiunto la versione pacchetto sul server, azzera richiesta aggiornamento forzato
+      // Azzera pending_agent_update se l'agent è già alla stessa versione o più nuova del pacchetto sul server
+      // (evita loop: force + Check-AgentUpdate(0.0.0) → exit 0 ogni heartbeat mentre il flag resta true)
       try {
         const pkgVer = getCurrentAgentVersion();
         const vTrim = version != null && version !== undefined ? String(version).trim() : '';
-        if (vTrim && vTrim === pkgVer) {
+        if (vTrim && compareSemverStrings(vTrim, pkgVer) >= 0) {
           await pool.query(`UPDATE network_agents SET pending_agent_update = FALSE WHERE id = $1`, [agentId]);
         }
       } catch (e) {
