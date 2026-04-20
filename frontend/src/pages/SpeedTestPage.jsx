@@ -1007,8 +1007,23 @@ const SpeedTestPage = ({
       });
     };
 
-    const onCardClick = (e) => {
+    const pointerDownPos = React.useRef(null);
+
+    const onCardPointerDown = (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+      pointerDownPos.current = { x: e.clientX, y: e.clientY };
+    };
+
+    const onCardPointerUp = (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
       if (typeof e.target?.closest === 'function' && e.target.closest('[data-st-toggle-wrap]')) return;
+      // Se il pointer si è spostato molto tra down e up era uno scroll, non un click
+      if (pointerDownPos.current) {
+        const dx = Math.abs(e.clientX - pointerDownPos.current.x);
+        const dy = Math.abs(e.clientY - pointerDownPos.current.y);
+        pointerDownPos.current = null;
+        if (dx > 8 || dy > 8) return;
+      }
       if (canOpenDetail) openDetail();
     };
 
@@ -1021,7 +1036,8 @@ const SpeedTestPage = ({
         }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        onClick={onCardClick}
+        onPointerDown={onCardPointerDown}
+        onPointerUp={onCardPointerUp}
         onKeyDown={(e) => {
           if (!canOpenDetail) return;
           if (e.key === 'Enter' || e.key === ' ') {
