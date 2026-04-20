@@ -1007,15 +1007,8 @@ const SpeedTestPage = ({
       });
     };
 
-    const onCardPointerUp = (e) => {
-      if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const onCardClick = (e) => {
       if (typeof e.target?.closest === 'function' && e.target.closest('[data-st-toggle-wrap]')) return;
-      console.warn('[SpeedTest] interazione card (pointerup)', {
-        nome: company.azienda_name || company.agent_name,
-        canOpenDetail,
-        agentIdNum,
-        aziendaIdNum
-      });
       if (canOpenDetail) openDetail();
     };
 
@@ -1028,7 +1021,7 @@ const SpeedTestPage = ({
         }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        onPointerUp={onCardPointerUp}
+        onClick={onCardClick}
         onKeyDown={(e) => {
           if (!canOpenDetail) return;
           if (e.key === 'Enter' || e.key === ' ') {
@@ -1192,10 +1185,7 @@ const SpeedTestPage = ({
             maxWidth: 140,
             pointerEvents: 'auto'
           }}
-          onPointerUp={(e) => { e.stopPropagation(); }}
           onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
-          onPointerDown={(e) => { e.stopPropagation(); }}
-          onMouseDown={(e) => { e.stopPropagation(); }}
           onKeyDown={(e) => e.stopPropagation()}
         >
           {!enabled && <span style={styles.disabledBadge}>Disattivato</span>}
