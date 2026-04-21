@@ -1007,24 +1007,60 @@ const SpeedTestPage = ({
       });
     };
 
+    /** { x, y, pointerId } — obbligatorio per aprire: evita pointerup “orfani” su un’altra card (grid + scroll). */
     const pointerDownPos = React.useRef(null);
+
+    const releaseCardPointerCapture = (el, pointerId) => {
+      if (el == null || pointerId == null) return;
+      try {
+        if (typeof el.hasPointerCapture === 'function' && el.hasPointerCapture(pointerId)) {
+          el.releasePointerCapture(pointerId);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
 
     const onCardPointerDown = (e) => {
       if (e.button !== undefined && e.button !== 0) return;
-      pointerDownPos.current = { x: e.clientX, y: e.clientY };
+      if (typeof e.target?.closest === 'function' && e.target.closest('[data-st-toggle-wrap]')) return;
+      pointerDownPos.current = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore: es. pointer non supportato */
+      }
     };
 
     const onCardPointerUp = (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       if (typeof e.target?.closest === 'function' && e.target.closest('[data-st-toggle-wrap]')) return;
-      // Se il pointer si è spostato molto tra down e up era uno scroll, non un click
-      if (pointerDownPos.current) {
-        const dx = Math.abs(e.clientX - pointerDownPos.current.x);
-        const dy = Math.abs(e.clientY - pointerDownPos.current.y);
+      const underToggle =
+        typeof document.elementFromPoint === 'function' &&
+        document.elementFromPoint(e.clientX, e.clientY)?.closest?.('[data-st-toggle-wrap]');
+      if (underToggle) {
         pointerDownPos.current = null;
-        if (dx > 8 || dy > 8) return;
+        releaseCardPointerCapture(e.currentTarget, e.pointerId);
+        return;
       }
+      const down = pointerDownPos.current;
+      // Senza pointerdown su questa card non aprire (altrimenti pointerup su card sbagliata apre Conad ecc.)
+      if (!down || down.pointerId !== e.pointerId) {
+        releaseCardPointerCapture(e.currentTarget, e.pointerId);
+        return;
+      }
+      pointerDownPos.current = null;
+      releaseCardPointerCapture(e.currentTarget, e.pointerId);
+      // Se il pointer si è spostato molto tra down e up era uno scroll, non un click
+      const dx = Math.abs(e.clientX - down.x);
+      const dy = Math.abs(e.clientY - down.y);
+      if (dx > 8 || dy > 8) return;
       if (canOpenDetail) openDetail();
+    };
+
+    const onCardPointerCancel = (e) => {
+      pointerDownPos.current = null;
+      releaseCardPointerCapture(e.currentTarget, e.pointerId);
     };
 
     return (
@@ -1038,6 +1074,7 @@ const SpeedTestPage = ({
         onMouseLeave={() => setHovered(false)}
         onPointerDown={onCardPointerDown}
         onPointerUp={onCardPointerUp}
+        onPointerCancel={onCardPointerCancel}
         onKeyDown={(e) => {
           if (!canOpenDetail) return;
           if (e.key === 'Enter' || e.key === ' ') {
@@ -1201,6 +1238,8 @@ const SpeedTestPage = ({
             maxWidth: 140,
             pointerEvents: 'auto'
           }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
           onKeyDown={(e) => e.stopPropagation()}
         >
