@@ -1835,6 +1835,36 @@ module.exports = (pool, io) => {
       await ensureNetworkDeviceScanColumns();
       await ensureNetworkAgentScanColumns();
 
+      // Se l'agent era irraggiungibile, evitiamo il flood di notifiche device online/offline
+      // nella prima scansione di riallineamento.
+      let isRecoveringFromAgentOutage = false;
+      try {
+        const agentStateRes = await pool.query(
+          `SELECT status, last_heartbeat
+           FROM network_agents
+           WHERE id = $1`,
+          [agentId]
+        );
+
+        if (agentStateRes.rows.length > 0) {
+          const agentState = agentStateRes.rows[0];
+          const wasOfflineByStatus = agentState.status === 'offline';
+          const wasOfflineByTime =
+            agentState.last_heartbeat &&
+            new Date(agentState.last_heartbeat).getTime() < Date.now() - (8 * 60 * 1000);
+
+          isRecoveringFromAgentOutage = wasOfflineByStatus || wasOfflineByTime;
+        }
+      } catch (agentStateErr) {
+        console.warn(`⚠️ Impossibile verificare stato agent ${agentId} prima della scan: ${agentStateErr.message}`);
+      }
+
+      if (isRecoveringFromAgentOutage) {
+        console.log(
+          `🛡️ Agent ${agentId} in recovery da outage: soppressione notifiche status_changed dei device per questa scan`
+        );
+      }
+
       // Aggiorna/inserisci dispositivi
       const deviceResults = [];
       console.log(`📥 Ricevuto payload scan-results: ${devices.length} dispositivi, ${changes ? changes.length : 0} cambiamenti`);
@@ -1890,7 +1920,7 @@ module.exports = (pool, io) => {
             console.log(`⚠️ [STEP 2] Marcati offline ${offlineRes.rows.length} dispositivi non rilevati in questa scan.`);
             // Telegram offline notifications (fire-and-forget, non blocca)
             for (const dev of offlineRes.rows) {
-              if (dev.notify_telegram === true) {
+              if (dev.notify_telegram === true && !isRecoveringFromAgentOutage) {
                 sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
                   hostname: dev.hostname, deviceType: dev.device_type,
                   ip: dev.ip_address, mac: dev.mac_address,
@@ -1914,7 +1944,7 @@ module.exports = (pool, io) => {
           if (offlineAllRes.rows.length > 0) {
             console.log(`⚠️ [STEP 2] Nessun dispositivo ricevuto. Marcati offline TUTTI i ${offlineAllRes.rows.length} dispositivi.`);
             for (const dev of offlineAllRes.rows) {
-              if (dev.notify_telegram === true) {
+              if (dev.notify_telegram === true && !isRecoveringFromAgentOutage) {
                 sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
                   hostname: dev.hostname, deviceType: dev.device_type,
                   ip: dev.ip_address, mac: dev.mac_address,
@@ -2054,7 +2084,7 @@ module.exports = (pool, io) => {
                 );
 
                 // Notifica offline per il vecchio dispositivo
-                if (matchingByIp.notify_telegram === true) {
+                if (matchingByIp.notify_telegram === true && !isRecoveringFromAgentOutage) {
                   sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
                     hostname: matchingByIp.hostname,
                     deviceType: matchingByIp.device_type,
@@ -2147,7 +2177,7 @@ module.exports = (pool, io) => {
               console.error('❌ Errore salvataggio evento device_online in network_changes:', e);
             }
 
-            if (existingDevice.notify_telegram === true) {
+            if (existingDevice.notify_telegram === true && !isRecoveringFromAgentOutage) {
               console.log(`📤 [ONLINE] Tentativo invio notifica Telegram per dispositivo online: MAC=${normalizedMac || existingDevice.mac_address}, IP=${ip_address}, Hostname=${hostnameForNotify || existingDevice.hostname}, Stato Precedente=offline`);
               sendTelegramNotification(agentId, req.agent.azienda_id, 'status_changed', {
                 hostname: hostnameForNotify || existingDevice.hostname,
