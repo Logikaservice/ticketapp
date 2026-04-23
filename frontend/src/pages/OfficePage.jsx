@@ -1,7 +1,7 @@
 // frontend/src/pages/OfficePage.jsx
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader, Calendar, X, StickyNote, Eye, EyeOff } from 'lucide-react';
+import { Loader, Calendar, X, StickyNote, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 import OfficeIntroCard from '../components/OfficeIntroCard';
@@ -95,7 +95,10 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
     setLoadingPasswords(p => ({ ...p, [key]: true }));
     try {
       const params = new URLSearchParams({ aziendaName: companyName, title: file.title || '', username: file.username || '' });
-      const res = await fetch(buildApiUrl(`/api/keepass/office-password?${params}`), { headers: getAuthHeader() });
+      const res = await fetch(buildApiUrl(`/api/keepass/office-password?${params}`), {
+        headers: getAuthHeader(),
+        cache: 'no-store'
+      });
       if (!res.ok) throw new Error('Password non trovata');
       const data = await res.json();
       setVisiblePasswords(v => ({ ...v, [key]: data.password || '' }));
@@ -109,6 +112,13 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
   const hidePassword = (file) => {
     const key = officeEntryKey(file);
     setVisiblePasswords(v => { const n = { ...v }; delete n[key]; return n; });
+  };
+
+  const refreshOfficeData = async () => {
+    if (!selectedCompanyValid) return;
+    setVisiblePasswords({});
+    setLoadingPasswords({});
+    await loadOfficeData(selectedCompanyId);
   };
 
   const loadOfficeData = async (companyIdOverride = null) => {
@@ -144,7 +154,8 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
       console.log('🔍 URL API chiamato:', apiUrl);
       
       const response = await fetch(apiUrl, {
-        headers: getAuthHeader()
+        headers: getAuthHeader(),
+        cache: 'no-store'
       });
 
       if (!response.ok) {
@@ -265,28 +276,42 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
         </div>
         <div className="flex items-center gap-4">
           {!loadingCompanies && (isCliente ? !!selectedCompanyId : true) && (
-            <select
-              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-              value={selectedCompanyId || ''}
-              onChange={async (e) => {
-                const newCompanyId = e.target.value;
-                setSelectedCompanyId(newCompanyId);
-                if (onCompanyChange) onCompanyChange(newCompanyId);
-                setError(null);
-                setOfficeData(null);
-                setCompanyName('');
-                
-                // Carica i dati solo se è stata selezionata un'azienda
-                if (newCompanyId) {
-                  await loadOfficeData(newCompanyId);
-                }
-              }}
-            >
-              <option value="">Seleziona Azienda...</option>
-              {companies.map(c => (
-                <option key={c.id} value={String(c.id)}>{c.azienda}</option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              <select
+                className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                value={selectedCompanyId || ''}
+                onChange={async (e) => {
+                  const newCompanyId = e.target.value;
+                  setSelectedCompanyId(newCompanyId);
+                  if (onCompanyChange) onCompanyChange(newCompanyId);
+                  setError(null);
+                  setOfficeData(null);
+                  setCompanyName('');
+                  
+                  // Carica i dati solo se è stata selezionata un'azienda
+                  if (newCompanyId) {
+                    await loadOfficeData(newCompanyId);
+                  }
+                }}
+              >
+                <option value="">Seleziona Azienda...</option>
+                {companies.map(c => (
+                  <option key={c.id} value={String(c.id)}>{c.azienda}</option>
+                ))}
+              </select>
+              {selectedCompanyValid && (
+                <button
+                  type="button"
+                  onClick={refreshOfficeData}
+                  disabled={loading}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors disabled:opacity-50"
+                  title="Ricarica dati Office da KeePass"
+                >
+                  <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+                  Aggiorna
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>

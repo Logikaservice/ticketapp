@@ -1725,6 +1725,9 @@ module.exports = function createKeepassRouter(pool) {
   // GET /api/keepass/office/:aziendaName - Recupera dati Office da Keepass
   router.get('/office/:aziendaName', authenticateToken, async (req, res) => {
     try {
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
       const userRole = req.user?.ruolo;
       const adminCompanies = req.user?.admin_companies || [];
 
@@ -1765,6 +1768,9 @@ module.exports = function createKeepassRouter(pool) {
   // GET /api/keepass/office-password - Recupera password di una entry Office (tecnico, admin, amministratori aziendali)
   router.get('/office-password', authenticateToken, async (req, res) => {
     try {
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
       const userRole = req.user?.ruolo || (req.headers['x-user-role'] || '').toString();
       const adminCompanies = req.user?.admin_companies || [];
       const isTecnicoOrAdmin = userRole === 'tecnico' || userRole === 'admin';
