@@ -12,6 +12,36 @@ class KeepassDriveService {
     this.loadPromise = null;
   }
 
+  normalizeCompanyName(name) {
+    return (name || '').toString().trim().toLowerCase();
+  }
+
+  getAllowedCompanyAncestors(normalizedCompanyName) {
+    const parentByCompany = {
+      'conad mercurio': ['paradiso group'],
+      'conad la torre': ['paradiso group'],
+      'conad albatros': ['paradiso group']
+    };
+    return parentByCompany[normalizedCompanyName] || [];
+  }
+
+  isPathAllowedForCompany(pathSegments, aziendaName) {
+    if (!aziendaName) return true;
+
+    const normalizedTarget = this.normalizeCompanyName(aziendaName);
+    const gestioneIndex = pathSegments.findIndex(seg => this.normalizeCompanyName(seg) === 'gestione');
+    if (gestioneIndex === -1) return false;
+
+    const afterGestione = pathSegments.slice(gestioneIndex + 1).map(seg => this.normalizeCompanyName(seg)).filter(Boolean);
+    if (afterGestione.length === 0) return true;
+
+    const allowedAncestors = this.getAllowedCompanyAncestors(normalizedTarget);
+    const firstSegment = afterGestione[0];
+    if (firstSegment === normalizedTarget) return true;
+    if (allowedAncestors.includes(firstSegment)) return true;
+    return false;
+  }
+
   /**
    * Ottiene l'autenticazione Google Drive
    */
@@ -899,25 +929,8 @@ class KeepassDriveService {
         let shouldInclude = true;
         if (aziendaName) {
           const pathSegments = currentPath.split('>').map(seg => seg.trim()).filter(seg => seg);
-          const gestioneIndex = pathSegments.findIndex(seg => seg.toLowerCase() === 'gestione');
-
-          if (gestioneIndex === -1) {
-            shouldInclude = false;
-          } else {
-            const aziendaSegmentIndex = gestioneIndex + 1;
-            if (aziendaSegmentIndex >= pathSegments.length) {
-              shouldInclude = true; // Continua a processare i sottogruppi
-            } else {
-              const aziendaSegmentInPath = pathSegments[aziendaSegmentIndex];
-              const aziendaNameNormalized = aziendaName.trim().toLowerCase();
-              const segmentNormalized = aziendaSegmentInPath.trim().toLowerCase();
-              shouldInclude = (aziendaNameNormalized === segmentNormalized);
-            }
-          }
-
-          if (!shouldInclude) {
-            return;
-          }
+          shouldInclude = this.isPathAllowedForCompany(pathSegments, aziendaName);
+          if (!shouldInclude) return;
         }
 
         // Cerca "Office" come gruppo (case-insensitive)
@@ -1127,13 +1140,7 @@ class KeepassDriveService {
         let shouldInclude = true;
         if (aziendaName) {
           const pathSegments = currentPath.split('>').map(seg => seg.trim()).filter(Boolean);
-          const gestioneIdx = pathSegments.findIndex(seg => seg.toLowerCase() === 'gestione');
-          if (gestioneIdx === -1) return null;
-          const aziendaIdx = gestioneIdx + 1;
-          if (aziendaIdx < pathSegments.length) {
-            const seg = pathSegments[aziendaIdx].trim().toLowerCase();
-            if (seg !== aziendaName.trim().toLowerCase()) return null;
-          }
+          if (!this.isPathAllowedForCompany(pathSegments, aziendaName)) return null;
         }
 
         const isOfficeGroup = groupName.toLowerCase() === 'office';
