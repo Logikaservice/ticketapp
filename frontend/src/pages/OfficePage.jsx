@@ -374,7 +374,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
             <div className="mb-4 bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
               <p className="text-sm text-gray-700">Attivazione licenza Office</p>
               <a
-                href="https://blog.keyspot.it/scarica-installa-e-attiva-office-2024-standard-professional-plus/"
+                href="https://blog.keyspot.it/scarica-installa-e-attiva-office-2024-standard-professional-plus/#:~:text=Attivazione%20Licenza"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
