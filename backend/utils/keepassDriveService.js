@@ -956,6 +956,12 @@ class KeepassDriveService {
 
       // Helper per estrarre i dati dall'entry
       const extractEntryData = (entry, entryTitle) => {
+        const getContainerEntries = (container) => {
+          if (!container) return [];
+          if (typeof container.entries === 'function') return [...container.entries()];
+          return Object.entries(container);
+        };
+
         // Estrai username (campo standard KeePass)
         let username = '';
         if (entry.fields && entry.fields['UserName']) {
@@ -968,7 +974,7 @@ class KeepassDriveService {
         // Estrai i campi personalizzati
         const customFields = {};
         if (entry.customFields) {
-          for (const [fieldName, fieldValue] of Object.entries(entry.customFields)) {
+          for (const [fieldName, fieldValue] of getContainerEntries(entry.customFields)) {
             const value = fieldValue instanceof ProtectedValue
               ? fieldValue.getText()
               : String(fieldValue || '');
@@ -978,7 +984,7 @@ class KeepassDriveService {
 
         // Estrai anche i campi standard per verificare se ci sono campi personalizzati lì
         if (entry.fields) {
-          for (const [fieldName, fieldValue] of Object.entries(entry.fields)) {
+          for (const [fieldName, fieldValue] of getContainerEntries(entry.fields)) {
             // Salta i campi standard principali
             if (['Title', 'UserName', 'Password', 'URL', 'Notes'].includes(fieldName)) {
               continue;
@@ -1040,7 +1046,9 @@ class KeepassDriveService {
           const fieldNumber = parseFieldNumber(rawKey);
           if (!fieldNumber) continue;
           const value = rawValue == null ? '' : String(rawValue).trim();
-          numericFieldMap.set(fieldNumber, value);
+          if (!numericFieldMap.has(fieldNumber) || value) {
+            numericFieldMap.set(fieldNumber, value);
+          }
         }
 
         const dynamicCustomFields = {};
