@@ -1752,7 +1752,28 @@ module.exports = function createKeepassRouter(pool) {
         return res.status(400).json({ error: 'Nome azienda richiesto' });
       }
 
-      const officeData = await keepassDriveService.getOfficeData(keepassPassword, aziendaName);
+      const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+      const maxAttempts = 3;
+      let officeData = null;
+      let lastError = null;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          officeData = await keepassDriveService.getOfficeData(keepassPassword, aziendaName);
+          lastError = null;
+          break;
+        } catch (err) {
+          lastError = err;
+          console.warn(`⚠️ Tentativo ${attempt}/${maxAttempts} fallito su /api/keepass/office/${aziendaName}: ${err.message}`);
+          if (attempt < maxAttempts) {
+            await sleep(300 * attempt);
+          }
+        }
+      }
+
+      if (lastError) {
+        throw lastError;
+      }
 
       if (!officeData) {
         return res.status(404).json({ error: 'Office non trovato per questa azienda' });
