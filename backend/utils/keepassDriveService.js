@@ -1023,66 +1023,38 @@ class KeepassDriveService {
         return null;
       }
 
-      // Processa ogni file trovato per estrarre i campi personalizzati
+      // Processa ogni file trovato per estrarre i campi personalizzati numerici
       const processedFiles = officeFiles.map((file) => {
-        // Estrai i campi personalizzati 1, 2, 3, 4, 5 per questo file
-        // Prova vari nomi possibili (case-insensitive)
-        const getCustomField = (num) => {
-          const possibleNames = [
-            `Campo personalizzato ${num}`,
-            `Custom Field ${num}`,
-            `Campo ${num}`,
-            `${num}`,
-            `campo personalizzato ${num}`,
-            `custom field ${num}`,
-            `campo ${num}`,
-            `Campo Personalizzato ${num}`,
-            `CUSTOM FIELD ${num}`,
-            `CAMPO ${num}`
-          ];
+        const customFieldsSource = file.customFields || {};
+        const numericFieldMap = new Map();
 
-          for (const name of possibleNames) {
-            if (file.customFields && file.customFields[name] !== undefined && file.customFields[name] !== null && file.customFields[name] !== '') {
-              const value = String(file.customFields[name]).trim();
-              if (value) return value;
-            }
-          }
-
-          // Prova anche case-insensitive matching
-          if (file.customFields) {
-            for (const [key, value] of Object.entries(file.customFields)) {
-              const keyLower = key.toLowerCase().trim();
-              const numStr = String(num);
-              if (keyLower === numStr ||
-                keyLower === `campo personalizzato ${numStr}` ||
-                keyLower === `custom field ${numStr}` ||
-                keyLower === `campo ${numStr}`) {
-                const valueStr = String(value || '').trim();
-                if (valueStr) return valueStr;
-              }
-            }
-          }
-
-          return '';
+        const parseFieldNumber = (rawKey) => {
+          const key = String(rawKey || '').trim();
+          const match = key.match(/^(?:custom|campo(?:\s+personalizzato)?|custom\s+field)?\s*(\d+)$/i);
+          if (!match) return null;
+          const parsed = parseInt(match[1], 10);
+          return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
         };
 
-        const custom1 = getCustomField(1);
-        const custom2 = getCustomField(2);
-        const custom3 = getCustomField(3);
-        const custom4 = getCustomField(4);
-        const custom5 = getCustomField(5);
+        for (const [rawKey, rawValue] of Object.entries(customFieldsSource)) {
+          const fieldNumber = parseFieldNumber(rawKey);
+          if (!fieldNumber) continue;
+          const value = rawValue == null ? '' : String(rawValue).trim();
+          numericFieldMap.set(fieldNumber, value);
+        }
+
+        const dynamicCustomFields = {};
+        if (numericFieldMap.size > 0) {
+          const maxFieldNumber = Math.max(...numericFieldMap.keys());
+          for (let i = 1; i <= maxFieldNumber; i += 1) {
+            dynamicCustomFields[`custom${i}`] = numericFieldMap.get(i) || '';
+          }
+        }
 
         return {
           title: file.title,
           username: file.username || '',
-          customFields: {
-            custom1,
-            custom2,
-            custom3,
-            custom4,
-            custom5
-            // SOLO i campi personalizzati 1-5, nient'altro
-          },
+          customFields: dynamicCustomFields,
           expires: file.expires ? file.expires.toISOString() : null
         };
       });
