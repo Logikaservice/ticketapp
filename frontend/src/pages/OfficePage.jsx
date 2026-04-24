@@ -373,7 +373,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
           <div className="max-w-7xl mx-auto">
             {/* Lista di tutti i file trovati */}
             {officeData.files && officeData.files.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                 {officeData.files.map((file, index) => {
                 const status = cardStatuses[cardKey(file)] || { note: '' };
                 const keepassExpired = file.expires ? new Date(file.expires) < new Date() : false;
