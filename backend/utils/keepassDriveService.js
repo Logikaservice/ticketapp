@@ -971,6 +971,16 @@ class KeepassDriveService {
             : String(usernameField || '');
         }
 
+        // Indica se l'entry ha una password valorizzata
+        let hasPassword = false;
+        if (entry.fields && entry.fields['Password'] !== undefined && entry.fields['Password'] !== null) {
+          const passwordField = entry.fields['Password'];
+          const passwordValue = passwordField instanceof ProtectedValue
+            ? passwordField.getText()
+            : String(passwordField || '');
+          hasPassword = String(passwordValue || '').trim() !== '';
+        }
+
         // Estrai i campi personalizzati
         const customFields = {};
         if (entry.customFields) {
@@ -1013,6 +1023,7 @@ class KeepassDriveService {
         return {
           title: entryTitle,
           username,
+          hasPassword,
           customFields: customFields,
           expires: expires
         };
@@ -1051,6 +1062,18 @@ class KeepassDriveService {
           }
         }
 
+        const getLicenseValue = () => {
+          for (const [rawKey, rawValue] of Object.entries(customFieldsSource)) {
+            const key = String(rawKey || '').trim().toLowerCase();
+            if (key === 'licenza' || key === 'license') {
+              return rawValue == null ? '' : String(rawValue).trim();
+            }
+          }
+          return '';
+        };
+
+        const license = getLicenseValue();
+
         const dynamicCustomFields = {};
         if (numericFieldMap.size > 0) {
           const maxFieldNumber = Math.max(...numericFieldMap.keys());
@@ -1062,6 +1085,8 @@ class KeepassDriveService {
         return {
           title: file.title,
           username: file.username || '',
+          hasPassword: !!file.hasPassword,
+          license,
           customFields: dynamicCustomFields,
           expires: file.expires ? file.expires.toISOString() : null
         };

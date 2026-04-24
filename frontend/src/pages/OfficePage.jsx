@@ -378,20 +378,26 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                 const status = cardStatuses[cardKey(file)] || { note: '' };
                 const keepassExpired = file.expires ? new Date(file.expires) < new Date() : false;
                 const isExpired = keepassExpired;
+                const hasUsername = !!(file.username && file.username.trim() !== '');
+                const hasPassword = !!file.hasPassword;
+                const canShowPassword = showPasswordColumn && hasPassword;
+                const showCredentialsRow = hasUsername || canShowPassword;
+                const licenseValue = file.license ? String(file.license).trim() : '';
                 return (
                 <div key={index} className={`break-inside-avoid mb-4 bg-white rounded-lg shadow-sm border-2 px-4 py-3 transition-colors ${isExpired ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
                   {/* Titolo */}
                   <div className="mb-2 pb-2 border-b border-gray-200">
                     <h3 className="text-base font-bold text-gray-900 truncate">{file.title || `File ${index + 1}`}</h3>
                     {/* Nome utente e Password sulla stessa riga */}
+                    {showCredentialsRow && (
                     <div className="mt-2 flex flex-wrap items-center gap-x-12 gap-y-2">
-                      {file.username && file.username.trim() !== '' && (
+                      {hasUsername && (
                         <div className="flex items-center gap-2">
                           <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide shrink-0">Nome utente</p>
                           <p className="text-xs text-gray-900 font-mono">{file.username}</p>
                         </div>
                       )}
-                      {showPasswordColumn && (
+                      {canShowPassword && (
                         <div className="flex items-center gap-2">
                           <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide shrink-0">Password</p>
                           {visiblePasswords[officeEntryKey(file)] !== undefined ? (
@@ -421,6 +427,13 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                         </div>
                       )}
                     </div>
+                    )}
+                    {licenseValue && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide shrink-0">Licenza</p>
+                        <p className="text-xs text-gray-900">{licenseValue}</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Campi personalizzati del file */}
