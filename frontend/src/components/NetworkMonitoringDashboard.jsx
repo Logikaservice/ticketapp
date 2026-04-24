@@ -566,6 +566,9 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
   // Carica eventi unificati (dispositivi + agent)
   const loadChanges = useCallback(async (silent = false) => {
     try {
+      if (!silent) {
+        setError(null);
+      }
       const searchParam = changesSearchTerm ? `&search=${encodeURIComponent(changesSearchTerm)}` : '';
       const aziendaParam = changesCompanyFilter ? `&azienda_id=${changesCompanyFilter}` : '';
       const networkParam = changesNetworkFilter ? `&network=${encodeURIComponent(changesNetworkFilter)}` : '';
@@ -593,9 +596,8 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
         }
       }
     } catch (err) {
-      if (!silent) {
-        console.error('Errore caricamento eventi:', err);
-      }
+      console.error('Errore caricamento eventi:', err);
+      if (!silent) setError('Errore caricamento eventi di rete');
     }
   }, [getAuthHeader, changesSearchTerm, changesCompanyFilter, changesNetworkFilter, eventTypeFilter]);
 

@@ -4059,7 +4059,7 @@ module.exports = (pool, io) => {
             ELSE false
           END as is_new_device
         FROM network_changes nc
-        INNER JOIN network_devices nd ON nc.device_id = nd.id
+        LEFT JOIN network_devices nd ON nc.device_id = nd.id
         INNER JOIN network_agents na ON nc.agent_id = na.id
         LEFT JOIN users u ON na.azienda_id = u.id
         WHERE 1=1
