@@ -371,6 +371,17 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
 
         {!loading && !error && officeData && (
           <div className="max-w-7xl mx-auto">
+            <div className="mb-4 bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+              <p className="text-sm text-gray-700">Attivazione licenza Office</p>
+              <a
+                href="https://blog.keyspot.it/scarica-installa-e-attiva-office-2024-standard-professional-plus/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+              >
+                Apri attivazione
+              </a>
+            </div>
             {/* Lista di tutti i file trovati */}
             {officeData.files && officeData.files.length > 0 ? (
               <div className="columns-1 md:columns-2 gap-4">
