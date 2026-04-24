@@ -373,13 +373,13 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
           <div className="max-w-7xl mx-auto">
             {/* Lista di tutti i file trovati */}
             {officeData.files && officeData.files.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+              <div className="columns-1 md:columns-2 gap-4">
                 {officeData.files.map((file, index) => {
                 const status = cardStatuses[cardKey(file)] || { note: '' };
                 const keepassExpired = file.expires ? new Date(file.expires) < new Date() : false;
                 const isExpired = keepassExpired;
                 return (
-                <div key={index} className={`bg-white rounded-lg shadow-sm border-2 px-4 py-3 transition-colors ${isExpired ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
+                <div key={index} className={`break-inside-avoid mb-4 bg-white rounded-lg shadow-sm border-2 px-4 py-3 transition-colors ${isExpired ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
                   {/* Titolo */}
                   <div className="mb-2 pb-2 border-b border-gray-200">
                     <h3 className="text-base font-bold text-gray-900 truncate">{file.title || `File ${index + 1}`}</h3>
