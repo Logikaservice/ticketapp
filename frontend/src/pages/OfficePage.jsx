@@ -427,30 +427,41 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                   <div className="mb-2">
                     <h4 className="text-xs font-semibold text-gray-500 mb-1">Attivo su:</h4>
                     
-                    {file.customFields && Object.keys(file.customFields).length > 0 ? (
-                      <div className="space-y-0.5">
-                        {Object.entries(file.customFields)
-                          .filter(([key]) => ['custom1', 'custom2', 'custom3', 'custom4', 'custom5'].includes(key))
-                          .sort(([keyA], [keyB]) => {
-                            const numA = parseInt(keyA.replace('custom', ''));
-                            const numB = parseInt(keyB.replace('custom', ''));
-                            return numA - numB;
-                          })
-                          .map(([key, value]) => {
-                            const fieldNumber = key.replace('custom', '');
+                    {file.customFields && Object.keys(file.customFields).length > 0 ? (() => {
+                      const numericFieldMap = new Map();
+                      Object.entries(file.customFields).forEach(([rawKey, rawValue]) => {
+                        const match = String(rawKey).match(/^(?:custom)?(\d+)$/i);
+                        if (!match) return;
+                        const fieldNumber = parseInt(match[1], 10);
+                        if (!Number.isFinite(fieldNumber) || fieldNumber < 1) return;
+                        numericFieldMap.set(fieldNumber, rawValue);
+                      });
+
+                      if (numericFieldMap.size === 0) {
+                        return <p className="text-xs text-gray-500 italic">Nessun campo personalizzato numerico trovato</p>;
+                      }
+
+                      const maxFieldNumber = Math.max(...numericFieldMap.keys());
+                      const getBorderColor = (num) => {
+                        const colorBySlot = {
+                          1: 'border-blue-500',
+                          2: 'border-green-500',
+                          3: 'border-yellow-500',
+                          4: 'border-purple-500',
+                          5: 'border-red-500'
+                        };
+                        return colorBySlot[num] || 'border-gray-400';
+                      };
+
+                      return (
+                        <div className="space-y-0.5">
+                          {Array.from({ length: maxFieldNumber }, (_, idx) => {
+                            const fieldNumber = idx + 1;
+                            const value = numericFieldMap.get(fieldNumber);
                             const valueStr = value ? String(value).trim() : '';
-                            
-                            const getBorderColor = (num) => {
-                              if (num === '1') return 'border-blue-500';
-                              if (num === '2') return 'border-green-500';
-                              if (num === '3') return 'border-yellow-500';
-                              if (num === '4') return 'border-purple-500';
-                              if (num === '5') return 'border-red-500';
-                              return 'border-gray-400';
-                            };
-                            
+
                             return (
-                              <div key={key} className={`border-l-4 ${getBorderColor(fieldNumber)} pl-3 py-1`}>
+                              <div key={`custom-${fieldNumber}`} className={`border-l-4 ${getBorderColor(fieldNumber)} pl-3 py-1`}>
                                 {valueStr ? (
                                   <p className="text-sm text-gray-900">
                                     <span className="font-semibold">{fieldNumber}.</span> {valueStr}
@@ -463,8 +474,9 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                               </div>
                             );
                           })}
-                      </div>
-                    ) : (
+                        </div>
+                      );
+                    })() : (
                       <p className="text-xs text-gray-500 italic">Nessun campo personalizzato trovato</p>
                     )}
                   </div>
