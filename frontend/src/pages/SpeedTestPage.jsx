@@ -952,9 +952,6 @@ const SpeedTestPage = ({
   // === COMPONENTE CARD ===
   const CompanyCard = ({ company }) => {
     const [hovered, setHovered] = useState(false);
-    const cardRef = useRef(null);
-    const pointerDownRef = useRef(null);
-    const lastOpenAtRef = useRef(0);
     const enabled = company.speedtest_enabled !== false;
     const agentIdNum = resolveAgentIdFromRow(company);
     const aziendaIdNum = resolveAziendaIdFromRow(company);
@@ -1013,112 +1010,47 @@ const SpeedTestPage = ({
       });
     };
 
-    const isFromToggle = (target) =>
-      typeof target?.closest === 'function' && target.closest('[data-st-toggle-wrap]');
-
-    // Evita doppi trigger ravvicinati (es. click + pointerup fallback).
-    const openDetailOnce = () => {
-      const now = Date.now();
-      if (now - lastOpenAtRef.current < 250) return;
-      lastOpenAtRef.current = now;
-      openDetail();
-    };
-
-    const onCardClick = (e) => {
-      if (!canOpenDetail) return;
-      if (isFromToggle(e.target)) return;
-      console.info('[SpeedTest] card click', {
-        nome: company.azienda_name || company.agent_name,
-        agent_id: agentIdNum,
-        azienda_id: aziendaIdNum
-      });
-      openDetailOnce();
-    };
-
-    const onCardPointerDown = (e) => {
-      if (!canOpenDetail) return;
-      if (isFromToggle(e.target)) return;
-      pointerDownRef.current = {
-        x: e.clientX,
-        y: e.clientY,
-        pointerType: e.pointerType || 'mouse'
-      };
-    };
-
-    const onCardPointerUp = (e) => {
-      if (!canOpenDetail) return;
-      if (isFromToggle(e.target)) return;
-      const down = pointerDownRef.current;
-      pointerDownRef.current = null;
-      if (!down) return;
-      const dx = Math.abs((e.clientX ?? 0) - down.x);
-      const dy = Math.abs((e.clientY ?? 0) - down.y);
-      // Se l'utente stava scorrendo la griglia, non aprire il dettaglio.
-      if (dx > 10 || dy > 10) return;
-      console.info('[SpeedTest] card pointerup fallback', {
-        nome: company.azienda_name || company.agent_name,
-        agent_id: agentIdNum,
-        azienda_id: aziendaIdNum,
-        dx,
-        dy
-      });
-      openDetailOnce();
-    };
-
-    const onCardPointerCancel = () => {
-      pointerDownRef.current = null;
-    };
-
-    // Fallback "hard" con listener nativi in capture: utile se qualche stopPropagation
-    // o edge-case del synthetic event system blocca gli handler React.
-    useEffect(() => {
-      const el = cardRef.current;
-      if (!el) return undefined;
-
-      const nativeOpen = (evt) => {
-        if (!canOpenDetail) return;
-        if (isFromToggle(evt.target)) return;
-        openDetailOnce();
-      };
-
-      el.addEventListener('click', nativeOpen, true);
-      el.addEventListener('mouseup', nativeOpen, true);
-      return () => {
-        el.removeEventListener('click', nativeOpen, true);
-        el.removeEventListener('mouseup', nativeOpen, true);
-      };
-    }, [canOpenDetail, agentIdNum, aziendaIdNum]);
-
     return (
       <div
-        ref={cardRef}
         style={{
           ...styles.cardOuter(canOpenDetail, enabled, hovered),
-          cursor: canOpenDetail ? 'pointer' : 'default',
+          cursor: 'default',
           touchAction: 'manipulation'
         }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        onPointerDown={onCardPointerDown}
-        onPointerUp={onCardPointerUp}
-        onPointerCancel={onCardPointerCancel}
-        onClickCapture={onCardClick}
-        onClick={onCardClick}
-        onKeyDown={(e) => {
-          if (!canOpenDetail) return;
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            openDetailOnce();
-          }
-        }}
-        tabIndex={canOpenDetail ? 0 : -1}
+        tabIndex={-1}
         role="group"
-        aria-label={canOpenDetail ? 'Apri cronologia speed test' : 'Card speed test'}
+        aria-label="Card speed test"
       >
         <div style={styles.cardBody}>
           {/* Intestazione (spazio a destra per toggle assoluto) */}
           <div style={{ paddingRight: 100, marginBottom: 16 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>{company.azienda_name || company.agent_name || 'N/A'}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9', minWidth: 0 }}>
+                {company.azienda_name || company.agent_name || 'N/A'}
+              </div>
+              <button
+                type="button"
+                disabled={!canOpenDetail}
+                onClick={openDetail}
+                style={{
+                  border: 'none',
+                  borderRadius: 8,
+                  padding: '6px 12px',
+                  background: canOpenDetail ? '#7c3aed' : '#334155',
+                  color: canOpenDetail ? '#ffffff' : '#94a3b8',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: canOpenDetail ? 'pointer' : 'not-allowed',
+                  fontFamily: 'inherit',
+                  flexShrink: 0
+                }}
+                title={canOpenDetail ? 'Apri dettaglio speed test' : 'Dettaglio non disponibile'}
+              >
+                Apri
+              </button>
+            </div>
             <div
               style={{
                 marginTop: 6,
