@@ -952,6 +952,8 @@ const SpeedTestPage = ({
   // === COMPONENTE CARD ===
   const CompanyCard = ({ company }) => {
     const [hovered, setHovered] = useState(false);
+    const pointerDownRef = useRef(null);
+    const lastOpenAtRef = useRef(0);
     const enabled = company.speedtest_enabled !== false;
     const agentIdNum = resolveAgentIdFromRow(company);
     const aziendaIdNum = resolveAziendaIdFromRow(company);
@@ -1010,15 +1012,48 @@ const SpeedTestPage = ({
       });
     };
 
-    /**
-     * Apertura da click nativo: il browser emette `click` solo se press/release restano
-     * un’interazione coerente sulla card (evita pointerup “orfani” su un’altra card).
-     * Il toggle ferma la propagazione del click sul wrapper.
-     */
+    const isFromToggle = (target) =>
+      typeof target?.closest === 'function' && target.closest('[data-st-toggle-wrap]');
+
+    // Evita doppi trigger ravvicinati (es. click + pointerup fallback).
+    const openDetailOnce = () => {
+      const now = Date.now();
+      if (now - lastOpenAtRef.current < 250) return;
+      lastOpenAtRef.current = now;
+      openDetail();
+    };
+
     const onCardClick = (e) => {
       if (!canOpenDetail) return;
-      if (typeof e.target?.closest === 'function' && e.target.closest('[data-st-toggle-wrap]')) return;
-      openDetail();
+      if (isFromToggle(e.target)) return;
+      openDetailOnce();
+    };
+
+    const onCardPointerDown = (e) => {
+      if (!canOpenDetail) return;
+      if (isFromToggle(e.target)) return;
+      pointerDownRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        pointerType: e.pointerType || 'mouse'
+      };
+    };
+
+    const onCardPointerUp = (e) => {
+      if (!canOpenDetail) return;
+      if (isFromToggle(e.target)) return;
+      const down = pointerDownRef.current;
+      pointerDownRef.current = null;
+      if (!down) return;
+      const dx = Math.abs((e.clientX ?? 0) - down.x);
+      const dy = Math.abs((e.clientY ?? 0) - down.y);
+      // Se l'utente stava scorrendo la griglia, non aprire il dettaglio.
+      if (dx > 10 || dy > 10) return;
+      openDetailOnce();
+    };
+
+    const onCardPointerCancel = () => {
+      pointerDownRef.current = null;
     };
 
     return (
@@ -1030,12 +1065,15 @@ const SpeedTestPage = ({
         }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        onPointerDown={onCardPointerDown}
+        onPointerUp={onCardPointerUp}
+        onPointerCancel={onCardPointerCancel}
         onClick={onCardClick}
         onKeyDown={(e) => {
           if (!canOpenDetail) return;
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            openDetail();
+            openDetailOnce();
           }
         }}
         tabIndex={canOpenDetail ? 0 : -1}
