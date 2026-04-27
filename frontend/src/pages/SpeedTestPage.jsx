@@ -125,11 +125,15 @@ function formatAgentLastSeen(isoDateStr, nowMs = Date.now()) {
     return { line: `Ultimo controllo: ${min} min fa`, isStale: min > 15, detailTitle, absoluteShort };
   }
   const h = Math.floor(min / 60);
-  if (h < 48) {
-    return { line: `Ultimo controllo: ${h} h fa`, isStale: true, detailTitle, absoluteShort };
+  const remMin = min % 60;
+  if (h < 24) {
+    const hm = remMin > 0 ? `${h} h ${remMin} min` : `${h} h`;
+    return { line: `Ultimo controllo: ${hm} fa`, isStale: true, detailTitle, absoluteShort };
   }
   const days = Math.floor(h / 24);
-  return { line: `Ultimo controllo: ${days} giorni fa`, isStale: true, detailTitle, absoluteShort };
+  const remH = h % 24;
+  const dh = remH > 0 ? `${days} giorni ${remH} h` : `${days} giorni`;
+  return { line: `Ultimo controllo: ${dh} fa`, isStale: true, detailTitle, absoluteShort };
 }
 
 /** Scostamento % ultimo test vs media dei test precedenti (cronologia ordinata per data). */
