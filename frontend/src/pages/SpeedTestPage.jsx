@@ -170,7 +170,7 @@ const SPEEDTEST_DETAIL_TABLE_MAX_ROWS = 30;
 const SPEEDTEST_SERVER_RETENTION_DAYS = 60;
 const SPEEDTEST_BUILD_MARK =
   process.env.REACT_APP_SPEEDTEST_BUILD_MARK ||
-  'st-click-fix-2026-04-27';
+  'st-card-click-2026-04-27';
 
 /** Aziende con speedtest attivo ma senza nuovo rilevamento da più di questa soglia → elenco “senza aggiornamenti”. */
 const SPEEDTEST_STALE_AFTER_MS = 2 * 60 * 60 * 1000;
@@ -810,7 +810,8 @@ const SpeedTestPage = ({
       transition: 'all 0.3s ease',
       opacity: clickable ? (speedtestOn ? 1 : 0.88) : 0.5,
       transform: isHovered && clickable ? 'translateY(-2px)' : 'none',
-      boxShadow: isHovered && clickable ? '0 8px 32px rgba(124, 58, 237, 0.15)' : 'none'
+      boxShadow: isHovered && clickable ? '0 8px 32px rgba(124, 58, 237, 0.15)' : 'none',
+      cursor: clickable ? 'pointer' : 'default'
     }),
     cardBody: {
       display: 'block',
@@ -1014,42 +1015,23 @@ const SpeedTestPage = ({
       <div
         style={{
           ...styles.cardOuter(canOpenDetail, enabled, hovered),
-          cursor: 'default',
           touchAction: 'manipulation'
         }}
+        onClick={canOpenDetail ? openDetail : undefined}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        tabIndex={-1}
-        role="group"
-        aria-label="Card speed test"
+        tabIndex={canOpenDetail ? 0 : -1}
+        role={canOpenDetail ? 'button' : 'group'}
+        aria-label={canOpenDetail ? `Apri dettaglio ${company.azienda_name || company.agent_name || ''}` : 'Card speed test'}
+        onKeyDown={canOpenDetail ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(); } } : undefined}
       >
         <div style={styles.cardBody}>
           {/* Intestazione (spazio a destra per toggle assoluto) */}
-          <div style={{ paddingRight: 100, marginBottom: 16 }}>
+          <div style={{ paddingRight: 60, marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9', minWidth: 0 }}>
                 {company.azienda_name || company.agent_name || 'N/A'}
               </div>
-              <button
-                type="button"
-                disabled={!canOpenDetail}
-                onClick={openDetail}
-                style={{
-                  border: 'none',
-                  borderRadius: 8,
-                  padding: '6px 12px',
-                  background: canOpenDetail ? '#7c3aed' : '#334155',
-                  color: canOpenDetail ? '#ffffff' : '#94a3b8',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: canOpenDetail ? 'pointer' : 'not-allowed',
-                  fontFamily: 'inherit',
-                  flexShrink: 0
-                }}
-                title={canOpenDetail ? 'Apri dettaglio speed test' : 'Dettaglio non disponibile'}
-              >
-                Apri
-              </button>
             </div>
             <div
               style={{
