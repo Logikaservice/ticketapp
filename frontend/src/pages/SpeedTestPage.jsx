@@ -849,6 +849,7 @@ const SpeedTestPage = ({
   const dayPickerWrapRef = useRef(null);
   const chartCanvasRef = useRef(null);
   const chartContainerRef = useRef(null);
+  const [chartHoverIdx, setChartHoverIdx] = useState(null);
   const overviewFetchSeqRef = useRef(0);
   /** Aggiorna il calcolo di “X min fa” senza cambiare i dati API (evita testo congelato vs rientro pagina). */
   const [heartbeatTick, setHeartbeatTick] = useState(0);
@@ -1047,6 +1048,10 @@ const SpeedTestPage = ({
     const downloads = series.map((d) => d.download_mbps || 0);
     const uploads = series.map((d) => d.upload_mbps || 0);
     const pings = series.map((d) => d.ping_ms || 0);
+    const timestamps = series.map((d) => new Date(d.test_date).getTime());
+    const configuredHours = Number(companyInfo?.speedtest_interval_hours) || 2;
+    // Consideriamo inattività quando il gap è sensibilmente oltre l'intervallo atteso.
+    const inactivityGapMs = Math.max(Math.round(configuredHours * 1.8 * 3600 * 1000), 3 * 3600 * 1000);
     const maxMbps = Math.max(Math.ceil(Math.max(...downloads, ...uploads) / 10) * 10 + 10, 20);
     const maxPing = Math.max(Math.ceil(Math.max(...pings) / 5) * 5 + 5, 10);
 
@@ -1089,39 +1094,118 @@ const SpeedTestPage = ({
 
     const drawLine = (values, maxV, color, lineW) => {
       if (values.length < 2) return;
-      ctx.beginPath();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = lineW;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      values.forEach((v, i) => {
-        const x = padL + (cW / Math.max(values.length - 1, 1)) * i;
-        const y = padT + cH - (v / maxV) * cH;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
+      const drawPath = (width, alpha = 1) => {
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.globalAlpha = alpha;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        values.forEach((v, i) => {
+          const x = padL + (cW / Math.max(values.length - 1, 1)) * i;
+          const y = padT + cH - (v / maxV) * cH;
+          if (i === 0) {
+            ctx.moveTo(x, y);
+            return;
+          }
+          const prevT = timestamps[i - 1];
+          const curT = timestamps[i];
+          const hasGap = Number.isFinite(prevT) && Number.isFinite(curT) && (curT - prevT > inactivityGapMs);
+          if (hasGap) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+        ctx.stroke();
+      };
 
+      drawPath(lineW, 1);
       ctx.save();
-      ctx.globalAlpha = 0.12;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = lineW + 6;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      values.forEach((v, i) => {
-        const x = padL + (cW / Math.max(values.length - 1, 1)) * i;
-        const y = padT + cH - (v / maxV) * cH;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
+      drawPath(lineW + 6, 0.12);
       ctx.restore();
     };
 
     drawLine(downloads, maxMbps, '#7c3aed', 2.5);
     drawLine(uploads, maxMbps, '#06b6d4', 2.5);
     drawLine(pings, maxPing, '#22c55e', 2);
+
+    // Evidenzia zone di inattività con una fascia semitrasparente e tratteggio.
+    for (let i = 1; i < timestamps.length; i++) {
+      const prevT = timestamps[i - 1];
+      const curT = timestamps[i];
+      if (!Number.isFinite(prevT) || !Number.isFinite(curT) || (curT - prevT) <= inactivityGapMs) continue;
+      const x1 = padL + (cW / Math.max(timestamps.length - 1, 1)) * (i - 1);
+      const x2 = padL + (cW / Math.max(timestamps.length - 1, 1)) * i;
+      ctx.save();
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.10)';
+      ctx.fillRect(x1, padT, Math.max(1, x2 - x1), cH);
+      ctx.strokeStyle = 'rgba(248, 113, 113, 0.45)';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(x1, padT);
+      ctx.lineTo(x2, padT + cH);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if (chartHoverIdx != null && chartHoverIdx >= 0 && chartHoverIdx < series.length) {
+      const i = chartHoverIdx;
+      const x = padL + (cW / Math.max(series.length - 1, 1)) * i;
+      const p = Number(series[i]?.ping_ms) || 0;
+      const d = Number(series[i]?.download_mbps) || 0;
+      const u = Number(series[i]?.upload_mbps) || 0;
+      const yPing = padT + cH - (p / maxPing) * cH;
+      const yDown = padT + cH - (d / maxMbps) * cH;
+      const yUp = padT + cH - (u / maxMbps) * cH;
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(x, padT);
+      ctx.lineTo(x, padT + cH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const dot = (yy, color) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, yy, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      };
+      dot(yDown, '#7c3aed');
+      dot(yUp, '#06b6d4');
+      dot(yPing, '#22c55e');
+
+      const hoverDate = formatDate(series[i]?.test_date);
+      const lines = [
+        hoverDate,
+        `↓ ${fmtMbps(d)} Mbps`,
+        `↑ ${fmtMbps(u)} Mbps`,
+        `Ping ${fmtPing(p)} ms`
+      ];
+      ctx.font = '12px Inter, sans-serif';
+      const textW = Math.max(...lines.map((ln) => ctx.measureText(ln).width));
+      const boxW = Math.ceil(textW) + 18;
+      const boxH = 18 + lines.length * 16;
+      const boxX = Math.min(Math.max(x + 12, 8), W - boxW - 8);
+      const boxY = Math.max(padT + 6, 8);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(boxX, boxY, boxW, boxH, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#e2e8f0';
+      lines.forEach((ln, idx) => {
+        const yy = boxY + 15 + idx * 16;
+        ctx.fillText(ln, boxX + 9, yy);
+      });
+      ctx.restore();
+    }
 
     ctx.fillStyle = '#94a3b8';
     ctx.font = '11px Inter, sans-serif';
@@ -1137,7 +1221,7 @@ const SpeedTestPage = ({
     ctx.textAlign = 'center';
     ctx.fillText('Ping (ms)', 0, 0);
     ctx.restore();
-  }, [historyFiltered]);
+  }, [historyFiltered, chartHoverIdx, companyInfo]);
 
   // Disegna il grafico quando cambiano i dati (serve almeno un segmento)
   useEffect(() => {
@@ -1154,6 +1238,28 @@ const SpeedTestPage = ({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [selectedCompany, historyFiltered, drawChart]);
+
+  const onChartMouseMove = useCallback((e) => {
+    const container = chartContainerRef.current;
+    if (!container || historyFiltered.length <= 1) return;
+    const rect = container.getBoundingClientRect();
+    const padL = 55;
+    const padR = 55;
+    const cW = rect.width - padL - padR;
+    if (cW <= 0) return;
+    const relX = e.clientX - rect.left;
+    if (relX < padL || relX > rect.width - padR) {
+      setChartHoverIdx(null);
+      return;
+    }
+    const ratio = (relX - padL) / cW;
+    const idx = Math.round(ratio * (historyFiltered.length - 1));
+    setChartHoverIdx(Math.max(0, Math.min(historyFiltered.length - 1, idx)));
+  }, [historyFiltered.length]);
+
+  const onChartMouseLeave = useCallback(() => {
+    setChartHoverIdx(null);
+  }, []);
 
   // === Helpers ===
   const formatDate = (dateStr) => {
@@ -1710,9 +1816,18 @@ const SpeedTestPage = ({
                           <span style={{ width: 20, height: 3, borderRadius: 2, background: '#22c55e', display: 'inline-block' }} />
                           Ping (ms)
                         </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#fca5a5' }}>
+                          <span style={{ width: 20, height: 8, borderRadius: 2, background: 'rgba(239, 68, 68, 0.20)', border: '1px dashed rgba(248, 113, 113, 0.55)', display: 'inline-block' }} />
+                          Inattività / dati mancanti
+                        </span>
                       </div>
                       <div ref={chartContainerRef} style={{ width: '100%', height: 280, position: 'relative' }}>
-                        <canvas ref={chartCanvasRef} style={{ width: '100%', height: '100%' }} />
+                        <canvas
+                          ref={chartCanvasRef}
+                          style={{ width: '100%', height: '100%' }}
+                          onMouseMove={onChartMouseMove}
+                          onMouseLeave={onChartMouseLeave}
+                        />
                       </div>
                     </>
                   ) : (
