@@ -1026,6 +1026,11 @@ const SpeedTestPage = ({
     const onCardClick = (e) => {
       if (!canOpenDetail) return;
       if (isFromToggle(e.target)) return;
+      console.info('[SpeedTest] card click', {
+        nome: company.azienda_name || company.agent_name,
+        agent_id: agentIdNum,
+        azienda_id: aziendaIdNum
+      });
       openDetailOnce();
     };
 
@@ -1049,6 +1054,13 @@ const SpeedTestPage = ({
       const dy = Math.abs((e.clientY ?? 0) - down.y);
       // Se l'utente stava scorrendo la griglia, non aprire il dettaglio.
       if (dx > 10 || dy > 10) return;
+      console.info('[SpeedTest] card pointerup fallback', {
+        nome: company.azienda_name || company.agent_name,
+        agent_id: agentIdNum,
+        azienda_id: aziendaIdNum,
+        dx,
+        dy
+      });
       openDetailOnce();
     };
 
@@ -1068,6 +1080,7 @@ const SpeedTestPage = ({
         onPointerDown={onCardPointerDown}
         onPointerUp={onCardPointerUp}
         onPointerCancel={onCardPointerCancel}
+        onClickCapture={onCardClick}
         onClick={onCardClick}
         onKeyDown={(e) => {
           if (!canOpenDetail) return;
