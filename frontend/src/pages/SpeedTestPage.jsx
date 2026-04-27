@@ -347,12 +347,221 @@ function dedupeSpeedtestOverview(rows) {
       ...(resolvedAzienda != null ? { azienda_id: resolvedAzienda } : {})
     };
     map.set(key, normalized);
+  if (pct <= -15) return '#f87171';
+  if (pct < 0) return '#fbbf24';
+  if (pct >= 15) return '#4ade80';
+  return '#94a3b8';
+}
+
+/** Allineato al backend: stesso IP per ≥3 test o ≥24 h, su righe con IP valorizzato; altrimenti dinamico se cambia tra test consecutivi. */
+const PUBLIC_IP_STABILITY_MIN_CONSECUTIVE = 3;
+const PUBLIC_IP_STABILITY_MIN_HOURS = 24;
+const PUBLIC_IP_STABILITY_TOOLTIP =
+  'Confronto tra i test con IP registrato su questo agent: (Statico) stesso IP per almeno 3 misure o per almeno 24 ore; (Dinamico) IP diverso tra un test e il successivo. Con pochi dati l’etichetta può non comparire.';
+
+/** Righe massime nella tabella sotto il grafico (il periodo può contenere molte più misure). */
+const SPEEDTEST_DETAIL_TABLE_MAX_ROWS = 30;
+const SPEEDTEST_SERVER_RETENTION_DAYS = 60;
+const SPEEDTEST_BUILD_MARK =
+  process.env.REACT_APP_SPEEDTEST_BUILD_MARK ||
+  'st-card-click-2026-04-27';
+
+/** Aziende con speedtest attivo ma senza nuovo rilevamento da più di questa soglia → elenco “senza aggiornamenti”. */
+const SPEEDTEST_STALE_AFTER_MS = 2 * 60 * 60 * 1000;
+
+// Chiave stabile per evitare mismatch di card/click dopo refresh (no idx: React deve riusare correttamente i nodi)
+function speedtestRowKey(row) {
+  const agentId = resolveAgentIdFromRow(row);
+  const aziendaId = resolveAziendaIdFromRow(row);
+  if (agentId != null) return `st-agent-${agentId}`;
+  if (aziendaId != null) return `st-azienda-${aziendaId}`;
+  const name = (row?.azienda_name || row?.agent_name || '').toString().trim().toLowerCase();
+  return `st-name-${name || 'unknown'}`;
+}
+
+function pad2(n) {
+  return n < 10 ? `0${n}` : `${n}`;
+}
+
+/** Chiave locale YYYY-MM-DD da una misura speedtest (timezone browser). */
+function ymdLocalFromTestDate(iso) {
+  if (iso == null || iso === '') return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function ymdToItDisplay(ymd) {
+  if (!ymd) return '';
+  const parts = ymd.split('-');
+  if (parts.length !== 3) return ymd;
+  const [y, m, day] = parts;
+  return `${day}/${m}/${y}`;
+}
+
+/** dd/mm/yyyy (o separatore . -) → YYYY-MM-DD se valido; se daysWithData è un Set, accetta solo giorni con dati. */
+function parseItalianDayInput(raw, daysWithData) {
+  const t = String(raw || '').trim();
+  if (!t) return null;
+  const m = t.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/);
+  if (!m) return null;
+  let dayN = parseInt(m[1], 10);
+  let mo = parseInt(m[2], 10);
+  let y = parseInt(m[3], 10);
+  if (y < 100) y += 2000;
+  if (mo < 1 || mo > 12 || dayN < 1 || dayN > 31) return null;
+  const cand = new Date(y, mo - 1, dayN);
+  if (cand.getFullYear() !== y || cand.getMonth() !== mo - 1 || cand.getDate() !== dayN) return null;
+  const ymd = `${y}-${pad2(mo)}-${pad2(dayN)}`;
+  if (daysWithData instanceof Set && !daysWithData.has(ymd)) return null;
+  return ymd;
+}
+
+function normalizeSpeedtestPublicIp(ip) {
+  if (ip == null || ip === '') return '';
+  return String(ip).trim();
+}
+
+/** @returns {'static'|'dynamic'|null} */
+function inferPublicIpStability(rows) {
+  const withIp = (rows || [])
+    .map((r) => ({
+      t: r.test_date == null ? NaN : new Date(r.test_date).getTime(),
+      ip: normalizeSpeedtestPublicIp(r.public_ip),
+    }))
+    .filter((r) => r.ip !== '' && Number.isFinite(r.t));
+  if (withIp.length < 2) return null;
+  withIp.sort((a, b) => a.t - b.t);
+  for (let i = 1; i < withIp.length; i++) {
+    if (withIp[i].ip !== withIp[i - 1].ip) return 'dynamic';
+  }
+  const first = withIp[0];
+  const last = withIp[withIp.length - 1];
+  const hours = (last.t - first.t) / (3600 * 1000);
+  if (hours >= PUBLIC_IP_STABILITY_MIN_HOURS || withIp.length >= PUBLIC_IP_STABILITY_MIN_CONSECUTIVE) {
+    return 'static';
+  }
+  return null;
+}
+
+/** Dettaglio: cronologia caricata se disponibile; altrimenti valore panoramica. */
+function resolvePublicIpStabilityFromDetail(history, overviewStability) {
+  const fromHist = inferPublicIpStability(history);
+  if (fromHist != null) return fromHist;
+  return overviewStability ?? null;
+}
+
+function publicIpStabilityParen(code) {
+  if (code === 'static') return { text: '(Statico)', color: '#4ade80' };
+  if (code === 'dynamic') return { text: '(Dinamico)', color: '#fb923c' };
+  return null;
+}
+
+function parsePositiveInt(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'bigint') {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  if (typeof v === 'number') {
+    return Number.isFinite(v) && v > 0 ? Math.trunc(v) : null;
+  }
+  if (typeof v === 'string') {
+    const t = v.trim();
+    if (!t) return null;
+    const n = parseInt(t, 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  return null;
+}
+
+/**
+ * L'API PostgreSQL/Express può esporre colonne in snake_case; eventuali proxy o serializzazioni
+ * possono variare. Si cercano anche tutte le chiavi che sembrano "agent id" / "azienda id".
+ */
+function resolveAgentIdFromRow(row) {
+  if (!row || typeof row !== 'object') return null;
+  const candidates = [
+    row.agent_id,
+    row.agentId,
+    row.AgentId,
+    row.AGENT_ID,
+    row.Agent_Id,
+    row.id_agent,
+    row.network_agent_id
+  ];
+  for (const v of candidates) {
+    const n = parsePositiveInt(v);
+    if (n != null) return n;
+  }
+  for (const k of Object.keys(row)) {
+    if (/^agent_?id$/i.test(k) || k === 'network_agent_id') {
+      const n = parsePositiveInt(row[k]);
+      if (n != null) return n;
+    }
+  }
+  return null;
+}
+
+function resolveAziendaIdFromRow(row) {
+  if (!row || typeof row !== 'object') return null;
+  const candidates = [
+    row.azienda_id,
+    row.aziendaId,
+    row.AziendaId,
+    row.AZIENDA_ID,
+    row.Azienda_Id,
+    row.company_id,
+    row.companyId
+  ];
+  for (const v of candidates) {
+    const n = parsePositiveInt(v);
+    if (n != null) return n;
+  }
+  for (const k of Object.keys(row)) {
+    if (/^azienda_?id$/i.test(k) || /^company_?id$/i.test(k)) {
+      const n = parsePositiveInt(row[k]);
+      if (n != null) return n;
+    }
+  }
+  return null;
+}
+
+/** Una sola riga per agent_id (evita liste raddoppiate in caso di richieste sovrapposte o dati anomali). */
+function dedupeSpeedtestOverview(rows) {
+  const map = new Map();
+  let fb = 0;
+  for (const row of rows) {
+    const resolvedAgent = resolveAgentIdFromRow(row);
+    const resolvedAzienda = resolveAziendaIdFromRow(row);
+    const aid = resolvedAgent != null ? resolvedAgent : NaN;
+    const key = Number.isFinite(aid) ? aid : `__fb_${fb++}`;
+    const normalized = {
+      ...row,
+      ...(resolvedAgent != null ? { agent_id: resolvedAgent } : {}),
+      ...(resolvedAzienda != null ? { azienda_id: resolvedAzienda } : {})
+    };
+    map.set(key, normalized);
   }
   return Array.from(map.values());
 }
 
 // === EXTRACTED HELPERS ===
-// src/pages/SpeedTestPage.jsx
+const formatDate = (dateStr) => {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('it-IT') + ' ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+};
+
+const fmtPing = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n) : '—';
+};
+
+const fmtMbps = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(1) : '—';
+};
 
 
 // === STYLES ===
@@ -591,48 +800,8 @@ const styles = {
     const uqUp = enabled && hasData ? uploadQuality(company.upload_mbps) : { color: '#475569', pct: 0, label: 'UPLOAD' };
 
     const openDetail = () => {
-      if (!canOpenDetail) {
-        console.warn('[SpeedTest] Impossibile aprire dettaglio: mancano agent_id e azienda_id', company);
-        return;
-      }
-      console.info('[SpeedTest] apertura dettaglio', {
-        agent_id: agentIdNum,
-        azienda_id: aziendaIdNum,
-        nome: company.azienda_name || company.agent_name
-      });
-      const snapshot =
-        company.test_date != null &&
-        company.ping_ms != null &&
-        !Number.isNaN(Number(company.ping_ms))
-          ? {
-              test_date: company.test_date,
-              ping_ms: company.ping_ms,
-              download_mbps: company.download_mbps,
-              upload_mbps: company.upload_mbps,
-              isp: company.isp,
-              public_ip: company.public_ip,
-              server_name: company.server_name,
-              result_url: company.result_url
-            }
-          : null;
-      setSelectedCompany({
-        agentId: agentIdNum,
-        aziendaId: aziendaIdNum,
-        aziendaName: company.azienda_name || company.aziendaName || company.agent_name || 'Agent',
-        snapshot,
-        lastHeartbeatFromOverview: company.last_heartbeat ?? company.lastHeartbeat ?? null,
-        download_vs_hist_pct: company.download_vs_hist_pct ?? company.downloadVsHistPct ?? null,
-        upload_vs_hist_pct: company.upload_vs_hist_pct ?? company.uploadVsHistPct ?? null,
-        public_ip_stability: company.public_ip_stability ?? company.publicIpStability ?? null
-      });
-      // Se l'utente era molto in basso nella griglia, al passaggio alla vista dettaglio
-      // l'altezza contenuti cambia e il browser può "clampare" lo scroll in modo brusco.
-      // Portiamo intenzionalmente la vista in alto così l'intestazione del dettaglio è sempre visibile.
-      window.requestAnimationFrame(() => {
-        try {
-          if (pageScrollRef.current) pageScrollRef.current.scrollTop = 0;
-        } catch { /* ignore */ }
-      });
+      if (!canOpenDetail) return;
+      onOpenDetail(company, agentIdNum, aziendaIdNum);
     };
 
     return (
