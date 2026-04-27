@@ -168,6 +168,9 @@ const PUBLIC_IP_STABILITY_TOOLTIP =
 /** Righe massime nella tabella sotto il grafico (il periodo può contenere molte più misure). */
 const SPEEDTEST_DETAIL_TABLE_MAX_ROWS = 30;
 const SPEEDTEST_SERVER_RETENTION_DAYS = 60;
+const SPEEDTEST_BUILD_MARK =
+  process.env.REACT_APP_SPEEDTEST_BUILD_MARK ||
+  'st-click-fix-2026-04-27';
 
 /** Aziende con speedtest attivo ma senza nuovo rilevamento da più di questa soglia → elenco “senza aggiornamenti”. */
 const SPEEDTEST_STALE_AFTER_MS = 2 * 60 * 60 * 1000;
@@ -1257,6 +1260,9 @@ const SpeedTestPage = ({
             <div>
               <h1 style={{ fontSize: 20, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>Speed Test Dashboard</h1>
               <p style={{ fontSize: 12, color: '#94a3b8', margin: '2px 0 0' }}>Monitoraggio velocità connessione · Solo tecnici</p>
+              <p style={{ fontSize: 11, color: '#64748b', margin: '2px 0 0' }}>
+                Build: <span style={{ fontFamily: 'monospace', color: '#94a3b8' }}>{SPEEDTEST_BUILD_MARK}</span>
+              </p>
             </div>
           </div>
         </div>
@@ -1810,6 +1816,9 @@ const SpeedTestPage = ({
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>Speed Test Dashboard</h1>
             <p style={{ fontSize: 12, color: '#94a3b8', margin: '2px 0 0' }}>Monitoraggio velocità connessione · Solo tecnici</p>
+            <p style={{ fontSize: 11, color: '#64748b', margin: '2px 0 0' }}>
+              Build: <span style={{ fontFamily: 'monospace', color: '#94a3b8' }}>{SPEEDTEST_BUILD_MARK}</span>
+            </p>
           </div>
         </div>
         <button
