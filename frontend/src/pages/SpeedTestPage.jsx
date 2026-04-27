@@ -952,6 +952,7 @@ const SpeedTestPage = ({
   // === COMPONENTE CARD ===
   const CompanyCard = ({ company }) => {
     const [hovered, setHovered] = useState(false);
+    const cardRef = useRef(null);
     const pointerDownRef = useRef(null);
     const lastOpenAtRef = useRef(0);
     const enabled = company.speedtest_enabled !== false;
@@ -1068,8 +1069,29 @@ const SpeedTestPage = ({
       pointerDownRef.current = null;
     };
 
+    // Fallback "hard" con listener nativi in capture: utile se qualche stopPropagation
+    // o edge-case del synthetic event system blocca gli handler React.
+    useEffect(() => {
+      const el = cardRef.current;
+      if (!el) return undefined;
+
+      const nativeOpen = (evt) => {
+        if (!canOpenDetail) return;
+        if (isFromToggle(evt.target)) return;
+        openDetailOnce();
+      };
+
+      el.addEventListener('click', nativeOpen, true);
+      el.addEventListener('mouseup', nativeOpen, true);
+      return () => {
+        el.removeEventListener('click', nativeOpen, true);
+        el.removeEventListener('mouseup', nativeOpen, true);
+      };
+    }, [canOpenDetail, agentIdNum, aziendaIdNum]);
+
     return (
       <div
+        ref={cardRef}
         style={{
           ...styles.cardOuter(canOpenDetail, enabled, hovered),
           cursor: canOpenDetail ? 'pointer' : 'default',
