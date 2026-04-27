@@ -1007,6 +1007,12 @@ const SpeedTestPage = ({
     return history.filter((r) => ymdLocalFromTestDate(r.test_date) === historyDayFilter);
   }, [history, historyDayFilter]);
 
+  const inactivityThresholdHours = useMemo(() => {
+    const configured = Number(companyInfo?.speedtest_interval_hours) || 2;
+    const thresholdMs = Math.max(Math.round(configured * 1.8 * 3600 * 1000), 3 * 3600 * 1000);
+    return Math.round((thresholdMs / 3600000) * 10) / 10;
+  }, [companyInfo?.speedtest_interval_hours]);
+
   useEffect(() => {
     if (!dayPickerOpen) return;
     const onDown = (e) => {
@@ -1049,6 +1055,15 @@ const SpeedTestPage = ({
     const uploads = series.map((d) => d.upload_mbps || 0);
     const pings = series.map((d) => d.ping_ms || 0);
     const timestamps = series.map((d) => new Date(d.test_date).getTime());
+    const validTs = timestamps.filter((t) => Number.isFinite(t));
+    const minTs = validTs.length > 0 ? Math.min(...validTs) : NaN;
+    const maxTs = validTs.length > 0 ? Math.max(...validTs) : NaN;
+    const tsSpan = Number.isFinite(minTs) && Number.isFinite(maxTs) ? Math.max(maxTs - minTs, 1) : 1;
+    const xForIndex = (i) => {
+      const t = timestamps[i];
+      if (!Number.isFinite(t)) return padL;
+      return padL + ((t - minTs) / tsSpan) * cW;
+    };
     const configuredHours = Number(companyInfo?.speedtest_interval_hours) || 2;
     // Consideriamo inattività quando il gap è sensibilmente oltre l'intervallo atteso.
     const inactivityGapMs = Math.max(Math.round(configuredHours * 1.8 * 3600 * 1000), 3 * 3600 * 1000);
@@ -1075,7 +1090,6 @@ const SpeedTestPage = ({
     ctx.fillStyle = '#64748b';
     ctx.textAlign = 'center';
     const n = series.length;
-    const step = Math.max(1, Math.floor(n / 7));
     const xLabel = (idx) => {
       const d = new Date(series[idx].test_date);
       if (sameCalendarDay) {
@@ -1083,13 +1097,25 @@ const SpeedTestPage = ({
       }
       return `${d.getDate()}/${d.getMonth() + 1}`;
     };
-    for (let i = 0; i < n; i += step) {
-      const x = padL + (cW / Math.max(n - 1, 1)) * i;
-      ctx.fillText(xLabel(i), x, H - 8);
-    }
-    if (n > 1) {
-      const xLast = padL + cW;
-      ctx.fillText(xLabel(n - 1), xLast, H - 8);
+    const tickCount = Math.min(8, Math.max(2, n));
+    const usedTickIdx = new Set();
+    for (let k = 0; k < tickCount; k++) {
+      const ratio = tickCount === 1 ? 0 : k / (tickCount - 1);
+      const targetTs = minTs + ratio * tsSpan;
+      let bestIdx = 0;
+      let bestDist = Number.POSITIVE_INFINITY;
+      for (let i = 0; i < n; i++) {
+        const t = timestamps[i];
+        if (!Number.isFinite(t)) continue;
+        const dist = Math.abs(t - targetTs);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestIdx = i;
+        }
+      }
+      if (usedTickIdx.has(bestIdx)) continue;
+      usedTickIdx.add(bestIdx);
+      ctx.fillText(xLabel(bestIdx), xForIndex(bestIdx), H - 8);
     }
 
     const drawLine = (values, maxV, color, lineW) => {
@@ -1102,7 +1128,7 @@ const SpeedTestPage = ({
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
         values.forEach((v, i) => {
-          const x = padL + (cW / Math.max(values.length - 1, 1)) * i;
+          const x = xForIndex(i);
           const y = padT + cH - (v / maxV) * cH;
           if (i === 0) {
             ctx.moveTo(x, y);
@@ -1135,8 +1161,8 @@ const SpeedTestPage = ({
       const prevT = timestamps[i - 1];
       const curT = timestamps[i];
       if (!Number.isFinite(prevT) || !Number.isFinite(curT) || (curT - prevT) <= inactivityGapMs) continue;
-      const x1 = padL + (cW / Math.max(timestamps.length - 1, 1)) * (i - 1);
-      const x2 = padL + (cW / Math.max(timestamps.length - 1, 1)) * i;
+      const x1 = xForIndex(i - 1);
+      const x2 = xForIndex(i);
       ctx.save();
       ctx.fillStyle = 'rgba(239, 68, 68, 0.10)';
       ctx.fillRect(x1, padT, Math.max(1, x2 - x1), cH);
@@ -1151,7 +1177,7 @@ const SpeedTestPage = ({
 
     if (chartHoverIdx != null && chartHoverIdx >= 0 && chartHoverIdx < series.length) {
       const i = chartHoverIdx;
-      const x = padL + (cW / Math.max(series.length - 1, 1)) * i;
+      const x = xForIndex(i);
       const p = Number(series[i]?.ping_ms) || 0;
       const d = Number(series[i]?.download_mbps) || 0;
       const u = Number(series[i]?.upload_mbps) || 0;
@@ -1252,10 +1278,29 @@ const SpeedTestPage = ({
       setChartHoverIdx(null);
       return;
     }
+    const ts = historyFiltered.map((r) => new Date(r.test_date).getTime());
+    const validTs = ts.filter((t) => Number.isFinite(t));
+    if (validTs.length === 0) {
+      setChartHoverIdx(null);
+      return;
+    }
+    const minTs = Math.min(...validTs);
+    const maxTs = Math.max(...validTs);
+    const span = Math.max(maxTs - minTs, 1);
     const ratio = (relX - padL) / cW;
-    const idx = Math.round(ratio * (historyFiltered.length - 1));
-    setChartHoverIdx(Math.max(0, Math.min(historyFiltered.length - 1, idx)));
-  }, [historyFiltered.length]);
+    const targetTs = minTs + ratio * span;
+    let bestIdx = 0;
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < ts.length; i++) {
+      if (!Number.isFinite(ts[i])) continue;
+      const dist = Math.abs(ts[i] - targetTs);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestIdx = i;
+      }
+    }
+    setChartHoverIdx(bestIdx);
+  }, [historyFiltered]);
 
   const onChartMouseLeave = useCallback(() => {
     setChartHoverIdx(null);
@@ -1819,6 +1864,9 @@ const SpeedTestPage = ({
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#fca5a5' }}>
                           <span style={{ width: 20, height: 8, borderRadius: 2, background: 'rgba(239, 68, 68, 0.20)', border: '1px dashed rgba(248, 113, 113, 0.55)', display: 'inline-block' }} />
                           Inattività / dati mancanti
+                        </span>
+                        <span style={{ color: '#64748b', fontSize: 11 }}>
+                          (gap &gt; {inactivityThresholdHours} h)
                         </span>
                       </div>
                       <div ref={chartContainerRef} style={{ width: '100%', height: 280, position: 'relative' }}>
