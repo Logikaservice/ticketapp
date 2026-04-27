@@ -655,16 +655,18 @@ const styles = {
             >
               <span>{(company.test_date && company.ping_ms != null && !Number.isNaN(Number(company.ping_ms))) ? `🕐 ${formatDate(company.test_date)}` : 'Speed test: nessun dato'}</span>
               {(() => {
-                const seen = formatAgentLastSeen(company.last_heartbeat ?? company.lastHeartbeat, lastSeenNowMs);
+                // Sulle card il "Ultimo controllo" deve riflettere l'ultimo invio dati speedtest.
+                // Fallback su heartbeat solo se non c'è ancora una misura.
+                const seen = formatAgentLastSeen(
+                  company.test_date ?? company.last_heartbeat ?? company.lastHeartbeat,
+                  lastSeenNowMs
+                );
                 return (
                   <span
-                    title={seen.detailTitle ?? 'Ultimo check-in dell’agent verso il server'}
+                    title={seen.detailTitle ?? 'Tempo trascorso dall’ultimo invio dati speedtest'}
                     style={{ color: seen.isStale ? '#fbbf24' : '#94a3b8', fontWeight: seen.isStale ? 600 : 500, whiteSpace: 'nowrap' }}
                   >
                     {seen.line}
-                    {seen.absoluteShort ? (
-                      <span style={{ opacity: 0.82, fontWeight: 500 }}>{' · '}{seen.absoluteShort}</span>
-                    ) : null}
                   </span>
                 );
               })()}
