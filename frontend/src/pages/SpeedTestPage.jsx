@@ -595,10 +595,19 @@ const styles = {
     const canOpenDetail = agentIdNum != null || aziendaIdNum != null;
 
 
+    let isStale = false;
+    if (company.test_date) {
+      const t = new Date(company.test_date).getTime();
+      if (!Number.isNaN(t)) {
+        isStale = (lastSeenNowMs - t) > SPEEDTEST_STALE_AFTER_MS;
+      }
+    }
+
     const hasData = Boolean(
       company.test_date != null &&
         company.ping_ms != null &&
-        !Number.isNaN(Number(company.ping_ms))
+        !Number.isNaN(Number(company.ping_ms)) &&
+        !isStale
     );
     const pqPing = enabled && hasData ? pingQuality(company.ping_ms) : { color: '#475569', pct: 0, label: 'PING' };
     const dqDown = enabled && hasData ? downloadQuality(company.download_mbps) : { color: '#475569', pct: 0, label: 'DOWNLOAD' };
@@ -644,7 +653,7 @@ const styles = {
                 lineHeight: 1.35
               }}
             >
-              <span>{hasData ? `🕐 ${formatDate(company.test_date)}` : 'Speed test: nessun dato'}</span>
+              <span>{(company.test_date && company.ping_ms != null && !Number.isNaN(Number(company.ping_ms))) ? `🕐 ${formatDate(company.test_date)}` : 'Speed test: nessun dato'}</span>
               {(() => {
                 const seen = formatAgentLastSeen(company.last_heartbeat ?? company.lastHeartbeat, lastSeenNowMs);
                 return (
