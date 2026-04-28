@@ -1123,46 +1123,29 @@ export default function TicketApp() {
 
         // Carica il conteggio forniture solo quando serve (Dashboard, no viste full-screen)
         if (shouldLoadFornitureCounts) {
-          const BATCH_SIZE = 5;
-          const ticketsWithForniture = [];
-
-          for (let i = 0; i < ticketsData.length; i += BATCH_SIZE) {
-            const batch = ticketsData.slice(i, i + BATCH_SIZE);
-            const batchResults = await Promise.all(
-              batch.map(async (ticket) => {
-                try {
-                  const fornitureResponse = await fetch(buildApiUrl(`/api/tickets/${ticket.id}/forniture`), {
-                    headers: getAuthHeader()
-                  });
-                  if (fornitureResponse.ok) {
-                    const forniture = await fornitureResponse.json();
-                    return { ...ticket, fornitureCount: forniture.length };
-                  }
-                } catch (err) {
-                  // Silenzia ERR_INSUFFICIENT_RESOURCES per forniture
-                  if (!err.message?.includes('ERR_INSUFFICIENT_RESOURCES')) {
-                    console.error(`Errore nel caricare forniture per ticket ${ticket.id}:`, err);
-                  }
-                }
-                return { ...ticket, fornitureCount: 0 };
-              })
-            );
-            ticketsWithForniture.push(...batchResults);
-
-            // Aggiorna i ticket nello stato man mano che arrivano le forniture
-            setTickets(prev => {
-              const updatedMap = new Map(prev.map(t => [t.id, t]));
-              batchResults.forEach(t => updatedMap.set(t.id, t));
-              return Array.from(updatedMap.values());
+          try {
+            const allFornitureResponse = await fetch(buildApiUrl('/api/tickets/forniture/all'), {
+              headers: getAuthHeader()
             });
-
-            // Delay tra batch per evitare sovraccarico
-            if (i + BATCH_SIZE < ticketsData.length) {
-              await new Promise(resolve => setTimeout(resolve, 100));
+            if (allFornitureResponse.ok) {
+              const allForniture = await allFornitureResponse.json();
+              const fornitureCountsMap = new Map();
+              if (Array.isArray(allForniture)) {
+                allForniture.forEach(f => {
+                  const count = fornitureCountsMap.get(f.ticket_id) || 0;
+                  fornitureCountsMap.set(f.ticket_id, count + 1);
+                });
+              }
+              const ticketsWithForniture = ticketsData.map(ticket => ({
+                ...ticket,
+                fornitureCount: fornitureCountsMap.get(ticket.id) || 0
+              }));
+              filteredTicketsWithForniture = ticketsWithForniture.filter(t => !deletedTicketIdsRef.current.has(t.id));
+              setTickets(filteredTicketsWithForniture);
             }
+          } catch (err) {
+            console.error('Errore caricamento forniture aggregate:', err);
           }
-
-          filteredTicketsWithForniture = ticketsWithForniture.filter(t => !deletedTicketIdsRef.current.has(t.id));
         }
 
         // Evidenzia nuovi ticket (persistente finché non aperto) - baseline al primo login
@@ -1821,37 +1804,28 @@ export default function TicketApp() {
           .filter(t => !deletedTicketIdsRef.current.has(t.id));
 
         if (shouldLoadFornitureCounts) {
-          const BATCH_SIZE = 5;
-          const ticketsWithForniture = [];
-
-          for (let i = 0; i < updatedTickets.length; i += BATCH_SIZE) {
-            const batch = updatedTickets.slice(i, i + BATCH_SIZE);
-            const batchResults = await Promise.all(
-              batch.map(async (ticket) => {
-                try {
-                  const fornitureResponse = await fetch(buildApiUrl(`/api/tickets/${ticket.id}/forniture`), {
-                    headers: getAuthHeader()
-                  });
-                  if (fornitureResponse.ok) {
-                    const forniture = await fornitureResponse.json();
-                    return { ...ticket, fornitureCount: forniture.length };
-                  }
-                } catch (err) {
-                  if (!err.message?.includes('ERR_INSUFFICIENT_RESOURCES')) {
-                    console.error(`Errore forniture ticket ${ticket.id}:`, err);
-                  }
-                }
-                return { ...ticket, fornitureCount: 0 };
-              })
-            );
-            ticketsWithForniture.push(...batchResults);
-
-            if (i + BATCH_SIZE < updatedTickets.length) {
-              await new Promise(resolve => setTimeout(resolve, 100));
+          try {
+            const allFornitureResponse = await fetch(buildApiUrl('/api/tickets/forniture/all'), {
+              headers: getAuthHeader()
+            });
+            if (allFornitureResponse.ok) {
+              const allForniture = await allFornitureResponse.json();
+              const fornitureCountsMap = new Map();
+              if (Array.isArray(allForniture)) {
+                allForniture.forEach(f => {
+                  const count = fornitureCountsMap.get(f.ticket_id) || 0;
+                  fornitureCountsMap.set(f.ticket_id, count + 1);
+                });
+              }
+              const ticketsWithForniture = updatedTickets.map(ticket => ({
+                ...ticket,
+                fornitureCount: fornitureCountsMap.get(ticket.id) || 0
+              }));
+              filteredTickets = ticketsWithForniture.filter(t => !deletedTicketIdsRef.current.has(t.id));
             }
+          } catch (err) {
+            console.error('Errore caricamento forniture aggregate:', err);
           }
-
-          filteredTickets = ticketsWithForniture.filter(t => !deletedTicketIdsRef.current.has(t.id));
         }
 
         // Evidenzia nuovi ticket rispetto al polling precedente (cliente e tecnico) - persiste finché non aperto
