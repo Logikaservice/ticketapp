@@ -2005,6 +2005,54 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
+  // PUT /api/keepass/office-download-links/reorder - Riordina i link download (solo tecnico/admin)
+  router.put('/office-download-links/reorder', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const { azienda_name, ordered_ids } = req.body;
+      if (!azienda_name || !Array.isArray(ordered_ids) || ordered_ids.length === 0) {
+        return res.status(400).json({ error: 'azienda_name e ordered_ids sono obbligatori' });
+      }
+      const cleanAzienda = String(azienda_name).split(':')[0].trim();
+      const ids = ordered_ids
+        .map((id) => parseInt(id, 10))
+        .filter((id) => Number.isInteger(id));
+      if (ids.length !== ordered_ids.length) {
+        return res.status(400).json({ error: 'ordered_ids contiene valori non validi' });
+      }
+
+      await ensureOfficeDownloadLinksTable();
+      await client.query('BEGIN');
+      const existing = await client.query(
+        'SELECT id FROM office_download_links WHERE azienda_name = $1',
+        [cleanAzienda]
+      );
+      const existingIds = new Set(existing.rows.map((r) => r.id));
+      if (ids.some((id) => !existingIds.has(id)) || existingIds.size !== ids.length) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'La lista ordered_ids non corrisponde ai link esistenti per azienda' });
+      }
+
+      for (let idx = 0; idx < ids.length; idx += 1) {
+        await client.query(
+          `UPDATE office_download_links
+           SET sort_order = $1, updated_by = $2, updated_at = NOW()
+           WHERE id = $3`,
+          [idx, req.user?.id || null, ids[idx]]
+        );
+      }
+
+      await client.query('COMMIT');
+      res.json({ success: true });
+    } catch (err) {
+      try { await client.query('ROLLBACK'); } catch (rollbackErr) {}
+      console.error('❌ Errore riordino office-download-links:', err);
+      res.status(500).json({ error: 'Errore interno' });
+    } finally {
+      client.release();
+    }
+  });
+
   // DELETE /api/keepass/office-download-links/:id - Elimina link download (solo tecnico/admin)
   router.delete('/office-download-links/:id', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
     try {

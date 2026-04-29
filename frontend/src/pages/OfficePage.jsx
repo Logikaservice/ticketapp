@@ -1,7 +1,7 @@
 // frontend/src/pages/OfficePage.jsx
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader, Calendar, X, Eye, EyeOff, RefreshCw, ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { Loader, Calendar, X, Eye, EyeOff, RefreshCw, ArrowLeft, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 import OfficeIntroCard from '../components/OfficeIntroCard';
@@ -238,6 +238,37 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
     } catch (err) {
       console.error('Errore eliminazione link download:', err);
       setDownloadError('Impossibile eliminare il link');
+    } finally {
+      setSavingDownload(false);
+    }
+  };
+
+  const handleMoveDownloadLink = async (index, direction) => {
+    if (!isTecnico || !companyName || savingDownload) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= downloadLinks.length) return;
+
+    const reordered = [...downloadLinks];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(targetIndex, 0, moved);
+
+    setSavingDownload(true);
+    setDownloadError(null);
+    try {
+      const res = await fetch(buildApiUrl('/api/keepass/office-download-links/reorder'), {
+        method: 'PUT',
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          azienda_name: companyName,
+          ordered_ids: reordered.map((item) => item.id)
+        })
+      });
+      if (!res.ok) throw new Error('Errore riordino link');
+      setDownloadLinks(reordered.map((item, idx) => ({ ...item, sort_order: idx })));
+    } catch (err) {
+      console.error('Errore riordino link download:', err);
+      setDownloadError('Impossibile riordinare i link');
+      await loadDownloadLinks(companyName);
     } finally {
       setSavingDownload(false);
     }
@@ -768,7 +799,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                     Nessun link download configurato per questa azienda
                   </div>
                 )}
-                {downloadLinks.map((link) => {
+                {downloadLinks.map((link, index) => {
                   const isEditing = editingDownloadId === link.id;
                   return (
                     <div key={link.id} className="bg-white border border-gray-200 rounded-lg p-4">
@@ -803,6 +834,28 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                         >
                           Apri link
                         </a>
+                        {isTecnico && !isEditing && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveDownloadLink(index, 'up')}
+                              disabled={savingDownload || index === 0}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
+                              title="Sposta in alto"
+                            >
+                              <ArrowUp size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveDownloadLink(index, 'down')}
+                              disabled={savingDownload || index === downloadLinks.length - 1}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
+                              title="Sposta in basso"
+                            >
+                              <ArrowDown size={12} />
+                            </button>
+                          </>
+                        )}
                         {isTecnico && !isEditing && (
                           <button
                             type="button"
