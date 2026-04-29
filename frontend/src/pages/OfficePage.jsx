@@ -30,6 +30,15 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
   const [editingDownload, setEditingDownload] = useState({ title: '', description: '', links: [{ label: '', url: '' }] });
   const [draggingDownloadId, setDraggingDownloadId] = useState(null);
   const [dragOverDownloadId, setDragOverDownloadId] = useState(null);
+  const [activationGuides, setActivationGuides] = useState([]);
+  const [loadingActivationGuides, setLoadingActivationGuides] = useState(false);
+  const [activationError, setActivationError] = useState(null);
+  const [newActivation, setNewActivation] = useState({ title: '', description: '', links: [{ label: '', url: '' }] });
+  const [savingActivation, setSavingActivation] = useState(false);
+  const [editingActivationId, setEditingActivationId] = useState(null);
+  const [editingActivation, setEditingActivation] = useState({ title: '', description: '', links: [{ label: '', url: '' }] });
+  const [draggingActivationId, setDraggingActivationId] = useState(null);
+  const [dragOverActivationId, setDragOverActivationId] = useState(null);
 
   // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
   useEffect(() => {
@@ -154,15 +163,39 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
     }
   }, [getAuthHeader]);
 
+  const loadActivationGuides = useCallback(async (azienda) => {
+    if (!azienda || !getAuthHeader) return;
+    setLoadingActivationGuides(true);
+    setActivationError(null);
+    try {
+      const res = await fetch(buildApiUrl(`/api/keepass/office-activation-guides/${encodeURIComponent(azienda)}`), {
+        headers: getAuthHeader(),
+        cache: 'no-store'
+      });
+      if (!res.ok) throw new Error('Errore nel caricamento delle guide attivazione');
+      const data = await res.json();
+      setActivationGuides(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Errore caricamento office activation guides:', err);
+      setActivationError('Impossibile caricare le guide di attivazione');
+      setActivationGuides([]);
+    } finally {
+      setLoadingActivationGuides(false);
+    }
+  }, [getAuthHeader]);
+
   useEffect(() => {
     if (!selectedCompanyValid || !companyName) {
       setDownloadLinks([]);
       setDownloadError(null);
+      setActivationGuides([]);
+      setActivationError(null);
       setActiveView('licenses');
       return;
     }
     loadDownloadLinks(companyName);
-  }, [selectedCompanyValid, companyName, loadDownloadLinks]);
+    loadActivationGuides(companyName);
+  }, [selectedCompanyValid, companyName, loadDownloadLinks, loadActivationGuides]);
 
   const handleCreateDownloadLink = async () => {
     if (!isTecnico || !companyName || savingDownload) return;
@@ -337,6 +370,180 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
     setDraggingDownloadId(null);
     setDragOverDownloadId(null);
     await persistDownloadOrder(reordered);
+  };
+
+  const handleCreateActivationGuide = async () => {
+    if (!isTecnico || !companyName || savingActivation) return;
+    const title = newActivation.title.trim();
+    const description = newActivation.description.trim();
+    const links = (newActivation.links || [])
+      .map((link) => ({ label: String(link.label || '').trim(), url: String(link.url || '').trim() }))
+      .filter((link) => link.label && link.url);
+    if (!title || links.length === 0) return;
+
+    setSavingActivation(true);
+    try {
+      const res = await fetch(buildApiUrl('/api/keepass/office-activation-guides'), {
+        method: 'POST',
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          azienda_name: companyName,
+          title,
+          description,
+          links,
+          sort_order: activationGuides.length
+        })
+      });
+      if (!res.ok) throw new Error('Errore creazione guida');
+      setNewActivation({ title: '', description: '', links: [{ label: '', url: '' }] });
+      await loadActivationGuides(companyName);
+    } catch (err) {
+      console.error('Errore creazione guida attivazione:', err);
+      setActivationError('Impossibile creare la guida');
+    } finally {
+      setSavingActivation(false);
+    }
+  };
+
+  const handleSaveActivationGuide = async (id) => {
+    if (!isTecnico || !companyName || !id) return;
+    const title = editingActivation.title.trim();
+    const description = editingActivation.description.trim();
+    const links = (editingActivation.links || [])
+      .map((link) => ({ label: String(link.label || '').trim(), url: String(link.url || '').trim() }))
+      .filter((link) => link.label && link.url);
+    if (!title || links.length === 0) return;
+
+    setSavingActivation(true);
+    try {
+      const target = activationGuides.find((guide) => guide.id === id);
+      const res = await fetch(buildApiUrl(`/api/keepass/office-activation-guides/${id}`), {
+        method: 'PUT',
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          description,
+          links,
+          sort_order: target?.sort_order ?? 0
+        })
+      });
+      if (!res.ok) throw new Error('Errore aggiornamento guida');
+      setEditingActivationId(null);
+      setEditingActivation({ title: '', description: '', links: [{ label: '', url: '' }] });
+      await loadActivationGuides(companyName);
+    } catch (err) {
+      console.error('Errore salvataggio guida attivazione:', err);
+      setActivationError('Impossibile aggiornare la guida');
+    } finally {
+      setSavingActivation(false);
+    }
+  };
+
+  const handleDeleteActivationGuide = async (id) => {
+    if (!isTecnico || !companyName || !id || savingActivation) return;
+    setSavingActivation(true);
+    try {
+      const res = await fetch(buildApiUrl(`/api/keepass/office-activation-guides/${id}`), {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+      if (!res.ok) throw new Error('Errore eliminazione guida');
+      if (editingActivationId === id) {
+        setEditingActivationId(null);
+        setEditingActivation({ title: '', description: '', links: [{ label: '', url: '' }] });
+      }
+      await loadActivationGuides(companyName);
+    } catch (err) {
+      console.error('Errore eliminazione guida attivazione:', err);
+      setActivationError('Impossibile eliminare la guida');
+    } finally {
+      setSavingActivation(false);
+    }
+  };
+
+  const updateNewActivationLinkField = (index, field, value) => {
+    setNewActivation((prev) => {
+      const nextLinks = [...(prev.links || [])];
+      nextLinks[index] = { ...(nextLinks[index] || { label: '', url: '' }), [field]: value };
+      return { ...prev, links: nextLinks };
+    });
+  };
+
+  const addNewActivationLinkRow = () => {
+    setNewActivation((prev) => ({ ...prev, links: [...(prev.links || []), { label: '', url: '' }] }));
+  };
+
+  const removeNewActivationLinkRow = (index) => {
+    setNewActivation((prev) => {
+      const current = prev.links || [];
+      if (current.length <= 1) return prev;
+      return { ...prev, links: current.filter((_, idx) => idx !== index) };
+    });
+  };
+
+  const updateEditingActivationLinkField = (index, field, value) => {
+    setEditingActivation((prev) => {
+      const nextLinks = [...(prev.links || [])];
+      nextLinks[index] = { ...(nextLinks[index] || { label: '', url: '' }), [field]: value };
+      return { ...prev, links: nextLinks };
+    });
+  };
+
+  const addEditingActivationLinkRow = () => {
+    setEditingActivation((prev) => ({ ...prev, links: [...(prev.links || []), { label: '', url: '' }] }));
+  };
+
+  const removeEditingActivationLinkRow = (index) => {
+    setEditingActivation((prev) => {
+      const current = prev.links || [];
+      if (current.length <= 1) return prev;
+      return { ...prev, links: current.filter((_, idx) => idx !== index) };
+    });
+  };
+
+  const persistActivationOrder = async (reordered) => {
+    if (!isTecnico || !companyName || savingActivation) return;
+    setSavingActivation(true);
+    setActivationError(null);
+    try {
+      const res = await fetch(buildApiUrl('/api/keepass/office-activation-guides-reorder'), {
+        method: 'PUT',
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          azienda_name: companyName,
+          ordered_ids: reordered.map((item) => item.id)
+        })
+      });
+      if (!res.ok) throw new Error('Errore riordino guide');
+      setActivationGuides(reordered.map((item, idx) => ({ ...item, sort_order: idx })));
+    } catch (err) {
+      console.error('Errore riordino guide attivazione:', err);
+      setActivationError('Impossibile riordinare le guide');
+      await loadActivationGuides(companyName);
+    } finally {
+      setSavingActivation(false);
+    }
+  };
+
+  const handleActivationDrop = async (targetId) => {
+    if (!isTecnico || !draggingActivationId || draggingActivationId === targetId) {
+      setDraggingActivationId(null);
+      setDragOverActivationId(null);
+      return;
+    }
+    const fromIndex = activationGuides.findIndex((item) => item.id === draggingActivationId);
+    const toIndex = activationGuides.findIndex((item) => item.id === targetId);
+    if (fromIndex < 0 || toIndex < 0) {
+      setDraggingActivationId(null);
+      setDragOverActivationId(null);
+      return;
+    }
+    const reordered = [...activationGuides];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    setDraggingActivationId(null);
+    setDragOverActivationId(null);
+    await persistActivationOrder(reordered);
   };
 
   const loadOfficeData = async (companyIdOverride = null) => {
@@ -601,14 +808,13 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
             </div>
             <div className="mb-4 bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
               <p className="text-sm text-gray-700">Attivazione licenza Office</p>
-              <a
-                href="https://blog.keyspot.it/scarica-installa-e-attiva-office-2024-standard-professional-plus/#:~:text=Attivazione%20Licenza"
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => setActiveView('activations')}
                 className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
               >
-                Apri attivazione
-              </a>
+                Apri attivazioni
+              </button>
             </div>
             {/* Lista di tutti i file trovati */}
             {officeData.files && officeData.files.length > 0 ? (
@@ -1061,6 +1267,285 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                             type="button"
                             onClick={() => handleDeleteDownloadLink(link.id)}
                             disabled={savingDownload}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
+                          >
+                            <Trash2 size={12} />
+                            Elimina
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {!loading && !error && officeData && activeView === 'activations' && (
+          <div className="max-w-5xl mx-auto">
+            <div className="mb-4 bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-gray-900">Guide attivazione Office</p>
+                <p className="text-xs text-gray-500">I tecnici possono creare e aggiornare le guide. Gli utenti possono solo aprire i link.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveView('licenses')}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+              >
+                <ArrowLeft size={13} />
+                Torna a Office
+              </button>
+            </div>
+
+            {isTecnico && (
+              <div className="mb-4 bg-white border border-gray-200 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Nuova guida attivazione</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                  <input
+                    type="text"
+                    value={newActivation.title}
+                    onChange={(e) => setNewActivation((prev) => ({ ...prev, title: e.target.value }))}
+                    placeholder="Titolo (es. Office 2024 Pro Plus)"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="text"
+                    value={newActivation.description}
+                    onChange={(e) => setNewActivation((prev) => ({ ...prev, description: e.target.value }))}
+                    placeholder="Descrizione (opzionale)"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  {(newActivation.links || []).map((link, idx) => (
+                    <div key={`new-activation-link-${idx}`} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
+                      <input
+                        type="text"
+                        value={link.label}
+                        onChange={(e) => updateNewActivationLinkField(idx, 'label', e.target.value)}
+                        placeholder="Etichetta link"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="url"
+                        value={link.url}
+                        onChange={(e) => updateNewActivationLinkField(idx, 'url', e.target.value)}
+                        placeholder="https://..."
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeNewActivationLinkRow(idx)}
+                        disabled={(newActivation.links || []).length <= 1}
+                        className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
+                      >
+                        Rimuovi
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={addNewActivationLinkRow}
+                    className="mr-2 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+                  >
+                    Aggiungi link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCreateActivationGuide}
+                    disabled={savingActivation || !newActivation.title.trim()}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    <Plus size={13} />
+                    Aggiungi guida
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {loadingActivationGuides ? (
+              <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
+                <Loader size={24} className="animate-spin text-blue-600 mx-auto mb-2" />
+                <p className="text-sm text-gray-600">Caricamento guide attivazione...</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {activationError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                    {activationError}
+                  </div>
+                )}
+                {activationGuides.length === 0 && !activationError && (
+                  <div className="bg-white border border-gray-200 rounded-lg p-6 text-sm text-gray-500 italic">
+                    Nessuna guida attivazione configurata per questa azienda
+                  </div>
+                )}
+                {activationGuides.map((guide) => {
+                  const isEditing = editingActivationId === guide.id;
+                  const isDragOver = dragOverActivationId === guide.id;
+                  return (
+                    <div
+                      key={guide.id}
+                      className={`bg-white border rounded-lg p-4 transition-colors ${isDragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200'}`}
+                      draggable={isTecnico && !isEditing}
+                      onDragStart={() => {
+                        if (!isTecnico || isEditing) return;
+                        setDraggingActivationId(guide.id);
+                        setDragOverActivationId(guide.id);
+                      }}
+                      onDragOver={(e) => {
+                        if (!isTecnico || !draggingActivationId || isEditing) return;
+                        e.preventDefault();
+                        setDragOverActivationId(guide.id);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        handleActivationDrop(guide.id);
+                      }}
+                      onDragEnd={() => {
+                        setDraggingActivationId(null);
+                        setDragOverActivationId(null);
+                      }}
+                    >
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={editingActivation.title}
+                            onChange={(e) => setEditingActivation((prev) => ({ ...prev, title: e.target.value }))}
+                            placeholder="Titolo"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <input
+                            type="text"
+                            value={editingActivation.description}
+                            onChange={(e) => setEditingActivation((prev) => ({ ...prev, description: e.target.value }))}
+                            placeholder="Descrizione"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          {(editingActivation.links || []).map((editLink, idx) => (
+                            <div key={`edit-activation-link-${idx}`} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
+                              <input
+                                type="text"
+                                value={editLink.label}
+                                onChange={(e) => updateEditingActivationLinkField(idx, 'label', e.target.value)}
+                                placeholder="Etichetta link"
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <input
+                                type="url"
+                                value={editLink.url}
+                                onChange={(e) => updateEditingActivationLinkField(idx, 'url', e.target.value)}
+                                placeholder="https://..."
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeEditingActivationLinkRow(idx)}
+                                disabled={(editingActivation.links || []).length <= 1}
+                                className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
+                              >
+                                Rimuovi
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={addEditingActivationLinkRow}
+                            className="w-fit px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+                          >
+                            Aggiungi link
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          <p className="text-sm font-semibold text-gray-900">{guide.title}</p>
+                          {guide.description ? <p className="text-xs text-gray-600">{guide.description}</p> : null}
+                          <div className="mt-1 space-y-1">
+                            {(guide.links || []).map((item, idx) => (
+                              <div key={`${guide.id}-activation-item-${idx}`} className="flex items-center justify-between gap-3">
+                                <span className="text-xs text-gray-700 truncate">{item.label}</span>
+                                <a
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="shrink-0 px-2 py-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors"
+                                >
+                                  Apri
+                                </a>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-3 flex items-center gap-2">
+                        {isTecnico && !isEditing && (
+                          <div
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-500 bg-gray-50 border border-gray-200 rounded"
+                            title="Trascina per riordinare"
+                          >
+                            <GripVertical size={12} />
+                            Trascina
+                          </div>
+                        )}
+                        <a
+                          href={isEditing ? (editingActivation.links?.[0]?.url || '#') : (guide.links?.[0]?.url || '#')}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+                        >
+                          Apri primo link
+                        </a>
+                        {isTecnico && !isEditing && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingActivationId(guide.id);
+                              setEditingActivation({
+                                title: guide.title || '',
+                                description: guide.description || '',
+                                links: (guide.links && guide.links.length > 0)
+                                  ? guide.links.map((item) => ({ label: item.label || '', url: item.url || '' }))
+                                  : [{ label: '', url: '' }]
+                              });
+                            }}
+                            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+                          >
+                            Modifica
+                          </button>
+                        )}
+                        {isTecnico && isEditing && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveActivationGuide(guide.id)}
+                              disabled={savingActivation || !editingActivation.title.trim()}
+                              className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                            >
+                              Salva
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingActivationId(null);
+                                setEditingActivation({ title: '', description: '', links: [{ label: '', url: '' }] });
+                              }}
+                              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+                            >
+                              Annulla
+                            </button>
+                          </>
+                        )}
+                        {isTecnico && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteActivationGuide(guide.id)}
+                            disabled={savingActivation}
                             className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
                           >
                             <Trash2 size={12} />

@@ -2211,6 +2211,227 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
+  // === Tabelle office_activation_guides + office_activation_guide_links ===
+  const ensureOfficeActivationGuidesTables = async () => {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS office_activation_guides (
+        id SERIAL PRIMARY KEY,
+        azienda_name VARCHAR(255) NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        updated_by INTEGER,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS office_activation_guide_links (
+        id SERIAL PRIMARY KEY,
+        guide_id INTEGER NOT NULL REFERENCES office_activation_guides(id) ON DELETE CASCADE,
+        label TEXT NOT NULL,
+        url TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+  };
+  ensureOfficeActivationGuidesTables().catch(err => console.warn('⚠️ Errore creazione tabelle office_activation_guides:', err.message));
+
+  // GET /api/keepass/office-activation-guides/:aziendaName - Elenco guide attivazione Office per azienda
+  router.get('/office-activation-guides/:aziendaName', authenticateToken, async (req, res) => {
+    try {
+      const userRole = req.user?.ruolo;
+      const adminCompanies = req.user?.admin_companies || [];
+      if (userRole !== 'tecnico' && userRole !== 'admin') {
+        if (userRole === 'cliente' && (!adminCompanies || adminCompanies.length === 0)) {
+          return res.status(403).json({ error: 'Accesso negato: permessi insufficienti' });
+        }
+      }
+
+      let { aziendaName } = req.params;
+      try { aziendaName = decodeURIComponent(aziendaName); } catch (e) {}
+      aziendaName = aziendaName.split(':')[0].trim();
+      if (!aziendaName) return res.status(400).json({ error: 'Nome azienda richiesto' });
+
+      await ensureOfficeActivationGuidesTables();
+      const guidesRes = await pool.query(
+        `SELECT id, title, description, sort_order, updated_at
+         FROM office_activation_guides
+         WHERE azienda_name = $1
+         ORDER BY sort_order ASC, id ASC`,
+        [aziendaName]
+      );
+      const guideIds = guidesRes.rows.map((g) => g.id);
+      let linksMap = {};
+      if (guideIds.length > 0) {
+        const linksRes = await pool.query(
+          `SELECT id, guide_id, label, url, sort_order
+           FROM office_activation_guide_links
+           WHERE guide_id = ANY($1::int[])
+           ORDER BY sort_order ASC, id ASC`,
+          [guideIds]
+        );
+        linksMap = linksRes.rows.reduce((acc, row) => {
+          if (!acc[row.guide_id]) acc[row.guide_id] = [];
+          acc[row.guide_id].push({
+            id: row.id,
+            label: row.label,
+            url: row.url,
+            sort_order: row.sort_order
+          });
+          return acc;
+        }, {});
+      }
+      res.json(guidesRes.rows.map((guide) => ({ ...guide, links: linksMap[guide.id] || [] })));
+    } catch (err) {
+      console.error('❌ Errore recupero office-activation-guides:', err);
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  // POST /api/keepass/office-activation-guides - Crea nuova guida (solo tecnico/admin)
+  router.post('/office-activation-guides', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const { azienda_name, title, description, links, sort_order } = req.body;
+      if (!azienda_name || !title || !Array.isArray(links) || links.length === 0) {
+        return res.status(400).json({ error: 'azienda_name, title e almeno un link sono obbligatori' });
+      }
+      const cleanLinks = links
+        .map((l) => ({ label: String(l?.label || '').trim(), url: String(l?.url || '').trim() }))
+        .filter((l) => l.label && l.url);
+      if (cleanLinks.length === 0) return res.status(400).json({ error: 'Inserisci almeno un link valido' });
+
+      await ensureOfficeActivationGuidesTables();
+      const parsedOrder = Number.isFinite(Number(sort_order)) ? Number(sort_order) : 0;
+      await client.query('BEGIN');
+      const guideInsert = await client.query(
+        `INSERT INTO office_activation_guides (azienda_name, title, description, sort_order, updated_by, updated_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
+         RETURNING id, title, description, sort_order, updated_at`,
+        [String(azienda_name).split(':')[0].trim(), String(title).trim(), String(description || '').trim(), parsedOrder, req.user?.id || null]
+      );
+      const guide = guideInsert.rows[0];
+      for (let idx = 0; idx < cleanLinks.length; idx += 1) {
+        await client.query(
+          `INSERT INTO office_activation_guide_links (guide_id, label, url, sort_order, updated_at)
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [guide.id, cleanLinks[idx].label, cleanLinks[idx].url, idx]
+        );
+      }
+      await client.query('COMMIT');
+      res.status(201).json({ ...guide, links: cleanLinks.map((l, idx) => ({ ...l, sort_order: idx })) });
+    } catch (err) {
+      try { await client.query('ROLLBACK'); } catch (rollbackErr) {}
+      console.error('❌ Errore creazione office-activation-guide:', err);
+      res.status(500).json({ error: 'Errore interno' });
+    } finally {
+      client.release();
+    }
+  });
+
+  // PUT /api/keepass/office-activation-guides/:id - Aggiorna guida (solo tecnico/admin)
+  router.put('/office-activation-guides/:id', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
+      const { title, description, links, sort_order } = req.body;
+      if (!title || !Array.isArray(links) || links.length === 0) {
+        return res.status(400).json({ error: 'title e almeno un link sono obbligatori' });
+      }
+      const cleanLinks = links
+        .map((l) => ({ label: String(l?.label || '').trim(), url: String(l?.url || '').trim() }))
+        .filter((l) => l.label && l.url);
+      if (cleanLinks.length === 0) return res.status(400).json({ error: 'Inserisci almeno un link valido' });
+
+      await ensureOfficeActivationGuidesTables();
+      const parsedOrder = Number.isFinite(Number(sort_order)) ? Number(sort_order) : 0;
+      await client.query('BEGIN');
+      const updateRes = await client.query(
+        `UPDATE office_activation_guides
+         SET title = $1, description = $2, sort_order = $3, updated_by = $4, updated_at = NOW()
+         WHERE id = $5
+         RETURNING id, title, description, sort_order, updated_at`,
+        [String(title).trim(), String(description || '').trim(), parsedOrder, req.user?.id || null, id]
+      );
+      if (updateRes.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Guida non trovata' });
+      }
+      await client.query('DELETE FROM office_activation_guide_links WHERE guide_id = $1', [id]);
+      for (let idx = 0; idx < cleanLinks.length; idx += 1) {
+        await client.query(
+          `INSERT INTO office_activation_guide_links (guide_id, label, url, sort_order, updated_at)
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [id, cleanLinks[idx].label, cleanLinks[idx].url, idx]
+        );
+      }
+      await client.query('COMMIT');
+      res.json({ ...updateRes.rows[0], links: cleanLinks.map((l, idx) => ({ ...l, sort_order: idx })) });
+    } catch (err) {
+      try { await client.query('ROLLBACK'); } catch (rollbackErr) {}
+      console.error('❌ Errore aggiornamento office-activation-guide:', err);
+      res.status(500).json({ error: 'Errore interno' });
+    } finally {
+      client.release();
+    }
+  });
+
+  // PUT /api/keepass/office-activation-guides-reorder - Riordina guide (solo tecnico/admin)
+  router.put('/office-activation-guides-reorder', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const { azienda_name, ordered_ids } = req.body;
+      if (!azienda_name || !Array.isArray(ordered_ids) || ordered_ids.length === 0) {
+        return res.status(400).json({ error: 'azienda_name e ordered_ids sono obbligatori' });
+      }
+      const cleanAzienda = String(azienda_name).split(':')[0].trim();
+      const ids = ordered_ids.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id));
+      if (ids.length !== ordered_ids.length) return res.status(400).json({ error: 'ordered_ids contiene valori non validi' });
+
+      await ensureOfficeActivationGuidesTables();
+      await client.query('BEGIN');
+      const existing = await client.query('SELECT id FROM office_activation_guides WHERE azienda_name = $1', [cleanAzienda]);
+      const existingIds = new Set(existing.rows.map((r) => r.id));
+      if (ids.some((id) => !existingIds.has(id)) || existingIds.size !== ids.length) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'La lista ordered_ids non corrisponde alle guide esistenti per azienda' });
+      }
+      for (let idx = 0; idx < ids.length; idx += 1) {
+        await client.query(
+          `UPDATE office_activation_guides
+           SET sort_order = $1, updated_by = $2, updated_at = NOW()
+           WHERE id = $3`,
+          [idx, req.user?.id || null, ids[idx]]
+        );
+      }
+      await client.query('COMMIT');
+      res.json({ success: true });
+    } catch (err) {
+      try { await client.query('ROLLBACK'); } catch (rollbackErr) {}
+      console.error('❌ Errore riordino office-activation-guides:', err);
+      res.status(500).json({ error: 'Errore interno' });
+    } finally {
+      client.release();
+    }
+  });
+
+  // DELETE /api/keepass/office-activation-guides/:id - Elimina guida (solo tecnico/admin)
+  router.delete('/office-activation-guides/:id', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (!Number.isInteger(id)) return res.status(400).json({ error: 'ID non valido' });
+      await ensureOfficeActivationGuidesTables();
+      const del = await pool.query('DELETE FROM office_activation_guides WHERE id = $1 RETURNING id', [id]);
+      if (del.rows.length === 0) return res.status(404).json({ error: 'Guida non trovata' });
+      res.json({ success: true });
+    } catch (err) {
+      console.error('❌ Errore eliminazione office-activation-guide:', err);
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
   // Migrazione tabella email_expiry_info (scadenza editabile come Anti-Virus)
   const ensureEmailExpiryTable = async () => {
     await pool.query(`
