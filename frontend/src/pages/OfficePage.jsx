@@ -1,7 +1,7 @@
 // frontend/src/pages/OfficePage.jsx
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader, Calendar, X, StickyNote, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { Loader, Calendar, X, Eye, EyeOff, RefreshCw, ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 import OfficeIntroCard from '../components/OfficeIntroCard';
@@ -20,6 +20,14 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
   const [cardStatuses, setCardStatuses] = useState({});  // chiave = "title||username" → { note }
   const [visiblePasswords, setVisiblePasswords] = useState({});
   const [loadingPasswords, setLoadingPasswords] = useState({});
+  const [activeView, setActiveView] = useState('licenses');
+  const [downloadLinks, setDownloadLinks] = useState([]);
+  const [loadingDownloadLinks, setLoadingDownloadLinks] = useState(false);
+  const [downloadError, setDownloadError] = useState(null);
+  const [newDownload, setNewDownload] = useState({ description: '', url: '' });
+  const [savingDownload, setSavingDownload] = useState(false);
+  const [editingDownloadId, setEditingDownloadId] = useState(null);
+  const [editingDownload, setEditingDownload] = useState({ description: '', url: '' });
 
   // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
   useEffect(() => {
@@ -119,6 +127,120 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
     setVisiblePasswords({});
     setLoadingPasswords({});
     await loadOfficeData(selectedCompanyId);
+  };
+
+  const loadDownloadLinks = useCallback(async (azienda) => {
+    if (!azienda || !getAuthHeader) return;
+    setLoadingDownloadLinks(true);
+    setDownloadError(null);
+    try {
+      const res = await fetch(buildApiUrl(`/api/keepass/office-download-links/${encodeURIComponent(azienda)}`), {
+        headers: getAuthHeader(),
+        cache: 'no-store'
+      });
+      if (!res.ok) {
+        throw new Error('Errore nel caricamento dei link download');
+      }
+      const data = await res.json();
+      setDownloadLinks(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Errore caricamento office download links:', err);
+      setDownloadError('Impossibile caricare i link download');
+      setDownloadLinks([]);
+    } finally {
+      setLoadingDownloadLinks(false);
+    }
+  }, [getAuthHeader]);
+
+  useEffect(() => {
+    if (!selectedCompanyValid || !companyName) {
+      setDownloadLinks([]);
+      setDownloadError(null);
+      setActiveView('licenses');
+      return;
+    }
+    loadDownloadLinks(companyName);
+  }, [selectedCompanyValid, companyName, loadDownloadLinks]);
+
+  const handleCreateDownloadLink = async () => {
+    if (!isTecnico || !companyName || savingDownload) return;
+    const description = newDownload.description.trim();
+    const url = newDownload.url.trim();
+    if (!description || !url) return;
+
+    setSavingDownload(true);
+    try {
+      const res = await fetch(buildApiUrl('/api/keepass/office-download-links'), {
+        method: 'POST',
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          azienda_name: companyName,
+          description,
+          url,
+          sort_order: downloadLinks.length
+        })
+      });
+      if (!res.ok) throw new Error('Errore creazione link');
+      setNewDownload({ description: '', url: '' });
+      await loadDownloadLinks(companyName);
+    } catch (err) {
+      console.error('Errore creazione link download:', err);
+      setDownloadError('Impossibile creare il link');
+    } finally {
+      setSavingDownload(false);
+    }
+  };
+
+  const handleSaveDownloadLink = async (id) => {
+    if (!isTecnico || !companyName || !id) return;
+    const description = editingDownload.description.trim();
+    const url = editingDownload.url.trim();
+    if (!description || !url) return;
+
+    setSavingDownload(true);
+    try {
+      const target = downloadLinks.find(link => link.id === id);
+      const res = await fetch(buildApiUrl(`/api/keepass/office-download-links/${id}`), {
+        method: 'PUT',
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description,
+          url,
+          sort_order: target?.sort_order ?? 0
+        })
+      });
+      if (!res.ok) throw new Error('Errore aggiornamento link');
+      setEditingDownloadId(null);
+      setEditingDownload({ description: '', url: '' });
+      await loadDownloadLinks(companyName);
+    } catch (err) {
+      console.error('Errore salvataggio link download:', err);
+      setDownloadError('Impossibile aggiornare il link');
+    } finally {
+      setSavingDownload(false);
+    }
+  };
+
+  const handleDeleteDownloadLink = async (id) => {
+    if (!isTecnico || !companyName || !id || savingDownload) return;
+    setSavingDownload(true);
+    try {
+      const res = await fetch(buildApiUrl(`/api/keepass/office-download-links/${id}`), {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+      if (!res.ok) throw new Error('Errore eliminazione link');
+      if (editingDownloadId === id) {
+        setEditingDownloadId(null);
+        setEditingDownload({ description: '', url: '' });
+      }
+      await loadDownloadLinks(companyName);
+    } catch (err) {
+      console.error('Errore eliminazione link download:', err);
+      setDownloadError('Impossibile eliminare il link');
+    } finally {
+      setSavingDownload(false);
+    }
   };
 
   const loadOfficeData = async (companyIdOverride = null) => {
@@ -369,8 +491,18 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
           </div>
         )}
 
-        {!loading && !error && officeData && (
+        {!loading && !error && officeData && activeView === 'licenses' && (
           <div className="max-w-7xl mx-auto">
+            <div className="mb-4 bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+              <p className="text-sm text-gray-700">Download Office</p>
+              <button
+                type="button"
+                onClick={() => setActiveView('downloads')}
+                className="shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+              >
+                Apri download
+              </button>
+            </div>
             <div className="mb-4 bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
               <p className="text-sm text-gray-700">Attivazione licenza Office</p>
               <a
@@ -564,6 +696,162 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
             ) : (
               <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
                 <p className="text-gray-500 italic">Nessun file trovato nel gruppo Office</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!loading && !error && officeData && activeView === 'downloads' && (
+          <div className="max-w-5xl mx-auto">
+            <div className="mb-4 bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-gray-900">Download Office</p>
+                <p className="text-xs text-gray-500">I tecnici possono creare e aggiornare i link. Gli utenti possono solo aprirli.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveView('licenses')}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+              >
+                <ArrowLeft size={13} />
+                Torna a Office
+              </button>
+            </div>
+
+            {isTecnico && (
+              <div className="mb-4 bg-white border border-gray-200 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Nuovo link download</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    value={newDownload.description}
+                    onChange={(e) => setNewDownload((prev) => ({ ...prev, description: e.target.value }))}
+                    placeholder="Descrizione (es. Office 2024 Pro Plus)"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="url"
+                    value={newDownload.url}
+                    onChange={(e) => setNewDownload((prev) => ({ ...prev, url: e.target.value }))}
+                    placeholder="https://..."
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={handleCreateDownloadLink}
+                    disabled={savingDownload || !newDownload.description.trim() || !newDownload.url.trim()}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    <Plus size={13} />
+                    Aggiungi link
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {loadingDownloadLinks ? (
+              <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
+                <Loader size={24} className="animate-spin text-blue-600 mx-auto mb-2" />
+                <p className="text-sm text-gray-600">Caricamento link download...</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {downloadError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                    {downloadError}
+                  </div>
+                )}
+                {downloadLinks.length === 0 && !downloadError && (
+                  <div className="bg-white border border-gray-200 rounded-lg p-6 text-sm text-gray-500 italic">
+                    Nessun link download configurato per questa azienda
+                  </div>
+                )}
+                {downloadLinks.map((link) => {
+                  const isEditing = editingDownloadId === link.id;
+                  return (
+                    <div key={link.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                      {isEditing ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <input
+                            type="text"
+                            value={editingDownload.description}
+                            onChange={(e) => setEditingDownload((prev) => ({ ...prev, description: e.target.value }))}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <input
+                            type="url"
+                            value={editingDownload.url}
+                            onChange={(e) => setEditingDownload((prev) => ({ ...prev, url: e.target.value }))}
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          <p className="text-sm font-semibold text-gray-900">{link.description}</p>
+                          <p className="text-xs text-gray-500 break-all">{link.url}</p>
+                        </div>
+                      )}
+
+                      <div className="mt-3 flex items-center gap-2">
+                        <a
+                          href={isEditing ? editingDownload.url : link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+                        >
+                          Apri link
+                        </a>
+                        {isTecnico && !isEditing && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingDownloadId(link.id);
+                              setEditingDownload({ description: link.description || '', url: link.url || '' });
+                            }}
+                            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+                          >
+                            Modifica
+                          </button>
+                        )}
+                        {isTecnico && isEditing && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveDownloadLink(link.id)}
+                              disabled={savingDownload || !editingDownload.description.trim() || !editingDownload.url.trim()}
+                              className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                            >
+                              Salva
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingDownloadId(null);
+                                setEditingDownload({ description: '', url: '' });
+                              }}
+                              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+                            >
+                              Annulla
+                            </button>
+                          </>
+                        )}
+                        {isTecnico && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDownloadLink(link.id)}
+                            disabled={savingDownload}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
+                          >
+                            <Trash2 size={12} />
+                            Elimina
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
