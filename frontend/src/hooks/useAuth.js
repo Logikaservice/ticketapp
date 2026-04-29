@@ -8,6 +8,19 @@ export const useAuth = (showNotification) => {
   const [token, setToken] = useState(localStorage.getItem('authToken'));
   const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken'));
 
+  // Mantieni il token React sincronizzato quando viene aggiornato globalmente
+  useEffect(() => {
+    const handleTokenUpdated = (event) => {
+      const updatedToken = event?.detail?.token;
+      if (updatedToken) {
+        setToken(updatedToken);
+      }
+    };
+
+    window.addEventListener('auth-token-updated', handleTokenUpdated);
+    return () => window.removeEventListener('auth-token-updated', handleTokenUpdated);
+  }, []);
+
   // Verifica token al caricamento
   useEffect(() => {
     // Verifica se c'è un monitor autorizzato (bypass login per monitor)
@@ -81,6 +94,7 @@ export const useAuth = (showNotification) => {
         const data = await response.json();
         setToken(data.token);
         localStorage.setItem('authToken', data.token);
+        window.dispatchEvent(new CustomEvent('auth-token-updated', { detail: { token: data.token } }));
         console.log('🔄 Token rinnovato automaticamente');
       } else {
         handleLogout();
@@ -148,10 +162,13 @@ export const useAuth = (showNotification) => {
 
       localStorage.removeItem('sessionExpiredReason');
 
-      // Carica il timeout di inattività dal database (se presente) o usa localStorage
+      // Carica il timeout di inattività dal database; fallback per ruolo
       const dbTimeout = loginResponse.user.inactivity_timeout_minutes;
       if (dbTimeout !== undefined && dbTimeout !== null) {
         localStorage.setItem('inactivityTimeout', dbTimeout.toString());
+      } else {
+        const defaultTimeout = loginResponse.user.ruolo === 'tecnico' ? 30 : 3;
+        localStorage.setItem('inactivityTimeout', defaultTimeout.toString());
       }
 
       showNotification(`Benvenuto ${loginResponse.user.nome}!`, 'success');

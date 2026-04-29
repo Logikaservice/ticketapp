@@ -8,6 +8,7 @@ const InactivityTimerModal = ({ closeModal, currentTimeout, onTimeoutChange }) =
     { value: 1, label: '1 minuto' },
     { value: 3, label: '3 minuti' },
     { value: 6, label: '6 minuti' },
+    { value: 30, label: '30 minuti' },
     { value: 0, label: 'Mai' }
   ];
 

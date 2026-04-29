@@ -623,7 +623,7 @@ export default function TicketApp() {
   // Protezione contro chiamate multiple per cambio stato
   const isChangingStatusRef = useRef(false);
   const [pendingAlertData, setPendingAlertData] = useState(null);
-  // Timer di inattività (solo per clienti)
+  // Timer di inattività (clienti + tecnici)
   const [showInactivityTimerDialog, setShowInactivityTimerDialog] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
   const [showContractsListModal, setShowContractsListModal] = useState(false);
@@ -727,6 +727,130 @@ export default function TicketApp() {
     handleLogoutRef.current = handleLogout;
     showNotificationRef.current = showNotification;
   }, [handleLogout, showNotification]);
+
+  // Gestione globale 401: refresh token automatico + retry richiesta API
+  useEffect(() => {
+    if (!isLoggedIn) {
+      return;
+    }
+
+    const originalFetch = window.fetch.bind(window);
+    let refreshPromise = null;
+
+    const getRequestUrl = (input) => {
+      if (typeof input === 'string') return input;
+      if (input?.url) return input.url;
+      return '';
+    };
+
+    const hasAuthorizationHeader = (input, init) => {
+      const headers = init?.headers || (input instanceof Request ? input.headers : null);
+      if (!headers) return false;
+
+      if (headers instanceof Headers) {
+        return Boolean(headers.get('Authorization') || headers.get('authorization'));
+      }
+
+      return Boolean(headers.Authorization || headers.authorization);
+    };
+
+    const refreshAccessToken = async () => {
+      if (refreshPromise) {
+        return refreshPromise;
+      }
+
+      refreshPromise = (async () => {
+        const storedRefreshToken = localStorage.getItem('refreshToken');
+        if (!storedRefreshToken) {
+          throw new Error('Refresh token mancante');
+        }
+
+        const refreshResponse = await originalFetch(buildApiUrl('/api/refresh-token'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: storedRefreshToken })
+        });
+
+        if (!refreshResponse.ok) {
+          throw new Error(`Refresh token fallito (${refreshResponse.status})`);
+        }
+
+        const refreshData = await refreshResponse.json();
+        if (!refreshData?.token) {
+          throw new Error('Nuovo token non presente nella risposta');
+        }
+
+        localStorage.setItem('authToken', refreshData.token);
+        window.dispatchEvent(new CustomEvent('auth-token-updated', { detail: { token: refreshData.token } }));
+        return refreshData.token;
+      })().finally(() => {
+        refreshPromise = null;
+      });
+
+      return refreshPromise;
+    };
+
+    const wrappedFetch = async (input, init = {}) => {
+      const requestUrl = getRequestUrl(input);
+      const isApiCall = requestUrl.includes('/api/');
+      const isRefreshCall = requestUrl.includes('/api/refresh-token');
+      const skipAuthRetry = Boolean(init?._skipAuthRefresh);
+
+      const response = await originalFetch(input, init);
+
+      if (
+        response.status !== 401 ||
+        !isApiCall ||
+        isRefreshCall ||
+        skipAuthRetry ||
+        !hasAuthorizationHeader(input, init)
+      ) {
+        return response;
+      }
+
+      try {
+        const freshToken = await refreshAccessToken();
+        const retryHeaders = new Headers(init.headers || (input instanceof Request ? input.headers : undefined));
+        retryHeaders.set('Authorization', `Bearer ${freshToken}`);
+
+        return await originalFetch(input, {
+          ...init,
+          headers: retryHeaders,
+          _skipAuthRefresh: true
+        });
+      } catch (refreshError) {
+        console.warn('⚠️ Refresh token non riuscito, forzo logout:', refreshError?.message || refreshError);
+        localStorage.setItem('sessionExpiredReason', 'tokenExpired');
+        if (handleLogoutRef.current) {
+          handleLogoutRef.current();
+        }
+        return response;
+      }
+    };
+
+    window.fetch = wrappedFetch;
+
+    return () => {
+      window.fetch = originalFetch;
+    };
+  }, [isLoggedIn]);
+
+  // Sincronizza timeout inattività al login in base a utente/ruolo
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser) {
+      return;
+    }
+
+    const dbTimeout = currentUser.inactivity_timeout_minutes;
+    const defaultTimeout = currentUser.ruolo === 'tecnico' ? 30 : 3;
+    const nextTimeout =
+      Number.isFinite(Number(dbTimeout)) && Number(dbTimeout) >= 0
+        ? Number(dbTimeout)
+        : defaultTimeout;
+
+    setInactivityTimeout(nextTimeout);
+    localStorage.setItem('inactivityTimeout', nextTimeout.toString());
+  }, [isLoggedIn, currentUser?.id, currentUser?.ruolo, currentUser?.inactivity_timeout_minutes]);
 
   // Hook per Google Calendar
   const { syncTicketToCalendarBackend } = useGoogleCalendar(getAuthHeader);
@@ -1408,11 +1532,13 @@ export default function TicketApp() {
   }, []);
 
   // ====================================================================
-  // TIMER DI INATTIVITÀ (solo per clienti)
+  // TIMER DI INATTIVITÀ (clienti + tecnici)
   // ====================================================================
   useEffect(() => {
-    // Applica solo ai clienti
-    if (currentUser?.ruolo !== 'cliente' || !isLoggedIn) {
+    // Applica solo a clienti e tecnici autenticati
+    const userRole = currentUser?.ruolo;
+    const supportsInactivityTimeout = userRole === 'cliente' || userRole === 'tecnico';
+    if (!isLoggedIn || !supportsInactivityTimeout) {
       return;
     }
 

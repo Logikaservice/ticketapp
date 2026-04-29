@@ -96,6 +96,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       hasSubActions: true,
       subActions: [
         { label: 'Account', icon: Settings, color: 'slate', onClick: () => { openSettings(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } },
+        ...(openInactivityTimer ? [{ label: 'Timer Inattività', icon: Clock, color: 'sky', onClick: () => { openInactivityTimer(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } }] : []),
         { label: 'Nuove funzionalità', icon: Sparkles, color: 'emerald', onClick: () => { openAlertsHistory(); setShowQuickActions(false); setExpandedAction(null); setExpandedSubAction(null); } },
         {
           label: 'Gestione Clienti', icon: Users, color: 'blue',

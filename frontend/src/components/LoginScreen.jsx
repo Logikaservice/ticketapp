@@ -29,6 +29,8 @@ const LoginScreen = ({
     const expiredReason = localStorage.getItem('sessionExpiredReason');
     if (expiredReason === 'inactivity') {
       setSessionExpiredMsg('Disconnesso per inattività');
+    } else if (expiredReason === 'tokenExpired') {
+      setSessionExpiredMsg('Sessione scaduta, effettua di nuovo l\'accesso');
     }
   }, []);
 
