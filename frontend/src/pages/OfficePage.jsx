@@ -1,7 +1,7 @@
 // frontend/src/pages/OfficePage.jsx
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader, Calendar, X, Eye, EyeOff, RefreshCw, ArrowLeft, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Loader, Calendar, X, Eye, EyeOff, RefreshCw, ArrowLeft, Plus, Trash2, GripVertical } from 'lucide-react';
 import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 import OfficeIntroCard from '../components/OfficeIntroCard';
@@ -28,6 +28,8 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
   const [savingDownload, setSavingDownload] = useState(false);
   const [editingDownloadId, setEditingDownloadId] = useState(null);
   const [editingDownload, setEditingDownload] = useState({ description: '', url: '' });
+  const [draggingDownloadId, setDraggingDownloadId] = useState(null);
+  const [dragOverDownloadId, setDragOverDownloadId] = useState(null);
 
   // Sincronizza lo stato locale con initialCompanyId se cambia esternamente
   useEffect(() => {
@@ -243,19 +245,12 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
     }
   };
 
-  const handleMoveDownloadLink = async (index, direction) => {
+  const persistDownloadOrder = async (reordered) => {
     if (!isTecnico || !companyName || savingDownload) return;
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= downloadLinks.length) return;
-
-    const reordered = [...downloadLinks];
-    const [moved] = reordered.splice(index, 1);
-    reordered.splice(targetIndex, 0, moved);
-
     setSavingDownload(true);
     setDownloadError(null);
     try {
-      const res = await fetch(buildApiUrl('/api/keepass/office-download-links/reorder'), {
+      const res = await fetch(buildApiUrl('/api/keepass/office-download-links-reorder'), {
         method: 'PUT',
         headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -272,6 +267,28 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
     } finally {
       setSavingDownload(false);
     }
+  };
+
+  const handleDownloadDrop = async (targetId) => {
+    if (!isTecnico || !draggingDownloadId || draggingDownloadId === targetId) {
+      setDraggingDownloadId(null);
+      setDragOverDownloadId(null);
+      return;
+    }
+    const fromIndex = downloadLinks.findIndex((item) => item.id === draggingDownloadId);
+    const toIndex = downloadLinks.findIndex((item) => item.id === targetId);
+    if (fromIndex < 0 || toIndex < 0) {
+      setDraggingDownloadId(null);
+      setDragOverDownloadId(null);
+      return;
+    }
+
+    const reordered = [...downloadLinks];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    setDraggingDownloadId(null);
+    setDragOverDownloadId(null);
+    await persistDownloadOrder(reordered);
   };
 
   const loadOfficeData = async (companyIdOverride = null) => {
@@ -799,10 +816,33 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                     Nessun link download configurato per questa azienda
                   </div>
                 )}
-                {downloadLinks.map((link, index) => {
+                {downloadLinks.map((link) => {
                   const isEditing = editingDownloadId === link.id;
+                  const isDragOver = dragOverDownloadId === link.id;
                   return (
-                    <div key={link.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div
+                      key={link.id}
+                      className={`bg-white border rounded-lg p-4 transition-colors ${isDragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200'}`}
+                      draggable={isTecnico && !isEditing}
+                      onDragStart={() => {
+                        if (!isTecnico || isEditing) return;
+                        setDraggingDownloadId(link.id);
+                        setDragOverDownloadId(link.id);
+                      }}
+                      onDragOver={(e) => {
+                        if (!isTecnico || !draggingDownloadId || isEditing) return;
+                        e.preventDefault();
+                        setDragOverDownloadId(link.id);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        handleDownloadDrop(link.id);
+                      }}
+                      onDragEnd={() => {
+                        setDraggingDownloadId(null);
+                        setDragOverDownloadId(null);
+                      }}
+                    >
                       {isEditing ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <input
@@ -826,6 +866,15 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                       )}
 
                       <div className="mt-3 flex items-center gap-2">
+                        {isTecnico && !isEditing && (
+                          <div
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-500 bg-gray-50 border border-gray-200 rounded"
+                            title="Trascina per riordinare"
+                          >
+                            <GripVertical size={12} />
+                            Trascina
+                          </div>
+                        )}
                         <a
                           href={isEditing ? editingDownload.url : link.url}
                           target="_blank"
@@ -834,28 +883,6 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                         >
                           Apri link
                         </a>
-                        {isTecnico && !isEditing && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleMoveDownloadLink(index, 'up')}
-                              disabled={savingDownload || index === 0}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
-                              title="Sposta in alto"
-                            >
-                              <ArrowUp size={12} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleMoveDownloadLink(index, 'down')}
-                              disabled={savingDownload || index === downloadLinks.length - 1}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
-                              title="Sposta in basso"
-                            >
-                              <ArrowDown size={12} />
-                            </button>
-                          </>
-                        )}
                         {isTecnico && !isEditing && (
                           <button
                             type="button"

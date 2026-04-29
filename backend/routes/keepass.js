@@ -2005,8 +2005,8 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
-  // PUT /api/keepass/office-download-links/reorder - Riordina i link download (solo tecnico/admin)
-  router.put('/office-download-links/reorder', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
+  // PUT /api/keepass/office-download-links-reorder - Riordina i link download (solo tecnico/admin)
+  router.put('/office-download-links-reorder', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
     const client = await pool.connect();
     try {
       const { azienda_name, ordered_ids } = req.body;
