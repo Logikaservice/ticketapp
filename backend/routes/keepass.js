@@ -1901,23 +1901,33 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
-  // === Tabella office_download_links: link download Office per azienda ===
+  // === Tabelle office_download_groups + office_download_group_links ===
   const ensureOfficeDownloadLinksTable = async () => {
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS office_download_links (
+      CREATE TABLE IF NOT EXISTS office_download_groups (
         id SERIAL PRIMARY KEY,
         azienda_name VARCHAR(255) NOT NULL,
-        description TEXT NOT NULL,
-        url TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
         sort_order INTEGER NOT NULL DEFAULT 0,
         updated_by INTEGER,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS office_download_group_links (
+        id SERIAL PRIMARY KEY,
+        group_id INTEGER NOT NULL REFERENCES office_download_groups(id) ON DELETE CASCADE,
+        label TEXT NOT NULL,
+        url TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
   };
   ensureOfficeDownloadLinksTable().catch(err => console.warn('⚠️ Errore creazione tabella office_download_links:', err.message));
 
-  // GET /api/keepass/office-download-links/:aziendaName - Elenco link download Office per azienda
+  // GET /api/keepass/office-download-links/:aziendaName - Elenco blocchi download Office per azienda
   router.get('/office-download-links/:aziendaName', authenticateToken, async (req, res) => {
     try {
       const userRole = req.user?.ruolo;
@@ -1937,71 +1947,151 @@ module.exports = function createKeepassRouter(pool) {
       }
 
       await ensureOfficeDownloadLinksTable();
-      const result = await pool.query(
-        `SELECT id, description, url, sort_order, updated_at
-         FROM office_download_links
+      const groupsRes = await pool.query(
+        `SELECT id, title, description, sort_order, updated_at
+         FROM office_download_groups
          WHERE azienda_name = $1
          ORDER BY sort_order ASC, id ASC`,
         [aziendaName]
       );
-      res.json(result.rows);
+      const groupIds = groupsRes.rows.map((g) => g.id);
+      let linksMap = {};
+      if (groupIds.length > 0) {
+        const linksRes = await pool.query(
+          `SELECT id, group_id, label, url, sort_order
+           FROM office_download_group_links
+           WHERE group_id = ANY($1::int[])
+           ORDER BY sort_order ASC, id ASC`,
+          [groupIds]
+        );
+        linksMap = linksRes.rows.reduce((acc, row) => {
+          if (!acc[row.group_id]) acc[row.group_id] = [];
+          acc[row.group_id].push({
+            id: row.id,
+            label: row.label,
+            url: row.url,
+            sort_order: row.sort_order
+          });
+          return acc;
+        }, {});
+      }
+
+      res.json(groupsRes.rows.map((group) => ({
+        ...group,
+        links: linksMap[group.id] || []
+      })));
     } catch (err) {
       console.error('❌ Errore recupero office-download-links:', err);
       res.status(500).json({ error: 'Errore interno' });
     }
   });
 
-  // POST /api/keepass/office-download-links - Crea nuovo link download (solo tecnico/admin)
+  // POST /api/keepass/office-download-links - Crea nuovo blocco download (solo tecnico/admin)
   router.post('/office-download-links', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
+    const client = await pool.connect();
     try {
-      const { azienda_name, description, url, sort_order } = req.body;
-      if (!azienda_name || !description || !url) {
-        return res.status(400).json({ error: 'azienda_name, description e url sono obbligatori' });
+      const { azienda_name, title, description, links, sort_order } = req.body;
+      if (!azienda_name || !title || !Array.isArray(links) || links.length === 0) {
+        return res.status(400).json({ error: 'azienda_name, title e almeno un link sono obbligatori' });
       }
 
       await ensureOfficeDownloadLinksTable();
       const parsedOrder = Number.isFinite(Number(sort_order)) ? Number(sort_order) : 0;
-      const insert = await pool.query(
-        `INSERT INTO office_download_links (azienda_name, description, url, sort_order, updated_by, updated_at)
+      const cleanLinks = links
+        .map((l) => ({
+          label: String(l?.label || '').trim(),
+          url: String(l?.url || '').trim()
+        }))
+        .filter((l) => l.label && l.url);
+      if (cleanLinks.length === 0) {
+        return res.status(400).json({ error: 'Inserisci almeno un link valido' });
+      }
+
+      await client.query('BEGIN');
+      const groupInsert = await client.query(
+        `INSERT INTO office_download_groups (azienda_name, title, description, sort_order, updated_by, updated_at)
          VALUES ($1, $2, $3, $4, $5, NOW())
-         RETURNING id, description, url, sort_order, updated_at`,
-        [String(azienda_name).split(':')[0].trim(), String(description).trim(), String(url).trim(), parsedOrder, req.user?.id || null]
+         RETURNING id, title, description, sort_order, updated_at`,
+        [
+          String(azienda_name).split(':')[0].trim(),
+          String(title).trim(),
+          String(description || '').trim(),
+          parsedOrder,
+          req.user?.id || null
+        ]
       );
-      res.status(201).json(insert.rows[0]);
+      const group = groupInsert.rows[0];
+      for (let idx = 0; idx < cleanLinks.length; idx += 1) {
+        await client.query(
+          `INSERT INTO office_download_group_links (group_id, label, url, sort_order, updated_at)
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [group.id, cleanLinks[idx].label, cleanLinks[idx].url, idx]
+        );
+      }
+      await client.query('COMMIT');
+      res.status(201).json({ ...group, links: cleanLinks.map((l, idx) => ({ ...l, sort_order: idx })) });
     } catch (err) {
+      try { await client.query('ROLLBACK'); } catch (rollbackErr) {}
       console.error('❌ Errore creazione office-download-link:', err);
       res.status(500).json({ error: 'Errore interno' });
+    } finally {
+      client.release();
     }
   });
 
-  // PUT /api/keepass/office-download-links/:id - Aggiorna link download (solo tecnico/admin)
+  // PUT /api/keepass/office-download-links/:id - Aggiorna blocco download (solo tecnico/admin)
   router.put('/office-download-links/:id', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
+    const client = await pool.connect();
     try {
       const id = parseInt(req.params.id, 10);
       if (!Number.isInteger(id)) {
         return res.status(400).json({ error: 'ID non valido' });
       }
-      const { description, url, sort_order } = req.body;
-      if (!description || !url) {
-        return res.status(400).json({ error: 'description e url sono obbligatori' });
+      const { title, description, links, sort_order } = req.body;
+      if (!title || !Array.isArray(links) || links.length === 0) {
+        return res.status(400).json({ error: 'title e almeno un link sono obbligatori' });
       }
 
       await ensureOfficeDownloadLinksTable();
       const parsedOrder = Number.isFinite(Number(sort_order)) ? Number(sort_order) : 0;
-      const result = await pool.query(
-        `UPDATE office_download_links
-         SET description = $1, url = $2, sort_order = $3, updated_by = $4, updated_at = NOW()
+      const cleanLinks = links
+        .map((l) => ({
+          label: String(l?.label || '').trim(),
+          url: String(l?.url || '').trim()
+        }))
+        .filter((l) => l.label && l.url);
+      if (cleanLinks.length === 0) {
+        return res.status(400).json({ error: 'Inserisci almeno un link valido' });
+      }
+
+      await client.query('BEGIN');
+      const result = await client.query(
+        `UPDATE office_download_groups
+         SET title = $1, description = $2, sort_order = $3, updated_by = $4, updated_at = NOW()
          WHERE id = $5
-         RETURNING id, description, url, sort_order, updated_at`,
-        [String(description).trim(), String(url).trim(), parsedOrder, req.user?.id || null, id]
+         RETURNING id, title, description, sort_order, updated_at`,
+        [String(title).trim(), String(description || '').trim(), parsedOrder, req.user?.id || null, id]
       );
       if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
         return res.status(404).json({ error: 'Link non trovato' });
       }
-      res.json(result.rows[0]);
+      await client.query('DELETE FROM office_download_group_links WHERE group_id = $1', [id]);
+      for (let idx = 0; idx < cleanLinks.length; idx += 1) {
+        await client.query(
+          `INSERT INTO office_download_group_links (group_id, label, url, sort_order, updated_at)
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [id, cleanLinks[idx].label, cleanLinks[idx].url, idx]
+        );
+      }
+      await client.query('COMMIT');
+      res.json({ ...result.rows[0], links: cleanLinks.map((l, idx) => ({ ...l, sort_order: idx })) });
     } catch (err) {
+      try { await client.query('ROLLBACK'); } catch (rollbackErr) {}
       console.error('❌ Errore aggiornamento office-download-link:', err);
       res.status(500).json({ error: 'Errore interno' });
+    } finally {
+      client.release();
     }
   });
 
@@ -2024,7 +2114,7 @@ module.exports = function createKeepassRouter(pool) {
       await ensureOfficeDownloadLinksTable();
       await client.query('BEGIN');
       const existing = await client.query(
-        'SELECT id FROM office_download_links WHERE azienda_name = $1',
+        'SELECT id FROM office_download_groups WHERE azienda_name = $1',
         [cleanAzienda]
       );
       const existingIds = new Set(existing.rows.map((r) => r.id));
@@ -2035,7 +2125,7 @@ module.exports = function createKeepassRouter(pool) {
 
       for (let idx = 0; idx < ids.length; idx += 1) {
         await client.query(
-          `UPDATE office_download_links
+          `UPDATE office_download_groups
            SET sort_order = $1, updated_by = $2, updated_at = NOW()
            WHERE id = $3`,
           [idx, req.user?.id || null, ids[idx]]
@@ -2053,7 +2143,7 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
-  // DELETE /api/keepass/office-download-links/:id - Elimina link download (solo tecnico/admin)
+  // DELETE /api/keepass/office-download-links/:id - Elimina blocco download (solo tecnico/admin)
   router.delete('/office-download-links/:id', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
     try {
       const id = parseInt(req.params.id, 10);
@@ -2062,7 +2152,7 @@ module.exports = function createKeepassRouter(pool) {
       }
 
       await ensureOfficeDownloadLinksTable();
-      const result = await pool.query('DELETE FROM office_download_links WHERE id = $1 RETURNING id', [id]);
+      const result = await pool.query('DELETE FROM office_download_groups WHERE id = $1 RETURNING id', [id]);
       if (result.rows.length === 0) {
         return res.status(404).json({ error: 'Link non trovato' });
       }
@@ -2070,6 +2160,54 @@ module.exports = function createKeepassRouter(pool) {
     } catch (err) {
       console.error('❌ Errore eliminazione office-download-link:', err);
       res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  // Compat: vecchia route deprecata (mantieni fallback)
+  router.put('/office-download-links/reorder', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const { azienda_name, ordered_ids } = req.body;
+      if (!azienda_name || !Array.isArray(ordered_ids) || ordered_ids.length === 0) {
+        return res.status(400).json({ error: 'azienda_name e ordered_ids sono obbligatori' });
+      }
+      const cleanAzienda = String(azienda_name).split(':')[0].trim();
+      const ids = ordered_ids
+        .map((id) => parseInt(id, 10))
+        .filter((id) => Number.isInteger(id));
+      if (ids.length !== ordered_ids.length) {
+        return res.status(400).json({ error: 'ordered_ids contiene valori non validi' });
+      }
+
+      await ensureOfficeDownloadLinksTable();
+      await client.query('BEGIN');
+      const existing = await client.query(
+        'SELECT id FROM office_download_groups WHERE azienda_name = $1',
+        [cleanAzienda]
+      );
+      const existingIds = new Set(existing.rows.map((r) => r.id));
+      if (ids.some((id) => !existingIds.has(id)) || existingIds.size !== ids.length) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'La lista ordered_ids non corrisponde ai link esistenti per azienda' });
+      }
+
+      for (let idx = 0; idx < ids.length; idx += 1) {
+        await client.query(
+          `UPDATE office_download_groups
+           SET sort_order = $1, updated_by = $2, updated_at = NOW()
+           WHERE id = $3`,
+          [idx, req.user?.id || null, ids[idx]]
+        );
+      }
+
+      await client.query('COMMIT');
+      res.json({ success: true });
+    } catch (err) {
+      try { await client.query('ROLLBACK'); } catch (rollbackErr) {}
+      console.error('❌ Errore riordino office-download-links:', err);
+      res.status(500).json({ error: 'Errore interno' });
+    } finally {
+      client.release();
     }
   });
 

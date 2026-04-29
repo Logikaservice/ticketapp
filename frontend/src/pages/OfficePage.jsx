@@ -24,10 +24,10 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
   const [downloadLinks, setDownloadLinks] = useState([]);
   const [loadingDownloadLinks, setLoadingDownloadLinks] = useState(false);
   const [downloadError, setDownloadError] = useState(null);
-  const [newDownload, setNewDownload] = useState({ description: '', url: '' });
+  const [newDownload, setNewDownload] = useState({ title: '', description: '', links: [{ label: '', url: '' }] });
   const [savingDownload, setSavingDownload] = useState(false);
   const [editingDownloadId, setEditingDownloadId] = useState(null);
-  const [editingDownload, setEditingDownload] = useState({ description: '', url: '' });
+  const [editingDownload, setEditingDownload] = useState({ title: '', description: '', links: [{ label: '', url: '' }] });
   const [draggingDownloadId, setDraggingDownloadId] = useState(null);
   const [dragOverDownloadId, setDragOverDownloadId] = useState(null);
 
@@ -166,9 +166,12 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
 
   const handleCreateDownloadLink = async () => {
     if (!isTecnico || !companyName || savingDownload) return;
+    const title = newDownload.title.trim();
     const description = newDownload.description.trim();
-    const url = newDownload.url.trim();
-    if (!description || !url) return;
+    const links = (newDownload.links || [])
+      .map((link) => ({ label: String(link.label || '').trim(), url: String(link.url || '').trim() }))
+      .filter((link) => link.label && link.url);
+    if (!title || links.length === 0) return;
 
     setSavingDownload(true);
     try {
@@ -177,13 +180,14 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
         headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
           azienda_name: companyName,
+          title,
           description,
-          url,
+          links,
           sort_order: downloadLinks.length
         })
       });
       if (!res.ok) throw new Error('Errore creazione link');
-      setNewDownload({ description: '', url: '' });
+      setNewDownload({ title: '', description: '', links: [{ label: '', url: '' }] });
       await loadDownloadLinks(companyName);
     } catch (err) {
       console.error('Errore creazione link download:', err);
@@ -195,9 +199,12 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
 
   const handleSaveDownloadLink = async (id) => {
     if (!isTecnico || !companyName || !id) return;
+    const title = editingDownload.title.trim();
     const description = editingDownload.description.trim();
-    const url = editingDownload.url.trim();
-    if (!description || !url) return;
+    const links = (editingDownload.links || [])
+      .map((link) => ({ label: String(link.label || '').trim(), url: String(link.url || '').trim() }))
+      .filter((link) => link.label && link.url);
+    if (!title || links.length === 0) return;
 
     setSavingDownload(true);
     try {
@@ -206,14 +213,15 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
         method: 'PUT',
         headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          title,
           description,
-          url,
+          links,
           sort_order: target?.sort_order ?? 0
         })
       });
       if (!res.ok) throw new Error('Errore aggiornamento link');
       setEditingDownloadId(null);
-      setEditingDownload({ description: '', url: '' });
+      setEditingDownload({ title: '', description: '', links: [{ label: '', url: '' }] });
       await loadDownloadLinks(companyName);
     } catch (err) {
       console.error('Errore salvataggio link download:', err);
@@ -234,7 +242,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
       if (!res.ok) throw new Error('Errore eliminazione link');
       if (editingDownloadId === id) {
         setEditingDownloadId(null);
-        setEditingDownload({ description: '', url: '' });
+        setEditingDownload({ title: '', description: '', links: [{ label: '', url: '' }] });
       }
       await loadDownloadLinks(companyName);
     } catch (err) {
@@ -243,6 +251,46 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
     } finally {
       setSavingDownload(false);
     }
+  };
+
+  const updateNewLinkField = (index, field, value) => {
+    setNewDownload((prev) => {
+      const nextLinks = [...(prev.links || [])];
+      nextLinks[index] = { ...(nextLinks[index] || { label: '', url: '' }), [field]: value };
+      return { ...prev, links: nextLinks };
+    });
+  };
+
+  const addNewLinkRow = () => {
+    setNewDownload((prev) => ({ ...prev, links: [...(prev.links || []), { label: '', url: '' }] }));
+  };
+
+  const removeNewLinkRow = (index) => {
+    setNewDownload((prev) => {
+      const current = prev.links || [];
+      if (current.length <= 1) return prev;
+      return { ...prev, links: current.filter((_, idx) => idx !== index) };
+    });
+  };
+
+  const updateEditingLinkField = (index, field, value) => {
+    setEditingDownload((prev) => {
+      const nextLinks = [...(prev.links || [])];
+      nextLinks[index] = { ...(nextLinks[index] || { label: '', url: '' }), [field]: value };
+      return { ...prev, links: nextLinks };
+    });
+  };
+
+  const addEditingLinkRow = () => {
+    setEditingDownload((prev) => ({ ...prev, links: [...(prev.links || []), { label: '', url: '' }] }));
+  };
+
+  const removeEditingLinkRow = (index) => {
+    setEditingDownload((prev) => {
+      const current = prev.links || [];
+      if (current.length <= 1) return prev;
+      return { ...prev, links: current.filter((_, idx) => idx !== index) };
+    });
   };
 
   const persistDownloadOrder = async (reordered) => {
@@ -768,32 +816,67 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
 
             {isTecnico && (
               <div className="mb-4 bg-white border border-gray-200 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Nuovo link download</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Nuovo blocco download</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                  <input
+                    type="text"
+                    value={newDownload.title}
+                    onChange={(e) => setNewDownload((prev) => ({ ...prev, title: e.target.value }))}
+                    placeholder="Titolo (es. Office 2024)"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                   <input
                     type="text"
                     value={newDownload.description}
                     onChange={(e) => setNewDownload((prev) => ({ ...prev, description: e.target.value }))}
-                    placeholder="Descrizione (es. Office 2024 Pro Plus)"
+                    placeholder="Descrizione (opzionale)"
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  <input
-                    type="url"
-                    value={newDownload.url}
-                    onChange={(e) => setNewDownload((prev) => ({ ...prev, url: e.target.value }))}
-                    placeholder="https://..."
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                </div>
+                <div className="space-y-2">
+                  {(newDownload.links || []).map((link, idx) => (
+                    <div key={`new-link-${idx}`} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
+                      <input
+                        type="text"
+                        value={link.label}
+                        onChange={(e) => updateNewLinkField(idx, 'label', e.target.value)}
+                        placeholder="Etichetta link (es. Download 64bit)"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="url"
+                        value={link.url}
+                        onChange={(e) => updateNewLinkField(idx, 'url', e.target.value)}
+                        placeholder="https://..."
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeNewLinkRow(idx)}
+                        disabled={(newDownload.links || []).length <= 1}
+                        className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
+                      >
+                        Rimuovi
+                      </button>
+                    </div>
+                  ))}
                 </div>
                 <div className="mt-3">
                   <button
                     type="button"
+                    onClick={addNewLinkRow}
+                    className="mr-2 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+                  >
+                    Aggiungi link
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleCreateDownloadLink}
-                    disabled={savingDownload || !newDownload.description.trim() || !newDownload.url.trim()}
+                    disabled={savingDownload || !newDownload.title.trim()}
                     className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
                   >
                     <Plus size={13} />
-                    Aggiungi link
+                    Aggiungi blocco
                   </button>
                 </div>
               </div>
@@ -844,24 +927,74 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                       }}
                     >
                       {isEditing ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={editingDownload.title}
+                            onChange={(e) => setEditingDownload((prev) => ({ ...prev, title: e.target.value }))}
+                            placeholder="Titolo"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                          />
                           <input
                             type="text"
                             value={editingDownload.description}
                             onChange={(e) => setEditingDownload((prev) => ({ ...prev, description: e.target.value }))}
+                            placeholder="Descrizione"
                             className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                           />
-                          <input
-                            type="url"
-                            value={editingDownload.url}
-                            onChange={(e) => setEditingDownload((prev) => ({ ...prev, url: e.target.value }))}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                          />
+                          {(editingDownload.links || []).map((editLink, idx) => (
+                            <div key={`edit-link-${idx}`} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
+                              <input
+                                type="text"
+                                value={editLink.label}
+                                onChange={(e) => updateEditingLinkField(idx, 'label', e.target.value)}
+                                placeholder="Etichetta link"
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <input
+                                type="url"
+                                value={editLink.url}
+                                onChange={(e) => updateEditingLinkField(idx, 'url', e.target.value)}
+                                placeholder="https://..."
+                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeEditingLinkRow(idx)}
+                                disabled={(editingDownload.links || []).length <= 1}
+                                className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors disabled:opacity-50"
+                              >
+                                Rimuovi
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={addEditingLinkRow}
+                            className="w-fit px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
+                          >
+                            Aggiungi link
+                          </button>
                         </div>
                       ) : (
                         <div className="flex flex-col gap-1">
-                          <p className="text-sm font-semibold text-gray-900">{link.description}</p>
-                          <p className="text-xs text-gray-500 break-all">{link.url}</p>
+                          <p className="text-sm font-semibold text-gray-900">{link.title}</p>
+                          {link.description ? <p className="text-xs text-gray-600">{link.description}</p> : null}
+                          <div className="mt-1 space-y-1">
+                            {(link.links || []).map((item, idx) => (
+                              <div key={`${link.id}-item-${idx}`} className="flex items-center justify-between gap-3">
+                                <span className="text-xs text-gray-700 truncate">{item.label}</span>
+                                <a
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="shrink-0 px-2 py-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors"
+                                >
+                                  Apri
+                                </a>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
 
@@ -876,19 +1009,25 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                           </div>
                         )}
                         <a
-                          href={isEditing ? editingDownload.url : link.url}
+                          href={isEditing ? (editingDownload.links?.[0]?.url || '#') : (link.links?.[0]?.url || '#')}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
                         >
-                          Apri link
+                          Apri primo link
                         </a>
                         {isTecnico && !isEditing && (
                           <button
                             type="button"
                             onClick={() => {
                               setEditingDownloadId(link.id);
-                              setEditingDownload({ description: link.description || '', url: link.url || '' });
+                              setEditingDownload({
+                                title: link.title || '',
+                                description: link.description || '',
+                                links: (link.links && link.links.length > 0)
+                                  ? link.links.map((item) => ({ label: item.label || '', url: item.url || '' }))
+                                  : [{ label: '', url: '' }]
+                              });
                             }}
                             className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
                           >
@@ -900,7 +1039,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                             <button
                               type="button"
                               onClick={() => handleSaveDownloadLink(link.id)}
-                              disabled={savingDownload || !editingDownload.description.trim() || !editingDownload.url.trim()}
+                              disabled={savingDownload || !editingDownload.title.trim()}
                               className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 transition-colors disabled:opacity-50"
                             >
                               Salva
@@ -909,7 +1048,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
                               type="button"
                               onClick={() => {
                                 setEditingDownloadId(null);
-                                setEditingDownload({ description: '', url: '' });
+                                setEditingDownload({ title: '', description: '', links: [{ label: '', url: '' }] });
                               }}
                               className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded hover:bg-gray-200 transition-colors"
                             >
