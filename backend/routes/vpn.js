@@ -161,6 +161,70 @@ $profileName = "${profileName}"
 $ovpnFileName = "${ovpnFileName}"
 $desktopPath = [Environment]::GetFolderPath("Desktop")
 $rdpDir = Join-Path $desktopPath "DesktopRemoto-TicketApp"
+$userOpenVpnDir = Join-Path $env:USERPROFILE "OpenVPN\\config"
+$ovpnPath = Join-Path $userOpenVpnDir $ovpnFileName
+
+function Convert-SecureToPlain {
+  param([SecureString]$SecureValue)
+  $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureValue)
+  try {
+    return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
+  } finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
+  }
+}
+
+function Ensure-VpnCredentials {
+  if (-not (Test-Path $ovpnPath)) {
+    Write-Host "Profilo OVPN non trovato: $ovpnPath" -ForegroundColor Red
+    return
+  }
+
+  $ovpnText = Get-Content -Path $ovpnPath -Raw
+  if ($ovpnText -notmatch "(?im)^\\s*auth-user-pass\\b") {
+    Write-Host "Profilo senza auth-user-pass: credenziali manuali non richieste." -ForegroundColor Gray
+    return
+  }
+
+  $authFileName = [System.IO.Path]::GetFileNameWithoutExtension($ovpnFileName) + ".auth.txt"
+  $authFilePath = Join-Path $userOpenVpnDir $authFileName
+  $lineMatch = [regex]::Match($ovpnText, "(?im)^\\s*auth-user-pass\\s+(.+?)\\s*$")
+  if ($lineMatch.Success) {
+    $rawPath = $lineMatch.Groups[1].Value.Trim().Trim('"')
+    if ($rawPath -and $rawPath -ne "auth-user-pass") {
+      if ([System.IO.Path]::IsPathRooted($rawPath)) {
+        $authFilePath = $rawPath
+      } else {
+        $authFilePath = Join-Path $userOpenVpnDir $rawPath
+      }
+      $authFileName = [System.IO.Path]::GetFileName($authFilePath)
+    }
+  } else {
+    Add-Content -Path $ovpnPath -Value ([Environment]::NewLine + "auth-user-pass " + $authFileName + [Environment]::NewLine)
+  }
+
+  $needPrompt = $true
+  if (Test-Path $authFilePath) {
+    $lines = Get-Content -Path $authFilePath -ErrorAction SilentlyContinue
+    if ($lines -and $lines.Count -ge 2 -and $lines[0].Trim() -and $lines[1].Trim()) {
+      $needPrompt = $false
+    }
+  }
+
+  if ($needPrompt) {
+    Write-Host "Prima esecuzione guidata VPN: inserisci credenziali una sola volta." -ForegroundColor Cyan
+    $vpnUser = Read-Host "Username VPN"
+    $vpnPassSecure = Read-Host "Password VPN" -AsSecureString
+    $vpnPass = Convert-SecureToPlain -SecureValue $vpnPassSecure
+    if (-not $vpnUser -or -not $vpnPass) {
+      throw "Credenziali VPN non valide o vuote."
+    }
+    @($vpnUser, $vpnPass) | Set-Content -Path $authFilePath -Encoding ascii -Force
+    Write-Host "Credenziali VPN salvate localmente sul PC utente." -ForegroundColor Green
+  }
+}
+
+Ensure-VpnCredentials
 
 if (Test-Path $openVpnGuiPath) {
   $guiAlreadyRunning = @(Get-Process -Name "openvpn-gui" -ErrorAction SilentlyContinue).Count -gt 0
@@ -383,7 +447,8 @@ if ($selected) {
           '1) Estrai lo ZIP.',
           '2) Tasto destro su ESEGUI-SETUP.bat -> Esegui come amministratore.',
           '3) Sul desktop comparira "VPN + RDP".',
-          '4) Avviando il collegamento, parte OpenVPN e poi Desktop Remoto.',
+          '4) Primo avvio "VPN + RDP": inserisci credenziali VPN (una sola volta).',
+          '5) Dai successivi avvii, parte OpenVPN e poi Desktop Remoto in automatico.',
           '',
           'I log setup sono in C:\\ProgramData\\TicketApp\\VpnSetupLogs'
         ].join('\r\n'),
