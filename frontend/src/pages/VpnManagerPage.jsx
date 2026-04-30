@@ -17,13 +17,21 @@ const createEmptyForm = () => ({
 
 const VpnManagerPage = ({ getAuthHeader, onNavigateHome }) => {
   const [loading, setLoading] = useState(false);
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profiles, setProfiles] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [companyFilter, setCompanyFilter] = useState('');
   const [form, setForm] = useState(createEmptyForm());
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
   const isEditing = useMemo(() => !!form.id, [form.id]);
+  const filteredProfiles = useMemo(() => {
+    if (!companyFilter) return profiles;
+    const target = companyFilter.trim().toLowerCase();
+    return profiles.filter((p) => String(p.customer_name || '').trim().toLowerCase() === target);
+  }, [profiles, companyFilter]);
 
   const fetchProfiles = async () => {
     setLoading(true);
@@ -42,6 +50,30 @@ const VpnManagerPage = ({ getAuthHeader, onNavigateHome }) => {
 
   useEffect(() => {
     fetchProfiles();
+  }, []);
+
+  const fetchCompanies = async () => {
+    setLoadingCompanies(true);
+    try {
+      const res = await fetch('/api/users', { headers: getAuthHeader() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Errore caricamento aziende');
+      const uniqueCompanies = [...new Set(
+        (Array.isArray(data) ? data : [])
+          .filter((u) => u?.ruolo === 'cliente' && u?.azienda)
+          .map((u) => String(u.azienda).trim())
+          .filter(Boolean)
+      )].sort((a, b) => a.localeCompare(b));
+      setCompanies(uniqueCompanies);
+    } catch (_) {
+      setCompanies([]);
+    } finally {
+      setLoadingCompanies(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCompanies();
   }, []);
 
   const setTargetField = (index, field, value) => {
@@ -198,10 +230,23 @@ const VpnManagerPage = ({ getAuthHeader, onNavigateHome }) => {
         <div className="bg-white rounded-xl border border-gray-200 p-4 lg:col-span-1">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-gray-900">Profili esistenti</h2>
-            {loading && <span className="text-xs text-gray-500">caricamento...</span>}
+            {(loading || loadingCompanies) && <span className="text-xs text-gray-500">caricamento...</span>}
           </div>
+          <label className="block text-sm mb-3">
+            <span className="block text-gray-700 mb-1">Filtra per azienda</span>
+            <select
+              className="w-full border rounded-lg px-3 py-2"
+              value={companyFilter}
+              onChange={(e) => setCompanyFilter(e.target.value)}
+            >
+              <option value="">Tutte le aziende</option>
+              {companies.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </label>
           <div className="space-y-2 max-h-[500px] overflow-auto">
-            {profiles.map((p) => (
+            {filteredProfiles.map((p) => (
               <button
                 key={p.id}
                 onClick={() => selectProfile(p.id)}
@@ -211,7 +256,7 @@ const VpnManagerPage = ({ getAuthHeader, onNavigateHome }) => {
                 <div className="text-xs text-gray-500">{p.customer_name || 'Cliente non indicato'}</div>
               </button>
             ))}
-            {!profiles.length && !loading && (
+            {!filteredProfiles.length && !loading && (
               <p className="text-sm text-gray-500">Nessun profilo salvato.</p>
             )}
           </div>
@@ -225,7 +270,18 @@ const VpnManagerPage = ({ getAuthHeader, onNavigateHome }) => {
             </label>
             <label className="text-sm">
               <span className="block text-gray-700 mb-1">Cliente</span>
-              <input className="w-full border rounded-lg px-3 py-2" value={form.customer_name} onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))} />
+              <input
+                list="vpn-company-list"
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="Seleziona da elenco o scrivi manualmente"
+                value={form.customer_name}
+                onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))}
+              />
+              <datalist id="vpn-company-list">
+                {companies.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
             </label>
             <label className="text-sm md:col-span-2">
               <span className="block text-gray-700 mb-1">URL installer OpenVPN *</span>
