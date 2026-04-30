@@ -125,6 +125,10 @@ try {
   $shortcut.WorkingDirectory = $desktopPath
   $shortcut.IconLocation = "C:\\Windows\\System32\\mstsc.exe,0"
   $shortcut.Save()
+  if (Test-Path $openVpnGuiPath) {
+    Start-Process -FilePath $openVpnGuiPath | Out-Null
+    Write-Host "OpenVPN GUI avviato (icona tray)." -ForegroundColor Green
+  }
 
   Write-Host "Setup completato." -ForegroundColor Green
   ${hasManyTargets ? 'Write-Host "Quando avvii VPN + RDP potrai scegliere il desktop remoto dalla lista."' : 'Write-Host "Quando avvii VPN + RDP parte direttamente il desktop remoto configurato."'}
@@ -146,6 +150,12 @@ try {
 
     return `
 $ErrorActionPreference = "Continue"
+$logDir = Join-Path $env:ProgramData "TicketApp\\VpnSetupLogs"
+if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+$logFile = Join-Path $logDir ("vpn-launcher-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".log")
+Start-Transcript -Path $logFile -Append | Out-Null
+
+try {
 $openVpnGuiPath = "C:\\Program Files\\OpenVPN\\bin\\openvpn-gui.exe"
 $profileName = "${profileName}"
 $ovpnFileName = "${ovpnFileName}"
@@ -160,13 +170,11 @@ if (Test-Path $openVpnGuiPath) {
   }
 
   # Prova 1: nome profilo senza estensione
-  $connectArgByProfile = "--command connect ""$profileName"""
-  Start-Process -FilePath $openVpnGuiPath -ArgumentList $connectArgByProfile | Out-Null
+  & $openVpnGuiPath --command connect $profileName | Out-Null
   Start-Sleep -Seconds 3
 
   # Prova 2 (fallback): nome file .ovpn completo
-  $connectArgByFile = "--command connect ""$ovpnFileName"""
-  Start-Process -FilePath $openVpnGuiPath -ArgumentList $connectArgByFile | Out-Null
+  & $openVpnGuiPath --command connect $ovpnFileName | Out-Null
   Start-Sleep -Seconds 3
 } else {
   Write-Host "OpenVPN GUI non trovato, avvio solo Desktop Remoto." -ForegroundColor Yellow
@@ -201,6 +209,11 @@ if ($selected) {
   Write-Host "Scelta non valida." -ForegroundColor Red
 }
 `}
+} catch {
+  Write-Host "Errore launcher: $($_.Exception.Message)" -ForegroundColor Red
+} finally {
+  Stop-Transcript | Out-Null
+}
 `;
   };
 
