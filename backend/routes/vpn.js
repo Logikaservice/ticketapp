@@ -79,7 +79,10 @@ Start-Transcript -Path $logFile -Append | Out-Null
 try {
   $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
   if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    throw "Esegui questo setup come amministratore."
+    Write-Host "Richiesta permessi amministratore (UAC)..." -ForegroundColor Yellow
+    $currentScript = $MyInvocation.MyCommand.Path
+    Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $currentScript) -Verb RunAs
+    exit 0
   }
 
   $openVpnGuiPath = "C:\\Program Files\\OpenVPN\\bin\\openvpn-gui.exe"
@@ -107,11 +110,15 @@ try {
 
   $desktopPath = [Environment]::GetFolderPath("Desktop")
   $launcherSource = Join-Path $packageRoot "launcher\\Start-VPN-RDP.ps1"
-  $launcherTarget = Join-Path $desktopPath "Avvia VPN e Desktop Remoto.ps1"
+  $appDataDir = Join-Path $env:ProgramData "TicketApp\\VpnLauncher"
+  if (-not (Test-Path $appDataDir)) {
+    New-Item -ItemType Directory -Path $appDataDir -Force | Out-Null
+  }
+  $launcherTarget = Join-Path $appDataDir "Start-VPN-RDP.ps1"
   Copy-Item -Path $launcherSource -Destination $launcherTarget -Force
 
   $rdpSourceDir = Join-Path $packageRoot "rdp"
-  $rdpTargetDir = Join-Path $desktopPath "DesktopRemoto-TicketApp"
+  $rdpTargetDir = Join-Path $appDataDir "RDP"
   if (-not (Test-Path $rdpTargetDir)) {
     New-Item -ItemType Directory -Path $rdpTargetDir -Force | Out-Null
   }
@@ -121,10 +128,23 @@ try {
   $wsh = New-Object -ComObject WScript.Shell
   $shortcut = $wsh.CreateShortcut((Join-Path $desktopPath "VPN + RDP.lnk"))
   $shortcut.TargetPath = "powershell.exe"
-  $shortcut.Arguments = "-ExecutionPolicy Bypass -File '$launcherTarget'"
+  $shortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $launcherTarget + '"'
   $shortcut.WorkingDirectory = $desktopPath
   $shortcut.IconLocation = "C:\\Windows\\System32\\mstsc.exe,0"
   $shortcut.Save()
+
+  # Pulisce elementi desktop non necessari per evitare confusione
+  $oldLauncherDesktop = Join-Path $desktopPath "Avvia VPN e Desktop Remoto.ps1"
+  if (Test-Path $oldLauncherDesktop) {
+    Remove-Item -Path $oldLauncherDesktop -Force -ErrorAction SilentlyContinue
+  }
+  $oldRdpDesktopDir = Join-Path $desktopPath "DesktopRemoto-TicketApp"
+  if (Test-Path $oldRdpDesktopDir) {
+    Remove-Item -Path $oldRdpDesktopDir -Recurse -Force -ErrorAction SilentlyContinue
+  }
+  Get-ChildItem -Path $desktopPath -Filter "*OpenVPN*.lnk" -ErrorAction SilentlyContinue | ForEach-Object {
+    Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
+  }
   if (Test-Path $openVpnGuiPath) {
     Start-Process -FilePath $openVpnGuiPath | Out-Null
     Write-Host "OpenVPN GUI avviato (icona tray)." -ForegroundColor Green
@@ -159,8 +179,8 @@ try {
 $openVpnGuiPath = "C:\\Program Files\\OpenVPN\\bin\\openvpn-gui.exe"
 $profileName = "${profileName}"
 $ovpnFileName = "${ovpnFileName}"
-$desktopPath = [Environment]::GetFolderPath("Desktop")
-$rdpDir = Join-Path $desktopPath "DesktopRemoto-TicketApp"
+$appDataDir = Join-Path $env:ProgramData "TicketApp\\VpnLauncher"
+$rdpDir = Join-Path $appDataDir "RDP"
 $userOpenVpnDir = Join-Path $env:USERPROFILE "OpenVPN\\config"
 $ovpnPath = Join-Path $userOpenVpnDir $ovpnFileName
 
