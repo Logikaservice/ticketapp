@@ -181,66 +181,60 @@ $profileName = "${profileName}"
 $ovpnFileName = "${ovpnFileName}"
 $appDataDir = Join-Path $env:ProgramData "TicketApp\\VpnLauncher"
 $rdpDir = Join-Path $appDataDir "RDP"
-$userOpenVpnDir = Join-Path $env:USERPROFILE "OpenVPN\\config"
-$ovpnPath = Join-Path $userOpenVpnDir $ovpnFileName
+$profileNameNoExt = [System.IO.Path]::GetFileNameWithoutExtension($ovpnFileName)
+$userLogDir = Join-Path $env:USERPROFILE "OpenVPN\\log"
 
-function Convert-SecureToPlain {
-  param([SecureString]$SecureValue)
-  $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureValue)
+function Get-VpnStatusText {
+  param([string]$Name)
   try {
-    return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
-  } finally {
-    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
+    $output = & $openVpnGuiPath --command status $Name 2>&1 | Out-String
+    return ($output | ForEach-Object { $_.ToString() }).Trim()
+  } catch {
+    return ""
   }
 }
 
-function Ensure-VpnCredentials {
-  if (-not (Test-Path $ovpnPath)) {
-    Write-Host "Profilo OVPN non trovato: $ovpnPath" -ForegroundColor Red
-    return
-  }
-
-  $ovpnText = Get-Content -Path $ovpnPath -Raw
-  if ($ovpnText -notmatch "(?im)^\\s*auth-user-pass\\b") {
-    Write-Host "Profilo senza auth-user-pass: credenziali manuali non richieste." -ForegroundColor Gray
-    return
-  }
-
-  $authFileName = [System.IO.Path]::GetFileNameWithoutExtension($ovpnFileName) + ".auth.txt"
-  $authFilePath = Join-Path $userOpenVpnDir $authFileName
-  $updatedOvpnText = [regex]::Replace(
-    $ovpnText,
-    "(?im)^\\s*auth-user-pass(?:\\s+.+)?\\s*$",
-    "auth-user-pass $authFileName"
-  )
-  if ($updatedOvpnText -ne $ovpnText) {
-    Set-Content -Path $ovpnPath -Value $updatedOvpnText -Encoding ascii -Force
-  } else {
-    Add-Content -Path $ovpnPath -Value ([Environment]::NewLine + "auth-user-pass " + $authFileName + [Environment]::NewLine)
-  }
-
-  $needPrompt = $true
-  if (Test-Path $authFilePath) {
-    $lines = Get-Content -Path $authFilePath -ErrorAction SilentlyContinue
-    if ($lines -and $lines.Count -ge 2 -and $lines[0].Trim() -and $lines[1].Trim()) {
-      $needPrompt = $false
+function Test-VpnConnected {
+  $statusCandidates = @($profileName, $ovpnFileName, $profileNameNoExt) | Where-Object { $_ -and $_.Trim() } | Select-Object -Unique
+  foreach ($candidate in $statusCandidates) {
+    $statusText = Get-VpnStatusText -Name $candidate
+    if ($statusText -match "(?i)connected|initialization sequence completed|success") {
+      return $true
+    }
+    if ($statusText -match "(?i)auth_failed|error|failed") {
+      return $false
     }
   }
 
-  if ($needPrompt) {
-    Write-Host "Prima esecuzione guidata VPN: inserisci credenziali una sola volta." -ForegroundColor Cyan
-    $vpnUser = Read-Host "Username VPN"
-    $vpnPassSecure = Read-Host "Password VPN" -AsSecureString
-    $vpnPass = Convert-SecureToPlain -SecureValue $vpnPassSecure
-    if (-not $vpnUser -or -not $vpnPass) {
-      throw "Credenziali VPN non valide o vuote."
+  $logCandidates = @(
+    Join-Path $userLogDir ($profileName + ".log"),
+    Join-Path $userLogDir ($ovpnFileName + ".log"),
+    Join-Path $userLogDir ($profileNameNoExt + ".log")
+  ) | Select-Object -Unique
+
+  foreach ($logPath in $logCandidates) {
+    if (Test-Path $logPath) {
+      try {
+        $tail = (Get-Content -Path $logPath -Tail 30 -ErrorAction SilentlyContinue) -join [Environment]::NewLine
+        if ($tail -match "(?i)Initialization Sequence Completed") { return $true }
+        if ($tail -match "(?i)AUTH_FAILED|FAILED") { return $false }
+      } catch { }
     }
-    @($vpnUser, $vpnPass) | Set-Content -Path $authFilePath -Encoding ascii -Force
-    Write-Host "Credenziali VPN salvate localmente sul PC utente." -ForegroundColor Green
   }
+
+  return $false
 }
 
-Ensure-VpnCredentials
+function Wait-ForVpnConnection {
+  param([int]$TimeoutSeconds = 40)
+  $elapsed = 0
+  while ($elapsed -lt $TimeoutSeconds) {
+    if (Test-VpnConnected) { return $true }
+    Start-Sleep -Seconds 2
+    $elapsed += 2
+  }
+  return $false
+}
 
 if (Test-Path $openVpnGuiPath) {
   $guiAlreadyRunning = @(Get-Process -Name "openvpn-gui" -ErrorAction SilentlyContinue).Count -gt 0
@@ -251,11 +245,23 @@ if (Test-Path $openVpnGuiPath) {
 
   # Prova 1: nome profilo senza estensione
   & $openVpnGuiPath --command connect $profileName | Out-Null
-  Start-Sleep -Seconds 3
+  Start-Sleep -Seconds 2
 
   # Prova 2 (fallback): nome file .ovpn completo
   & $openVpnGuiPath --command connect $ovpnFileName | Out-Null
-  Start-Sleep -Seconds 3
+  Start-Sleep -Seconds 2
+
+  Write-Host "Attendo connessione VPN..." -ForegroundColor Cyan
+  $vpnReady = Wait-ForVpnConnection -TimeoutSeconds 40
+  if (-not $vpnReady) {
+    $proceed = Read-Host "VPN non risulta connessa. Vuoi aprire comunque Desktop Remoto? (S/N)"
+    if ($proceed -notmatch "^(?i)s|si|y|yes$") {
+      Write-Host "Operazione annullata: collega prima la VPN." -ForegroundColor Yellow
+      return
+    }
+  } else {
+    Write-Host "VPN connessa. Avvio Desktop Remoto..." -ForegroundColor Green
+  }
 } else {
   Write-Host "OpenVPN GUI non trovato, avvio solo Desktop Remoto." -ForegroundColor Yellow
 }
