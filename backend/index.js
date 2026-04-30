@@ -856,6 +856,7 @@ const orariRoutes = require('./routes/orari')(pool);
 
 // Route per Contratti (Nuova)
 const contractsRoutes = require('./routes/contracts')(pool, uploadContracts);
+const vpnRoutes = require('./routes/vpn')(pool);
 
 // Route per Vivaldi (database separato) - solo se pool disponibile
 const vivaldiRoutes = poolVivaldi ? require('./routes/vivaldi')(poolVivaldi) : null;
@@ -882,6 +883,7 @@ if (packvisionRoutes) {
 }
 
 app.use('/api/contracts', contractsRoutes);
+app.use('/api/vpn', authenticateToken, requireRole(['tecnico', 'admin']), vpnRoutes);
 
 // Route Network Monitoring (agent usa API Key, quindi senza JWT. Frontend routes protette dopo)
 app.use('/api/network-monitoring', networkMonitoringRoutes);
