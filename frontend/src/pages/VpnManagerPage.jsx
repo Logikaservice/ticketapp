@@ -308,7 +308,7 @@ const VpnManagerPage = ({ getAuthHeader, onNavigateHome }) => {
               {form.rdp_targets.map((t, idx) => (
                 <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
                   <label className="md:col-span-5 text-sm">
-                    <span className="block text-gray-700 mb-1">Nome</span>
+                    <span className="block text-gray-700 mb-1">Nome file/connessione RDP</span>
                     <input className="w-full border rounded-lg px-3 py-2" value={t.name} onChange={(e) => setTargetField(idx, 'name', e.target.value)} />
                   </label>
                   <label className="md:col-span-5 text-sm">

@@ -148,14 +148,26 @@ try {
 $ErrorActionPreference = "Continue"
 $openVpnGuiPath = "C:\\Program Files\\OpenVPN\\bin\\openvpn-gui.exe"
 $profileName = "${profileName}"
+$ovpnFileName = "${ovpnFileName}"
 $desktopPath = [Environment]::GetFolderPath("Desktop")
 $rdpDir = Join-Path $desktopPath "DesktopRemoto-TicketApp"
 
 if (Test-Path $openVpnGuiPath) {
-  Start-Process -FilePath $openVpnGuiPath | Out-Null
-  Start-Sleep -Seconds 2
-  Start-Process -FilePath $openVpnGuiPath -ArgumentList @("--command", "connect", $profileName)
-  Start-Sleep -Seconds 5
+  $guiAlreadyRunning = @(Get-Process -Name "openvpn-gui" -ErrorAction SilentlyContinue).Count -gt 0
+  if (-not $guiAlreadyRunning) {
+    Start-Process -FilePath $openVpnGuiPath | Out-Null
+    Start-Sleep -Seconds 3
+  }
+
+  # Prova 1: nome profilo senza estensione
+  $connectArgByProfile = "--command connect ""$profileName"""
+  Start-Process -FilePath $openVpnGuiPath -ArgumentList $connectArgByProfile | Out-Null
+  Start-Sleep -Seconds 3
+
+  # Prova 2 (fallback): nome file .ovpn completo
+  $connectArgByFile = "--command connect ""$ovpnFileName"""
+  Start-Process -FilePath $openVpnGuiPath -ArgumentList $connectArgByFile | Out-Null
+  Start-Sleep -Seconds 3
 } else {
   Write-Host "OpenVPN GUI non trovato, avvio solo Desktop Remoto." -ForegroundColor Yellow
 }
