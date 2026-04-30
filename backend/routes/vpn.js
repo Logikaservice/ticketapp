@@ -208,17 +208,13 @@ function Ensure-VpnCredentials {
 
   $authFileName = [System.IO.Path]::GetFileNameWithoutExtension($ovpnFileName) + ".auth.txt"
   $authFilePath = Join-Path $userOpenVpnDir $authFileName
-  $lineMatch = [regex]::Match($ovpnText, "(?im)^\\s*auth-user-pass\\s+(.+?)\\s*$")
-  if ($lineMatch.Success) {
-    $rawPath = $lineMatch.Groups[1].Value.Trim().Trim('"')
-    if ($rawPath -and $rawPath -ne "auth-user-pass") {
-      if ([System.IO.Path]::IsPathRooted($rawPath)) {
-        $authFilePath = $rawPath
-      } else {
-        $authFilePath = Join-Path $userOpenVpnDir $rawPath
-      }
-      $authFileName = [System.IO.Path]::GetFileName($authFilePath)
-    }
+  $updatedOvpnText = [regex]::Replace(
+    $ovpnText,
+    "(?im)^\\s*auth-user-pass(?:\\s+.+)?\\s*$",
+    "auth-user-pass $authFileName"
+  )
+  if ($updatedOvpnText -ne $ovpnText) {
+    Set-Content -Path $ovpnPath -Value $updatedOvpnText -Encoding ascii -Force
   } else {
     Add-Content -Path $ovpnPath -Value ([Environment]::NewLine + "auth-user-pass " + $authFileName + [Environment]::NewLine)
   }
