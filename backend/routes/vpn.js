@@ -342,7 +342,15 @@ if ($selected) {
       });
       archive.append(setupScript, { name: 'setup/SetupVPN.ps1' });
       archive.append(launcherScript, { name: 'launcher/Start-VPN-RDP.ps1' });
-      archive.append(`powershell -ExecutionPolicy Bypass -File ".\\setup\\SetupVPN.ps1"\r\npause\r\n`, { name: 'ESEGUI-SETUP.bat' });
+      archive.append(
+        [
+          '@echo off',
+          'set "SCRIPT_DIR=%~dp0"',
+          'powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%setup\\SetupVPN.ps1"',
+          'pause'
+        ].join('\r\n') + '\r\n',
+        { name: 'ESEGUI-SETUP.bat' }
+      );
       archive.append(
         [
           '# Pacchetto VPN + RDP',
