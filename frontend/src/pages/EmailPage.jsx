@@ -9,7 +9,7 @@ import { buildApiUrl } from '../utils/apiConfig';
 import EmailIntroCard from '../components/EmailIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
 
-const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onCompanyChange, currentUser, onOpenTicket, onNavigateOffice, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura, onNavigateSpeedTest, onNavigateHome }) => {
+const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onCompanyChange, currentUser, onOpenTicket, onNavigateOffice, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura, onNavigateSpeedTest, onNavigateVpn, onNavigateHome }) => {
   const isCliente = currentUser?.ruolo === 'cliente';
   const showAssistenzaButton = isCliente && typeof onOpenTicket === 'function';
   const showPasswordColumn = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin' || (currentUser?.ruolo === 'cliente' && currentUser?.admin_companies && currentUser.admin_companies.length > 0);
@@ -379,6 +379,7 @@ const EmailPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId
             onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
             onNavigateMappatura={onNavigateMappatura}
             onNavigateSpeedTest={onNavigateSpeedTest}
+            onNavigateVpn={onNavigateVpn}
             currentUser={currentUser}
             selectedCompanyId={selectedCompanyId}
           />

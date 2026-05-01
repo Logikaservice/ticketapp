@@ -13,7 +13,8 @@ const CommAgentDashboard = ({
     currentUser, closeModal, notify,
     selectedCompanyId, onNavigateHome, onNavigateOffice, onNavigateEmail, 
     onNavigateAntiVirus, onNavigateNetworkMonitoring, onNavigateMappatura, 
-    onNavigateSpeedTest, onNavigateDispositiviAziendali, onNavigateCommAgentManager
+    onNavigateSpeedTest, onNavigateDispositiviAziendali, onNavigateCommAgentManager,
+    onNavigateVpn
 }) => {
     // State
     const [activeTab, setActiveTab] = useState('send');
@@ -212,6 +213,7 @@ const CommAgentDashboard = ({
                             onNavigateMappatura={onNavigateMappatura}
                             onNavigateSpeedTest={onNavigateSpeedTest}
                             onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
+                            onNavigateVpn={onNavigateVpn}
                             currentUser={currentUser}
                             selectedCompanyId={selectedCompanyId}
                         />

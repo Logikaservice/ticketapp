@@ -10,7 +10,7 @@ const CommAgentManager = ({
     currentUser, closeModal, notify,
     selectedCompanyId, onNavigateHome, onNavigateOffice, onNavigateEmail, 
     onNavigateAntiVirus, onNavigateNetworkMonitoring, onNavigateMappatura, 
-    onNavigateSpeedTest, onNavigateDispositiviAziendali
+    onNavigateSpeedTest, onNavigateDispositiviAziendali, onNavigateVpn
 }) => {
     const [activeTab, setActiveTab] = useState('agents');
     const [agents, setAgents] = useState([]);
@@ -120,6 +120,7 @@ const CommAgentManager = ({
                             onNavigateMappatura={onNavigateMappatura}
                             onNavigateSpeedTest={onNavigateSpeedTest}
                             onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
+                            onNavigateVpn={onNavigateVpn}
                             currentUser={currentUser}
                             selectedCompanyId={selectedCompanyId}
                         />

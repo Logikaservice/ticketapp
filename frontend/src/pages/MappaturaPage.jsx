@@ -236,7 +236,7 @@ const RefreshTimer = () => {
     return <span>{seconds < 10 ? `0${seconds}` : seconds}s</span>;
 };
 
-const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onCompanyChange = null, onNavigateToMonitoring = null, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateMappatura, onNavigateSpeedTest, onNavigateHome }) => {
+const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onCompanyChange = null, onNavigateToMonitoring = null, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateMappatura, onNavigateSpeedTest, onNavigateVpn, onNavigateHome }) => {
     const isCliente = currentUser?.ruolo === 'cliente';
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId ? String(initialCompanyId) : '');
@@ -1740,6 +1740,7 @@ const MappaturaPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                             onNavigateNetworkMonitoring={onNavigateToMonitoring ? () => onNavigateToMonitoring(selectedCompanyId ? parseInt(selectedCompanyId) : null) : null}
                             onNavigateMappatura={null}
                             onNavigateSpeedTest={onNavigateSpeedTest}
+                            onNavigateVpn={onNavigateVpn}
                             currentUser={currentUser}
                             selectedCompanyId={selectedCompanyId}
                         />

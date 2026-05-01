@@ -4,7 +4,7 @@ import { buildApiUrl } from '../utils/apiConfig';
 import AntiVirusIntroCard from '../components/AntiVirusIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
 
-const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onCompanyChange, readOnly = false, currentUser, onOpenTicket, onNavigateOffice, onNavigateEmail, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura, onNavigateSpeedTest, onNavigateHome }) => {
+const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onCompanyChange, readOnly = false, currentUser, onOpenTicket, onNavigateOffice, onNavigateEmail, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura, onNavigateSpeedTest, onNavigateVpn, onNavigateHome }) => {
     const showAssistenzaButton = readOnly && typeof onOpenTicket === 'function';
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId || '');
@@ -453,6 +453,7 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
                         onNavigateMappatura={onNavigateMappatura}
                         onNavigateSpeedTest={onNavigateSpeedTest}
+                        onNavigateVpn={onNavigateVpn}
                         currentUser={currentUser}
                         selectedCompanyId={selectedCompanyId}
                     />

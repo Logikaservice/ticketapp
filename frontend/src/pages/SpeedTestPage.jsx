@@ -829,6 +829,7 @@ const SpeedTestPage = ({
   onNavigateNetworkMonitoring,
   onNavigateMappatura,
   onNavigateDispositiviAziendali,
+  onNavigateVpn,
   selectedCompanyId
 }) => {
   const [overview, setOverview] = useState([]);
@@ -1388,6 +1389,7 @@ const SpeedTestPage = ({
               onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
               onNavigateMappatura={onNavigateMappatura}
               onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
+              onNavigateVpn={onNavigateVpn}
               currentUser={currentUser}
               selectedCompanyId={selectedCompanyId}
             />
@@ -1956,6 +1958,7 @@ const SpeedTestPage = ({
             onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
             onNavigateMappatura={onNavigateMappatura}
             onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
+            onNavigateVpn={onNavigateVpn}
             currentUser={currentUser}
             selectedCompanyId={selectedCompanyId}
           />

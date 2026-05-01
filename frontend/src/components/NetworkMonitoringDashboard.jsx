@@ -29,7 +29,7 @@ function isVirtualSwitchMonitorRow(device) {
   return ip.startsWith('virtual-');
 }
 
-const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, onCompanyChange = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura, onNavigateSpeedTest, onNavigateHome, onOpenTicket = null }) => {
+const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null, onViewReset = null, onClose = null, onNavigateToMappatura = null, onCompanyChange = null, initialCompanyId = null, readOnly = false, currentUser, onNavigateOffice, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura, onNavigateSpeedTest, onNavigateVpn, onNavigateHome, onOpenTicket = null }) => {
   const updateTimeoutRef = useRef(null);
   const [devices, setDevices] = useState([]);
   const [changes, setChanges] = useState([]);
@@ -1919,6 +1919,7 @@ const NetworkMonitoringDashboard = ({ getAuthHeader, socket, initialView = null,
               onNavigateNetworkMonitoring={null}
               onNavigateMappatura={onNavigateMappatura}
               onNavigateSpeedTest={onNavigateSpeedTest}
+              onNavigateVpn={onNavigateVpn}
               currentUser={currentUser}
               selectedCompanyId={selectedCompanyId}
             />

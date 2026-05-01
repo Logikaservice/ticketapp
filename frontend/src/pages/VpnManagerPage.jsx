@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Save, Download, Trash2, RefreshCw } from 'lucide-react';
+import SectionNavMenu from '../components/SectionNavMenu';
 
 const EMPTY_TARGET = { name: '', ip: '' };
 
@@ -15,7 +16,19 @@ const createEmptyForm = () => ({
   rdp_targets: [{ ...EMPTY_TARGET }]
 });
 
-const VpnManagerPage = ({ getAuthHeader, onNavigateHome }) => {
+const VpnManagerPage = ({
+  getAuthHeader,
+  currentUser,
+  onNavigateHome,
+  onNavigateOffice,
+  onNavigateEmail,
+  onNavigateAntiVirus,
+  onNavigateDispositiviAziendali,
+  onNavigateNetworkMonitoring,
+  onNavigateMappatura,
+  onNavigateSpeedTest,
+  onNavigateLSight
+}) => {
   const [loading, setLoading] = useState(false);
   const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -201,24 +214,64 @@ const VpnManagerPage = ({ getAuthHeader, onNavigateHome }) => {
     }
   };
 
+  const subtitleBar = companyFilter.trim()
+    ? `Filtro: ${companyFilter}`
+    : 'Tutte le aziende • Menù progetti';
+
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">VPN - Menù Progetti</h1>
-            <p className="text-sm text-gray-600 mt-1">
-              Crea pacchetti personalizzati per installare OpenVPN Community, copiare il file OVPN e preparare i collegamenti RDP.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={onNavigateHome} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Dashboard</button>
-            <button onClick={fetchProfiles} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 inline-flex items-center gap-2">
-              <RefreshCw size={16} /> Aggiorna
-            </button>
+    <div className="fixed inset-0 bg-gray-50 z-[100] flex flex-col font-sans w-full h-full overflow-hidden">
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm z-10 shrink-0">
+        <div className="flex items-center gap-4 min-w-0">
+          <SectionNavMenu
+            currentPage="vpn"
+            onNavigateHome={onNavigateHome}
+            onNavigateOffice={onNavigateOffice}
+            onNavigateEmail={onNavigateEmail}
+            onNavigateAntiVirus={onNavigateAntiVirus}
+            onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
+            onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
+            onNavigateMappatura={onNavigateMappatura}
+            onNavigateSpeedTest={onNavigateSpeedTest}
+            onNavigateLSight={onNavigateLSight}
+            onNavigateVpn={null}
+            currentUser={currentUser}
+          />
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold text-gray-900">VPN</h1>
+            <p className="text-sm text-gray-600 truncate">{subtitleBar}</p>
           </div>
         </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <select
+            className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none max-w-[min(100vw-12rem,280px)]"
+            aria-label="Seleziona azienda per filtrare i profili"
+            title="Filtra profili per azienda cliente"
+            value={companyFilter}
+            onChange={(e) => setCompanyFilter(e.target.value)}
+          >
+            <option value="">Seleziona Azienda...</option>
+            {companies.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={fetchProfiles}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors"
+            title="Ricarica elenco profili"
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+            Aggiorna
+          </button>
+        </div>
       </div>
+
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+
+      <p className="text-sm text-gray-600">
+        VPN — Menù progetti: pacchetti per OpenVPN Community, file OVPN e collegamenti RDP.
+      </p>
 
       {(message || error) && (
         <div className={`rounded-lg p-3 text-sm ${error ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
@@ -232,19 +285,6 @@ const VpnManagerPage = ({ getAuthHeader, onNavigateHome }) => {
             <h2 className="font-semibold text-gray-900">Profili esistenti</h2>
             {(loading || loadingCompanies) && <span className="text-xs text-gray-500">caricamento...</span>}
           </div>
-          <label className="block text-sm mb-3">
-            <span className="block text-gray-700 mb-1">Filtra per azienda</span>
-            <select
-              className="w-full border rounded-lg px-3 py-2"
-              value={companyFilter}
-              onChange={(e) => setCompanyFilter(e.target.value)}
-            >
-              <option value="">Tutte le aziende</option>
-              {companies.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </label>
           <div className="space-y-2 max-h-[500px] overflow-auto">
             {filteredProfiles.map((p) => (
               <button
@@ -337,6 +377,9 @@ const VpnManagerPage = ({ getAuthHeader, onNavigateHome }) => {
               <Trash2 size={16} /> Elimina
             </button>
           </div>
+        </div>
+      </div>
+
         </div>
       </div>
     </div>

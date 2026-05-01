@@ -2,7 +2,7 @@
 // Esclude sempre "Nuove funzionalità" e "Impostazioni"
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Menu, Building2, Mail, Shield, Wifi, MapPin, Home, Monitor, Gauge, Eye } from 'lucide-react';
+import { Menu, Building2, Mail, Shield, Wifi, MapPin, Home, Monitor, Gauge, Eye, LockKeyhole } from 'lucide-react';
 
 const SectionNavMenu = ({
   currentPage,
@@ -15,6 +15,7 @@ const SectionNavMenu = ({
   onNavigateDispositiviAziendali,
   onNavigateSpeedTest,
   onNavigateLSight,
+  onNavigateVpn,
   currentUser,
   selectedCompanyId = null
 }) => {
@@ -41,6 +42,7 @@ const SectionNavMenu = ({
   const homeItem = onNavigateHome ? [{ id: 'home', label: 'Home', icon: Home, onClick: onNavigateHome }] : [];
   const sectionItems = [
     { id: 'office', label: 'Office', icon: Building2, onClick: onNavigateOffice, visible: !!onNavigateOffice },
+    { id: 'vpn', label: 'VPN', icon: LockKeyhole, onClick: onNavigateVpn, visible: currentUser?.ruolo === 'tecnico' && !!onNavigateVpn },
     { id: 'email', label: 'Email', icon: Mail, onClick: onNavigateEmail, visible: !!onNavigateEmail },
     { id: 'antivirus', label: 'Anti-Virus', icon: Shield, onClick: onNavigateAntiVirus, visible: !!onNavigateAntiVirus },
     { id: 'lsight', label: 'L-Sight', icon: Eye, onClick: onNavigateLSight, visible: !!onNavigateLSight },

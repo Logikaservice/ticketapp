@@ -6,7 +6,7 @@ import SectionNavMenu from '../components/SectionNavMenu';
 import { buildApiUrl } from '../utils/apiConfig';
 import OfficeIntroCard from '../components/OfficeIntroCard';
 
-const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onCompanyChange, currentUser, onOpenTicket, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura, onNavigateSpeedTest, onNavigateHome }) => {
+const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onCompanyChange, currentUser, onOpenTicket, onNavigateEmail, onNavigateAntiVirus, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura, onNavigateSpeedTest, onNavigateVpn, onNavigateHome }) => {
   const isCliente = currentUser?.ruolo === 'cliente';
   const isTecnico = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
   const showPasswordColumn = isTecnico || (currentUser?.ruolo === 'cliente' && currentUser?.admin_companies && currentUser.admin_companies.length > 0);
@@ -691,6 +691,7 @@ const OfficePage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyI
             onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
             onNavigateMappatura={onNavigateMappatura}
             onNavigateSpeedTest={onNavigateSpeedTest}
+            onNavigateVpn={onNavigateVpn}
             currentUser={currentUser}
             selectedCompanyId={selectedCompanyId}
           />

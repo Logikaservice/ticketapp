@@ -62,6 +62,7 @@ const DispositiviAziendaliPage = ({
   onNavigateCommAgent = null,
   onNavigateCommAgentManager = null,
   onNavigateSpeedTest,
+  onNavigateVpn,
   onNavigateHome,
   highlightMac = null
 }) => {
@@ -255,6 +256,7 @@ const DispositiviAziendaliPage = ({
             onNavigateMappatura={onNavigateMappatura}
             onNavigateSpeedTest={onNavigateSpeedTest}
             onNavigateDispositiviAziendali={null}
+            onNavigateVpn={onNavigateVpn}
             currentUser={currentUser}
             selectedCompanyId={selectedCompanyId}
           />

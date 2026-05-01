@@ -454,6 +454,7 @@ export default function TicketApp() {
     setShowOffice(false);
     setShowFlottaPC(false);
     setShowEmail(false);
+    setShowVpnManager(false);
   };
 
   useEffect(() => {
@@ -483,6 +484,7 @@ export default function TicketApp() {
     setShowFlottaPC(false);
     setShowOrariTurni(false);
     setShowVivaldi(false);
+    setShowVpnManager(false);
   };
 
   const handleOpenLSightSession = (sessionId) => {
@@ -503,6 +505,7 @@ export default function TicketApp() {
     setShowFlottaPC(false);
     setShowOrariTurni(false);
     setShowVivaldi(false);
+    setShowVpnManager(false);
 
     try {
       const url = new URL(window.location.href);
@@ -561,6 +564,7 @@ export default function TicketApp() {
     setShowSpeedTest(false);
     setShowCommAgent(false);
     setShowCommAgentManager(false);
+    setShowVpnManager(false);
   };
 
   const handleOpenDispositiviAziendali = (companyId, highlightMac = null) => {
@@ -579,6 +583,7 @@ export default function TicketApp() {
     setShowCommAgent(false);
     setShowCommAgentManager(false);
     setShowSpeedTest(false);
+    setShowVpnManager(false);
   };
 
   const handleOpenSpeedTest = () => {
@@ -595,6 +600,7 @@ export default function TicketApp() {
     setShowFlottaPC(false);
     setShowCommAgent(false);
     setShowCommAgentManager(false);
+    setShowVpnManager(false);
   };
 
   const handleOpenEmail = (companyId) => {
@@ -611,6 +617,7 @@ export default function TicketApp() {
     setShowSpeedTest(false);
     setShowCommAgent(false);
     setShowCommAgentManager(false);
+    setShowVpnManager(false);
   };
 
   const handleOpenNetworkMonitoring = (companyId, view = null) => {
@@ -628,6 +635,7 @@ export default function TicketApp() {
     setShowSpeedTest(false);
     setShowCommAgent(false);
     setShowCommAgentManager(false);
+    setShowVpnManager(false);
     // Se viene passata una view specifica, impostala
     if (view === 'agent-settings') {
       setNetworkMonitoringInitialView('agents');
@@ -639,11 +647,13 @@ export default function TicketApp() {
   const handleOpenCommAgent = (companyId) => {
     if (companyId) setShowGloballySelectedCompanyId(companyId);
     setShowCommAgent(true);
+    setShowVpnManager(false);
   };
 
   const handleOpenCommAgentManager = (companyId) => {
     if (companyId) setShowGloballySelectedCompanyId(companyId);
     setShowCommAgentManager(true);
+    setShowVpnManager(false);
   };
 
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
@@ -3623,6 +3633,7 @@ export default function TicketApp() {
             onNavigateMappatura={handleOpenMappatura}
             onNavigateSpeedTest={handleOpenSpeedTest}
             onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
+            onNavigateVpn={handleOpenVpnManager}
           />
         )}
 
@@ -3641,6 +3652,7 @@ export default function TicketApp() {
             onNavigateMappatura={handleOpenMappatura}
             onNavigateSpeedTest={handleOpenSpeedTest}
             onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
+            onNavigateVpn={handleOpenVpnManager}
           />
         )}
 
@@ -3662,6 +3674,7 @@ export default function TicketApp() {
             onNavigateHome={() => { setShowDashboard(true); setShowFlottaPC(false); }}
             onNavigateCommAgent={handleOpenCommAgent}
             onNavigateCommAgentManager={handleOpenCommAgentManager}
+            onNavigateVpn={handleOpenVpnManager}
             highlightMac={dispositiviAziendaliHighlightMac}
           />
         )}
@@ -3701,6 +3714,7 @@ export default function TicketApp() {
                 onNavigateNetworkMonitoring={null}
                 onNavigateMappatura={() => { setShowMappatura(true); setShowNetworkMonitoring(false); setShowDashboard(false); }}
                 onNavigateSpeedTest={handleOpenSpeedTest}
+                onNavigateVpn={handleOpenVpnManager}
                 onNavigateHome={() => { setShowDashboard(true); setShowNetworkMonitoring(false); }}
                 onOpenTicket={openNewTicketWithData}
               />
@@ -3757,6 +3771,7 @@ export default function TicketApp() {
             onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
             onNavigateMappatura={null}
             onNavigateSpeedTest={handleOpenSpeedTest}
+            onNavigateVpn={handleOpenVpnManager}
             onNavigateHome={() => { setShowDashboard(true); setShowMappatura(false); }}
           />
         )}
@@ -3815,6 +3830,7 @@ export default function TicketApp() {
             onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
             onNavigateMappatura={handleOpenMappatura}
             onNavigateSpeedTest={handleOpenSpeedTest}
+            onNavigateVpn={handleOpenVpnManager}
             onNavigateHome={() => { setShowDashboard(true); setShowOffice(false); }}
           />
         )}
@@ -3835,6 +3851,7 @@ export default function TicketApp() {
             onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
             onNavigateMappatura={handleOpenMappatura}
             onNavigateSpeedTest={handleOpenSpeedTest}
+            onNavigateVpn={handleOpenVpnManager}
             onNavigateHome={() => { setShowDashboard(true); setShowAntiVirus(false); }}
           />
         )}
@@ -3854,6 +3871,7 @@ export default function TicketApp() {
             onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
             onNavigateMappatura={handleOpenMappatura}
             onNavigateSpeedTest={handleOpenSpeedTest}
+            onNavigateVpn={handleOpenVpnManager}
             onNavigateHome={() => { setShowDashboard(true); setShowEmail(false); }}
           />
         )}
@@ -3863,7 +3881,16 @@ export default function TicketApp() {
           {showVpnManager ? (
             <VpnManagerPage
               getAuthHeader={getAuthHeader}
+              currentUser={currentUser}
               onNavigateHome={() => { setShowVpnManager(false); setShowDashboard(true); }}
+              onNavigateOffice={handleOpenOffice}
+              onNavigateEmail={handleOpenEmail}
+              onNavigateAntiVirus={handleOpenAntiVirus}
+              onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
+              onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
+              onNavigateMappatura={handleOpenMappatura}
+              onNavigateSpeedTest={handleOpenSpeedTest}
+              onNavigateLSight={handleOpenLSight}
             />
           ) : showVivaldi ? (
             // Verifica accesso al sistema Vivaldi (admin e tecnici hanno sempre accesso)
@@ -4254,6 +4281,7 @@ export default function TicketApp() {
           onNavigateNetworkMonitoring={handleOpenNetworkMonitoring}
           onNavigateMappatura={handleOpenMappatura}
           onNavigateDispositiviAziendali={handleOpenDispositiviAziendali}
+          onNavigateVpn={handleOpenVpnManager}
           selectedCompanyId={globallySelectedCompanyId}
         />
       )}
