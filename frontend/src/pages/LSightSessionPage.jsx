@@ -153,7 +153,7 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
                   onClick={downloadRdp}
                   disabled={downloading || (session?.status && session.status !== 'ready' && session.status !== 'active' && session.status !== 'connecting')}
                   className="px-4 py-2 rounded-lg bg-indigo-600/80 hover:bg-indigo-600 disabled:opacity-60 border border-indigo-500/30 text-sm font-black flex items-center gap-2"
-                  title="Scarica il file .rdp e aprilo con mstsc"
+                  title="Scarica il file .rdp e aprilo con il nuovo Desktop Remoto (Windows App)"
                 >
                   <Plug size={16} />
                   Apri Desktop Remoto
@@ -189,7 +189,7 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
               <div className="mt-2 text-xs text-slate-500">
                 {session?.status === 'created' ? 'Sessione creata: in attesa tunnel...' :
                   session?.status === 'tunneling' ? 'Tunnel in avvio...' :
-                    session?.status === 'ready' ? 'Tunnel pronto: puoi aprire mstsc.' :
+                    session?.status === 'ready' ? 'Tunnel pronto: puoi aprire il nuovo Desktop Remoto.' :
                       ''}
               </div>
             </div>
@@ -215,7 +215,8 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
             </div>
             <div className="mt-2 text-xs text-slate-500">
               Clicca <span className="font-semibold">Apri Desktop Remoto</span> per scaricare il file <span className="font-mono">.rdp</span>.
-              Verrà aperto con <span className="font-mono">mstsc</span> e passerà dal tuo RD Gateway (senza VPN).
+              Aprilo con <span className="font-semibold">Windows App (nuovo Desktop Remoto)</span>; se non disponibile, funziona anche con il client classico.
+              La connessione passa dal tuo RD Gateway (senza VPN).
             </div>
           </div>
 
@@ -236,6 +237,7 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
             <div className="text-amber-300 font-black text-sm">Nota</div>
             <div className="text-slate-300 text-sm mt-1">
               Questo flusso usa <span className="font-semibold">RDP vero</span> (clipboard, drive mapping, stampanti) tramite <span className="font-semibold">RD Gateway</span>.
+              Ti consigliamo il <span className="font-semibold">nuovo Desktop Remoto (Windows App)</span> come client predefinito.
               Non serve OpenVPN sul PC del tecnico.
             </div>
           </div>

@@ -521,7 +521,7 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
               </span>
             </h1>
             <p className="text-xs text-indigo-300/70 uppercase tracking-widest font-semibold mt-0.5">
-              PC per azienda · Desktop remoto (RDP quando abilitato)
+              PC per azienda · Nuovo desktop remoto (RDP quando abilitato)
             </p>
           </div>
         </div>

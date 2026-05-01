@@ -10,6 +10,8 @@ const {
  */
 module.exports = (pool) => {
   const router = express.Router();
+  const normalizeMacSql = (field) =>
+    `REPLACE(REPLACE(REPLACE(REPLACE(UPPER(COALESCE(${field}, '')), ':', ''), '-', ''), '.', ''), ' ', '')`;
 
   /** Cliente autorizzabile: email + campo azienda profilo coincide con selezione tecnico */
   async function resolveClientePerAziendaLsight(rawEmail, rawAzienda) {
@@ -114,11 +116,46 @@ module.exports = (pool) => {
     if (!rawAzienda) return res.status(400).json({ error: 'Parametro azienda mancante' });
     try {
       const { rows } = await pool.query(
-        `SELECT ca.id AS agent_id, ca.machine_name, ca.os_info, ca.status, ca.last_heartbeat
+        `SELECT ca.id AS agent_id, ca.machine_name, ca.os_info,
+                COALESCE(nm.monitor_status, 'offline') AS status,
+                nm.monitor_last_seen AS monitor_last_seen,
+                ca.status AS comm_agent_status,
+                ca.last_heartbeat
          FROM comm_agents ca
          JOIN users u ON ca.user_id = u.id
+         LEFT JOIN comm_device_info cdi ON cdi.agent_id = ca.id
+         LEFT JOIN LATERAL (
+           SELECT nd.status AS monitor_status, nd.last_seen AS monitor_last_seen
+           FROM network_devices nd
+           JOIN network_agents na ON na.id = nd.agent_id
+           WHERE na.deleted_at IS NULL
+             AND na.azienda_id = ca.user_id
+             AND (
+               (
+                 ${normalizeMacSql('nd.mac_address')} <> ''
+                 AND ${normalizeMacSql('cdi.mac')} <> ''
+                 AND ${normalizeMacSql('nd.mac_address')} = ${normalizeMacSql('cdi.mac')}
+               )
+               OR (
+                 LOWER(TRIM(COALESCE(nd.hostname, ''))) <> ''
+                 AND LOWER(TRIM(COALESCE(nd.hostname, ''))) IN (
+                   LOWER(TRIM(COALESCE(cdi.device_name, ''))),
+                   LOWER(TRIM(COALESCE(ca.machine_name, '')))
+                 )
+               )
+             )
+           ORDER BY
+             CASE
+               WHEN ${normalizeMacSql('nd.mac_address')} <> ''
+                 AND ${normalizeMacSql('cdi.mac')} <> ''
+                 AND ${normalizeMacSql('nd.mac_address')} = ${normalizeMacSql('cdi.mac')}
+               THEN 0 ELSE 1
+             END,
+             nd.last_seen DESC NULLS LAST
+           LIMIT 1
+         ) nm ON TRUE
          WHERE LOWER(TRIM(u.azienda)) = LOWER(TRIM($1))
-         ORDER BY CASE WHEN ca.status = 'online' THEN 0 ELSE 1 END, ca.machine_name ASC`,
+         ORDER BY CASE WHEN COALESCE(nm.monitor_status, 'offline') = 'online' THEN 0 ELSE 1 END, ca.machine_name ASC`,
         [rawAzienda]
       );
       res.json({ success: true, agents: rows });
@@ -148,11 +185,45 @@ module.exports = (pool) => {
       const { user: u, companyKey, companyAgentIds, rawCompany } = resolved;
 
       const { rows: agents } = await pool.query(
-        `SELECT ca.id AS agent_id, ca.machine_name, ca.os_info, ca.status
+        `SELECT ca.id AS agent_id, ca.machine_name, ca.os_info,
+                COALESCE(nm.monitor_status, 'offline') AS status,
+                nm.monitor_last_seen AS monitor_last_seen,
+                ca.status AS comm_agent_status
          FROM comm_agents ca
          JOIN users ow ON ow.id = ca.user_id
+         LEFT JOIN comm_device_info cdi ON cdi.agent_id = ca.id
+         LEFT JOIN LATERAL (
+           SELECT nd.status AS monitor_status, nd.last_seen AS monitor_last_seen
+           FROM network_devices nd
+           JOIN network_agents na ON na.id = nd.agent_id
+           WHERE na.deleted_at IS NULL
+             AND na.azienda_id = ca.user_id
+             AND (
+               (
+                 ${normalizeMacSql('nd.mac_address')} <> ''
+                 AND ${normalizeMacSql('cdi.mac')} <> ''
+                 AND ${normalizeMacSql('nd.mac_address')} = ${normalizeMacSql('cdi.mac')}
+               )
+               OR (
+                 LOWER(TRIM(COALESCE(nd.hostname, ''))) <> ''
+                 AND LOWER(TRIM(COALESCE(nd.hostname, ''))) IN (
+                   LOWER(TRIM(COALESCE(cdi.device_name, ''))),
+                   LOWER(TRIM(COALESCE(ca.machine_name, '')))
+                 )
+               )
+             )
+           ORDER BY
+             CASE
+               WHEN ${normalizeMacSql('nd.mac_address')} <> ''
+                 AND ${normalizeMacSql('cdi.mac')} <> ''
+                 AND ${normalizeMacSql('nd.mac_address')} = ${normalizeMacSql('cdi.mac')}
+               THEN 0 ELSE 1
+             END,
+             nd.last_seen DESC NULLS LAST
+           LIMIT 1
+         ) nm ON TRUE
          WHERE LOWER(TRIM(ow.azienda)) = LOWER(TRIM($1))
-         ORDER BY CASE WHEN ca.status = 'online' THEN 0 ELSE 1 END, ca.machine_name ASC`,
+         ORDER BY CASE WHEN COALESCE(nm.monitor_status, 'offline') = 'online' THEN 0 ELSE 1 END, ca.machine_name ASC`,
         [rawCompany]
       );
 
@@ -502,26 +573,96 @@ module.exports = (pool) => {
 
       if (req.user.ruolo === 'tecnico' || req.user.ruolo === 'admin') {
         query = `
-            SELECT ca.id as agent_id, ca.machine_name, ca.os_info, ca.status, ca.last_heartbeat,
+            SELECT ca.id as agent_id, ca.machine_name, ca.os_info,
+                   COALESCE(nm.monitor_status, 'offline') AS status,
+                   nm.monitor_last_seen AS monitor_last_seen,
+                   ca.status AS comm_agent_status,
+                   ca.last_heartbeat,
                    owner.azienda,
                    owner.nome as user_nome, owner.cognome as user_cognome,
                    lc.enabled, lc.remote_passwd
             FROM comm_agents ca
             LEFT JOIN users owner ON ca.user_id = owner.id
             LEFT JOIN lsight_agent_config lc ON ca.id = lc.agent_id
+            LEFT JOIN comm_device_info cdi ON cdi.agent_id = ca.id
+            LEFT JOIN LATERAL (
+              SELECT nd.status AS monitor_status, nd.last_seen AS monitor_last_seen
+              FROM network_devices nd
+              JOIN network_agents na ON na.id = nd.agent_id
+              WHERE na.deleted_at IS NULL
+                AND na.azienda_id = ca.user_id
+                AND (
+                  (
+                    ${normalizeMacSql('nd.mac_address')} <> ''
+                    AND ${normalizeMacSql('cdi.mac')} <> ''
+                    AND ${normalizeMacSql('nd.mac_address')} = ${normalizeMacSql('cdi.mac')}
+                  )
+                  OR (
+                    LOWER(TRIM(COALESCE(nd.hostname, ''))) <> ''
+                    AND LOWER(TRIM(COALESCE(nd.hostname, ''))) IN (
+                      LOWER(TRIM(COALESCE(cdi.device_name, ''))),
+                      LOWER(TRIM(COALESCE(ca.machine_name, '')))
+                    )
+                  )
+                )
+              ORDER BY
+                CASE
+                  WHEN ${normalizeMacSql('nd.mac_address')} <> ''
+                    AND ${normalizeMacSql('cdi.mac')} <> ''
+                    AND ${normalizeMacSql('nd.mac_address')} = ${normalizeMacSql('cdi.mac')}
+                  THEN 0 ELSE 1
+                END,
+                nd.last_seen DESC NULLS LAST
+              LIMIT 1
+            ) nm ON TRUE
             ORDER BY owner.azienda NULLS LAST, ca.machine_name
         `;
       } else {
         await ensureLsightCompanyAccessTable(pool);
         params.push(req.user.id);
         query = `
-            SELECT ca.id as agent_id, ca.machine_name, ca.os_info, ca.status, ca.last_heartbeat,
+            SELECT ca.id as agent_id, ca.machine_name, ca.os_info,
+                   COALESCE(nm.monitor_status, 'offline') AS status,
+                   nm.monitor_last_seen AS monitor_last_seen,
+                   ca.status AS comm_agent_status,
+                   ca.last_heartbeat,
                    owner.azienda,
                    owner.nome as user_nome, owner.cognome as user_cognome,
                    lc.enabled, lc.remote_passwd
             FROM comm_agents ca
             LEFT JOIN users owner ON ca.user_id = owner.id
             LEFT JOIN lsight_agent_config lc ON ca.id = lc.agent_id
+            LEFT JOIN comm_device_info cdi ON cdi.agent_id = ca.id
+            LEFT JOIN LATERAL (
+              SELECT nd.status AS monitor_status, nd.last_seen AS monitor_last_seen
+              FROM network_devices nd
+              JOIN network_agents na ON na.id = nd.agent_id
+              WHERE na.deleted_at IS NULL
+                AND na.azienda_id = ca.user_id
+                AND (
+                  (
+                    ${normalizeMacSql('nd.mac_address')} <> ''
+                    AND ${normalizeMacSql('cdi.mac')} <> ''
+                    AND ${normalizeMacSql('nd.mac_address')} = ${normalizeMacSql('cdi.mac')}
+                  )
+                  OR (
+                    LOWER(TRIM(COALESCE(nd.hostname, ''))) <> ''
+                    AND LOWER(TRIM(COALESCE(nd.hostname, ''))) IN (
+                      LOWER(TRIM(COALESCE(cdi.device_name, ''))),
+                      LOWER(TRIM(COALESCE(ca.machine_name, '')))
+                    )
+                  )
+                )
+              ORDER BY
+                CASE
+                  WHEN ${normalizeMacSql('nd.mac_address')} <> ''
+                    AND ${normalizeMacSql('cdi.mac')} <> ''
+                    AND ${normalizeMacSql('nd.mac_address')} = ${normalizeMacSql('cdi.mac')}
+                  THEN 0 ELSE 1
+                END,
+                nd.last_seen DESC NULLS LAST
+              LIMIT 1
+            ) nm ON TRUE
             WHERE EXISTS (
                SELECT 1 FROM lsight_assignments la
                WHERE la.user_id = $1 AND la.agent_id = ca.id
