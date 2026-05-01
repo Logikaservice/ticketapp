@@ -3,6 +3,7 @@ const { authenticateToken } = require('../middleware/authMiddleware');
 const {
   normalizeCompanyName,
   ensureLsightCompanyAccessTable,
+  userCanAccessLsightAgent,
 } = require('../utils/lsightAccess');
 
 /**
@@ -12,6 +13,69 @@ module.exports = (pool) => {
   const router = express.Router();
   const normalizeMacSql = (field) =>
     `REPLACE(REPLACE(REPLACE(REPLACE(UPPER(COALESCE(${field}, '')), ':', ''), '-', ''), '.', ''), ' ', '')`;
+
+  const IPV4_RE = /\b(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.|$)){4}\b/;
+
+  function firstIpv4FromString(s) {
+    const t = String(s || '').trim();
+    if (!t) return null;
+    const m = t.match(IPV4_RE);
+    return m ? m[0].replace(/\.$/, '') : null;
+  }
+
+  function pickRdpTargetFromRow(row) {
+    if (!row) return null;
+    const candidates = [];
+    const push = (v) => {
+      const x = String(v || '').trim();
+      if (x) candidates.push(x);
+    };
+    push(row.primary_ip);
+    push(row.ip_addresses);
+    push(row.comm_ip);
+    push(row.monitor_ip);
+    for (const c of candidates) {
+      if (c.includes(',') || c.includes(' ') || c.includes('\n')) {
+        const parts = c.split(/[,\s\n]+/).map((p) => p.trim()).filter(Boolean);
+        for (const p of parts) {
+          const ip = firstIpv4FromString(p.replace(/\s*\(.*$/, '').trim());
+          if (ip) return ip;
+        }
+      } else {
+        const ip = firstIpv4FromString(c.replace(/\s*\(.*$/, '').trim());
+        if (ip) return ip;
+      }
+    }
+    return null;
+  }
+
+  function buildDirectRdpFile({ host, port }) {
+    const p = Number(port) || 3389;
+    const lines = [
+      `screen mode id:i:2`,
+      `use multimon:i:0`,
+      `desktopwidth:i:1920`,
+      `desktopheight:i:1080`,
+      `session bpp:i:32`,
+      `compression:i:1`,
+      `keyboardhook:i:2`,
+      `audiomode:i:0`,
+      `redirectclipboard:i:1`,
+      `redirectprinters:i:1`,
+      `redirectdrives:i:1`,
+      `redirectcomports:i:0`,
+      `redirectsmartcards:i:1`,
+      `drivestoredirect:s:*`,
+      `prompt for credentials:i:1`,
+      `authentication level:i:2`,
+      `full address:s:${host}`,
+      `server port:i:${p}`,
+      `enablecredsspsupport:i:1`,
+    ];
+    const u = String(process.env.LSIGHT_DIRECT_RDP_USERNAME || '').trim();
+    if (u) lines.push(`username:s:${u}`);
+    return lines.join('\r\n') + '\r\n';
+  }
 
   /** Cliente autorizzabile: email + campo azienda profilo coincide con selezione tecnico */
   async function resolveClientePerAziendaLsight(rawEmail, rawAzienda) {
@@ -80,6 +144,75 @@ module.exports = (pool) => {
   ensureLSightTables();
 
   router.use(authenticateToken);
+
+  /**
+   * RDP diretto (senza tunnel): genera file .rdp verso IP/host del PC.
+   * Usa inventario comm_device_info + fallback IP monitoraggio rete; richiede VPN lato tecnico.
+   */
+  router.get('/agents/:id/direct-rdp', async (req, res) => {
+    const id = Number(req.params.id);
+    if (!id || Number.isNaN(id)) return res.status(400).send('agent_id non valido');
+    try {
+      const ok = await userCanAccessLsightAgent(pool, {
+        viewerId: req.user.id,
+        viewerRole: req.user?.ruolo,
+        agentId: id,
+      });
+      if (!ok) return res.status(403).send('Accesso negato: PC non autorizzato per questo profilo');
+
+      const { rows } = await pool.query(
+        `SELECT ca.id AS agent_id, ca.machine_name,
+                ca.ip_address AS comm_ip,
+                cdi.primary_ip, cdi.ip_addresses,
+                nm.monitor_ip
+         FROM comm_agents ca
+         LEFT JOIN comm_device_info cdi ON cdi.agent_id = ca.id
+         LEFT JOIN LATERAL (
+           SELECT nd.ip_address::text AS monitor_ip
+           FROM network_devices nd
+           JOIN network_agents na ON na.id = nd.agent_id
+           WHERE na.deleted_at IS NULL
+             AND na.azienda_id = ca.user_id
+             AND (
+               (
+                 ${normalizeMacSql('nd.mac_address')} <> ''
+                 AND ${normalizeMacSql('cdi.mac')} <> ''
+                 AND ${normalizeMacSql('nd.mac_address')} = ${normalizeMacSql('cdi.mac')}
+               )
+               OR (
+                 LOWER(TRIM(COALESCE(nd.hostname, ''))) <> ''
+                 AND LOWER(TRIM(COALESCE(nd.hostname, ''))) IN (
+                   LOWER(TRIM(COALESCE(cdi.device_name, ''))),
+                   LOWER(TRIM(COALESCE(ca.machine_name, '')))
+                 )
+               )
+             )
+           ORDER BY nd.last_seen DESC NULLS LAST
+           LIMIT 1
+         ) nm ON TRUE
+         WHERE ca.id = $1
+         LIMIT 1`,
+        [id]
+      );
+      if (!rows.length) return res.status(404).send('Agent non trovato');
+      const row = rows[0];
+      const host = pickRdpTargetFromRow(row);
+      if (!host) {
+        return res.status(422).send(
+          'Indirizzo RDP non disponibile: manca IP in inventario/monitoraggio per questo PC. Apri “Dispositivi aziendali” e verifica che l’agent abbia inviato gli IP.'
+        );
+      }
+      const port = Math.max(1, Math.min(65535, Number(process.env.LSIGHT_DIRECT_RDP_PORT || 3389)));
+      const rdp = buildDirectRdpFile({ host, port });
+      const safeName = String(row.machine_name || `agent-${id}`).replace(/[^\w.\-]+/g, '_').slice(0, 80);
+      res.setHeader('Content-Type', 'application/x-rdp');
+      res.setHeader('Content-Disposition', `attachment; filename="lsight-direct-${safeName}.rdp"`);
+      return res.send(rdp);
+    } catch (e) {
+      console.error('lsight direct-rdp:', e);
+      return res.status(500).send('Errore interno');
+    }
+  });
 
   const verifyTecnico = (req, res, next) => {
     if (req.user && req.user.ruolo === 'tecnico') {
@@ -574,6 +707,9 @@ module.exports = (pool) => {
       if (req.user.ruolo === 'tecnico' || req.user.ruolo === 'admin') {
         query = `
             SELECT ca.id as agent_id, ca.machine_name, ca.os_info,
+                   ca.ip_address AS comm_ip,
+                   cdi.primary_ip, cdi.ip_addresses,
+                   nm.monitor_ip,
                    COALESCE(nm.monitor_status, 'offline') AS status,
                    nm.monitor_last_seen AS monitor_last_seen,
                    ca.status AS comm_agent_status,
@@ -586,7 +722,8 @@ module.exports = (pool) => {
             LEFT JOIN lsight_agent_config lc ON ca.id = lc.agent_id
             LEFT JOIN comm_device_info cdi ON cdi.agent_id = ca.id
             LEFT JOIN LATERAL (
-              SELECT nd.status AS monitor_status, nd.last_seen AS monitor_last_seen
+              SELECT nd.status AS monitor_status, nd.last_seen AS monitor_last_seen,
+                     nd.ip_address::text AS monitor_ip
               FROM network_devices nd
               JOIN network_agents na ON na.id = nd.agent_id
               WHERE na.deleted_at IS NULL
@@ -622,6 +759,9 @@ module.exports = (pool) => {
         params.push(req.user.id);
         query = `
             SELECT ca.id as agent_id, ca.machine_name, ca.os_info,
+                   ca.ip_address AS comm_ip,
+                   cdi.primary_ip, cdi.ip_addresses,
+                   nm.monitor_ip,
                    COALESCE(nm.monitor_status, 'offline') AS status,
                    nm.monitor_last_seen AS monitor_last_seen,
                    ca.status AS comm_agent_status,
@@ -634,7 +774,8 @@ module.exports = (pool) => {
             LEFT JOIN lsight_agent_config lc ON ca.id = lc.agent_id
             LEFT JOIN comm_device_info cdi ON cdi.agent_id = ca.id
             LEFT JOIN LATERAL (
-              SELECT nd.status AS monitor_status, nd.last_seen AS monitor_last_seen
+              SELECT nd.status AS monitor_status, nd.last_seen AS monitor_last_seen,
+                     nd.ip_address::text AS monitor_ip
               FROM network_devices nd
               JOIN network_agents na ON na.id = nd.agent_id
               WHERE na.deleted_at IS NULL

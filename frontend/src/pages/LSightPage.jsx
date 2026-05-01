@@ -30,7 +30,7 @@ const getInitials = (name) => {
 
 const normCompany = (s) => String(s || '').trim().toLowerCase();
 
-const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpenSession }) => {
+const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpenSession: _onOpenSession }) => {
   const [isScanning, setIsScanning] = useState(true);
   const [agents, setAgents] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState(null);
@@ -321,20 +321,6 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
     const isOnline = ag.status === 'online';
     const isStarting = startingSessionAgentId === ag.agent_id;
 
-    const openSessionFallback = (sessionId) => {
-      const id = Number(sessionId);
-      if (!id || Number.isNaN(id)) return;
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.set('lsightSessionId', String(id));
-        window.history.replaceState({}, '', url.toString());
-        window.location.hash = '#lsight-session';
-        window.dispatchEvent(new Event('ticketapp-sync-hash'));
-      } catch (_) {
-        window.location.hash = '#lsight-session';
-      }
-    };
-
     const startSession = async (source = 'click') => {
       if (!isOnline || isStarting) return;
       setStartingSessionAgentId(ag.agent_id);
@@ -347,37 +333,27 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
       }
 
       try {
-        const res = await fetch(buildApiUrl('/api/lsight-rdp/sessions'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...getAuthHeader(),
-          },
-          body: JSON.stringify({ agent_id: ag.agent_id }),
+        const res = await fetch(buildApiUrl(`/api/lsight/agents/${ag.agent_id}/direct-rdp`), {
+          headers: getAuthHeader(),
         });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success || !data.session?.id) {
-          const msg =
-            data?.error ||
-            'Desktop remoto non disponibile (verifica LSIGHT_RDP_ENABLED sul server e servizio sul PC cliente).';
-          alert(msg);
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          alert(txt || 'Impossibile generare il file RDP per questo PC.');
           return;
         }
-        if (typeof onOpenSession === 'function') {
-          onOpenSession(data.session.id);
-          setTimeout(() => {
-            try {
-              if (window.location.hash !== '#lsight-session') openSessionFallback(data.session.id);
-            } catch (_) {
-              openSessionFallback(data.session.id);
-            }
-          }, 300);
-        } else {
-          openSessionFallback(data.session.id);
-        }
+        const blob = await res.blob();
+        const safe = String(ag.machine_name || `pc-${ag.agent_id}`).replace(/[^\w.\-]+/g, '_').slice(0, 80);
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `lsight-direct-${safe}.rdp`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
       } catch (e) {
-        console.error('Errore avvio sessione L-Sight RDP:', e);
-        alert('Errore di rete durante l’avvio della sessione.');
+        console.error('Errore download RDP diretto L-Sight:', e);
+        alert('Errore di rete durante la generazione del file RDP.');
       } finally {
         setStartingSessionAgentId(null);
       }
@@ -445,7 +421,7 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
                 : 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700'
             }`}
           >
-            {isOnline ? (isStarting ? '⏳ Connessione...' : 'Desktop remoto') : '— offline'}
+            {isOnline ? (isStarting ? '⏳ File RDP...' : 'Desktop remoto') : '— offline'}
           </button>
         </div>
       </div>
@@ -521,7 +497,7 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
               </span>
             </h1>
             <p className="text-xs text-indigo-300/70 uppercase tracking-widest font-semibold mt-0.5">
-              PC per azienda · Nuovo desktop remoto (RDP quando abilitato)
+              PC per azienda · Desktop remoto diretto (file .rdp · apri la VPN sul PC tecnico)
             </p>
           </div>
         </div>
