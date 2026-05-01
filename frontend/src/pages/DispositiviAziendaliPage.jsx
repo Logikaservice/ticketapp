@@ -168,20 +168,21 @@ const DispositiviAziendaliPage = ({
   const selectedCompany = companies.find(c => String(c.id) === String(selectedCompanyId));
   const companyName = selectedCompany?.azienda || selectedCompany?.nome || '';
 
-  const loadCompanyDevices = useCallback(async () => {
+  const loadCompanyDevices = useCallback(async ({ silent = false } = {}) => {
     if (!companyName) {
       setDevices([]);
       return;
     }
-    setDevicesLoading(true);
+    if (!silent) setDevicesLoading(true);
     try {
       const res = await fetch(buildApiUrl(`/api/comm-agent/device-info?azienda=${encodeURIComponent(companyName)}`), { headers: getAuthHeader() });
       const data = res.ok ? await res.json() : [];
       setDevices(Array.isArray(data) ? data : []);
     } catch (_) {
-      setDevices([]);
+      // Durante refresh silenzioso non svuotare la lista per evitare "salti" visuali.
+      if (!silent) setDevices([]);
     } finally {
-      setDevicesLoading(false);
+      if (!silent) setDevicesLoading(false);
     }
   }, [companyName, getAuthHeader]);
 
@@ -229,7 +230,7 @@ const DispositiviAziendaliPage = ({
     if (!autoRefreshEnabled || !selectedCompanyId) return undefined;
     const interval = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
-      loadCompanyDevices();
+      loadCompanyDevices({ silent: true });
       loadMonitoringIps();
     }, 15000);
     return () => clearInterval(interval);
@@ -264,7 +265,7 @@ const DispositiviAziendaliPage = ({
   }, [highlightMac, devices]);
 
   return (
-    <div className="fixed inset-0 bg-gray-100 z-50 flex flex-col">
+    <div className="fixed inset-0 bg-gray-100 z-50 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="bg-white border-b px-6 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
