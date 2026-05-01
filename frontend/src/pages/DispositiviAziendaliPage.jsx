@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Monitor, Cpu, HardDrive, Battery, Shield, User, Loader2, Wifi, WifiOff, Activity, Settings, X } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import DispositiviAziendaliIntroCard from '../components/DispositiviAziendaliIntroCard';
@@ -78,6 +78,7 @@ const DispositiviAziendaliPage = ({
   const [globalOffline, setGlobalOffline] = useState(null);
   // Gear dropdown visibility
   const [showGearMenu, setShowGearMenu] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const gearRef = React.useRef(null);
 
   // Chiudi dropdown gear se si clicca fuori
@@ -167,6 +168,46 @@ const DispositiviAziendaliPage = ({
   const selectedCompany = companies.find(c => String(c.id) === String(selectedCompanyId));
   const companyName = selectedCompany?.azienda || selectedCompany?.nome || '';
 
+  const loadCompanyDevices = useCallback(async () => {
+    if (!companyName) {
+      setDevices([]);
+      return;
+    }
+    setDevicesLoading(true);
+    try {
+      const res = await fetch(buildApiUrl(`/api/comm-agent/device-info?azienda=${encodeURIComponent(companyName)}`), { headers: getAuthHeader() });
+      const data = res.ok ? await res.json() : [];
+      setDevices(Array.isArray(data) ? data : []);
+    } catch (_) {
+      setDevices([]);
+    } finally {
+      setDevicesLoading(false);
+    }
+  }, [companyName, getAuthHeader]);
+
+  const loadMonitoringIps = useCallback(async () => {
+    if (!selectedCompanyId) {
+      setMonitoringIps(new Set());
+      return;
+    }
+    try {
+      const res = await fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/devices`), { headers: getAuthHeader() });
+      const data = res.ok ? await res.json() : [];
+      const ips = new Set();
+      (data || []).forEach(d => {
+        if (d.ip_address) ips.add(String(d.ip_address).trim());
+        const add = d.additional_ips;
+        if (Array.isArray(add)) add.forEach(ip => ip && ips.add(String(ip).trim()));
+        else if (typeof add === 'string') {
+          try { JSON.parse(add).forEach(ip => ip && ips.add(String(ip).trim())); } catch (_) { /* ignore */ }
+        }
+      });
+      setMonitoringIps(ips);
+    } catch (_) {
+      setMonitoringIps(new Set());
+    }
+  }, [selectedCompanyId, getAuthHeader]);
+
   // Effetto per sincronizzare verso l'alto quando cambia localmente
   useEffect(() => {
     if (onCompanyChange && selectedCompanyId) {
@@ -175,43 +216,24 @@ const DispositiviAziendaliPage = ({
   }, [selectedCompanyId, onCompanyChange]);
 
   useEffect(() => {
-    if (!companyName) {
-      setDevices([]);
-      return;
-    }
-    let cancelled = false;
-    setDevicesLoading(true);
-    fetch(buildApiUrl(`/api/comm-agent/device-info?azienda=${encodeURIComponent(companyName)}`), { headers: getAuthHeader() })
-      .then(res => res.ok ? res.json() : [])
-      .then(data => { if (!cancelled) setDevices(Array.isArray(data) ? data : []); })
-      .catch(() => { if (!cancelled) setDevices([]); })
-      .finally(() => { if (!cancelled) setDevicesLoading(false); });
-    return () => { cancelled = true; };
-  }, [companyName, getAuthHeader]);
+    loadCompanyDevices();
+  }, [loadCompanyDevices]);
 
   // IP presenti nel monitoraggio rete (per evidenziarli in grassetto)
   useEffect(() => {
-    if (!selectedCompanyId) {
-      setMonitoringIps(new Set());
-      return;
-    }
-    let cancelled = false;
-    fetch(buildApiUrl(`/api/network-monitoring/clients/${selectedCompanyId}/devices`), { headers: getAuthHeader() })
-      .then(res => res.ok ? res.json() : [])
-      .then(data => {
-        if (cancelled) return;
-        const ips = new Set();
-        (data || []).forEach(d => {
-          if (d.ip_address) ips.add(String(d.ip_address).trim());
-          const add = d.additional_ips;
-          if (Array.isArray(add)) add.forEach(ip => ip && ips.add(String(ip).trim()));
-          else if (typeof add === 'string') try { JSON.parse(add).forEach(ip => ip && ips.add(String(ip).trim())); } catch (_) {}
-        });
-        setMonitoringIps(ips);
-      })
-      .catch(() => { if (!cancelled) setMonitoringIps(new Set()); });
-    return () => { cancelled = true; };
-  }, [selectedCompanyId, getAuthHeader]);
+    loadMonitoringIps();
+  }, [loadMonitoringIps]);
+
+  // Auto-refresh azienda selezionata: ogni 15s, solo se tab visibile
+  useEffect(() => {
+    if (!autoRefreshEnabled || !selectedCompanyId) return undefined;
+    const interval = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      loadCompanyDevices();
+      loadMonitoringIps();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [autoRefreshEnabled, selectedCompanyId, loadCompanyDevices, loadMonitoringIps]);
 
   // Evidenzia il dispositivo richiesto (per navigazione da Monitoraggio Rete)
   useEffect(() => {
@@ -288,6 +310,16 @@ const DispositiviAziendaliPage = ({
           >
             <Activity size={16} />
             <span className="hidden sm:inline">Monitoraggio</span>
+          </button>
+          <button
+            title="Aggiornamento automatico dispositivi"
+            onClick={() => setAutoRefreshEnabled(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-2 text-white text-sm font-medium rounded-lg transition-colors shadow-sm ${
+              autoRefreshEnabled ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-gray-500 hover:bg-gray-600'
+            }`}
+          >
+            <Activity size={16} />
+            <span className="hidden sm:inline">Auto-refresh {autoRefreshEnabled ? 'ON' : 'OFF'}</span>
           </button>
           {/* Pulsante Comunicazioni / Gear con dropdown */}
           <div className="relative" ref={gearRef}>
