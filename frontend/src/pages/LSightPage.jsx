@@ -30,6 +30,37 @@ const getInitials = (name) => {
 
 const normCompany = (s) => String(s || '').trim().toLowerCase();
 
+const IPV4_TOKEN = /\b(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\b/;
+
+function firstIpv4FromText(s) {
+  const t = String(s || '').trim();
+  if (!t) return null;
+  const m = t.match(IPV4_TOKEN);
+  return m ? m[0] : null;
+}
+
+/** IP candidati per RDP (ordine: monitor, inventario, agent) */
+function collectLsightRdpIpCandidates(ag) {
+  const out = [];
+  const push = (v) => {
+    const ip = firstIpv4FromText(String(v || '').replace(/\s*\(.*$/, '').trim());
+    if (ip && !out.includes(ip)) out.push(ip);
+  };
+  const expandList = (raw) => {
+    if (!raw) return;
+    String(raw)
+      .split(/[,\s\n]+/)
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .forEach(push);
+  };
+  push(ag.monitor_ip);
+  push(ag.primary_ip);
+  expandList(ag.ip_addresses);
+  push(ag.comm_ip);
+  return out;
+}
+
 const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpenSession: _onOpenSession }) => {
   const [isScanning, setIsScanning] = useState(true);
   const [agents, setAgents] = useState([]);
@@ -55,6 +86,7 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
   const [grantAccessLoading, setGrantAccessLoading] = useState(false);
 
   const isTecnico = currentUser?.ruolo === 'tecnico';
+  const isStaff = currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'admin';
 
   const hdr = () => ({ headers: getAuthHeader() });
 
@@ -321,6 +353,78 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
     const isOnline = ag.status === 'online';
     const isStarting = startingSessionAgentId === ag.agent_id;
 
+    const downloadDirectRdpFile = async () => {
+      const res = await fetch(buildApiUrl(`/api/lsight/agents/${ag.agent_id}/direct-rdp`), {
+        headers: getAuthHeader(),
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        alert(txt || 'Impossibile generare il file RDP per questo PC.');
+        return;
+      }
+      const blob = await res.blob();
+      const safe = String(ag.machine_name || `pc-${ag.agent_id}`).replace(/[^\w.\-]+/g, '_').slice(0, 80);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `lsight-direct-${safe}.rdp`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    };
+
+    /** Stesso flusso Monitoraggio rete: .bat con cmdkey + mstsc + cleanup (credenziali da KeePass lato server). */
+    const downloadAutoRdpLauncherBat = async (ip, creds = null) => {
+      let username = '';
+      let password = '';
+      let found = false;
+      if (creds && creds.username && creds.password) {
+        username = creds.username;
+        password = creds.password;
+        found = true;
+      } else {
+        const response = await fetch(buildApiUrl(`/api/network-monitoring/tools/rdp-credentials?ip=${encodeURIComponent(ip)}`), {
+          headers: getAuthHeader(),
+        });
+        if (response.ok) {
+          const data = await response.json().catch(() => ({}));
+          username = data.username || '';
+          password = data.password || '';
+          found = !!data.found && !!(username && password);
+        }
+      }
+
+      let batContent = '@echo off\r\n';
+      batContent += 'if not "%1"=="AUTO" (\r\n';
+      batContent += '  start /min "" cmd /c "%~f0" AUTO\r\n';
+      batContent += '  exit\r\n';
+      batContent += ')\r\n';
+      batContent += 'chcp 65001 >nul\r\n';
+
+      if (found && username && password) {
+        batContent += 'cmdkey /generic:TERMSRV/' + ip + ' /user:' + username + ' /pass:' + password + ' >nul 2>&1\r\n';
+        batContent += 'start mstsc /v:' + ip + '\r\n';
+        batContent += 'ping -n 6 127.0.0.1 >nul\r\n';
+        batContent += 'cmdkey /delete:TERMSRV/' + ip + ' >nul 2>&1\r\n';
+      } else {
+        batContent += 'start mstsc /v:' + ip + '\r\n';
+      }
+      batContent += '(goto) 2>nul & del "%~f0"\r\n';
+
+      const blob = new Blob([batContent], { type: 'application/x-msdos-program' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'lsight_rdp_' + String(ip).replace(/\./g, '_') + '.bat';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 50);
+    };
+
     const startSession = async (source = 'click') => {
       if (!isOnline || isStarting) return;
       setStartingSessionAgentId(ag.agent_id);
@@ -333,27 +437,44 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
       }
 
       try {
-        const res = await fetch(buildApiUrl(`/api/lsight/agents/${ag.agent_id}/direct-rdp`), {
-          headers: getAuthHeader(),
-        });
-        if (!res.ok) {
-          const txt = await res.text().catch(() => '');
-          alert(txt || 'Impossibile generare il file RDP per questo PC.');
-          return;
+        if (isStaff) {
+          const candidates = collectLsightRdpIpCandidates(ag);
+          if (!candidates.length) {
+            alert(
+              'Nessun IP disponibile per questo PC in L-Sight. Verifica inventario/dispositivi o monitoraggio, poi riprova.'
+            );
+            return;
+          }
+          let credPair = null;
+          let credIp = null;
+          for (const ip of candidates) {
+            try {
+              const res = await fetch(
+                buildApiUrl(`/api/network-monitoring/tools/rdp-credentials?ip=${encodeURIComponent(ip)}`),
+                { headers: getAuthHeader() }
+              );
+              if (!res.ok) continue;
+              const data = await res.json().catch(() => ({}));
+              if (data?.found && data?.username && data?.password) {
+                credPair = { username: data.username, password: data.password };
+                credIp = ip;
+                break;
+              }
+            } catch (_) {
+              /* try next ip */
+            }
+          }
+          if (credPair && credIp) {
+            await downloadAutoRdpLauncherBat(credIp, credPair);
+          } else {
+            await downloadDirectRdpFile();
+          }
+        } else {
+          await downloadDirectRdpFile();
         }
-        const blob = await res.blob();
-        const safe = String(ag.machine_name || `pc-${ag.agent_id}`).replace(/[^\w.\-]+/g, '_').slice(0, 80);
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `lsight-direct-${safe}.rdp`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
       } catch (e) {
-        console.error('Errore download RDP diretto L-Sight:', e);
-        alert('Errore di rete durante la generazione del file RDP.');
+        console.error('Errore avvio Desktop remoto L-Sight:', e);
+        alert('Errore di rete durante l’avvio del desktop remoto.');
       } finally {
         setStartingSessionAgentId(null);
       }
@@ -421,7 +542,7 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
                 : 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700'
             }`}
           >
-            {isOnline ? (isStarting ? '⏳ File RDP...' : 'Desktop remoto') : '— offline'}
+            {isOnline ? (isStarting ? (isStaff ? '⏳ Avvio...' : '⏳ File RDP...') : 'Desktop remoto') : '— offline'}
           </button>
         </div>
       </div>
@@ -497,7 +618,7 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
               </span>
             </h1>
             <p className="text-xs text-indigo-300/70 uppercase tracking-widest font-semibold mt-0.5">
-              PC per azienda · Desktop remoto diretto (file .rdp · apri la VPN sul PC tecnico)
+              PC per azienda · Staff: launcher .bat (KeePass+cmdkey+mstsc) · Altri utenti: file .rdp
             </p>
           </div>
         </div>

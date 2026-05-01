@@ -8012,7 +8012,7 @@ pause
 
   // GET /api/network-monitoring/tools/rdp-credentials
   // Recupera credenziali RDP da Keepass per un IP
-  router.get('/tools/rdp-credentials', authenticateToken, async (req, res) => {
+  router.get('/tools/rdp-credentials', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
     try {
       const { ip } = req.query;
       if (!ip) {
