@@ -1341,6 +1341,12 @@ if (String(process.env.LSIGHT_RDP_ENABLED || '').trim() === '1') {
   }
 } else {
   console.log('ℹ️ L-Sight RDP disabilitato (LSIGHT_RDP_ENABLED!=1)');
+  app.use('/api/lsight-rdp', (req, res) => {
+    return res.status(503).json({
+      success: false,
+      error: 'L-Sight RDP non abilitato sul server (imposta LSIGHT_RDP_ENABLED=1 e riavvia backend).'
+    });
+  });
 }
 
 // (RTC/WebRTC rimosso: usiamo RDP via RD Gateway)
