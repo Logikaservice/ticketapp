@@ -1326,7 +1326,7 @@ app.get('/clients', async (req, res) => {
 // ✅ Endpoint /api/health è già definito sopra (linea 846) - RIMOSSO DUPLICATO
 
 // Rotte protette con autenticazione JWT
-const lsightRoutes = require('./routes/lsight');
+const lsightRoutes = require('./routes/lsight')(pool);
 app.use('/api/lsight', lsightRoutes);
 
 // L-Sight RDP (mstsc + RD Gateway) — disattivato di default

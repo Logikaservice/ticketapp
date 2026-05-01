@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ShieldCheck, X, RefreshCcw, Circle, Clock, KeyRound, Plug } from 'lucide-react';
+import { buildApiUrl } from '../utils/apiConfig';
 
 const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight }) => {
   const [session, setSession] = useState(null);
@@ -14,7 +15,7 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
     if (!canLoad) return;
     setError(null);
     try {
-      const res = await fetch(`/api/lsight-rdp/sessions/${Number(sessionId)}`, { headers: getAuthHeader() });
+      const res = await fetch(buildApiUrl(`/api/lsight-rdp/sessions/${Number(sessionId)}`), { headers: getAuthHeader() });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
         setError(data?.error || 'Errore nel recupero sessione');
@@ -35,7 +36,7 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
     if (!canLoad || downloading) return;
     setDownloading(true);
     try {
-      const res = await fetch(`/api/lsight-rdp/sessions/${Number(sessionId)}/rdp-file`, { headers: getAuthHeader() });
+      const res = await fetch(buildApiUrl(`/api/lsight-rdp/sessions/${Number(sessionId)}/rdp-file`), { headers: getAuthHeader() });
       if (!res.ok) {
         const txt = await res.text().catch(() => '');
         alert(txt || 'Errore download file RDP');
@@ -61,7 +62,7 @@ const LSightSessionPage = ({ sessionId, getAuthHeader, onClose, onNavigateLSight
     if (!canLoad || closing) return;
     setClosing(true);
     try {
-      const res = await fetch(`/api/lsight-rdp/sessions/${Number(sessionId)}/close`, {
+      const res = await fetch(buildApiUrl(`/api/lsight-rdp/sessions/${Number(sessionId)}/close`), {
         method: 'POST',
         headers: getAuthHeader()
       });

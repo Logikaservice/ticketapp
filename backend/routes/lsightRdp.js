@@ -2,6 +2,11 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const { authenticateToken } = require('../middleware/authMiddleware');
+const {
+  ensureLsightCompanyAccessTable,
+  userCanAccessLsightAgent,
+  isElevatedLsightViewer
+} = require('../utils/lsightAccess');
 
 // Usa pool condiviso del backend principale (evita mismatch DB).
 let pool = null;
@@ -34,6 +39,7 @@ async function ensureTables() {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_lsight_rdp_sessions_user ON lsight_rdp_sessions(user_id);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_lsight_rdp_sessions_expires ON lsight_rdp_sessions(expires_at);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_lsight_rdp_sessions_status ON lsight_rdp_sessions(status);`);
+    await ensureLsightCompanyAccessTable(pool);
     tablesReady = true;
   } catch (e) {
     tableInitError = e.message;
@@ -47,20 +53,7 @@ function getClientIp(req) {
   return req.ip || req.connection?.remoteAddress || null;
 }
 
-async function userCanAccessAgent({ userId, agentId }) {
-  // Tecnici: accesso pieno
-  // Clienti: solo se assegnato in lsight_assignments
-  const { rows } = await pool.query(
-    `SELECT 1
-     FROM lsight_assignments
-     WHERE user_id = $1 AND agent_id = $2
-     LIMIT 1`,
-    [userId, agentId]
-  );
-  return rows.length > 0;
-}
-
-const isTecnico = (req) => req.user?.ruolo === 'tecnico';
+const isElevated = (req) => isElevatedLsightViewer(req.user?.ruolo);
 
 function requireAgentKey(req, res, next) {
   const key =
@@ -178,10 +171,12 @@ router.post('/sessions', async (req, res) => {
     if (!agentId || Number.isNaN(agentId)) {
       return res.status(400).json({ success: false, error: 'agent_id non valido' });
     }
-    if (!isTecnico(req)) {
-      const ok = await userCanAccessAgent({ userId: req.user.id, agentId });
-      if (!ok) return res.status(403).json({ success: false, error: 'Accesso negato: PC non assegnato' });
-    }
+    const ok = await userCanAccessLsightAgent(pool, {
+      viewerId: req.user.id,
+      viewerRole: req.user?.ruolo,
+      agentId
+    });
+    if (!ok) return res.status(403).json({ success: false, error: 'Accesso negato: PC non autorizzato per questo profilo' });
 
     const ttlMinutes = Math.max(5, Math.min(60, Number(req.body?.ttl_minutes || 15)));
     const token = crypto.randomBytes(32).toString('hex');
@@ -225,7 +220,7 @@ router.get('/sessions/:id', async (req, res) => {
     );
     if (!rows.length) return res.status(404).json({ success: false, error: 'Sessione non trovata' });
     const s = rows[0];
-    if (!isTecnico(req) && Number(s.user_id) !== Number(req.user.id)) {
+    if (!isElevated(req) && Number(s.user_id) !== Number(req.user.id)) {
       return res.status(403).json({ success: false, error: 'Accesso negato' });
     }
 
@@ -259,7 +254,7 @@ router.get('/sessions/:id/rdp-file', async (req, res) => {
     );
     if (!rows.length) return res.status(404).send('Sessione non trovata');
     const s = rows[0];
-    if (!isTecnico(req) && Number(s.user_id) !== Number(req.user.id)) {
+    if (!isElevated(req) && Number(s.user_id) !== Number(req.user.id)) {
       return res.status(403).send('Accesso negato');
     }
     if (s.status === 'closed' || s.status === 'expired') {
@@ -290,7 +285,7 @@ router.post('/sessions/:id/close', async (req, res) => {
     );
     if (!rows.length) return res.status(404).json({ success: false, error: 'Sessione non trovata' });
     const s = rows[0];
-    if (!isTecnico(req) && Number(s.user_id) !== Number(req.user.id)) {
+    if (!isElevated(req) && Number(s.user_id) !== Number(req.user.id)) {
       return res.status(403).json({ success: false, error: 'Accesso negato' });
     }
     const { rows: upd } = await pool.query(
