@@ -8011,36 +8011,49 @@ pause
   });
 
   // GET /api/network-monitoring/tools/rdp-credentials
-  // Recupera credenziali RDP da Keepass per un IP
+  // Credenziali RDP da KeePass:
+  // - con ?mac=... usa direttamente il MAC (tipico inventario Comm Agent / match monitor)
+  // - oppure ?ip=... risolve MAC da network_devices (come prima)
   router.get('/tools/rdp-credentials', authenticateToken, requireRole(['tecnico', 'admin']), async (req, res) => {
     try {
-      const { ip } = req.query;
-      if (!ip) {
-        return res.status(400).json({ error: 'IP richiesto' });
+      const rawIp = req.query.ip != null ? String(req.query.ip).trim() : '';
+      const rawMac = req.query.mac != null ? String(req.query.mac).trim() : '';
+
+      const keepassPassword = process.env.KEEPASS_PASSWORD;
+      if (!keepassPassword) {
+        return res.json({ username: '', password: '', found: false });
       }
 
-      const deviceResult = await pool.query(
-        `SELECT nd.mac_address, na.azienda_id 
-         FROM network_devices nd
-         INNER JOIN network_agents na ON nd.agent_id = na.id
-         WHERE nd.ip_address = $1
-         ORDER BY nd.last_seen DESC
-         LIMIT 1`,
-        [ip]
-      );
+      let macAddress = '';
 
-      if (deviceResult.rows.length === 0) {
-        return res.status(404).json({ error: 'Dispositivo non trovato per questo IP' });
+      if (rawMac) {
+        macAddress = rawMac;
+      } else if (rawIp) {
+        const deviceResult = await pool.query(
+          `SELECT nd.mac_address, na.azienda_id 
+           FROM network_devices nd
+           INNER JOIN network_agents na ON nd.agent_id = na.id
+           WHERE nd.ip_address = $1
+           ORDER BY nd.last_seen DESC
+           LIMIT 1`,
+          [rawIp]
+        );
+
+        if (deviceResult.rows.length === 0) {
+          return res.status(404).json({ error: 'Dispositivo non trovato per questo IP' });
+        }
+
+        macAddress = deviceResult.rows[0].mac_address || '';
+      } else {
+        return res.status(400).json({ error: 'Parametro ip o mac richiesto' });
       }
 
-      const macAddress = deviceResult.rows[0].mac_address;
-
-      if (!macAddress || !process.env.KEEPASS_PASSWORD) {
+      if (!macAddress) {
         return res.json({ username: '', password: '', found: false });
       }
 
       try {
-        const creds = await keepassDriveService.getCredentialsByMac(macAddress, process.env.KEEPASS_PASSWORD);
+        const creds = await keepassDriveService.getCredentialsByMac(macAddress, keepassPassword);
         if (creds && (creds.username || creds.password)) {
           return res.json({
             username: creds.username || '',

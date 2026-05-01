@@ -708,6 +708,8 @@ module.exports = (pool) => {
         query = `
             SELECT ca.id as agent_id, ca.machine_name, ca.os_info,
                    ca.ip_address AS comm_ip,
+                   cdi.mac AS device_mac,
+                   nm.monitor_mac,
                    cdi.primary_ip, cdi.ip_addresses,
                    nm.monitor_ip,
                    COALESCE(nm.monitor_status, 'offline') AS status,
@@ -723,6 +725,7 @@ module.exports = (pool) => {
             LEFT JOIN comm_device_info cdi ON cdi.agent_id = ca.id
             LEFT JOIN LATERAL (
               SELECT nd.status AS monitor_status, nd.last_seen AS monitor_last_seen,
+                     nd.mac_address AS monitor_mac,
                      nd.ip_address::text AS monitor_ip
               FROM network_devices nd
               JOIN network_agents na ON na.id = nd.agent_id
@@ -760,6 +763,8 @@ module.exports = (pool) => {
         query = `
             SELECT ca.id as agent_id, ca.machine_name, ca.os_info,
                    ca.ip_address AS comm_ip,
+                   cdi.mac AS device_mac,
+                   nm.monitor_mac,
                    cdi.primary_ip, cdi.ip_addresses,
                    nm.monitor_ip,
                    COALESCE(nm.monitor_status, 'offline') AS status,
@@ -775,6 +780,7 @@ module.exports = (pool) => {
             LEFT JOIN comm_device_info cdi ON cdi.agent_id = ca.id
             LEFT JOIN LATERAL (
               SELECT nd.status AS monitor_status, nd.last_seen AS monitor_last_seen,
+                     nd.mac_address AS monitor_mac,
                      nd.ip_address::text AS monitor_ip
               FROM network_devices nd
               JOIN network_agents na ON na.id = nd.agent_id

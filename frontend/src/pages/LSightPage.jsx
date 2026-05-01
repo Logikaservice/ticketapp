@@ -61,6 +61,30 @@ function collectLsightRdpIpCandidates(ag) {
   return out;
 }
 
+function sanitizeMac(raw) {
+  const t = String(raw || '').trim();
+  if (!t) return '';
+  return t;
+}
+
+/** MAC candidati per KeePass (inventario + MAC riga monitoraggio se presente) */
+function collectLsightMacCandidates(ag) {
+  const out = [];
+  const push = (v) => {
+    const m = sanitizeMac(v);
+    if (m && !out.includes(m)) out.push(m);
+  };
+  push(ag.device_mac);
+  push(ag.monitor_mac);
+  return out;
+}
+
+/** Host TERMSRV per cmdkey: priorità IP monitor, poi inventario Comm Agent */
+function pickLsightTermsrvIp(ag) {
+  const ips = collectLsightRdpIpCandidates(ag);
+  return ips.length ? ips[0] : null;
+}
+
 const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpenSession: _onOpenSession }) => {
   const [isScanning, setIsScanning] = useState(true);
   const [agents, setAgents] = useState([]);
@@ -375,7 +399,10 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
     };
 
     /** Stesso flusso Monitoraggio rete: .bat con cmdkey + mstsc + cleanup (credenziali da KeePass lato server). */
-    const downloadAutoRdpLauncherBat = async (ip, creds = null) => {
+    const downloadAutoRdpLauncherBat = async (termsrvHost, creds = null, lookup = null) => {
+      const host = String(termsrvHost || '').trim();
+      if (!host) return;
+
       let username = '';
       let password = '';
       let found = false;
@@ -384,7 +411,10 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
         password = creds.password;
         found = true;
       } else {
-        const response = await fetch(buildApiUrl(`/api/network-monitoring/tools/rdp-credentials?ip=${encodeURIComponent(ip)}`), {
+        const params = new URLSearchParams();
+        if (lookup?.mac) params.set('mac', lookup.mac);
+        else if (lookup?.ip) params.set('ip', lookup.ip);
+        const response = await fetch(buildApiUrl(`/api/network-monitoring/tools/rdp-credentials?${params}`), {
           headers: getAuthHeader(),
         });
         if (response.ok) {
@@ -403,12 +433,12 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
       batContent += 'chcp 65001 >nul\r\n';
 
       if (found && username && password) {
-        batContent += 'cmdkey /generic:TERMSRV/' + ip + ' /user:' + username + ' /pass:' + password + ' >nul 2>&1\r\n';
-        batContent += 'start mstsc /v:' + ip + '\r\n';
+        batContent += 'cmdkey /generic:TERMSRV/' + host + ' /user:' + username + ' /pass:' + password + ' >nul 2>&1\r\n';
+        batContent += 'start mstsc /v:' + host + '\r\n';
         batContent += 'ping -n 6 127.0.0.1 >nul\r\n';
-        batContent += 'cmdkey /delete:TERMSRV/' + ip + ' >nul 2>&1\r\n';
+        batContent += 'cmdkey /delete:TERMSRV/' + host + ' >nul 2>&1\r\n';
       } else {
-        batContent += 'start mstsc /v:' + ip + '\r\n';
+        batContent += 'start mstsc /v:' + host + '\r\n';
       }
       batContent += '(goto) 2>nul & del "%~f0"\r\n';
 
@@ -416,7 +446,7 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'lsight_rdp_' + String(ip).replace(/\./g, '_') + '.bat';
+      link.download = 'lsight_rdp_' + String(host).replace(/\./g, '_') + '.bat';
       document.body.appendChild(link);
       link.click();
       setTimeout(() => {
@@ -438,34 +468,55 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
 
       try {
         if (isStaff) {
-          const candidates = collectLsightRdpIpCandidates(ag);
-          if (!candidates.length) {
+          const termsrvIp = pickLsightTermsrvIp(ag);
+          if (!termsrvIp) {
             alert(
               'Nessun IP disponibile per questo PC in L-Sight. Verifica inventario/dispositivi o monitoraggio, poi riprova.'
             );
             return;
           }
           let credPair = null;
-          let credIp = null;
-          for (const ip of candidates) {
+
+          const macs = collectLsightMacCandidates(ag);
+          for (const mac of macs) {
             try {
               const res = await fetch(
-                buildApiUrl(`/api/network-monitoring/tools/rdp-credentials?ip=${encodeURIComponent(ip)}`),
+                buildApiUrl(`/api/network-monitoring/tools/rdp-credentials?mac=${encodeURIComponent(mac)}`),
                 { headers: getAuthHeader() }
               );
               if (!res.ok) continue;
               const data = await res.json().catch(() => ({}));
               if (data?.found && data?.username && data?.password) {
                 credPair = { username: data.username, password: data.password };
-                credIp = ip;
                 break;
               }
             } catch (_) {
-              /* try next ip */
+              /* try next mac */
             }
           }
-          if (credPair && credIp) {
-            await downloadAutoRdpLauncherBat(credIp, credPair);
+
+          if (!credPair) {
+            const ips = collectLsightRdpIpCandidates(ag);
+            for (const ip of ips) {
+              try {
+                const res = await fetch(
+                  buildApiUrl(`/api/network-monitoring/tools/rdp-credentials?ip=${encodeURIComponent(ip)}`),
+                  { headers: getAuthHeader() }
+                );
+                if (!res.ok) continue;
+                const data = await res.json().catch(() => ({}));
+                if (data?.found && data?.username && data?.password) {
+                  credPair = { username: data.username, password: data.password };
+                  break;
+                }
+              } catch (_) {
+                /* try next ip */
+              }
+            }
+          }
+
+          if (credPair) {
+            await downloadAutoRdpLauncherBat(termsrvIp, credPair);
           } else {
             await downloadDirectRdpFile();
           }
