@@ -46,6 +46,7 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
   const [grants, setGrants] = useState([]);
   const [grantsLoading, setGrantsLoading] = useState(false);
   const [ticketUsers, setTicketUsers] = useState([]);
+  const [showAuthPanel, setShowAuthPanel] = useState(false);
 
   const isTecnico = currentUser?.ruolo === 'tecnico';
 
@@ -101,11 +102,7 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
 
   useEffect(() => {
     fetchMyAgents();
-    if (!isTecnico) return;
-    fetchCompanyNames();
-    fetchGrants();
-    fetchTicketUsers();
-  }, [fetchMyAgents, fetchCompanyNames, fetchGrants, fetchTicketUsers, isTecnico]);
+  }, [fetchMyAgents]);
 
   const clienteEmailsForGrantCompany = useMemo(() => {
     if (!grantCompany.trim()) return [];
@@ -393,6 +390,22 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
         </div>
 
         <div className="flex items-center gap-2 relative z-10 shrink-0">
+          {isTecnico && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowAuthPanel(true);
+                fetchCompanyNames();
+                fetchGrants();
+                fetchTicketUsers();
+              }}
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/45 border border-indigo-500/30 text-sm font-medium text-indigo-100"
+              title="Autorizzazioni · azienda e email"
+            >
+              <ShieldCheck size={18} />
+              <span className="hidden sm:inline">Autorizzazioni</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => fetchMyAgents()}
@@ -413,8 +426,7 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
         </div>
       </header>
 
-      <div className="flex-1 flex min-h-0">
-        <main className="flex-1 overflow-y-auto p-6 md:p-8 min-w-0">
+      <main className="flex-1 overflow-y-auto p-6 md:p-8 min-w-0 min-h-0">
           <div className="max-w-7xl mx-auto relative z-10 space-y-6 pb-16">
 
           <div className="rounded-2xl bg-gradient-to-r from-indigo-900/40 to-slate-900 border border-indigo-500/20 overflow-hidden flex items-stretch">
@@ -533,15 +545,34 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
           )}
 
           </div>
-        </main>
+      </main>
 
-        {isTecnico && (
-          <aside className="w-full lg:w-[400px] shrink-0 border-t lg:border-t-0 lg:border-l border-indigo-900/40 bg-[#080c14] flex flex-col max-h-[50vh] lg:max-h-none min-h-[200px]">
-            <div className="p-4 border-b border-indigo-900/40 flex items-center gap-2">
-              <ShieldCheck size={18} className="text-indigo-400" />
-              <h2 className="text-white font-bold text-sm">Autorizzazioni · azienda e email</h2>
+      {isTecnico && showAuthPanel && (
+        <div className="fixed inset-0 z-[130] flex justify-end" role="dialog" aria-modal="true" aria-labelledby="lsight-auth-panel-title">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
+            onClick={() => setShowAuthPanel(false)}
+            aria-label="Chiudi pannello autorizzazioni"
+          />
+          <aside className="relative w-full max-w-md h-full bg-[#080c14] border-l border-indigo-900/50 shadow-2xl flex flex-col">
+            <div className="p-4 border-b border-indigo-900/40 flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <ShieldCheck size={18} className="text-indigo-400 shrink-0" />
+                <h2 id="lsight-auth-panel-title" className="text-white font-bold text-sm truncate">
+                  Autorizzazioni · azienda e email
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAuthPanel(false)}
+                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 shrink-0"
+                aria-label="Chiudi"
+              >
+                <X size={20} />
+              </button>
             </div>
-            <div className="p-4 overflow-y-auto flex-1 space-y-4">
+            <div className="p-4 overflow-y-auto flex-1 min-h-0 space-y-4">
               <p className="text-xs text-slate-500 leading-relaxed">
                 Autorizza un <span className="text-slate-300 font-medium">cliente</span> (email già registrata in TicketApp) ad
                 accedere a <span className="text-slate-300 font-medium">tutti i PC Comm Agent</span> dell’azienda selezionata.
@@ -571,14 +602,14 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
                 </label>
                 <input
                   type="email"
-                  list="lsight-grant-emails"
+                  list="lsight-grant-emails-panel"
                   value={grantEmail}
                   onChange={(e) => setGrantEmail(e.target.value)}
                   placeholder="nome@..."
                   autoComplete="off"
                   className="w-full bg-[#111827] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none"
                 />
-                <datalist id="lsight-grant-emails">
+                <datalist id="lsight-grant-emails-panel">
                   {clienteEmailsForGrantCompany.map((em) => (
                     <option key={em} value={em} />
                   ))}
@@ -648,8 +679,8 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
               </div>
             </div>
           </aside>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
