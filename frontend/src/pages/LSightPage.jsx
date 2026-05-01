@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Eye, Activity, Search, X, MonitorPlay, ShieldCheck,
   User, Trash2, Server, Building2, ChevronRight,
-  ArrowLeft, WifiOff, Wifi, RefreshCw, Mail, Plus
+  ArrowLeft, WifiOff, Wifi, RefreshCw, Mail, Save
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
@@ -43,10 +43,16 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
   const [grantSaving, setGrantSaving] = useState(false);
   const [grantMessage, setGrantMessage] = useState('');
   const [companyNames, setCompanyNames] = useState([]);
-  const [grants, setGrants] = useState([]);
-  const [grantsLoading, setGrantsLoading] = useState(false);
   const [ticketUsers, setTicketUsers] = useState([]);
   const [showAuthPanel, setShowAuthPanel] = useState(false);
+  const [accessSummaryLoading, setAccessSummaryLoading] = useState(false);
+  const [accessSummary, setAccessSummary] = useState({ full_company: [], selected_only: [] });
+
+  const [grantPanelAgents, setGrantPanelAgents] = useState([]);
+  const [grantAgentsLoading, setGrantAgentsLoading] = useState(false);
+  const [grantEnabledAgentIds, setGrantEnabledAgentIds] = useState([]);
+  const [grantAccessFullCompany, setGrantAccessFullCompany] = useState(false);
+  const [grantAccessLoading, setGrantAccessLoading] = useState(false);
 
   const isTecnico = currentUser?.ruolo === 'tecnico';
 
@@ -75,17 +81,23 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
     }
   }, []);
 
-  const fetchGrants = useCallback(async () => {
-    setGrantsLoading(true);
+  const fetchAccessSummary = useCallback(async () => {
+    setAccessSummaryLoading(true);
     try {
-      const res = await fetch(buildApiUrl('/api/lsight/admin/access-grants'), hdr());
+      const res = await fetch(buildApiUrl('/api/lsight/admin/access-summary'), hdr());
       const data = await res.json().catch(() => ({}));
-      if (data.success && Array.isArray(data.grants)) setGrants(data.grants);
-      else setGrants([]);
+      if (data.success) {
+        setAccessSummary({
+          full_company: data.full_company || [],
+          selected_only: data.selected_only || [],
+        });
+      } else {
+        setAccessSummary({ full_company: [], selected_only: [] });
+      }
     } catch (e) {
-      console.error('Errore access-grants:', e);
+      console.error('Errore access-summary:', e);
     } finally {
-      setGrantsLoading(false);
+      setAccessSummaryLoading(false);
     }
   }, []);
 
@@ -104,33 +116,130 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
     fetchMyAgents();
   }, [fetchMyAgents]);
 
-  const clienteEmailsForGrantCompany = useMemo(() => {
-    if (!grantCompany.trim()) return [];
-    const nk = normCompany(grantCompany);
-    return ticketUsers.filter((u) => normCompany(u.azienda) === nk && (u.email || '').trim()).map((u) => u.email.trim());
-  }, [ticketUsers, grantCompany]);
+  useEffect(() => {
+    if (!showAuthPanel || !grantCompany.trim()) {
+      setGrantPanelAgents([]);
+      setGrantEnabledAgentIds([]);
+      setGrantAccessFullCompany(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setGrantAgentsLoading(true);
+      try {
+        const q = new URLSearchParams({ azienda: grantCompany.trim() });
+        const res = await fetch(buildApiUrl(`/api/lsight/admin/company-agents?${q}`), hdr());
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && data.success && Array.isArray(data.agents)) {
+          setGrantPanelAgents(data.agents);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        if (!cancelled) setGrantAgentsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showAuthPanel, grantCompany]);
 
-  const addGrant = async () => {
+  useEffect(() => {
+    if (!showAuthPanel || !grantCompany.trim() || !grantEmail.trim()) {
+      if (showAuthPanel && grantCompany.trim() && !grantEmail.trim()) {
+        setGrantEnabledAgentIds([]);
+        setGrantAccessFullCompany(false);
+      }
+      return;
+    }
+    const t = setTimeout(async () => {
+      setGrantAccessLoading(true);
+      try {
+        const q = new URLSearchParams({
+          azienda: grantCompany.trim(),
+          email: grantEmail.trim(),
+        });
+        const res = await fetch(buildApiUrl(`/api/lsight/admin/user-device-access?${q}`), hdr());
+        const data = await res.json().catch(() => ({}));
+        if (data.success) {
+          setGrantEnabledAgentIds(data.enabled_agent_ids || []);
+          setGrantAccessFullCompany(!!data.access_full_company);
+        } else {
+          setGrantEnabledAgentIds([]);
+          setGrantAccessFullCompany(false);
+        }
+      } catch (e) {
+        setGrantEnabledAgentIds([]);
+        setGrantAccessFullCompany(false);
+      } finally {
+        setGrantAccessLoading(false);
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [showAuthPanel, grantCompany, grantEmail]);
+
+  const sortedPanelAgents = useMemo(() => {
+    const list = [...grantPanelAgents];
+    list.sort((a, b) => {
+      const ae = grantEnabledAgentIds.includes(a.agent_id);
+      const be = grantEnabledAgentIds.includes(b.agent_id);
+      if (ae && !be) return -1;
+      if (!ae && be) return 1;
+      const ao = a.status === 'online' ? 0 : 1;
+      const bo = b.status === 'online' ? 0 : 1;
+      if (ao !== bo) return ao - bo;
+      return String(a.machine_name || '').localeCompare(String(b.machine_name || ''), 'it');
+    });
+    return list;
+  }, [grantPanelAgents, grantEnabledAgentIds]);
+
+  const allGrantAgentsSelected =
+    grantPanelAgents.length > 0 && grantPanelAgents.every((a) => grantEnabledAgentIds.includes(a.agent_id));
+
+  const toggleGrantAgent = (agentId) => {
+    setGrantEnabledAgentIds((prev) =>
+      prev.includes(agentId) ? prev.filter((id) => id !== agentId) : [...prev, agentId]
+    );
+  };
+
+  const setAllGrantAgents = (checked) => {
+    if (!grantPanelAgents.length) return;
+    if (checked) {
+      setGrantEnabledAgentIds(grantPanelAgents.map((a) => a.agent_id));
+    } else {
+      setGrantEnabledAgentIds([]);
+    }
+  };
+
+  const saveDeviceAccess = async () => {
     setGrantMessage('');
     if (!grantCompany.trim() || !grantEmail.trim()) {
       setGrantMessage('Seleziona azienda e inserisci email.');
       return;
     }
+    if (!grantPanelAgents.length) {
+      setGrantMessage('Nessun PC per questa azienda.');
+      return;
+    }
     setGrantSaving(true);
     try {
-      const res = await fetch(buildApiUrl('/api/lsight/admin/access-grants'), {
+      const res = await fetch(buildApiUrl('/api/lsight/admin/sync-device-access'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify({ email: grantEmail.trim(), azienda: grantCompany.trim() }),
+        body: JSON.stringify({
+          email: grantEmail.trim(),
+          azienda: grantCompany.trim(),
+          agent_ids: grantEnabledAgentIds,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data.error) {
         setGrantMessage(data?.error || 'Errore salvataggio');
         return;
       }
-      setGrantEmail('');
       setGrantMessage('');
-      await fetchGrants();
+      await fetchAccessSummary();
+      await fetchMyAgents();
     } catch (e) {
       setGrantMessage('Errore di rete');
     } finally {
@@ -138,15 +247,43 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
     }
   };
 
-  const removeGrant = async (id) => {
-    if (!window.confirm('Revocare questa autorizzazione?')) return;
+  const revokeUnifiedAccess = async (row) => {
+    const aziendaParam =
+      row.kind === 'full_company'
+        ? companyNames.find((n) => normCompany(n) === String(row.company_key || '').trim().toLowerCase()) ||
+          row.company_key
+        : row.company_label;
+    if (
+      !window.confirm(
+        `Revocare tutti gli accessi L-Sight per ${row.email} sull’azienda «${aziendaParam}»?`
+      )
+    )
+      return;
     try {
-      await fetch(buildApiUrl(`/api/lsight/admin/access-grants/${id}`), { method: 'DELETE', headers: getAuthHeader() });
-      fetchGrants();
+      const q = new URLSearchParams({
+        email: row.email.trim(),
+        azienda: String(aziendaParam).trim(),
+      });
+      const res = await fetch(buildApiUrl(`/api/lsight/admin/user-company-access?${q}`), {
+        method: 'DELETE',
+        headers: getAuthHeader(),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Errore revoca');
+        return;
+      }
+      fetchAccessSummary();
     } catch (e) {
       console.error(e);
     }
   };
+
+  const clienteEmailsForGrantCompany = useMemo(() => {
+    if (!grantCompany.trim()) return [];
+    const nk = normCompany(grantCompany);
+    return ticketUsers.filter((u) => normCompany(u.azienda) === nk && (u.email || '').trim()).map((u) => u.email.trim());
+  }, [ticketUsers, grantCompany]);
 
   const companiesMap = useMemo(() => {
     const map = new Map();
@@ -396,7 +533,7 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
               onClick={() => {
                 setShowAuthPanel(true);
                 fetchCompanyNames();
-                fetchGrants();
+                fetchAccessSummary();
                 fetchTicketUsers();
               }}
               className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/45 border border-indigo-500/30 text-sm font-medium text-indigo-100"
@@ -555,7 +692,7 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
             onClick={() => setShowAuthPanel(false)}
             aria-label="Chiudi pannello autorizzazioni"
           />
-          <aside className="relative w-full max-w-md h-full bg-[#080c14] border-l border-indigo-900/50 shadow-2xl flex flex-col">
+          <aside className="relative w-full max-w-xl h-full bg-[#080c14] border-l border-indigo-900/50 shadow-2xl flex flex-col">
             <div className="p-4 border-b border-indigo-900/40 flex items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-2 min-w-0">
                 <ShieldCheck size={18} className="text-indigo-400 shrink-0" />
@@ -574,23 +711,30 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
             </div>
             <div className="p-4 overflow-y-auto flex-1 min-h-0 space-y-4">
               <p className="text-xs text-slate-500 leading-relaxed">
-                Autorizza un <span className="text-slate-300 font-medium">cliente</span> (email già registrata in TicketApp) ad
-                accedere a <span className="text-slate-300 font-medium">tutti i PC Comm Agent</span> dell’azienda selezionata.
-                Il campo «azienda» nel profilo utente deve coincidere con l’azienda scelta qui.
+                Scegli <span className="text-slate-300 font-medium">azienda</span> e <span className="text-slate-300 font-medium">email cliente</span> (profilo TicketApp con stessa azienda). Spunta i{' '}
+                <span className="text-slate-300 font-medium">PC</span> a cui può accedere: quelli abilitati restano in cima; gli altri restano visibili sotto.
+                Se selezioni tutti i PC, il sistema salva come accesso &quot;tutta l’azienda&quot;.
               </p>
 
-              {grantMessage && <div className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">{grantMessage}</div>}
+              {grantMessage && (
+                <div className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">{grantMessage}</div>
+              )}
 
               <div className="space-y-2">
-                <label className="block text-[10px] uppercase tracking-wider text-slate-500 font-bold">Azienda (presenza Comm Agent)</label>
+                <label className="block text-[10px] uppercase tracking-wider text-slate-500 font-bold">Azienda (Comm Agent)</label>
                 <select
                   value={grantCompany}
-                  onChange={(e) => setGrantCompany(e.target.value)}
+                  onChange={(e) => {
+                    setGrantCompany(e.target.value);
+                    setGrantMessage('');
+                  }}
                   className="w-full bg-[#111827] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none"
                 >
                   <option value="">— Scegli —</option>
                   {companyNames.map((n) => (
-                    <option key={n} value={n}>{n}</option>
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -604,7 +748,10 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
                   type="email"
                   list="lsight-grant-emails-panel"
                   value={grantEmail}
-                  onChange={(e) => setGrantEmail(e.target.value)}
+                  onChange={(e) => {
+                    setGrantEmail(e.target.value);
+                    setGrantMessage('');
+                  }}
                   placeholder="nome@..."
                   autoComplete="off"
                   className="w-full bg-[#111827] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none"
@@ -616,62 +763,151 @@ const LSightPage = ({ onClose, onNavigateHome, currentUser, getAuthHeader, onOpe
                 </datalist>
               </div>
 
+              {grantCompany.trim() && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <label className="block text-[10px] uppercase tracking-wider text-slate-500 font-bold">Dispositivi</label>
+                    {grantPanelAgents.length > 0 && (
+                      <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={allGrantAgentsSelected}
+                          onChange={(e) => setAllGrantAgents(e.target.checked)}
+                          className="rounded border-slate-600 bg-[#111827] text-indigo-500 focus:ring-indigo-500"
+                        />
+                        Seleziona tutti
+                      </label>
+                    )}
+                  </div>
+                  {grantAgentsLoading ? (
+                    <div className="text-xs text-slate-500 py-4 text-center">Caricamento elenco PC…</div>
+                  ) : !grantPanelAgents.length ? (
+                    <div className="text-xs text-slate-500 py-3 border border-dashed border-slate-700 rounded-lg px-3">
+                      Nessun Comm Agent per questa azienda.
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-slate-800 bg-[#0A0E17] max-h-[42vh] overflow-y-auto divide-y divide-slate-800/80">
+                      {grantAccessLoading && grantEmail.trim() && (
+                        <div className="px-3 py-2 text-[10px] text-slate-500">Aggiornamento stato accessi…</div>
+                      )}
+                      {grantAccessFullCompany && grantEmail.trim() && (
+                        <div className="px-3 py-2 text-[10px] text-emerald-400/90 bg-emerald-500/5">
+                          Modo attuale: accesso a <span className="font-semibold">tutta l&apos;azienda</span> · tutti i PC risultano abilitati.
+                        </div>
+                      )}
+                      {sortedPanelAgents.map((ag) => {
+                        const on = grantEnabledAgentIds.includes(ag.agent_id);
+                        return (
+                          <label
+                            key={ag.agent_id}
+                            className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-white/[0.03] ${on ? 'bg-indigo-500/10' : 'opacity-80'}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={on}
+                              onChange={() => toggleGrantAgent(ag.agent_id)}
+                              className="rounded border-slate-600 bg-[#111827] text-indigo-500 focus:ring-indigo-500 shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm text-white font-medium truncate">{ag.machine_name || `PC #${ag.agent_id}`}</div>
+                              <div className="text-[10px] text-slate-500 truncate">{ag.os_info || '—'}</div>
+                            </div>
+                            <span
+                              className={`text-[10px] font-mono uppercase shrink-0 ${ag.status === 'online' ? 'text-emerald-400' : 'text-slate-500'}`}
+                            >
+                              {ag.status === 'online' ? 'online' : 'offline'}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <button
                 type="button"
-                disabled={grantSaving}
-                onClick={addGrant}
-                className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white text-sm font-bold flex items-center justify-center gap-2"
+                disabled={grantSaving || !grantCompany.trim() || !grantEmail.trim() || !grantPanelAgents.length}
+                onClick={saveDeviceAccess}
+                className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-bold flex items-center justify-center gap-2"
               >
-                <Plus size={16} />
-                {grantSaving ? 'Salvataggio...' : 'Aggiungi autorizzazione'}
+                <Save size={16} />
+                {grantSaving ? 'Salvataggio...' : 'Salva autorizzazioni'}
               </button>
 
               <div>
-                <h3 className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-2">Cliente autorizzati</h3>
-                <div className="rounded-xl border border-slate-800 overflow-hidden bg-[#0A0E17] max-h-[40vh] overflow-y-auto">
-                  {grantsLoading ? (
+                <h3 className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-2">Riepilogo configurazioni</h3>
+                <div className="rounded-xl border border-slate-800 overflow-hidden bg-[#0A0E17] max-h-[36vh] overflow-y-auto">
+                  {accessSummaryLoading ? (
                     <div className="px-4 py-6 text-center text-slate-500 text-xs">Caricamento...</div>
-                  ) : grants.length === 0 ? (
-                    <div className="px-4 py-6 text-center text-slate-500 text-xs italic">Nessuna riga ancora</div>
+                  ) : !accessSummary.full_company?.length && !accessSummary.selected_only?.length ? (
+                    <div className="px-4 py-6 text-center text-slate-500 text-xs italic">Nessuna autorizzazione</div>
                   ) : (
                     <table className="w-full text-left text-xs text-slate-300">
                       <thead className="bg-[#111827] text-[10px] uppercase text-slate-500 sticky top-0">
                         <tr>
                           <th className="px-3 py-2">Cliente</th>
                           <th className="px-3 py-2">Azienda PC</th>
+                          <th className="px-3 py-2">Tipo</th>
                           <th className="px-3 py-2 w-10" />
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800">
-                        {grants.map((g) => {
+                        {accessSummary.full_company.map((r) => {
                           const azLabel =
-                            companyNames.find((n) => normCompany(n) === String(g.company_azienda || '').trim().toLowerCase()) ||
-                            g.company_azienda;
+                            companyNames.find((n) => normCompany(n) === String(r.company_key || '').trim().toLowerCase()) ||
+                            r.company_key;
                           return (
-                          <tr key={g.id} className="hover:bg-white/[0.02]">
+                            <tr key={`f-${r.grant_id}`} className="hover:bg-white/[0.02]">
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  <User size={12} className="text-indigo-400 shrink-0" />
+                                  <span className="truncate max-w-[7rem]">
+                                    {r.nome} {r.cognome}
+                                  </span>
+                                </div>
+                                <div className="font-mono text-[10px] text-slate-500 truncate max-w-[11rem]">{r.email}</div>
+                              </td>
+                              <td className="px-3 py-2 font-medium text-indigo-200">{azLabel}</td>
+                              <td className="px-3 py-2 text-emerald-400/90">Tutti i PC</td>
+                              <td className="px-3 py-2 text-right">
+                                <button
+                                  type="button"
+                                  title="Revoca"
+                                  onClick={() => revokeUnifiedAccess({ ...r, kind: 'full_company' })}
+                                  className="p-1.5 text-slate-500 hover:bg-rose-500/15 hover:text-rose-400 rounded"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {accessSummary.selected_only.map((r) => (
+                          <tr key={`p-${r.user_id}-${r.company_key_low}`} className="hover:bg-white/[0.02]">
                             <td className="px-3 py-2">
                               <div className="flex items-center gap-2">
                                 <User size={12} className="text-indigo-400 shrink-0" />
-                                <span className="truncate max-w-[9rem]" title={g.email}>
-                                  {g.nome} {g.cognome}
+                                <span className="truncate max-w-[7rem]">
+                                  {r.nome} {r.cognome}
                                 </span>
                               </div>
-                              <div className="font-mono text-[10px] text-slate-500 truncate max-w-[12rem]" title={g.email}>{g.email}</div>
+                              <div className="font-mono text-[10px] text-slate-500 truncate max-w-[11rem]">{r.email}</div>
                             </td>
-                            <td className="px-3 py-2 font-medium text-indigo-200">{azLabel}</td>
+                            <td className="px-3 py-2 font-medium text-indigo-200">{r.company_label}</td>
+                            <td className="px-3 py-2 text-slate-400">{r.n_devices} PC</td>
                             <td className="px-3 py-2 text-right">
                               <button
                                 type="button"
                                 title="Revoca"
-                                onClick={() => removeGrant(g.id)}
+                                onClick={() => revokeUnifiedAccess({ ...r, kind: 'selected_devices' })}
                                 className="p-1.5 text-slate-500 hover:bg-rose-500/15 hover:text-rose-400 rounded"
                               >
                                 <Trash2 size={14} />
                               </button>
                             </td>
                           </tr>
-                          );
-                        })}
+                        ))}
                       </tbody>
                     </table>
                   )}
