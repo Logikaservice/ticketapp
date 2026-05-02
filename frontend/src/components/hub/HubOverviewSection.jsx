@@ -39,7 +39,6 @@ const SURFACE_LOCAL = '#1E1E1E';
 
 function ModuleLaunchCard({
   icon: Icon,
-  eyebrow = 'Modulo',
   label,
   subtitle,
   accent,
@@ -63,8 +62,7 @@ function ModuleLaunchCard({
           <Icon size={22} style={{ color: accent }} className="shrink-0" />
         </div>
         <div className="min-w-0 flex-1 self-center leading-tight">
-          <div className="text-[11px] font-semibold uppercase tracking-widest text-white/50">{eyebrow}</div>
-          <div className="mt-0.5 text-base font-semibold text-white/90">{label}</div>
+          <div className="text-base font-semibold text-white/90">{label}</div>
           {subtitle ? <div className="mt-1 text-xs text-white/45">{subtitle}</div> : null}
         </div>
       </div>
@@ -164,9 +162,7 @@ function HubNewTicketCard({ accentHex, onOpenNewTicket, subdued, suppressInterac
         <Plus size={24} strokeWidth={2.4} aria-hidden />
       </div>
       <div className="min-w-0 flex-1 self-center leading-tight">
-        <div className="text-[11px] font-semibold uppercase tracking-widest text-white/60">Azione</div>
-        <div className="mt-0.5 text-base font-bold text-white">+ nuovo ticket</div>
-        <div className="mt-1 text-xs text-white/55">Crea un ticket da zero</div>
+        <div className="text-base font-bold text-white">+ nuovo ticket</div>
       </div>
     </button>
   );
@@ -319,7 +315,6 @@ export default function HubOverviewSection({
         return (
           <ModuleLaunchCard
             icon={Mail}
-            eyebrow={HUB_MODULE_META['launch-email'].category}
             label="Email"
             subtitle="Apri modulo"
             accent={accentHex}
@@ -332,7 +327,6 @@ export default function HubOverviewSection({
         return (
           <ModuleLaunchCard
             icon={Wifi}
-            eyebrow={HUB_MODULE_META['launch-network'].category}
             label="Monitoraggio"
             subtitle="Stato rete"
             accent={accentHex}
@@ -345,7 +339,6 @@ export default function HubOverviewSection({
         return (
           <ModuleLaunchCard
             icon={Bell}
-            eyebrow={HUB_MODULE_META['launch-comms'].category}
             label="Comunicazioni"
             subtitle="Messaggi broadcast"
             accent={accentHex}
@@ -358,7 +351,6 @@ export default function HubOverviewSection({
         return (
           <ModuleLaunchCard
             icon={Shield}
-            eyebrow={HUB_MODULE_META['launch-antivirus'].category}
             label="Anti-Virus"
             subtitle="Sicurezza"
             accent={accentHex}
@@ -371,7 +363,6 @@ export default function HubOverviewSection({
         return (
           <ModuleLaunchCard
             icon={Building2}
-            eyebrow={HUB_MODULE_META['launch-office'].category}
             label="Office"
             subtitle="Licenze, download e attivazioni"
             accent={accentHex}
@@ -406,10 +397,7 @@ export default function HubOverviewSection({
               <Layers size={22} className="shrink-0 text-white/55" aria-hidden />
             </div>
             <div className="min-w-0 flex-1 leading-tight">
-              <div className="text-[11px] font-semibold uppercase tracking-widest text-white/50">
-                {HUB_MODULE_META['quick-summary'].category}
-              </div>
-              <h3 className="mt-0.5 text-base font-semibold text-white">Riepilogo rapido</h3>
+              <h3 className="text-base font-semibold text-white">Riepilogo rapido</h3>
               <p className="mt-1 text-xs leading-relaxed text-white/45">
                 Qui potrai inserire KPI o testo che riassume ticket, agent o avvisi. Struttura pronta per contenuti dinamici.
               </p>
@@ -420,7 +408,6 @@ export default function HubOverviewSection({
         return (
           <ModuleLaunchCard
             icon={MapPin}
-            eyebrow={HUB_MODULE_META['launch-mappatura'].category}
             label="Mappatura"
             subtitle="Topologia e dispositivi"
             accent={accentHex}
@@ -443,8 +430,7 @@ export default function HubOverviewSection({
               <LayoutGrid size={22} className="shrink-0 text-white/45" aria-hidden />
             </div>
             <div className="min-w-0 flex-1 leading-tight">
-              <div className="text-[11px] font-semibold uppercase tracking-widest text-white/45">Slot</div>
-              <p className="mt-0.5 text-base font-semibold text-white/88">{HUB_MODULE_META[id].label}</p>
+              <p className="text-base font-semibold text-white/88">{HUB_MODULE_META[id].label}</p>
               <p className="mt-1 text-xs text-white/35">
                 Può diventare tabella avvisi interni, grafico a barre o feed.
               </p>
