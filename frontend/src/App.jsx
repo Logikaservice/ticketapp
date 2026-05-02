@@ -882,12 +882,15 @@ export default function TicketApp() {
       return;
     }
 
-    const dbTimeout = currentUser.inactivity_timeout_minutes;
     const defaultTimeout = currentUser.ruolo === 'tecnico' ? 30 : 3;
-    const nextTimeout =
-      Number.isFinite(Number(dbTimeout)) && Number(dbTimeout) >= 0
-        ? Number(dbTimeout)
-        : defaultTimeout;
+    const raw = currentUser.inactivity_timeout_minutes;
+    let nextTimeout;
+    if (raw !== null && raw !== undefined && raw !== '') {
+      const n = Number(raw);
+      nextTimeout = Number.isFinite(n) && n >= 0 ? n : defaultTimeout;
+    } else {
+      nextTimeout = defaultTimeout;
+    }
 
     setInactivityTimeout(nextTimeout);
     localStorage.setItem('inactivityTimeout', nextTimeout.toString());
@@ -2395,7 +2398,11 @@ export default function TicketApp() {
           // Aggiorna currentUser con il nuovo timeout
           setCurrentUser(prev => ({
             ...prev,
-            inactivity_timeout_minutes: updatedUser.inactivity_timeout_minutes || timeout
+            inactivity_timeout_minutes:
+              updatedUser.inactivity_timeout_minutes !== undefined &&
+              updatedUser.inactivity_timeout_minutes !== null
+                ? updatedUser.inactivity_timeout_minutes
+                : timeout,
           }));
         }
       } catch (err) {

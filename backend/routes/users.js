@@ -2,6 +2,7 @@
 
 const express = require('express');
 const { hashPassword } = require('../utils/passwordUtils');
+const { resolveUserInactivityTimeoutMinutes } = require('../utils/userInactivityTimeout');
 const router = express.Router();
 
 module.exports = (pool) => {
@@ -196,7 +197,7 @@ module.exports = (pool) => {
             UPDATE users 
         SET ${updateFields.join(', ')}
         WHERE id = $${paramIndex}
-        RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, ip_statico, COALESCE(admin_companies, '[]'::jsonb) as admin_companies, COALESCE(enabled_projects, '["ticket"]'::jsonb) as enabled_projects, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes;
+        RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, ip_statico, COALESCE(admin_companies, '[]'::jsonb) as admin_companies, COALESCE(enabled_projects, '["ticket"]'::jsonb) as enabled_projects, inactivity_timeout_minutes;
           `;
       values = updateValues;
       
@@ -206,9 +207,11 @@ module.exports = (pool) => {
       if (result.rows.length > 0) {
         console.log(`✅ Cliente aggiornato: ID ${id}`);
         // Assicurati che la password sia sempre presente nella risposta
+        const row = result.rows[0];
         const userData = {
-          ...result.rows[0],
-          password: result.rows[0].password || ''
+          ...row,
+          password: row.password || '',
+          inactivity_timeout_minutes: resolveUserInactivityTimeoutMinutes(row),
         };
         res.json(userData);
       } else {

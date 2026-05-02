@@ -1,6 +1,7 @@
 // utils/jwtUtils.js
 
 const jwt = require('jsonwebtoken');
+const { resolveUserInactivityTimeoutMinutes } = require('./userInactivityTimeout');
 
 // Configurazione JWT
 const JWT_SECRET = process.env.JWT_SECRET || 'ticketapp-super-secret-key-change-in-production';
@@ -253,7 +254,7 @@ const generateLoginResponse = (user) => {
         password: user.password,
         admin_companies: adminCompanies,
         enabled_projects: enabledProjects,
-        inactivity_timeout_minutes: user.inactivity_timeout_minutes || 3
+        inactivity_timeout_minutes: resolveUserInactivityTimeoutMinutes(user)
       }
     };
     

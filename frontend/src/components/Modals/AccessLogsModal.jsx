@@ -361,7 +361,12 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
                         ) : (() => {
                           // Verifica se la sessione è realmente attiva usando il timeout personalizzato dell'utente
                           // Default: 3 minuti (180000 ms) se non specificato
-                          const userTimeoutMinutes = log.user_inactivity_timeout_minutes || 3;
+                          const rawT = log.user_inactivity_timeout_minutes;
+                          const fallbackT = log.user_role === 'tecnico' ? 30 : 3;
+                          const userTimeoutMinutes =
+                            rawT !== undefined && rawT !== null && rawT !== ''
+                              ? Number(rawT)
+                              : fallbackT;
                           const timeoutMs = userTimeoutMinutes === 0 ? Infinity : userTimeoutMinutes * 60 * 1000;
                           
                           const lastActivity = log.last_activity_at ? new Date(log.last_activity_at) : null;

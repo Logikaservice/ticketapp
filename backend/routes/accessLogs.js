@@ -1,8 +1,12 @@
 const express = require('express');
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
+const { resolveUserInactivityTimeoutMinutes } = require('../utils/userInactivityTimeout');
 
 module.exports = (pool) => {
   const router = express.Router();
+
+  /** Timeout effettivo in minuti allineato a resolveUserInactivityTimeoutMinutes (con JOIN users) */
+  const sqlEffectiveUserInactivity = `COALESCE(u.inactivity_timeout_minutes, CASE WHEN u.ruolo = 'tecnico' THEN 30 ELSE 3 END)`;
 
   const buildFilters = (query) => {
     const conditions = [];
@@ -79,9 +83,9 @@ module.exports = (pool) => {
         if (onlyActive) {
           // Usa INTERVAL standard PostgreSQL
           const activeCondition = `al.logout_at IS NULL AND (
-            COALESCE(u.inactivity_timeout_minutes, 3) = 0
+            (${sqlEffectiveUserInactivity}) = 0
             OR
-            (al.last_activity_at IS NOT NULL AND al.last_activity_at > NOW() - COALESCE(u.inactivity_timeout_minutes, 3) * INTERVAL '1 minute')
+            (al.last_activity_at IS NOT NULL AND al.last_activity_at > NOW() - (${sqlEffectiveUserInactivity}) * INTERVAL '1 minute')
           )`;
           whereClause = whereClause 
             ? `${whereClause} AND ${activeCondition}`
@@ -111,7 +115,7 @@ module.exports = (pool) => {
               al.user_agent,
               EXTRACT(EPOCH FROM (COALESCE(al.logout_at, NOW()) - al.login_at)) AS duration_seconds,
               al.last_activity_at,
-              COALESCE(u.inactivity_timeout_minutes, 3) AS user_inactivity_timeout_minutes
+              (${sqlEffectiveUserInactivity}) AS user_inactivity_timeout_minutes
             FROM access_logs al
             LEFT JOIN users u ON u.id = al.user_id
             ${whereClause}
@@ -146,7 +150,7 @@ module.exports = (pool) => {
               user_agent,
               EXTRACT(EPOCH FROM (COALESCE(logout_at, NOW()) - login_at)) AS duration_seconds,
               COALESCE(last_activity_at, login_at) AS last_activity_at,
-              3 AS user_inactivity_timeout_minutes
+              (CASE WHEN user_role = 'tecnico' THEN 30 ELSE 3 END) AS user_inactivity_timeout_minutes
             FROM access_logs
             ${simpleWhereClause}
             ORDER BY login_at DESC
@@ -281,7 +285,10 @@ module.exports = (pool) => {
             const now = new Date();
             const diffMinutes = (now - lastActivity) / (1000 * 60);
             // Usa il timeout dell'utente se disponibile, altrimenti 3 minuti
-            const timeout = row.user_inactivity_timeout_minutes || 3;
+            const timeout = resolveUserInactivityTimeoutMinutes({
+              ruolo: row.user_role,
+              inactivity_timeout_minutes: row.user_inactivity_timeout_minutes,
+            });
             return timeout === 0 || diffMinutes < timeout;
           }).length;
           console.log('⚠️ [ACCESS LOGS] active_sessions approssimativo:', activeSessions);

@@ -600,6 +600,7 @@ app.get('/api/keepalive', async (req, res) => {
 // Importa utility per hash delle password e JWT
 const { verifyPassword, migratePassword } = require('./utils/passwordUtils');
 const { generateLoginResponse, verifyRefreshToken, generateToken } = require('./utils/jwtUtils');
+const { resolveUserInactivityTimeoutMinutes } = require('./utils/userInactivityTimeout');
 
 
 
@@ -619,7 +620,7 @@ app.post('/api/login', async (req, res) => {
     const client = await pool.connect();
 
     // Prima cerca l'utente per email, includendo admin_companies, inactivity_timeout_minutes e enabled_projects
-    const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, \'[]\'::jsonb) as admin_companies, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes, COALESCE(enabled_projects, \'["ticket"]\'::jsonb) as enabled_projects FROM users WHERE email = $1', [email]);
+    const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, \'[]\'::jsonb) as admin_companies, inactivity_timeout_minutes, COALESCE(enabled_projects, \'["ticket"]\'::jsonb) as enabled_projects FROM users WHERE email = $1', [email]);
 
     if (result.rows.length === 0) {
       client.release();
@@ -754,7 +755,7 @@ app.post('/api/login', async (req, res) => {
             password: user.password,
             admin_companies: adminCompanies,
             enabled_projects: enabledProjects,
-            inactivity_timeout_minutes: user.inactivity_timeout_minutes || 3
+            inactivity_timeout_minutes: resolveUserInactivityTimeoutMinutes(user)
           },
           sessionId
         });
@@ -1676,10 +1677,30 @@ app.post('/api/init-db', async (req, res) => {
 
     // Aggiungi colonna inactivity_timeout_minutes alla tabella users se non esiste
     try {
-      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS inactivity_timeout_minutes INTEGER DEFAULT 3`);
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS inactivity_timeout_minutes INTEGER`);
       console.log("✅ Colonna inactivity_timeout_minutes aggiunta alla tabella users");
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna inactivity_timeout_minutes (potrebbe già esistere):", alterErr.message);
+    }
+
+    try {
+      const mig = await pool.query(`
+        UPDATE users
+        SET inactivity_timeout_minutes = 30
+        WHERE ruolo = 'tecnico'
+          AND inactivity_timeout_minutes = 3
+      `);
+      if (Number(mig.rowCount) > 0) {
+        console.log(`✅ Timeout inattività: ${mig.rowCount} tecnici portati da 3 a 30 minuti (init-db).`);
+      }
+    } catch (migErr) {
+      console.log('⚠️ Migrazione timeout tecnici (init-db):', migErr.message);
+    }
+    try {
+      await pool.query(`ALTER TABLE users ALTER COLUMN inactivity_timeout_minutes DROP DEFAULT`);
+      console.log("✅ DEFAULT colonna inactivity_timeout_minutes rimosso (init-db)");
+    } catch (dropDefErr) {
+      console.log("⚠️ ALTER DROP DEFAULT inactivity_timeout_minutes (init-db):", dropDefErr.message);
     }
 
     // Aggiungi colonna enabled_projects alla tabella users se non esiste (JSONB array di progetti abilitati)
@@ -1934,10 +1955,30 @@ const startServer = async () => {
 
     // Aggiungi colonna inactivity_timeout_minutes alla tabella users se non esiste (auto-init)
     try {
-      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS inactivity_timeout_minutes INTEGER DEFAULT 3`);
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS inactivity_timeout_minutes INTEGER`);
       console.log("✅ Colonna inactivity_timeout_minutes aggiunta alla tabella users (auto-init)");
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna inactivity_timeout_minutes (auto-init):", alterErr.message);
+    }
+
+    try {
+      const mig = await pool.query(`
+        UPDATE users
+        SET inactivity_timeout_minutes = 30
+        WHERE ruolo = 'tecnico'
+          AND inactivity_timeout_minutes = 3
+      `);
+      if (Number(mig.rowCount) > 0) {
+        console.log(`✅ Timeout inattività: ${mig.rowCount} tecnici portati da 3 a 30 minuti (allineamento default).`);
+      }
+    } catch (migErr) {
+      console.log('⚠️ Migrazione timeout tecnici:', migErr.message);
+    }
+    try {
+      await pool.query(`ALTER TABLE users ALTER COLUMN inactivity_timeout_minutes DROP DEFAULT`);
+      console.log("✅ DEFAULT colonna inactivity_timeout_minutes rimosso (NULL gestito per ruolo in API)");
+    } catch (dropDefErr) {
+      console.log("⚠️ ALTER DROP DEFAULT inactivity_timeout_minutes:", dropDefErr.message);
     }
 
     // Aggiungi colonna enabled_projects alla tabella users se non esiste (auto-init)
