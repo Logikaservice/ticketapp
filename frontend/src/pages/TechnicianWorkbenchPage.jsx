@@ -22,13 +22,29 @@ import {
   Calendar,
   Volume2,
   Layers,
-  Ticket as TicketHomeIcon
+  Ticket as TicketHomeIcon,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 
 const SURFACE = '#1E1E1E';
 const DEFAULT_ACCENT = '#C1FF72';
 const PAGE_BG = '#121212';
 const STORAGE_KEY_ACCENT = 'techHubAccent';
+const STORAGE_KEY_SIDEBAR_COLLAPSED = 'techHubSidebarCollapsed';
+
+function useMinMd() {
+  const [ok, setOk] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)').matches : true
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const fn = () => setOk(mq.matches);
+    mq.addEventListener('change', fn);
+    return () => mq.removeEventListener('change', fn);
+  }, []);
+  return ok;
+}
 
 /** Palette colori brillanti (accento Hub tecnico). */
 const TECH_HUB_ACCENT_PALETTE = [
@@ -95,6 +111,14 @@ function loadStoredAccent() {
   return DEFAULT_ACCENT;
 }
 
+function loadSidebarCollapsed() {
+  try {
+    return localStorage.getItem(STORAGE_KEY_SIDEBAR_COLLAPSED) === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
 /** Incrociabile: modulo card cliccabile (stesso pattern per tasselli e griglia centrale). */
 function ModuleLaunchCard({ icon: Icon, label, subtitle, accent, onClick, className = '' }) {
   return (
@@ -113,7 +137,10 @@ function ModuleLaunchCard({ icon: Icon, label, subtitle, accent, onClick, classN
   );
 }
 
-function NavGroup({ title, open, onToggle, children }) {
+function NavGroup({ title, open, onToggle, children, railMode }) {
+  if (railMode) {
+    return <div className="mt-1 space-y-1 border-t border-white/[0.06] pt-2">{children}</div>;
+  }
   return (
     <div className="space-y-1">
       <button
@@ -129,7 +156,21 @@ function NavGroup({ title, open, onToggle, children }) {
   );
 }
 
-function SidebarLink({ icon: Icon, label, onClick, nested }) {
+function SidebarLink({ icon: Icon, label, onClick, nested, railMode }) {
+  const iconSz = railMode ? 20 : nested ? 16 : 18;
+  if (railMode) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        title={label}
+        aria-label={label}
+        className="group mx-auto flex w-full max-w-[3rem] items-center justify-center rounded-xl border border-transparent py-2.5 text-white/80 transition hover:bg-white/[0.06] hover:text-[color:var(--hub-accent)] hover:[border-color:var(--hub-accent-border)]"
+      >
+        <Icon size={iconSz} className="shrink-0 text-white/50 transition group-hover:text-[color:var(--hub-accent)]" />
+      </button>
+    );
+  }
   return (
     <button
       type="button"
@@ -139,7 +180,7 @@ function SidebarLink({ icon: Icon, label, onClick, nested }) {
       }`}
     >
       <Icon
-        size={nested ? 16 : 18}
+        size={iconSz}
         className="shrink-0 text-white/45 transition group-hover:text-[color:var(--hub-accent)]"
       />
       {label}
@@ -186,8 +227,11 @@ export default function TechnicianWorkbenchPage({
   const [accentPickerOpen, setAccentPickerOpen] = useState(false);
   const [navToolsOpen, setNavToolsOpen] = useState(true);
   const [navProjectsOpen, setNavProjectsOpen] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   const userMenuRef = useRef(null);
   const accentPickerRef = useRef(null);
+  const minMd = useMinMd();
+  const railMode = sidebarCollapsed && minMd;
 
   useEffect(() => {
     try {
@@ -196,6 +240,14 @@ export default function TechnicianWorkbenchPage({
       /* ignore */
     }
   }, [accentHex]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_SIDEBAR_COLLAPSED, sidebarCollapsed ? '1' : '0');
+    } catch (_) {
+      /* ignore */
+    }
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     const onDoc = (e) => {
@@ -235,14 +287,20 @@ export default function TechnicianWorkbenchPage({
     <div className="fixed inset-0 z-[70] flex min-h-0 flex-col md:flex-row" style={accentStyle}>
       {/* Colonna sinistra */}
       <aside
-        className="flex w-full shrink-0 flex-col border-white/[0.06] px-5 py-5 md:h-full md:w-[280px] md:border-r lg:w-[292px]"
+        className={`flex w-full shrink-0 flex-col border-white/[0.06] py-5 transition-[width,padding] duration-200 ease-out max-md:w-full max-md:px-5 md:h-full md:border-r ${
+          railMode ? 'md:w-[76px] md:items-center md:px-2 md:overflow-visible' : 'md:w-[280px] md:px-5 lg:w-[292px]'
+        }`}
         style={{ backgroundColor: '#171717' }}
       >
-        <div ref={userMenuRef} className="relative">
+        <div ref={userMenuRef} className={`relative ${railMode ? 'flex w-full justify-center md:overflow-visible' : ''}`}>
           <button
             type="button"
             onClick={() => setUserMenuOpen((o) => !o)}
-            className="flex w-full items-center gap-3 rounded-2xl border border-transparent p-2 text-left transition hover:bg-white/[0.05] hover:[border-color:var(--hub-accent-border)]"
+            title={railMode ? displayName : undefined}
+            aria-expanded={userMenuOpen}
+            className={`flex rounded-2xl border border-transparent transition hover:bg-white/[0.05] hover:[border-color:var(--hub-accent-border)] ${
+              railMode ? 'p-1' : 'w-full items-center gap-3 p-2 text-left'
+            }`}
           >
             <span
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
@@ -250,15 +308,23 @@ export default function TechnicianWorkbenchPage({
             >
               {initials}
             </span>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-semibold text-white">{displayName}</div>
-              <div className="truncate text-xs text-white/45">{currentUser?.email || ''}</div>
-            </div>
-            <ChevronDown size={18} className={`shrink-0 text-white/40 transition ${userMenuOpen ? 'rotate-180' : ''}`} />
+            {!railMode && (
+              <>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold text-white">{displayName}</div>
+                  <div className="truncate text-xs text-white/45">{currentUser?.email || ''}</div>
+                </div>
+                <ChevronDown size={18} className={`shrink-0 text-white/40 transition ${userMenuOpen ? 'rotate-180' : ''}`} />
+              </>
+            )}
           </button>
           {userMenuOpen && (
             <div
-              className="absolute left-0 right-0 top-full z-10 mt-2 space-y-0.5 rounded-2xl border border-white/[0.1] p-2 shadow-2xl"
+              className={`absolute z-30 space-y-0.5 rounded-2xl border border-white/[0.1] p-2 shadow-2xl ${
+                railMode
+                  ? 'left-full top-0 ml-2 w-[min(16rem,calc(100vw-5rem))]'
+                  : 'left-0 right-0 top-full mt-2'
+              }`}
               style={{ backgroundColor: SURFACE }}
             >
               <button
@@ -298,59 +364,94 @@ export default function TechnicianWorkbenchPage({
           )}
         </div>
 
-        <div className="mt-4">
-          <div
-            className="group flex items-center gap-3 rounded-2xl border border-white/[0.08] px-3 py-2.5 transition hover:[border-color:var(--hub-accent-border)]"
-            style={{ backgroundColor: SURFACE }}
-          >
-            <Search size={18} className="shrink-0 text-white/35 transition group-hover:text-[color:var(--hub-accent)]" aria-hidden />
-            <input
-              type="search"
-              readOnly
-              tabIndex={-1}
-              placeholder="Cerca…"
-              className="min-w-0 flex-1 cursor-default bg-transparent text-sm text-white/80 outline-none placeholder:text-white/30"
-              aria-label="Campo ricerca (in preparazione)"
-            />
-          </div>
+        <div className={`mt-4 ${railMode ? 'flex w-full justify-center' : ''}`}>
+          {railMode ? (
+            <button
+              type="button"
+              title="Cerca… (in preparazione)"
+              aria-label="Cerca (in preparazione)"
+              className={`${hubHoverIconBtn} rounded-2xl p-2.5`}
+              style={{ backgroundColor: SURFACE }}
+            >
+              <Search size={20} className="text-white/40" aria-hidden />
+            </button>
+          ) : (
+            <div
+              className="group flex items-center gap-3 rounded-2xl border border-white/[0.08] px-3 py-2.5 transition hover:[border-color:var(--hub-accent-border)]"
+              style={{ backgroundColor: SURFACE }}
+            >
+              <Search size={18} className="shrink-0 text-white/35 transition group-hover:text-[color:var(--hub-accent)]" aria-hidden />
+              <input
+                type="search"
+                readOnly
+                tabIndex={-1}
+                placeholder="Cerca…"
+                className="min-w-0 flex-1 cursor-default bg-transparent text-sm text-white/80 outline-none placeholder:text-white/30"
+                aria-label="Campo ricerca (in preparazione)"
+              />
+            </div>
+          )}
         </div>
 
-        <nav className="mt-5 min-h-0 flex-1 space-y-1 overflow-y-auto pb-6 pr-1">
-          <SidebarLink icon={TicketHomeIcon} label="Ticket" onClick={() => onNavigateHome?.()} />
-          <SidebarLink icon={Building2} label="Office" onClick={() => nav?.onOpenOffice?.()} />
-          <SidebarLink icon={Mail} label="Email" onClick={() => nav?.onOpenEmail?.()} />
-          <SidebarLink icon={Shield} label="Anti-Virus" onClick={() => nav?.onOpenAntiVirus?.()} />
-          <SidebarLink icon={Eye} label="L-Sight" onClick={() => nav?.onOpenLSight?.()} />
-          <SidebarLink icon={Monitor} label="Dispositivi aziendali" onClick={() => nav?.onOpenDispositivi?.()} />
-          <SidebarLink icon={Gauge} label="Speed Test" onClick={() => nav?.onOpenSpeedTest?.()} />
-          <SidebarLink icon={Wifi} label="Monitoraggio rete" onClick={() => nav?.onOpenNetwork?.()} />
-          <SidebarLink icon={MapPin} label="Mappatura" onClick={() => nav?.onOpenMappatura?.()} />
+        <nav
+          className={`mt-5 min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-visible pb-2 pr-1 md:overflow-x-visible ${
+            railMode ? 'flex w-full flex-col items-center md:overflow-visible' : ''
+          }`}
+        >
+          <SidebarLink railMode={railMode} icon={TicketHomeIcon} label="Ticket" onClick={() => onNavigateHome?.()} />
+          <SidebarLink railMode={railMode} icon={Building2} label="Office" onClick={() => nav?.onOpenOffice?.()} />
+          <SidebarLink railMode={railMode} icon={Mail} label="Email" onClick={() => nav?.onOpenEmail?.()} />
+          <SidebarLink railMode={railMode} icon={Shield} label="Anti-Virus" onClick={() => nav?.onOpenAntiVirus?.()} />
+          <SidebarLink railMode={railMode} icon={Eye} label="L-Sight" onClick={() => nav?.onOpenLSight?.()} />
+          <SidebarLink railMode={railMode} icon={Monitor} label="Dispositivi aziendali" onClick={() => nav?.onOpenDispositivi?.()} />
+          <SidebarLink railMode={railMode} icon={Gauge} label="Speed Test" onClick={() => nav?.onOpenSpeedTest?.()} />
+          <SidebarLink railMode={railMode} icon={Wifi} label="Monitoraggio rete" onClick={() => nav?.onOpenNetwork?.()} />
+          <SidebarLink railMode={railMode} icon={MapPin} label="Mappatura" onClick={() => nav?.onOpenMappatura?.()} />
 
-          <div className="pt-2">
-            <NavGroup title="Comunicazioni" open={navToolsOpen} onToggle={() => setNavToolsOpen((o) => !o)}>
+          <div className={railMode ? 'w-full pt-2' : 'pt-2'}>
+            <NavGroup railMode={railMode} title="Comunicazioni" open={navToolsOpen} onToggle={() => setNavToolsOpen((o) => !o)}>
               <SidebarLink
+                railMode={railMode}
                 nested
                 icon={Monitor}
                 label="Agent comunicazioni"
                 onClick={() => nav?.onOpenCommAgentManager?.()}
               />
-              <SidebarLink nested icon={Bell} label="Invia comunicazione" onClick={() => nav?.onOpenCommAgent?.()} />
+              <SidebarLink railMode={railMode} nested icon={Bell} label="Invia comunicazione" onClick={() => nav?.onOpenCommAgent?.()} />
             </NavGroup>
           </div>
 
-          <div className="pt-2">
-            <NavGroup title="Altri progetti" open={navProjectsOpen} onToggle={() => setNavProjectsOpen((o) => !o)}>
-              <SidebarLink nested icon={Calendar} label="Orari e Turni" onClick={() => nav?.onOpenOrari?.()} />
-              <SidebarLink nested icon={Volume2} label="Vivaldi" onClick={() => nav?.onOpenVivaldi?.()} />
-              <SidebarLink nested icon={Monitor} label="PackVision" onClick={() => nav?.onOpenPackVision?.()} />
-              <SidebarLink nested icon={Layers} label="VPN" onClick={() => nav?.onOpenVpn?.()} />
+          <div className={railMode ? 'w-full pt-2' : 'pt-2'}>
+            <NavGroup railMode={railMode} title="Altri progetti" open={navProjectsOpen} onToggle={() => setNavProjectsOpen((o) => !o)}>
+              <SidebarLink railMode={railMode} nested icon={Calendar} label="Orari e Turni" onClick={() => nav?.onOpenOrari?.()} />
+              <SidebarLink railMode={railMode} nested icon={Volume2} label="Vivaldi" onClick={() => nav?.onOpenVivaldi?.()} />
+              <SidebarLink railMode={railMode} nested icon={Monitor} label="PackVision" onClick={() => nav?.onOpenPackVision?.()} />
+              <SidebarLink railMode={railMode} nested icon={Layers} label="VPN" onClick={() => nav?.onOpenVpn?.()} />
             </NavGroup>
           </div>
         </nav>
 
-        <div className="mt-auto flex items-center gap-2 border-t border-white/[0.06] pt-4 opacity-70">
+        {minMd && (
+          <div className={`mt-auto w-full border-t border-white/[0.06] pt-3 ${railMode ? 'flex justify-center' : ''}`}>
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed((c) => !c)}
+              title={railMode ? 'Espandi barra laterale' : 'Comprimi barra (solo icone)'}
+              aria-expanded={!railMode}
+              className={`${hubHoverIconBtn} flex items-center justify-center rounded-xl py-2 text-xs font-medium text-white/50 ${railMode ? 'px-2' : 'w-full px-3'}`}
+            >
+              {railMode ? <ChevronsRight size={22} aria-hidden /> : <ChevronsLeft size={22} aria-hidden />}
+              {!railMode && <span className="ml-2">Solo icone</span>}
+            </button>
+          </div>
+        )}
+
+        <div
+          className={`flex items-center gap-2 border-t border-white/[0.06] pt-3 opacity-70 ${railMode ? 'mt-2 w-full flex-col justify-center' : 'mt-2'} ${!minMd ? 'mt-auto' : ''}`}
+          title={railMode ? 'Ticket' : undefined}
+        >
           <LayoutGrid size={20} style={{ color: accentHex }} />
-          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/55">Ticket</span>
+          {!railMode && <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/55">Ticket</span>}
         </div>
       </aside>
 
