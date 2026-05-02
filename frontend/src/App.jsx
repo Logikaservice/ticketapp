@@ -248,6 +248,9 @@ export default function TicketApp() {
     if (h === 'tech-hub') return true;
     return shouldOpenTechHubAsHomeFromUrl();
   });
+  /** Incrementato quando Email deve aprirsi nel centro Hub (tec. con workbench già visibile); azzerato alla chiusura Hub. */
+  const [hubEmbedEmailKick, setHubEmbedEmailKick] = useState(0);
+
   const [dispositiviAziendaliHighlightMac, setDispositiviAziendaliHighlightMac] = useState(null);
   const [showDeviceAnalysisStandalone, setShowDeviceAnalysisStandalone] = useState(false);
   const [standaloneDeviceId, setStandaloneDeviceId] = useState(null);
@@ -777,6 +780,10 @@ export default function TicketApp() {
 
   const handleOpenEmail = (companyId) => {
     if (companyId) setShowGloballySelectedCompanyId(companyId);
+    if (showTechnicianWorkbench && currentUser?.ruolo === 'tecnico') {
+      setHubEmbedEmailKick((n) => n + 1);
+      return;
+    }
     setShowTechnicianWorkbench(false);
     setShowEmail(true);
     setShowDashboard(false);
@@ -932,6 +939,10 @@ export default function TicketApp() {
       setShowDashboard(true);
     }
   }, [isLoggedIn, currentUser, showTechnicianWorkbench]);
+
+  useEffect(() => {
+    if (!showTechnicianWorkbench) setHubEmbedEmailKick(0);
+  }, [showTechnicianWorkbench]);
 
   /** Overscroll / area sotto il layer fixed dell’Hub: evita fascia chiara (#body / vuoto dopo lo zoom wrapper). */
   useEffect(() => {
@@ -3809,6 +3820,7 @@ export default function TicketApp() {
               onOpenVivaldi: openVivaldiMenu,
               onOpenPackVision: openPackVisionMenu
             }}
+            hubEmbedEmailKick={hubEmbedEmailKick}
           />
         )}
 

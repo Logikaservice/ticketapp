@@ -162,7 +162,7 @@ function HubNewTicketCard({ accentHex, onOpenNewTicket, subdued, suppressInterac
         <Plus size={24} strokeWidth={2.4} aria-hidden />
       </div>
       <div className="min-w-0 flex-1 self-center leading-tight">
-        <div className="text-base font-bold text-white">+ nuovo ticket</div>
+        <div className="text-base font-bold text-white">Nuovo ticket</div>
       </div>
     </button>
   );

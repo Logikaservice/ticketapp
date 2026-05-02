@@ -394,7 +394,9 @@ export default function TechnicianWorkbenchPage({
   /** Incrementa `alertsRefreshTrigger` in App per ricaricare gli avvisi Hub. */
   onRefreshHubAlerts = null,
   /** tecnico → apre il modale Nuovo avviso (stesso della dashboard). */
-  onOpenManageAlerts = null
+  onOpenManageAlerts = null,
+  /** Incrementato da App quando `handleOpenEmail` deve aprire Email nel centro Hub (Hub già visibile). */
+  hubEmbedEmailKick = 0
 }) {
   const [accentHex, setAccentHex] = useState(getStoredTechHubAccent);
   const [hubImportantAlerts, setHubImportantAlerts] = useState([]);
@@ -434,6 +436,10 @@ export default function TechnicianWorkbenchPage({
   useEffect(() => {
     if (hubCenterView !== 'overview') setHubLayoutEditMode(false);
   }, [hubCenterView]);
+
+  useEffect(() => {
+    if (hubEmbedEmailKick > 0) setHubCenterView('email');
+  }, [hubEmbedEmailKick]);
 
   const userMenuRef = useRef(null);
   const accentPickerRef = useRef(null);
