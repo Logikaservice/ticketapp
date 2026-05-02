@@ -31,7 +31,8 @@ import {
   AlertCircle,
   Sparkles,
   FileText,
-  PlayCircle
+  PlayCircle,
+  Plus
 } from 'lucide-react';
 import { fetchImportantAlertsForHub } from '../utils/importantAlertsFeed';
 
@@ -208,6 +209,34 @@ function TicketHubStatCard({ icon: Icon, title, count, accentHex, stateKey, onOp
       aria-label={`${title}: ${count}. Apri elenco ticket per questo stato`}
     >
       {body}
+    </button>
+  );
+}
+
+/** CTA creazione ticket: corpo tinteggiato con l’accento Hub; apre il NewTicketModal esistente dall’App. */
+function HubNewTicketCard({ accentHex, onOpenNewTicket }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenNewTicket?.()}
+      className="flex min-h-[8.5rem] w-full flex-col items-center justify-center gap-3 rounded-2xl border p-5 text-center transition hover:brightness-110 active:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--hub-accent)] md:min-h-0 md:py-6"
+      style={{
+        backgroundColor: hexToRgba(accentHex, 0.24),
+        borderColor: hexToRgba(accentHex, 0.55),
+        boxShadow: `0 0 0 1px ${hexToRgba(accentHex, 0.12)} inset`
+      }}
+      aria-label="Crea nuovo ticket"
+    >
+      <span
+        className="flex h-12 w-12 items-center justify-center rounded-2xl"
+        style={{
+          backgroundColor: hexToRgba(accentHex, 0.35),
+          color: readableOnAccent(accentHex)
+        }}
+      >
+        <Plus size={28} strokeWidth={2.4} aria-hidden />
+      </span>
+      <span className="text-base font-bold leading-tight text-white">+ nuovo ticket</span>
     </button>
   );
 }
@@ -512,7 +541,8 @@ export default function TechnicianWorkbenchPage({
   getAuthHeader,
   alertsRefreshTrigger = 0,
   tickets = [],
-  onOpenTicketState
+  onOpenTicketState,
+  onOpenNewTicket
 }) {
   const [accentHex, setAccentHex] = useState(loadStoredAccent);
   const [hubImportantAlerts, setHubImportantAlerts] = useState([]);
@@ -873,7 +903,7 @@ export default function TechnicianWorkbenchPage({
               className="grid auto-rows-[minmax(112px,auto)] grid-cols-12 gap-3"
               style={{ minHeight: 'min(70vh, 640px)' }}
             >
-              <div className="col-span-12 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="col-span-12 grid grid-cols-1 gap-3 md:grid-cols-3">
                 <TicketHubStatCard
                   icon={FileText}
                   title="Aperti"
@@ -890,6 +920,7 @@ export default function TechnicianWorkbenchPage({
                   stateKey="in_lavorazione"
                   onOpenTicketState={onOpenTicketState}
                 />
+                <HubNewTicketCard accentHex={accentHex} onOpenNewTicket={onOpenNewTicket} />
               </div>
 
               {/* Quattro tasselli piccoli = una fascia unificata */}

@@ -3676,6 +3676,7 @@ export default function TicketApp() {
             getAuthHeader={getAuthHeader}
             alertsRefreshTrigger={alertsRefreshTrigger}
             onNavigateHome={() => { setShowTechnicianWorkbench(false); setShowDashboard(true); }}
+            onOpenNewTicket={openNewTicketModal}
             onLogout={handleLogout}
             onOpenSettings={openSettings}
             nav={{
