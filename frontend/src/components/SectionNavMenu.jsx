@@ -17,7 +17,9 @@ const SectionNavMenu = ({
   onNavigateLSight,
   onNavigateVpn,
   currentUser,
-  selectedCompanyId = null
+  selectedCompanyId = null,
+  /** Su sfondo scuro Hub (moduli embedded nel workbench). */
+  embedded = false
 }) => {
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
@@ -56,29 +58,51 @@ const SectionNavMenu = ({
   if (items.length === 0) return null;
 
   return (
-    <div className="relative inline-block text-left mr-2" ref={menuRef}>
+    <div className="relative mr-2 inline-block text-left" ref={menuRef}>
       <button
         onClick={() => setOpen(!open)}
-        className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors flex items-center justify-center border border-transparent hover:border-gray-200"
+        type="button"
+        className={
+          embedded
+            ? 'flex items-center justify-center rounded-lg border border-white/[0.12] bg-black/28 p-2 text-white/75 transition-colors hover:bg-white/[0.08] hover:text-[color:var(--hub-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)]'
+            : 'flex items-center justify-center rounded-lg border border-transparent p-2 text-gray-600 transition-colors hover:border-gray-200 hover:bg-gray-100'
+        }
         title="Menu di navigazione"
       >
         <Menu size={22} />
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-1 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-[99999]">
-          <div className="px-3 py-1.5 mb-1 border-b border-gray-100">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Navigazione</span>
+        <div
+          className={
+            embedded
+              ? 'absolute left-0 top-full z-[99999] mt-1 w-56 rounded-xl border border-white/[0.12] bg-[#1e1e1e] py-2 shadow-2xl'
+              : 'absolute left-0 top-full z-[99999] mt-1 w-56 rounded-xl border border-gray-200 bg-white py-2 shadow-2xl'
+          }
+        >
+          <div
+            className={
+              embedded
+                ? 'mb-1 border-b border-white/[0.08] px-3 py-1.5'
+                : 'mb-1 border-b border-gray-100 px-3 py-1.5'
+            }
+          >
+            <span className={`text-[10px] font-bold uppercase tracking-widest ${embedded ? 'text-white/40' : 'text-gray-400'}`}>Navigazione</span>
           </div>
           {items.map(({ id, label, icon: Icon, onClick }) => (
             <button
               key={id}
+              type="button"
               onClick={() => {
                 onClick?.(selectedCompanyId);
                 setOpen(false);
               }}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-all font-medium text-sm"
+              className={
+                embedded
+                  ? 'flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-white/88 transition-colors hover:bg-white/[0.06] hover:text-[color:var(--hub-accent)]'
+                  : 'flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 transition-all hover:bg-gray-50 hover:text-blue-600'
+              }
             >
-              <Icon size={18} className="text-gray-400 group-hover:text-blue-500" />
+              <Icon size={18} className={embedded ? 'text-white/45' : 'text-gray-400'} />
               {label}
             </button>
           ))}

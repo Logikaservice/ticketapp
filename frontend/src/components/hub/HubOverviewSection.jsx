@@ -354,7 +354,7 @@ export default function HubOverviewSection({
             label="Anti-Virus"
             subtitle="Sicurezza"
             accent={accentHex}
-            onClick={() => nav?.onOpenAntiVirus?.()}
+            onClick={() => setHubCenterView?.('antivirus')}
             subdued={veil}
             suppressInteraction={suppressInteraction}
           />

@@ -39,6 +39,7 @@ import CommAgentManager from '../components/CommAgentManager';
 import ContractsListModal from '../components/Modals/ContractsListModal';
 import EmailPage from './EmailPage';
 import OfficePage from './OfficePage';
+import AntiVirusPage from './AntiVirusPage';
 import {
   TECH_HUB_ACCENT_PALETTE,
   STORAGE_KEY_TECH_HUB_ACCENT,
@@ -426,7 +427,9 @@ export default function TechnicianWorkbenchPage({
   /** Incrementato da App quando `handleOpenEmail` deve aprire Email nel centro Hub (Hub già visibile). */
   hubEmbedEmailKick = 0,
   /** Come `hubEmbedEmailKick` per `handleOpenOffice`. */
-  hubEmbedOfficeKick = 0
+  hubEmbedOfficeKick = 0,
+  /** Anti-Virus integrato nell’Hub (kick da App / hash). */
+  hubEmbedAntiVirusKick = 0
 }) {
   const [accentHex, setAccentHex] = useState(getStoredTechHubAccent);
   const [hubImportantAlerts, setHubImportantAlerts] = useState([]);
@@ -437,9 +440,9 @@ export default function TechnicianWorkbenchPage({
   const [navToolsOpen, setNavToolsOpen] = useState(true);
   const [navProjectsOpen, setNavProjectsOpen] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
-  /** Centro Hub: panoramica a griglia oppure modulo integrato (Comunicazioni, Email). */
+  /** Centro Hub: panoramica a griglia oppure modulo integrato (Comunicazioni, Email, Anti-Virus…). */
   const [hubCenterView, setHubCenterView] = useState(
-    /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'office' | 'contratti' | 'avvisi'} */ ('overview')
+    /** @type {'overview' | 'comunicazioni' | 'comm-agent-manager' | 'email' | 'office' | 'antivirus' | 'contratti' | 'avvisi'} */ ('overview')
   );
   const isTechnician = currentUser?.ruolo === 'tecnico';
   const hubLayoutUserKey = currentUser?.id ?? currentUser?.email ?? '';
@@ -474,6 +477,10 @@ export default function TechnicianWorkbenchPage({
   useEffect(() => {
     if (hubEmbedOfficeKick > 0) setHubCenterView('office');
   }, [hubEmbedOfficeKick]);
+
+  useEffect(() => {
+    if (hubEmbedAntiVirusKick > 0) setHubCenterView('antivirus');
+  }, [hubEmbedAntiVirusKick]);
 
   const userMenuRef = useRef(null);
   const accentPickerRef = useRef(null);
@@ -713,7 +720,8 @@ export default function TechnicianWorkbenchPage({
             icon={Shield}
             label="Anti-Virus"
             accentHex={accentHex}
-            onClick={() => nav?.onOpenAntiVirus?.()}
+            active={hubCenterView === 'antivirus'}
+            onClick={() => setHubCenterView('antivirus')}
           />
           <SidebarLink
             railMode={railMode}
@@ -864,6 +872,8 @@ export default function TechnicianWorkbenchPage({
                         ? 'Email'
                         : hubCenterView === 'office'
                           ? 'Office'
+                          : hubCenterView === 'antivirus'
+                            ? 'Anti-Virus'
                           : hubCenterView === 'contratti'
                             ? 'Contratti attivi'
                             : hubCenterView === 'avvisi'
@@ -954,6 +964,7 @@ export default function TechnicianWorkbenchPage({
               hubCenterView === 'comm-agent-manager' ||
               hubCenterView === 'email' ||
               hubCenterView === 'office' ||
+              hubCenterView === 'antivirus' ||
               hubCenterView === 'contratti' ||
               hubCenterView === 'avvisi'
                 ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-2 md:px-5 md:pb-5'
@@ -991,7 +1002,7 @@ export default function TechnicianWorkbenchPage({
                 currentUser={currentUser}
                 onOpenTicket={onOpenTicketWithPrefill ?? undefined}
                 onNavigateOffice={() => setHubCenterView('office')}
-                onNavigateAntiVirus={() => nav?.onOpenAntiVirus?.()}
+                onNavigateAntiVirus={() => setHubCenterView('antivirus')}
                 onNavigateDispositiviAziendali={() => nav?.onOpenDispositivi?.()}
                 onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
                 onNavigateMappatura={() => nav?.onOpenMappatura?.()}
@@ -1010,12 +1021,36 @@ export default function TechnicianWorkbenchPage({
                 currentUser={currentUser}
                 onOpenTicket={onOpenTicketWithPrefill ?? undefined}
                 onNavigateEmail={() => setHubCenterView('email')}
-                onNavigateAntiVirus={() => nav?.onOpenAntiVirus?.()}
+                onNavigateAntiVirus={() => setHubCenterView('antivirus')}
                 onNavigateDispositiviAziendali={() => nav?.onOpenDispositivi?.()}
                 onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
                 onNavigateMappatura={() => nav?.onOpenMappatura?.()}
                 onNavigateSpeedTest={() => nav?.onOpenSpeedTest?.()}
                 onNavigateVpn={() => nav?.onOpenVpn?.()}
+                onNavigateHome={() => setHubCenterView('overview')}
+              />
+            ) : hubCenterView === 'antivirus' ? (
+              <AntiVirusPage
+                embedded
+                accentHex={accentHex}
+                closeEmbedded={() => setHubCenterView('overview')}
+                getAuthHeader={getAuthHeader}
+                selectedCompanyId={selectedCompanyId}
+                onCompanyChange={onGloballyCompanyChange ?? undefined}
+                readOnly={
+                  currentUser?.ruolo === 'cliente' &&
+                  !!(currentUser?.admin_companies && currentUser.admin_companies.length > 0)
+                }
+                currentUser={currentUser}
+                onOpenTicket={onOpenTicketWithPrefill ?? undefined}
+                onNavigateOffice={() => setHubCenterView('office')}
+                onNavigateEmail={() => setHubCenterView('email')}
+                onNavigateDispositiviAziendali={() => nav?.onOpenDispositivi?.()}
+                onNavigateNetworkMonitoring={() => nav?.onOpenNetwork?.()}
+                onNavigateMappatura={() => nav?.onOpenMappatura?.()}
+                onNavigateSpeedTest={() => nav?.onOpenSpeedTest?.()}
+                onNavigateVpn={() => nav?.onOpenVpn?.()}
+                onNavigateLSight={() => nav?.onOpenLSight?.()}
                 onNavigateHome={() => setHubCenterView('overview')}
               />
             ) : hubCenterView === 'comunicazioni' ? (
@@ -1029,7 +1064,7 @@ export default function TechnicianWorkbenchPage({
                 onNavigateHome={commAgentNav.onNavigateHome ?? onNavigateHome}
                 onNavigateOffice={commAgentNav.onNavigateOffice}
                 onNavigateEmail={commAgentNav.onNavigateEmail}
-                onNavigateAntiVirus={commAgentNav.onNavigateAntiVirus}
+                onNavigateAntiVirus={() => setHubCenterView('antivirus')}
                 onNavigateNetworkMonitoring={commAgentNav.onNavigateNetworkMonitoring}
                 onNavigateMappatura={commAgentNav.onNavigateMappatura}
                 onNavigateSpeedTest={commAgentNav.onNavigateSpeedTest}
@@ -1048,7 +1083,7 @@ export default function TechnicianWorkbenchPage({
                 onNavigateHome={commAgentNav.onNavigateHome ?? onNavigateHome}
                 onNavigateOffice={commAgentNav.onNavigateOffice}
                 onNavigateEmail={commAgentNav.onNavigateEmail}
-                onNavigateAntiVirus={commAgentNav.onNavigateAntiVirus}
+                onNavigateAntiVirus={() => setHubCenterView('antivirus')}
                 onNavigateNetworkMonitoring={commAgentNav.onNavigateNetworkMonitoring}
                 onNavigateMappatura={commAgentNav.onNavigateMappatura}
                 onNavigateSpeedTest={commAgentNav.onNavigateSpeedTest}

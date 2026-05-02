@@ -1,11 +1,94 @@
-import React, { useState, useEffect } from 'react';
-import { Shield, Search, X, Check, Calendar, Monitor, Server, Layers, GripVertical, Plus, Laptop, Smartphone, Tablet, MessageCircle } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Shield,
+  Search,
+  X,
+  Monitor,
+  Server,
+  Layers,
+  GripVertical,
+  Plus,
+  Laptop,
+  Smartphone,
+  Tablet,
+  MessageCircle,
+  ArrowLeft
+} from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 import AntiVirusIntroCard from '../components/AntiVirusIntroCard';
 import SectionNavMenu from '../components/SectionNavMenu';
+import {
+  HUB_PAGE_BG,
+  HUB_SURFACE,
+  hexToRgba,
+  normalizeHex,
+  readableOnAccent,
+  getStoredTechHubAccent
+} from '../utils/techHubAccent';
 
-const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompanyId, onCompanyChange, readOnly = false, currentUser, onOpenTicket, onNavigateOffice, onNavigateEmail, onNavigateDispositiviAziendali, onNavigateNetworkMonitoring, onNavigateMappatura, onNavigateSpeedTest, onNavigateVpn, onNavigateHome }) => {
+const AntiVirusPage = ({
+  onClose,
+  getAuthHeader,
+  selectedCompanyId: initialCompanyId,
+  onCompanyChange,
+  readOnly = false,
+  currentUser,
+  onOpenTicket,
+  onNavigateOffice,
+  onNavigateEmail,
+  onNavigateDispositiviAziendali,
+  onNavigateNetworkMonitoring,
+  onNavigateMappatura,
+  onNavigateSpeedTest,
+  onNavigateVpn,
+  onNavigateHome,
+  onNavigateLSight,
+  embedded = false,
+  closeEmbedded,
+  accentHex: accentHexProp
+}) => {
     const showAssistenzaButton = readOnly && typeof onOpenTicket === 'function';
+    const accent = useMemo(() => normalizeHex(accentHexProp) || getStoredTechHubAccent(), [accentHexProp]);
+    const primaryBtnStyle = useMemo(
+      () => ({ backgroundColor: accent, color: readableOnAccent(accent) }),
+      [accent]
+    );
+    const onEmbeddedBack = () => {
+      if (typeof closeEmbedded === 'function') closeEmbedded();
+      else if (typeof onClose === 'function') onClose();
+    };
+    const embeddedBackBtnStyle = useMemo(
+      () => ({
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '8px 12px',
+        borderRadius: 12,
+        border: '1px solid rgba(255,255,255,0.12)',
+        background: 'rgba(0,0,0,0.28)',
+        color: 'rgba(255,255,255,0.82)',
+        cursor: 'pointer',
+        fontSize: 13,
+        fontWeight: 600,
+        flexShrink: 0
+      }),
+      []
+    );
+    const rootEmbeddedStyle = useMemo(
+      () =>
+        embedded
+          ? {
+              backgroundColor: HUB_PAGE_BG,
+              ['--hub-accent']: accent,
+              ['--hub-accent-border']: hexToRgba(accent, 0.48)
+            }
+          : undefined,
+      [embedded, accent]
+    );
+    const companySelectCls = embedded
+      ? 'min-w-[200px] rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none [color-scheme:light] focus:ring-2 focus:ring-[color:var(--hub-accent)]'
+      : 'min-w-[200px] rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500';
+
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId || '');
     const [devices, setDevices] = useState([]);
@@ -438,37 +521,63 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
         });
     };
 
+    const rootClassName = embedded
+        ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.08] font-sans'
+        : 'fixed inset-0 z-50 flex flex-col bg-gray-100 font-sans';
+
     return (
-        <div className="fixed inset-0 bg-gray-100 z-50 flex flex-col">
+        <div className={rootClassName} style={rootEmbeddedStyle}>
             {/* Header */}
-            <div className="bg-white border-b px-6 py-4 flex items-center justify-between shadow-sm">
-                <div className="flex items-center gap-3">
-                    <SectionNavMenu
-                        currentPage="antivirus"
-                        onNavigateHome={onNavigateHome || onClose}
-                        onNavigateOffice={onNavigateOffice}
-                        onNavigateEmail={onNavigateEmail}
-                        onNavigateAntiVirus={null}
-                        onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
-                        onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
-                        onNavigateMappatura={onNavigateMappatura}
-                        onNavigateSpeedTest={onNavigateSpeedTest}
-                        onNavigateVpn={onNavigateVpn}
-                        currentUser={currentUser}
-                        selectedCompanyId={selectedCompanyId}
-                    />
-                    <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
-                        <Shield size={24} />
+            <div
+                className={
+                    embedded
+                        ? 'flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3'
+                        : 'flex items-center justify-between border-b bg-white px-6 py-4 shadow-sm'
+                }
+                style={embedded ? { backgroundColor: HUB_SURFACE } : undefined}
+            >
+                <div className="flex min-w-0 items-center gap-3">
+                    {embedded ? (
+                        <button type="button" onClick={onEmbeddedBack} style={embeddedBackBtnStyle}>
+                            <ArrowLeft size={18} aria-hidden />
+                            Panoramica Hub
+                        </button>
+                    ) : (
+                        <SectionNavMenu
+                            currentPage="antivirus"
+                            onNavigateHome={onNavigateHome || onClose}
+                            onNavigateOffice={onNavigateOffice}
+                            onNavigateEmail={onNavigateEmail}
+                            onNavigateAntiVirus={null}
+                            onNavigateDispositiviAziendali={onNavigateDispositiviAziendali}
+                            onNavigateNetworkMonitoring={onNavigateNetworkMonitoring}
+                            onNavigateMappatura={onNavigateMappatura}
+                            onNavigateSpeedTest={onNavigateSpeedTest}
+                            onNavigateVpn={onNavigateVpn}
+                            onNavigateLSight={onNavigateLSight}
+                            currentUser={currentUser}
+                            selectedCompanyId={selectedCompanyId}
+                        />
+                    )}
+                    <div
+                        className={embedded ? 'rounded-lg p-2' : 'rounded-lg bg-indigo-100 p-2 text-indigo-600'}
+                        style={embedded ? { backgroundColor: hexToRgba(accent, 0.18) } : undefined}
+                    >
+                        <Shield size={24} style={embedded ? { color: accent } : undefined} />
                     </div>
-                    <div>
-                        <h1 className="text-xl font-bold text-gray-800">Gestione Anti-Virus</h1>
-                        {readOnly && <p className="text-sm text-gray-500 mt-0.5">Sola consultazione</p>}
+                    <div className="min-w-0">
+                        <h1 className={`font-bold ${embedded ? 'truncate text-lg text-white' : 'text-xl text-gray-800'}`}>
+                            Gestione Anti-Virus
+                        </h1>
+                        {readOnly && (
+                            <p className={`mt-0.5 text-sm ${embedded ? 'text-white/50' : 'text-gray-500'}`}>Sola consultazione</p>
+                        )}
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex shrink-0 flex-wrap items-center gap-4">
                     <select
-                        className="border rounded-lg px-3 py-2 bg-gray-50 text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-w-[200px]"
+                        className={companySelectCls}
                         value={selectedCompanyId}
                         onChange={(e) => {
                             const newId = e.target.value;
@@ -477,19 +586,26 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         }}
                     >
                         <option value="">{readOnly ? 'Seleziona Azienda...' : 'Seleziona Cliente...'}</option>
-                        {companies.map(c => (
-                            <option key={c.id} value={c.id}>{c.azienda || c.nome + ' ' + c.cognome}</option>
+                        {companies.map((c) => (
+                            <option key={c.id} value={c.id}>
+                                {c.azienda || c.nome + ' ' + c.cognome}
+                            </option>
                         ))}
                     </select>
                 </div>
             </div>
 
             {/* Content */}
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex flex-1 min-h-0 overflow-hidden">
                 {!selectedCompanyId ? (
-                    <div className="flex-1 overflow-auto p-6">
-                        <div className="max-w-4xl mx-auto w-full">
+                    <div
+                        className={`flex-1 overflow-auto ${embedded ? 'bg-[transparent] px-4 py-4 md:px-5' : 'p-6'}`}
+                        style={embedded ? { backgroundColor: HUB_PAGE_BG } : undefined}
+                    >
+                        <div className="mx-auto w-full max-w-4xl">
                             <AntiVirusIntroCard
+                                embedded={embedded}
+                                accentHex={accent}
                                 companies={companies}
                                 value={selectedCompanyId}
                                 onChange={(id) => {
@@ -505,21 +621,40 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                         {/* Left Sidebar - Solo per tecnico: lista dispositivi da cui aggiungere alla tabella */}
                         {!readOnly && (
                             <>
-                                <div style={{ width: sidebarWidth }} className="bg-white border-r flex flex-col flex-shrink-0 relative">
-                                    <div className="p-4 border-b space-y-3">
+                                <div
+                                    style={{
+                                        width: sidebarWidth,
+                                        ...(embedded ? { backgroundColor: HUB_SURFACE } : {})
+                                    }}
+                                    className={`relative flex shrink-0 flex-col border-r ${embedded ? 'border-white/[0.08]' : 'bg-white'}`}
+                                >
+                                    <div className={`space-y-3 border-b p-4 ${embedded ? 'border-white/[0.08]' : ''}`}>
                                         <button
+                                            type="button"
                                             onClick={handleAddManualDevice}
-                                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors"
+                                            className={
+                                                embedded
+                                                    ? 'flex w-full items-center justify-center gap-2 rounded-lg py-2 pl-4 pr-4 text-sm font-medium shadow-sm transition hover:brightness-110'
+                                                    : 'flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2 pl-4 pr-4 text-sm font-medium text-white transition-colors hover:bg-indigo-700'
+                                            }
+                                            style={embedded ? primaryBtnStyle : undefined}
                                         >
                                             <Plus size={16} />
                                             Aggiungi Dispositivo
                                         </button>
                                         <div className="relative">
-                                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                                            <Search
+                                                className={`absolute left-3 top-1/2 -translate-y-1/2 ${embedded ? 'text-white/35' : 'text-gray-400'}`}
+                                                size={18}
+                                            />
                                             <input
                                                 type="text"
                                                 placeholder="Cerca IP o Hostname..."
-                                                className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                className={
+                                                    embedded
+                                                        ? 'w-full rounded-lg border border-white/[0.12] bg-black/28 py-2 pl-10 pr-4 text-sm text-white outline-none placeholder:text-white/35 focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)]'
+                                                        : 'w-full rounded-lg border py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-indigo-500'
+                                                }
                                                 value={searchTerm}
                                                 onChange={(e) => setSearchTerm(e.target.value)}
                                             />
@@ -527,16 +662,18 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     </div>
                                     <div className="flex-1 overflow-y-auto">
                                         {!selectedCompanyId ? (
-                                            <div className="p-8 text-center text-gray-500">Seleziona un cliente per visualizzare i dispositivi</div>
+                                            <div className={`p-8 text-center ${embedded ? 'text-white/50' : 'text-gray-500'}`}>
+                                                Seleziona un cliente per visualizzare i dispositivi
+                                            </div>
                                         ) : loading ? (
-                                            <div className="p-8 text-center text-gray-500 flex flex-col items-center">
-                                                <span className="animate-spin text-2xl mb-2">⌛</span>
+                                            <div className={`flex flex-col items-center p-8 text-center ${embedded ? 'text-white/50' : 'text-gray-500'}`}>
+                                                <span className="mb-2 animate-spin text-2xl">⌛</span>
                                                 Caricamento...
                                             </div>
                                         ) : filteredDevices.length === 0 ? (
-                                            <div className="p-8 text-center text-gray-500">Nessun dispositivo trovato</div>
+                                            <div className={`p-8 text-center ${embedded ? 'text-white/50' : 'text-gray-500'}`}>Nessun dispositivo trovato</div>
                                         ) : (
-                                            <div className="divide-y">
+                                            <div className={embedded ? 'divide-y divide-white/[0.08]' : 'divide-y'}>
                                                 {filteredDevices.map(dev => {
                                                     const isAdded = selectedDeviceIds.includes(dev.device_id);
                                                     const showIp = !dev.ip_address.startsWith('no-ip-');
@@ -544,20 +681,34 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                         <div
                                                             key={dev.device_id}
                                                             onClick={() => handleSelectDevice(dev)}
-                                                            className={`py-2 px-3 cursor-pointer hover:bg-gray-50 transition-colors flex items-center gap-2 ${isAdded ? 'bg-indigo-50 border-l-4 border-indigo-600' : 'border-l-4 border-transparent'}`}
+                                                            className={`flex cursor-pointer items-center gap-2 px-3 py-2 transition-colors ${
+                                                                embedded ? 'border-l-4 hover:bg-white/[0.06]' : 'cursor-pointer hover:bg-gray-50'
+                                                            } ${isAdded && !embedded ? 'border-l-4 border-indigo-600 bg-indigo-50' : embedded ? '' : 'border-transparent'}`}
+                                                            style={
+                                                                isAdded && embedded
+                                                                    ? {
+                                                                          borderLeftWidth: 4,
+                                                                          borderLeftStyle: 'solid',
+                                                                          borderLeftColor: accent,
+                                                                          backgroundColor: hexToRgba(accent, 0.1)
+                                                                      }
+                                                                    : embedded
+                                                                      ? { borderLeftWidth: 4 }
+                                                                      : undefined
+                                                            }
                                                         >
-                                                            <div className="flex items-center gap-2 overflow-hidden w-full text-sm">
+                                                            <div className={`flex w-full items-center gap-2 overflow-hidden text-sm ${embedded ? 'text-white/90' : ''}`}>
                                                                 {showIp && (
                                                                     <>
-                                                                        <span className="font-mono font-medium text-gray-800 whitespace-nowrap">{dev.ip_address}</span>
-                                                                        <span className="text-gray-300">-</span>
+                                                                        <span className={`whitespace-nowrap font-mono font-medium ${embedded ? 'text-white' : 'text-gray-800'}`}>{dev.ip_address}</span>
+                                                                        <span className={embedded ? 'text-white/25' : 'text-gray-300'}>-</span>
                                                                     </>
                                                                 )}
-                                                                <span className="font-medium text-gray-700 truncate" title={dev.hostname}>{dev.hostname || 'N/A'}</span>
+                                                                <span className={`truncate font-medium ${embedded ? 'text-white/82' : 'text-gray-700'}`} title={dev.hostname}>{dev.hostname || 'N/A'}</span>
                                                                 {dev.keepass_path && (
                                                                     <>
-                                                                        <span className="text-gray-300">-</span>
-                                                                        <span className="text-gray-500 truncate italic" title={dev.keepass_path}>{dev.keepass_path}</span>
+                                                                        <span className={embedded ? 'text-white/25' : 'text-gray-300'}>-</span>
+                                                                        <span className={`truncate italic ${embedded ? 'text-white/45' : 'text-gray-500'}`} title={dev.keepass_path}>{dev.keepass_path}</span>
                                                                     </>
                                                                 )}
                                                             </div>
@@ -569,31 +720,70 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     </div>
                                 </div>
                                 <div
-                                    className="w-1 cursor-col-resize hover:bg-indigo-300 bg-gray-100 transition-colors z-10"
+                                    className={`z-10 w-1 cursor-col-resize transition-colors ${embedded ? 'bg-white/[0.06] hover:bg-[color:var(--hub-accent)]' : 'bg-gray-100 hover:bg-indigo-300'}`}
                                     onMouseDown={startResizing}
                                 />
                             </>
                         )}
 
                         {/* Pannello destro: tabella compilata dal tecnico (le aziende vedono solo questa, in sola lettura) */}
-                        <div className="flex-1 bg-gray-50 p-8 overflow-y-auto">
+                        <div
+                            className={`flex-1 overflow-y-auto p-8 ${embedded ? '' : 'bg-gray-50'}`}
+                            style={embedded ? { backgroundColor: HUB_PAGE_BG } : undefined}
+                        >
                             {selectedDeviceIds.length > 0 ? (
-                                <div className="bg-white rounded-xl shadow-sm border overflow-visible relative">
+                                <div
+                                    className={`relative overflow-visible rounded-xl border shadow-sm ${embedded ? 'border-white/[0.10] bg-black/[0.22]' : 'border bg-white'}`}
+                                >
                                     <table className="w-full text-left text-sm">
-                                        <thead className="bg-gray-50 border-b">
+                                        <thead
+                                            className={
+                                                embedded ? 'border-b border-white/[0.08] bg-black/35' : 'border-b bg-gray-50'
+                                            }
+                                        >
                                             <tr>
-                                                <th className="px-2 py-3 w-8"></th>
-                                                <th className="px-4 py-3 font-medium text-gray-600">Attivo</th>
-                                                <th className="px-4 py-3 font-medium text-gray-600">Tipo</th>
-                                                <th className="px-4 py-3 font-medium text-gray-600">Dispositivo</th>
-                                                <th className="px-4 py-3 font-medium text-gray-600">Utente</th>
-                                                <th className="px-4 py-3 font-medium text-gray-600">Prodotto</th>
-                                                <th className="px-4 py-3 font-medium text-gray-600">Scadenza</th>
-                                                {showAssistenzaButton && <th className="px-4 py-3 font-medium text-gray-600 w-32">Assistenza</th>}
-                                                <th className="px-4 py-3 font-medium text-gray-600 text-right"></th>
+                                                <th className="w-8 px-2 py-3"></th>
+                                                <th
+                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-600'}`}
+                                                >
+                                                    Attivo
+                                                </th>
+                                                <th
+                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-600'}`}
+                                                >
+                                                    Tipo
+                                                </th>
+                                                <th
+                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-600'}`}
+                                                >
+                                                    Dispositivo
+                                                </th>
+                                                <th
+                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-600'}`}
+                                                >
+                                                    Utente
+                                                </th>
+                                                <th
+                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-600'}`}
+                                                >
+                                                    Prodotto
+                                                </th>
+                                                <th
+                                                    className={`px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-600'}`}
+                                                >
+                                                    Scadenza
+                                                </th>
+                                                {showAssistenzaButton && (
+                                                    <th
+                                                        className={`w-32 px-4 py-3 font-medium ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-600'}`}
+                                                    >
+                                                        Assistenza
+                                                    </th>
+                                                )}
+                                                <th className={`px-4 py-3 text-right font-medium ${embedded ? 'text-white/50' : 'text-gray-600'}`}></th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y">
+                                        <tbody className={embedded ? 'divide-y divide-white/[0.08]' : 'divide-y'}>
                                             {selectedDeviceIds.map((id, index) => {
                                                 const device = devices.find(d => d.device_id === id);
                                                 const draft = drafts[id] || {};
@@ -604,19 +794,27 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                 return (
                                                     <tr
                                                         key={id}
-                                                        className={`group ${isExpired ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
+                                                        className={`group ${
+                                                            isExpired
+                                                                ? embedded
+                                                                    ? 'bg-red-500/12 hover:bg-red-500/18'
+                                                                    : 'bg-red-50 hover:bg-red-100'
+                                                                : embedded
+                                                                  ? 'hover:bg-white/[0.04]'
+                                                                  : 'hover:bg-gray-50'
+                                                        }`}
                                                         draggable={!readOnly}
                                                         onDragStart={(e) => !readOnly && handleDragStart(e, index)}
                                                         onDragOver={(e) => !readOnly && handleDragOver(e, index)}
                                                         onDrop={(e) => handleDrop(e, index)}
                                                     >
-                                                        <td className="px-2 py-3 w-8 text-gray-400">
-                                                            {readOnly ? <span className="w-4 block" /> : <GripVertical size={16} className="cursor-grab active:cursor-grabbing" />}
+                                                        <td className={`w-8 px-2 py-3 ${embedded ? 'text-white/35' : 'text-gray-400'}`}>
+                                                            {readOnly ? <span className="block w-4" /> : <GripVertical size={16} className="cursor-grab active:cursor-grabbing" />}
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             <input
                                                                 type="checkbox"
-                                                                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                                                className={`h-4 w-4 rounded border-gray-300 ${embedded ? 'text-[color:var(--hub-accent)] focus:ring-[color:var(--hub-accent)]' : 'text-indigo-600 focus:ring-indigo-500'}`}
                                                                 checked={draft.is_active || false}
                                                                 readOnly={readOnly}
                                                                 disabled={readOnly}
@@ -629,7 +827,9 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                         </td>
                                                         <td className="px-4 py-3 relative">
                                                             {readOnly ? (
-                                                                <div className="p-1.5 rounded bg-gray-50 flex items-center gap-1 text-gray-600">
+                                                                <div
+                                                                    className={`flex items-center gap-1 rounded p-1.5 ${embedded ? 'bg-black/25 text-white/75' : 'bg-gray-50 text-gray-600'}`}
+                                                                >
                                                                     {(() => {
                                                                         const types = { pc: Monitor, server: Server, virtual: Layers, laptop: Laptop, smartphone: Smartphone, tablet: Tablet };
                                                                         const displayType = (draft.device_type || device?.device_type || 'pc').toString().toLowerCase();
@@ -640,8 +840,13 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                             ) : (
                                                                 <>
                                                                     <button
+                                                                        type="button"
                                                                         onClick={() => setActiveDropdown(activeDropdown === id ? null : id)}
-                                                                        className="p-1.5 rounded bg-white border hover:bg-gray-50 flex items-center gap-1 text-gray-600 shadow-sm"
+                                                                        className={
+                                                                            embedded
+                                                                                ? 'flex items-center gap-1 rounded border border-white/[0.12] bg-black/28 p-1.5 text-white/82 shadow-none hover:bg-white/[0.06]'
+                                                                                : 'flex items-center gap-1 rounded border bg-white p-1.5 text-gray-600 shadow-sm hover:bg-gray-50'
+                                                                        }
                                                                         title="Cambia Tipo"
                                                                     >
                                                                         {(() => {
@@ -664,7 +869,11 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                                                 className="fixed inset-0 z-[100]"
                                                                                 onClick={() => setActiveDropdown(null)}
                                                                             />
-                                                                            <div className="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-xl z-[110] w-48 p-2 grid grid-cols-3 gap-2">
+                                                                            <div
+                                                                                className={`absolute left-0 top-full z-[110] mt-1 grid w-48 grid-cols-3 gap-2 rounded-lg border p-2 shadow-xl ${
+                                                                                    embedded ? 'border-white/[0.12] bg-[#1e1e1e]' : 'border bg-white'
+                                                                                }`}
+                                                                            >
                                                                                 {[
                                                                                     { type: 'pc', icon: Monitor, label: 'PC' },
                                                                                     { type: 'server', icon: Server, label: 'Server' },
@@ -680,7 +889,20 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                                                             handleSaveRow(id, { ...draft, device_type: t.type });
                                                                                             setActiveDropdown(null);
                                                                                         }}
-                                                                                        className={`p-2 rounded flex flex-col items-center gap-1 text-xs ${draft.device_type === t.type ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50'}`}
+                                                                                        className={`flex flex-col items-center gap-1 rounded p-2 text-xs ${
+                                                                                            draft.device_type === t.type
+                                                                                                ? embedded
+                                                                                                    ? 'text-[color:var(--hub-accent)]'
+                                                                                                    : 'bg-indigo-50 text-indigo-600'
+                                                                                                : embedded
+                                                                                                  ? 'text-white/72 hover:bg-white/[0.08]'
+                                                                                                  : 'text-gray-600 hover:bg-gray-50'
+                                                                                        }`}
+                                                                                        style={
+                                                                                            draft.device_type === t.type && embedded
+                                                                                                ? { backgroundColor: hexToRgba(accent, 0.14) }
+                                                                                                : undefined
+                                                                                        }
                                                                                         title={t.label}
                                                                                     >
                                                                                         <t.icon size={20} />
@@ -699,7 +921,11 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                                     <input
                                                                         type="text"
                                                                         placeholder="IP Address (Opzionale)"
-                                                                        className="w-full border rounded px-2 py-1 text-xs focus:ring-1 focus:ring-indigo-500 outline-none font-mono"
+                                                                        className={`w-full rounded px-2 py-1 font-mono text-xs outline-none ${
+                                                                            embedded
+                                                                                ? 'border border-white/[0.12] bg-black/28 text-white focus:ring-1 focus:ring-[color:var(--hub-accent)] placeholder:text-white/35'
+                                                                                : 'rounded border px-2 py-1 focus:ring-1 focus:ring-indigo-500'
+                                                                        }`}
                                                                         value={draft.ip_address || ''}
                                                                         onChange={(e) => updateDraft(id, 'ip_address', e.target.value)}
                                                                         onBlur={() => handleBlurSave(id)}
@@ -707,7 +933,11 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                                     <input
                                                                         type="text"
                                                                         placeholder="Nome host / Etichetta"
-                                                                        className="w-full border rounded px-2 py-1 text-xs focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                                        className={`w-full rounded px-2 py-1 text-xs outline-none ${
+                                                                            embedded
+                                                                                ? 'border border-white/[0.12] bg-black/28 text-white focus:ring-1 focus:ring-[color:var(--hub-accent)] placeholder:text-white/35'
+                                                                                : 'border focus:ring-1 focus:ring-indigo-500'
+                                                                        }`}
                                                                         value={draft.hostname || ''}
                                                                         onChange={(e) => updateDraft(id, 'hostname', e.target.value)}
                                                                         onBlur={() => handleBlurSave(id)}
@@ -716,31 +946,39 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                             ) : (
                                                                 <>
                                                                     {!device.ip_address?.startsWith('no-ip-') && (
-                                                                        <div className="font-medium text-gray-900 font-mono">{device.ip_address}</div>
+                                                                        <div className={`font-mono font-medium ${embedded ? 'text-white' : 'text-gray-900'}`}>
+                                                                            {device.ip_address}
+                                                                        </div>
                                                                     )}
                                                                     {device.mac_address && (
-                                                                        <div className="text-xs text-gray-400 font-mono">{device.mac_address}</div>
+                                                                        <div className={`font-mono text-xs ${embedded ? 'text-white/38' : 'text-gray-400'}`}>{device.mac_address}</div>
                                                                     )}
                                                                 </>
                                                             )}
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             {device.hostname && device.hostname !== '-' && device.hostname !== '' ? (
-                                                                <div className="text-sm font-medium text-gray-800">{device.hostname}</div>
+                                                                <div className={`text-sm font-medium ${embedded ? 'text-white/88' : 'text-gray-800'}`}>{device.hostname}</div>
                                                             ) : null}
                                                             {device.device_username && device.device_username !== '-' && device.device_username !== '' ? (
-                                                                <div className="text-xs text-gray-500">{device.device_username}</div>
+                                                                <div className={`text-xs ${embedded ? 'text-white/50' : 'text-gray-500'}`}>{device.device_username}</div>
                                                             ) : (
-                                                                !device.hostname || device.hostname === '-' ? <span className="text-gray-300">-</span> : null
+                                                                !device.hostname || device.hostname === '-' ? (
+                                                                    <span className={embedded ? 'text-white/25' : 'text-gray-300'}>-</span>
+                                                                ) : null
                                                             )}
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             {readOnly ? (
-                                                                <span className="text-gray-900">{draft.product_name || '-'}</span>
+                                                                <span className={embedded ? 'text-white/90' : 'text-gray-900'}>{draft.product_name || '-'}</span>
                                                             ) : (
                                                                 <input
                                                                     type="text"
-                                                                    className="w-full border rounded px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                                    className={`w-full rounded px-2 py-1 text-sm outline-none ${
+                                                                        embedded
+                                                                            ? 'border border-white/[0.12] bg-black/28 text-white focus:ring-1 focus:ring-[color:var(--hub-accent)] placeholder:text-white/35'
+                                                                            : 'border focus:ring-1 focus:ring-indigo-500'
+                                                                    }`}
                                                                     placeholder="Nome prodotto"
                                                                     value={draft.product_name || ''}
                                                                     onChange={(e) => updateDraft(id, 'product_name', e.target.value)}
@@ -750,11 +988,17 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             {readOnly ? (
-                                                                <span className="text-gray-900">{draft.expiration_date ? new Date(draft.expiration_date).toLocaleDateString('it-IT') : '-'}</span>
+                                                                <span className={embedded ? 'text-white/90' : 'text-gray-900'}>
+                                                                    {draft.expiration_date ? new Date(draft.expiration_date).toLocaleDateString('it-IT') : '-'}
+                                                                </span>
                                                             ) : (
                                                                 <input
                                                                     type="date"
-                                                                    className="w-full border rounded px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                                    className={`w-full rounded px-2 py-1 text-sm outline-none [color-scheme:dark] ${
+                                                                        embedded
+                                                                            ? 'border border-white/[0.12] bg-black/28 text-white focus:ring-1 focus:ring-[color:var(--hub-accent)]'
+                                                                            : 'border focus:ring-1 focus:ring-indigo-500'
+                                                                    }`}
                                                                     value={draft.expiration_date || ''}
                                                                     onChange={(e) => updateDraft(id, 'expiration_date', e.target.value)}
                                                                     onBlur={() => handleBlurSave(id)}
@@ -769,7 +1013,11 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                                         titolo: `Assistenza Anti-Virus - ${(draft.hostname || device?.hostname || draft.ip_address || device?.ip_address || 'Dispositivo').toString().trim()}`,
                                                                         descrizione: `Richiesta assistenza relativa al dispositivo Anti-Virus:\n\nDispositivo: ${draft.hostname || device?.hostname || '—'}\nIP: ${draft.ip_address || device?.ip_address || '—'}\nProdotto: ${draft.product_name || '—'}\nScadenza: ${draft.expiration_date ? new Date(draft.expiration_date).toLocaleDateString('it-IT') : '—'}\nAzienda: ${companyName}`
                                                                     })}
-                                                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors whitespace-nowrap"
+                                                                    className={
+                                                                        embedded
+                                                                            ? 'inline-flex items-center gap-1 whitespace-nowrap rounded border border-[color:var(--hub-accent-border)] bg-black/28 px-2 py-1 text-xs font-medium text-[color:var(--hub-accent)] transition-colors hover:bg-white/[0.06]'
+                                                                            : 'inline-flex items-center gap-1 whitespace-nowrap rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100'
+                                                                    }
                                                                     title="Apri un ticket di assistenza"
                                                                 >
                                                                     <MessageCircle size={14} />
@@ -780,8 +1028,11 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                                         <td className="px-4 py-3 text-right">
                                                             {!readOnly && (
                                                                 <button
+                                                                    type="button"
                                                                     onClick={() => handleRemoveDevice(id)}
-                                                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                    className={`rounded p-1.5 opacity-0 transition-opacity group-hover:opacity-100 ${
+                                                                        embedded ? 'text-red-400 hover:bg-red-500/15' : 'text-red-600 hover:bg-red-50'
+                                                                    }`}
                                                                     title="Rimuovi dalla lista"
                                                                 >
                                                                     <X size={18} />
@@ -795,15 +1046,21 @@ const AntiVirusPage = ({ onClose, getAuthHeader, selectedCompanyId: initialCompa
                                     </table>
                                 </div>
                             ) : (
-                                <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                                    <div className="bg-gray-100 p-6 rounded-full mb-4">
-                                        <Shield size={48} className="text-gray-300" />
+                                <div
+                                    className={`flex h-full flex-col items-center justify-center ${embedded ? 'text-white/42' : 'text-gray-400'}`}
+                                >
+                                    <div
+                                        className={`mb-4 rounded-full p-6 ${embedded ? 'bg-white/[0.06]' : 'bg-gray-100'}`}
+                                    >
+                                        <Shield size={48} className={embedded ? 'text-white/35' : 'text-gray-300'} />
                                     </div>
-                                    <p className="text-lg font-medium">
+                                    <p className={`text-lg font-medium ${embedded ? 'text-white/75' : ''}`}>
                                         {readOnly ? 'Nessun dispositivo con Anti-Virus configurato' : 'Nessun dispositivo selezionato'}
                                     </p>
                                     <p className="text-sm">
-                                        {readOnly ? 'Il tecnico non ha ancora configurato dispositivi per questa azienda.' : 'Seleziona i dispositivi dalla lista a sinistra per modificarli'}
+                                        {readOnly
+                                            ? 'Il tecnico non ha ancora configurato dispositivi per questa azienda.'
+                                            : 'Seleziona i dispositivi dalla lista a sinistra per modificarli'}
                                     </p>
                                 </div>
                             )}
