@@ -1,9 +1,23 @@
-import React from 'react';
-import { X, Settings, Download, Bell, Shield } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Settings, Download, Bell, Shield, Palette } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
+import {
+  TECH_HUB_ACCENT_PALETTE,
+  STORAGE_KEY_TECH_HUB_ACCENT,
+  getStoredTechHubAccent
+} from '../../utils/techHubAccent';
 
 const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, closeModal, currentUser }) => {
+  const [ticketAccentHex, setTicketAccentHex] = useState(getStoredTechHubAccent);
 
+  const persistTicketAccent = (hex) => {
+    try {
+      localStorage.setItem(STORAGE_KEY_TECH_HUB_ACCENT, hex);
+    } catch (_) {
+      /* ignore */
+    }
+    setTicketAccentHex(hex);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -122,6 +136,34 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                 placeholder="+39 123 456 7890"
               />
+            </div>
+          </div>
+
+          {/* Colore tema ticket (stesso storage Hub + modale creazione ticket) */}
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-bold mb-1 flex items-center gap-2">
+              <Palette size={16} className="text-amber-600" />
+              Colore tema ticket
+            </h3>
+            <p className="text-xs text-gray-500 mb-3">
+              All’inizio vale il predefinito; se scegli un colore resta salvato su questo browser (uguale per tecnico e cliente).
+            </p>
+            <div className="grid grid-cols-6 gap-2 sm:grid-cols-8">
+              {TECH_HUB_ACCENT_PALETTE.map((c) => {
+                const active = ticketAccentHex.toLowerCase() === c.hex.toLowerCase();
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    title={c.label}
+                    onClick={() => persistTicketAccent(c.hex)}
+                    className={`aspect-square rounded-lg border-2 transition hover:opacity-90 ${
+                      active ? 'ring-2 ring-offset-2 ring-gray-800 scale-[1.02]' : 'border-gray-200'
+                    }`}
+                    style={{ backgroundColor: c.hex }}
+                  />
+                );
+              })}
             </div>
           </div>
 

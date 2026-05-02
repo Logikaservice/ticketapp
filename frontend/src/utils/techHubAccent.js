@@ -1,5 +1,10 @@
 /**
- * Accento Hub tecnico (dashboard / tema) — stessa palette e localStorage dell'Hub.
+ * Tema “ticket / dashboard”: colore d’accento condiviso (Hub tecnico, modale nuovo ticket, ecc.).
+ *
+ * Comportamento (tecnico e cliente, stesso browser):
+ * - Primo accesso: nessun valore in storage → si usa DEFAULT_TECH_HUB_ACCENT.
+ * - Dopo la scelta (selettore Hub o Impostazioni account): il valore resta in localStorage
+ *   sotto STORAGE_KEY_TECH_HUB_ACCENT finché l’utente non lo cambia di nuovo.
  */
 
 export const STORAGE_KEY_TECH_HUB_ACCENT = 'techHubAccent';
