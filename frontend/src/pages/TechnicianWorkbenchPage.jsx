@@ -24,8 +24,13 @@ import {
   Layers,
   Ticket as TicketHomeIcon,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Info,
+  AlertTriangle,
+  AlertCircle,
+  Sparkles
 } from 'lucide-react';
+import { fetchImportantAlertsForHub } from '../utils/importantAlertsFeed';
 
 const SURFACE = '#1E1E1E';
 const DEFAULT_ACCENT = '#C1FF72';
@@ -188,14 +193,87 @@ function SidebarLink({ icon: Icon, label, onClick, nested, railMode }) {
   );
 }
 
-function RightPanel({ title, children }) {
+function RightPanel({ title, children, className = '', bodyClassName = 'space-y-3' }) {
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.08] p-4"
+      className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.08] p-4 ${className}`}
       style={{ backgroundColor: SURFACE }}
     >
       <h3 className="mb-3 shrink-0 text-xs font-bold uppercase tracking-widest text-white/40">{title}</h3>
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">{children}</div>
+      <div className={`min-h-0 flex-1 overflow-y-auto pr-1 ${bodyClassName}`}>{children}</div>
+    </div>
+  );
+}
+
+function alertLevelSidebarMeta(level) {
+  switch (level) {
+    case 'danger':
+      return {
+        Icon: AlertTriangle,
+        iconClassName: 'text-red-400',
+        titleClassName: 'text-red-400',
+        bodyClassName: 'text-red-300/90'
+      };
+    case 'info':
+      return {
+        Icon: Info,
+        iconClassName: 'text-sky-400',
+        titleClassName: 'text-sky-300',
+        bodyClassName: 'text-sky-200/85'
+      };
+    case 'features':
+      return {
+        Icon: Sparkles,
+        iconClassName: 'text-emerald-400',
+        titleClassName: 'text-emerald-300',
+        bodyClassName: 'text-emerald-200/85'
+      };
+    case 'warning':
+    default:
+      return {
+        Icon: AlertCircle,
+        iconClassName: 'text-amber-400',
+        titleClassName: 'text-amber-300',
+        bodyClassName: 'text-amber-200/85'
+      };
+  }
+}
+
+/** Lista sola lettura avvisi dashboard (icone + testo colorato sullo sfondo pannello scuro esistente). */
+function ImportantAlertsSidebarList({ alerts, loading }) {
+  if (loading) {
+    return <div className="py-8 text-center text-xs text-white/40">Caricamento avvisi…</div>;
+  }
+  if (!alerts?.length) {
+    return <div className="py-8 text-center text-xs text-white/40">Nessun avviso presente.</div>;
+  }
+  return (
+    <div role="list" className="space-y-3">
+      {alerts.map((a) => {
+        const meta = alertLevelSidebarMeta(a.level);
+        const Icon = meta.Icon;
+        const title = (a.title && String(a.title).trim()) || '(Senza titolo)';
+        const body = (a.body && String(a.body)) || '';
+        const key =
+          a.id != null ? `alert-${a.id}` : `${title}-${body.slice(0, 48)}`;
+        return (
+          <div
+            key={key}
+            role="listitem"
+            className="flex gap-2.5 border-b border-white/[0.06] pb-3 last:border-b-0 last:pb-0"
+          >
+            <div className={`mt-0.5 shrink-0 ${meta.iconClassName}`} aria-hidden>
+              <Icon size={18} strokeWidth={2} />
+            </div>
+            <div className="min-w-0 flex-1 select-text">
+              <p className={`text-[13px] font-semibold leading-snug ${meta.titleClassName}`}>{title}</p>
+              {body ? (
+                <p className={`mt-1 whitespace-pre-wrap text-[11px] leading-relaxed ${meta.bodyClassName}`}>{body}</p>
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -220,9 +298,13 @@ export default function TechnicianWorkbenchPage({
   onNavigateHome,
   onLogout,
   onOpenSettings,
-  nav
+  nav,
+  getAuthHeader,
+  alertsRefreshTrigger = 0
 }) {
   const [accentHex, setAccentHex] = useState(loadStoredAccent);
+  const [hubImportantAlerts, setHubImportantAlerts] = useState([]);
+  const [hubImportantAlertsLoading, setHubImportantAlertsLoading] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [accentPickerOpen, setAccentPickerOpen] = useState(false);
   const [navToolsOpen, setNavToolsOpen] = useState(true);
@@ -257,6 +339,30 @@ export default function TechnicianWorkbenchPage({
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      if (!getAuthHeader || !currentUser) {
+        setHubImportantAlerts([]);
+        setHubImportantAlertsLoading(false);
+        return;
+      }
+      setHubImportantAlertsLoading(true);
+      try {
+        const list = await fetchImportantAlertsForHub(getAuthHeader, currentUser);
+        if (!cancelled) setHubImportantAlerts(list);
+      } catch (_) {
+        if (!cancelled) setHubImportantAlerts([]);
+      } finally {
+        if (!cancelled) setHubImportantAlertsLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [getAuthHeader, currentUser, alertsRefreshTrigger]);
 
   const displayName = useMemo(() => {
     const n = `${currentUser?.nome || ''} ${currentUser?.cognome || ''}`.trim();
@@ -676,13 +782,11 @@ export default function TechnicianWorkbenchPage({
 
         {/* Colonna destra */}
         <aside
-          className="flex shrink-0 flex-col gap-3 border-white/[0.06] px-4 py-5 lg:h-full lg:w-[300px] lg:border-l xl:w-[320px]"
+          className="flex min-h-0 shrink-0 flex-col gap-3 overflow-hidden border-white/[0.06] px-4 py-5 lg:h-full lg:w-[300px] lg:border-l xl:w-[320px]"
           style={{ backgroundColor: PAGE_BG }}
         >
-          <RightPanel title="Avvisi importanti">
-            <DummyRow accent={accentHex} title="Finestra di manutenzione programmata" meta="Dummy · testo dimostrativo" />
-            <DummyRow accent={accentHex} dot="#f87171" title="Cliente X: SLA in scadenza" meta="Dummy · sarà collegato a ticket" />
-            <DummyRow accent={accentHex} title="Nuova versione agent disponibile" meta="Dummy · suggerisce aggiornamento" />
+          <RightPanel title="Avvisi importanti" className="min-h-[12rem] flex-[1.25]" bodyClassName="space-y-0">
+            <ImportantAlertsSidebarList alerts={hubImportantAlerts} loading={hubImportantAlertsLoading} />
           </RightPanel>
 
           <RightPanel title="Ultimi eventi di rete">
