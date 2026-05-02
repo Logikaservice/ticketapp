@@ -198,13 +198,26 @@ function SidebarLink({ icon: Icon, label, onClick, nested, railMode }) {
   );
 }
 
-function RightPanel({ title, children, className = '', bodyClassName = 'space-y-3' }) {
+function RightPanel({
+  title,
+  children,
+  className = '',
+  bodyClassName = 'space-y-3',
+  titleAccessory = null,
+  onMouseEnter,
+  onMouseLeave
+}) {
   return (
     <div
       className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.08] p-4 ${className}`}
       style={{ backgroundColor: SURFACE }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
-      <h3 className="mb-3 shrink-0 text-xs font-bold uppercase tracking-widest text-white/40">{title}</h3>
+      <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
+        <h3 className="min-w-0 flex-1 text-xs font-bold uppercase tracking-widest text-white/40">{title}</h3>
+        {titleAccessory ? <div className="flex shrink-0 items-center">{titleAccessory}</div> : null}
+      </div>
       <div className={`min-h-0 flex-1 overflow-y-auto pr-1 ${bodyClassName}`}>{children}</div>
     </div>
   );
@@ -278,7 +291,7 @@ function ImportantAlertsSidebarRows({ items }) {
 }
 
 /** Max {HUB_ALERTS_PAGE_SIZE} avvisi per pagina; pallini + rotazione automatica ogni 5 s. */
-function ImportantAlertsCarousel({ alerts, loading, accentHex }) {
+function ImportantAlertsCarousel({ alerts, loading, accentHex, rotationPaused = false }) {
   const [pageIndex, setPageIndex] = useState(0);
   const [carouselTick, setCarouselTick] = useState(0);
 
@@ -311,12 +324,12 @@ function ImportantAlertsCarousel({ alerts, loading, accentHex }) {
   const restartAutoTimer = () => setCarouselTick((t) => t + 1);
 
   useEffect(() => {
-    if (loading || pageCount <= 1) return undefined;
+    if (loading || pageCount <= 1 || rotationPaused) return undefined;
     const id = window.setInterval(() => {
       setPageIndex((i) => (i + 1) % pageCount);
     }, 5000);
     return () => window.clearInterval(id);
-  }, [loading, pageCount, carouselTick]);
+  }, [loading, pageCount, carouselTick, rotationPaused]);
 
   if (loading) {
     return <div className="py-8 text-center text-xs text-white/40">Caricamento avvisi…</div>;
@@ -427,6 +440,7 @@ export default function TechnicianWorkbenchPage({
   const [accentHex, setAccentHex] = useState(loadStoredAccent);
   const [hubImportantAlerts, setHubImportantAlerts] = useState([]);
   const [hubImportantAlertsLoading, setHubImportantAlertsLoading] = useState(true);
+  const [avvisiPanelHovered, setAvvisiPanelHovered] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [accentPickerOpen, setAccentPickerOpen] = useState(false);
   const [navToolsOpen, setNavToolsOpen] = useState(true);
@@ -907,11 +921,29 @@ export default function TechnicianWorkbenchPage({
           className="flex min-h-0 shrink-0 flex-col gap-3 overflow-hidden border-white/[0.06] px-4 py-5 lg:h-full lg:w-[300px] lg:border-l xl:w-[320px]"
           style={{ backgroundColor: PAGE_BG }}
         >
-          <RightPanel title="Avvisi importanti" className="min-h-[12rem] flex-[1.25]" bodyClassName="space-y-0">
+          <RightPanel
+            title="Avvisi importanti"
+            className="min-h-[12rem] flex-[1.25]"
+            bodyClassName="space-y-0"
+            titleAccessory={
+              <button
+                type="button"
+                className={`${hubTinyIconBtn} p-1.5`}
+                title="Apri la dashboard Ticket (avvisi completi)"
+                aria-label="Vai alla dashboard Ticket con gli avvisi"
+                onClick={() => onNavigateHome?.()}
+              >
+                <ChevronsRight size={17} aria-hidden />
+              </button>
+            }
+            onMouseEnter={() => setAvvisiPanelHovered(true)}
+            onMouseLeave={() => setAvvisiPanelHovered(false)}
+          >
             <ImportantAlertsCarousel
               alerts={hubImportantAlerts}
               loading={hubImportantAlertsLoading}
               accentHex={accentHex}
+              rotationPaused={avvisiPanelHovered}
             />
           </RightPanel>
 
