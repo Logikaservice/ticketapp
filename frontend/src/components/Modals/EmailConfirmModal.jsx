@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Mail, Check, X } from 'lucide-react';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 
 const EmailConfirmModal = ({ 
   onConfirm, 
@@ -54,14 +55,17 @@ const EmailConfirmModal = ({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         
         {/* Header */}
-        <div className="p-6 border-b bg-gradient-to-r from-blue-600 to-sky-600 text-white rounded-t-2xl">
+        <div
+          className="rounded-t-2xl border-b border-black/10 p-6"
+          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+        >
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/20 rounded-lg">
-              <Mail size={24} />
+            <div className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10">
+              <Mail size={24} aria-hidden />
             </div>
             <div>
               <h2 className="text-xl font-bold">Conferma Invio Email</h2>
-              <p className="text-blue-100 text-sm">
+              <p className="text-sm opacity-90">
                 Notifica al cliente
               </p>
             </div>

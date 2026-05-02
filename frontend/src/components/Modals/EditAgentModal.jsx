@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, AlertCircle, Wifi, CheckCircle, Clock } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 
 const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated }) => {
     const [loading, setLoading] = useState(false);
@@ -230,22 +231,27 @@ const EditAgentModal = ({ isOpen, onClose, getAuthHeader, agent, onAgentUpdated 
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
                 {/* Header */}
-                <div className="p-6 border-b bg-gradient-to-r from-blue-600 to-sky-600 text-white rounded-t-2xl">
+                <div
+                  className="rounded-t-2xl border-b border-black/10 p-6"
+                  style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+                >
                     <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-2xl font-bold flex items-center gap-2">
-                                <Wifi size={28} />
+                            <h2 className="flex items-center gap-2 text-2xl font-bold">
+                                <Wifi size={28} className="shrink-0 opacity-95" aria-hidden />
                                 Modifica Agent
                             </h2>
-                            <p className="text-blue-100 text-sm mt-1">
+                            <p className="mt-1 text-sm opacity-90">
                                 Modifica configurazione agent "{agent?.agent_name}"
                             </p>
                         </div>
                         <button
-                            onClick={onClose}
-                            className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition"
+                          type="button"
+                          onClick={onClose}
+                          className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10 transition hover:bg-black/30"
+                          aria-label="Chiudi"
                         >
-                            <X size={24} />
+                          <X size={24} aria-hidden />
                         </button>
                     </div>
                 </div>

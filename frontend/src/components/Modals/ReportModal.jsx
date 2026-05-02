@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { X, Printer } from 'lucide-react';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 
 const ReportModal = ({ closeModal, htmlContent, title }) => {
   const handlePrint = () => {
@@ -30,12 +31,20 @@ const ReportModal = ({ closeModal, htmlContent, title }) => {
   return (
     <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b">
-        <h2 className="text-2xl font-bold text-gray-700 flex items-center gap-2">
+      <div
+        className="flex items-center justify-between rounded-t-xl border-b border-black/10 p-6"
+        style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+      >
+        <h2 className="flex items-center gap-2 text-2xl font-bold">
           {title}
         </h2>
-        <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
-          <X size={24} />
+        <button
+          type="button"
+          onClick={closeModal}
+          className="rounded-lg p-2 transition hover:bg-black/15"
+          aria-label="Chiudi"
+        >
+          <X size={24} aria-hidden />
         </button>
       </div>
 

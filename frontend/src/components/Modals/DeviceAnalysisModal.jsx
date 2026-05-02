@@ -8,6 +8,7 @@ import {
   Minus, ChevronDown, ChevronUp, Play, Timer
 } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 
 /* ─── Helpers ─── */
 const formatDate = (d) => {
@@ -334,21 +335,29 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
     <div className="flex flex-col h-full overflow-hidden">
 
       {/* ── Header ── */}
-      <div className="bg-gradient-to-r from-slate-800 to-slate-700 text-white px-6 py-4 shrink-0">
+      <div
+        className="shrink-0 border-b border-black/10 px-6 py-4"
+        style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+      >
         <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-              <Activity className="w-5 h-5 text-blue-300" />
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/20 ring-1 ring-black/10">
+              <Activity className="h-5 w-5 opacity-95" aria-hidden />
             </div>
             <div className="min-w-0">
-              <h2 className="text-base font-bold text-white leading-tight">Analisi Dispositivo</h2>
-              <p className="text-sm text-slate-300 truncate mt-0.5">
+              <h2 className="text-base font-bold leading-tight">Analisi Dispositivo</h2>
+              <p className="mt-0.5 truncate text-sm opacity-90">
                 {deviceLabel || dev.hostname || dev.ip_address || '…'}
               </p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors shrink-0">
-            <X className="w-4 h-4 text-white" />
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded-lg bg-black/20 p-1.5 ring-1 ring-black/10 transition-colors hover:bg-black/30"
+            aria-label="Chiudi"
+          >
+            <X className="h-4 w-4" aria-hidden />
           </button>
         </div>
 
@@ -356,33 +365,35 @@ export default function DeviceAnalysisModal({ isOpen, onClose, deviceId, deviceL
         {dev.ip_address && (
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
             {dev.ip_address && (
-              <span className="flex items-center gap-1 text-xs text-slate-300">
-                <span className="text-slate-400">IP</span>
-                <span className="font-mono text-white">{dev.ip_address}</span>
+              <span className="flex items-center gap-1 text-xs opacity-85">
+                <span className="opacity-75">IP</span>
+                <span className="font-mono font-medium opacity-95">{dev.ip_address}</span>
               </span>
             )}
             {dev.mac_address && (
-              <span className="flex items-center gap-1 text-xs text-slate-300">
-                <span className="text-slate-400">MAC</span>
-                <span className="font-mono text-white">{dev.mac_address}</span>
+              <span className="flex items-center gap-1 text-xs opacity-85">
+                <span className="opacity-75">MAC</span>
+                <span className="font-mono font-medium opacity-95">{dev.mac_address}</span>
               </span>
             )}
             {dev.device_type && (
-              <span className="flex items-center gap-1 text-xs text-slate-300">
+              <span className="flex items-center gap-1 text-xs opacity-85">
                 {deviceTypeIcon(dev.device_type)}
-                <span className="text-white capitalize">{dev.device_type}</span>
+                <span className="capitalize font-medium opacity-95">{dev.device_type}</span>
               </span>
             )}
             {dev.vendor && (
-              <span className="text-xs text-slate-400">{dev.vendor}</span>
+              <span className="text-xs opacity-75">{dev.vendor}</span>
             )}
             {dev.last_seen && (
-              <span className="flex items-center gap-1 text-xs text-slate-400">
-                <Clock className="w-3 h-3" />
+              <span className="flex items-center gap-1 text-xs opacity-75">
+                <Clock className="h-3 w-3" aria-hidden />
                 visto {formatRelative(dev.last_seen)}
               </span>
             )}
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${dev.status === 'online' ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-black/10 ${dev.status === 'online' ? 'bg-emerald-500/30' : 'bg-red-500/30'}`}
+            >
               {dev.status === 'online' ? '● Online' : '● Offline'}
             </span>
           </div>

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { X, Edit2, Save, Trash2, Mail, Phone, Building, Lock, ChevronRight, ChevronDown, Crown, FolderOpen } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 
 const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient, getAuthHeader }) => {
   const [editingId, setEditingId] = useState(null);
@@ -167,22 +168,27 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient, 
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
         
         {/* Header */}
-        <div className="p-4 border-b bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-2xl">
+        <div
+          className="rounded-t-2xl border-b border-black/10 p-4"
+          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+        >
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <Building size={24} />
+              <h2 className="flex items-center gap-2 text-xl font-bold">
+                <Building size={24} className="shrink-0 opacity-95" aria-hidden />
                 Gestione Clienti
               </h2>
-              <p className="text-green-100 text-xs mt-0.5">
+              <p className="mt-0.5 text-xs opacity-90">
                 {clienti.length} {clienti.length === 1 ? 'cliente registrato' : 'clienti registrati'}
               </p>
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition"
+              type="button"
+              className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10 transition hover:bg-black/30"
+              aria-label="Chiudi"
             >
-              <X size={20} />
+              <X size={20} aria-hidden />
             </button>
           </div>
         </div>

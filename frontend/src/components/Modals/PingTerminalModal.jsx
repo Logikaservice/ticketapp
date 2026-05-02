@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { X, Terminal, PauseCircle, PlayCircle, AlertTriangle } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 
 const PingTerminalModal = ({ isOpen, onClose, targetIp, getAuthHeader }) => {
     const [lines, setLines] = useState([]);
@@ -111,15 +112,18 @@ const PingTerminalModal = ({ isOpen, onClose, targetIp, getAuthHeader }) => {
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] backdrop-blur-sm p-4">
             <div className="bg-gray-900 w-full max-w-3xl rounded-xl shadow-2xl flex flex-col border border-gray-700 h-[80vh]">
                 {/* Header terminale style */}
-                <div className="bg-gray-800 px-4 py-3 rounded-t-xl flex items-center justify-between border-b border-gray-700">
+                <div
+                  className="flex items-center justify-between rounded-t-xl border-b border-black/10 px-4 py-3"
+                  style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+                >
                     <div className="flex items-center gap-3">
-                        <div className="flex gap-1.5">
-                            <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        <div className="flex gap-1.5" aria-hidden>
+                            <div className="h-3 w-3 rounded-full bg-red-500"></div>
+                            <div className="h-3 w-3 rounded-full bg-yellow-500"></div>
+                            <div className="h-3 w-3 rounded-full bg-green-500"></div>
                         </div>
-                        <div className="flex items-center gap-2 text-gray-300 ml-2 font-mono text-sm">
-                            <Terminal size={16} />
+                        <div className="ml-2 flex items-center gap-2 font-mono text-sm opacity-95">
+                            <Terminal size={16} aria-hidden />
                             <span>root@vps: ping {targetIp}</span>
                         </div>
                     </div>

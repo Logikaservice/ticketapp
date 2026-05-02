@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Package, Plus, Trash2, Pencil, Check } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 
 const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, getAuthHeader }) => {
   const [forniture, setForniture] = useState([]);
@@ -150,17 +151,26 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6 border-b pb-3">
-          <h2 className="text-2xl font-bold text-blue-700 flex items-center gap-2">
-            <Package size={24} />
+      <div className="flex max-h-[90vh] max-w-2xl w-full flex-col overflow-hidden rounded-xl bg-white shadow-lg">
+        <div
+          className="flex shrink-0 items-center justify-between border-b border-black/10 px-6 py-4"
+          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+        >
+          <h2 className="flex items-center gap-2 text-2xl font-bold">
+            <Package size={24} className="shrink-0 opacity-95" aria-hidden />
             Forniture Temporanee
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X size={24} />
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 transition hover:bg-black/15"
+            aria-label="Chiudi"
+          >
+            <X size={24} aria-hidden />
           </button>
         </div>
 
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
         <div className="bg-blue-50 p-3 rounded-lg text-sm mb-6">
           Ticket: {ticket.numero} - {ticket.titolo}
         </div>
@@ -301,13 +311,14 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
         </div>
 
         {/* Pulsanti */}
-        <div className="flex gap-3 pt-6 border-t mt-6">
+        <div className="flex gap-3 mt-6 border-t pt-6">
           <button 
             onClick={onClose} 
             className="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50"
           >
             Chiudi
           </button>
+        </div>
         </div>
       </div>
     </div>

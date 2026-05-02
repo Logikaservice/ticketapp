@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, User, Mail, Phone, Building, FileText, AlertTriangle, Camera, Image as ImageIcon } from 'lucide-react';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 
 const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
   const [formData, setFormData] = useState({
@@ -151,16 +152,21 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="p-4 border-b bg-gradient-to-r from-blue-600 to-sky-600 text-white rounded-t-2xl flex items-center justify-between">
+        <div
+          className="flex items-center justify-between rounded-t-2xl border-b border-black/10 p-4"
+          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+        >
           <div className="flex items-center gap-2">
-            <FileText size={24} />
+            <FileText size={24} className="shrink-0 opacity-95" aria-hidden />
             <h2 className="text-xl font-bold">Richiesta Assistenza Veloce</h2>
           </div>
-          <button 
+          <button
+            type="button"
             onClick={onClose}
-            className="text-white hover:text-gray-200 transition"
+            className="rounded-lg p-2 transition hover:bg-black/20"
+            aria-label="Chiudi"
           >
-            <X size={20} />
+            <X size={20} aria-hidden />
           </button>
         </div>
 

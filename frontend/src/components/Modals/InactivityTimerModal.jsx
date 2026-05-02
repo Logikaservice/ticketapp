@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Clock, Check } from 'lucide-react';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 
 const InactivityTimerModal = ({ closeModal, currentTimeout, onTimeoutChange }) => {
   const [selectedTimeout, setSelectedTimeout] = useState(currentTimeout || 3); // Default 3 minuti
@@ -21,22 +22,27 @@ const InactivityTimerModal = ({ closeModal, currentTimeout, onTimeoutChange }) =
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         {/* Header */}
-        <div className="p-6 border-b bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-t-2xl">
+        <div
+          className="rounded-t-2xl border-b border-black/10 p-6"
+          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+        >
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold flex items-center gap-2">
-                <Clock size={28} />
+              <h2 className="flex items-center gap-2 text-2xl font-bold">
+                <Clock size={28} className="shrink-0 opacity-95" aria-hidden />
                 Timer Inattività
               </h2>
-              <p className="text-blue-100 text-sm mt-1">
+              <p className="mt-1 text-sm opacity-90">
                 Imposta il tempo di disconnessione automatica
               </p>
             </div>
             <button
               onClick={closeModal}
-              className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition"
+              type="button"
+              className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10 transition hover:bg-black/30"
+              aria-label="Chiudi"
             >
-              <X size={24} />
+              <X size={24} aria-hidden />
             </button>
           </div>
         </div>

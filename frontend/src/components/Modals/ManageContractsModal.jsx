@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Calendar, User, FileText, CheckCircle, Upload, Plus, Trash2 } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 
 const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => {
     const [users, setUsers] = useState([]);
@@ -347,12 +348,22 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto flex flex-col">
                 {/* Header */}
-                <div className="p-6 border-b flex justify-between items-center bg-slate-50 rounded-t-2xl">
+                <div
+                  className="flex items-center justify-between rounded-t-2xl border-b border-black/10 p-6"
+                  style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+                >
                     <div>
-                        <h2 className="text-2xl font-bold text-slate-800">Nuovo Contratto</h2>
-                        <p className="text-sm text-slate-500">Gestione ricorrenze e documenti</p>
+                        <h2 className="text-2xl font-bold">Nuovo Contratto</h2>
+                        <p className="text-sm opacity-90">Gestione ricorrenze e documenti</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition"><X size={20} /></button>
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="rounded-full p-2 transition hover:bg-black/15"
+                      aria-label="Chiudi"
+                    >
+                      <X size={20} aria-hidden />
+                    </button>
                 </div>
 
                 {/* Content */}

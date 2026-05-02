@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, AlertTriangle, Users, Calendar, Clock, Info, AlertCircle, AlertTriangle as AlertTriangleIcon, Image, Trash2, Sparkles, ChevronDown, ChevronRight, Crown, Building, Mail } from 'lucide-react';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 
 const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAlert, onRequestEmailConfirm }) => {
   const [formData, setFormData] = useState({
@@ -234,23 +235,28 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" style={{ paddingTop: '3rem', paddingBottom: '3rem' }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
         
-        {/* Header con lo stile viola sfumato */}
-        <div className="p-6 border-b bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-t-2xl">
+        {/* Header tema Hub */}
+        <div
+          className="rounded-t-2xl border-b border-black/10 p-6"
+          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+        >
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold flex items-center gap-2">
-                <AlertTriangle size={28} />
+              <h2 className="flex items-center gap-2 text-2xl font-bold">
+                <AlertTriangle size={28} className="shrink-0 opacity-95" aria-hidden />
                 {editingAlert ? 'Modifica Avviso' : 'Nuovo Avviso'}
               </h2>
-              <p className="text-purple-100 text-sm mt-1">
+              <p className="mt-1 text-sm opacity-90">
                 {editingAlert ? 'Modifica i dettagli dell\'avviso' : 'Crea un nuovo avviso per i clienti'}
               </p>
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition"
+              type="button"
+              className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10 transition hover:bg-black/30"
+              aria-label="Chiudi"
             >
-              <X size={24} />
+              <X size={24} aria-hidden />
             </button>
           </div>
         </div>

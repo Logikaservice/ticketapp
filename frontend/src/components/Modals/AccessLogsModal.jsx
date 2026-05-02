@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search, Calendar, Building, Mail, User, Clock, Activity, Filter, RefreshCw } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 
 const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
   const [logs, setLogs] = useState([]);
@@ -145,30 +146,37 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-4 rounded-t-2xl flex items-center justify-between">
+        <div
+          className="flex items-center justify-between rounded-t-2xl border-b border-black/10 px-6 py-4"
+          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-              <Activity size={24} />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-black/20 ring-1 ring-black/10">
+              <Activity size={24} aria-hidden />
             </div>
             <div>
               <h2 className="text-2xl font-bold">Log Accessi</h2>
-              <p className="text-sm text-white/80">Monitoraggio accessi al portale</p>
+              <p className="text-sm opacity-90">Monitoraggio accessi al portale</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={fetchLogs}
               disabled={loading}
-              className="p-2 hover:bg-white/20 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-lg p-2 transition hover:bg-black/20 disabled:cursor-not-allowed disabled:opacity-50"
               title="Aggiorna"
+              aria-label="Aggiorna"
             >
-              <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+              <RefreshCw size={20} className={loading ? 'animate-spin' : ''} aria-hidden />
             </button>
             <button
+              type="button"
               onClick={onClose}
-              className="p-2 hover:bg-white/20 rounded-lg transition"
+              className="rounded-lg p-2 transition hover:bg-black/20"
+              aria-label="Chiudi"
             >
-              <X size={24} />
+              <X size={24} aria-hidden />
             </button>
           </div>
         </div>

@@ -4,7 +4,8 @@ import { buildApiUrl } from '../../utils/apiConfig';
 import {
   TECH_HUB_ACCENT_PALETTE,
   STORAGE_KEY_TECH_HUB_ACCENT,
-  getStoredTechHubAccent
+  getStoredTechHubAccent,
+  techHubAccentModalHeaderStyle
 } from '../../utils/techHubAccent';
 
 const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, closeModal, currentUser }) => {
@@ -23,23 +24,28 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
 
-        {/* Header con lo stile giallo sfumato */}
-        <div className="p-6 border-b bg-gradient-to-r from-yellow-500 to-amber-500 text-white rounded-t-2xl">
+        {/* Header: accento tema Hub (preview colore mentre scegli dalla palette) */}
+        <div
+          className="rounded-t-2xl border-b border-black/10 p-6"
+          style={techHubAccentModalHeaderStyle(ticketAccentHex)}
+        >
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold flex items-center gap-2">
-                <Settings size={28} />
+              <h2 className="flex items-center gap-2 text-2xl font-bold">
+                <Settings size={28} className="shrink-0 opacity-95" aria-hidden />
                 Impostazioni
               </h2>
-              <p className="text-yellow-100 text-sm mt-1">
+              <p className="mt-1 text-sm opacity-90">
                 Gestisci i tuoi dati personali
               </p>
             </div>
             <button
               onClick={closeModal}
-              className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition"
+              type="button"
+              className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10 transition hover:bg-black/30"
+              aria-label="Chiudi"
             >
-              <X size={24} />
+              <X size={24} aria-hidden />
             </button>
           </div>
         </div>

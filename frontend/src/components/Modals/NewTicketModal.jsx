@@ -5,7 +5,7 @@ import { X, Save, FilePlus, ChevronDown, ChevronRight, Crown, Building, Mail } f
 import {
   getStoredTechHubAccent,
   readableOnAccent,
-  techHubAccentHeaderGradientStyle,
+  techHubAccentModalHeaderStyle,
   techHubAccentIconTileStyle,
   hubShellThemeVars
 } from '../../utils/techHubAccent';
@@ -307,27 +307,28 @@ const NewTicketModal = ({
         style={{ ...hubTheme, colorScheme: 'dark' }}
       >
         
-        {/* Header: gradiente tema dashboard / Hub (accent da localStorage) */}
+        {/* Header: colore accento Hub uniforme */}
         <div
-          className="rounded-t-2xl border-b p-6 text-white"
-          style={techHubAccentHeaderGradientStyle(dashboardAccentHex)}
+          className="rounded-t-2xl border-b border-black/10 p-6"
+          style={techHubAccentModalHeaderStyle(dashboardAccentHex)}
         >
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold flex items-center gap-2">
-                <FilePlus size={28} />
+              <h2 className="flex items-center gap-2 text-2xl font-bold">
+                <FilePlus size={28} strokeWidth={2} className="shrink-0 opacity-95" aria-hidden />
                 {isEditingTicket ? 'Modifica Ticket' : 'Crea Nuovo Ticket'}
               </h2>
-              <p className="mt-1 text-sm text-white/90">
+              <p className="mt-1 text-sm opacity-90">
                 Compila i dettagli dell'intervento.
               </p>
             </div>
             <button
               onClick={onClose}
               type="button"
-              className="rounded-lg bg-white/20 p-2 text-white transition hover:bg-white/30"
+              className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10 transition hover:bg-black/30"
+              aria-label="Chiudi"
             >
-              <X size={24} aria-hidden />
+              <X size={24} aria-hidden className="opacity-95" />
             </button>
           </div>
         </div>

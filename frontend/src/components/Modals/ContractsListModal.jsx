@@ -4,7 +4,7 @@ import { buildApiUrl } from '../../utils/apiConfig';
 import ContractTimelineCard from '../ContractTimelineCard';
 import {
   getStoredTechHubAccent,
-  techHubAccentHeaderGradientStyle,
+  techHubAccentModalHeaderStyle,
   hubShellThemeVars
 } from '../../utils/techHubAccent';
 
@@ -114,25 +114,25 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
               style={{ ...hubTheme, colorScheme: 'dark' }}
             >
                 <div
-                  className="flex shrink-0 items-center justify-between border-b px-5 py-3.5 text-white"
-                  style={techHubAccentHeaderGradientStyle(dashboardAccentHex)}
+                  className="flex shrink-0 items-center justify-between border-b border-black/10 px-5 py-3.5"
+                  style={techHubAccentModalHeaderStyle(dashboardAccentHex)}
                 >
                     <div>
                         <h2 className="flex items-center gap-2 text-xl font-bold">
-                          <FileText size={22} aria-hidden />
+                          <FileText size={22} className="shrink-0 opacity-95" aria-hidden />
                           Lista contratti attivi
                         </h2>
-                        <p className="mt-0.5 text-xs leading-snug text-white/82">
+                        <p className="mt-0.5 text-xs leading-snug opacity-90">
                           Cerca, filtra e gestisci i contratti dall&apos;Hub tecnico (stesso tema colore dell&apos;Hub).
                         </p>
                     </div>
                     <button
                       type="button"
                       onClick={onClose}
-                      className="rounded-xl bg-white/20 p-1.5 transition hover:bg-white/30"
+                      className="rounded-lg bg-black/20 p-1.5 ring-1 ring-black/10 transition hover:bg-black/30"
                       aria-label="Chiudi"
                     >
-                        <X size={22} className="text-white" aria-hidden />
+                        <X size={22} className="opacity-95" aria-hidden />
                     </button>
                 </div>
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 
 const MonitoringScheduleModal = ({ device, onClose, onSave, getAuthHeader, buildApiUrl }) => {
   const [mode, setMode] = useState('always'); // 'always' o 'scheduled'
@@ -74,18 +75,23 @@ const MonitoringScheduleModal = ({ device, onClose, onSave, getAuthHeader, build
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 rounded-t-lg">
+        <div
+          className="rounded-t-lg border-b border-black/10 px-6 py-4"
+          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+        >
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold">⚙️ Configurazione Notifiche</h2>
             <button
+              type="button"
               onClick={onClose}
-              className="text-white hover:text-gray-200 text-2xl font-bold leading-none"
+              className="rounded-lg px-2 py-1 text-2xl font-bold leading-none transition hover:bg-black/20"
               title="Chiudi"
+              aria-label="Chiudi"
             >
               ×
             </button>
           </div>
-          <p className="text-blue-100 text-sm mt-1">
+          <p className="mt-1 text-sm opacity-90">
             Dispositivo: {device.hostname || device.ip_address || 'Sconosciuto'}
           </p>
         </div>

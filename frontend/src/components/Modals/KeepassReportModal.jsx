@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { X, AlertTriangle, Info, AlertCircle, Upload, Trash2 } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 
 const KeepassReportModal = ({ 
   isOpen, 
@@ -198,14 +199,17 @@ const KeepassReportModal = ({
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col m-4">
         {/* Header */}
-        <div className="p-6 border-b bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-t-2xl">
+        <div
+          className="rounded-t-2xl border-b border-black/10 p-6"
+          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+        >
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold flex items-center gap-2">
-                <AlertTriangle size={28} />
+              <h2 className="flex items-center gap-2 text-2xl font-bold">
+                <AlertTriangle size={28} className="shrink-0 opacity-95" aria-hidden />
                 {credentialData ? 'Segnala Problema Credenziale' : 'Segnalazione Generica'}
               </h2>
-              <p className="text-red-100 text-sm mt-1">
+              <p className="mt-1 text-sm opacity-90">
                 {credentialData 
                   ? 'Segnala un problema con questa credenziale al team tecnico'
                   : 'Invia una segnalazione o richiesta al team tecnico'
@@ -214,10 +218,12 @@ const KeepassReportModal = ({
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition"
+              type="button"
+              className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10 transition hover:bg-black/30 disabled:opacity-50"
               disabled={isSaving}
+              aria-label="Chiudi"
             >
-              <X size={24} />
+              <X size={24} aria-hidden />
             </button>
           </div>
         </div>

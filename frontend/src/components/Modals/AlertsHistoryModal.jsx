@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Clock, AlertTriangle, Info, Sparkles, Calendar, User, Building, FileImage, Mail } from 'lucide-react';
 import { formatDate } from '../../utils/formatters';
 import { buildApiUrl } from '../../utils/apiConfig';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 // getAuthHeader viene passato come prop, non importato
 
 const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alertsRefreshTrigger, initialAlertId }) => {
@@ -145,21 +146,26 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-fadeIn">
       <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="p-6 border-b flex items-center justify-between bg-gradient-to-r from-purple-50 to-blue-50">
+        <div
+          className="flex items-center justify-between border-b border-black/10 p-6"
+          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+        >
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Sparkles size={24} className="text-green-600" />
+            <div className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10">
+              <Sparkles size={24} aria-hidden />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Nuove Funzionalità</h2>
-              <p className="text-sm text-gray-600 mt-1">Cronologia delle nuove funzionalità aggiunte al sistema</p>
+              <h2 className="text-2xl font-bold">Nuove Funzionalità</h2>
+              <p className="mt-1 text-sm opacity-90">Cronologia delle nuove funzionalità aggiunte al sistema</p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition"
+            className="rounded-lg p-2 transition hover:bg-black/15"
+            aria-label="Chiudi"
           >
-            <X size={24} />
+            <X size={24} aria-hidden />
           </button>
         </div>
 

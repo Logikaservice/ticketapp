@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Clock, Check, Plus, Copy, Trash2, Users, Eye, Edit, Save, Wrench, Minus } from 'lucide-react';
 import { calculateDurationHours, normalizeTimeLog, calculateTotalHoursFromIntervals } from '../../utils/helpers';
 import { buildApiUrl } from '../../utils/apiConfig';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 
 const TimeLoggerModal = ({
   selectedTicket,
@@ -300,22 +301,30 @@ const TimeLoggerModal = ({
   };
 
   return (
-    <div className="bg-white rounded-xl max-w-4xl w-full p-6 shadow-xl">
-      <div className="flex items-center justify-between mb-6 border-b pb-3">
-        <h2 className="text-2xl font-bold text-blue-700 flex items-center gap-2">
+    <div className="flex max-w-4xl w-full flex-col overflow-hidden rounded-xl bg-white shadow-xl">
+      <div
+        className="flex items-center justify-between border-b border-black/10 px-6 py-4"
+        style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+      >
+        <h2 className="flex items-center gap-2 text-2xl font-bold">
           {readOnly ? (
-            isEditing ? <Edit size={24} /> : <Eye size={24} />
+            isEditing ? <Edit size={24} aria-hidden /> : <Eye size={24} aria-hidden />
           ) : (
-            <Clock size={24} />
+            <Clock size={24} aria-hidden />
           )}
           {readOnly ? (isEditing ? 'Modifica Intervento' : 'Visualizza Intervento') : 'Registra Intervento'}
         </h2>
-        <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 p-1">
-          <X size={24} />
+        <button
+          type="button"
+          onClick={closeModal}
+          className="rounded-lg p-1 transition hover:bg-black/15"
+          aria-label="Chiudi"
+        >
+          <X size={24} aria-hidden />
         </button>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-6 p-6">
         <div className="bg-blue-50 p-3 rounded-lg text-sm">
           Ticket: {selectedTicket.numero} - {selectedTicket.titolo}
         </div>

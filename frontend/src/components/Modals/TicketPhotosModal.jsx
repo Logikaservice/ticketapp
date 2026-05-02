@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Printer, Trash2, Image as ImageIcon, Download, Paperclip, File } from 'lucide-react';
 import { getApiBase } from '../../utils/apiConfig';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 
 const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPhotos, getAuthHeader, currentUser }) => {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -288,22 +289,27 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-t-2xl">
+        <div
+          className="rounded-t-2xl border-b border-black/10 p-4"
+          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+        >
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <File size={24} />
+              <h2 className="flex items-center gap-2 text-xl font-bold">
+                <File size={24} className="shrink-0 opacity-95" aria-hidden />
                 File Ticket {ticket?.numero || ''}
               </h2>
-              <p className="text-purple-100 text-sm mt-1">
+              <p className="mt-1 text-sm opacity-90">
                 {currentPhotoIndex + 1} di {localPhotos.length}
               </p>
             </div>
             <button
+              type="button"
               onClick={onClose}
-              className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition"
+              className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10 transition hover:bg-black/30"
+              aria-label="Chiudi"
             >
-              <X size={20} />
+              <X size={20} aria-hidden />
             </button>
           </div>
         </div>

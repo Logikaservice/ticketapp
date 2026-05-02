@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, BarChart3, Building } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { buildApiUrl } from '../../utils/apiConfig';
+import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
 
 const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
   const [loading, setLoading] = useState(true);
@@ -117,16 +118,21 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div
+          className="flex items-center justify-between border-b border-black/10 p-6"
+          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
+        >
           <div className="flex items-center gap-3">
-            <BarChart3 className="text-blue-600" size={24} />
-            <h2 className="text-2xl font-bold text-gray-800">Analytics</h2>
+            <BarChart3 className="shrink-0 opacity-95" size={24} aria-hidden />
+            <h2 className="text-2xl font-bold">Analytics</h2>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 hover:bg-gray-200 rounded-lg transition"
+            className="rounded-lg p-2 transition hover:bg-black/15"
+            aria-label="Chiudi"
           >
-            <X size={20} />
+            <X size={20} aria-hidden />
           </button>
         </div>
 

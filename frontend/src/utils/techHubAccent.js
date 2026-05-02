@@ -125,13 +125,21 @@ export function getStoredTechHubAccent() {
   return DEFAULT_TECH_HUB_ACCENT;
 }
 
-/** Stile header modali/dashboard allineati al tema Hub (gradient sul colore scelto). */
-export function techHubAccentHeaderGradientStyle(hex) {
+/**
+ * Header modali: sfondo **uniforme** = colore accento salvato dall’Hub (`techHubAccent`).
+ * Il testo eredita contrasto tramite {@link readableOnAccent}.
+ */
+export function techHubAccentModalHeaderStyle(hex) {
   const base = normalizeHex(hex) || DEFAULT_TECH_HUB_ACCENT;
   return {
-    backgroundImage: `linear-gradient(to right, ${darkenHex(base, 0.24)}, ${lightenHex(base, 0.18)})`
+    backgroundColor: base,
+    color: readableOnAccent(base),
+    backgroundImage: 'none'
   };
 }
+
+/** Alias storico — stesso comportamento della versione uniforme (niente più gradiente). */
+export const techHubAccentHeaderGradientStyle = techHubAccentModalHeaderStyle;
 
 /** Piccolo gradient per avatar/cerchi elenchi (evita blu fisso). */
 export function techHubAccentIconTileStyle(hex) {
