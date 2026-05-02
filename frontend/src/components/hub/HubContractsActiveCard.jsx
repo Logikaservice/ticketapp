@@ -3,6 +3,7 @@ import { FileSignature } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
 import {
   buildCalendarYearEuroSeries,
+  rollupEuroSeriesThroughMonth,
   rollupEuroYearSeries,
   summarizeEuroForCalendarMonth
 } from '../../utils/contractHubStats';
@@ -104,11 +105,14 @@ export default function HubContractsActiveCard({
     if (kpiScope === 'anno') {
       return rollupEuroYearSeries(euroModel.series);
     }
-    return summarizeEuroForCalendarMonth(
-      contracts,
-      now.getFullYear(),
-      now.getMonth()
-    );
+    /** Vista “mese”: previsto/pagato = solo il mese corrente; mancante = residuo da gennaio a oggi (come le candele). */
+    const m = summarizeEuroForCalendarMonth(contracts, now.getFullYear(), now.getMonth());
+    const ytd = rollupEuroSeriesThroughMonth(euroModel.series, now.getMonth());
+    return {
+      previsto: m.previsto,
+      pagato: m.pagato,
+      mancante: ytd.mancante
+    };
   }, [contracts, euroModel.series, kpiScope]);
 
   const chartModel = useMemo(() => {
@@ -197,7 +201,13 @@ export default function HubContractsActiveCard({
       <div className="mb-2 grid grid-cols-3 divide-x divide-white/[0.08] rounded-lg border border-white/[0.08] bg-black/15">
         <KpiMoneyCol title="Totale" subline="Totale previsto" value={moneyKpis.previsto} />
         <KpiMoneyCol title="Pagato" subline="Nel periodo" value={moneyKpis.pagato} highlight />
-        <KpiMoneyCol title="Mancante" subline="Da incassare" value={moneyKpis.mancante} />
+        <KpiMoneyCol
+          title="Mancante"
+          subline={
+            kpiScope === 'mese' ? 'Da incassare (da gennaio a questo mese)' : 'Da incassare'
+          }
+          value={moneyKpis.mancante}
+        />
       </div>
 
       <div ref={chartRef} className="relative min-h-[136px]" onMouseLeave={() => setTip(null)}>

@@ -230,3 +230,22 @@ export function rollupEuroYearSeries(series) {
   }
   return { previsto, pagato, mancante: Math.max(0, previsto - pagato) };
 }
+
+/**
+ * Come sopra ma solo da gennaio fino al mese incluso (indice 0–11).
+ * Utile KPI “mese”: Totale/Pagato restano sul mese corrente; Mancante = residuo dall’inizio anno.
+ * @param {Array<{ previsto: number; pagato: number }>} series
+ * @param {number} monthIndexInclusive
+ */
+export function rollupEuroSeriesThroughMonth(series, monthIndexInclusive) {
+  const arr = Array.isArray(series) ? series : [];
+  const end = Math.max(0, Math.min(Number(monthIndexInclusive) | 0, arr.length - 1));
+  let previsto = 0;
+  let pagato = 0;
+  for (let mi = 0; mi <= end; mi += 1) {
+    const s = arr[mi] || { previsto: 0, pagato: 0 };
+    previsto += Number(s.previsto) || 0;
+    pagato += Number(s.pagato) || 0;
+  }
+  return { previsto, pagato, mancante: Math.max(0, previsto - pagato) };
+}
