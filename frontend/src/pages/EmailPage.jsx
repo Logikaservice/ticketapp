@@ -343,31 +343,42 @@ const EmailPage = ({
     const colors = getBarColor(percent);
     const colCount = 4 + (showPasswordColumn ? 1 : 0) + (showAssistenzaButton ? 1 : 0);
     const activity = getActivityStatus(q.last_email_date);
+    const actHub =
+      activity.status === 'active'
+        ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-200'
+        : 'border-amber-500/40 bg-amber-500/15 text-amber-100';
 
     return (
-      <tr className="border-b border-gray-50 bg-gray-50/30">
+      <tr
+        className={
+          embedded ? 'border-b border-white/[0.06] bg-black/20' : 'border-b border-gray-50 bg-gray-50/30'
+        }
+      >
         <td colSpan={colCount} className="px-3 py-1.5 align-middle">
-          <div className="flex items-center gap-4 ml-8">
+          <div className="ml-8 flex items-center gap-4">
             {/* Usage Badge */}
-            <div className="flex items-center gap-2 min-w-[80px]">
-              <HardDrive size={13} className="text-gray-400" />
-              <span className="text-[11px] font-bold text-gray-700">
+            <div className="flex min-w-[80px] items-center gap-2">
+              <HardDrive size={13} className={embedded ? 'text-white/40' : 'text-gray-400'} />
+              <span className={`text-[11px] font-bold ${embedded ? 'text-white/80' : 'text-gray-700'}`}>
                 {formatBytes(q.usage_bytes)}
               </span>
             </div>
 
             {/* Progress Bar */}
-            <div className="flex flex-1 items-center gap-2 max-w-md">
-              <div className="h-2 flex-1 rounded-full bg-gray-200 overflow-hidden relative" title={`${percent.toFixed(1)}% occupato`}>
+            <div className="flex max-w-md flex-1 items-center gap-2">
+              <div
+                className={`relative h-2 flex-1 overflow-hidden rounded-full ${embedded ? 'bg-white/10' : 'bg-gray-200'}`}
+                title={`${percent.toFixed(1)}% occupato`}
+              >
                 <div
                   className="h-full rounded-full transition-all duration-700"
                   style={{
                     width: `${Math.min(percent, 100)}%`,
-                    backgroundColor: colors.bar,
+                    backgroundColor: colors.bar
                   }}
                 />
               </div>
-              <span className="text-[10px] text-gray-500 w-12 text-right">
+              <span className={`w-12 text-right text-[10px] ${embedded ? 'text-white/45' : 'text-gray-500'}`}>
                 {percent.toFixed(0)}%
               </span>
               {percent >= 70 && (
@@ -376,20 +387,29 @@ const EmailPage = ({
             </div>
 
             {/* Activity Badge */}
-            <div className="flex items-center gap-2" title={q.last_email_date ? `Ultima email ricevuta: ${new Date(q.last_email_date).toLocaleDateString()}` : 'Nessuna email trovata'}>
-              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium border ${activity.color.replace('text-', 'border-').replace('100', '200')} ${activity.color}`}>
+            <div
+              className="flex items-center gap-2"
+              title={q.last_email_date ? `Ultima email ricevuta: ${new Date(q.last_email_date).toLocaleDateString()}` : 'Nessuna email trovata'}
+            >
+              <span
+                className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-medium ${
+                  embedded
+                    ? actHub
+                    : `border ${activity.color.replace('text-', 'border-').replace('100', '200')} ${activity.color}`
+                }`}
+              >
                 <Activity size={10} />
                 {activity.label}
               </span>
               {activity.status === 'inactive' && (
-                <span className="text-[10px] text-gray-400 italic">
+                <span className={`text-[10px] italic ${embedded ? 'text-white/40' : 'text-gray-400'}`}>
                   (Ultima email {q.last_email_date ? new Date(q.last_email_date).toLocaleDateString() : 'mai'})
                 </span>
               )}
             </div>
 
             {/* Limit Info */}
-            <div className="text-[10px] text-gray-400 ml-auto flex items-center gap-1">
+            <div className={`ml-auto flex items-center gap-1 text-[10px] ${embedded ? 'text-white/40' : 'text-gray-400'}`}>
               Max: {formatBytes(q.limit_bytes)}
             </div>
           </div>
@@ -586,16 +606,43 @@ const EmailPage = ({
           )}
 
           {!loadingCompanies && items.length > 0 && (
-            <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+            <div
+              className={
+                embedded
+                  ? 'overflow-hidden rounded-2xl border border-white/[0.08]'
+                  : 'overflow-hidden rounded-lg border border-gray-200 bg-white shadow'
+              }
+              style={embedded ? { backgroundColor: HUB_SURFACE } : undefined}
+            >
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="text-left py-1.5 px-3 font-semibold text-gray-700">Titolo</th>
-                    <th className="text-left py-1.5 px-3 font-semibold text-gray-700">Nome Utente</th>
-                    {showPasswordColumn && <th className="text-left py-1.5 px-3 font-semibold text-gray-700 min-w-[120px]">Password</th>}
-                    <th className="text-left py-1.5 px-3 font-semibold text-gray-700">URL</th>
-                    <th className="text-left py-1.5 px-3 font-semibold text-gray-700">Scadenza</th>
-                    {showAssistenzaButton && <th className="text-left py-1.5 px-3 font-semibold text-gray-700 min-w-[140px] w-40">Assistenza</th>}
+                  <tr
+                    className={
+                      embedded
+                        ? 'border-b border-white/[0.08] bg-black/30'
+                        : 'border-b border-gray-200 bg-gray-50'
+                    }
+                  >
+                    <th className={`px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-700'}`}>
+                      Titolo
+                    </th>
+                    <th className={`px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-700'}`}>
+                      Nome Utente
+                    </th>
+                    {showPasswordColumn && (
+                      <th className={`min-w-[120px] px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-700'}`}>
+                        Password
+                      </th>
+                    )}
+                    <th className={`px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-700'}`}>URL</th>
+                    <th className={`px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-700'}`}>
+                      Scadenza
+                    </th>
+                    {showAssistenzaButton && (
+                      <th className={`min-w-[140px] w-40 px-3 py-1.5 text-left font-semibold ${embedded ? 'text-xs uppercase tracking-wide text-white/50' : 'text-gray-700'}`}>
+                        Assistenza
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -627,13 +674,17 @@ const EmailPage = ({
                       return (
                         <tr
                           key={`div-${idx}`}
-                          className={`bg-sky-100 border-y border-sky-200 ${isNested ? 'border-l-4 border-l-sky-400 bg-sky-50' : ''}`}
+                          className={
+                            embedded
+                              ? `border-y border-sky-500/30 bg-sky-500/10 ${isNested ? 'border-l-4 border-l-sky-400 bg-sky-500/10' : ''}`
+                              : `border-y border-sky-200 bg-sky-100 ${isNested ? 'border-l-4 border-l-sky-400 bg-sky-50' : ''}`
+                          }
                         >
                           <td
                             colSpan={4 + (showPasswordColumn ? 1 : 0) + (showAssistenzaButton ? 1 : 0)}
-                            className={`py-1 px-3 font-medium text-sky-800 ${isNested ? 'pl-10' : ''}`}
+                            className={`px-3 py-1 font-medium ${embedded ? 'text-sky-100' : 'text-sky-800'} ${isNested ? 'pl-10' : ''}`}
                           >
-                            {isNested && <span className="text-sky-600 mr-2">└</span>}
+                            {isNested && <span className={`mr-2 ${embedded ? 'text-sky-300' : 'text-sky-600'}`}>└</span>}
                             {item.name || '—'}
                           </td>
                         </tr>
@@ -642,29 +693,40 @@ const EmailPage = ({
                     const key = entryKey(item);
                     const expiresDate = item.expires ? new Date(item.expires) : null;
                     const isExpired = expiresDate && !isNaN(expiresDate.getTime()) && expiresDate < new Date();
-                    const rowClass = isNested
-                      ? 'border-b border-gray-100 border-l-4 border-l-sky-300 bg-sky-50/50 hover:bg-sky-50'
-                      : `border-b border-gray-100 ${isExpired ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`;
+                    const rowClass = embedded
+                      ? isNested
+                        ? 'border-b border-white/[0.06] border-l-4 border-l-sky-500/50 bg-sky-500/10 hover:bg-sky-500/15'
+                        : `border-b border-white/[0.06] ${isExpired ? 'bg-red-950/35 hover:bg-red-950/45' : 'hover:bg-white/[0.04]'}`
+                      : isNested
+                        ? 'border-b border-gray-100 border-l-4 border-l-sky-300 bg-sky-50/50 hover:bg-sky-50'
+                        : `border-b border-gray-100 ${isExpired ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`;
                     const cellPad = isNested ? 'py-1 px-3 pl-10' : 'py-1 px-3';
+                    const txtMain = embedded ? 'text-white/92' : 'text-gray-900';
+                    const txtMuted = embedded ? 'text-white/60' : 'text-gray-600';
+                    const treeMark = embedded ? 'text-sky-400' : 'text-sky-500';
                     const hasQuota = item.username && item.username.includes('@') && quotaData[item.username.toLowerCase()];
 
                     return (
                       <React.Fragment key={`ent-${idx}`}>
                         <tr className={rowClass}>
-                          <td className={`${cellPad} text-gray-900`}>
-                            {isNested && <span className="text-sky-500 mr-2">└</span>}
+                          <td className={`${cellPad} ${txtMain}`}>
+                            {isNested && <span className={`mr-2 ${treeMark}`}>└</span>}
                             {item.title || '—'}
                           </td>
-                          <td className={`${cellPad} text-gray-600 font-mono`}>{item.username || '—'}</td>
+                          <td className={`${cellPad} font-mono ${txtMuted}`}>{item.username || '—'}</td>
                           {showPasswordColumn && (
                             <td className={`${cellPad} whitespace-nowrap`}>
                               {visiblePasswords[key] !== undefined ? (
                                 <div className="flex items-center gap-1">
-                                  <span className="font-mono text-gray-800 bg-gray-50 px-2 py-0.5 rounded text-xs">{visiblePasswords[key]}</span>
+                                  <span
+                                    className={`rounded px-2 py-0.5 font-mono text-xs ${embedded ? 'bg-white/10 text-white/90' : 'bg-gray-50 text-gray-800'}`}
+                                  >
+                                    {visiblePasswords[key]}
+                                  </span>
                                   <button
                                     type="button"
                                     onClick={() => hidePassword(item)}
-                                    className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                                    className={`rounded p-1 ${embedded ? 'text-white/50 hover:bg-white/10 hover:text-white/80' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}
                                     title="Nascondi password"
                                   >
                                     <EyeOff size={14} />
@@ -675,7 +737,11 @@ const EmailPage = ({
                                   type="button"
                                   onClick={() => fetchPassword(item)}
                                   disabled={loadingPasswords[key]}
-                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100 transition-colors whitespace-nowrap disabled:opacity-50"
+                                  className={`inline-flex items-center gap-1 whitespace-nowrap rounded border px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
+                                    embedded
+                                      ? 'border-white/15 bg-white/10 text-white/85 hover:bg-white/15'
+                                      : 'border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
+                                  }`}
                                   title="Mostra password"
                                 >
                                   {loadingPasswords[key] ? <Loader size={12} className="animate-spin" /> : <Eye size={14} />}
@@ -684,30 +750,45 @@ const EmailPage = ({
                               )}
                             </td>
                           )}
-                          <td className={`${cellPad} text-gray-600 truncate max-w-[280px]`} title={item.url || ''}>
+                          <td className={`${cellPad} max-w-[280px] truncate ${txtMuted}`} title={item.url || ''}>
                             {item.url ? (
-                              <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={embedded ? 'text-sky-400 hover:underline' : 'text-blue-600 hover:underline'}
+                              >
                                 {item.url}
                               </a>
-                            ) : '—'}
+                            ) : (
+                              '—'
+                            )}
                           </td>
-                          <td className={`${cellPad} whitespace-nowrap ${isExpired ? 'text-red-700 font-medium' : 'text-gray-600'}`}>
+                          <td
+                            className={`${cellPad} whitespace-nowrap ${isExpired ? (embedded ? 'font-medium text-red-300' : 'font-medium text-red-700') : txtMuted}`}
+                          >
                             {item.expires ? (
                               <span title={isExpired ? 'Scaduta' : ''}>
                                 {formatExpiry(item.expires)}
                                 {isExpired ? ' (scaduta)' : ''}
                               </span>
-                            ) : '—'}
+                            ) : (
+                              '—'
+                            )}
                           </td>
                           {showAssistenzaButton && (
-                            <td className={`${cellPad} whitespace-nowrap min-w-[140px]`}>
+                            <td className={`${cellPad} min-w-[140px] whitespace-nowrap`}>
                               <button
                                 type="button"
                                 onClick={() => onOpenTicket({
                                   titolo: `Assistenza Email - ${(item.title || item.username || 'Account').toString().trim()}`,
                                   descrizione: `Richiesta assistenza relativa all'account email:\n\nTitolo: ${item.title || '—'}\nUtente: ${item.username || '—'}\nURL: ${item.url || '—'}\nAzienda: ${companyName || '—'}`
                                 })}
-                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors whitespace-nowrap"
+                                className={`inline-flex items-center gap-1 whitespace-nowrap rounded border px-2 py-1 text-xs font-medium transition-colors ${
+                                  embedded
+                                    ? 'border-[color:var(--hub-accent-border)] bg-[color:var(--hub-accent)]/18 text-[color:var(--hub-accent)] hover:bg-[color:var(--hub-accent)]/28'
+                                    : 'border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                                }`}
                                 title="Apri un ticket di assistenza"
                               >
                                 <MessageCircle size={14} />
@@ -729,6 +810,7 @@ const EmailPage = ({
           {showIntro && (
             <div className="w-full">
               <EmailIntroCard
+                embedded={embedded}
                 companies={companies}
                 value={selectedCompanyValid ? selectedCompanyId : ''}
                 onChange={(companyId) => {
@@ -758,7 +840,14 @@ const EmailPage = ({
           )}
 
           {!loadingCompanies && selectedCompanyId && !loading && items.length === 0 && !error && hasSearched && (
-            <div className="bg-white rounded-lg shadow border border-gray-200 p-8 text-center text-gray-500">
+            <div
+              className={
+                embedded
+                  ? 'rounded-2xl border border-white/[0.08] px-8 py-10 text-center text-white/50'
+                  : 'rounded-lg border border-gray-200 bg-white p-8 text-center text-gray-500 shadow'
+              }
+              style={embedded ? { backgroundColor: HUB_SURFACE } : undefined}
+            >
               Nessuna voce nella cartella Email per questa azienda.
             </div>
           )}

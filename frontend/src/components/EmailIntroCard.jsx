@@ -3,6 +3,7 @@
 
 import React from 'react';
 import { User, CalendarCheck, Link, MessageCircle, Building } from 'lucide-react';
+import { HUB_SURFACE } from '../utils/techHubAccent';
 
 const features = [
   {
@@ -39,18 +40,37 @@ const features = [
   }
 ];
 
-const EmailIntroCard = ({ companies = [], value = '', onChange = null }) => {
+const hubFeatureIcon = (feat) => {
+  if (feat.title === 'Anagrafica Account') return { wrap: 'bg-sky-500/15', icon: 'text-sky-300' };
+  if (feat.title === 'Controllo Scadenze') return { wrap: 'bg-amber-500/15', icon: 'text-amber-300' };
+  if (feat.title === 'Accesso Diretto') return { wrap: 'bg-emerald-500/15', icon: 'text-emerald-300' };
+  return { wrap: 'bg-violet-500/15', icon: 'text-violet-300' };
+};
+
+const EmailIntroCard = ({ companies = [], value = '', onChange = null, embedded = false }) => {
   const showSelector = Array.isArray(companies) && companies.length > 0 && typeof onChange === 'function';
   const selectValue = value != null ? String(value) : '';
+  const showCenterSelect = showSelector && !embedded;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8 mb-8 transition-shadow duration-300">
-      {/* Blocco 1: CTA + selettore azienda */}
-      <div className="flex flex-col items-center text-center pb-8 mb-8 border-b border-gray-200">
-        <p className="text-gray-600 mb-3">
-          Seleziona la tua azienda nel menu per vedere le caselle di posta e i servizi attivi.
+    <div
+      className={
+        embedded
+          ? 'mb-0 rounded-2xl border border-white/[0.08] p-6 transition-shadow duration-300 md:p-8'
+          : 'mb-8 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-shadow duration-300 md:p-8'
+      }
+      style={embedded ? { backgroundColor: HUB_SURFACE } : undefined}
+    >
+      {/* Blocco 1: CTA (+ selettore solo fuori dall’Hub: in Hub c’è quello in header) */}
+      <div
+        className={`flex flex-col items-center text-center ${embedded ? 'mb-8 border-b border-white/[0.08] pb-8' : 'mb-8 border-b border-gray-200 pb-8'}`}
+      >
+        <p className={`mb-3 max-w-lg ${embedded ? 'text-sm text-white/55' : 'text-gray-600'}`}>
+          {embedded
+            ? "Seleziona un'azienda dal menu in alto per vedere le caselle di posta e i servizi attivi."
+            : 'Seleziona la tua azienda nel menu per vedere le caselle di posta e i servizi attivi.'}
         </p>
-        {showSelector && (
+        {showCenterSelect && (
           <div className="relative w-full max-w-sm">
             <select
               value={selectValue}
@@ -58,47 +78,60 @@ const EmailIntroCard = ({ companies = [], value = '', onChange = null }) => {
                 const v = e.target.value;
                 onChange(v ? v : null);
               }}
-              className="w-full pl-4 pr-10 py-3 bg-white border border-gray-300 rounded-lg text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none cursor-pointer"
+              className="w-full cursor-pointer appearance-none rounded-lg border border-gray-300 bg-white py-3 pl-4 pr-10 text-gray-700 hover:border-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Seleziona Azienda...</option>
               {companies.filter(c => c.id != null).map((c) => (
                 <option key={c.id} value={String(c.id)}>{c.azienda || `ID ${c.id}`}</option>
               ))}
             </select>
-            <Building size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <Building size={18} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
           </div>
         )}
       </div>
 
       {/* Blocco 2: Progetto esclusivo (pill, titolo, descrizione, card) */}
-      <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 mb-4">
+      <span
+        className={
+          embedded
+            ? 'mb-4 inline-block rounded-full border border-[color:var(--hub-accent-border)] bg-white/[0.06] px-3 py-1 text-xs font-semibold text-[color:var(--hub-accent)]'
+            : 'mb-4 inline-block rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800'
+        }
+      >
         PROGETTO ESCLUSIVO & PERSONALIZZATO
       </span>
 
-      <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
+      <h2 className={`mb-3 text-2xl font-bold md:text-3xl ${embedded ? 'text-white' : 'text-gray-900'}`}>
         I tuoi accessi Email,{' '}
-        <span className="text-blue-600 italic">organizzati e sicuri.</span>
+        <span className={embedded ? 'italic text-[color:var(--hub-accent)]' : 'italic text-blue-600'}>organizzati e sicuri.</span>
       </h2>
 
-      <p className="text-gray-600 text-base leading-relaxed mb-8 max-w-3xl">
+      <p className={`mb-8 max-w-3xl text-base leading-relaxed ${embedded ? 'text-white/55' : 'text-gray-600'}`}>
         Questa sezione ti offre un riepilogo immediato delle tue caselle di posta e dei servizi attivi. Abbiamo semplificato la gestione tecnica per permetterti di trovare ciò che ti serve in pochi secondi, garantendo la continuità del tuo lavoro.
       </p>
 
       {/* Feature cards - 2x2 grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {features.map((feat) => {
           const Icon = feat.icon;
+          const hi = hubFeatureIcon(feat);
           return (
             <div
               key={feat.title}
-              className={`bg-white border border-gray-100 rounded-xl p-4 flex items-start gap-4 transition-all duration-200 cursor-default ${feat.cardHover}`}
+              className={
+                embedded
+                  ? 'flex cursor-default items-start gap-4 rounded-xl border border-white/[0.08] bg-black/25 p-4 transition-all duration-200 hover:border-[color:var(--hub-accent-border)] hover:bg-white/[0.04]'
+                  : `flex cursor-default items-start gap-4 rounded-xl border border-gray-100 bg-white p-4 transition-all duration-200 ${feat.cardHover}`
+              }
             >
-              <div className={`shrink-0 w-12 h-12 rounded-xl ${feat.iconBg} flex items-center justify-center`}>
-                <Icon size={24} className={feat.iconColor} strokeWidth={2} />
+              <div
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${embedded ? hi.wrap : feat.iconBg}`}
+              >
+                <Icon size={24} className={embedded ? hi.icon : feat.iconColor} strokeWidth={2} />
               </div>
               <div className="min-w-0">
-                <h3 className="font-bold text-gray-900 mb-1">{feat.title}</h3>
-                <p className="text-sm text-gray-600 leading-snug">{feat.description}</p>
+                <h3 className={`mb-1 font-bold ${embedded ? 'text-white/92' : 'text-gray-900'}`}>{feat.title}</h3>
+                <p className={`text-sm leading-snug ${embedded ? 'text-white/50' : 'text-gray-600'}`}>{feat.description}</p>
               </div>
             </div>
           );
@@ -106,10 +139,10 @@ const EmailIntroCard = ({ companies = [], value = '', onChange = null }) => {
       </div>
 
       {/* Sezione "Perché è utile" */}
-      <div className="mt-8 pt-6 border-t border-gray-200">
-        <h3 className="font-semibold text-gray-900 mb-2">Perché è utile per te?</h3>
-        <p className="text-gray-600 text-sm leading-relaxed italic">
-          Non dovrai più cercare tra vecchie fatture o documenti cartacei: qui hai l&apos;elenco aggiornato delle tue risorse digitali, con la possibilità di richiedere intervento tecnico con un solo clic grazie al tasto <strong>Apri ticket</strong>.
+      <div className={`mt-8 border-t pt-6 ${embedded ? 'border-white/[0.08]' : 'border-gray-200'}`}>
+        <h3 className={`mb-2 font-semibold ${embedded ? 'text-white/88' : 'text-gray-900'}`}>Perché è utile per te?</h3>
+        <p className={`text-sm leading-relaxed italic ${embedded ? 'text-white/45' : 'text-gray-600'}`}>
+          Non dovrai più cercare tra vecchie fatture o documenti cartacei: qui hai l&apos;elenco aggiornato delle tue risorse digitali, con la possibilità di richiedere intervento tecnico con un solo clic grazie al tasto <strong className={embedded ? 'text-white/70' : ''}>Apri ticket</strong>.
         </p>
       </div>
     </div>
