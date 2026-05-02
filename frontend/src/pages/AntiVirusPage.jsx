@@ -89,6 +89,12 @@ const AntiVirusPage = ({
       ? 'min-w-[200px] rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none [color-scheme:light] focus:ring-2 focus:ring-[color:var(--hub-accent)]'
       : 'min-w-[200px] rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500';
 
+    /** Su sfondo Hub: color-scheme + bg opachi; altrimenti Chrome/OS rendono gli input quasi bianchi. */
+    const embedHubFieldCls =
+      'anti-virus-hub-field appearance-none rounded border border-white/[0.14] !bg-[#171717] px-2 py-1 text-sm !text-zinc-100 shadow-none outline-none ring-0 [color-scheme:dark] placeholder:!text-zinc-500 focus-visible:border-transparent focus-visible:ring-1 focus-visible:!ring-[color:var(--hub-accent)]';
+    const embedHubSearchCls =
+      'anti-virus-hub-field appearance-none w-full rounded-lg border border-white/[0.14] !bg-[#171717] py-2 pl-10 pr-4 text-sm !text-zinc-100 outline-none shadow-none ring-0 [color-scheme:dark] placeholder:!text-zinc-500 focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)]';
+
     const [companies, setCompanies] = useState([]);
     const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompanyId || '');
     const [devices, setDevices] = useState([]);
@@ -650,9 +656,10 @@ const AntiVirusPage = ({
                                             <input
                                                 type="text"
                                                 placeholder="Cerca IP o Hostname..."
+                                                autoComplete="off"
                                                 className={
                                                     embedded
-                                                        ? 'w-full rounded-lg border border-white/[0.12] bg-black/28 py-2 pl-10 pr-4 text-sm text-white outline-none placeholder:text-white/35 focus-visible:ring-2 focus-visible:ring-[color:var(--hub-accent)]'
+                                                        ? embedHubSearchCls
                                                         : 'w-full rounded-lg border py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-indigo-500'
                                                 }
                                                 value={searchTerm}
@@ -921,11 +928,8 @@ const AntiVirusPage = ({
                                                                     <input
                                                                         type="text"
                                                                         placeholder="IP Address (Opzionale)"
-                                                                        className={`w-full rounded px-2 py-1 font-mono text-xs outline-none ${
-                                                                            embedded
-                                                                                ? 'border border-white/[0.12] bg-black/28 text-white focus:ring-1 focus:ring-[color:var(--hub-accent)] placeholder:text-white/35'
-                                                                                : 'rounded border px-2 py-1 focus:ring-1 focus:ring-indigo-500'
-                                                                        }`}
+                                                                        autoComplete="off"
+                                                                        className={`font-mono text-xs ${embedded ? `${embedHubFieldCls} w-full` : 'w-full rounded border px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500'}`}
                                                                         value={draft.ip_address || ''}
                                                                         onChange={(e) => updateDraft(id, 'ip_address', e.target.value)}
                                                                         onBlur={() => handleBlurSave(id)}
@@ -933,11 +937,8 @@ const AntiVirusPage = ({
                                                                     <input
                                                                         type="text"
                                                                         placeholder="Nome host / Etichetta"
-                                                                        className={`w-full rounded px-2 py-1 text-xs outline-none ${
-                                                                            embedded
-                                                                                ? 'border border-white/[0.12] bg-black/28 text-white focus:ring-1 focus:ring-[color:var(--hub-accent)] placeholder:text-white/35'
-                                                                                : 'border focus:ring-1 focus:ring-indigo-500'
-                                                                        }`}
+                                                                        autoComplete="off"
+                                                                        className={`text-xs ${embedded ? `${embedHubFieldCls} w-full` : 'w-full rounded border px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500'}`}
                                                                         value={draft.hostname || ''}
                                                                         onChange={(e) => updateDraft(id, 'hostname', e.target.value)}
                                                                         onBlur={() => handleBlurSave(id)}
@@ -994,11 +995,9 @@ const AntiVirusPage = ({
                                                             ) : (
                                                                 <input
                                                                     type="date"
-                                                                    className={`w-full rounded px-2 py-1 text-sm outline-none [color-scheme:dark] ${
-                                                                        embedded
-                                                                            ? 'border border-white/[0.12] bg-black/28 text-white focus:ring-1 focus:ring-[color:var(--hub-accent)]'
-                                                                            : 'border focus:ring-1 focus:ring-indigo-500'
-                                                                    }`}
+                                                                    className={
+                                                                        embedded ? `${embedHubFieldCls} w-full min-h-[2.25rem]` : 'w-full rounded border px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-indigo-500'
+                                                                    }
                                                                     value={draft.expiration_date || ''}
                                                                     onChange={(e) => updateDraft(id, 'expiration_date', e.target.value)}
                                                                     onBlur={() => handleBlurSave(id)}

@@ -22,6 +22,16 @@ body {
   isolation: isolate; /* Crea un nuovo stacking context */
 }
 
+/* Anti-Virus (Hub scuro): evita sfondo/form control chiaro dai browser su input tabella */
+input.anti-virus-hub-field:-webkit-autofill,
+input.anti-virus-hub-field:-webkit-autofill:hover,
+input.anti-virus-hub-field:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #171717 inset !important;
+  -webkit-text-fill-color: #f4f4f5 !important;
+  caret-color: #f4f4f5;
+  transition: background-color 99999s ease-out;
+}
+
 /* Classe per lo zoom del contenuto */
 .app-zoom-wrapper {
   transform: scale(0.9);
