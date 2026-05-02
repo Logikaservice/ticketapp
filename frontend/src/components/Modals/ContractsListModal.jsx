@@ -3,6 +3,7 @@ import { X, Search, Filter, RefreshCw, Calendar, Trash2, FileText, ArrowLeft, Pl
 import { buildApiUrl } from '../../utils/apiConfig';
 import ContractTimelineCard from '../ContractTimelineCard';
 import {
+  HUB_SURFACE,
   getStoredTechHubAccent,
   normalizeHex,
   techHubAccentModalHeaderStyle,
@@ -148,23 +149,26 @@ const ContractsListModal = ({
       ? 'contracts-list-hub-shell flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--hub-page)] text-white/90 shadow-none'
       : 'contracts-list-hub-shell flex h-[90vh] w-full max-w-screen-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--hub-page)] text-white/90 shadow-2xl animate-scaleIn';
 
+    /** In Hub embedded: stessa barra di Email (superficie scura #1E1E1E, no fascia accento). */
     const headerBlock = embedded ? (
         <div
-            className="flex shrink-0 items-center gap-3 border-b border-black/10 px-4 py-3"
-            style={techHubAccentModalHeaderStyle(dashboardAccentHex)}
+            className="z-10 flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3"
+            style={{ backgroundColor: HUB_SURFACE }}
         >
-            <button type="button" onClick={onEmbeddedBack} style={embeddedBackBtnStyle}>
-                <ArrowLeft size={18} aria-hidden />
-                Panoramica Hub
-            </button>
-            <div className="min-w-0 flex-1">
-                <h2 className="flex items-center gap-2 text-lg font-bold">
-                    <FileText size={20} className="shrink-0 opacity-95" aria-hidden />
-                    Lista contratti attivi
-                </h2>
-                <p className="mt-0.5 text-[11px] leading-snug opacity-90">
-                    Cerca, filtra e gestisci i contratti dall&apos;Hub tecnico.
-                </p>
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+                <button type="button" onClick={onEmbeddedBack} style={embeddedBackBtnStyle}>
+                    <ArrowLeft size={18} aria-hidden />
+                    Panoramica Hub
+                </button>
+                <div className="min-w-0">
+                    <h2 className="flex items-center gap-2 truncate text-lg font-bold text-white">
+                        <FileText size={20} className="shrink-0 text-white/90" aria-hidden />
+                        Lista contratti attivi
+                    </h2>
+                    <p className="truncate text-xs text-white/55">
+                        Cerca, filtra e gestisci i contratti dall&apos;Hub tecnico.
+                    </p>
+                </div>
             </div>
         </div>
     ) : (
