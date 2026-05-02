@@ -157,7 +157,8 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       label: 'Office',
       icon: Building2,
       color: 'slate',
-      visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && openOffice,
+      /* Tecnico: Office solo dall’Hub (menu header duplicato e apriva vista full-screen chiara). */
+      visible: !isOrariDomain && isCompanyAdmin && openOffice,
       onClick: () => { if (openOffice) { openOffice(); setShowQuickActions(false); setExpandedAction(null); } }
     },
     {
@@ -165,7 +166,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       label: 'Email',
       icon: Mail,
       color: 'blue',
-      visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || isCompanyAdmin) && openEmail,
+      visible: !isOrariDomain && isCompanyAdmin && openEmail,
       onClick: () => handleQuickActionClick('email')
     },
     {

@@ -352,6 +352,14 @@ export default function TicketApp() {
   // Ripristina la vista dall'URL (es. dopo F5)
   const applyViewFromUrl = (viewName) => {
     if (!viewName || viewName === 'dashboard') return;
+    if (getRuoloFromStoredToken() === 'tecnico') {
+      if (viewName === 'office' || viewName === 'email') {
+        handleOpenTechnicianWorkbench();
+        if (viewName === 'office') setHubEmbedOfficeKick((n) => n + 1);
+        else setHubEmbedEmailKick((n) => n + 1);
+        return;
+      }
+    }
     const allFalse = () => {
       setShowDashboard(false);
       setShowOrariTurni(false);
@@ -436,6 +444,53 @@ export default function TicketApp() {
       setShowCommAgentManager(false);
       return;
     }
+
+    const tecnicoFromToken = getRuoloFromStoredToken() === 'tecnico';
+    if (tecnicoFromToken && view === 'email') {
+      setShowDeviceAnalysisStandalone(false);
+      setShowTechnicianWorkbench(true);
+      setShowDashboard(false);
+      setShowMappatura(false);
+      setShowNetworkMonitoring(false);
+      setShowLSight(false);
+      setShowLSightSession(false);
+      setShowAntiVirus(false);
+      setShowEmail(false);
+      setShowOffice(false);
+      setShowFlottaPC(false);
+      setShowSpeedTest(false);
+      setShowPackVision(false);
+      setShowOrariTurni(false);
+      setShowVivaldi(false);
+      setShowCommAgent(false);
+      setShowCommAgentManager(false);
+      setShowVpnManager(false);
+      setHubEmbedEmailKick((n) => n + 1);
+      return;
+    }
+    if (tecnicoFromToken && view === 'office') {
+      setShowDeviceAnalysisStandalone(false);
+      setShowTechnicianWorkbench(true);
+      setShowDashboard(false);
+      setShowMappatura(false);
+      setShowNetworkMonitoring(false);
+      setShowLSight(false);
+      setShowLSightSession(false);
+      setShowAntiVirus(false);
+      setShowEmail(false);
+      setShowOffice(false);
+      setShowFlottaPC(false);
+      setShowSpeedTest(false);
+      setShowPackVision(false);
+      setShowOrariTurni(false);
+      setShowVivaldi(false);
+      setShowCommAgent(false);
+      setShowCommAgentManager(false);
+      setShowVpnManager(false);
+      setHubEmbedOfficeKick((n) => n + 1);
+      return;
+    }
+
     setShowTechnicianWorkbench(false);
 
     const search = new URLSearchParams(window.location.search);
@@ -690,7 +745,8 @@ export default function TicketApp() {
 
   const handleOpenOffice = (companyId) => {
     if (companyId) setShowGloballySelectedCompanyId(companyId);
-    if (showTechnicianWorkbench && currentUser?.ruolo === 'tecnico') {
+    if (currentUser?.ruolo === 'tecnico') {
+      handleOpenTechnicianWorkbench();
       setHubEmbedOfficeKick((n) => n + 1);
       return;
     }
@@ -786,7 +842,8 @@ export default function TicketApp() {
 
   const handleOpenEmail = (companyId) => {
     if (companyId) setShowGloballySelectedCompanyId(companyId);
-    if (showTechnicianWorkbench && currentUser?.ruolo === 'tecnico') {
+    if (currentUser?.ruolo === 'tecnico') {
+      handleOpenTechnicianWorkbench();
       setHubEmbedEmailKick((n) => n + 1);
       return;
     }
