@@ -255,10 +255,8 @@ export default function HubOverviewSection({
     setHubLayout(sanitizeLayoutItems(d));
   };
 
-  /** Vista normale: non mostrare nascoste */
-  const visibleLayout = hubLayout.filter((x) => !x.hidden || hubLayoutEditMode);
-  /** In modifica ordinamento: mostra comunque ghost order per stabilità */
-  const sorted = [...visibleLayout].sort((a, b) => a.row - b.row || a.col - b.col);
+  /** Le card «nascoste» restano in griglia (sfocate + overlay) anche fuori dalla modifica layout */
+  const sorted = [...hubLayout].sort((a, b) => a.row - b.row || a.col - b.col);
 
   const meta = selectedId ? HUB_MODULE_META[selectedId] : null;
   const selectedItem = hubLayout.find((x) => x.id === selectedId);
@@ -266,7 +264,8 @@ export default function HubOverviewSection({
 
   function renderInner(item) {
     const id = item.id;
-    const veil = Boolean(item.hidden) && hubLayoutEditMode;
+    const veil = Boolean(item.hidden);
+    const suppressInteraction = (hubLayoutEditMode && isTechnician) || item.hidden;
 
     switch (id) {
       case 'new-ticket':
@@ -275,7 +274,7 @@ export default function HubOverviewSection({
             accentHex={accentHex}
             onOpenNewTicket={onOpenNewTicket}
             subdued={veil}
-            suppressInteraction={hubLayoutEditMode && isTechnician}
+            suppressInteraction={suppressInteraction}
           />
         );
       case 'stat-aperto':
@@ -288,7 +287,7 @@ export default function HubOverviewSection({
             stateKey="aperto"
             onOpenTicketState={onOpenTicketState}
             subdued={veil}
-            suppressInteraction={hubLayoutEditMode && isTechnician}
+            suppressInteraction={suppressInteraction}
           />
         );
       case 'stat-lavorazione':
@@ -301,7 +300,7 @@ export default function HubOverviewSection({
             stateKey="in_lavorazione"
             onOpenTicketState={onOpenTicketState}
             subdued={veil}
-            suppressInteraction={hubLayoutEditMode && isTechnician}
+            suppressInteraction={suppressInteraction}
           />
         );
       case 'launch-email':
@@ -313,7 +312,7 @@ export default function HubOverviewSection({
             accent={accentHex}
             onClick={() => setHubCenterView?.('email')}
             subdued={veil}
-            suppressInteraction={hubLayoutEditMode && isTechnician}
+            suppressInteraction={suppressInteraction}
           />
         );
       case 'launch-network':
@@ -325,7 +324,7 @@ export default function HubOverviewSection({
             accent={accentHex}
             onClick={() => nav?.onOpenNetwork?.()}
             subdued={veil}
-            suppressInteraction={hubLayoutEditMode && isTechnician}
+            suppressInteraction={suppressInteraction}
           />
         );
       case 'launch-comms':
@@ -337,7 +336,7 @@ export default function HubOverviewSection({
             accent={accentHex}
             onClick={() => setHubCenterView?.('comunicazioni')}
             subdued={veil}
-            suppressInteraction={hubLayoutEditMode && isTechnician}
+            suppressInteraction={suppressInteraction}
           />
         );
       case 'launch-antivirus':
@@ -349,13 +348,13 @@ export default function HubOverviewSection({
             accent={accentHex}
             onClick={() => nav?.onOpenAntiVirus?.()}
             subdued={veil}
-            suppressInteraction={hubLayoutEditMode && isTechnician}
+            suppressInteraction={suppressInteraction}
           />
         );
       case 'contracts':
         return (
           <div
-            className={`relative h-full min-h-0 flex flex-col ${veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${hubLayoutEditMode && isTechnician ? 'pointer-events-none' : ''}`}
+            className={`relative h-full min-h-0 flex flex-col ${veil ? 'opacity-[0.28] saturate-50 blur-[2px]' : ''} ${suppressInteraction ? 'pointer-events-none' : ''}`}
           >
             <HubContractsActiveCard
               backgroundColor={SURFACE_LOCAL}
@@ -388,7 +387,7 @@ export default function HubOverviewSection({
             accent={accentHex}
             onClick={() => nav?.onOpenMappatura?.()}
             subdued={veil}
-            suppressInteraction={hubLayoutEditMode && isTechnician}
+            suppressInteraction={suppressInteraction}
             className="min-h-0 flex-1"
           />
         );
@@ -416,7 +415,8 @@ export default function HubOverviewSection({
     <>
       {!hubLayoutEditMode && (
         <p className="mb-3 text-xs text-white/40">
-          Area modulare: disponi le card dopo aver attivato «Modifica layout» nella barra in alto (tecnico).
+          Area modulare: disponi le card dopo aver attivato «Modifica layout» nella barra in alto (tecnico). Le card «nascoste»
+          dalla vista restano visibili in hub come anteprima sfocata.
         </p>
       )}
       <div className={`relative rounded-2xl ${hubLayoutEditMode && isTechnician ? 'ring-2 ring-dashed ring-[color:var(--hub-accent-border)] ring-offset-2 ring-offset-[#121212]' : ''}`}>
@@ -469,11 +469,11 @@ export default function HubOverviewSection({
                   <GripVertical size={16} />
                 </div>
               )}
-              {hubLayoutEditMode && item.hidden && (
+              {item.hidden && (
                 <div className="pointer-events-none absolute inset-0 z-[5] rounded-2xl bg-black/45 backdrop-blur-[3px]" />
               )}
-              {hubLayoutEditMode && item.hidden && (
-                <div className="absolute bottom-2 right-2 z-20 rounded-md bg-black/70 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/85">
+              {item.hidden && (
+                <div className="pointer-events-none absolute bottom-2 right-2 z-20 rounded-md bg-black/70 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/85">
                   Nascosta (anteprima)
                 </div>
               )}

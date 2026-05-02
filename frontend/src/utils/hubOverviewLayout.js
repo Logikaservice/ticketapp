@@ -152,7 +152,6 @@ export function rectsOverlap(a, b) {
 export function hasCollision(layout, item, ignoreId = null) {
   return layout.some((other) => {
     if (other.id === ignoreId) return false;
-    if (other.hidden) return false;
     return rectsOverlap(item, other);
   });
 }
@@ -160,7 +159,7 @@ export function hasCollision(layout, item, ignoreId = null) {
 export function maxRowUsed(layout) {
   let m = 1;
   layout.forEach((x) => {
-    if (!x.hidden) m = Math.max(m, x.row + x.h - 1);
+    m = Math.max(m, x.row + x.h - 1);
   });
   return m;
 }
@@ -245,9 +244,8 @@ export function resolveCollisions(layout) {
     for (let i = 0; i < next.length; i++) {
       const item = next[i];
       if (item.hidden) continue;
-      const otherBlocks = (j) => next[j].hidden || next[j].id === item.id;
       for (let j = 0; j < next.length; j++) {
-        if (i === j || otherBlocks(j)) continue;
+        if (i === j || next[j].id === item.id) continue;
         if (rectsOverlap(item, next[j])) {
           const fit = findFirstFit(next, item.w, item.h, item.id);
           item.col = fit.col;
