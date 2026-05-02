@@ -2,6 +2,13 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { X, Save, FilePlus, ChevronDown, ChevronRight, Crown, Building, Mail } from 'lucide-react';
+import {
+  getStoredTechHubAccent,
+  hexToRgba,
+  readableOnAccent,
+  techHubAccentHeaderGradientStyle,
+  techHubAccentIconTileStyle
+} from '../../utils/techHubAccent';
 
 const NewTicketModal = ({
   newTicketData,
@@ -22,6 +29,16 @@ const NewTicketModal = ({
   const [photos, setPhotos] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef(null);
+
+  const dashboardAccentHex = useMemo(() => getStoredTechHubAccent(), []);
+  const dashboardThemeVars = useMemo(
+    () => ({
+      '--td-accent': dashboardAccentHex,
+      '--td-soft': hexToRgba(dashboardAccentHex, 0.08),
+      '--td-soft-strong': hexToRgba(dashboardAccentHex, 0.16)
+    }),
+    [dashboardAccentHex]
+  );
 
   // Quando si modifica un ticket, carica l'azienda del cliente associato o dal ticket stesso (se esiste)
   useEffect(() => {
@@ -292,17 +309,23 @@ const NewTicketModal = ({
   };
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+      <div
+        className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl ticket-modal-dashboard-accent"
+        style={dashboardThemeVars}
+      >
         
-        {/* Header con lo stile blu sfumato */}
-        <div className="p-6 border-b bg-gradient-to-r from-blue-600 to-sky-600 text-white rounded-t-2xl">
+        {/* Header: gradiente tema dashboard / Hub (accent da localStorage) */}
+        <div
+          className="rounded-t-2xl border-b p-6 text-white"
+          style={techHubAccentHeaderGradientStyle(dashboardAccentHex)}
+        >
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold flex items-center gap-2">
                 <FilePlus size={28} />
                 {isEditingTicket ? 'Modifica Ticket' : 'Crea Nuovo Ticket'}
               </h2>
-              <p className="text-blue-100 text-sm mt-1">
+              <p className="mt-1 text-sm text-white/90">
                 Compila i dettagli dell'intervento.
               </p>
             </div>
@@ -330,7 +353,7 @@ const NewTicketModal = ({
                 <button
                   type="button"
                   onClick={() => setIsAziendaDropdownOpen(!isAziendaDropdownOpen)}
-                  className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition"
+                  className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between transition hover:border-[color:var(--td-accent)] focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
                 >
                   <span className={selectedAzienda ? 'text-gray-900' : 'text-gray-500'}>
                     {selectedAzienda || 'Seleziona un\'azienda'}
@@ -365,11 +388,14 @@ const NewTicketModal = ({
                               key={azienda}
                                 type="button"
                               onClick={(e) => handleSelectAzienda(azienda, e)}
-                              className={`w-full px-4 py-3 text-left hover:bg-blue-50 transition flex items-center gap-3 border-b border-gray-100 last:border-b-0 ${
-                                isSelected ? 'bg-blue-50' : ''
+                              className={`w-full px-4 py-3 text-left transition flex items-center gap-3 border-b border-gray-100 last:border-b-0 hover:bg-[color:var(--td-soft)] ${
+                                isSelected ? 'bg-[color:var(--td-soft-strong)]' : ''
                               }`}
                             >
-                              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                              <div
+                                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-sm font-bold text-white"
+                                style={techHubAccentIconTileStyle(dashboardAccentHex)}
+                              >
                                 {azienda === 'Senza azienda' ? <Building size={16} /> : azienda.charAt(0).toUpperCase()}
                                   </div>
                                   <div className="flex-1 min-w-0">
@@ -381,7 +407,7 @@ const NewTicketModal = ({
                                           </div>
                                         </div>
                                         {isSelected && (
-                                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                          <div className="h-2 w-2 flex-shrink-0 rounded-full bg-[color:var(--td-accent)]"></div>
                                         )}
                                       </button>
                           );
@@ -401,7 +427,7 @@ const NewTicketModal = ({
               placeholder="Es: Problema stampante ufficio"
               value={newTicketData.titolo}
               onChange={(e) => setNewTicketData({ ...newTicketData, titolo: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
             />
           </div>
 
@@ -412,7 +438,7 @@ const NewTicketModal = ({
               placeholder="Descrivi il problema in dettaglio..."
               value={newTicketData.descrizione}
               onChange={(e) => setNewTicketData({ ...newTicketData, descrizione: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
             />
           </div>
 
@@ -422,7 +448,7 @@ const NewTicketModal = ({
               <select
                 value={newTicketData.categoria}
                 onChange={(e) => setNewTicketData({ ...newTicketData, categoria: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
               >
                 <option value="assistenza">Assistenza</option>
                 <option value="manutenzione">Manutenzione</option>
@@ -434,7 +460,7 @@ const NewTicketModal = ({
               <select
                 value={newTicketData.priorita}
                 onChange={(e) => setNewTicketData({ ...newTicketData, priorita: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
               >
                 <option value="bassa">Bassa</option>
                 <option value="media">Media</option>
@@ -456,7 +482,7 @@ const NewTicketModal = ({
                           <button
                             type="button"
                             onClick={() => setIsRichiedenteDropdownOpen(!isRichiedenteDropdownOpen)}
-                            className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition"
+                            className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between transition hover:border-[color:var(--td-accent)] focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
                           >
                             <span className={newTicketData.nomerichiedente ? 'text-gray-900' : 'text-gray-500'}>
                               {newTicketData.nomerichiedente || 'Seleziona un richiedente'}
@@ -496,9 +522,9 @@ const NewTicketModal = ({
                                           key={cliente.id}
                                           type="button"
                                           onClick={() => handleSelectRichiedente(cliente)}
-                                          className={`w-full px-4 py-2.5 text-left hover:bg-blue-50 transition flex items-center gap-3 border-l-2 ${
-                                            isSelected 
-                                              ? 'bg-blue-50 border-blue-500' 
+                                          className={`flex w-full items-center gap-3 border-l-2 px-4 py-2.5 text-left transition hover:bg-[color:var(--td-soft)] ${
+                                            isSelected
+                                              ? 'border-[color:var(--td-accent)] bg-[color:var(--td-soft-strong)]'
                                               : 'border-transparent'
                                           }`}
                                         >
@@ -523,7 +549,7 @@ const NewTicketModal = ({
                                             </div>
                                           </div>
                                           {isSelected && (
-                                            <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                            <div className="h-2 w-2 flex-shrink-0 rounded-full bg-[color:var(--td-accent)]"></div>
                                           )}
                                         </button>
                                       );
@@ -555,7 +581,7 @@ const NewTicketModal = ({
                             type="text"
                             value={newTicketData.nomerichiedente}
                             onChange={(e) => handleRichiedenteManualInput(e.target.value)}
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
                             placeholder="Inserisci il nome del richiedente"
                             required
                           />
@@ -566,7 +592,7 @@ const NewTicketModal = ({
                               setNewTicketData({ ...newTicketData, nomerichiedente: '' });
                               setSelectedClientForNewTicket('');
                             }}
-                            className="text-xs text-blue-600 hover:text-blue-800"
+                            className="text-xs text-[color:var(--td-accent)] hover:opacity-80"
                           >
                             ← Torna alla selezione da lista
                           </button>
@@ -581,7 +607,7 @@ const NewTicketModal = ({
               type="text"
               value={newTicketData.nomerichiedente}
               onChange={(e) => setNewTicketData({ ...newTicketData, nomerichiedente: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
               placeholder="Nome del richiedente"
               required
             />
@@ -628,7 +654,7 @@ const NewTicketModal = ({
                   // Il campo date restituisce sempre YYYY-MM-DD
                   setNewTicketData({ ...newTicketData, dataapertura: e.target.value });
                 }}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-lg border px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
               />
             </div>
           )}
@@ -647,7 +673,7 @@ const NewTicketModal = ({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:bg-gray-50 transition flex items-center justify-center gap-2"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 transition hover:bg-gray-50 focus:border-transparent focus:ring-2 focus:ring-[color:var(--td-accent)]"
             >
               <FilePlus size={18} />
               {photos.length > 0 ? `${photos.length} file selezionati` : 'Seleziona file'}
@@ -685,11 +711,17 @@ const NewTicketModal = ({
             <button
               onClick={handleSaveWithPhotos}
               disabled={isSaving}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
-                isSaving 
-                  ? 'bg-gray-400 text-white cursor-not-allowed' 
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 transition ${
+                isSaving ? 'cursor-not-allowed bg-gray-400 text-white' : 'hover:brightness-105 active:brightness-95'
               }`}
+              style={
+                !isSaving
+                  ? {
+                      backgroundColor: dashboardAccentHex,
+                      color: readableOnAccent(dashboardAccentHex)
+                    }
+                  : undefined
+              }
             >
               <Save size={18} />
               {isSaving ? 'Salvataggio...' : (isEditingTicket ? 'Salva Modifiche' : 'Crea Ticket')}

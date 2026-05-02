@@ -35,11 +35,16 @@ import {
   Plus
 } from 'lucide-react';
 import { fetchImportantAlertsForHub } from '../utils/importantAlertsFeed';
+import {
+  TECH_HUB_ACCENT_PALETTE,
+  STORAGE_KEY_TECH_HUB_ACCENT,
+  hexToRgba,
+  readableOnAccent,
+  getStoredTechHubAccent
+} from '../utils/techHubAccent';
 
 const SURFACE = '#1E1E1E';
-const DEFAULT_ACCENT = '#C1FF72';
 const PAGE_BG = '#121212';
-const STORAGE_KEY_ACCENT = 'techHubAccent';
 const STORAGE_KEY_SIDEBAR_COLLAPSED = 'techHubSidebarCollapsed';
 const HUB_ALERTS_PAGE_SIZE = 5;
 
@@ -57,71 +62,6 @@ function useMinMd() {
     return () => mq.removeEventListener('change', fn);
   }, []);
   return ok;
-}
-
-/** Palette colori brillanti (accento Hub tecnico). */
-const TECH_HUB_ACCENT_PALETTE = [
-  { id: 'lime', label: 'Lime', hex: '#C1FF72' },
-  { id: 'chartreuse', label: 'Chartreuse', hex: '#D4FF47' },
-  { id: 'spring', label: 'Primavera', hex: '#00FF9F' },
-  { id: 'cyan', label: 'Ciano', hex: '#22D3EE' },
-  { id: 'sky', label: 'Cielo', hex: '#38BDF8' },
-  { id: 'blue', label: 'Blu elettrico', hex: '#60A5FA' },
-  { id: 'violet', label: 'Violetto', hex: '#A78BFA' },
-  { id: 'fuchsia', label: 'Fucsia', hex: '#E879F9' },
-  { id: 'pink', label: 'Rosa', hex: '#FB7185' },
-  { id: 'coral', label: 'Corallo', hex: '#FF6B6B' },
-  { id: 'amber', label: 'Ambra', hex: '#FBBF24' },
-  { id: 'orange', label: 'Arancione', hex: '#FB923C' }
-];
-
-function normalizeHex(hex) {
-  const h = (hex || '').trim();
-  const re = /^#?([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/;
-  const m = h.match(re);
-  if (!m) return null;
-  let s = m[1];
-  if (s.length === 3) {
-    s = s.split('').map((c) => c + c).join('');
-  }
-  return `#${s}`;
-}
-
-function hexToRgba(hex, alpha) {
-  const normalized = normalizeHex(hex);
-  if (!normalized) return `rgba(255,255,255,${alpha})`;
-  const h = normalized.slice(1);
-  const n = parseInt(h, 16);
-  const r = (n >> 16) & 255;
-  const g = (n >> 8) & 255;
-  const b = n & 255;
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
-/** Testo leggibile sulla pill colore avatar (sfondi accesi vs scuri). */
-function readableOnAccent(hex) {
-  const normalized = normalizeHex(hex);
-  if (!normalized) return '#111111';
-  const h = normalized.slice(1);
-  const n = parseInt(h, 16);
-  const R = ((n >> 16) & 255) / 255;
-  const G = ((n >> 8) & 255) / 255;
-  const Bl = (n & 255) / 255;
-  const luminance = 0.2126 * R + 0.7152 * G + 0.0722 * Bl;
-  return luminance > 0.62 ? '#121212' : '#fafafa';
-}
-
-function loadStoredAccent() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_ACCENT);
-    const n = normalizeHex(raw);
-    if (!n) return DEFAULT_ACCENT;
-    const known = TECH_HUB_ACCENT_PALETTE.some((p) => p.hex.toLowerCase() === n.toLowerCase());
-    return known ? n : DEFAULT_ACCENT;
-  } catch (_) {
-    /* ignore */
-  }
-  return DEFAULT_ACCENT;
 }
 
 function loadSidebarCollapsed() {
@@ -544,7 +484,7 @@ export default function TechnicianWorkbenchPage({
   onOpenTicketState,
   onOpenNewTicket
 }) {
-  const [accentHex, setAccentHex] = useState(loadStoredAccent);
+  const [accentHex, setAccentHex] = useState(getStoredTechHubAccent);
   const [hubImportantAlerts, setHubImportantAlerts] = useState([]);
   const [hubImportantAlertsLoading, setHubImportantAlertsLoading] = useState(true);
   const [avvisiPanelHovered, setAvvisiPanelHovered] = useState(false);
@@ -560,7 +500,7 @@ export default function TechnicianWorkbenchPage({
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY_ACCENT, accentHex);
+      localStorage.setItem(STORAGE_KEY_TECH_HUB_ACCENT, accentHex);
     } catch (_) {
       /* ignore */
     }
@@ -904,6 +844,7 @@ export default function TechnicianWorkbenchPage({
               style={{ minHeight: 'min(70vh, 640px)' }}
             >
               <div className="col-span-12 grid grid-cols-1 gap-3 md:grid-cols-3">
+                <HubNewTicketCard accentHex={accentHex} onOpenNewTicket={onOpenNewTicket} />
                 <TicketHubStatCard
                   icon={FileText}
                   title="Aperti"
@@ -920,7 +861,6 @@ export default function TechnicianWorkbenchPage({
                   stateKey="in_lavorazione"
                   onOpenTicketState={onOpenTicketState}
                 />
-                <HubNewTicketCard accentHex={accentHex} onOpenNewTicket={onOpenNewTicket} />
               </div>
 
               {/* Quattro tasselli piccoli = una fascia unificata */}
