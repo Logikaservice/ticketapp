@@ -12,12 +12,12 @@ const COL_VERDE = '#15803d';
 const COL_TRACK = '#3f495a';
 
 function fmtEuroCompact(n) {
-  const x = typeof n === 'number' ? n : 0;
+  const x = typeof n === 'number' && Number.isFinite(n) ? n : 0;
   return new Intl.NumberFormat('it-IT', {
     style: 'currency',
     currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: x >= 1000 && Number.isInteger(x) ? 0 : 2
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   }).format(x);
 }
 
@@ -151,8 +151,6 @@ export default function HubContractsActiveCard({
   const showCurrentMonthMarker =
     refYear === now.getFullYear();
   const currentMonthIndex = now.getMonth();
-  const currentMonthCenterX =
-    chartModel.padL + (currentMonthIndex + 0.5) * chartModel.slot;
 
   return (
     <div className="rounded-2xl border border-white/[0.08] p-3" style={{ backgroundColor }}>
@@ -338,17 +336,6 @@ export default function HubContractsActiveCard({
                 </text>
               );
             })}
-            {showCurrentMonthMarker && (
-              <g aria-hidden>
-                {/* Triangolo sotto i nomi mese, punta verso la candela */}
-                <polygon
-                  points={`${currentMonthCenterX - 4},${chartModel.H - 6} ${currentMonthCenterX + 4},${chartModel.H - 6} ${currentMonthCenterX},${chartModel.H - 13}`}
-                  fill="rgba(255,255,255,0.42)"
-                  stroke="rgba(255,255,255,0.08)"
-                  strokeWidth="0.5"
-                />
-              </g>
-            )}
           </svg>
         )}
 
