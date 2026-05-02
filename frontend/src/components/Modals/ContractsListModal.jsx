@@ -110,7 +110,7 @@ const ContractsListModal = ({ onClose, getAuthHeader, notify }) => {
     return (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
             <div
-              className="contracts-list-hub-shell flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--hub-page)] text-white/90 shadow-2xl animate-scaleIn"
+              className="contracts-list-hub-shell flex h-[90vh] w-full max-w-screen-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--hub-page)] text-white/90 shadow-2xl animate-scaleIn"
               style={{ ...hubTheme, colorScheme: 'dark' }}
             >
                 <div

@@ -25,6 +25,16 @@ const ContractTimelineCard = ({
         return `${day}/${month}/${year}`;
     };
 
+    /** Compatto modale Hub: più corta in larghezza, colonna stabile */
+    const formatShortDate = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const y = String(date.getFullYear()).slice(-2);
+        return `${day}/${month}/${y}`;
+    };
+
     const getDaysRemaining = (targetDate) => {
         if (!targetDate) return 0;
         const diff = new Date(targetDate) - new Date();
@@ -92,51 +102,66 @@ const ContractTimelineCard = ({
         (a, b) => new Date(a.event_date) - new Date(b.event_date)
     );
 
-    /** Posizione % sull'anno + lane (cicliche, max 4–5) + nudge orizzontale: evita accavallamenti su contratti mensili */
+    /** Posizione % sull'anno (traccia calendario) */
     const eventPercentsForLabels = timelineEventsSorted.map((event) => {
         const t = new Date(event.event_date).getTime();
         return ((t - yearStartDate) / (yearEndDate - yearStartDate)) * 100;
     });
     const bf = contract.billing_frequency;
-    const clusterThresholdPct =
-        bf === 'monthly' ? 9.2 : bf === 'quarterly' ? 24 : bf === 'semiannual' ? 48 : bf === 'annual' ? 66 : compact ? 6.5 : 6;
-    const labelLaneStridePx = compact ? 24 : 28;
-    const labelBaseOffsetPx = compact ? 22 : 30;
-    const maxLaneMod = compact ? 4 : 5;
+    const nEvt = timelineEventsSorted.length;
+    const isHub = variant === 'hub';
+    const isCompact = compact;
+    const tlPadPx = isCompact ? 20 : 24;
+    const tlPadTotal = tlPadPx * 2;
+
+    /** Modale lista: fascia larga scrollabile, etichette su una riga allineate al marker */
+    const compactTrackWidthPx = isCompact
+        ? Math.min(2400, Math.max(980, nEvt * 62 + tlPadTotal + 160))
+        : null;
+
+    const labelLaneStridePx = isCompact ? 24 : 28;
+    const labelBaseOffsetPx = isCompact ? 24 : 30;
 
     const labelLanes = [];
     const labelHzNudgePx = [];
-    const nEvt = timelineEventsSorted.length;
-    for (let i = 0; i < nEvt; i++) {
-        const closePrev =
-            i > 0 && Math.abs(eventPercentsForLabels[i] - eventPercentsForLabels[i - 1]) < clusterThresholdPct;
-        const prevLane = i > 0 ? labelLanes[i - 1] : 0;
-        labelLanes.push(closePrev ? (prevLane + 1) % maxLaneMod : 0);
+    let maxLabelLane = 0;
 
-        let nudge = 0;
-        if (compact && bf === 'monthly' && nEvt >= 8) {
-            nudge = (i % 3 - 1) * 13;
-        } else if (compact && nEvt >= 6) {
-            nudge = i % 2 === 0 ? -11 : 11;
+    if (isCompact) {
+        for (let i = 0; i < nEvt; i++) {
+            labelLanes.push(0);
+            labelHzNudgePx.push(0);
         }
-        labelHzNudgePx.push(nudge);
-    }
-    const maxLabelLane = labelLanes.length ? Math.max(...labelLanes) : 0;
+    } else {
+        const clusterThresholdPct =
+            bf === 'monthly' ? 9.2 : bf === 'quarterly' ? 24 : bf === 'semiannual' ? 48 : bf === 'annual' ? 66 : 6.5;
+        const maxLaneMod = 5;
+        for (let i = 0; i < nEvt; i++) {
+            const closePrev =
+                i > 0 && Math.abs(eventPercentsForLabels[i] - eventPercentsForLabels[i - 1]) < clusterThresholdPct;
+            const prevLane = i > 0 ? labelLanes[i - 1] : 0;
+            labelLanes.push(closePrev ? (prevLane + 1) % maxLaneMod : 0);
 
-    const useShortEventLabel = compact && bf === 'monthly' && nEvt > 4;
+            let nudge = 0;
+            if (bf === 'monthly' && nEvt >= 8) {
+                nudge = (i % 3 - 1) * 13;
+            } else if (nEvt >= 6) {
+                nudge = i % 2 === 0 ? -11 : 11;
+            }
+            labelHzNudgePx.push(nudge);
+        }
+        maxLabelLane = labelLanes.length ? Math.max(...labelLanes) : 0;
+    }
+
+    const useShortEventLabel = isCompact || (bf === 'monthly' && nEvt > 4);
     const showDeadlineRow = !!(nextEvent && daysToNextEvent <= 30);
-    const timelinePadBottomReserve =
-        labelBaseOffsetPx +
-        maxLabelLane * labelLaneStridePx +
-        (compact ? 32 : 36) +
-        (showDeadlineRow ? (compact ? 34 : 38) : compact ? 8 : 12);
-    
-    // Find the first non-processed event for yellow color (solo tra gli eventi visibili)
+    const timelinePadBottomReserve = isCompact
+        ? labelBaseOffsetPx + 30 + (showDeadlineRow ? 46 : 16)
+        : labelBaseOffsetPx +
+          maxLabelLane * labelLaneStridePx +
+          36 +
+          (showDeadlineRow ? 38 : 12);
+
     const firstNonProcessedIndex = timelineEventsSorted.findIndex(e => !e.is_processed);
-    const isHub = variant === 'hub';
-    const isCompact = compact;
-    const tlPadPx = isCompact ? 16 : 24;
-    const tlPadTotal = tlPadPx * 2;
 
     return (
         <div
@@ -290,27 +315,39 @@ const ContractTimelineCard = ({
                 </div>
             </div>
 
-            {/* Timeline Visual */}
+            {/* Timeline: in modale compatta fascia larga + scroll orizzontale, etichette allineate sotto i marker */}
             <div
                 className={
-                    (isCompact ? 'relative mb-2 overflow-x-clip px-4 pt-4' : 'relative mb-5 overflow-x-clip px-6 pt-8')
+                    isCompact
+                        ? 'relative -mx-1 mb-2 overflow-x-auto overflow-y-visible scroll-smooth'
+                        : 'relative mb-5 overflow-x-clip px-6'
                 }
-                style={{ paddingBottom: `${timelinePadBottomReserve}px` }}
             >
-                {/* Traccia totale anno (past + future): grigio visibile sopra alla card */}
+                <div
+                    className={`relative ${isCompact ? 'mx-auto shrink-0 pt-4' : 'pt-8'}`}
+                    style={{
+                        ...(isCompact ? { width: compactTrackWidthPx } : {}),
+                        paddingBottom: timelinePadBottomReserve
+                    }}
+                >
+                {/* Traccia totale anno (past + future) */}
                 <div
                     aria-hidden
                     className={
                         isHub
-                            ? `pointer-events-none absolute top-1/2 z-0 h-1 -translate-y-1/2 rounded-full bg-zinc-600/65 ${isCompact ? 'left-4 right-4' : 'left-6 right-6'}`
-                            : `pointer-events-none absolute top-1/2 z-0 h-1 -translate-y-1/2 rounded-full bg-gray-300 ${isCompact ? 'left-4 right-4' : 'left-6 right-6'}`
+                            ? 'pointer-events-none absolute top-1/2 z-0 h-1 -translate-y-1/2 rounded-full bg-zinc-600/65'
+                            : 'pointer-events-none absolute top-1/2 z-0 h-1 -translate-y-1/2 rounded-full bg-gray-300'
                     }
+                    style={{ left: tlPadPx, right: tlPadPx }}
                 />
                 {/* Parte già percorsa (anno → oggi) */}
                 <div
                     aria-hidden
-                    className={`pointer-events-none absolute top-1/2 z-[1] h-1 -translate-y-1/2 rounded-full bg-teal-400 transition-all duration-1000 ${isCompact ? 'left-4' : 'left-6'}`}
-                    style={{ width: `calc((100% - ${tlPadTotal}px) * ${progress / 100})` }}
+                    className="pointer-events-none absolute top-1/2 z-[1] h-1 -translate-y-1/2 rounded-full bg-teal-400 transition-all duration-1000"
+                    style={{
+                        left: tlPadPx,
+                        width: `calc((100% - ${tlPadTotal}px) * ${progress / 100})`
+                    }}
                 />
 
                 {/* Current Point (Today) */}
@@ -435,10 +472,16 @@ const ContractTimelineCard = ({
                                 )}
                             </div>
                             <div
-                                className={`absolute left-1/2 z-[3] px-1 text-center ${useShortEventLabel ? (isCompact ? 'max-w-[3.75rem]' : 'max-w-[4.25rem]') : isCompact ? 'max-w-[5.75rem]' : 'max-w-[7.25rem]'}`}
+                                className={`absolute left-1/2 z-[3] text-center tabular-nums ${
+                                    isCompact
+                                        ? 'w-[3.35rem] -translate-x-1/2 px-px'
+                                        : `${useShortEventLabel ? 'max-w-[4.25rem]' : 'max-w-[7.25rem]'} px-1`
+                                }`}
                                 style={{
                                     top: labelBaseOffsetPx + lane * labelLaneStridePx,
-                                    transform: `translateX(calc(-50% + ${labelHzNudgePx[index] ?? 0}px))`
+                                    ...(isCompact
+                                        ? {}
+                                        : { transform: `translateX(calc(-50% + ${labelHzNudgePx[index] ?? 0}px))` })
                                 }}
                             >
                                 {useShortEventLabel ? (
@@ -446,7 +489,7 @@ const ContractTimelineCard = ({
                                         className={`tabular-nums font-semibold leading-tight ${textColor} ${isCompact ? 'text-[10px]' : 'text-xs'}`}
                                         title={`${displayDescription} · ${formatDate(event.event_date)}`}
                                     >
-                                        {formatDate(event.event_date)}
+                                        {isCompact ? formatShortDate(event.event_date) : formatDate(event.event_date)}
                                     </div>
                                 ) : (
                                     <>
@@ -466,6 +509,7 @@ const ContractTimelineCard = ({
                         </div>
                     );
                 })}
+                </div>
             </div>
 
             {/* Bottom Actions */}
