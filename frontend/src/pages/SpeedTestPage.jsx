@@ -441,8 +441,8 @@ const styles = {
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))',
-    gap: 20,
+    gridTemplateColumns: 'repeat(auto-fill, minmax(286px, 1fr))',
+    gap: 16,
     padding: '0 32px 32px',
     position: 'relative',
     zIndex: 1
@@ -452,7 +452,7 @@ const styles = {
     background: '#1e293b',
     border: `1px solid ${isHovered && clickable ? '#7c3aed' : '#334155'}`,
     borderRadius: 16,
-    padding: 24,
+    padding: 16,
     transition: 'all 0.3s ease',
     opacity: clickable ? (speedtestOn ? 1 : 0.88) : 0.5,
     transform: isHovered && clickable ? 'translateY(-2px)' : 'none',
@@ -495,9 +495,9 @@ const styles = {
     transition: 'left 0.3s'
   }),
   gaugeWrap: {
-    width: 100,
-    height: 100,
-    margin: '0 auto 8px',
+    width: 86,
+    height: 86,
+    margin: '0 auto 6px',
     position: 'relative'
   },
   gaugeRing: (pct, colorVar) => ({
@@ -728,9 +728,9 @@ const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle
       >
         <div style={palette.cardBody}>
           {/* Intestazione (spazio a destra per toggle assoluto) */}
-          <div style={{ paddingRight: 60, marginBottom: 16 }}>
+          <div style={{ paddingRight: 56, marginBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9', minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9', minWidth: 0, lineHeight: 1.25 }}>
                 {company.azienda_name || company.agent_name || 'N/A'}
               </div>
             </div>
@@ -768,7 +768,7 @@ const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle
           </div>
 
           {/* Info ISP */}
-          <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
             {enabled && hasData ? (
               <>
                 <Globe size={14} />
@@ -798,12 +798,12 @@ const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle
           </div>
 
           {/* Gauge */}
-          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: 4 }}>
             <div style={{ textAlign: 'center', flex: 1 }}>
               <div style={palette.gaugeWrap}>
                 <div style={palette.gaugeRing(enabled && hasData ? pqPing.pct : 0, pqPing.color)} />
                 <div style={palette.gaugeInner}>
-                  <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
                     {enabled && hasData ? fmtPing(company.ping_ms) : '—'}
                   </span>
                   <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 500 }}>{enabled && hasData ? 'ms' : ''}</span>
@@ -828,7 +828,7 @@ const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle
                 <div style={palette.gaugeRing(enabled && hasData ? dqDown.pct : 0, dqDown.color)} />
                 <div style={palette.gaugeInner}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '2px 4px' }}>
-                    <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
                       {enabled && hasData ? fmtMbps(company.download_mbps) : '—'}
                     </span>
                     {enabled && hasData && company.download_vs_hist_pct != null && (
@@ -850,7 +850,7 @@ const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle
                 <div style={palette.gaugeRing(enabled && hasData ? uqUp.pct : 0, uqUp.color)} />
                 <div style={palette.gaugeInner}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', gap: '2px 4px' }}>
-                    <span style={{ fontSize: 22, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: enabled ? '#f1f5f9' : '#475569', lineHeight: 1.1 }}>
                       {enabled && hasData ? fmtMbps(company.upload_mbps) : '—'}
                     </span>
                     {enabled && hasData && company.upload_vs_hist_pct != null && (
@@ -874,8 +874,8 @@ const CompanyCard = React.memo(({ company, lastSeenNowMs, onOpenDetail, onToggle
           data-st-toggle-wrap
           style={{
             position: 'absolute',
-            top: 20,
-            right: 20,
+            top: 14,
+            right: 14,
             display: 'flex',
             alignItems: 'center',
             gap: 8,
