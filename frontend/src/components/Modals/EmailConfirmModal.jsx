@@ -2,11 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { Mail, Check, X } from 'lucide-react';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
+import { HUB_MODAL_NOTICE_INFO } from '../../utils/techHubAccent';
+import {
+  HubModalInnerCard,
+  HubModalChromeHeader,
+  HubModalChromeFooter
+} from './HubModalChrome';
 
-const EmailConfirmModal = ({ 
-  onConfirm, 
-  onCancel, 
+const EmailConfirmModal = ({
+  onConfirm,
+  onCancel,
   isEditing = false,
   clientName = 'Cliente',
   currentUser = null,
@@ -15,7 +20,6 @@ const EmailConfirmModal = ({
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Gestione chiusura con ESC
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape' && !isProcessing) {
@@ -43,130 +47,89 @@ const EmailConfirmModal = ({
   };
 
   return (
-    <div 
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={(e) => {
-        // Chiudi cliccando fuori dalla modale
-        if (e.target === e.currentTarget && !isProcessing) {
-          handleCancel();
-        }
-      }}
-    >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        
-        {/* Header */}
-        <div
-          className="rounded-t-2xl border-b border-black/10 p-6"
-          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
-        >
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10">
-              <Mail size={24} aria-hidden />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold">Conferma Invio Email</h2>
-              <p className="text-sm opacity-90">
-                Notifica al cliente
-              </p>
-            </div>
-          </div>
-        </div>
+    <HubModalInnerCard maxWidthClass="max-w-md w-full">
+      <HubModalChromeHeader icon={Mail} title="Conferma invio email" subtitle="Notifica al cliente" compact />
 
-        {/* Content */}
-        <div className="p-6">
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Mail size={32} className="text-blue-600" />
-            </div>
-            
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Vuoi inviare una notifica email?
-            </h3>
-            
-            <p className="text-gray-600 text-sm leading-relaxed">
-              {statusChange ? (
-                currentUser?.ruolo === 'cliente' ? (
-                  <>
-                    Riceverai una notifica via email per il cambio di stato del ticket.
-                  </>
-                ) : (
-                  <>
-                    Il cliente <strong>{clientName}</strong> riceverà una notifica via email 
-                    per il cambio di stato del ticket a <strong>{newStatus}</strong>.
-                  </>
-                )
-              ) : currentUser?.ruolo === 'cliente' ? (
-                isEditing ? (
-                  <>
-                    Riceverai una notifica via email sulle modifiche apportate al ticket.
-                  </>
-                ) : (
-                  <>
-                    Riceverai una notifica via email per il nuovo ticket creato.
-                  </>
-                )
+      <div className="p-6 text-white">
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-sky-500/20 ring-2 ring-sky-500/40">
+            <Mail size={32} className="text-sky-300" aria-hidden />
+          </div>
+
+          <h3 className="mb-2 text-lg font-semibold text-white">Vuoi inviare una notifica email?</h3>
+
+          <p className="text-sm leading-relaxed text-white/65">
+            {statusChange ? (
+              currentUser?.ruolo === 'cliente' ? (
+                <>Riceverai una notifica via email per il cambio di stato del ticket.</>
               ) : (
-                isEditing ? (
-                  <>
-                    Il cliente <strong>{clientName}</strong> riceverà una notifica via email 
-                    sulle modifiche apportate al ticket.
-                  </>
-                ) : (
-                  <>
-                    Il cliente <strong>{clientName}</strong> riceverà una notifica via email 
-                    per il nuovo ticket creato.
-                  </>
-                )
-              )}
-            </p>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <div className="flex items-start gap-3">
-              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-              <div className="text-sm text-blue-800">
-                <p className="font-medium mb-1">Cosa riceverà il cliente:</p>
-                <ul className="text-blue-700 space-y-1">
-                  <li>• Dettagli del ticket</li>
-                  <li>• Link per accedere al sistema</li>
-                  <li>• Informazioni di contatto</li>
-                </ul>
-              </div>
-            </div>
-          </div>
+                <>
+                  Il cliente <strong className="text-white">{clientName}</strong> riceverà una notifica via email per il
+                  cambio di stato del ticket a <strong className="text-white">{newStatus}</strong>.
+                </>
+              )
+            ) : currentUser?.ruolo === 'cliente' ? (
+              isEditing ? (
+                <>Riceverai una notifica via email sulle modifiche apportate al ticket.</>
+              ) : (
+                <>Riceverai una notifica via email per il nuovo ticket creato.</>
+              )
+            ) : isEditing ? (
+              <>
+                Il cliente <strong className="text-white">{clientName}</strong> riceverà una notifica via email sulle modifiche
+                apportate al ticket.
+              </>
+            ) : (
+              <>
+                Il cliente <strong className="text-white">{clientName}</strong> riceverà una notifica via email per il nuovo ticket
+                creato.
+              </>
+            )}
+          </p>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t bg-gray-50 rounded-b-2xl">
-          <div className="flex gap-3">
-            <button
-              onClick={handleCancel}
-              disabled={isProcessing}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition ${
-                isProcessing 
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-              }`}
-            >
-              <X size={18} />
-              Non inviare
-            </button>
-            <button
-              onClick={handleConfirm}
-              disabled={isProcessing}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition ${
-                isProcessing 
-                  ? 'bg-blue-400 text-white cursor-not-allowed' 
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
-            >
-              <Check size={18} />
-              {isProcessing ? 'Elaborazione...' : 'Invia email'}
-            </button>
+        <div className={HUB_MODAL_NOTICE_INFO}>
+          <div className="flex items-start gap-3">
+            <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-sky-400" />
+            <div className="text-sm">
+              <p className="mb-1 font-medium text-white/95">Cosa riceverà il cliente:</p>
+              <ul className="space-y-1 text-white/75">
+                <li>• Dettagli del ticket</li>
+                <li>• Link per accedere al sistema</li>
+                <li>• Informazioni di contatto</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      <HubModalChromeFooter>
+        <div className="flex w-full gap-3">
+          <button
+            type="button"
+            onClick={handleCancel}
+            disabled={isProcessing}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm transition ${
+              isProcessing ? 'cursor-not-allowed opacity-45' : ''
+            } bg-white/[0.1] font-medium text-white hover:bg-white/[0.14]`}
+          >
+            <X size={18} aria-hidden />
+            Non inviare
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={isProcessing}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              isProcessing ? 'cursor-not-allowed opacity-65' : 'hover:brightness-110'
+            } bg-sky-600 text-white`}
+          >
+            <Check size={18} aria-hidden />
+            {isProcessing ? 'Elaborazione…' : 'Invia email'}
+          </button>
+        </div>
+      </HubModalChromeFooter>
+    </HubModalInnerCard>
   );
 };
 

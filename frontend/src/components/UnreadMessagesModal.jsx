@@ -1,5 +1,12 @@
 import React from 'react';
-import { X, MessageCircle, AlertCircle, AlertTriangle } from 'lucide-react';
+import { MessageCircle, AlertCircle, AlertTriangle } from 'lucide-react';
+import {
+  HubModalBackdrop,
+  HubModalInnerCard,
+  HubModalChromeHeader,
+  HubModalBody,
+  HubModalChromeFooter,
+} from './Modals/HubModalChrome';
 
 const UnreadMessagesModal = ({ tickets, getUnreadCount, onClose, onOpenTicket, currentUser }) => {
   // Filtra solo i ticket con messaggi non letti
@@ -38,101 +45,74 @@ const UnreadMessagesModal = ({ tickets, getUnreadCount, onClose, onOpenTicket, c
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-fadeIn">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col animate-slideIn">
-        
-        {/* Header */}
-        <div className="p-6 border-b bg-gradient-to-r from-yellow-500 to-amber-500 text-white rounded-t-2xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold flex items-center gap-3">
-                <MessageCircle size={32} />
-                Nuovi Messaggi
-              </h2>
-              <p className="text-yellow-100 text-sm mt-1">
-                Hai {totalUnread} {totalUnread === 1 ? 'messaggio non letto' : 'messaggi non letti'}
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition"
-            >
-              <X size={24} />
-            </button>
-          </div>
-        </div>
-
-        {/* Lista Ticket */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-3">
-            {unreadTickets.map((ticket) => {
-              const count = getUnreadCount(ticket);
-              const isReclamo = hasUnreadReclamo(ticket);
-              
-              return (
-                <button
-                  key={ticket.id}
-                  onClick={() => {
-                    onOpenTicket(ticket);
-                    onClose();
-                  }}
-                  className={`w-full text-left p-4 border-2 rounded-xl transition-all group ${
-                    isReclamo
-                      ? 'bg-red-50 border-red-400 hover:bg-red-100 hover:border-red-500'
-                      : 'bg-yellow-50 border-yellow-300 hover:bg-yellow-100 hover:border-yellow-400'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className={`px-2 py-1 text-white text-xs font-bold rounded-full flex items-center gap-1 ${
-                          isReclamo ? 'bg-red-600' : 'bg-yellow-500'
-                        }`}>
-                          {isReclamo ? '⚠️' : '💬'} {count}
-                        </span>
-                        <span className="text-xs font-mono text-gray-600 font-semibold">
-                          {ticket.numero}
-                        </span>
-                        {isReclamo && (
-                          <span className="px-2 py-0.5 bg-red-600 text-white text-xs font-bold rounded-full">
-                            RECLAMO
-                          </span>
-                        )}
-                      </div>
-                      
-                      <h3 className={`font-bold mb-1 transition ${
-                        isReclamo 
-                          ? 'text-red-800 group-hover:text-red-900' 
-                          : 'text-gray-800 group-hover:text-yellow-700'
-                      }`}>
-                        {ticket.titolo}
-                      </h3>
-                      
-                      <p className="text-sm text-gray-600 truncate">
-                        Richiedente: {ticket.nomerichiedente}
-                      </p>
+    <HubModalBackdrop zClass="z-[118]">
+      <HubModalInnerCard maxWidthClass="max-w-2xl" className="flex max-h-[80vh] flex-col overflow-hidden animate-slideIn">
+        <HubModalChromeHeader
+          icon={MessageCircle}
+          title="Nuovi Messaggi"
+          subtitle={`Hai ${totalUnread} ${totalUnread === 1 ? 'messaggio non letto' : 'messaggi non letti'}`}
+          onClose={onClose}
+        />
+        <HubModalBody className="space-y-3">
+          {unreadTickets.map((ticket) => {
+            const count = getUnreadCount(ticket);
+            const isReclamo = hasUnreadReclamo(ticket);
+            return (
+              <button
+                key={ticket.id}
+                type="button"
+                onClick={() => {
+                  onOpenTicket(ticket);
+                  onClose();
+                }}
+                className={`group w-full rounded-xl border-2 p-4 text-left transition-all ${
+                  isReclamo
+                    ? 'border-red-400/60 bg-red-500/10 hover:border-red-400 hover:bg-red-500/15'
+                    : 'border-amber-400/40 bg-amber-500/10 hover:border-amber-400/60 hover:bg-amber-500/15'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <span
+                        className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold text-white ${
+                          isReclamo ? 'bg-red-600' : 'bg-amber-500'
+                        }`}
+                      >
+                        {isReclamo ? '⚠️' : '💬'} {count}
+                      </span>
+                      <span className="font-mono text-xs font-semibold text-white/55">{ticket.numero}</span>
+                      {isReclamo && (
+                        <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">RECLAMO</span>
+                      )}
                     </div>
-                    
-                    {isReclamo ? (
-                      <AlertTriangle className="text-red-600 group-hover:scale-110 transition-transform flex-shrink-0 animate-pulse" size={24} />
-                    ) : (
-                      <AlertCircle className="text-yellow-600 group-hover:scale-110 transition-transform flex-shrink-0" size={24} />
-                    )}
+                    <h3
+                      className={`mb-1 font-bold transition ${
+                        isReclamo ? 'text-red-100 group-hover:text-red-50' : 'text-white group-hover:text-amber-100'
+                      }`}
+                    >
+                      {ticket.titolo}
+                    </h3>
+                    <p className="truncate text-sm text-white/60">Richiedente: {ticket.nomerichiedente}</p>
                   </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t bg-gray-50 rounded-b-2xl">
-          <p className="text-sm text-gray-600 text-center">
-            Clicca su un ticket per aprire la conversazione
-          </p>
-        </div>
-      </div>
-    </div>
+                  {isReclamo ? (
+                    <AlertTriangle
+                      className="shrink-0 animate-pulse text-red-400 transition-transform group-hover:scale-110"
+                      size={24}
+                    />
+                  ) : (
+                    <AlertCircle className="shrink-0 text-amber-400 transition-transform group-hover:scale-110" size={24} />
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </HubModalBody>
+        <HubModalChromeFooter className="justify-center border-t border-white/[0.08]">
+          <p className="w-full text-center text-sm text-white/55">Clicca su un ticket per aprire la conversazione</p>
+        </HubModalChromeFooter>
+      </HubModalInnerCard>
+    </HubModalBackdrop>
   );
 };
 

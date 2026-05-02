@@ -1,9 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { X, Clock, Check } from 'lucide-react';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
+import React, { useState } from 'react';
+import { Clock, Check } from 'lucide-react';
+import { getStoredTechHubAccent, HUB_PAGE_BG, hubModalCssVars } from '../../utils/techHubAccent';
+import {
+  HubModalBackdrop,
+  HubModalChromeHeader,
+  HubModalBody,
+  HubModalChromeFooter,
+  HubModalSecondaryButton,
+  HubModalPrimaryButton
+} from './HubModalChrome';
 
 const InactivityTimerModal = ({ closeModal, currentTimeout, onTimeoutChange }) => {
-  const [selectedTimeout, setSelectedTimeout] = useState(currentTimeout || 3); // Default 3 minuti
+  const [selectedTimeout, setSelectedTimeout] = useState(currentTimeout || 3);
 
   const timeoutOptions = [
     { value: 1, label: '1 minuto' },
@@ -18,86 +26,64 @@ const InactivityTimerModal = ({ closeModal, currentTimeout, onTimeoutChange }) =
     closeModal();
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        {/* Header */}
-        <div
-          className="rounded-t-2xl border-b border-black/10 p-6"
-          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="flex items-center gap-2 text-2xl font-bold">
-                <Clock size={28} className="shrink-0 opacity-95" aria-hidden />
-                Timer Inattività
-              </h2>
-              <p className="mt-1 text-sm opacity-90">
-                Imposta il tempo di disconnessione automatica
-              </p>
-            </div>
-            <button
-              onClick={closeModal}
-              type="button"
-              className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10 transition hover:bg-black/30"
-              aria-label="Chiudi"
-            >
-              <X size={24} aria-hidden />
-            </button>
-          </div>
-        </div>
+  const accentHex = getStoredTechHubAccent();
 
-        {/* Contenuto */}
-        <div className="p-6 space-y-4">
-          <p className="text-sm text-gray-600 mb-4">
+  return (
+    <HubModalBackdrop zClass="z-[118]">
+      <div
+        className="flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/[0.1] shadow-2xl"
+        style={{ backgroundColor: HUB_PAGE_BG, ...hubModalCssVars(accentHex) }}
+      >
+        <HubModalChromeHeader
+          icon={Clock}
+          title="Timer Inattività"
+          subtitle="Imposta il tempo di disconnessione automatica"
+          onClose={closeModal}
+        />
+
+        <HubModalBody>
+          <p className="mb-4 text-sm text-white/62">
             Seleziona dopo quanto tempo di inattività vuoi essere disconnesso automaticamente:
           </p>
 
           <div className="space-y-2">
-            {timeoutOptions.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => setSelectedTimeout(option.value)}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border-2 transition ${
-                  selectedTimeout === option.value
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 hover:border-gray-300 bg-white text-gray-700'
-                }`}
-              >
-                <span className="font-medium">{option.label}</span>
-                {selectedTimeout === option.value && (
-                  <Check size={20} className="text-blue-600" />
-                )}
-              </button>
-            ))}
+            {timeoutOptions.map((option) => {
+              const active = selectedTimeout === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setSelectedTimeout(option.value)}
+                  className={`flex w-full items-center justify-between rounded-lg border-2 px-4 py-3 text-left transition ${
+                    active
+                      ? 'border-[color:var(--hub-accent)] bg-white/[0.1] text-white'
+                      : 'border-white/[0.1] bg-black/22 text-white/78 hover:border-white/20 hover:bg-white/[0.05]'
+                  }`}
+                >
+                  <span className="font-medium">{option.label}</span>
+                  {active && <Check size={20} className="text-[color:var(--hub-accent)]" aria-hidden />}
+                </button>
+              );
+            })}
           </div>
 
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-xs text-blue-800">
-              <strong>Nota:</strong> Il timer si resetta automaticamente ad ogni tua interazione (click, movimento mouse, digitazione).
-            </p>
+          <div className={`mt-4 rounded-lg border border-sky-500/35 bg-sky-500/12 p-3 text-xs text-sky-50`}>
+            <strong className="text-sky-100">Nota:</strong> Il timer si resetta automaticamente ad ogni interazione (click,
+            movimento mouse, digitazione).
           </div>
-        </div>
+        </HubModalBody>
 
-        {/* Footer */}
-        <div className="p-6 border-t bg-gray-50 rounded-b-2xl flex gap-2">
-          <button
-            onClick={closeModal}
-            className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
-          >
+        <HubModalChromeFooter className="flex gap-2">
+          <HubModalSecondaryButton type="button" onClick={closeModal} className="flex-1">
             Annulla
-          </button>
-          <button
-            onClick={handleSave}
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-          >
+          </HubModalSecondaryButton>
+          <HubModalPrimaryButton type="button" onClick={handleSave} className="flex-1">
             Salva
-          </button>
-        </div>
+          </HubModalPrimaryButton>
+        </HubModalChromeFooter>
       </div>
-    </div>
+    </HubModalBackdrop>
   );
 };
 
 export default InactivityTimerModal;
-

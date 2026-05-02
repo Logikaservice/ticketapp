@@ -1,34 +1,41 @@
 import React from 'react';
 import { AlertTriangle, Check } from 'lucide-react';
+import { HubModalInnerCard, HubModalChromeFooter } from './HubModalChrome';
+import { HUB_MODAL_NOTICE_DANGER } from '../../utils/techHubAccent';
 
 const UrgentConfirmModal = ({ handleConfirmUrgentCreation, closeModal }) => {
   return (
-    <div className="bg-white rounded-xl max-w-sm w-full p-6">
-      <div className="text-center mb-4">
-        <AlertTriangle size={48} className="text-red-600 mx-auto mb-3" />
-        <h2 className="text-xl font-bold">Conferma Urgente</h2>
+    <HubModalInnerCard maxWidthClass="max-w-sm w-full">
+      <div className="p-6 pb-4 text-white">
+        <div className="mb-4 text-center">
+          <AlertTriangle size={44} className="mx-auto mb-3 text-red-400" aria-hidden />
+          <h2 className="text-xl font-bold text-white">Conferma Urgente</h2>
+        </div>
+
+        <div className={`mb-6 ${HUB_MODAL_NOTICE_DANGER}`}>
+          <p className="font-semibold">Attenzione:</p>
+          <p className="mt-1 text-red-50/92">La priorità URGENTE potrebbe prevedere costi maggiorati.</p>
+        </div>
       </div>
 
-      <div className="text-sm mb-6 p-3 border border-red-200 bg-red-50 rounded-lg">
-        <p className="font-semibold text-red-800">Attenzione:</p>
-        <p className="mt-1">
-          La priorità URGENTE potrebbe prevedere costi maggiorati.
-        </p>
-      </div>
-
-      <div className="flex gap-3">
-        <button onClick={closeModal} className="flex-1 px-4 py-3 border rounded-lg">
+      <HubModalChromeFooter className="justify-stretch [&>button]:flex-1">
+        <button
+          type="button"
+          onClick={closeModal}
+          className="rounded-lg bg-white/[0.1] px-4 py-3 text-sm font-medium text-white transition hover:bg-white/[0.14]"
+        >
           Annulla
         </button>
         <button
+          type="button"
           onClick={handleConfirmUrgentCreation}
-          className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-500"
         >
-          <Check size={18} />
+          <Check size={18} aria-hidden />
           Accetta
         </button>
-      </div>
-    </div>
+      </HubModalChromeFooter>
+    </HubModalInnerCard>
   );
 };
 

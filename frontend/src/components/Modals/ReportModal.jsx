@@ -1,27 +1,28 @@
 // src/components/Modals/ReportModal.jsx
 
 import React from 'react';
-import { X, Printer } from 'lucide-react';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
+import { Printer } from 'lucide-react';
+import {
+  HubModalInnerCard,
+  HubModalChromeHeader,
+  HubModalChromeFooter,
+  HubModalSecondaryButton
+} from './HubModalChrome';
 
 const ReportModal = ({ closeModal, htmlContent, title }) => {
   const handlePrint = () => {
-    // Crea un blob URL per aprire l'HTML in una nuova scheda
     const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const printWindow = window.open(url, '_blank', 'noopener,noreferrer');
-    
+
     if (printWindow) {
-      // Pulisci l'URL dopo che la finestra è stata aperta
       printWindow.addEventListener('load', () => {
         URL.revokeObjectURL(url);
-        // Attendi che il contenuto sia completamente caricato prima di stampare
         setTimeout(() => {
           printWindow.print();
         }, 500);
       });
-      
-      // Fallback: pulisci l'URL dopo 10 secondi anche se l'evento load non viene chiamato
+
       setTimeout(() => {
         URL.revokeObjectURL(url);
       }, 10000);
@@ -29,51 +30,27 @@ const ReportModal = ({ closeModal, htmlContent, title }) => {
   };
 
   return (
-    <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] flex flex-col">
-      {/* Header */}
-      <div
-        className="flex items-center justify-between rounded-t-xl border-b border-black/10 p-6"
-        style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
-      >
-        <h2 className="flex items-center gap-2 text-2xl font-bold">
-          {title}
-        </h2>
+    <HubModalInnerCard maxWidthClass="max-w-5xl w-full" className="flex max-h-[90vh] flex-col">
+      <HubModalChromeHeader title={title || 'Report'} onClose={closeModal} compact />
+
+      <div className="min-h-0 flex-1 overflow-y-auto bg-black/[0.2] p-4">
+        <div className="bg-white shadow-lg" dangerouslySetInnerHTML={{ __html: htmlContent }} />
+      </div>
+
+      <HubModalChromeFooter className="justify-stretch gap-3 [&>button]:flex-1">
+        <HubModalSecondaryButton type="button" onClick={closeModal} className="flex-1 py-3">
+          Chiudi
+        </HubModalSecondaryButton>
         <button
           type="button"
-          onClick={closeModal}
-          className="rounded-lg p-2 transition hover:bg-black/15"
-          aria-label="Chiudi"
-        >
-          <X size={24} aria-hidden />
-        </button>
-      </div>
-
-      {/* Preview */}
-      <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
-        <div 
-          className="bg-white shadow-lg"
-          dangerouslySetInnerHTML={{ __html: htmlContent }}
-        />
-      </div>
-
-      {/* Footer con pulsanti */}
-      <div className="flex gap-3 p-6 border-t bg-gray-50">
-        <button
-          onClick={closeModal}
-          className="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-bold hover:bg-gray-100"
-        >
-          Chiudi
-        </button>
-        
-        <button
           onClick={handlePrint}
-          className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-green-700"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-500"
         >
-          <Printer size={18} />
+          <Printer size={18} aria-hidden />
           Stampa
         </button>
-      </div>
-    </div>
+      </HubModalChromeFooter>
+    </HubModalInnerCard>
   );
 };
 

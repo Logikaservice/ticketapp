@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { X, Clock, Check, Plus, Copy, Trash2, Users, Eye, Edit, Save, Wrench, Minus } from 'lucide-react';
+import { Clock, Check, Plus, Copy, Trash2, Users, Eye, Edit, Save, Wrench, Minus } from 'lucide-react';
 import { calculateDurationHours, normalizeTimeLog, calculateTotalHoursFromIntervals } from '../../utils/helpers';
 import { buildApiUrl } from '../../utils/apiConfig';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
+import { HUB_MODAL_FIELD_CLS, HUB_MODAL_TEXTAREA_CLS } from '../../utils/techHubAccent';
+import {
+  HubModalInnerCard,
+  HubModalChromeHeader,
+  HubModalBody,
+  HubModalChromeFooter,
+  HubModalPrimaryButton,
+  HubModalSecondaryButton,
+} from './HubModalChrome';
 
 const TimeLoggerModal = ({
   selectedTicket,
@@ -300,32 +308,27 @@ const TimeLoggerModal = ({
     }));
   };
 
-  return (
-    <div className="flex max-w-4xl w-full flex-col overflow-hidden rounded-xl bg-white shadow-xl">
-      <div
-        className="flex items-center justify-between border-b border-black/10 px-6 py-4"
-        style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
-      >
-        <h2 className="flex items-center gap-2 text-2xl font-bold">
-          {readOnly ? (
-            isEditing ? <Edit size={24} aria-hidden /> : <Eye size={24} aria-hidden />
-          ) : (
-            <Clock size={24} aria-hidden />
-          )}
-          {readOnly ? (isEditing ? 'Modifica Intervento' : 'Visualizza Intervento') : 'Registra Intervento'}
-        </h2>
-        <button
-          type="button"
-          onClick={closeModal}
-          className="rounded-lg p-1 transition hover:bg-black/15"
-          aria-label="Chiudi"
-        >
-          <X size={24} aria-hidden />
-        </button>
-      </div>
+  const HeaderIcon = readOnly ? (isEditing ? Edit : Eye) : Clock;
+  const headerTitle = readOnly
+    ? isEditing
+      ? 'Modifica Intervento'
+      : 'Visualizza Intervento'
+    : 'Registra Intervento';
 
-      <div className="space-y-6 p-6">
-        <div className="bg-blue-50 p-3 rounded-lg text-sm">
+  return (
+    <HubModalInnerCard maxWidthClass="max-w-4xl" className="flex max-h-[90vh] w-full flex-col overflow-hidden">
+      <HubModalChromeHeader
+        icon={HeaderIcon}
+        title={headerTitle}
+        subtitle={
+          selectedTicket
+            ? `Ticket ${selectedTicket.numero} — ${selectedTicket.titolo}`
+            : undefined
+        }
+        onClose={closeModal}
+      />
+      <HubModalBody className="space-y-6">
+        <div className="rounded-lg border border-sky-500/35 bg-sky-500/12 p-3 text-sm text-sky-50">
           Ticket: {selectedTicket.numero} - {selectedTicket.titolo}
         </div>
 
@@ -353,8 +356,11 @@ const TimeLoggerModal = ({
           const total = (costPerHour * (1 - (discount / 100))) * hours;
 
           return (
-            <div key={log.id} className="p-4 border-2 border-blue-200 rounded-lg bg-gradient-to-r from-blue-50 to-cyan-50 relative shadow-sm">
-              <h3 className="mb-4 flex justify-between text-blue-800 font-bold items-center">
+            <div
+              key={log.id}
+              className="relative rounded-lg border border-white/10 bg-black/20 p-4 shadow-sm"
+            >
+              <h3 className="mb-4 flex items-center justify-between font-bold text-white">
                 <span className="flex items-center gap-2">
                   <Wrench size={20} />
                   Intervento #{index + 1}
@@ -367,14 +373,14 @@ const TimeLoggerModal = ({
                           handleRemoveTimeLog(log.id);
                         }
                       }}
-                      className="text-red-500 p-1 hover:bg-red-50 rounded transition-colors"
+                      className="rounded p-1 text-red-400 transition-colors hover:bg-red-500/15"
                       title="Elimina intervento"
                     >
                       <Trash2 size={18} />
                     </button>
                     <button
                       onClick={() => handleDuplicateTimeLog(log)}
-                      className="text-blue-500 p-1 hover:bg-blue-50 rounded transition-colors"
+                      className="rounded p-1 text-[color:var(--hub-accent)] transition-colors hover:bg-white/10"
                       title="Duplica intervento"
                     >
                       <Copy size={18} />
@@ -384,19 +390,19 @@ const TimeLoggerModal = ({
               </h3>
 
               {/* Sezione Intervento racchiusa */}
-              <div className="p-4 bg-white rounded-lg border border-blue-200">
+              <div className="rounded-lg border border-white/10 bg-[#1a1a1a] p-4">
 
                 {/* Fasi lavorative */}
                 <div className="mb-4 space-y-3">
                   {workPhases.map((phase, phaseIndex) => (
                     <div key={phase.id} className="grid md:grid-cols-5 gap-4 items-end">
                       <div>
-                        <label className="block text-xs mb-1">Modalità</label>
+                        <label className="mb-1 block text-xs font-medium text-white/70">Modalità</label>
                         <select
                           value={phase.modalita || 'Telefonica'}
                           onChange={(e) => handleUpdateWorkPhase(normalizedLog.id, phase.id, 'modalita', e.target.value)}
                           disabled={fieldsDisabled}
-                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          className={`${HUB_MODAL_FIELD_CLS} disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
                           <option>Telefonica</option>
                           <option>Teleassistenza</option>
@@ -406,44 +412,44 @@ const TimeLoggerModal = ({
                       </div>
 
                       <div>
-                        <label className="block text-xs mb-1">Data</label>
+                        <label className="mb-1 block text-xs font-medium text-white/70">Data</label>
                         <input
                           type="date"
                           value={phase.data || ''}
                           onChange={(e) => handleUpdateWorkPhase(normalizedLog.id, phase.id, 'data', e.target.value)}
                           disabled={fieldsDisabled}
-                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          className={`${HUB_MODAL_FIELD_CLS} disabled:opacity-50 disabled:cursor-not-allowed`}
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs mb-1">Ora Inizio</label>
+                        <label className="mb-1 block text-xs font-medium text-white/70">Ora Inizio</label>
                         <input
                           type="time"
                           value={phase.oraInizio || ''}
                           step="900"
                           onChange={(e) => handleUpdateWorkPhase(normalizedLog.id, phase.id, 'oraInizio', e.target.value)}
                           disabled={fieldsDisabled || normalizedLog.eventoGiornaliero}
-                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          className={`${HUB_MODAL_FIELD_CLS} disabled:opacity-50 disabled:cursor-not-allowed`}
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs mb-1">Ora Fine</label>
+                        <label className="mb-1 block text-xs font-medium text-white/70">Ora Fine</label>
                         <input
                           type="time"
                           value={phase.oraFine || ''}
                           step="900"
                           onChange={(e) => handleUpdateWorkPhase(normalizedLog.id, phase.id, 'oraFine', e.target.value)}
                           disabled={fieldsDisabled || normalizedLog.eventoGiornaliero}
-                          className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          className={`${HUB_MODAL_FIELD_CLS} disabled:opacity-50 disabled:cursor-not-allowed`}
                         />
                       </div>
 
                       <div className="flex items-end gap-2">
                         <div className="flex-1">
-                          <div className="text-xs text-gray-600 mb-1">Durata</div>
-                          <div className="text-sm font-semibold text-gray-700">
+                          <div className="text-xs text-white/55 mb-1">Durata</div>
+                          <div className="text-sm font-semibold text-white">
                             {phase.oraInizio && phase.oraFine
                               ? `${calculateDurationHours(phase.oraInizio, phase.oraFine).toFixed(2)} ore`
                               : '0.00 ore'}
@@ -453,7 +459,7 @@ const TimeLoggerModal = ({
                           {!fieldsDisabled && !normalizedLog.eventoGiornaliero && workPhases.length > 1 && (
                             <button
                               onClick={() => handleRemoveWorkPhase(normalizedLog.id, phase.id)}
-                              className="text-red-500 p-1 hover:bg-red-50 rounded transition-colors"
+                              className="rounded p-1 text-red-400 transition-colors hover:bg-red-500/15"
                               title="Rimuovi fase"
                             >
                               <Minus size={16} />
@@ -462,7 +468,7 @@ const TimeLoggerModal = ({
                           {!fieldsDisabled && !normalizedLog.eventoGiornaliero && phaseIndex === workPhases.length - 1 && (
                             <button
                               onClick={() => handleAddWorkPhase(normalizedLog.id)}
-                              className="text-blue-500 p-1 hover:bg-blue-50 rounded transition-colors"
+                              className="rounded p-1 text-[color:var(--hub-accent)] transition-colors hover:bg-white/10"
                               title="Aggiungi fase"
                             >
                               <Plus size={16} />
@@ -475,13 +481,13 @@ const TimeLoggerModal = ({
                 </div>
 
                 {/* Totale ore di tutte le fasi */}
-                <div className="mb-4 text-sm font-semibold text-gray-700 text-right">
+                <div className="mb-4 text-right text-sm font-semibold text-white">
                   Totale: {hours.toFixed(2)} ore
                 </div>
 
                 {/* Evento giornaliero */}
                 <div className="mb-4">
-                  <label className="inline-flex items-center gap-2 text-sm">
+                  <label className="inline-flex items-center gap-2 text-sm text-white/85">
                     <input
                       type="checkbox"
                       checked={!!normalizedLog.eventoGiornaliero}
@@ -496,7 +502,7 @@ const TimeLoggerModal = ({
                           oreIntervento: 0
                         } : {})
                       } : l))}
-                      className="accent-blue-600"
+                      className="rounded border-white/20 bg-black/30 accent-[color:var(--hub-accent)]"
                     />
                     Evento giornaliero
                   </label>
@@ -524,7 +530,7 @@ const TimeLoggerModal = ({
                   }}
                   placeholder="Descrizione"
                   disabled={fieldsDisabled}
-                  className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-hidden"
+                  className={`${HUB_MODAL_TEXTAREA_CLS} disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-hidden`}
                   style={{ height: 'auto' }}
                 />
 
@@ -532,11 +538,11 @@ const TimeLoggerModal = ({
                   {isSectionExpanded(log.id, 'manodopera', normalizedLog) ? (
                     <>
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-sm font-bold">Costo Manodopera</h4>
+                        <h4 className="text-sm font-bold text-white">Costo Manodopera</h4>
                         {!fieldsDisabled && (
                           <button
                             onClick={() => toggleSection(normalizedLog.id, 'manodopera')}
-                            className="text-gray-500 hover:text-gray-700 text-xs"
+                            className="text-xs text-white/50 transition hover:text-white/80"
                           >
                             Nascondi
                           </button>
@@ -544,50 +550,50 @@ const TimeLoggerModal = ({
                       </div>
                       <div className="grid sm:grid-cols-5 gap-4 items-end">
                         <div>
-                          <label className="block text-xs mb-1">Ore</label>
+                          <label className="mb-1 block text-xs font-medium text-white/70">Ore</label>
                           <input
                             type="number"
                             step="0.25"
                             value={normalizedLog.oreIntervento}
                             onChange={(e) => handleTimeLogChange(normalizedLog.id, 'oreIntervento', e.target.value)}
                             disabled={fieldsDisabled}
-                            className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            className={`${HUB_MODAL_FIELD_CLS} disabled:opacity-50 disabled:cursor-not-allowed`}
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs mb-1">Costo Unit.(€)</label>
+                          <label className="mb-1 block text-xs font-medium text-white/70">Costo Unit.(€)</label>
                           <input
                             type="number"
                             step="0.01"
                             value={normalizedLog.costoUnitario}
                             onChange={(e) => handleTimeLogChange(normalizedLog.id, 'costoUnitario', e.target.value)}
                             disabled={fieldsDisabled}
-                            className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            className={`${HUB_MODAL_FIELD_CLS} disabled:opacity-50 disabled:cursor-not-allowed`}
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs mb-1">Sconto(%)</label>
+                          <label className="mb-1 block text-xs font-medium text-white/70">Sconto(%)</label>
                           <input
                             type="number"
                             value={normalizedLog.sconto}
                             onChange={(e) => handleTimeLogChange(normalizedLog.id, 'sconto', e.target.value)}
                             disabled={fieldsDisabled}
-                            className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            className={`${HUB_MODAL_FIELD_CLS} disabled:opacity-50 disabled:cursor-not-allowed`}
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs mb-1">Costo Scontato</label>
-                          <div className="p-2.5 bg-gray-100 rounded-lg font-bold">
+                          <label className="mb-1 block text-xs font-medium text-white/70">Costo Scontato</label>
+                          <div className="rounded-lg bg-black/30 p-2.5 font-bold text-white">
                             {(costPerHour * (1 - (discount / 100))).toFixed(2)}€
                           </div>
                         </div>
 
                         <div>
-                          <label className="block text-xs mb-1">Totale</label>
-                          <div className="p-2.5 bg-blue-100 rounded-lg font-bold text-blue-800">
+                          <label className="mb-1 block text-xs font-medium text-white/70">Totale</label>
+                          <div className="rounded-lg border border-[color:var(--hub-accent-border)] bg-[color:var(--hub-accent)]/15 p-2.5 font-bold text-white">
                             {total.toFixed(2)}€
                           </div>
                         </div>
@@ -598,7 +604,7 @@ const TimeLoggerModal = ({
                       {!fieldsDisabled && (
                         <button
                           onClick={() => toggleSection(normalizedLog.id, 'manodopera')}
-                          className="w-full text-blue-500 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-blue-300 rounded-lg hover:bg-blue-50"
+                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/15 p-2 text-sm font-medium text-[color:var(--hub-accent)] transition hover:bg-white/5"
                         >
                           <Plus size={16} />
                           Aggiungi Costo Manodopera
@@ -613,14 +619,14 @@ const TimeLoggerModal = ({
                   {isSectionExpanded(normalizedLog.id, 'materiali', normalizedLog) ? (
                     <>
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-sm font-bold flex items-center gap-2">
+                        <h4 className="flex items-center gap-2 text-sm font-bold text-white">
                           <Users size={16} />
                           Materiali
                         </h4>
                         {!fieldsDisabled && (
                           <button
                             onClick={() => toggleSection(normalizedLog.id, 'materiali')}
-                            className="text-gray-500 hover:text-gray-700 text-xs"
+                            className="text-xs text-white/50 transition hover:text-white/80"
                           >
                             Nascondi
                           </button>
@@ -628,47 +634,47 @@ const TimeLoggerModal = ({
                       </div>
                       <div className="space-y-3">
                         {normalizedLog.materials && normalizedLog.materials.map(m => (
-                          <div key={m.id} className="grid grid-cols-6 gap-3 items-center p-2 bg-gray-50 rounded-lg border">
+                          <div key={m.id} className="grid grid-cols-6 items-center gap-3 rounded-lg border border-white/10 bg-black/25 p-2">
                             <div className="col-span-2">
-                              <label className="block text-xs mb-1">Materiale</label>
+                              <label className="mb-1 block text-xs font-medium text-white/70">Materiale</label>
                               <input
                                 type="text"
                                 value={m.nome}
                                 onChange={(e) => handleMaterialChange(normalizedLog.id, m.id, 'nome', e.target.value)}
                                 disabled={fieldsDisabled}
-                                className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                className={`${HUB_MODAL_FIELD_CLS} px-2 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
                               />
                             </div>
 
                             <div className="col-span-1">
-                              <label className="block text-xs mb-1">Qta</label>
+                              <label className="mb-1 block text-xs font-medium text-white/70">Qta</label>
                               <input
                                 type="number"
                                 min="0"
                                 value={m.quantita === 0 || m.quantita === '0' ? '' : (m.quantita || '')}
                                 onChange={(e) => handleMaterialChange(normalizedLog.id, m.id, 'quantita', e.target.value)}
                                 disabled={fieldsDisabled}
-                                className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                className={`${HUB_MODAL_FIELD_CLS} px-2 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
                                 placeholder=""
                               />
                             </div>
 
                             <div className="col-span-1">
-                              <label className="block text-xs mb-1">Costo (€)</label>
+                              <label className="mb-1 block text-xs font-medium text-white/70">Costo (€)</label>
                               <input
                                 type="number"
                                 step="0.01"
                                 value={m.costo === 0 || m.costo === '0' || m.costo === 0.00 ? '' : (m.costo || '')}
                                 onChange={(e) => handleMaterialChange(normalizedLog.id, m.id, 'costo', e.target.value)}
                                 disabled={fieldsDisabled}
-                                className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                className={`${HUB_MODAL_FIELD_CLS} px-2 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed`}
                                 placeholder=""
                               />
                             </div>
 
                             <div className="col-span-1">
-                              <label className="block text-xs mb-1">Totale (€)</label>
-                              <div className="p-2 bg-purple-100 rounded-lg font-bold text-purple-800 text-right">
+                              <label className="mb-1 block text-xs font-medium text-white/70">Totale (€)</label>
+                              <div className="rounded-lg bg-violet-500/20 p-2 text-right font-bold text-violet-100">
                                 {(() => {
                                   const qta = m.quantita === '' || m.quantita === null || m.quantita === undefined ? 0 : parseFloat(m.quantita) || 0;
                                   const costo = m.costo === '' || m.costo === null || m.costo === undefined ? 0 : parseFloat(m.costo) || 0;
@@ -681,7 +687,7 @@ const TimeLoggerModal = ({
                               {!fieldsDisabled && normalizedLog.materials.length > 1 && (
                                 <button
                                   onClick={() => handleRemoveMaterial(normalizedLog.id, m.id)}
-                                  className="text-red-500 p-1"
+                                  className="p-1 text-red-400"
                                 >
                                   <Trash2 size={18} />
                                 </button>
@@ -693,7 +699,7 @@ const TimeLoggerModal = ({
                         {!fieldsDisabled && (
                           <button
                             onClick={() => handleAddMaterial(normalizedLog.id)}
-                            className="w-full text-blue-500 text-xs font-medium flex items-center justify-center gap-1 mt-2 p-1"
+                            className="mt-2 flex w-full items-center justify-center gap-1 p-1 text-xs font-medium text-[color:var(--hub-accent)]"
                           >
                             <Plus size={14} />
                             Aggiungi Materiale
@@ -712,7 +718,7 @@ const TimeLoggerModal = ({
                               handleAddMaterial(normalizedLog.id);
                             }
                           }}
-                          className="w-full text-blue-500 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-blue-300 rounded-lg hover:bg-blue-50"
+                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/15 p-2 text-sm font-medium text-[color:var(--hub-accent)] transition hover:bg-white/5"
                         >
                           <Plus size={16} />
                           Aggiungi Materiale
@@ -725,21 +731,21 @@ const TimeLoggerModal = ({
 
                 {/* Sezione Come da Offerta - LEGATA A QUESTO INTERVENTO */}
                 {normalizedLog.offerte && normalizedLog.offerte.length > 0 && (
-                  <div className="mt-5 p-4 border rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50">
-                    <h3 className="text-lg font-bold text-purple-800 mb-4 flex items-center gap-2">
+                  <div className="mt-5 rounded-lg border border-violet-400/30 bg-violet-500/10 p-4">
+                    <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-violet-100">
                       <Users size={20} />
                       Come da Offerta
                     </h3>
 
                     <div className="space-y-4">
                       {normalizedLog.offerte.map((offerta, offertaIndex) => (
-                        <div key={offerta.id} className="p-4 bg-white rounded-lg border border-purple-200">
-                          <div className="flex justify-between items-center mb-3">
-                            <h4 className="font-semibold text-purple-700">Offerta #{offertaIndex + 1}</h4>
+                        <div key={offerta.id} className="rounded-lg border border-white/10 bg-[#1a1a1a] p-4">
+                          <div className="mb-3 flex items-center justify-between">
+                            <h4 className="font-semibold text-violet-100">Offerta #{offertaIndex + 1}</h4>
                             {!fieldsDisabled && (
                               <button
                                 onClick={() => handleRemoveOfferta(normalizedLog.id, offerta.id)}
-                                className="text-red-500 p-1 hover:bg-red-50 rounded"
+                                className="rounded p-1 text-red-400 hover:bg-red-500/15"
                                 title="Elimina offerta"
                               >
                                 <Trash2 size={16} />
@@ -749,30 +755,30 @@ const TimeLoggerModal = ({
 
                           <div className="flex flex-col md:flex-row md:items-end gap-2 md:gap-3 mb-4">
                             <div className="w-full md:w-auto" style={{ minWidth: 140 }}>
-                              <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Offerta n°</label>
+                              <label className="mb-1 block whitespace-nowrap text-xs font-medium text-white/65">Offerta n°</label>
                               <input
                                 type="text"
                                 value={offerta.numeroOfferta}
                                 onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'numeroOfferta', e.target.value)}
                                 placeholder="OFF-001"
                                 disabled={fieldsDisabled}
-                                className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                className={`${HUB_MODAL_FIELD_CLS} px-2 py-1.5 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
                               />
                             </div>
 
                             <div className="w-full md:w-auto" style={{ minWidth: 125 }}>
-                              <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Data</label>
+                              <label className="mb-1 block whitespace-nowrap text-xs font-medium text-white/65">Data</label>
                               <input
                                 type="date"
                                 value={offerta.dataOfferta}
                                 onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'dataOfferta', e.target.value)}
                                 disabled={fieldsDisabled}
-                                className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                className={`${HUB_MODAL_FIELD_CLS} px-2 py-1.5 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
                               />
                             </div>
 
                             <div className="w-full md:w-auto" style={{ minWidth: 70 }}>
-                              <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Qta</label>
+                              <label className="mb-1 block whitespace-nowrap text-xs font-medium text-white/65">Qta</label>
                               <input
                                 type="number"
                                 min="1"
@@ -780,12 +786,12 @@ const TimeLoggerModal = ({
                                 value={offerta.qta}
                                 onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'qta', e.target.value)}
                                 disabled={fieldsDisabled}
-                                className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                className={`${HUB_MODAL_FIELD_CLS} px-2 py-1.5 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
                               />
                             </div>
 
                             <div className="w-full md:w-auto" style={{ minWidth: 120 }}>
-                              <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Costo Unit.</label>
+                              <label className="mb-1 block whitespace-nowrap text-xs font-medium text-white/65">Costo Unit.</label>
                               <input
                                 type="number"
                                 min="0"
@@ -793,12 +799,12 @@ const TimeLoggerModal = ({
                                 value={offerta.costoUnitario || 0}
                                 onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'costoUnitario', e.target.value)}
                                 disabled={fieldsDisabled}
-                                className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                className={`${HUB_MODAL_FIELD_CLS} px-2 py-1.5 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
                               />
                             </div>
 
                             <div className="w-full md:w-auto" style={{ minWidth: 80 }}>
-                              <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Sconto %</label>
+                              <label className="mb-1 block whitespace-nowrap text-xs font-medium text-white/65">Sconto %</label>
                               <input
                                 type="number"
                                 min="0"
@@ -807,20 +813,20 @@ const TimeLoggerModal = ({
                                 value={offerta.sconto}
                                 onChange={(e) => handleOffertaChange(normalizedLog.id, offerta.id, 'sconto', e.target.value)}
                                 disabled={fieldsDisabled}
-                                className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                className={`${HUB_MODAL_FIELD_CLS} px-2 py-1.5 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
                               />
                             </div>
 
                             <div className="w-full md:w-auto md:ml-auto" style={{ minWidth: 120 }}>
-                              <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Totale</label>
-                              <div className="px-2 py-1.5 bg-purple-100 rounded-lg font-bold text-purple-800 text-sm">
+                              <label className="mb-1 block whitespace-nowrap text-xs font-medium text-white/65">Totale</label>
+                              <div className="rounded-lg bg-violet-500/20 px-2 py-1.5 text-sm font-bold text-violet-100">
                                 {offerta.totale.toFixed(2)}€
                               </div>
                             </div>
                           </div>
 
                           <div>
-                            <label className="block text-xs mb-1 text-gray-600">Descrizione</label>
+                            <label className="mb-1 block text-xs font-medium text-white/65">Descrizione</label>
                             <textarea
                               rows="2"
                               value={offerta.descrizione}
@@ -841,7 +847,7 @@ const TimeLoggerModal = ({
                               }}
                               placeholder="Descrizione dell'offerta..."
                               disabled={fieldsDisabled}
-                              className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-hidden"
+                              className={`${HUB_MODAL_TEXTAREA_CLS} disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-hidden`}
                               style={{ height: 'auto' }}
                             />
                           </div>
@@ -851,7 +857,7 @@ const TimeLoggerModal = ({
                       {!fieldsDisabled && (
                         <button
                           onClick={() => handleAddOfferta(normalizedLog.id)}
-                          className="w-full text-purple-600 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-purple-300 rounded-lg hover:bg-purple-50"
+                          className="flex w-full items-center justify-center gap-2 rounded-lg border border-violet-400/40 p-2 text-sm font-medium text-violet-200 transition hover:bg-violet-500/10"
                         >
                           <Plus size={16} />
                           Aggiungi Offerta
@@ -864,7 +870,7 @@ const TimeLoggerModal = ({
                 {!fieldsDisabled && (!log.offerte || log.offerte.length === 0) && (
                   <button
                     onClick={() => handleAddOfferta(log.id)}
-                    className="mt-5 w-full text-purple-600 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-purple-300 rounded-lg hover:bg-purple-50"
+                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg border border-violet-400/40 p-2 text-sm font-medium text-violet-200 transition hover:bg-violet-500/10"
                   >
                     <Plus size={16} />
                     Aggiungi Offerta
@@ -878,56 +884,50 @@ const TimeLoggerModal = ({
         {!fieldsDisabled && (
           <button
             onClick={handleAddTimeLog}
-            className="w-full px-4 py-2 border border-blue-500 text-blue-600 rounded-lg flex items-center justify-center gap-2"
+            type="button"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--hub-accent)] px-4 py-2 text-[color:var(--hub-accent)] transition hover:bg-white/5"
           >
             <Plus size={18} />
             Aggiungi Intervento
           </button>
         )}
-
-        <div className="flex gap-3 pt-4 border-t">
-          <button onClick={closeModal} className="flex-1 px-4 py-3 border border-gray-300 bg-white rounded-lg hover:bg-gray-50">
-            {readOnly && !isEditing ? 'Chiudi' : 'Annulla'}
-          </button>
-
-          {/* Pulsante Modifica - Solo per TECNICO in modalità readOnly */}
-          {readOnly && !isEditing && currentUser?.ruolo === 'tecnico' && (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
-            >
+      </HubModalBody>
+      <HubModalChromeFooter className="justify-end gap-2">
+        <HubModalSecondaryButton className="min-w-[8rem] flex-1 sm:flex-none" onClick={closeModal}>
+          {readOnly && !isEditing ? 'Chiudi' : 'Annulla'}
+        </HubModalSecondaryButton>
+        {readOnly && !isEditing && currentUser?.ruolo === 'tecnico' && (
+          <HubModalPrimaryButton className="min-w-[8rem] flex-1 sm:flex-none" onClick={() => setIsEditing(true)}>
+            <span className="flex items-center justify-center gap-2">
               <Edit size={18} />
               Modifica
-            </button>
-          )}
-
-          {/* Pulsante Salva - Quando in modalità editing */}
-          {readOnly && isEditing && (
-            <button
-              onClick={() => {
-                handleSaveTimeLogs();
-                setIsEditing(false);
-              }}
-              className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
-            >
+            </span>
+          </HubModalPrimaryButton>
+        )}
+        {readOnly && isEditing && (
+          <HubModalPrimaryButton
+            className="min-w-[8rem] flex-1 sm:flex-none"
+            onClick={() => {
+              handleSaveTimeLogs();
+              setIsEditing(false);
+            }}
+          >
+            <span className="flex items-center justify-center gap-2">
               <Save size={18} />
               Salva Modifiche
-            </button>
-          )}
-
-          {/* Pulsante Conferma e Risolvi - Solo quando NON è readOnly */}
-          {!readOnly && (
-            <button
-              onClick={handleConfirmTimeLogs}
-              className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
-            >
+            </span>
+          </HubModalPrimaryButton>
+        )}
+        {!readOnly && (
+          <HubModalPrimaryButton className="min-w-[8rem] flex-1 sm:flex-none" onClick={handleConfirmTimeLogs}>
+            <span className="flex items-center justify-center gap-2">
               <Check size={18} />
               Conferma e Risolvi
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+            </span>
+          </HubModalPrimaryButton>
+        )}
+      </HubModalChromeFooter>
+    </HubModalInnerCard>
   );
 };
 

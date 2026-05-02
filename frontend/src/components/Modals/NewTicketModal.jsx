@@ -1,14 +1,20 @@
 // src/components/Modals/NewTicketModal.jsx
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { X, Save, FilePlus, ChevronDown, ChevronRight, Crown, Building, Mail } from 'lucide-react';
+import { Save, FilePlus, ChevronDown, ChevronRight, Crown, Building, Mail } from 'lucide-react';
 import {
   getStoredTechHubAccent,
-  readableOnAccent,
-  techHubAccentModalHeaderStyle,
   techHubAccentIconTileStyle,
   hubShellThemeVars
 } from '../../utils/techHubAccent';
+import {
+  HubModalBackdrop,
+  HubModalChromeHeader,
+  HubModalBody,
+  HubModalChromeFooter,
+  HubModalSecondaryButton,
+  HubModalPrimaryButton
+} from './HubModalChrome';
 
 const NewTicketModal = ({
   newTicketData,
@@ -301,40 +307,19 @@ const NewTicketModal = ({
     }
   };
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4">
+    <HubModalBackdrop zClass="z-[118]">
       <div
         className="ticket-modal-hub-shell flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--hub-page)] text-white/90 shadow-2xl"
         style={{ ...hubTheme, colorScheme: 'dark' }}
       >
-        
-        {/* Header: colore accento Hub uniforme */}
-        <div
-          className="rounded-t-2xl border-b border-black/10 p-6"
-          style={techHubAccentModalHeaderStyle(dashboardAccentHex)}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="flex items-center gap-2 text-2xl font-bold">
-                <FilePlus size={28} strokeWidth={2} className="shrink-0 opacity-95" aria-hidden />
-                {isEditingTicket ? 'Modifica Ticket' : 'Crea Nuovo Ticket'}
-              </h2>
-              <p className="mt-1 text-sm opacity-90">
-                Compila i dettagli dell'intervento.
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              type="button"
-              className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10 transition hover:bg-black/30"
-              aria-label="Chiudi"
-            >
-              <X size={24} aria-hidden className="opacity-95" />
-            </button>
-          </div>
-        </div>
+        <HubModalChromeHeader
+          icon={FilePlus}
+          title={isEditingTicket ? 'Modifica Ticket' : 'Crea Nuovo Ticket'}
+          subtitle="Compila i dettagli dell'intervento."
+          onClose={onClose}
+        />
 
-        {/* Form per l'inserimento dei dati */}
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6 bg-[color:var(--hub-page)]">
+        <HubModalBody className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-[color:var(--hub-page)] p-6">
           {currentUser.ruolo === 'tecnico' && (
             <div className="relative">
               <label className="block text-sm font-medium text-white/75 mb-1">
@@ -692,41 +677,26 @@ const NewTicketModal = ({
             )}
           </div>
 
-        </div>
+        </HubModalBody>
 
-        {/* Footer con i pulsanti */}
-        <div className="rounded-b-2xl border-t border-white/10 bg-[color:var(--hub-surface)] p-4">
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-white/12 bg-white/[0.08] px-4 py-2 text-white/90 transition hover:bg-white/[0.14]"
-            >
-              Annulla
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveWithPhotos}
-              disabled={isSaving}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 transition ${
-                isSaving ? 'cursor-not-allowed bg-gray-400 text-white' : 'hover:brightness-105 active:brightness-95'
-              }`}
-              style={
-                !isSaving
-                  ? {
-                      backgroundColor: dashboardAccentHex,
-                      color: readableOnAccent(dashboardAccentHex)
-                    }
-                  : undefined
-              }
-            >
-              <Save size={18} />
-              {isSaving ? 'Salvataggio...' : (isEditingTicket ? 'Salva Modifiche' : 'Crea Ticket')}
-            </button>
-          </div>
-        </div>
+        <HubModalChromeFooter className="justify-end gap-2">
+          <HubModalSecondaryButton type="button" onClick={onClose}>
+            Annulla
+          </HubModalSecondaryButton>
+          <HubModalPrimaryButton
+            type="button"
+            onClick={handleSaveWithPhotos}
+            disabled={isSaving}
+            className={isSaving ? 'cursor-not-allowed opacity-45' : ''}
+          >
+            <span className="flex items-center gap-2">
+              <Save size={18} aria-hidden />
+              {isSaving ? 'Salvataggio...' : isEditingTicket ? 'Salva Modifiche' : 'Crea Ticket'}
+            </span>
+          </HubModalPrimaryButton>
+        </HubModalChromeFooter>
       </div>
-    </div>
+    </HubModalBackdrop>
   );
 };
 

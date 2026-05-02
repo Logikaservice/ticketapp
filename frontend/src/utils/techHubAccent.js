@@ -36,6 +36,19 @@ export const HUB_MODAL_FIELD_CLS =
 
 export const HUB_MODAL_TEXTAREA_CLS = `${HUB_MODAL_FIELD_CLS} min-h-[5rem] resize-y`;
 
+/** Avviso in evidenza su sfondo modal scuro. */
+export const HUB_MODAL_NOTICE_DANGER =
+  'rounded-lg border border-red-500/40 bg-red-500/15 p-3 text-sm text-red-50';
+
+export const HUB_MODAL_NOTICE_WARN =
+  'rounded-lg border border-amber-500/38 bg-amber-500/12 p-3 text-sm text-amber-50';
+
+export const HUB_MODAL_NOTICE_INFO =
+  'rounded-lg border border-sky-500/35 bg-sky-500/12 p-3 text-sm text-sky-50';
+
+export const HUB_MODAL_NOTICE_NEUTRAL =
+  'rounded-lg border border-white/[0.12] bg-black/[0.22] p-3 text-sm text-white/78';
+
 /**
  * Variabili CSS per moduli allineati all’Hub: accento utente + palette scura base.
  */

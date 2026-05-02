@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { X, CheckCircle, Clock, Calendar } from 'lucide-react';
+import { CheckCircle, Clock, Calendar } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
+import {
+  HubModalInnerCard,
+  HubModalChromeHeader,
+  HubModalBody,
+  HubModalChromeFooter,
+  HubModalSecondaryButton,
+} from './HubModalChrome';
 
 const EditContractModal = ({ contract, onClose, getAuthHeader, notify, onSuccess }) => {
     const [events, setEvents] = useState([]);
@@ -76,40 +82,26 @@ const EditContractModal = ({ contract, onClose, getAuthHeader, notify, onSuccess
     if (!contract) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto flex flex-col">
-                {/* Header */}
-                <div
-                  className="flex items-center justify-between rounded-t-2xl border-b border-black/10 p-6"
-                  style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
-                >
-                    <div>
-                        <h2 className="text-2xl font-bold">Modifica Contratto</h2>
-                        <p className="text-sm opacity-90">{contract.title}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="rounded-full p-2 transition hover:bg-black/15"
-                      aria-label="Chiudi"
-                    >
-                      <X size={20} aria-hidden />
-                    </button>
-                </div>
+        <HubModalInnerCard maxWidthClass="max-w-4xl" className="flex max-h-[90vh] flex-col overflow-y-auto">
+                <HubModalChromeHeader
+                  icon={Calendar}
+                  title="Modifica Contratto"
+                  subtitle={contract.title}
+                  onClose={onClose}
+                />
 
-                {/* Content */}
-                <div className="p-6 flex-1 overflow-y-auto">
+                <HubModalBody className="flex-1">
                     <div className="space-y-4">
                         <div className="mb-4">
-                            <h3 className="text-lg font-semibold text-slate-700 mb-2">Eventi Fatturazione</h3>
-                            <p className="text-sm text-slate-500">
+                            <h3 className="mb-2 text-lg font-semibold text-white">Eventi Fatturazione</h3>
+                            <p className="text-sm text-white/55">
                                 Clicca su un evento per marcare come eseguito/non eseguito
                             </p>
                         </div>
 
-                        <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
-                            <table className="w-full text-sm text-left">
-                                <thead className="bg-slate-100 text-slate-600">
+                        <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
+                            <table className="w-full text-left text-sm text-white">
+                                <thead className="bg-black/30 text-white/70">
                                     <tr>
                                         <th className="p-3">Data</th>
                                         <th className="p-3">Descrizione</th>
@@ -121,7 +113,7 @@ const EditContractModal = ({ contract, onClose, getAuthHeader, notify, onSuccess
                                 <tbody>
                                     {events.length === 0 && (
                                         <tr>
-                                            <td colSpan="5" className="p-6 text-center text-slate-500">
+                                            <td colSpan="5" className="p-6 text-center text-white/50">
                                                 Nessun evento disponibile
                                             </td>
                                         </tr>
@@ -133,13 +125,13 @@ const EditContractModal = ({ contract, onClose, getAuthHeader, notify, onSuccess
                                         return (
                                             <tr 
                                                 key={event.id} 
-                                                className={`border-t border-slate-200 hover:bg-white transition ${
-                                                    isProcessed ? 'bg-green-50' : ''
+                                                className={`border-t border-white/10 transition hover:bg-white/[0.04] ${
+                                                    isProcessed ? 'bg-emerald-500/10' : ''
                                                 }`}
                                             >
                                                 <td className="p-3">
                                                     <div className="flex items-center gap-2">
-                                                        <Calendar size={16} className="text-slate-400" />
+                                                        <Calendar size={16} className="text-white/45" />
                                                         <span className="font-medium">{formatDate(event.event_date)}</span>
                                                     </div>
                                                 </td>
@@ -150,14 +142,14 @@ const EditContractModal = ({ contract, onClose, getAuthHeader, notify, onSuccess
                                                     {event.amount ? (
                                                         <span className="font-semibold">€ {parseFloat(event.amount).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                                     ) : (
-                                                        <span className="text-slate-400">-</span>
+                                                        <span className="text-white/40">-</span>
                                                     )}
                                                 </td>
                                                 <td className="p-3">
-                                                    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
+                                                    <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${
                                                         isProcessed 
-                                                            ? 'bg-green-100 text-green-700 border border-green-300' 
-                                                            : 'bg-amber-100 text-amber-700 border border-amber-300'
+                                                            ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-100' 
+                                                            : 'border-amber-400/40 bg-amber-500/15 text-amber-100'
                                                     }`}>
                                                         {isProcessed ? (
                                                             <>
@@ -176,15 +168,15 @@ const EditContractModal = ({ contract, onClose, getAuthHeader, notify, onSuccess
                                                     <button
                                                         onClick={() => handleToggleEvent(event)}
                                                         disabled={isUpdating || loading}
-                                                        className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium flex items-center gap-2 ${
+                                                        className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
                                                             isProcessed
-                                                                ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300'
-                                                                : 'bg-green-50 hover:bg-green-100 text-green-700 border border-green-300'
-                                                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                                                ? 'border-amber-400/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20'
+                                                                : 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20'
+                                                        } disabled:cursor-not-allowed disabled:opacity-50`}
                                                     >
                                                         {isUpdating ? (
                                                             <>
-                                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                                                                <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-current"></div>
                                                                 Aggiornamento...
                                                             </>
                                                         ) : (
@@ -211,19 +203,12 @@ const EditContractModal = ({ contract, onClose, getAuthHeader, notify, onSuccess
                             </table>
                         </div>
                     </div>
-                </div>
+                </HubModalBody>
 
-                {/* Footer */}
-                <div className="p-6 border-t bg-slate-50 rounded-b-2xl flex justify-end">
-                    <button
-                        onClick={onClose}
-                        className="px-6 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg transition"
-                    >
-                        Chiudi
-                    </button>
-                </div>
-            </div>
-        </div>
+                <HubModalChromeFooter className="justify-end">
+                    <HubModalSecondaryButton onClick={onClose}>Chiudi</HubModalSecondaryButton>
+                </HubModalChromeFooter>
+        </HubModalInnerCard>
     );
 };
 

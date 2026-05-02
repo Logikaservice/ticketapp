@@ -1,7 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, User, FileText, CheckCircle, Upload, Plus, Trash2 } from 'lucide-react';
+import { Calendar, User, FileText, CheckCircle, Upload, Plus, Trash2 } from 'lucide-react';
 import { buildApiUrl } from '../../utils/apiConfig';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
+import {
+  HubModalBackdrop,
+  HubModalInnerCard,
+  HubModalChromeHeader,
+  HubModalBody,
+  HubModalChromeFooter,
+  HubModalPrimaryButton,
+  HubModalSecondaryButton,
+} from './HubModalChrome';
+import { HUB_MODAL_FIELD_CLS } from '../../utils/techHubAccent';
 
 const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => {
     const [users, setUsers] = useState([]);
@@ -345,37 +354,24 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto flex flex-col">
-                {/* Header */}
-                <div
-                  className="flex items-center justify-between rounded-t-2xl border-b border-black/10 p-6"
-                  style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
-                >
-                    <div>
-                        <h2 className="text-2xl font-bold">Nuovo Contratto</h2>
-                        <p className="text-sm opacity-90">Gestione ricorrenze e documenti</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="rounded-full p-2 transition hover:bg-black/15"
-                      aria-label="Chiudi"
-                    >
-                      <X size={20} aria-hidden />
-                    </button>
-                </div>
+        <HubModalBackdrop zClass="z-[100]" className="backdrop-blur-sm">
+            <HubModalInnerCard maxWidthClass="max-w-4xl" className="flex max-h-[90vh] flex-col overflow-y-auto">
+                <HubModalChromeHeader
+                  icon={FileText}
+                  title="Nuovo Contratto"
+                  subtitle="Gestione ricorrenze e documenti"
+                  onClose={onClose}
+                />
 
-                {/* Content */}
-                <div className="p-6 flex-1 overflow-y-auto">
+                <HubModalBody className="flex-1">
                     {step === 1 ? (
                         <div className="space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* Client Selector */}
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Cliente *</label>
+                                    <label className="mb-1 block text-sm font-medium text-white/75">Cliente *</label>
                                     <select
-                                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        className={HUB_MODAL_FIELD_CLS}
                                         value={formData.user_id}
                                         onChange={e => setFormData({ ...formData, user_id: e.target.value })}
                                     >
@@ -388,10 +384,10 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
 
                                 {/* Contract Title */}
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Titolo Contratto *</label>
+                                    <label className="mb-1 block text-sm font-medium text-white/75">Titolo Contratto *</label>
                                     <input
                                         type="text"
-                                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg"
+                                        className={HUB_MODAL_FIELD_CLS}
                                         placeholder="es. Manutenzione Server 2024"
                                         value={formData.title}
                                         onChange={e => setFormData({ ...formData, title: e.target.value })}
@@ -400,18 +396,18 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
 
                                 {/* Date */}
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Data Prima Fattura *</label>
+                                    <label className="mb-1 block text-sm font-medium text-white/75">Data Prima Fattura *</label>
                                     <input
                                         type="date"
-                                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg"
+                                        className={HUB_MODAL_FIELD_CLS}
                                         value={formData.start_date}
                                         onChange={e => setFormData({ ...formData, start_date: e.target.value })}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Durata Contratto</label>
+                                    <label className="mb-1 block text-sm font-medium text-white/75">Durata Contratto</label>
                                     <select
-                                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg"
+                                        className={HUB_MODAL_FIELD_CLS}
                                         value={formData.duration}
                                         onChange={e => setFormData({ ...formData, duration: e.target.value })}
                                     >
@@ -420,14 +416,14 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                                         <option value="3">3 Anni</option>
                                         <option value="custom">Personalizzata</option>
                                     </select>
-                                    <p className="text-xs text-slate-500 mt-1">La data di rinnovo verrà calcolata automaticamente</p>
+                                    <p className="text-xs text-white/50 mt-1">La data di rinnovo verrà calcolata automaticamente</p>
                                 </div>
 
                                 {/* Billing */}
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Frequenza Fatturazione</label>
+                                    <label className="mb-1 block text-sm font-medium text-white/75">Frequenza Fatturazione</label>
                                     <select
-                                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg"
+                                        className={HUB_MODAL_FIELD_CLS}
                                         value={formData.billing_frequency}
                                         onChange={e => setFormData({ ...formData, billing_frequency: e.target.value })}
                                     >
@@ -439,16 +435,16 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Importo Mensile (€) *</label>
+                                    <label className="mb-1 block text-sm font-medium text-white/75">Importo Mensile (€) *</label>
                                     <input
                                         type="number"
                                         step="0.01"
-                                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg"
+                                        className={HUB_MODAL_FIELD_CLS}
                                         placeholder="0.00"
                                         value={formData.amount}
                                         onChange={e => setFormData({ ...formData, amount: e.target.value })}
                                     />
-                                    <p className="text-xs text-slate-500 mt-1">L'importo per fattura verrà calcolato in base alla frequenza selezionata</p>
+                                    <p className="text-xs text-white/50 mt-1">L'importo per fattura verrà calcolato in base alla frequenza selezionata</p>
                                 </div>
                             </div>
                         </div>
@@ -456,10 +452,10 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                         <div className="space-y-6">
                             {/* PDF Upload */}
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                <label className="mb-2 block text-sm font-medium text-white/75">
                                     Allegato al contratto
                                 </label>
-                                <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-50 transition">
+                                <div className="border-2 border-dashed border-white/15 rounded-xl p-8 text-center hover:bg-white/[0.04] transition">
                                     <input
                                         ref={fileInputRef}
                                         type="file"
@@ -509,22 +505,22 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                                         }}
                                     />
                                     <label htmlFor="contract-pdf" className="cursor-pointer flex flex-col items-center">
-                                        <Upload size={48} className="text-slate-400 mb-2" />
-                                        <span className="font-semibold text-slate-600">
+                                        <Upload size={48} className="text-white/40 mb-2" />
+                                        <span className="font-semibold text-white/80">
                                             {contractFiles.length > 0 
                                                 ? `${contractFiles.length} file selezionati` 
                                                 : 'Carica il Contratto Firmato (PDF)'}
                                         </span>
-                                        <span className="text-sm text-slate-400 mt-1">Clicca o trascina qui</span>
+                                        <span className="text-sm text-white/45 mt-1">Clicca o trascina qui</span>
                                     </label>
                                 </div>
                                 {contractFiles.length > 0 && (
                                     <div className="mt-3 space-y-2">
                                         {contractFiles.map((file, index) => (
-                                            <div key={index} className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200">
-                                                <FileText size={16} className="text-slate-600" />
-                                                <span className="text-sm text-slate-700 flex-1 truncate">{file.name}</span>
-                                                <span className="text-xs text-slate-500">
+                                            <div key={index} className="flex items-center gap-2 p-2 bg-black/25 rounded-lg border border-white/10">
+                                                <FileText size={16} className="text-white/55" />
+                                                <span className="text-sm text-white/85 flex-1 truncate">{file.name}</span>
+                                                <span className="text-xs text-white/50">
                                                     ({(file.size / (1024 * 1024)).toFixed(2)} MB)
                                                 </span>
                                                 <button
@@ -547,12 +543,12 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                             {/* Schedule Preview */}
                             <div>
                                 <div className="flex justify-between items-center mb-2">
-                                    <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                                    <h3 className="font-bold text-white flex items-center gap-2">
                                         <Calendar size={18} />
                                         Piano Scadenze Generato
                                     </h3>
                                     <button
-                                        className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                                        className="text-sm text-[color:var(--hub-accent)] hover:underline flex items-center gap-1"
                                         onClick={() => {
                                             setGeneratedEvents([...generatedEvents, {
                                                 date: new Date().toISOString().split('T')[0],
@@ -566,9 +562,9 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                                     </button>
                                 </div>
 
-                                <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
-                                    <table className="w-full text-sm text-left">
-                                        <thead className="bg-slate-100 text-slate-600">
+                                <div className="bg-black/20 rounded-xl border border-white/10 overflow-hidden">
+                                    <table className="w-full text-sm text-left text-white">
+                                        <thead className="bg-black/30 text-white/65">
                                             <tr>
                                                 <th className="p-3">Data</th>
                                                 <th className="p-3">Descrizione</th>
@@ -578,12 +574,12 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                                         </thead>
                                         <tbody>
                                             {generatedEvents.map((ev, idx) => (
-                                                <tr key={idx} className="border-t border-slate-200 hover:bg-white transition">
+                                                <tr key={idx} className="border-t border-white/10 hover:bg-white/[0.04] transition">
                                                     <td className="p-3">
                                                         <input
                                                             type="date"
                                                             value={ev.date}
-                                                            className="bg-transparent border-b border-slate-300 focus:border-blue-500 outline-none w-32"
+                                                            className="bg-transparent border-b border-white/25 focus:border-[color:var(--hub-accent)] outline-none w-32 text-white"
                                                             onChange={(e) => {
                                                                 const newEvents = [...generatedEvents];
                                                                 newEvents[idx].date = e.target.value;
@@ -595,7 +591,7 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                                                         <input
                                                             type="text"
                                                             value={ev.description}
-                                                            className="bg-transparent border-b border-slate-300 focus:border-blue-500 outline-none w-full"
+                                                            className="bg-transparent border-b border-white/25 focus:border-[color:var(--hub-accent)] outline-none w-full text-white"
                                                             onChange={(e) => {
                                                                 const newEvents = [...generatedEvents];
                                                                 newEvents[idx].description = e.target.value;
@@ -607,7 +603,7 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                                                         € <input
                                                             type="number"
                                                             value={ev.amount}
-                                                            className="bg-transparent border-b border-slate-300 focus:border-blue-500 outline-none w-20"
+                                                            className="bg-transparent border-b border-white/25 focus:border-[color:var(--hub-accent)] outline-none w-20 text-white"
                                                             onChange={(e) => {
                                                                 const newEvents = [...generatedEvents];
                                                                 newEvents[idx].amount = e.target.value;
@@ -632,51 +628,42 @@ const ManageContractsModal = ({ onClose, onSuccess, notify, getAuthHeader }) => 
                                         </tbody>
                                     </table>
                                     {generatedEvents.length === 0 && (
-                                        <div className="p-6 text-center text-slate-400 italic">Nessuna scadenza generata</div>
+                                        <div className="p-6 text-center text-white/45 italic">Nessuna scadenza generata</div>
                                     )}
                                 </div>
                             </div>
                         </div>
                     )}
-                </div>
+                </HubModalBody>
 
-                {/* Footer */}
-                <div className="p-6 border-t bg-slate-50 rounded-b-2xl flex justify-between">
+                <HubModalChromeFooter className="justify-between gap-2">
                     {step === 2 && (
-                        <button
-                            onClick={() => setStep(1)}
-                            className="px-6 py-2 text-slate-600 font-semibold hover:bg-slate-200 rounded-lg transition"
-                        >
+                        <HubModalSecondaryButton onClick={() => setStep(1)}>
                             Indietro
-                        </button>
+                        </HubModalSecondaryButton>
                     )}
-                    <div className="ml-auto flex gap-3">
-                        <button
-                            onClick={onClose}
-                            className="px-6 py-2 text-slate-500 font-semibold hover:text-slate-700 transition"
-                        >
+                    <div className="ml-auto flex flex-wrap gap-3">
+                        <HubModalSecondaryButton onClick={onClose}>
                             Annulla
-                        </button>
+                        </HubModalSecondaryButton>
                         {step === 1 ? (
-                            <button
-                                onClick={handleNext}
-                                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5"
-                            >
+                            <HubModalPrimaryButton onClick={handleNext}>
                                 Prosegui
-                            </button>
+                            </HubModalPrimaryButton>
                         ) : (
-                            <button
-                                onClick={handleSubmit}
-                                disabled={loading}
-                                className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center gap-2"
-                            >
-                                {loading ? 'Salvataggio...' : <><CheckCircle size={18} /> Salva Contratto</>}
-                            </button>
+                            <HubModalPrimaryButton onClick={handleSubmit} disabled={loading}>
+                                {loading ? 'Salvataggio...' : (
+                                  <span className="flex items-center gap-2">
+                                    <CheckCircle size={18} />
+                                    Salva Contratto
+                                  </span>
+                                )}
+                            </HubModalPrimaryButton>
                         )}
                     </div>
-                </div>
-            </div>
-        </div>
+                </HubModalChromeFooter>
+            </HubModalInnerCard>
+        </HubModalBackdrop>
     );
 };
 

@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { X, Clock, AlertTriangle, Info, Sparkles, Calendar, User, Building, FileImage, Mail } from 'lucide-react';
+import { Clock, AlertTriangle, Info, Sparkles, Calendar, User, FileImage } from 'lucide-react';
 import { formatDate } from '../../utils/formatters';
 import { buildApiUrl } from '../../utils/apiConfig';
-import { getStoredTechHubAccent, techHubAccentModalHeaderStyle } from '../../utils/techHubAccent';
-// getAuthHeader viene passato come prop, non importato
+import {
+  HubModalInnerCard,
+  HubModalChromeHeader,
+  HubModalBody,
+  HubModalChromeFooter,
+  HubModalSecondaryButton,
+} from './HubModalChrome';
 
 const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alertsRefreshTrigger, initialAlertId }) => {
   const [alerts, setAlerts] = useState([]);
@@ -95,47 +100,47 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
       case 'danger':
         return {
           label: 'Critico',
-          icon: <AlertTriangle size={18} className="text-red-600" />,
-          bgColor: 'bg-red-50',
-          borderColor: 'border-red-300',
-          textColor: 'text-red-800',
-          badgeColor: 'bg-red-100 text-red-700'
+          icon: <AlertTriangle size={18} className="text-red-300" />,
+          bgColor: 'bg-red-500/12',
+          borderColor: 'border-red-400/45',
+          textColor: 'text-red-100',
+          badgeColor: 'bg-red-500/20 text-red-50'
         };
       case 'warning':
         return {
           label: 'Avviso',
-          icon: <AlertTriangle size={18} className="text-yellow-600" />,
-          bgColor: 'bg-yellow-50',
-          borderColor: 'border-yellow-300',
-          textColor: 'text-yellow-800',
-          badgeColor: 'bg-yellow-100 text-yellow-700'
+          icon: <AlertTriangle size={18} className="text-amber-300" />,
+          bgColor: 'bg-amber-500/12',
+          borderColor: 'border-amber-400/45',
+          textColor: 'text-amber-50',
+          badgeColor: 'bg-amber-500/20 text-amber-50'
         };
       case 'info':
         return {
           label: 'Informazione',
-          icon: <Info size={18} className="text-blue-600" />,
-          bgColor: 'bg-blue-50',
-          borderColor: 'border-blue-300',
-          textColor: 'text-blue-800',
-          badgeColor: 'bg-blue-100 text-blue-700'
+          icon: <Info size={18} className="text-sky-300" />,
+          bgColor: 'bg-sky-500/12',
+          borderColor: 'border-sky-400/45',
+          textColor: 'text-sky-50',
+          badgeColor: 'bg-sky-500/20 text-sky-50'
         };
       case 'features':
         return {
           label: 'Nuove funzionalità',
-          icon: <Sparkles size={18} className="text-green-600" />,
-          bgColor: 'bg-green-50',
-          borderColor: 'border-green-300',
-          textColor: 'text-green-800',
-          badgeColor: 'bg-green-100 text-green-700'
+          icon: <Sparkles size={18} className="text-emerald-300" />,
+          bgColor: 'bg-emerald-500/12',
+          borderColor: 'border-emerald-400/45',
+          textColor: 'text-emerald-50',
+          badgeColor: 'bg-emerald-500/20 text-emerald-50'
         };
       default:
         return {
           label: 'Avviso',
-          icon: <AlertTriangle size={18} className="text-gray-600" />,
-          bgColor: 'bg-gray-50',
-          borderColor: 'border-gray-300',
-          textColor: 'text-gray-800',
-          badgeColor: 'bg-gray-100 text-gray-700'
+          icon: <AlertTriangle size={18} className="text-white/55" />,
+          bgColor: 'bg-white/[0.06]',
+          borderColor: 'border-white/15',
+          textColor: 'text-white/85',
+          badgeColor: 'bg-white/10 text-white/80'
         };
     }
   };
@@ -143,133 +148,108 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-fadeIn">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl">
-        {/* Header */}
-        <div
-          className="flex items-center justify-between border-b border-black/10 p-6"
-          style={techHubAccentModalHeaderStyle(getStoredTechHubAccent())}
-        >
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-black/20 p-2 ring-1 ring-black/10">
-              <Sparkles size={24} aria-hidden />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">Nuove Funzionalità</h2>
-              <p className="mt-1 text-sm opacity-90">Cronologia delle nuove funzionalità aggiunte al sistema</p>
-            </div>
+    <HubModalInnerCard maxWidthClass="max-w-4xl" className="flex max-h-[90vh] flex-col overflow-hidden shadow-2xl animate-fadeIn">
+      <HubModalChromeHeader
+        icon={Sparkles}
+        title="Nuove Funzionalità"
+        subtitle="Cronologia delle nuove funzionalità aggiunte al sistema"
+        onClose={onClose}
+      />
+      <HubModalBody>
+        {loading ? (
+          <div className="py-12 text-center">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-b-2 border-[color:var(--hub-accent)]" />
+            <p className="mt-4 text-white/60">Caricamento avvisi...</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 transition hover:bg-black/15"
-            aria-label="Chiudi"
-          >
-            <X size={24} aria-hidden />
-          </button>
-        </div>
+        ) : alerts.length === 0 ? (
+          <div className="py-12 text-center">
+            <Clock size={48} className="mx-auto mb-4 text-white/35" />
+            <p className="text-lg text-white/55">Nessun avviso presente</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {alerts.map((alert) => {
+              const levelInfo = getLevelInfo(alert.level);
+              const createdAt = alert.createdAt || alert.created_at;
+              const formattedDate = createdAt ? formatDate(createdAt) : 'Data non disponibile';
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-              <p className="text-gray-600 mt-4">Caricamento avvisi...</p>
-            </div>
-          ) : alerts.length === 0 ? (
-            <div className="text-center py-12">
-              <Clock size={48} className="text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 text-lg">Nessun avviso presente</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {alerts.map((alert) => {
-                const levelInfo = getLevelInfo(alert.level);
-                const createdAt = alert.createdAt || alert.created_at;
-                const formattedDate = createdAt ? formatDate(createdAt) : 'Data non disponibile';
-
-                return (
-                  <div
-                    key={alert.id}
-                    data-alert-id={alert.id}
-                    className={`border rounded-lg p-4 ${levelInfo.borderColor} ${levelInfo.bgColor} hover:shadow-md transition-all cursor-pointer`}
-                    onClick={() => setSelectedAlert(selectedAlert?.id === alert.id ? null : alert)}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between gap-4 mb-2">
-                          <h3 className={`font-bold text-lg ${levelInfo.textColor}`}>
-                            {alert.title}
-                          </h3>
-                          <div className="flex items-center gap-1 text-sm text-gray-600 whitespace-nowrap">
-                            <Calendar size={14} />
-                            <span>{formattedDate}</span>
-                          </div>
+              return (
+                <div
+                  key={alert.id}
+                  data-alert-id={alert.id}
+                  className={`cursor-pointer rounded-lg border p-4 transition-all hover:shadow-md ${levelInfo.borderColor} ${levelInfo.bgColor}`}
+                  onClick={() => setSelectedAlert(selectedAlert?.id === alert.id ? null : alert)}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-2 flex items-center justify-between gap-4">
+                        <h3 className={`text-lg font-bold ${levelInfo.textColor}`}>{alert.title}</h3>
+                        <div className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm text-white/55">
+                          <Calendar size={14} />
+                          <span>{formattedDate}</span>
                         </div>
-                        
-                        {alert.createdBy && (
-                          <div className="flex items-center gap-1 text-sm text-gray-600 mb-2">
-                            <User size={14} />
-                            <span>{alert.createdBy}</span>
-                          </div>
-                        )}
+                      </div>
 
-                        {selectedAlert?.id === alert.id && (
-                          <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
+                      {alert.createdBy && (
+                        <div className="mb-2 flex items-center gap-1 text-sm text-white/55">
+                          <User size={14} />
+                          <span>{alert.createdBy}</span>
+                        </div>
+                      )}
+
+                      {selectedAlert?.id === alert.id && (
+                        <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
+                          <div>
+                            <p className="mb-1 text-sm font-semibold text-white/75">Descrizione:</p>
+                            <p className="whitespace-pre-wrap text-sm text-white/65">{alert.body}</p>
+                          </div>
+
+                          {alert.attachments && Array.isArray(alert.attachments) && alert.attachments.length > 0 && (
                             <div>
-                              <p className="text-sm font-semibold text-gray-700 mb-1">Descrizione:</p>
-                              <p className="text-sm text-gray-600 whitespace-pre-wrap">{alert.body}</p>
-                            </div>
-                            
-                            {alert.attachments && Array.isArray(alert.attachments) && alert.attachments.length > 0 && (
-                              <div>
-                                <p className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1">
-                                  <FileImage size={14} />
-                                  Allegati ({alert.attachments.length}):
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {alert.attachments.map((att, idx) => (
+                              <p className="mb-2 flex items-center gap-1 text-sm font-semibold text-white/75">
+                                <FileImage size={14} />
+                                Allegati ({alert.attachments.length}):
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {alert.attachments.map((att, idx) => {
+                                  const rawPath = att.path || '';
+                                  const attachmentHref =
+                                    typeof rawPath === 'string' && /^https?:\/\//i.test(rawPath)
+                                      ? rawPath
+                                      : buildApiUrl(String(rawPath).replace(/^\//, ''));
+                                  return (
                                     <a
                                       key={idx}
-                                      href={`${apiBase}${att.path}`}
+                                      href={attachmentHref}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs text-gray-700 transition"
+                                      className="rounded px-3 py-1 text-xs text-white/85 transition hover:bg-white/10"
                                     >
                                       {att.originalName || att.filename}
                                     </a>
-                                  ))}
-                                </div>
+                                  );
+                                })}
                               </div>
-                            )}
-                          </div>
-                        )}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-                        {selectedAlert?.id !== alert.id && (
-                          <p className="text-sm text-gray-600 line-clamp-2 mt-2">
-                            {alert.body}
-                          </p>
-                        )}
-                      </div>
+                      {selectedAlert?.id !== alert.id && (
+                        <p className="mt-2 line-clamp-2 text-sm text-white/55">{alert.body}</p>
+                      )}
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t bg-gray-50 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
-          >
-            Chiudi
-          </button>
-        </div>
-      </div>
-    </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </HubModalBody>
+      <HubModalChromeFooter className="justify-end">
+        <HubModalSecondaryButton onClick={onClose}>Chiudi</HubModalSecondaryButton>
+      </HubModalChromeFooter>
+    </HubModalInnerCard>
   );
 };
 

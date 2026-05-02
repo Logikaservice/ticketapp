@@ -1,57 +1,53 @@
 // src/components/NotificationModal.jsx
 
 import React from 'react';
-import { X, Clock } from 'lucide-react';
+import { Bell, Clock } from 'lucide-react';
+import {
+  HubModalBackdrop,
+  HubModalInnerCard,
+  HubModalChromeHeader,
+  HubModalBody,
+  HubModalSecondaryButton,
+} from './Modals/HubModalChrome';
 
 export default function NotificationModal({ ticket, onClose, onOpenTicket, onSnooze }) {
   if (!ticket) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
-      <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4 animate-fade-in">
-        <div className="flex justify-between items-start mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Nuovo messaggio
-          </h3>
+    <HubModalBackdrop zClass="z-[118]" className="backdrop-blur-sm">
+      <HubModalInnerCard maxWidthClass="max-w-md" className="animate-fade-in">
+        <HubModalChromeHeader icon={Bell} title="Nuovo messaggio" onClose={onClose} compact />
+        <HubModalBody className="space-y-3">
           <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            type="button"
+            onClick={() => {
+              onOpenTicket(ticket.id);
+              onClose();
+            }}
+            className="mb-1 w-full rounded-lg border-2 border-amber-400/50 bg-amber-500/10 p-4 text-left transition-all hover:border-amber-400 hover:bg-amber-500/15 hover:shadow-md"
           >
-            <X size={20} />
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="mb-1 font-medium text-white">{ticket.titolo}</p>
+                <p className="text-sm text-white/60">Cliente: {ticket.clientName}</p>
+              </div>
+              <div className="ml-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-[#121212]">
+                {ticket.unreadCount}
+              </div>
+            </div>
           </button>
-        </div>
-        
-        <button
-          onClick={() => {
-            onOpenTicket(ticket.id);
-            onClose();
-          }}
-          className="w-full text-left p-4 bg-yellow-50 hover:bg-yellow-100 rounded-lg border-2 border-yellow-400 transition-all hover:shadow-md mb-3"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <p className="font-medium text-gray-900 mb-1">{ticket.titolo}</p>
-              <p className="text-sm text-gray-600">
-                Cliente: {ticket.clientName}
-              </p>
-            </div>
-            <div className="bg-yellow-400 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold ml-3">
-              {ticket.unreadCount}
-            </div>
-          </div>
-        </button>
-
-        <button
-          onClick={() => {
-            onSnooze(ticket.id);
-            onClose();
-          }}
-          className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors flex items-center justify-center gap-2"
-        >
-          <Clock size={16} />
-          Ricordamelo dopo
-        </button>
-      </div>
-    </div>
+          <HubModalSecondaryButton
+            className="flex w-full items-center justify-center gap-2"
+            onClick={() => {
+              onSnooze(ticket.id);
+              onClose();
+            }}
+          >
+            <Clock size={16} aria-hidden />
+            Ricordamelo dopo
+          </HubModalSecondaryButton>
+        </HubModalBody>
+      </HubModalInnerCard>
+    </HubModalBackdrop>
   );
 }
