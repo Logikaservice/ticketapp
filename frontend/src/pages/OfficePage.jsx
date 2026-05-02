@@ -79,6 +79,8 @@ const OfficePage = ({
     companies.some(c => String(c.id) === String(selectedCompanyId));
   const showIntro = !loadingCompanies && (!selectedCompanyId || !selectedCompanyValid);
   const saveTimers = useRef({});
+  /** Evita che risposte lente sovrascrivano stato dopo cambio azienda rapido. */
+  const officeLoadGen = useRef(0);
 
   // Carica le aziende al mount
   useEffect(() => {
@@ -575,7 +577,8 @@ const OfficePage = ({
 
   const loadOfficeData = async (companyIdOverride = null) => {
     const companyIdToUse = companyIdOverride || selectedCompanyId;
-    
+    const gen = ++officeLoadGen.current;
+
     if (!companyIdToUse || !getAuthHeader) {
       setError('Azienda non selezionata');
       return;
@@ -598,7 +601,8 @@ const OfficePage = ({
       // Pulisci il nome dell'azienda da eventuali caratteri strani o ID
       const cleanAziendaName = aziendaName.split(':')[0].trim();
       console.log('🔍 Nome azienda pulito:', cleanAziendaName);
-      
+
+      if (gen !== officeLoadGen.current) return;
       setCompanyName(cleanAziendaName);
 
       // Ora recupera i dati Office da Keepass
@@ -610,9 +614,12 @@ const OfficePage = ({
         cache: 'no-store'
       });
 
+      if (gen !== officeLoadGen.current) return;
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         if (response.status === 404) {
+          if (gen !== officeLoadGen.current) return;
           setError('Office non trovato in Keepass per questa azienda');
         } else {
           throw new Error(errorData.error || 'Errore nel caricamento dei dati Office');
@@ -621,6 +628,7 @@ const OfficePage = ({
       }
 
       const data = await response.json();
+      if (gen !== officeLoadGen.current) return;
       console.log('📦 Dati Office ricevuti dal backend:', data);
       console.log('📦 customFields:', data.customFields);
       console.log('📦 Tipo customFields:', typeof data.customFields);
@@ -631,10 +639,11 @@ const OfficePage = ({
       // Carica stati scaduta/nota per le card di questa azienda
       await loadCardStatuses(cleanAziendaName);
     } catch (err) {
+      if (gen !== officeLoadGen.current) return;
       console.error('Errore caricamento Office:', err);
       setError(err.message || 'Errore nel caricamento dei dati Office');
     } finally {
-      setLoading(false);
+      if (gen === officeLoadGen.current) setLoading(false);
     }
   };
 

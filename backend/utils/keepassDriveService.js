@@ -10,6 +10,9 @@ class KeepassDriveService {
     this.cacheTimeout = 5 * 60 * 1000; // 5 minuti di cache
     this.isLoading = false;
     this.loadPromise = null;
+    /** Buffer KDBX scaricato: riuso tra route Office / Email / MAC (evita download paralleli e 502 da timeout). */
+    this.kdbxFileCache = null; // { buffer, modifiedTime, fetchedAt }
+    this.kdbxFileFetchPromise = null;
   }
 
   normalizeCompanyName(name) {
@@ -136,6 +139,49 @@ class KeepassDriveService {
   }
 
   /**
+   * Una sola copia del file KDBX in memoria entro cacheTimeout;
+   * le richieste concorrenti condividono lo stesso download (promise).
+   * Riduce burst su Google Drive e tempi lunghi aggregati sul proxy (502).
+   */
+  async getKeepassFileData(password) {
+    const now = Date.now();
+
+    if (this.kdbxFileFetchPromise) {
+      return this.kdbxFileFetchPromise;
+    }
+
+    if (
+      this.kdbxFileCache &&
+      this.kdbxFileCache.buffer &&
+      (now - this.kdbxFileCache.fetchedAt) < this.cacheTimeout
+    ) {
+      return {
+        buffer: this.kdbxFileCache.buffer,
+        modifiedTime: this.kdbxFileCache.modifiedTime
+      };
+    }
+
+    this.kdbxFileFetchPromise = (async () => {
+      try {
+        const fd = await this.downloadKeepassFile(password);
+        this.kdbxFileCache = {
+          buffer: fd.buffer,
+          modifiedTime: fd.modifiedTime,
+          fetchedAt: Date.now()
+        };
+        if (fd.modifiedTime) {
+          this.lastFileModifiedTime = fd.modifiedTime;
+        }
+        return { buffer: fd.buffer, modifiedTime: fd.modifiedTime };
+      } finally {
+        this.kdbxFileFetchPromise = null;
+      }
+    })();
+
+    return this.kdbxFileFetchPromise;
+  }
+
+  /**
    * Normalizza un MAC address per la ricerca (rimuove separatori, uppercase)
    * Gestisce sia formato "00-FD-22-A8-34-2C" che "00:03:2D:52:DC:90"
    */
@@ -187,7 +233,7 @@ class KeepassDriveService {
   async loadMacToTitleMap(password) {
     try {
       // Scarica il file da Google Drive (con data di modifica)
-      const fileData = await this.downloadKeepassFile(password);
+      const fileData = await this.getKeepassFileData(password);
       const fileBuffer = fileData.buffer;
       const modifiedTime = fileData.modifiedTime;
 
@@ -431,8 +477,7 @@ class KeepassDriveService {
    */
   async getAllEntriesByAzienda(password, aziendaName = null) {
     try {
-      // Scarica il file da Google Drive
-      const fileData = await this.downloadKeepassFile(password);
+      const fileData = await this.getKeepassFileData(password);
       const fileBuffer = fileData.buffer;
 
       // Carica il file KDBX
@@ -565,7 +610,7 @@ class KeepassDriveService {
    */
   async getEmailStructureByAzienda(password, aziendaName) {
     try {
-      const fileData = await this.downloadKeepassFile(password);
+      const fileData = await this.getKeepassFileData(password);
       const credentials = new Credentials(ProtectedValue.fromString(password));
       const db = await Kdbx.load(fileData.buffer.buffer, credentials);
 
@@ -702,7 +747,7 @@ class KeepassDriveService {
   async getEmailEntryPassword(password, aziendaName, params = {}) {
     try {
       const { title = '', username = '', url = '', divider = '' } = params;
-      const fileData = await this.downloadKeepassFile(password);
+      const fileData = await this.getKeepassFileData(password);
       const credentials = new Credentials(ProtectedValue.fromString(password));
       const db = await Kdbx.load(fileData.buffer.buffer, credentials);
 
@@ -792,7 +837,7 @@ class KeepassDriveService {
     const aziendeSet = new Set((aziendeNames || []).map(a => (a || '').trim().toLowerCase()).filter(Boolean));
     if (aziendeSet.size === 0) return results;
 
-    const fileData = await this.downloadKeepassFile(password);
+    const fileData = await this.getKeepassFileData(password);
     const credentials = new Credentials(ProtectedValue.fromString(password));
     const db = await Kdbx.load(fileData.buffer.buffer, credentials);
 
@@ -909,8 +954,7 @@ class KeepassDriveService {
    */
   async getOfficeData(password, aziendaName) {
     try {
-      // Scarica il file da Google Drive
-      const fileData = await this.downloadKeepassFile(password);
+      const fileData = await this.getKeepassFileData(password);
       const fileBuffer = fileData.buffer;
 
       // Carica il file KDBX
@@ -1125,7 +1169,7 @@ class KeepassDriveService {
   async getOfficeEntryPassword(password, aziendaName, params = {}) {
     try {
       const { title = '', username = '' } = params;
-      const fileData = await this.downloadKeepassFile(password);
+      const fileData = await this.getKeepassFileData(password);
       const credentials = new Credentials(ProtectedValue.fromString(password));
       const db = await Kdbx.load(fileData.buffer.buffer, credentials);
 
@@ -1240,6 +1284,7 @@ class KeepassDriveService {
         this.lastCacheUpdate = null;
         this.lastFileModifiedTime = null;
         fileModified = true;
+        this.kdbxFileCache = null;
       }
     }
 
@@ -1313,7 +1358,7 @@ class KeepassDriveService {
       const normalizedMac = this.normalizeMacForSearch(macAddress);
       if (!normalizedMac) return null;
 
-      const fileData = await this.downloadKeepassFile(password);
+      const fileData = await this.getKeepassFileData(password);
       const credentials = new Credentials(ProtectedValue.fromString(password));
       const db = await Kdbx.load(fileData.buffer.buffer, credentials);
 
@@ -1399,6 +1444,8 @@ class KeepassDriveService {
     this.macToTitleMap = null;
     this.lastCacheUpdate = null;
     this.lastFileModifiedTime = null; // Reset anche la data di modifica per forzare il controllo
+    this.kdbxFileCache = null;
+    this.kdbxFileFetchPromise = null;
   }
 }
 
